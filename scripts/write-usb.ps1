@@ -4,7 +4,8 @@ param(
   [Parameter(Mandatory)][string]$ExpectedSHA256,
   [Parameter(Mandatory)][string]$ConfirmedSerial,
   [Parameter(Mandatory)][UInt64]$ConfirmedCapacityBytes,
-  [Parameter(Mandatory)][string]$ConfirmedUniqueId
+  [Parameter(Mandatory)][string]$ConfirmedUniqueId,
+  [switch]$OwnerErasureConfirmed
 )
 # Run only AFTER the owner approves the reviewed device and erasure.
 # No disk selection by letter or remembered number. All mounted target volumes
@@ -30,7 +31,7 @@ $disk | Format-List FriendlyName,SerialNumber,UniqueId,BusType,Size
 $parts | Format-Table PartitionNumber,DriveLetter,Type,Offset,Size
 Write-Host 'Writing this image erases ALL existing contents and partitions on the displayed USB.'
 if (-not $PSCmdlet.ShouldProcess($disk.UniqueId, "Erase whole USB and write $($file.FullName) [$ExpectedSHA256]")) { return }
-if ((Read-Host "Type ERASE $ConfirmedSerial to confirm this target and its erasure") -cne "ERASE $ConfirmedSerial") { throw 'Erasure not confirmed.' }
+if (-not $OwnerErasureConfirmed -and (Read-Host "Type ERASE $ConfirmedSerial to confirm this target and its erasure") -cne "ERASE $ConfirmedSerial") { throw 'Erasure not confirmed.' }
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
