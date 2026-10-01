@@ -41,6 +41,14 @@ public static class ArgosDeviceIo {
   public static extern SafeFileHandle CreateFile(string name, uint access, uint share, IntPtr security, uint creation, uint flags, IntPtr template);
   [DllImport("kernel32.dll", SetLastError=true)]
   public static extern bool DeviceIoControl(SafeFileHandle h, uint code, IntPtr input, uint ilen, IntPtr output, uint olen, out uint returned, IntPtr overlap);
+  [DllImport("kernel32.dll", SetLastError=true)]
+  public static extern bool WriteFile(SafeFileHandle h, byte[] buffer, uint count, out uint written, IntPtr overlap);
+  [DllImport("kernel32.dll", SetLastError=true)]
+  public static extern bool ReadFile(SafeFileHandle h, byte[] buffer, uint count, out uint read, IntPtr overlap);
+  [DllImport("kernel32.dll", SetLastError=true)]
+  public static extern bool SetFilePointerEx(SafeFileHandle h, long distance, out long position, uint method);
+  [DllImport("kernel32.dll", SetLastError=true)]
+  public static extern bool FlushFileBuffers(SafeFileHandle h);
 }
 '@
 $handles = [Collections.Generic.List[Microsoft.Win32.SafeHandles.SafeFileHandle]]::new()
@@ -58,21 +66,26 @@ try {
   }
   # Immediate final identity check after any volume operation.
   $disk = Find-ApprovedDevice
-  $device = [IO.FileStream]::new("\\.\PhysicalDrive$($disk.Number)", [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite, 1048576, [IO.FileOptions]::WriteThrough)
+  $device = [ArgosDeviceIo]::CreateFile("\\.\PhysicalDrive$($disk.Number)", [uint32]3221225472, [uint32]3, [IntPtr]::Zero, [uint32]3, [uint32]2147483648, [IntPtr]::Zero)
+  if ($device.IsInvalid) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
   $input = [IO.File]::OpenRead($file.FullName)
   $buffer = [byte[]]::new(4MB)
   [Int64]$written = 0
   while (($count = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {
-    $device.Write($buffer, 0, $count)
+    [uint32]$transferred = 0
+    if (-not [ArgosDeviceIo]::WriteFile($device, $buffer, [uint32]$count, [ref]$transferred, [IntPtr]::Zero)) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
+    if ($transferred -ne $count) { throw 'Incomplete physical USB write.' }
     $written += $count
     Write-Progress -Activity 'Writing approved Argos USB' -PercentComplete (100 * $written / $file.Length)
   }
-  $device.Flush($true)
-  $device.Position = 0
+  if (-not [ArgosDeviceIo]::FlushFileBuffers($device)) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
+  [long]$position = 0
+  if (-not [ArgosDeviceIo]::SetFilePointerEx($device, [long]0, [ref]$position, [uint32]0)) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
   $sha = [Security.Cryptography.SHA256]::Create()
   [Int64]$remaining = $file.Length
   while ($remaining -gt 0) {
-    $count = $device.Read($buffer, 0, [int][Math]::Min($buffer.Length, $remaining))
+    [uint32]$count = 0
+    if (-not [ArgosDeviceIo]::ReadFile($device, $buffer, [uint32][Math]::Min($buffer.Length, $remaining), [ref]$count, [IntPtr]::Zero)) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
     if ($count -le 0) { throw 'USB read-back ended early.' }
     [void]$sha.TransformBlock($buffer, 0, $count, $buffer, 0)
     $remaining -= $count
