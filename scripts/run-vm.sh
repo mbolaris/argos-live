@@ -7,6 +7,6 @@ exec 9>"$image.lock"
 flock -n 9 || { echo 'Image already has a VM owner.' >&2; exit 1; }
 exec qemu-system-x86_64 -accel kvm -cpu host -smp 8 -m 16384 \
   -drive "file=$image,format=raw,if=none,id=usbmedia" \
-  -device qemu-xhci -device usb-storage,drive=usbmedia,bootindex=1 \
+  -device qemu-xhci -device usb-storage,drive=usbmedia,bootindex=1,removable=on \
   -nic user,model=virtio-net-pci -display gtk \
   -monitor stdio -no-reboot

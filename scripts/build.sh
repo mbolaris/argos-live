@@ -28,7 +28,7 @@ mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
 mount -t sysfs sysfs "$builder/sys"
 trap 'umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
-chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --security false --updates false --apt-options '--yes -o Acquire::Check-Valid-Until=false' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks username=argos hostname=argos-live console=tty0 console=ttyS0,115200' && lb build"
+chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --security false --updates false --apt-options '--yes -o Acquire::Check-Valid-Until=false' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0 console=ttyS0,115200' && lb build"
 mkdir -p "$src/artifacts"
 cp "$work/live-image-amd64.hybrid.iso" "$src/artifacts/argos-live-amd64.iso"
 cd "$src/artifacts"

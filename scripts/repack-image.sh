@@ -19,6 +19,17 @@ for area in config/includes.chroot chroot; do
   done
 done
 bash "$src/scripts/sync-build-runtime.sh"
+python3 - "$work/config/binary" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+s = p.read_text()
+if 'persistence-media=removable-usb' not in s:
+    s = s.replace('persistence-encryption=luks username',
+                  'persistence-encryption=luks persistence-media=removable-usb username')
+if 'persistence-media=removable-usb' not in s:
+    raise SystemExit('USB-only persistence boot policy missing; refuse repack.')
+p.write_text(s)
+PY
 find "$work/.build" -maxdepth 1 -type f -name 'binary*' -delete
 mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
