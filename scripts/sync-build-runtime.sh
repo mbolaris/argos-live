@@ -10,7 +10,7 @@ cp "$src/live/config/includes.chroot/usr/local/share/argos-live/package-lock.jso
 cp "$src/runtime/argos.py" "$work/config/includes.chroot/usr/local/bin/argos"
 chmod +x "$work/config/includes.chroot/usr/local/bin/argos"
 if [[ -d /var/lib/argos-live/seed-model ]]; then
-  cp -a /var/lib/argos-live/seed-model "$work/config/includes.chroot/usr/local/share/argos-live/"
+  bash "$src/scripts/stage-seed-model.sh" "$work/config/includes.chroot/usr/local/share/argos-live/seed-model"
   rm -f "$work/config/includes.chroot/usr/local/share/argos-live/seed-model/.argos-storage-id"
 fi
 if [[ -d "$work/chroot/usr/local/share/argos-live" ]]; then

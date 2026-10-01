@@ -19,8 +19,7 @@ cp "$src/runtime/launch.sh" "$work/config/includes.chroot/usr/local/bin/argos-la
 chmod +x "$work/config/includes.chroot/usr/local/bin/argos-launch"
 chmod +x "$work/config/hooks/live/010-argos.hook.chroot"
 if [[ -d /var/lib/argos-live/seed-model ]]; then
-  cp -a /var/lib/argos-live/seed-model "$work/config/includes.chroot/usr/local/share/argos-live/seed-model"
-  rm -f "$work/config/includes.chroot/usr/local/share/argos-live/seed-model/.argos-storage-id"
+  bash "$src/scripts/stage-seed-model.sh" "$work/config/includes.chroot/usr/local/share/argos-live/seed-model"
 else
   echo 'Run fetch-seed-model.py /var/lib/argos-live/seed-model first.' >&2
   exit 1
