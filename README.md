@@ -11,6 +11,7 @@ Use the local Ubuntu-26.04 WSL2 environment. Build filesystems stay on WSL ext4,
 ```powershell
 wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/bootstrap-builder.sh
 wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/lock-runtime.sh
+wsl -d Ubuntu-26.04 -u root -- python3 /mnt/c/Projects/Argos-Live/scripts/fetch-seed-model.py /var/lib/argos-live/seed-model
 wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/build.sh
 ```
 
@@ -20,7 +21,7 @@ The builder needs debootstrap, Debian archive keys, and Linux mount access. The 
 
 Open **Argos Setup and Assistant** in the applications menu. Choose a writable model directory and accept the displayed conversation-only permissions. Storage is remembered by an explicit directory and identity marker; if missing, startup stops without creating fallback directories. External model volumes are not automatically mounted or encrypted.
 
-Run `argos download --required-gib 4` for the configured tiny-model candidate. For larger models, inspect their advertised download size first and provide a larger space budget. Downloads require internet, can resume via repeated Ollama pulls, and all referenced blobs are SHA256-verified. `argos verify` repeats the integrity check. No weights are bundled in the initial development image; offline inference requires a completed model download.
+The build includes a SHA256-pinned Qwen3 0.6B model (522,653,767 bytes including metadata), with its Apache-2.0 license. Setup copies it into selected writable storage and verifies it. For larger models, inspect their advertised download size first and supply an adequate `argos download --required-gib` budget. Downloads require internet, can resume via repeated Ollama pulls, and all referenced blobs are SHA256-verified. `argos verify` repeats the integrity check. The tiny model is intended for basic conversation; its quality is limited.
 
 `argos start` starts both the local Ollama daemon and OpenClaw gateway. Open the OpenClaw local dashboard using its CLI from another terminal. Neither service is exposed to the LAN by default. GitHub is unnecessary for generic local use. Optional provider setup uses OpenClaw's local onboarding prompt; keys must never enter the repository.
 

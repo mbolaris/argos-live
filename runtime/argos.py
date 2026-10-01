@@ -67,6 +67,12 @@ def setup():
         return
     models = p / 'argos-models'
     models.mkdir(exist_ok=True, mode=0o700)
+    seed = Path('/usr/local/share/argos-live/seed-model')
+    if seed.is_dir() and not (models / 'manifests').exists():
+        probe_storage(models, 1024**3)
+        print('Copying the bundled Qwen3 0.6B model (about 0.5 GiB) into selected storage.')
+        shutil.copytree(seed, models, dirs_exist_ok=True)
+        verify_blobs(models)
     identity_path = models / '.argos-storage-id'
     identity = secrets.token_hex(24)
     if identity_path.exists():
@@ -90,7 +96,7 @@ def setup():
     save(OC / 'openclaw.json', config)
     (OC / 'workspace').mkdir(exist_ok=True, mode=0o700)
     save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'conversation-only'})
-    print('Setup saved. No model weights are bundled yet. Use argos download before offline use.')
+    print('Setup saved. Bundled Qwen3 0.6B supports offline conversation after setup. Other models need a download.')
     print('Optional providers: openclaw onboard. Keep the configured limited tool policy; enter keys only in its local prompt.')
 
 def load():

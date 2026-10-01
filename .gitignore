@@ -1,5 +1,5 @@
 artifacts/
-local/
+/local/
 *.log
 __pycache__/
 .env

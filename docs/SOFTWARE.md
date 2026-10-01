@@ -11,7 +11,7 @@ Upstream checked October 1, 2026. Exact primary runtime pins are in `versions.en
 | Ollama | 0.35.0, GitHub release SHA256 | MIT application; bundled CUDA libraries have NVIDIA terms | https://github.com/ollama/ollama/releases/tag/v0.35.0 |
 | NVIDIA Debian driver | 550.163.01-2 | Proprietary NVIDIA components + separately licensed packaging/kernel code | https://packages.debian.org/trixie/nvidia-driver |
 | QEMU | Installed Ubuntu package recorded locally | GPL-2 with component exceptions | https://www.qemu.org/docs/master/system/invocation.html |
-| Candidate tiny model | qwen3:0.6b, not yet selected/bundled | Verify Apache-2.0 model card and exact artifacts before redistribution | https://huggingface.co/Qwen/Qwen3-0.6B |
+| Tiny model | qwen3:0.6b, manifest SHA256 7df6b6e09427a769808717c0a93cadc4ae99ed4eb8bf5ca557c90846becea435 | Apache-2.0; registry license included | https://huggingface.co/Qwen/Qwen3-0.6B |
 
 Debian current stable is 13.7. The fixed package snapshot is used instead of floating `stable` or a point-release promise. Package hashes are checked by APT signed metadata. Preserve the generated package manifest, upstream notices, Node LICENSE, OpenClaw LICENSE, and Ollama NVIDIA library notices with distributed images.
 

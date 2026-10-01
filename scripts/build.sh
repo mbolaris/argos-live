@@ -15,6 +15,12 @@ chmod +x "$work/config/includes.chroot/usr/local/bin/argos"
 cp "$src/runtime/launch.sh" "$work/config/includes.chroot/usr/local/bin/argos-launch"
 chmod +x "$work/config/includes.chroot/usr/local/bin/argos-launch"
 chmod +x "$work/config/hooks/live/010-argos.hook.chroot"
+if [[ -d /var/lib/argos-live/seed-model ]]; then
+  cp -a /var/lib/argos-live/seed-model "$work/config/includes.chroot/usr/local/share/argos-live/seed-model"
+else
+  echo 'Run fetch-seed-model.py /var/lib/argos-live/seed-model first.' >&2
+  exit 1
+fi
 mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
 mount -t sysfs sysfs "$builder/sys"
