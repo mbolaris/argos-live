@@ -28,5 +28,6 @@ if [[ -f /var/lib/dkms/mok.pub ]]; then
   cp /var/lib/dkms/mok.pub /usr/local/share/argos-live/nvidia-build-mok.der
 fi
 rm -f /var/lib/dkms/mok.key
+update-initramfs -u -k all
 truncate -s 0 /etc/machine-id
 find /usr/share/doc -name copyright -print0 | tar --null -T - -czf /usr/local/share/argos-live/debian-copyrights.tar.gz

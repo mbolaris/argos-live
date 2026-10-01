@@ -1,0 +1,2 @@
+# Live persistence requires cryptsetup even though the build root is unencrypted.
+CRYPTSETUP=y

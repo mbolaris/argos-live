@@ -20,7 +20,7 @@ def boot(second=False):
     log = []
     p = subprocess.Popen(['qemu-system-x86_64', '-accel', 'kvm', '-cpu', 'host', '-m', '16384', '-smp', '8',
         '-drive', f'file={image},format=raw,if=none,id=media', '-device', 'qemu-xhci',
-        '-device', 'usb-storage,drive=media,bootindex=1', '-nic', 'user,model=virtio-net-pci',
+        '-device', 'usb-storage,drive=media,bootindex=1', '-nic', 'none',
         '-display', 'none', '-serial', 'stdio', '-monitor', 'none', '-no-reboot'],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     selector = selectors.DefaultSelector(); selector.register(p.stdout, selectors.EVENT_READ)
