@@ -10,12 +10,12 @@ Milestone 1 is **in progress**, not accepted.
 | Software compatibility and pins | Primary runtime releases/checksums verified; SOFTWARE.md |
 | Encrypted persistence choice | Confirmed; local unlock prompts designed |
 | Build ISO + checksum | Pending build |
-| Bundled tiny model | Pending artifact/license and capacity verification; no offline first-boot claim |
+| Bundled tiny model | Qwen3 0.6B fetched, manifest and five blobs verified, Apache-2.0 license retained; image build pending |
 | USB target identified | Kingston 29.31 GiB; erasure confirmation pending |
 | Physical USB written / read-back | Not performed |
 | Windows full-disk USB VM boot | KVM machine creation verified; launcher implemented, guest boot pending |
 | Persistence reboot test | Pending |
-| OpenClaw local model conversation | Pending |
+| OpenClaw local model conversation | Passed in isolated WSL CPU runtime, OpenClaw 2026.9.7 + Ollama 0.35.0 + Qwen3 0.6B; live guest pending |
 | Physical Linux GPU use | Pending; Windows GPU inventory is not proof |
 | Download interruption / artifact recovery | Implemented runtime logic; integration test pending |
 | Missing external storage | Missing/wrong identity and insufficient space tests pass |
@@ -27,3 +27,5 @@ No internal partitions, Windows boot configuration, GPU power settings, or USB c
 Validation: four Python tests pass (missing storage, wrong identity, space rejection, corrupted model artifact); Bash syntax checks pass. QEMU 10.2.1 successfully created a paused KVM guest under local WSL2 and exited via its monitor. This verifies acceleration availability, not guest boot.
 
 Runtime audit found three vulnerable dependency packages inside OpenClaw's bundled npm tree: brace-expansion (high), undici (high), ip-address (moderate). `npm audit fix --package-lock-only` did not clear them. Keep these recorded as release blockers until patched compatibility is evaluated; do not declare the image production-ready. See local audit report (excluded from public source); advisories include GHSA-qhr7-859c-m2p7, GHSA-rfgv-xxqx-mfg5, GHSA-rpw4-54j3-4h4q.
+
+CPU runtime smoke passed after setting Ollama context length to 32768. The first attempt used Ollama's 4096-token default and rejected OpenClaw's 6685-token prompt; the explicit context setting fixes that mismatch. `openclaw config validate` passed. Local model response: "Hello! I'm your new assistant, and I'm here to help with anything you need." No provider account or GitHub login was used in that isolated test. OpenClaw emitted SQLite reclamation warnings at CLI teardown; review upstream behavior before release. Source checks and WSL smoke do not substitute for USB/live VM boot.

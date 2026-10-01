@@ -4,12 +4,16 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('argos', Path(__file__).parents[1] / 'runtime/argos.py')
 argos = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(argos)
 
 class StorageTests(unittest.TestCase):
+    def test_cloud_download_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'public local'):
+            argos.download_budget('https://untrusted/model:latest', '/tmp')
     def test_missing_storage_never_created(self):
         with tempfile.TemporaryDirectory() as t:
             state = Path(t) / 'state.json'

@@ -117,7 +117,7 @@ def request(endpoint, body=None):
     return urllib.request.urlopen(req, timeout=600)
 
 def server(state):
-    env = dict(os.environ, OLLAMA_HOST='127.0.0.1:11434', OLLAMA_MODELS=state['storage'], OLLAMA_NO_CLOUD='1')
+    env = dict(os.environ, OLLAMA_HOST='127.0.0.1:11434', OLLAMA_MODELS=state['storage'], OLLAMA_NO_CLOUD='1', OLLAMA_CONTEXT_LENGTH='32768')
     # Own the process and storage explicitly; never reuse an unrelated host daemon.
     try:
         with request('/api/version'):
@@ -159,9 +159,47 @@ def verify_blobs(storage):
             raise ValueError(f'Artifact verification failed: {blob.name}')
     return len(digests)
 
+def download_budget(model, storage):
+    # Read public registry metadata before requesting any model weights.
+    name, separator, tag = model.partition(':')
+    tag = tag if separator else 'latest'
+    if '/' not in name:
+        name = 'library/' + name
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', name) or not re.fullmatch(r'[A-Za-z0-9_.-]+', tag):
+        raise ValueError('Only public local Ollama registry models are supported by this download workflow.')
+    with urllib.request.urlopen(f'https://registry.ollama.ai/v2/{name}/manifests/{tag}', timeout=30) as r:
+        manifest = json.load(r)
+    missing = 0
+    for part in [manifest['config']] + manifest['layers']:
+        if not re.fullmatch(r'sha256:[0-9a-f]{64}', part['digest']):
+            raise ValueError('Unsupported model artifact digest.')
+        file = Path(storage) / 'blobs' / part['digest'].replace(':', '-')
+        if not file.is_file() or file.stat().st_size != part['size']:
+            missing += part['size']
+    return missing, max(1024**3, int(missing * 1.1) + 256 * 1024**2)
+
+def select_model(model):
+    state = load()
+    if not model or not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or ':cloud' in model:
+        raise ValueError('Specify a local model with --model, for example qwen3:8b.')
+    print(f"Select {model}; model storage remains {state['storage']}. No weights downloaded yet.")
+    if input('Select this model? [yes/no]: ').strip().lower() != 'yes':
+        return
+    config_path = OC / 'openclaw.json'
+    config = json.loads(config_path.read_text())
+    config['agents']['defaults']['model']['primary'] = 'ollama/' + model
+    entry = config['models']['providers']['ollama']['models'][0]
+    entry['id'] = model
+    entry['name'] = model
+    save(config_path, config)
+    state['model'] = model
+    save(STATE, state)
+    print('Run argos download to review the exact registry download size.')
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics'])
+    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model'])
+    parser.add_argument('--model')
     parser.add_argument('--required-gib', type=float, default=4,
                         help='Download space budget; increase for larger models after checking their advertised size.')
     args = parser.parse_args()
@@ -175,14 +213,18 @@ def main():
                 print(str(e))
         return
     state = load()
+    if args.command == 'select-model':
+        return select_model(args.model)
     if args.command == 'verify':
         print(f"Verified {verify_blobs(state['storage'])} content-addressed artifacts.")
         return
     if args.command == 'download':
         if args.required_gib <= 0:
             raise ValueError('Space budget must be positive.')
-        p, free = probe_storage(state['storage'], int(args.required_gib * 2**30))
-        print(f"Download {state['model']} into {p}; reserve {args.required_gib} GiB; {free / 2**30:.2f} GiB free.")
+        missing, required = download_budget(state['model'], state['storage'])
+        required = max(required, int(args.required_gib * 2**30))
+        p, free = probe_storage(state['storage'], required)
+        print(f"Download {state['model']} into {p}; missing artifacts {missing / 2**30:.2f} GiB; required space {required / 2**30:.2f} GiB; {free / 2**30:.2f} GiB free.")
         print('This needs internet. Repeat the command after interruption to resume Ollama partial blobs.')
         if input('Download now? [yes/no]: ').strip().lower() != 'yes':
             return
