@@ -68,15 +68,20 @@ def boot(second=False):
         qcommand('human-monitor-command', {'command-line': 'sendkey ret'})
         wait_for(['Please unlock disk', 'Enter passphrase for', 'Please enter passphrase'])
         send(key + '\n')
+        print('Encrypted persistence unlock submitted.', flush=True)
         wait_for(['login:'])
         send('argos\n')
         token = wait_for(['Password:', 'argos@argos-live:'])
         if token == 'Password:':
             send('live\n')
             wait_for(['argos@argos-live:'])
+        print('Live guest login reached.', flush=True)
+        if not second:
+            qcommand('screendump', {'filename': '/mnt/c/Projects/Argos-Live/artifacts/live-desktop.png', 'format': 'png'})
         if not second:
             send("printf 'yes\\n\\nyes\\n\\n' | argos setup; echo SETUP_EXIT=$?\n")
             wait_for(['SETUP_EXIT=0'], 180)
+            print('Generic setup completed.', flush=True)
             send("test -f ~/.config/argos-live/state.json && touch ~/argos-persistence-sentinel && echo STATE_SAVED\n")
             wait_for(['\r\nSTATE_SAVED\r\n'])
             send("OLLAMA_HOST=127.0.0.1:11434 OLLAMA_MODELS=$HOME/Models/argos-models OLLAMA_NO_CLOUD=1 OLLAMA_CONTEXT_LENGTH=32768 ollama serve > /tmp/argos-test-ollama.log 2>&1 &\n")

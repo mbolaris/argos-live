@@ -9,7 +9,7 @@ Milestone 1 is **in progress**, not accepted.
 | Build environment | WSL2 + dedicated Debian builder created |
 | Software compatibility and pins | Primary runtime releases/checksums verified; SOFTWARE.md |
 | Encrypted persistence choice | Confirmed; local unlock prompts designed |
-| Build ISO + checksum | Completed: 4,227,858,432 bytes; SHA256 355fe67e7da74796672f2581f2b7f9e94c982fd492b026c58cbc8b405b7a79e2 |
+| Build ISO + checksum | Corrected image: 4,232,200,192 bytes; SHA256 7b8c473542b025ac902e2338ad74ca9d09157597eee2175a5946e77e5a75302c |
 | Bundled tiny model | Qwen3 0.6B included, manifest and five blobs verified, Apache-2.0 license retained |
 | USB target identified | Kingston 29.31 GiB; erasure confirmation pending |
 | Physical USB written / read-back | Not performed |
@@ -33,3 +33,5 @@ CPU runtime smoke passed after setting Ollama context length to 32768. The first
 Build completed with Debian kernel 6.12.107+deb13-amd64 and NVIDIA 550.163.01-2. Verified initramfs contains cryptsetup; the built live root has no DKMS private signing key. Build recovery exposed two issues (concurrent cleanup and bootstrap-cache replacement); source now uses an outer lock and resumes only chroot/binary stages. The final artifact was exported separately after a running shell source edit disrupted the export tail. Clean rebuild verification remains required before release.
 
 An encrypted 24 GiB disposable full-disk VM image was created with a 20.06 GiB persistence partition and a local temporary test key. Debian's hybrid ISO has intentional ISO/EFI partition overlap, so generic sgdisk conversion failed. The image-only append helper preserves existing partition entries and recalculates both GPT copies/CRCs; a dedicated test verifies this. The physical USB remains unmodified.
+
+First actual virtual USB run reached encrypted unlock and live user login, then exposed root-only test metadata in the seed bundle during generic setup. Source now stages only model blobs, manifests, and the license, with readable permissions; runtime copy is also allowlisted. The corrected ISO supersedes the original checksum above. Reboot/conversation acceptance is being rerun on a fresh encrypted test image.
