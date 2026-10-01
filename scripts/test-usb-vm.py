@@ -7,6 +7,8 @@ No physical devices are attached. Serial output stays in the private test direct
 from pathlib import Path
 import os
 import selectors
+import socket
+import json
 import subprocess
 import time
 
@@ -21,6 +23,7 @@ def boot(second=False):
     p = subprocess.Popen(['qemu-system-x86_64', '-accel', 'kvm', '-cpu', 'host', '-m', '16384', '-smp', '8',
         '-drive', f'file={image},format=raw,if=none,id=media', '-device', 'qemu-xhci',
         '-device', 'usb-storage,drive=media,bootindex=1', '-nic', 'none',
+        '-qmp', f'unix:{directory}/qmp.sock,server=on,wait=off',
         '-display', 'none', '-serial', 'stdio', '-monitor', 'none', '-no-reboot'],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     selector = selectors.DefaultSelector(); selector.register(p.stdout, selectors.EVENT_READ)
@@ -43,6 +46,26 @@ def boot(second=False):
     def send(text):
         p.stdin.write(text.encode()); p.stdin.flush()
     try:
+        # Debian's boot menu waits for an explicit choice. Send Enter through
+        # the emulated keyboard; serial input does not control that VGA menu.
+        qmp = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        for _ in range(30):
+            try:
+                qmp.connect(str(directory / 'qmp.sock')); break
+            except OSError:
+                time.sleep(.2)
+        qmp_file = qmp.makefile('rwb'); qmp_file.readline()
+        def qcommand(command, arguments=None):
+            body = {'execute': command}
+            if arguments is not None: body['arguments'] = arguments
+            qmp_file.write(json.dumps(body).encode() + b'\n'); qmp_file.flush()
+            while True:
+                result = json.loads(qmp_file.readline())
+                if 'error' in result: raise RuntimeError(str(result['error']))
+                if 'return' in result: return result['return']
+        qcommand('qmp_capabilities')
+        time.sleep(4)
+        qcommand('human-monitor-command', {'command-line': 'sendkey ret'})
         wait_for(['Please unlock disk', 'Enter passphrase for', 'Please enter passphrase'])
         send(key + '\n')
         wait_for(['login:'])
