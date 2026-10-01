@@ -5,7 +5,8 @@ param(
   [Parameter(Mandatory)][string]$ConfirmedSerial,
   [Parameter(Mandatory)][UInt64]$ConfirmedCapacityBytes,
   [Parameter(Mandatory)][string]$ConfirmedUniqueId,
-  [switch]$OwnerErasureConfirmed
+  [switch]$OwnerErasureConfirmed,
+  [switch]$VerifyOnly
 )
 # Run only AFTER the owner approves the reviewed device and erasure.
 # No disk selection by letter or remembered number. All mounted target volumes
@@ -29,9 +30,11 @@ $parts = @(Get-Partition -DiskNumber $disk.Number)
 if (@($parts | ForEach-Object { [string]$_.DriveLetter }) -contains $file.PSDrive.Name) { throw 'Source image is on the target device.' }
 $disk | Format-List FriendlyName,SerialNumber,UniqueId,BusType,Size
 $parts | Format-Table PartitionNumber,DriveLetter,Type,Offset,Size
-Write-Host 'Writing this image erases ALL existing contents and partitions on the displayed USB.'
-if (-not $PSCmdlet.ShouldProcess($disk.UniqueId, "Erase whole USB and write $($file.FullName) [$ExpectedSHA256]")) { return }
-if (-not $OwnerErasureConfirmed -and (Read-Host "Type ERASE $ConfirmedSerial to confirm this target and its erasure") -cne "ERASE $ConfirmedSerial") { throw 'Erasure not confirmed.' }
+if (-not $VerifyOnly) {
+  Write-Host 'Writing this image erases ALL existing contents and partitions on the displayed USB.'
+  if (-not $PSCmdlet.ShouldProcess($disk.UniqueId, "Erase whole USB and write $($file.FullName) [$ExpectedSHA256]")) { return }
+  if (-not $OwnerErasureConfirmed -and (Read-Host "Type ERASE $ConfirmedSerial to confirm this target and its erasure") -cne "ERASE $ConfirmedSerial") { throw 'Erasure not confirmed.' }
+}
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -68,8 +71,9 @@ try {
   $disk = Find-ApprovedDevice
   $device = [ArgosDeviceIo]::CreateFile("\\.\PhysicalDrive$($disk.Number)", [uint32]3221225472, [uint32]3, [IntPtr]::Zero, [uint32]3, [uint32]2147483648, [IntPtr]::Zero)
   if ($device.IsInvalid) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
-  $input = [IO.File]::OpenRead($file.FullName)
   $buffer = [byte[]]::new(4MB)
+  if (-not $VerifyOnly) {
+  $input = [IO.File]::OpenRead($file.FullName)
   [Int64]$written = 0
   while (($count = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {
     [uint32]$transferred = 0
@@ -79,13 +83,14 @@ try {
     Write-Progress -Activity 'Writing approved Argos USB' -PercentComplete (100 * $written / $file.Length)
   }
   if (-not [ArgosDeviceIo]::FlushFileBuffers($device)) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
+  }
   [long]$position = 0
   if (-not [ArgosDeviceIo]::SetFilePointerEx($device, [long]0, [ref]$position, [uint32]0)) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
   $sha = [Security.Cryptography.SHA256]::Create()
   [Int64]$remaining = $file.Length
   while ($remaining -gt 0) {
     [uint32]$count = 0
-    if (-not [ArgosDeviceIo]::ReadFile($device, $buffer, [uint32][Math]::Min($buffer.Length, $remaining), [ref]$count, [IntPtr]::Zero)) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
+    if (-not [ArgosDeviceIo]::ReadFile($device, $buffer, [uint32][Math]::Min([long]$buffer.Length, [long]$remaining), [ref]$count, [IntPtr]::Zero)) { throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()) }
     if ($count -le 0) { throw 'USB read-back ended early.' }
     [void]$sha.TransformBlock($buffer, 0, $count, $buffer, 0)
     $remaining -= $count
@@ -94,7 +99,7 @@ try {
   $actual = [BitConverter]::ToString($sha.Hash).Replace('-', '')
   $sha.Dispose()
   if ($actual -ine $ExpectedSHA256) { throw 'USB read-back checksum failed. Treat this media as unusable.' }
-  Write-Host "Write and read-back verification passed: $actual. Safely eject before booting."
+  Write-Host "Full physical USB read-back verification passed: $actual. Safely eject before booting."
 } finally {
   if ($input) { $input.Dispose() }
   if ($device) { $device.Dispose() }
