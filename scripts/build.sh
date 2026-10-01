@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source "$(dirname "$0")/../versions.env"
+export SOURCE_DATE_EPOCH=1790812800
 src=$(realpath "$(dirname "$0")/..")
 builder=/var/lib/argos-live/builder
 [[ -f "$builder/etc/debian_version" ]] || { echo 'Run bootstrap-builder.sh first.' >&2; exit 1; }
@@ -17,6 +18,7 @@ chmod +x "$work/config/includes.chroot/usr/local/bin/argos-launch"
 chmod +x "$work/config/hooks/live/010-argos.hook.chroot"
 if [[ -d /var/lib/argos-live/seed-model ]]; then
   cp -a /var/lib/argos-live/seed-model "$work/config/includes.chroot/usr/local/share/argos-live/seed-model"
+  rm -f "$work/config/includes.chroot/usr/local/share/argos-live/seed-model/.argos-storage-id"
 else
   echo 'Run fetch-seed-model.py /var/lib/argos-live/seed-model first.' >&2
   exit 1
@@ -25,7 +27,7 @@ mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
 mount -t sysfs sysfs "$builder/sys"
 trap 'umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
-chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --security false --updates false --apt-options '--yes -o Acquire::Check-Valid-Until=false' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks username=argos hostname=argos-live' && lb build"
+chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --security false --updates false --apt-options '--yes -o Acquire::Check-Valid-Until=false' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks username=argos hostname=argos-live console=tty0 console=ttyS0,115200' && lb build"
 mkdir -p "$src/artifacts"
 cp "$work/live-image-amd64.hybrid.iso" "$src/artifacts/argos-live-amd64.iso"
 cd "$src/artifacts"

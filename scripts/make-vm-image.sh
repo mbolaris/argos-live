@@ -4,6 +4,7 @@ set -euo pipefail
 iso=$(realpath "${1:?ISO path required}")
 out=${2:?New raw image path required}
 size=${3:-24G}
+test_key=${4:-}
 [[ -f "$iso" && ! -b "$iso" ]] || exit 1
 [[ ! -e "$out" && ! -L "$out" ]] || { echo 'Destination must not exist.' >&2; exit 1; }
 mkdir -p "$(dirname "$out")"
@@ -18,8 +19,14 @@ loop=$(losetup --find --show --partscan "$out")
 mapper="argos-vm-$$"
 trap 'cryptsetup close "$mapper" 2>/dev/null || true; losetup -d "$loop"' EXIT
 echo 'Enter a NEW persistence passphrase at the local prompt. It is not logged.'
-cryptsetup luksFormat --type luks2 "${loop}p4"
-cryptsetup open "${loop}p4" "$mapper"
+if [[ -n "$test_key" ]]; then
+  [[ "$out" == *TEST-DO-NOT-WRITE* && -f "$test_key" ]] || { echo 'Automated test keys are limited to clearly named disposable images.' >&2; exit 1; }
+  cryptsetup luksFormat --batch-mode --type luks2 --key-file "$test_key" "${loop}p4"
+  cryptsetup open --key-file "$test_key" "${loop}p4" "$mapper"
+else
+  cryptsetup luksFormat --type luks2 "${loop}p4"
+  cryptsetup open "${loop}p4" "$mapper"
+fi
 mkfs.ext4 -L persistence "/dev/mapper/$mapper"
 temp=$(mktemp -d)
 mount "/dev/mapper/$mapper" "$temp"

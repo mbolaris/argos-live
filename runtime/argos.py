@@ -71,7 +71,7 @@ def setup():
     if seed.is_dir() and not (models / 'manifests').exists():
         probe_storage(models, 1024**3)
         print('Copying the bundled Qwen3 0.6B model (about 0.5 GiB) into selected storage.')
-        shutil.copytree(seed, models, dirs_exist_ok=True)
+        shutil.copytree(seed, models, dirs_exist_ok=True, ignore=shutil.ignore_patterns('.argos-storage-id', '*.partial'))
         verify_blobs(models)
     identity_path = models / '.argos-storage-id'
     identity = secrets.token_hex(24)
