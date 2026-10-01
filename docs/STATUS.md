@@ -11,7 +11,7 @@ Milestone 1 is **in progress**, not accepted.
 | Encrypted persistence choice | Confirmed; local unlock prompts designed |
 | Build ISO + checksum | Corrected image: 4,232,200,192 bytes; SHA256 f9f22b17e993e489b70f3e4c99108d03e57e227abf138344c09193cc78fbea24 |
 | Bundled tiny model | Qwen3 0.6B included, manifest and five blobs verified, Apache-2.0 license retained |
-| USB target identified | Kingston 29.31 GiB; erasure confirmation pending |
+| USB target identified | Kingston 29.31 GiB; owner erasure approval received; encrypted image preparation in progress |
 | Physical USB written / read-back | Not performed |
 | Windows full-disk USB VM boot | Passed actual full-disk removable USB guest under Windows WSL2/KVM; XFCE desktop verified |
 | Persistence reboot test | Passed encrypted unlock, configuration/model/sentinel retention and five artifact hashes after full guest restart |

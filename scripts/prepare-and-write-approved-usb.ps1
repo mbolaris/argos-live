@@ -3,7 +3,8 @@ param(
   [Parameter(Mandatory)][string]$ConfirmedSerial,
   [Parameter(Mandatory)][UInt64]$ConfirmedCapacityBytes,
   [Parameter(Mandatory)][string]$ConfirmedUniqueId,
-  [Parameter(Mandatory)][string]$ExpectedIsoSHA256
+  [Parameter(Mandatory)][string]$ExpectedIsoSHA256,
+  [switch]$ResetIncompleteImage
 )
 # Interactive local workflow, only after explicit owner approval of erasure.
 # Passphrases go directly to cryptsetup's terminal; never use a transcript.
@@ -22,7 +23,12 @@ try {
   if ((Get-FileHash $iso -Algorithm SHA256).Hash -ine $ExpectedIsoSHA256) { throw 'Generic image hash changed.' }
   $matches = @(Get-Disk | Where-Object { $_.BusType -eq 'USB' -and $_.SerialNumber.Trim() -eq $ConfirmedSerial -and $_.Size -eq $ConfirmedCapacityBytes -and $_.UniqueId -eq $ConfirmedUniqueId })
   if ($matches.Count -ne 1 -or $matches[0].IsBoot -or $matches[0].IsSystem -or $matches[0].IsReadOnly) { throw 'Approved USB missing or protected.' }
-  if (Test-Path -LiteralPath $image) { throw 'Personal image already exists; inspect it before retrying.' }
+  if ($ResetIncompleteImage) {
+    $prior = Get-Content -LiteralPath $status | ConvertFrom-Json
+    if ($prior.stage -notin @('preparing-encrypted-image','failed')) { throw 'Only an unfinished preparation may be reset.' }
+    $existing = Get-Item -LiteralPath $image
+    if ($existing.Length -ne $ConfirmedCapacityBytes -or $existing.Attributes.HasFlag([IO.FileAttributes]::ReparsePoint)) { throw 'Incomplete image identity differs.' }
+  } elseif (Test-Path -LiteralPath $image) { throw 'Personal image already exists; inspect it before retrying.' }
   $translated = & wsl -d Ubuntu-26.04 -u root -- wslpath -a $root.Replace('\','/')
   if ($LASTEXITCODE -ne 0 -or -not $translated) { throw 'Unable to resolve build directory in WSL.' }
   $wslRoot = ($translated -join "`n").Trim()
@@ -30,7 +36,11 @@ try {
   Set-Stage 'preparing-encrypted-image' 'Enter the new passphrase only in this local window.'
   Write-Host 'Create encrypted persistence: type YES when cryptsetup asks, then enter and verify your new passphrase. Enter it again to initialize the filesystem.'
   Write-Host 'Do not paste the passphrase into chat. Keep it: it will be required on every boot.'
-  & wsl -d Ubuntu-26.04 -u root -- bash "$wslRoot/scripts/make-vm-image.sh" "$wslRoot/artifacts/argos-live-amd64.iso" "$wslRoot/artifacts/argos-live-personal.raw" "$ConfirmedCapacityBytes"
+  if ($ResetIncompleteImage) {
+    & wsl -d Ubuntu-26.04 -u root -- bash "$wslRoot/scripts/initialize-image-persistence.sh" "$wslRoot/artifacts/argos-live-personal.raw" '' '--reset-image-encryption'
+  } else {
+    & wsl -d Ubuntu-26.04 -u root -- bash "$wslRoot/scripts/make-vm-image.sh" "$wslRoot/artifacts/argos-live-amd64.iso" "$wslRoot/artifacts/argos-live-personal.raw" "$ConfirmedCapacityBytes"
+  }
   if ($LASTEXITCODE -ne 0) { throw 'Encrypted image preparation failed; USB has not been written.' }
   $hash = ((Get-Content -LiteralPath "$image.sha256") -split '\s+')[0]
   if ($hash -notmatch '^[a-fA-F0-9]{64}$') { throw 'Personal image checksum missing.' }
