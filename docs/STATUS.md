@@ -11,8 +11,8 @@ Milestone 1 is **in progress**, not accepted.
 | Encrypted persistence choice | Confirmed; local unlock prompts designed |
 | Build ISO + checksum | Corrected image: 4,232,200,192 bytes; SHA256 f9f22b17e993e489b70f3e4c99108d03e57e227abf138344c09193cc78fbea24 |
 | Bundled tiny model | Qwen3 0.6B included, manifest and five blobs verified, Apache-2.0 license retained |
-| USB target identified | Kingston 29.31 GiB; owner erasure approval received; encrypted image preparation in progress |
-| Physical USB written / read-back | Not performed |
+| USB target identified | Kingston 29.31 GiB; owner erasure approval received; physical image written and verified |
+| Physical USB written / read-back | Passed on October 1, 2026: all 31,474,057,216 bytes written, flushed, then read back with matching SHA256; 25.37 GiB owner-passphrase encrypted persistence |
 | Windows full-disk USB VM boot | Passed actual full-disk removable USB guest under Windows WSL2/KVM; XFCE desktop verified |
 | Persistence reboot test | Passed encrypted unlock, configuration/model/sentinel retention and five artifact hashes after full guest restart |
 | OpenClaw local model conversation | Passed offline live VM through both local CLI and argos start gateway: OpenClaw 2026.9.7 + Ollama 0.35.0 + Qwen3 0.6B |
@@ -22,7 +22,7 @@ Milestone 1 is **in progress**, not accepted.
 | Private restoration | Milestone 2, not implemented |
 | Host installation | Milestone 3, not implemented |
 
-No internal partitions, Windows boot configuration, GPU power settings, or USB contents have been altered. Repository source is generic. Private state and model artifacts stay outside source control.
+No internal partitions, Windows boot configuration, or GPU power settings have been altered. The explicitly approved Kingston USB has been erased and written. Repository source is generic. Private state and model artifacts stay outside source control.
 
 Validation: six Python tests pass (missing storage, wrong identity, space rejection, corrupted model artifact, invalid registry target, hybrid GPT boot-partition preservation and CRCs); Bash syntax checks and Windows writer PowerShell parsing pass. QEMU 10.2.1 booted the complete raw image as USB with networking disabled. Generic setup, encrypted unlock, actual model conversation, XFCE desktop, and restart persistence passed. The gateway launch path also passed. Physical boot remains distinct.
 
@@ -32,6 +32,8 @@ CPU runtime smoke passed after setting Ollama context length to 32768. The first
 
 Build completed with Debian kernel 6.12.107+deb13-amd64 and NVIDIA 550.163.01-2. Verified initramfs contains cryptsetup; the built live root has no DKMS private signing key. Build recovery exposed two issues (concurrent cleanup and bootstrap-cache replacement); source now uses an outer lock and resumes only chroot/binary stages. The final artifact was exported separately after a running shell source edit disrupted the export tail. Clean rebuild verification remains required before release.
 
-An encrypted 24 GiB disposable full-disk VM image was created with a 20.06 GiB persistence partition and a local temporary test key. Debian's hybrid ISO has intentional ISO/EFI partition overlap, so generic sgdisk conversion failed. The image-only append helper preserves existing partition entries and recalculates both GPT copies/CRCs; a dedicated test verifies this. The physical USB remains unmodified.
+An encrypted 24 GiB disposable full-disk VM image was created with a 20.06 GiB persistence partition and a local temporary test key. Debian's hybrid ISO has intentional ISO/EFI partition overlap, so generic sgdisk conversion failed. The image-only append helper preserves existing partition entries and recalculates both GPT copies/CRCs; a dedicated test verifies this. This disposable test image was never written to hardware. The physical Kingston now contains a separate owner-passphrase image.
 
 First actual virtual USB run reached encrypted unlock and live user login, then exposed root-only test metadata in the seed bundle during generic setup. Source now stages only model blobs, manifests, and the license, with readable permissions; runtime copy is also allowlisted. The final checksum in the table supersedes both earlier images. Reboot/conversation acceptance passed on a fresh encrypted test image. The gateway path also passed. Persistence discovery is restricted to removable USB devices to exclude internal disks; the final image passed a fresh generic setup, offline conversation, USB-only boot-policy check, full guest restart, and persisted artifact verification after that change.
+
+Physical writer recovery: corrected unsigned Win32 access-mask conversion, replaced unsupported managed raw-device writes with synchronous native Windows I/O, and corrected the read-back size calculation to use 64-bit integers. The full write completed before the final verification-only retry; that retry read all bytes and matched the encrypted image checksum. No passphrase was recorded. Local ciphertext image/checksum and result are excluded from source control.

@@ -39,4 +39,4 @@ GPT partition layout:
 
 Online, not read-only, not boot/system. Windows reports Removable Media, consistent with the USB-only persistence policy. Get-Disk's exact capacity is used for target matching; Win32_DiskDrive reports a slightly smaller geometry-rounded size. This layout suggests an earlier hybrid image. It does not establish the cause of a historical formatting failure. Never run a formatting probe to diagnose it without authorization.
 
-Writing the final full-disk image erases all partitions and files on this USB. Identity must be rechecked immediately before opening the physical device for writing. No erasure has been authorized yet.
+Writing the final full-disk image erases all partitions and files on this USB. Identity must be rechecked immediately before opening the physical device for writing. Owner subsequently authorized erasure; this pre-write layout has been replaced by the verified Argos image. Full write and read-back passed on October 1, 2026.
