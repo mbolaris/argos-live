@@ -48,7 +48,7 @@ $device = $null
 $input = $null
 try {
   foreach ($path in @($parts | ForEach-Object AccessPaths | Where-Object { $_ -like '\\?\Volume{*' } | Select-Object -Unique)) {
-    $h = [ArgosDeviceIo]::CreateFile($path.TrimEnd([char]92), 0xC0000000, 3, [IntPtr]::Zero, 3, 0, [IntPtr]::Zero)
+    $h = [ArgosDeviceIo]::CreateFile($path.TrimEnd([char]92), [uint32]3221225472, [uint32]3, [IntPtr]::Zero, [uint32]3, [uint32]0, [IntPtr]::Zero)
     if ($h.IsInvalid) { throw "Cannot open target volume for exclusive lock: $path" }
     $handles.Add($h)
     [uint32]$returned = 0
