@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+source /usr/local/share/argos-live/versions.env
+mkdir -p /opt/argos /usr/local/share/argos-live
+cd /opt/argos
+curl --fail --location --retry 5 -o node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+echo "$NODE_SHA256  node.tar.xz" | sha256sum -c -
+tar -xJf node.tar.xz --strip-components=1 -C /usr/local
+rm node.tar.xz
+curl --fail --location --retry 5 -o ollama.tar.zst "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
+echo "$OLLAMA_SHA256  ollama.tar.zst" | sha256sum -c -
+tar --zstd -xf ollama.tar.zst -C /usr
+rm ollama.tar.zst
+printf '{"name":"argos-live-runtime","version":"0.1.0","private":true,"allowScripts":{"openclaw":true},"dependencies":{"openclaw":"%s"}}\n' "$OPENCLAW_VERSION" > package.json
+# The checked-in transitive lock must match the root artifact's upstream integrity.
+test -f /usr/local/share/argos-live/package-lock.json
+cp /usr/local/share/argos-live/package-lock.json .
+EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
+npm ci
+ln -s /opt/argos/node_modules/.bin/openclaw /usr/local/bin/openclaw
+install -m 644 package-lock.json /usr/local/share/argos-live/runtime-lock.json
+find /usr/share/doc -name copyright -print0 | tar --null -T - -czf /usr/local/share/argos-live/debian-copyrights.tar.gz

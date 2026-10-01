@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Local setup and fail-closed model storage. No secrets in the image."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+import urllib.error
+
+STATE = Path.home() / '.config/argos-live/state.json'
+OC = Path.home() / '.openclaw'
+
+def run(*args, **kwargs):
+    return subprocess.run(args, check=True, **kwargs)
+
+def save(path, obj):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temp = path.with_suffix('.tmp')
+    temp.write_text(json.dumps(obj, indent=2) + '\n')
+    temp.chmod(0o600)
+    temp.replace(path)
+
+def probe_storage(path, minimum=0):
+    p = Path(path).resolve(strict=True)
+    if not p.is_dir():
+        raise ValueError('Select an existing directory.')
+    free = shutil.disk_usage(p).free
+    if free < minimum:
+        raise ValueError(f'Insufficient free space: {free / 2**30:.2f} GiB; need {minimum / 2**30:.2f} GiB.')
+    marker = p / ('.argos-write-check-' + secrets.token_hex(8))
+    with marker.open('x') as f:
+        f.write('write check')
+    marker.unlink()
+    return p, free
+
+def persistence_present():
+    # Full-root Debian live persistence contains /persistence.conf on its backing fs.
+    return any(Path('/lib/live/mount/persistence').glob('*/persistence.conf'))
+
+def setup():
+    if STATE.exists():
+        raise ValueError('Setup already exists. Back up state before reconfiguring.')
+    if not persistence_present():
+        print('WARNING: no live persistence detected. Settings will be lost at reboot.')
+        if input('Continue for a temporary test? Type TEMPORARY: ') != 'TEMPORARY':
+            return
+    print('Argos uses a local model. GitHub and cloud accounts are optional.')
+    print('Default permissions: conversation and session status; shell, file tools, browser, and updates denied.')
+    if input('Accept these permissions? [yes/no]: ').strip().lower() != 'yes':
+        raise ValueError('Permission setup cancelled. Broader permissions require deliberate configuration and review.')
+    print('Model files on external storage are not encrypted by Argos. Use an encrypted volume if needed.')
+    default = Path.home() / 'Models'
+    answer = input(f'Existing model storage directory, or Enter for {default}: ').strip()
+    if not answer:
+        default.mkdir(mode=0o700, exist_ok=True)
+        answer = str(default)
+    p, free = probe_storage(answer)
+    print(f'Selected: {p}; free: {free / 2**30:.2f} GiB. No download has started.')
+    if input('Use this location? [yes/no]: ').strip().lower() != 'yes':
+        return
+    models = p / 'argos-models'
+    models.mkdir(exist_ok=True, mode=0o700)
+    identity_path = models / '.argos-storage-id'
+    identity = secrets.token_hex(24)
+    if identity_path.exists():
+        identity = identity_path.read_text().strip()
+    else:
+        identity_path.write_text(identity + '\n')
+        identity_path.chmod(0o600)
+    model = input('Local Ollama model tag [qwen3:0.6b]: ').strip() or 'qwen3:0.6b'
+    if not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or ':cloud' in model:
+        raise ValueError('Invalid local model tag.')
+    config = {
+        'gateway': {'mode': 'local', 'bind': 'loopback', 'auth': {'mode': 'token', 'token': secrets.token_hex(32)}},
+        'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(OC / 'workspace')}},
+        'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama',
+             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,
+                         'contextWindow': 32768, 'maxTokens': 4096,
+                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
+        'tools': {'profile': 'minimal', 'deny': ['gateway', 'group:runtime', 'group:fs', 'group:web', 'browser'], 'elevated': {'enabled': False}},
+        'commands': {'bash': False, 'restart': False}
+    }
+    save(OC / 'openclaw.json', config)
+    (OC / 'workspace').mkdir(exist_ok=True, mode=0o700)
+    save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'conversation-only'})
+    print('Setup saved. No model weights are bundled yet. Use argos download before offline use.')
+    print('Optional providers: openclaw onboard. Keep the configured limited tool policy; enter keys only in its local prompt.')
+
+def load():
+    if not STATE.exists():
+        raise ValueError('Run argos setup first.')
+    state = json.loads(STATE.read_text())
+    p = Path(state['storage'])
+    marker = p / '.argos-storage-id'
+    if not marker.is_file() or marker.read_text().strip() != state['storage_id']:
+        raise ValueError('Selected model storage is missing or has a different identity. Mount the original volume; no fallback writes occur.')
+    probe_storage(p)
+    return state
+
+def request(endpoint, body=None):
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request('http://127.0.0.1:11434' + endpoint, data=data,
+                                 headers={'Content-Type': 'application/json'})
+    return urllib.request.urlopen(req, timeout=600)
+
+def server(state):
+    env = dict(os.environ, OLLAMA_HOST='127.0.0.1:11434', OLLAMA_MODELS=state['storage'], OLLAMA_NO_CLOUD='1')
+    # Own the process and storage explicitly; never reuse an unrelated host daemon.
+    try:
+        with request('/api/version'):
+            raise ValueError('Port 11434 is already in use. Stop that daemon before starting Argos.')
+    except (OSError, urllib.error.URLError):
+        pass
+    process = subprocess.Popen(['ollama', 'serve'], env=env, stdout=subprocess.DEVNULL)
+    for _ in range(60):
+        if process.poll() is not None:
+            raise ValueError('Ollama exited during startup. Check terminal diagnostics.')
+        try:
+            with request('/api/version'):
+                return process
+        except OSError:
+            time.sleep(1)
+    process.terminate()
+    process.wait()
+    raise ValueError('Ollama startup timed out.')
+
+def verify_blobs(storage):
+    manifests = list((Path(storage) / 'manifests').rglob('*'))
+    digests = set()
+    for m in manifests:
+        if not m.is_file():
+            continue
+        obj = json.loads(m.read_text())
+        digests.update(x['digest'] for x in [obj['config']] + obj['layers'])
+    if not digests:
+        raise ValueError('No model manifests found.')
+    for digest in digests:
+        if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
+            raise ValueError('Unsupported manifest digest.')
+        blob = Path(storage) / 'blobs' / digest.replace(':', '-')
+        h = hashlib.sha256()
+        with blob.open('rb') as stream:
+            for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b''):
+                h.update(chunk)
+        if h.hexdigest() != digest.split(':')[1]:
+            raise ValueError(f'Artifact verification failed: {blob.name}')
+    return len(digests)
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics'])
+    parser.add_argument('--required-gib', type=float, default=4,
+                        help='Download space budget; increase for larger models after checking their advertised size.')
+    args = parser.parse_args()
+    if args.command == 'setup':
+        return setup()
+    if args.command == 'diagnostics':
+        for cmd in [('lsblk', '-o', 'NAME,MODEL,SERIAL,TRAN,SIZE,FSTYPE,UUID,MOUNTPOINTS'), ('df', '-h'), ('nvidia-smi',), ('ollama', '--version'), ('openclaw', '--version')]:
+            try:
+                run(*cmd)
+            except (OSError, subprocess.CalledProcessError) as e:
+                print(str(e))
+        return
+    state = load()
+    if args.command == 'verify':
+        print(f"Verified {verify_blobs(state['storage'])} content-addressed artifacts.")
+        return
+    if args.command == 'download':
+        if args.required_gib <= 0:
+            raise ValueError('Space budget must be positive.')
+        p, free = probe_storage(state['storage'], int(args.required_gib * 2**30))
+        print(f"Download {state['model']} into {p}; reserve {args.required_gib} GiB; {free / 2**30:.2f} GiB free.")
+        print('This needs internet. Repeat the command after interruption to resume Ollama partial blobs.')
+        if input('Download now? [yes/no]: ').strip().lower() != 'yes':
+            return
+    daemon = server(state)
+    try:
+        if args.command == 'download':
+            run('ollama', 'pull', state['model'])
+            print(f"Verified {verify_blobs(state['storage'])} artifacts.")
+        else:
+            with request('/api/tags') as response:
+                names = [x['name'] for x in json.load(response)['models']]
+            if state['model'] not in names:
+                raise ValueError('Model weights are unavailable. Run argos download while online.')
+            print('Conversation-only permissions. Local model; internet is not required.')
+            run('openclaw', 'gateway', 'run')
+    finally:
+        daemon.terminate()
+        daemon.wait(timeout=30)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+        print(f'Argos: {error}', file=sys.stderr)
+        sys.exit(1)

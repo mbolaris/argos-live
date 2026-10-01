@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Argos Setup and Assistant
+Comment=Configure local AI, storage, and permissions
+Exec=xfce4-terminal --command=argos-launch
+Icon=applications-science
+Categories=Utility;
+Terminal=false

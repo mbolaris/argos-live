@@ -1,0 +1,7 @@
+artifacts/
+local/
+*.log
+__pycache__/
+.env
+*.key
+local-*.json
