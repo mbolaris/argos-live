@@ -3,11 +3,15 @@ set -euo pipefail
 source /usr/local/share/argos-live/versions.env
 mkdir -p /opt/argos /usr/local/share/argos-live
 cd /opt/argos
-curl --fail --location --retry 5 -o node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+if [[ ! -f node.tar.xz ]]; then
+  curl --fail --location --retry 5 -o node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+fi
 echo "$NODE_SHA256  node.tar.xz" | sha256sum -c -
 tar -xJf node.tar.xz --strip-components=1 -C /usr/local
 rm node.tar.xz
-curl --fail --location --retry 5 -o ollama.tar.zst "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
+if [[ ! -f ollama.tar.zst ]]; then
+  curl --fail --location --retry 5 -o ollama.tar.zst "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
+fi
 echo "$OLLAMA_SHA256  ollama.tar.zst" | sha256sum -c -
 tar --zstd -xf ollama.tar.zst -C /usr
 rm ollama.tar.zst
@@ -19,4 +23,10 @@ EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./package-lock.json"); 
 npm ci
 ln -s /opt/argos/node_modules/.bin/openclaw /usr/local/bin/openclaw
 install -m 644 package-lock.json /usr/local/share/argos-live/runtime-lock.json
+# DKMS creates a build signing key. Never distribute that private key in the image.
+if [[ -f /var/lib/dkms/mok.pub ]]; then
+  cp /var/lib/dkms/mok.pub /usr/local/share/argos-live/nvidia-build-mok.der
+fi
+rm -f /var/lib/dkms/mok.key
+truncate -s 0 /etc/machine-id
 find /usr/share/doc -name copyright -print0 | tar --null -T - -czf /usr/local/share/argos-live/debian-copyrights.tar.gz

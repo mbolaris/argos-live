@@ -4,6 +4,8 @@ source "$(dirname "$0")/../versions.env"
 export SOURCE_DATE_EPOCH=1790812800
 src=$(realpath "$(dirname "$0")/..")
 builder=/var/lib/argos-live/builder
+exec 9>/var/lib/argos-live/build-run.lock
+flock -n 9 || { echo 'Another build owns this workspace.' >&2; exit 1; }
 [[ -f "$builder/etc/debian_version" ]] || { echo 'Run bootstrap-builder.sh first.' >&2; exit 1; }
 work="$builder/work"
 [[ ! -e "$work/chroot" ]] || { echo 'Existing build found. Inspect /var/lib/argos-live/builder/work before rebuilding.' >&2; exit 1; }
