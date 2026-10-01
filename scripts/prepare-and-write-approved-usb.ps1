@@ -23,8 +23,10 @@ try {
   $matches = @(Get-Disk | Where-Object { $_.BusType -eq 'USB' -and $_.SerialNumber.Trim() -eq $ConfirmedSerial -and $_.Size -eq $ConfirmedCapacityBytes -and $_.UniqueId -eq $ConfirmedUniqueId })
   if ($matches.Count -ne 1 -or $matches[0].IsBoot -or $matches[0].IsSystem -or $matches[0].IsReadOnly) { throw 'Approved USB missing or protected.' }
   if (Test-Path -LiteralPath $image) { throw 'Personal image already exists; inspect it before retrying.' }
-  $wslRoot = (& wsl -d Ubuntu-26.04 -u root -- wslpath -a $root).Trim()
-  if ($LASTEXITCODE -ne 0 -or -not $wslRoot.StartsWith('/mnt/')) { throw 'Unable to resolve build directory in WSL.' }
+  $translated = & wsl -d Ubuntu-26.04 -u root -- wslpath -a $root.Replace('\','/')
+  if ($LASTEXITCODE -ne 0 -or -not $translated) { throw 'Unable to resolve build directory in WSL.' }
+  $wslRoot = ($translated -join "`n").Trim()
+  if (-not $wslRoot.StartsWith('/mnt/')) { throw 'Unsupported build directory in WSL.' }
   Set-Stage 'preparing-encrypted-image' 'Enter the new passphrase only in this local window.'
   Write-Host 'Create encrypted persistence: type YES when cryptsetup asks, then enter and verify your new passphrase. Enter it again to initialize the filesystem.'
   Write-Host 'Do not paste the passphrase into chat. Keep it: it will be required on every boot.'
