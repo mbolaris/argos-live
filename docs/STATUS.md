@@ -17,14 +17,14 @@ Milestone 1 is **in progress**, not accepted.
 | Persistence reboot test | Pending |
 | OpenClaw local model conversation | Passed in isolated WSL CPU runtime, OpenClaw 2026.9.7 + Ollama 0.35.0 + Qwen3 0.6B; live guest pending |
 | Physical Linux GPU use | Pending; Windows GPU inventory is not proof |
-| Download interruption / artifact recovery | Implemented runtime logic; integration test pending |
+| Download interruption / artifact recovery | Passed actual Ollama Qwen3 8B daemon interruption/resume in dedicated WSL test storage; physical external volume pending |
 | Missing external storage | Missing/wrong identity and insufficient space tests pass |
 | Private restoration | Milestone 2, not implemented |
 | Host installation | Milestone 3, not implemented |
 
 No internal partitions, Windows boot configuration, GPU power settings, or USB contents have been altered. Repository source is generic. Private state and model artifacts stay outside source control.
 
-Validation: four Python tests pass (missing storage, wrong identity, space rejection, corrupted model artifact); Bash syntax checks pass. QEMU 10.2.1 successfully created a paused KVM guest under local WSL2 and exited via its monitor. This verifies acceleration availability, not guest boot.
+Validation: five Python tests pass (missing storage, wrong identity, space rejection, corrupted model artifact, invalid registry target); Bash syntax checks pass. QEMU 10.2.1 successfully created a paused KVM guest under local WSL2 and exited via its monitor. This verifies acceleration availability, not guest boot.
 
 Runtime audit found three vulnerable dependency packages inside OpenClaw's bundled npm tree: brace-expansion (high), undici (high), ip-address (moderate). `npm audit fix --package-lock-only` did not clear them. Keep these recorded as release blockers until patched compatibility is evaluated; do not declare the image production-ready. See local audit report (excluded from public source); advisories include GHSA-qhr7-859c-m2p7, GHSA-rfgv-xxqx-mfg5, GHSA-rpw4-54j3-4h4q.
 

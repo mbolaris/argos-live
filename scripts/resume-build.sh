@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+export SOURCE_DATE_EPOCH=1790812800
 src=$(realpath "$(dirname "$0")/..")
 builder=/var/lib/argos-live/builder
 exec 9>/var/lib/argos-live/build-run.lock

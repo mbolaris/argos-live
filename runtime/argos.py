@@ -42,7 +42,7 @@ def probe_storage(path, minimum=0):
 
 def persistence_present():
     # Full-root Debian live persistence contains /persistence.conf on its backing fs.
-    return any(Path('/lib/live/mount/persistence').glob('*/persistence.conf'))
+    return any(any(root.glob('*/persistence.conf')) for root in (Path('/run/live/persistence'), Path('/lib/live/mount/persistence')))
 
 def setup():
     if STATE.exists():
@@ -81,7 +81,7 @@ def setup():
         identity_path.write_text(identity + '\n')
         identity_path.chmod(0o600)
     model = input('Local Ollama model tag [qwen3:0.6b]: ').strip() or 'qwen3:0.6b'
-    if not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or ':cloud' in model:
+    if not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or 'cloud' in model.split(':')[-1]:
         raise ValueError('Invalid local model tag.')
     config = {
         'gateway': {'mode': 'local', 'bind': 'loopback', 'auth': {'mode': 'token', 'token': secrets.token_hex(32)}},
@@ -180,7 +180,7 @@ def download_budget(model, storage):
 
 def select_model(model):
     state = load()
-    if not model or not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or ':cloud' in model:
+    if not model or not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or 'cloud' in model.split(':')[-1]:
         raise ValueError('Specify a local model with --model, for example qwen3:8b.')
     print(f"Select {model}; model storage remains {state['storage']}. No weights downloaded yet.")
     if input('Select this model? [yes/no]: ').strip().lower() != 'yes':
