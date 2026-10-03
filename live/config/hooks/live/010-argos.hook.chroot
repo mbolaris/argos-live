@@ -23,6 +23,8 @@ test -f /usr/local/share/argos-live/package-lock.json
 cp /usr/local/share/argos-live/package-lock.json .
 EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
 npm ci
+# The immutable runtime is installed; download cache is build-only overhead.
+rm -rf /root/.npm/_cacache
 ln -s /opt/argos/node_modules/.bin/openclaw /usr/local/bin/openclaw
 install -m 644 package-lock.json /usr/local/share/argos-live/runtime-lock.json
 # DKMS creates a build signing key. Never distribute that private key in the image.
