@@ -5,6 +5,7 @@ src=$(realpath "$(dirname "$0")/..")
 work=/var/lib/argos-live/builder/work
 cp -a "$src/live/config/includes.chroot/." "$work/config/includes.chroot/"
 cp "$src/live/config/hooks/live/010-argos.hook.chroot" "$work/config/hooks/live/"
+cp "$src/live/config/hooks/live/050-argos-menu.hook.binary" "$work/config/hooks/live/"
 chmod +x "$work/config/hooks/live/010-argos.hook.chroot"
 cp "$src/live/config/includes.chroot/usr/local/share/argos-live/package-lock.json" "$work/config/includes.chroot/usr/local/share/argos-live/"
 cp "$src/runtime/argos.py" "$work/config/includes.chroot/usr/local/bin/argos"
