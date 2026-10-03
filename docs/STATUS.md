@@ -41,3 +41,5 @@ The exact pinned runtime npm audit has 25 findings: 24 high, one moderate, zero 
 Further work: legacy firmware boot, Secure Boot policy/testing, repeated answer-quality tests, completely disconnected conversation, process cleanup/error acceptance, saved conversation recall through a further physical reboot, profile import/rollback and unattended rebuild/reproducibility checks.
 
 Host installation remains outside this milestone. See PHYSICAL-BOOT-TODO.md for the detailed remaining checklist.
+
+The generic inert migration planner now preserves roster IDs/models, proposes independent Linux paths and rejects overwriting existing stages. Three fixture tests and planning against the received private ZIP pass. It does not activate anything or create target OpenClaw config; backend/model/helper inventory and target validation remain pending.
