@@ -11,3 +11,7 @@ Known credential values and recognizable secret patterns are removed in memory. 
 The Windows source uses a customized schema; it cannot replace the live system configuration directly. Review model identifiers, Windows paths, plugin compatibility, and execution permissions before a deliberate import. Transfer only through an authenticated private channel, such as SSH after verifying the destination host key. No restoration or permission grant occurs automatically.
 
 The exporter verifies archive CRCs and each manifest hash, then writes `SHA256SUMS`. Private restoration remains a separate milestone.
+
+To stage this reference ZIP, use `scripts/stage-config-reference.py ARCHIVE --sha256 EXPECTED --target NEW_PRIVATE_DIRECTORY`. This tool verifies the transfer digest, CRCs, exact manifest coverage and every payload hash before extraction. It rejects traversal, links and duplicate names, and refuses an existing destination. Windows output permissions are restricted to the current owner and SYSTEM; Linux output directories/files use modes 700/600. Choose encrypted storage yourself; the tool does not mount or select a volume.
+
+Staging keeps the files inert. It does not invoke OpenClaw, apply source permissions, restore credentials, run helper scripts or copy model weights. The native-backup helper `stage-openclaw-profile.py` handles a different archive format and cannot consume this ZIP.
