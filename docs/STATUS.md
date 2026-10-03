@@ -2,6 +2,8 @@
 
 Milestone 1 is **in progress**, not accepted.
 
+October 2 physical-boot follow-up: owner reports successful encrypted unlock, followed by a stalled display. A bounded offline UEFI boot-menu repair was applied and read-back verified. It supplies selectable diagnostic/desktop entries with visible screen prompts; partition tables and encryption-header checks passed unchanged, and no write entered persistence. Diagnostic physical boot and Yugo SSH/logging installation remain pending. See OFFLINE-BOOT-REPAIR.md.
+
 | Check | Evidence / state |
 |---|---|
 | Local hardware and disk inventory | Completed; INVENTORY.md |

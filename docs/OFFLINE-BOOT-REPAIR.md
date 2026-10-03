@@ -11,3 +11,5 @@ Local plan, backup, and result files are under `local/` and excluded from Git. T
 The binary build hook creates the same selectable menu in future images, before checksums are generated. Physical media use the screen console. `ARGOS_TEST_SERIAL_CONSOLE=1` is an explicit opt-in for headless serial test builds only; it selects the desktop entry and adds the VM serial console.
 
 SSH/logging from Yugo's separate bundle is not installed by this boot-menu repair. The bundle or Yugo's public key must be obtained and its setup reviewed before configuring restricted LAN access. Firmware changes and BitLocker suspension have not been verified as performed.
+
+On October 2, 2026 the physical Kingston GRUB repair passed: both patched boot-file regions read back exactly, the first and last MiB protecting GPT structures remained unchanged, and the first 16 MiB of encrypted persistence remained unchanged. No write entered persistence. This repair affects the UEFI GRUB menu; the legacy BIOS menu changes are in the future-build hook. Physical boot of the diagnostic entry is still pending.
