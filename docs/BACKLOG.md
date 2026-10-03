@@ -29,17 +29,17 @@ These decisions prevent parallel agents from diverging. Change them only through
 - **Dashboard.** Python `http.server` on `127.0.0.1:8765`, static HTML/JS/CSS with no build step and no CDN (works offline). A random per-session token is required on every request and passed in the URL opened in Firefox. Chat links to the OpenClaw dashboard; the lab does not reimplement chat.
 - **Personality pack format.** `argos-pack/1`, specified in P1. A ZIP with `manifest.json` (pack ID, version, created time, per-agent entries: ID, display name, persona files, skill files, model preference as data, notes) and a SHA256 for every file. Packs contain no credentials, memory or history, permissions, provider configuration, executables or absolute source paths.
 
-## Owner decisions needed
+## Owner decisions
 
-These block the noted items. Agents must not decide them.
+Resolved October 3, 2026. Agents implement these; changing one needs the owner.
 
-| ID | Decision | Blocks |
+| ID | Decision | Affects |
 |---|---|---|
-| D1 | Where to host public ISOs. GitHub release assets are limited to 2 GiB per file and the current ISO is about 4.06 GB. Options: slim the ISO, split it, or host it elsewhere. | C4 |
-| D2 | Whether this repository is or will be public, and whether owner-specific files are moved to a private repository (history still contains them). | R1 |
-| D3 | NVIDIA driver policy. The pinned 550 driver supports the RTX 3090; newer GPUs such as RTX 50-series are believed to need a newer driver. Options: keep 550, use a newer packaged driver, or ship variants. | H1 |
-| D4 | Which sample personality packs and starter catalog models ship publicly. | P6, MD1 |
-| D5 | Fate of the `bench.py` started on Toronado outside this repository: push it for F3 to reconcile, or discard it. | F3 |
+| D1 | **Public ISOs are hosted on Google Drive.** The ISO (about 4 GB) exceeds GitHub's 2 GiB release-asset limit. A GitHub release carries the Drive link, `SHA256SUMS`, package manifest, notices and release notes, so users verify the download against GitHub. | C4 |
+| D2 | **Machine-specific material lives in a private GitHub repository or the owner's Google Drive, never in this repository.** Versioned scripts and notes go to the private repository; exports, archives and receipts go to Drive. This repository keeps only generic tooling. Whether to rewrite this repository's history to remove already-committed material is a separate owner decision; R1 does not rewrite history. | R1 |
+| D3 | **Do not pin a specific NVIDIA driver version.** Install Debian's `nvidia-driver` package as resolved by the build's Debian snapshot (preferring the newest supported branch Debian offers for the suite, such as backports, when it adds GPU support). The package manifest records the version actually shipped. Detect at boot whether the driver supports the installed GPU and fall back to CPU with a visible explanation. | H1 |
+| D4 | **Ship one generic Argos-like sample agent publicly.** A capable, friendly primary assistant, written fresh for the public image and not derived from the owner's private Argos persona. The starter catalog list is proposed by the MD1 agent and approved by the owner in that PR. | P6, MD1 |
+| D5 | **The Toronado `bench.py` prototype is not a dependency.** E1 is built from this backlog. If the prototype is pushed to a branch, E1 agents may reuse ideas or items from it, subject to this backlog's design decisions and dataset licensing rules. | F3 (closed) |
 
 ## E0 Foundations
 
@@ -55,9 +55,8 @@ Depends on: F1.
 - Update `scripts/build.sh` and `scripts/sync-build-runtime.sh` to install the package directory into the image.
 - Accept: `python3 runtime/argos.py --help` works from a checkout; a unit test confirms the import path logic; build scripts pass `bash -n`; the repack path copies the package (checked by reading the script, verified by the next ISO build).
 
-### F3 Reconcile the out-of-repo bench prototype — `blocked (D5)`
-Depends on: F2, D5.
-- Bring the Toronado prototype in on a branch, then refactor it into the E1 modules or close it with notes on what E1 should reuse.
+### F3 Reconcile the out-of-repo bench prototype — `closed (D5)`
+- Not needed. See D5.
 
 ## E1 Benchmarks (M1)
 
@@ -104,12 +103,12 @@ Depends on: B3, B5, B6.
 
 ## E2 Models and storage
 
-### MD1 Curated catalog — `blocked (D4 for the final list)`
+### MD1 Curated catalog — `todo`
 Depends on: B1, B2.
 - `runtime/argoslive/data/catalog.json`: 8–12 entries (tag, family, parameter count, quantization, licence, capabilities such as tools/vision/thinking, description, registry manifest digest pinned at catalog update time, total download bytes from the manifest).
 - `catalog.py`: fit estimate = weight bytes + KV cache estimate at the default context + overhead, compared with free VRAM (GPU) or available RAM (CPU), giving fits / tight / won't fit and the reason.
 - `scripts/update-catalog.py` refreshes digests and sizes from the registry and fails on missing metadata.
-- Accept: unit tests for fit classification at boundaries; a catalog file validates against its schema; an agent can propose the list before D4 and the owner approves it.
+- Accept: unit tests for fit classification at boundaries; a catalog file validates against its schema; the agent proposes the list in the PR and the owner approves it (D4).
 
 ### MD2 Model storage selection — `todo`
 Depends on: B1.
@@ -206,10 +205,10 @@ Depends on: P4.
 - Named permission profiles (`chat`, `sandbox`, `full`) applied per agent, with `sandbox` confining file tools to the agent workspace and denying network and shell. Widening requires explicit confirmation and is shown on the agent card. Validate tool-policy keys against the pinned OpenClaw.
 - Accept: smoke test with the pinned OpenClaw proves denied tools are denied per profile.
 
-### P6 Public sample packs — `blocked (D4)`
-Depends on: P1.
-- Two or three original sample agents (for example a helpful generalist, a terse coding assistant and a playful storyteller) as packs under `live/config/includes.chroot/usr/local/share/argos-live/packs/`, installed on first boot.
-- Accept: packs pass validation and P4 smoke; content reviewed by the owner.
+### P6 Public sample pack — `todo`
+Depends on: P1 (format); installing on first boot also needs P4 and O1.
+- One original, generic Argos-like primary assistant (D4) as a pack under `live/config/includes.chroot/usr/local/share/argos-live/packs/`, installed as the default agent on first boot. Its model preference is the bundled starter model. Do not use or paraphrase the owner's private Argos persona.
+- Accept: pack passes validation and P4 smoke; content reviewed by the owner in the PR.
 
 ### P7 Owner personality acceptance — `todo`
 Depends on: P2, P4, MD4, physical hardware. Private; evidence stays out of this repository except a pass/fail summary in STATUS.md.
@@ -229,9 +228,12 @@ Depends on: C2.
 - Boot the ISO under QEMU without KVM (software emulation, slow but GPU-free), no network, and check over a serial console or forwarded port that the desktop session starts, the dashboard answers with its token, and a speed benchmark of the starter model completes on CPU.
 - Accept: green run with captured timings and a screenshot artifact; failures attach the console log.
 
-### C4 Release publishing — `blocked (D1)`
-Depends on: C2, C3, D1.
-- On a version tag, publish the accepted ISO, checksums, package manifest, notices and release notes per RELEASE-PROCESS.md.
+### C4 Release publishing — `todo`
+Depends on: C2, C3.
+- On a version tag, upload the accepted ISO to the owner's Google Drive release folder (D1) and create a GitHub release with the Drive link, `SHA256SUMS`, package manifest, notices and release notes per RELEASE-PROCESS.md.
+- Drive credentials: a Google service account cannot own files in a personal My Drive, so use either an OAuth refresh token for the owner's account or a shared drive, stored only as a GitHub Actions secret, scoped to the release folder. The owner creates and installs the credential; agents never handle it in chat or logs.
+- Document for users that Google Drive shows a "can't scan for viruses" confirmation for large files and may temporarily limit downloads of popular files, and that the GitHub checksum is the authority.
+- Accept: a test tag publishes to a test Drive folder and a draft GitHub release; downloaded bytes match `SHA256SUMS`.
 
 ### C5 Candidate bump PRs from upstream discovery — `todo`
 Depends on: C2.
@@ -240,8 +242,11 @@ Depends on: C2.
 
 ## E7 Hardware and release hardening (M4)
 
-### H1 NVIDIA driver coverage — `blocked (D3)`
-- Implement the chosen driver policy; document supported GPU generations; keep the CPU path working.
+### H1 NVIDIA driver coverage — `todo`
+- Implement D3: remove the version pin from `live/config/package-lists/argos.list.chroot` and `NVIDIA_VERSION` from `versions.env` (record the resolved version in the package manifest instead); evaluate whether the suite's backports branch offers a newer supported driver and use it if it builds against the shipped kernel.
+- Boot-time check: if the NVIDIA module fails to load or does not support the GPU, show this on the dashboard hardware card and run on CPU. Keep the text-diagnostics boot entry.
+- Update SOFTWARE.md and RELEASE-PROCESS.md; a driver change still requires physical GPU acceptance (H3).
+- Accept: CI ISO build (C2) succeeds and its manifest shows the resolved driver; C3 CPU smoke boot passes; physical RTX 3090 acceptance recorded before release.
 
 ### H2 Dependency audit — `todo`
 - Re-run the pinned OpenClaw npm audit (25 findings: 24 high, 1 moderate) against the newest stable candidate; document each remaining finding's exposure given loopback-only binding, or remediate through supported upstream versions.
@@ -251,8 +256,10 @@ Depends on: C2.
 
 ## E8 Repository organization
 
-### R1 Separate owner-specific material — `blocked (D2)`
-- Move owner-specific inventories, handoffs and Windows/USB procedures (for example `docs/INVENTORY.md`, the October handoff sections of PROFILE-SYNC.md, `scripts/*.ps1`, `scripts/plan-boot-repair.py`, `scripts/repair-resume-stages.sh`) to the location chosen in D2, leaving generic tooling and a short pointer. Do not delete anything without the owner's approval.
+### R1 Separate owner-specific material — `todo`
+Depends on: the owner creating the private repository (or Drive folder) and granting the implementing agent access.
+- Propose the file list first in the PR description. Candidates: `docs/INVENTORY.md`, `docs/PHYSICAL-BOOT-TODO.md` hardware specifics, `docs/WINDOWS-VM.md`, `docs/OFFLINE-BOOT-REPAIR.md`, the October handoff sections of PROFILE-SYNC.md and STATUS.md, `scripts/*.ps1`, `scripts/plan-boot-repair.py`, `scripts/repair-resume-stages.sh`, and Toronado/Yugo references in generic docs. Generic tools (pack exporter/importer, bundle inspection, staging helpers) stay here.
+- Copy to the private repository first and confirm the copy, then remove from this repository in the same PR with short pointers. No history rewrite (D2).
 - Accept: README tells the lab story first; all remaining tests pass.
 
 ## Suggested parallel tracks
