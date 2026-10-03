@@ -27,7 +27,7 @@ def inspect(archive, expected):
             digest.update(chunk)
     if digest.hexdigest() != expected.lower():
         raise ValueError('Transfer SHA256 differs; no inspection attempted.')
-    members, seen, total = [], set(), 0
+    members, seen, total, reference = [], set(), 0, None
     with zipfile.ZipFile(archive) as bundle:
         entries = bundle.infolist()
         if len(entries) > MAX_MEMBERS:
@@ -71,11 +71,33 @@ def inspect(archive, expected):
                 if count != entry.file_size:
                     raise ValueError('Member length differs.')
             members.append({'path': name, 'bytes': count, 'sha256': h.hexdigest()})
+        names = {item['path']: item for item in members}
+        if 'manifest.json' in names and 'migration-reference.json' in names:
+            manifest = json.loads(bundle.read('manifest.json'))
+            migration = json.loads(bundle.read('migration-reference.json'))
+            declared = manifest.get('files')
+            if not isinstance(declared, list):
+                raise ValueError('Reference manifest file inventory missing.')
+            covered = set()
+            for item in declared:
+                if not isinstance(item, dict) or not isinstance(item.get('path'), str):
+                    raise ValueError('Invalid reference manifest entry.')
+                name = item['path']
+                actual = names.get(name)
+                if name in covered or not actual or item.get('bytes') != actual['bytes'] or item.get('sha256') != actual['sha256']:
+                    raise ValueError('Internal reference manifest differs from ZIP contents.')
+                covered.add(name)
+            if covered != set(names) - {'manifest.json'}:
+                raise ValueError('Unlisted reference ZIP files.')
+            reference = {'sourceVersion': migration.get('sourceVersion'),
+                         'sourceSchema': migration.get('sourceSchema'),
+                         'profiles': manifest.get('profiles'),
+                         'internalManifestVerified': True}
     # Filenames and hashes can themselves be private; callers protect this report.
     return {'archiveSHA256': digest.hexdigest(), 'kind': 'configuration-only ZIP',
             'fileCount': len(members), 'expandedBytes': total, 'members': members,
             'credentialExclusion': 'Not independently established; content review required',
-            'activation': 'Not performed', 'recoveryBackup': False}
+            'activation': 'Not performed', 'recoveryBackup': False, 'reference': reference}
 
 
 if __name__ == '__main__':

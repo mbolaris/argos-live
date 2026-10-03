@@ -1,4 +1,5 @@
 import hashlib
+import json
 import importlib.util
 import stat
 import tempfile
@@ -34,6 +35,16 @@ class ConfigurationBundleTests(unittest.TestCase):
     def test_wrong_hash_rejected(self):
         with self.assertRaises(ValueError):
             self.inspect_members([('config.json', '{}')], True)
+
+    def test_export_reference_manifest_must_cover_actual_files(self):
+        migration = json.dumps({'sourceVersion': 'fixture'}).encode()
+        manifest = {'files': [{'path': 'migration-reference.json', 'bytes': len(migration),
+                              'sha256': hashlib.sha256(migration).hexdigest()}],
+                    'profiles': [{'id': 'argos', 'name': 'Argos'}]}
+        files = [('migration-reference.json', migration), ('manifest.json', json.dumps(manifest))]
+        self.assertTrue(self.inspect_members(files)['reference']['internalManifestVerified'])
+        with self.assertRaises(ValueError):
+            self.inspect_members(files + [('unlisted.json', '{}')])
 
     def test_traversal_and_platform_paths_rejected(self):
         for path in ('../config.json', '/config.json', 'C:/config.json', 'agents\\config.json', 'a/./config.json', 'file.json:stream'):
