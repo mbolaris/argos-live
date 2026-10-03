@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 source /usr/local/share/argos-live/versions.env
+# Drop a resumable-builder download override; it is not a runtime preference.
+rm -f /etc/apt/apt.conf.d/99-argos-build-download
 mkdir -p /opt/argos /usr/local/share/argos-live
 cd /opt/argos
 if [[ ! -f node.tar.xz ]]; then
