@@ -24,10 +24,10 @@ No internal partitions, Windows boot files, encryption passphrase, TPM keys or f
 
 The project now explicitly separates the generic image, personal profile and model files. See PROJECT-GOALS.md.
 
-- The owner's Argos/Nyx/Proteus source is on Toronado Windows, currently inaccessible through locked BitLocker storage in live Linux. Do not bypass that protection for migration.
+- Toronado is currently in Windows. Its local agent reports a verified redacted Argos/Nyx/Proteus configuration ZIP, excluding credentials/executable helpers. The full native recovery backup was stopped incomplete. Yugo has not received or independently reviewed the ZIP; source-to-controller authenticated transfer is the next step.
 - Native Windows/WSL export and Linux verified-staging helpers are prepared. A disposable three-agent fixture passed installed OpenClaw schema validation, native backup creation/verification and staged restoration of all three personas. Incorrect transfer checksums and existing target directories were rejected.
 - Windows helper argument forwarding and restrictive output ACLs were checked using a fixture CLI. The real Windows source/version, WSL placement, model tags, skills/plugins, credentials and permissions still require inspection.
-- These helpers capture and stage private backups; they do not yet activate or continuously sync a personal roster. Windows-to-Linux path mapping, source/target policy review, model availability, explicit history selection, profile activation and rollback are the next implementation work after source inspection.
+- Configuration-only ZIP inspection and a private Windows read-only SFTP candidate preparer are now available; five ZIP validation tests pass, and the Windows preparer parses but is not yet endpoint-tested. Native helpers capture and stage private backups; they do not yet activate or continuously sync a personal roster. Windows-to-Linux path mapping, source/target policy review, model availability, explicit history selection, profile activation and rollback are the next implementation work after source inspection.
 - Existing live configuration and conversations were not modified by the fixture tests. Personal exports do not belong in the public repository or unencrypted model/data folders.
 
 ## Stable update maintenance
