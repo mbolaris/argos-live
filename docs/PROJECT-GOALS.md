@@ -16,21 +16,21 @@ Argos Live is a generic, maintained Debian live distribution with a complete Ope
 
 | Agent | Intended role | Model and access policy |
 |---|---|---|
-| Argos | Primary assistant and main point of contact | Broadest owner-selected access; reproduce the working source policy |
+| Argos | Primary assistant and main point of contact | Broadest owner-selected access, configured and reviewed on Live |
 | Nyx | Candid discussions using the owner's refusal-removed model | Preserve the exact source model and persona; choose tool access independently |
 | Proteus | Model experimentation | Separate workspace/state; change its model without changing Argos or Nyx |
 
-These are the owner's first personal preset, not a mandatory roster for every user. Each agent needs a separate workspace and agentDir/session store. Copy exact models, identities and effective permissions from the working installation; do not guess model tags or recreate personas from names. A workspace path alone is not a security boundary.
+These are the owner's first personal preset, not a mandatory roster for every user. Each agent needs a separate workspace and agentDir/session store. Transfer identities/personality and reviewed skill definitions from Windows. Build model providers, storage, integrations and permissions on Live; do not clone the Windows configuration. Preserve model preferences as reference data until exact downloadable artifacts are identified. A workspace path alone is not a security boundary.
 
 ## Sync contract
 
-The first supported workflow is a deliberate one-way sync from the chosen source installation into the USB profile. Windows is authoritative for this initial migration. Bidirectional merge is a later feature, with explicit conflict handling.
+The first supported workflow is a deliberate one-way transfer of personalities and reviewed skills. Windows is the source for these documents; Live owns its runtime configuration and downloads its own models into an owner-selected dedicated data location. Bidirectional merge is a later feature, with explicit conflict handling. See [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md).
 
 1. Locate the actual native Windows or WSL OpenClaw installation and inventory its version, agent roster, model/provider settings, workspaces, tools, skills/plugins and bindings.
-2. Create and verify an upstream OpenClaw private backup outside its source directories. Treat the archive as private: native backups can contain credentials, channel identities, memories and transcripts. Keep them off the public repository and unencrypted DATA; use private storage and an authenticated encrypted transfer.
-3. Restore to a fresh staging directory in encrypted USB persistence using the installed OpenClaw verifier/restore implementation. Never extract a supplied archive over the active home directory.
-4. Preview the roster and path/platform changes. Rebase Windows/WSL workspace and agentDir paths to independent Linux directories. Resolve referenced model availability and platform-specific skills, plugins and commands. Review the effective global and per-agent permissions together.
-5. Retain the target gateway token, loopback binding, trusted SSH identity, Argos model-storage identity and DATA mounting configuration. Copy required personal auth only through the private migration path; OAuth/device-bound credentials may need fresh authentication. History/memory migration is a separate explicit selection from settings/personas.
+2. Export a narrow allowlist of identity/personality documents and selected skill definitions. Existing wider archives remain private reference material. Exclude memory/history, credentials, provider configuration, channel bindings, Windows helpers and source permission settings from the default transfer.
+3. Verify the archive and stage documents as inert data in a fresh encrypted-persistence directory. Never extract a supplied archive over the active home directory. A native full backup is an optional separate recovery workflow, not the default personality transfer.
+4. Preview the exact document selection and independent Linux paths. Review each skill's capabilities and dependencies; port required helpers separately. Configure access locally rather than inheriting source global/per-agent grants.
+5. Retain the target gateway token, loopback binding, trusted SSH identity and persistence/storage configuration. Resolve model source revisions, hashes and projectors, then download them directly from Live into its own model directory. Source weights stay untouched. Credentials and history/memory remain separate explicit choices.
 6. Validate the staged config against the target's installed OpenClaw schema. Back up the active profile before activation, keep sync conflicts visible, and support restoration of the previous version. Do not execute imported setup scripts as part of archive inspection.
 7. Verify each agent's identity, selected model, tools, conversation and independent state. Reboot once for persistence/recall acceptance, without rewriting the USB for profile changes.
 

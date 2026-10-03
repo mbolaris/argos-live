@@ -24,6 +24,8 @@ No internal partitions, Windows boot files, encryption passphrase, TPM keys or f
 
 The project now explicitly separates the generic image, personal profile and model files. See PROJECT-GOALS.md.
 
+The owner has narrowed the next milestone to personality and reviewed skill transfer, with independent Live model downloads. Both private reference archives were received and checked on Yugo; no model weights transferred and nothing activated. Source configuration cloning and copying Windows model weights are superseded by this direction. MODEL-ONBOARDING.md records the progress/benchmark design and implementation checklist; those features remain pending.
+
 - Toronado is currently in Windows. Its local agent reports a verified redacted Argos/Nyx/Proteus configuration ZIP, excluding credentials/executable helpers. The full native recovery backup was stopped incomplete. The configuration-only ZIP was received over pinned-key, source-restricted SFTP and independently checked on Yugo: transfer digest, all 25 files and internal manifest passed. Nothing was activated. Private model/backend/helper inventory and Linux migration remain the next steps.
 - Native Windows/WSL export and Linux verified-staging helpers are prepared. A disposable three-agent fixture passed installed OpenClaw schema validation, native backup creation/verification and staged restoration of all three personas. Incorrect transfer checksums and existing target directories were rejected.
 - Windows helper argument forwarding and restrictive output ACLs were checked using a fixture CLI. The real Windows source/version, WSL placement, model tags, skills/plugins, credentials and permissions still require inspection.

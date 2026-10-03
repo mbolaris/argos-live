@@ -2,6 +2,10 @@
 
 Argos is a generic live image plus an optional private profile. Capture source configuration, transfer it with authenticated encryption, review Linux compatibility, stage on encrypted persistence, validate and activate with a target rollback snapshot. Repeating the process creates a new candidate and an explicit diff; it must not overwrite live agents blindly.
 
+## Current scope: personality and selected skills
+
+The owner narrowed the default transfer on October 3: transfer personality/identity documents and reviewed skills only. Live owns model downloads, providers, permissions and runtime configuration. The wider exports and native-backup workflows below remain optional reference/recovery tools, not a request to restore Windows configuration. Exclude memory/history, credentials, source tool grants and Windows helpers from this default path. Resolve model preferences separately and download artifacts directly into Live's dedicated model directory. See [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md) for onboarding progress and measured performance acceptance.
+
 ## Two distinct export types
 
 **Configuration-only ZIP:** A local source agent can capture a redacted roster, personas, model/provider references and declarative settings. Credentials and executable helpers are excluded. History, memories and authentication are not implied. Inspect the exact manifest and exclusions; archive checks do not prove complete recovery or Linux compatibility.
