@@ -26,6 +26,12 @@ chmod +x "$work/config/hooks/live/050-argos-menu.hook.binary"
 chmod +x "$work/config/hooks/live/030-diagnostics.hook.chroot"
 install -D -m 755 "$src/scripts/argos-collect-boot" "$work/config/includes.chroot/usr/local/sbin/argos-collect-boot"
 install -D -m 755 "$src/scripts/argos-export-boot" "$work/config/includes.chroot/usr/local/sbin/argos-export-boot"
+# Optional cached upstream archives are still hash-checked by the chroot hook.
+for archive in node.tar.xz ollama.tar.zst; do
+  if [[ -f /var/lib/argos-live/runtime-lock/$archive ]]; then
+    install -D -m 644 "/var/lib/argos-live/runtime-lock/$archive" "$work/config/includes.chroot/opt/argos/$archive"
+  fi
+done
 if [[ -d /var/lib/argos-live/seed-model ]]; then
   bash "$src/scripts/stage-seed-model.sh" "$work/config/includes.chroot/usr/local/share/argos-live/seed-model"
 else
