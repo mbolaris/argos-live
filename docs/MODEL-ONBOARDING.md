@@ -35,6 +35,8 @@ Load and test one large model at a time by default. Stop/unload the benchmark mo
 
 ## Implementation checklist
 
+These steps are broken into agent-sized items in [BACKLOG.md](BACKLOG.md): personality packs (E5), catalog and downloads (MD1–MD4), benchmarks (E1) and the dashboard (E4).
+
 1. Narrow personality/skill export and preview: selected files, exclusions, Linux dependency review, fresh encrypted staging, conflict handling and rollback.
 2. Private model catalog: verified upstream revisions/artifacts, agent assignments, capacity estimates and dedicated target storage.
 3. Resumable download worker: durable job state, bounded retries, integrity verification, disk-full/cancel/reboot recovery and single-worker coordination.

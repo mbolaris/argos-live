@@ -1,49 +1,57 @@
 # Project goals
 
-Updated October 3, 2026.
+Updated October 3, 2026. The implementation backlog is [BACKLOG.md](BACKLOG.md); this document says what we are building and why.
 
-Argos Live is a generic, maintained Debian live distribution with a complete OpenClaw environment and a clear first-run experience. A personal setup is an optional portable profile, installed into owner persistence rather than built into the public ISO.
+Argos Live is a bootable Debian live distribution for playing with local agents and models. Someone should be able to boot it, chat with a local model, try other models, and get trustworthy speed and ability numbers within minutes. The owner can also bring their own agent personalities (Argos, Nyx, Proteus) to a fresh install without cloning a whole machine's configuration.
 
-## Product commitments
+## Two product outcomes
 
-1. **Generic Debian base.** Boot on supported hardware, offer desktop and diagnostic entries, preserve owner-passphrase persistence, and keep internal storage optional. Hardware-specific settings, disk UUIDs and owner identities stay out of the generic image.
-2. **Complete OpenClaw environment.** Include CLI, gateway, browser dashboard, agent management, local inference and the dependencies needed for supported features. Let owners configure providers, tools, skills and integrations. The initial conversation-only choice is a starting permission profile, not a permanent restriction on the distribution.
-3. **Current stable software.** Track Debian stable/security updates and supported stable OpenClaw/Ollama/runtime releases. Resolve and pin exact versions and integrity hashes per image release. Test candidate updates before promotion; retain a known-good image and profile backup. Prefer supported LTS supporting runtimes where compatible. Do not turn a tested image into an unreviewed rolling install or silently update schemas under personal state.
-4. **Easy customization.** Expose agent creation/model selection through OpenClaw's UI, retain clear setup/status, and provide versioned profile export, review, import and rollback. Changing a profile or model should not require rewriting the USB.
-5. **Separate image, profile and model lifecycle.** The image contains software and a small licensed starter model. Agent identities, settings, credentials and history belong in encrypted persistence. Large model weights and owner-selected files can use DATA, with their encryption status visible.
+### 1. Out-of-the-box local AI lab (public)
 
-## Next milestone: portable three-agent profile
+| Moment | Target experience |
+|---|---|
+| Boot | Desktop entry boots without kernel edits on UEFI hardware; NVIDIA GPU used when present, CPU otherwise. |
+| First minute | Browser dashboard opens automatically. No setup questions. Hardware card shows CPU, RAM, GPU/VRAM, backend and where models are stored. |
+| First chat | Bundled starter model answers locally, offline, from the read-only image. Chat uses the OpenClaw web UI. |
+| Try a model | Curated catalog marks each model *fits / tight / won't fit* for this machine, shows exact download size, pulls with live progress. |
+| Numbers | One click: speed benchmark (load time, time to first token, prompt and generation tokens/s, median of 3 warm runs) in under a minute; quick ability benchmark in a few minutes. Results are saved and comparable side by side. |
+| Agents | A few sample agents (personality packs) are ready to chat; the user can create their own. |
+| Keep it | Persistence is optional and offered after the first experience, never as a gate. |
+
+### 2. Portable personalities (owner first, generic tooling)
+
+The owner's three agents move to any Argos Live install as a **personality pack**: identity/persona documents, reviewed skill definitions and a model *preference*. Live owns everything else: runtime configuration, permissions, providers and model downloads. See [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md) and [PROFILE-SYNC.md](PROFILE-SYNC.md).
 
 | Agent | Intended role | Model and access policy |
 |---|---|---|
 | Argos | Primary assistant and main point of contact | Broadest owner-selected access, configured and reviewed on Live |
-| Nyx | Candid discussions using the owner's refusal-removed model | Preserve the exact source model and persona; choose tool access independently |
-| Proteus | Model experimentation | Separate workspace/state; change its model without changing Argos or Nyx |
+| Nyx | Candid discussions using the owner's chosen model | Exact model preference preserved; tool access chosen independently |
+| Proteus | Model experimentation | Separate workspace/state; its model changes without affecting Argos or Nyx |
 
-These are the owner's first personal preset, not a mandatory roster for every user. Each agent needs a separate workspace and agentDir/session store. Transfer identities/personality and reviewed skill definitions from Windows. Build model providers, storage, integrations and permissions on Live; do not clone the Windows configuration. Preserve model preferences as reference data until exact downloadable artifacts are identified. A workspace path alone is not a security boundary.
+The pack format, exporter, importer and the public sample packs are generic and live in this repository. The owner's actual packs, inventories and transfer receipts are private and never committed here.
 
-## Sync contract
+## Product principles
 
-The first supported workflow is a deliberate one-way transfer of personalities and reviewed skills. Windows is the source for these documents; Live owns its runtime configuration and downloads its own models into an owner-selected dedicated data location. Bidirectional merge is a later feature, with explicit conflict handling. See [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md).
+1. **Delight first, safely.** Remove questions, not protections. Loopback-only services, gateway tokens and the conversation-only default permission stay; widening permissions is an explicit, visible choice.
+2. **Measure, don't guess.** Speeds come from backend-reported timings, never character counts. Benchmarks are fixed, versioned and deterministic (temperature 0, fixed seed, thinking disabled unless the benchmark says otherwise). Unknown means "unavailable", not an estimate.
+3. **Separate image, personality and model lifecycles.** The image holds software plus a small licensed starter model. Personalities and conversations live in encrypted persistence when present. Large models go on the largest suitable writable disk, with encryption status visible. Changing a model or personality never requires rewriting the USB.
+4. **Current, pinned, tested.** Track stable Debian, OpenClaw, Ollama and Node; pin exact versions and hashes per image; promote only after CI and acceptance pass. See [RELEASE-PROCESS.md](RELEASE-PROCESS.md).
+5. **Buildable by anyone.** The ISO builds in CI from this repository; contributors and agents should not need the owner's machines for anything except physical hardware acceptance.
+6. **Stdlib-first runtime.** Runtime Python uses the standard library only, so the image needs no pip installs and tests run on any Linux or Windows checkout.
 
-1. Locate the actual native Windows or WSL OpenClaw installation and inventory its version, agent roster, model/provider settings, workspaces, tools, skills/plugins and bindings.
-2. Export a narrow allowlist of identity/personality documents and selected skill definitions. Existing wider archives remain private reference material. Exclude memory/history, credentials, provider configuration, channel bindings, Windows helpers and source permission settings from the default transfer.
-3. Verify the archive and stage documents as inert data in a fresh encrypted-persistence directory. Never extract a supplied archive over the active home directory. A native full backup is an optional separate recovery workflow, not the default personality transfer.
-4. Preview the exact document selection and independent Linux paths. Review each skill's capabilities and dependencies; port required helpers separately. Configure access locally rather than inheriting source global/per-agent grants.
-5. Retain the target gateway token, loopback binding, trusted SSH identity and persistence/storage configuration. Resolve model source revisions, hashes and projectors, then download them directly from Live into its own model directory. Source weights stay untouched. Credentials and history/memory remain separate explicit choices.
-6. Validate the staged config against the target's installed OpenClaw schema. Back up the active profile before activation, keep sync conflicts visible, and support restoration of the previous version. Do not execute imported setup scripts as part of archive inspection.
-7. Verify each agent's identity, selected model, tools, conversation and independent state. Reboot once for persistence/recall acceptance, without rewriting the USB for profile changes.
+## Milestones
 
-See [the export/staging workflow](PROFILE-SYNC.md) for prepared helpers and the remaining activation work.
+| Milestone | Outcome | Backlog epics |
+|---|---|---|
+| M1 Benchmarks | `argos bench` measures speed and ability against any running Ollama; JSON results; fully unit-tested with mocks | E0, E1 |
+| M2 Out-of-box lab | Questionless first boot, dashboard with hardware card, catalog, pulls, benchmarks, results; ISO built and smoke-booted in CI | E2, E3, E4, E6 |
+| M3 Portable personalities | Pack format, exporter, verified import with preview and rollback; sample packs in the ISO; owner's three agents accepted on physical hardware | E5 |
+| M4 Release | Published ISO, release checks, dependency audit resolved or documented, hardware notes | E6, E7 |
 
-## Current state and next physical step
+M1 and E5's format/exporter work (P1–P2) can proceed in parallel. Repository reorganization (E8) needs owner approval and does not block anything.
 
-Physical desktop, welcome, encrypted persistence, stable-UUID DATA mounting, retained SSH/logging, local OpenClaw conversation and NVIDIA 29/29-layer offload pass on the updated USB. The live profile currently has only the default main agent. The owner's Argos/Nyx/Proteus source is on Toronado's Windows installation; its BitLocker volume remains locked in Linux. Boot Windows to inspect/export that source rather than unlocking Windows disks from the live OS.
+## Current state
 
-The installed OpenClaw 2026.9.7 supports native backup create/verify and restore to a fresh staging directory. Its Claws packaging surface is experimental and disabled by default, so it is not the foundation for the stable-profile workflow. Public online documentation can describe newer schemas; validate with the pinned installed CLI.
-
-Known runtime dependency advisories remain a release follow-up. See PHYSICAL-BOOT-TODO.md for hardware acceptance and remaining release issues.
+Physical desktop, welcome, encrypted persistence, stable-UUID DATA mounting, retained SSH/logging, local OpenClaw conversation and NVIDIA 29/29-layer offload pass on the updated USB (see [STATUS.md](STATUS.md)). Benchmarks, the catalog, the dashboard, questionless first boot and personality import are not implemented. The owner's redacted Argos/Nyx/Proteus reference export has been received and verified privately; nothing has been activated.
 
 References: [multi-agent routing](https://docs.openclaw.ai/concepts/multi-agent), [backup](https://docs.openclaw.ai/cli/backup), [migration](https://docs.openclaw.ai/install/migrating), [updating](https://docs.openclaw.ai/install/updating).
-
-The concrete stable-update workflow is documented in [RELEASE-PROCESS.md](RELEASE-PROCESS.md). Daily upstream discovery is implemented; candidate build and acceptance remain required before version promotion.

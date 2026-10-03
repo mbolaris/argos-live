@@ -1,6 +1,6 @@
 # Argos Live
 
-A generic Debian live distribution with a complete OpenClaw environment, local inference through Ollama, and optional portable personal profiles. See the [project goals and next profile-sync milestone](docs/PROJECT-GOALS.md).
+A generic Debian live distribution with a complete OpenClaw environment, local inference through Ollama, and optional portable personal profiles. Goal: boot it, chat with local models, try new ones and get speed and ability benchmarks within minutes, and bring your own agent personalities along. See the [project goals](docs/PROJECT-GOALS.md) and the agent-ready [implementation backlog](docs/BACKLOG.md).
 
 **Development status:** Development candidate physically verified on Toronado on October 3, 2026: desktop, encrypted persistence, DATA automount, SSH/logging and GPU-backed OpenClaw conversation pass. Dependency remediation and broader release acceptance remain open. Personal three-agent migration is the next milestone; no host installation is included.
 
