@@ -1,6 +1,6 @@
 # Argos Live verification and remaining updates
 
-Updated October 2, 2026. Source integrates Toronado's reviewed UEFI repairs and Yugo's welcome, diagnostics, artwork and build changes. The candidate ISO is built from a fresh Debian root with the pinned snapshot and runtime lockfile, followed by runtime synchronization and repacking. This is not proof of byte-identical reproducibility or a physical boot of the new ISO.
+Updated October 3, 2026. Source integrates Toronado's reviewed UEFI repairs and Yugo's welcome, diagnostics, artwork and build changes. The candidate ISO is built from a fresh Debian root with the pinned snapshot and runtime lockfile, followed by runtime synchronization and repacking. This is not proof of byte-identical reproducibility. The updated image has now booted physically through UEFI with existing encrypted persistence preserved.
 
 ## Implemented in the image
 
@@ -26,8 +26,10 @@ Updated October 2, 2026. Source integrates Toronado's reviewed UEFI repairs and 
 
 ## Before calling this a release
 
-- [ ] Boot the final ISO through real UEFI and legacy firmware where applicable; verify the artwork and first welcome without manual kernel edits. The prior physical success applies to the existing USB plus installed fixes.
-- [ ] Coordinate Toronado reboot, unlock persistence locally, and verify desktop startup, DATA automount, new model location, gateway readiness, GPU generation and saved transcript recovery. Keep the session on Yugo for reconnection.
+- [x] Boot the updated image through real UEFI: desktop, welcome, artwork, encrypted persistence, logging and pinned-key LAN SSH passed without kernel edits.
+- [ ] Test legacy firmware boot separately; generated-menu inspection is insufficient.
+- [x] Verify updated-USB desktop startup, DATA automount by stable UUID despite device renumbering, owner DATA write/read, model identity/blob hashes, selected DATA model path, gateway readiness and GPU generation. Qwen3 offloaded 29/29 layers; two-turn gateway conversation recalled its benign test phrase.
+- [ ] Verify that retained conversation through a further physical reboot. Settings and SQLite session stores survived; full transcript-recall acceptance remains pending.
 - [ ] Before any physical USB write, reidentify the device and current layout, create a current backup, and review which ranges change. An ISO fitting before the persistence offset alone does not prove a safe write. Never overwrite a mounted live USB; obtain approval for any new erasure.
 - [ ] Address the exact pinned OpenClaw dependency audit: 25 findings (24 high, one moderate, zero critical). Evaluate patched upstream versions with local-model, tool-policy and auth regression checks; do not silently change runtime pins.
 - [ ] Improve Qwen3 0.6B answer quality. Tests observed occasional empty output and tool-like text. Evaluate prompt/thinking behavior and optional larger models with owner-reviewed size/free-space requirements; no unsolicited model download.
@@ -39,4 +41,4 @@ Updated October 2, 2026. Source integrates Toronado's reviewed UEFI repairs and 
 
 ## Storage and security limits
 
-Toronado DATA files and models are unencrypted by the owner's choice. Conversations, assistant configuration and credentials remain on encrypted USB persistence. Locked BitLocker volumes, internal partition tables, Windows boot files, TPM keys and firmware keys were not modified. The rebuilt ISO is an output file; creating it does not update the running USB.
+Toronado DATA files and models are unencrypted by the owner's choice. Conversations, assistant configuration and credentials remain on encrypted USB persistence. Locked BitLocker volumes, internal partition tables, Windows boot files, TPM keys and firmware keys were not modified. The rebuilt image was subsequently applied only to the reviewed USB boot range. Full read-back, encrypted-persistence and retained partition-metadata checksums passed. Physical UEFI boot passed. No passphrase or partition layout changed.
