@@ -6,8 +6,8 @@ wallpaper=/usr/share/backgrounds/argos-live/futuristic-coastline.png
 test -s "$wallpaper"
 mkdir -p /usr/share/images/desktop-base
 ln -sfn "$wallpaper" /usr/share/images/desktop-base/default
-# Fresh XFCE 4.20 also uses this packaged fallback before monitor settings exist.
+# XFCE 4.20 uses this packaged fallback when legacy monitor migration fails.
 # GdkPixbuf detects the supplied PNG from its signature through the symlink.
-if [ -e /usr/share/backgrounds/xfce/xfce-blue.jpg ]; then
-  ln -sfn "$wallpaper" /usr/share/backgrounds/xfce/xfce-blue.jpg
+if [ -e /usr/share/backgrounds/xfce/xfce-x.svg ]; then
+  ln -sfn "$wallpaper" /usr/share/backgrounds/xfce/xfce-x.svg
 fi

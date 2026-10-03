@@ -34,8 +34,8 @@ if [[ -d "$work/chroot/usr/local/share/argos-live" ]]; then
   install -D -m 755 "$src/scripts/argos-collect-boot" "$work/chroot/usr/local/sbin/argos-collect-boot"
   install -D -m 755 "$src/scripts/argos-export-boot" "$work/chroot/usr/local/sbin/argos-export-boot"
   chroot "$work/chroot" /bin/sh -c 'ln -sfn /usr/share/backgrounds/argos-live/futuristic-coastline.png /usr/share/images/desktop-base/default; systemctl enable argos-boot-log.timer'
-  if [[ -e "$work/chroot/usr/share/backgrounds/xfce/xfce-blue.jpg" ]]; then
-    ln -sfn /usr/share/backgrounds/argos-live/futuristic-coastline.png "$work/chroot/usr/share/backgrounds/xfce/xfce-blue.jpg"
+  if [[ -e "$work/chroot/usr/share/backgrounds/xfce/xfce-x.svg" ]]; then
+    ln -sfn /usr/share/backgrounds/argos-live/futuristic-coastline.png "$work/chroot/usr/share/backgrounds/xfce/xfce-x.svg"
   fi
   rm -f "$work/chroot/usr/local/share/argos-live/seed-model/.argos-storage-id"
 fi
