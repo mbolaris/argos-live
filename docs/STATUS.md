@@ -30,6 +30,10 @@ The project now explicitly separates the generic image, personal profile and mod
 - These helpers capture and stage private backups; they do not yet activate or continuously sync a personal roster. Windows-to-Linux path mapping, source/target policy review, model availability, explicit history selection, profile activation and rollback are the next implementation work after source inspection.
 - Existing live configuration and conversations were not modified by the fixture tests. Personal exports do not belong in the public repository or unencrypted model/data folders.
 
+## Stable update maintenance
+
+Daily read-only GitHub Actions discovery is configured for OpenClaw, Ollama and Node. The October 3 upstream check found OpenClaw 2026.9.8 and Ollama 0.35.1; the current ISO/USB still runs 2026.9.7 and 0.35.0. Candidate pins and metadata were generated, not promoted. Four discovery tests and Linux shell syntax checks pass. Debian security/stable-update repositories are now enabled in the build source with a separately pinned security snapshot, but this requires a clean candidate build and package audit. See RELEASE-PROCESS.md.
+
 ## Release follow-ups
 
 The exact pinned runtime npm audit has 25 findings: 24 high, one moderate, zero critical. Dependency remediation remains open; successful inference/configuration audits do not resolve it. Evaluate supported stable upstream releases with regression tests rather than applying blind runtime updates.

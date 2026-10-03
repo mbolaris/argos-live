@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source "$(dirname "$0")/../versions.env"
-export SOURCE_DATE_EPOCH=1790812800
+export SOURCE_DATE_EPOCH=$(date -u -d "${DEBIAN_SNAPSHOT:0:4}-${DEBIAN_SNAPSHOT:4:2}-${DEBIAN_SNAPSHOT:6:2} ${DEBIAN_SNAPSHOT:9:2}:${DEBIAN_SNAPSHOT:11:2}:${DEBIAN_SNAPSHOT:13:2}" +%s)
 src=$(realpath "$(dirname "$0")/..")
 builder=/var/lib/argos-live/builder
 mkdir -p /var/lib/argos-live
@@ -42,7 +42,7 @@ mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
 mount -t sysfs sysfs "$builder/sys"
 trap 'umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
-chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --security false --updates false --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=30 -o Acquire::Retries=3' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0' && lb build"
+chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --mirror-binary-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --security true --updates true --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=30 -o Acquire::Retries=3' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0' && lb build"
 mkdir -p "$src/artifacts"
 cp "$work/live-image-amd64.hybrid.iso" "$src/artifacts/argos-live-amd64.iso"
 cd "$src/artifacts"

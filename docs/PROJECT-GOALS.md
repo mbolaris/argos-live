@@ -45,3 +45,5 @@ The installed OpenClaw 2026.9.7 supports native backup create/verify and restore
 Known runtime dependency advisories remain a release follow-up. See PHYSICAL-BOOT-TODO.md for hardware acceptance and remaining release issues.
 
 References: [multi-agent routing](https://docs.openclaw.ai/concepts/multi-agent), [backup](https://docs.openclaw.ai/cli/backup), [migration](https://docs.openclaw.ai/install/migrating), [updating](https://docs.openclaw.ai/install/updating).
+
+The concrete stable-update workflow is documented in [RELEASE-PROCESS.md](RELEASE-PROCESS.md). Daily upstream discovery is implemented; candidate build and acceptance remain required before version promotion.

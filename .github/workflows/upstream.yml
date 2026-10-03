@@ -1,0 +1,28 @@
+name: Upstream stable release check
+on:
+  schedule:
+    - cron: '17 14 * * *'
+  workflow_dispatch:
+  push:
+    paths: ['versions.env', 'scripts/check-upstream.mjs', '.github/workflows/upstream.yml']
+  pull_request:
+    paths: ['versions.env', 'scripts/check-upstream.mjs', 'tests/test-upstream.mjs']
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test tests/test-upstream.mjs
+      - run: node scripts/check-upstream.mjs work/upstream-report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upstream-stable-candidates
+          path: work/upstream-report/
+          retention-days: 30

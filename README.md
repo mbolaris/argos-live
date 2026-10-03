@@ -37,6 +37,10 @@ Owner selected encrypted persistence with a passphrase at boot. Final media prep
 
 The current USB candidate and internal disks are recorded in [docs/INVENTORY.md](docs/INVENTORY.md). Disk numbers and letters are transient. Never use them alone for selection. No destructive operations until the exact device, final image checksum, and erasure are confirmed.
 
+## Keeping the distro current
+
+The [release process](docs/RELEASE-PROCESS.md) tracks stable upstream releases daily, records verified candidate pins, and requires clean builds and regression/physical acceptance before promotion. Software discovery does not change a running personal profile.
+
 ## Acceptance and future milestones
 
 See [docs/STATUS.md](docs/STATUS.md), [docs/SOFTWARE.md](docs/SOFTWARE.md), and [docs/WINDOWS-VM.md](docs/WINDOWS-VM.md). Private GitHub customization and host installation are later milestones. Import configuration only after explicit repo selection; never execute imported setup scripts by default. No personalization credentials or previous private workspace files are copied into this image.
