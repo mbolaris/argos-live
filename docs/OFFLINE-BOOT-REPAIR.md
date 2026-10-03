@@ -10,6 +10,16 @@ Local plan, backup, and result files are under `local/` and excluded from Git. T
 
 The binary build hook creates the same selectable menu in future images, before checksums are generated. Physical media use the screen console. `ARGOS_TEST_SERIAL_CONSOLE=1` is an explicit opt-in for headless serial test builds only; it selects the desktop entry and adds the VM serial console.
 
-SSH/logging from Yugo's separate bundle is not installed by this boot-menu repair. The bundle or Yugo's public key must be obtained and its setup reviewed before configuring restricted LAN access. Firmware changes and BitLocker suspension have not been verified as performed.
+SSH/logging is separate from the initial menu-only repair. Firmware changes and BitLocker suspension have not been verified as performed.
 
 On October 2, 2026 the physical Kingston GRUB repair passed: both patched boot-file regions read back exactly, the first and last MiB protecting GPT structures remained unchanged, and the first 16 MiB of encrypted persistence remained unchanged. No write entered persistence. This repair affects the UEFI GRUB menu; the legacy BIOS menu changes are in the future-build hook. Physical boot of the diagnostic entry is still pending.
+
+## Yugo access bootstrap
+
+Yugo's owner-supplied ZIP was downloaded over the trusted LAN and verified against SHA256 `1cdd537cab237e310e46ab75d0cc359f26007179e7b93ffec098a0acea21e8ed`. Its scripts were reviewed before staging. Only the public key is included. The ZIP remains local rather than published with the generic image.
+
+`make-access-carrier.py` creates a verified boot-time setup hook. A second bounded physical patch places it in the existing, non-boot-critical `/live/filesystem.packages` allocation, updates its SHA256 manifest entry, and adds a local live-config hook URL to all three UEFI entries. The original package manifest is retained in the local patch backup and generic artifacts. No compressed root filesystem, kernel, initrd, GPT, or encrypted data is overwritten. All three patched regions read back correctly and protection checks passed.
+
+On the next unlocked Argos boot, the hook installs persistent journal configuration and the boot-evidence timer first. A background service waits for a 192.168.1.x address and runs the inspected installer. Internet is required for official Debian SSH/mokutil packages if absent. SSH permits the supplied key only for `mbolaris` from Yugo at 192.168.1.31; passwords, root login and forwarding are disabled. Only the fixed root boot-log export command is granted without a password. A per-start helper binds SSH to the current trusted-LAN address; it fails closed when that LAN is absent.
+
+Boot evidence: `/var/log/journal`, `/var/log/argos-boot/<boot-id>`. Installation evidence: `/var/log/argos-access-setup.log`. A completion marker prevents repeated package installation on later boots. This setup can run only after the live root and persistence are mounted; it cannot capture an earlier kernel panic. Successful physical bootstrap, SSH host-key verification, connection from Yugo, and log retention across another reboot remain unverified. Do not claim SSH is installed merely because its hook is staged.

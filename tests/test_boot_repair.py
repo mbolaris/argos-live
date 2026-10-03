@@ -24,6 +24,13 @@ class BootRepairTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             repair.menu(b'linux /live/vmlinuz\ninitrd /live/initrd\n')
 
+    def test_access_hook_is_present_in_all_entries(self):
+        old=b'linux /live/vmlinuz-test\ninitrd /live/initrd-test\n'+b' '*1950
+        new=repair.menu(old,hook=True)
+        self.assertEqual(len(new),len(old))
+        self.assertEqual(new.count(b'live-config.hooks=file:///run/live/medium/live/filesystem.packages'),3)
+        self.assertEqual(new.count(b'initrd /live/initrd-test'),3)
+
     @unittest.skipUnless(shutil.which('sh'),'Shell fixture requires sh')
     def test_binary_hook_creates_both_firmware_menus(self):
         with tempfile.TemporaryDirectory() as directory:

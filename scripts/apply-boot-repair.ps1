@@ -16,7 +16,7 @@ try {
     return $matches[0]
   }
   $disk=Identify
-  if($repair.segments.Count -ne 2){throw 'Exactly two boot-file patches expected.'}
+  if($repair.segments.Count -notin @(2,3)){throw 'Expected two menu patches or three access/menu patches.'}
   foreach($s in $repair.segments){
     if($s.offset -lt 1048576 -or $s.offset%512 -or $s.length%512 -or $s.length -gt 65536 -or $s.offset+$s.length -ge $repair.persistenceStart){throw 'Patch outside bounded boot-file region.'}
     if([Convert]::FromBase64String($s.before).Length -ne $s.length -or [Convert]::FromBase64String($s.after).Length -ne $s.length){throw 'Patch size mismatch.'}
@@ -64,8 +64,8 @@ public static class ArgosBootRepairIo {
   foreach($s in $repair.segments){
     if((Fingerprint (Read-Bytes $s.offset $s.length)) -ne (Fingerprint ([Convert]::FromBase64String($s.before)))){throw 'Boot-file preimage differs; refuse patch.'}
   }
-  Copy-Item -LiteralPath $Plan -Destination (Join-Path $root 'local/usb-boot-repair-backup.json') -Force
-  Record 'patching' 'Changing only GRUB menu and its ISO checksum entry.'
+  Copy-Item -LiteralPath $Plan -Destination (Join-Path $root ("local/usb-boot-repair-backup-"+(Get-Date -Format yyyyMMdd-HHmmss)+".json"))
+  Record 'patching' 'Changing only planned boot-region files and their checksum entries.'
   foreach($s in $repair.segments){
     [long]$position=0;[uint32]$count=0;$bytes=[Convert]::FromBase64String($s.after)
     if(-not [ArgosBootRepairIo]::SetFilePointerEx($device,[long]$s.offset,[ref]$position,0)){throw 'Patch seek failed.'}
@@ -74,7 +74,7 @@ public static class ArgosBootRepairIo {
   if(-not [ArgosBootRepairIo]::FlushFileBuffers($device)){throw 'Patch flush failed.'}
   foreach($s in $repair.segments){if((Fingerprint (Read-Bytes $s.offset $s.length)) -ne (Fingerprint ([Convert]::FromBase64String($s.after)))){throw 'Patch read-back mismatch.'}}
   foreach($region in $protected){if((Fingerprint (Read-Bytes $region.offset $region.length)) -ne $region.hash){throw 'Protected GPT/encryption header changed.'}}
-  Record 'complete' 'Both boot-file patches read back correctly. GPT copies and first 16 MiB of encrypted persistence unchanged; no writes entered persistence.'
+  Record 'complete' 'All planned boot-file patches read back correctly. GPT copies and first 16 MiB of encrypted persistence unchanged; no writes entered persistence.'
   Write-Host 'Boot menu repair verified. Persistence and passphrase preserved.'
 } catch {Record 'failed' $_.Exception.Message;Write-Error $_ -ErrorAction Continue}
 finally {if($device){$device.Dispose()};foreach($h in $handles){$h.Dispose()}}
