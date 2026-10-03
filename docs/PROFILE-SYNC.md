@@ -1,0 +1,15 @@
+# Personal profile export and staging
+
+The three-agent migration starts with OpenClaw's native private backup. This preserves the original source as a recovery point and lets the target's verifier restore into a fresh staging directory. Staging never activates imported configuration or rewrites the USB image.
+
+On the Windows source, the implementing agent should locate native OpenClaw or its WSL distribution and inspect the roster before running scripts/export-openclaw-profile.ps1. Pass an existing protected output directory outside OpenClaw state/workspace trees. Use a private folder on the BitLocker-protected Windows C: volume, outside both the repository and all configured agent workspaces. The exporter creates a fresh owner/SYSTEM-only directory, invokes the existing CLI's backup create --verify, and records archive size and SHA256. It includes upstream private state, which can contain credentials, sessions and memories. Logs are private too. Source software/configuration is not updated.
+
+Optional WslDistro selects the existing WSL installation. OpenClawCommand can identify its actual executable if it is not on the noninteractive PATH. Do not guess a distribution or upgrade the working source just to export it; inspect source capabilities first. The Windows helper has been fixture-tested; the actual source installation remains to be checked.
+
+Transfer the archive and checksum through authenticated encrypted access to the owner, and retain it on encrypted USB persistence. Never serve a personal archive through the generic trusted-LAN download endpoint used for public setup scripts, commit it to the public repository, or place it in the unencrypted DATA model folder. DATA can contain the generic helper scripts only.
+
+On the live system, scripts/stage-openclaw-profile.py takes the archive, --sha256 and a fresh --target directory. It verifies the transfer digest, invokes upstream backup verify, and uses backup restore into that fresh target. It rejects symlink staging paths and an existing target. The caller must select an encrypted-persistence location. Upstream restore preserves archive provenance; it does not turn Windows absolute paths into valid Linux paths automatically.
+
+The subsequent migration must inventory Argos/Nyx/Proteus, rebase independent workspace/agentDir paths, resolve models and platform-specific extensions, review global/per-agent tools, preserve target gateway/SSH/storage identity, validate a Linux candidate and create a rollback snapshot before activation. Memories/history and portable credentials are distinct selections. Some OAuth/device credentials need authentication again. The source roster has not yet been obtained, so activation and ongoing sync are not claimed implemented.
+
+Native export/restore are supported by the installed OpenClaw 2026.9.7. Experimental Claws packaging is not required. The public image remains generic; the three named agents are an optional personal profile.

@@ -1,8 +1,8 @@
 # Argos Live
 
-Debian live USB providing a generic personal OpenClaw assistant with local inference through Ollama. User control and privacy are product goals; no guarantee of model loyalty or resistance to manipulation is made.
+A generic Debian live distribution with a complete OpenClaw environment, local inference through Ollama, and optional portable personal profiles. See the [project goals and next profile-sync milestone](docs/PROJECT-GOALS.md).
 
-**Development status:** Milestone 1 in progress. Physical USB writing and boot are not yet authorized or tested. No host installation is included.
+**Development status:** Development candidate physically verified on Toronado on October 3, 2026: desktop, encrypted persistence, DATA automount, SSH/logging and GPU-backed OpenClaw conversation pass. Dependency remediation and broader release acceptance remain open. Personal three-agent migration is the next milestone; no host installation is included.
 
 ## Build on Toronado
 
