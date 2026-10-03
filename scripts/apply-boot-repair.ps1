@@ -18,7 +18,7 @@ try {
   $disk=Identify
   if($repair.segments.Count -ne 2){throw 'Exactly two boot-file patches expected.'}
   foreach($s in $repair.segments){
-    if($s.offset -lt 17408 -or $s.offset%512 -or $s.length%512 -or $s.length -gt 65536 -or $s.offset+$s.length -ge $repair.persistenceStart){throw 'Patch outside bounded boot-file region.'}
+    if($s.offset -lt 1048576 -or $s.offset%512 -or $s.length%512 -or $s.length -gt 65536 -or $s.offset+$s.length -ge $repair.persistenceStart){throw 'Patch outside bounded boot-file region.'}
     if([Convert]::FromBase64String($s.before).Length -ne $s.length -or [Convert]::FromBase64String($s.after).Length -ne $s.length){throw 'Patch size mismatch.'}
   }
   Add-Type -TypeDefinition @'
@@ -52,10 +52,14 @@ public static class ArgosBootRepairIo {
   function Fingerprint([byte[]]$bytes){return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))}
   $gpt=Read-Bytes 512 512
   if([Text.Encoding]::ASCII.GetString($gpt,0,8) -ne 'EFI PART'){throw 'GPT signature missing.'}
-  $table=Read-Bytes 1024 16384
-  $start=[BitConverter]::ToUInt64($table,3*128+32)*512
+  $tableLba=[BitConverter]::ToUInt64($gpt,72)
+  $entryCount=[BitConverter]::ToUInt32($gpt,80)
+  $entrySize=[BitConverter]::ToUInt32($gpt,84)
+  if($entrySize -ne 128 -or $entryCount -lt 4 -or $entryCount -gt 4096 -or $tableLba*512+$entryCount*$entrySize -gt 1048576){throw 'Unsupported GPT entry geometry.'}
+  $table=Read-Bytes ([long]$tableLba*512) ([int]$entryCount*$entrySize)
+  $start=[BitConverter]::ToUInt64($table,3*$entrySize+32)*512
   if($start -ne $repair.persistenceStart){throw 'Encrypted persistence boundary changed.'}
-  $protected=@(@{offset=0;length=17408},@{offset=[long]$repair.capacity-17408;length=17408},@{offset=[long]$start;length=16777216})
+  $protected=@(@{offset=0;length=1048576},@{offset=[long]$repair.capacity-1048576;length=1048576},@{offset=[long]$start;length=16777216})
   foreach($region in $protected){$region.hash=Fingerprint (Read-Bytes $region.offset $region.length)}
   foreach($s in $repair.segments){
     if((Fingerprint (Read-Bytes $s.offset $s.length)) -ne (Fingerprint ([Convert]::FromBase64String($s.before)))){throw 'Boot-file preimage differs; refuse patch.'}
