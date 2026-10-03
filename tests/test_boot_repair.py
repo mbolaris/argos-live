@@ -43,7 +43,11 @@ class BootRepairTests(unittest.TestCase):
             menu=(root/'boot/grub/grub.cfg').read_text()
             self.assertEqual(menu.count('initrd /live/initrd-test'),3)
             self.assertNotIn('ttyS0',menu)
-            self.assertIn('set default=0',menu)
+            self.assertIn('set default=1',menu)
+            self.assertIn('set timeout=15',menu)
+            desktop=menu.split('menuentry "Argos desktop" {',1)[1].split('}',1)[0]
+            self.assertIn('module_blacklist=nouveau',desktop)
+            self.assertNotIn('systemd.unit=multi-user.target',desktop)
             bios=(root/'isolinux/live.cfg').read_text()
             self.assertEqual(bios.count('initrd /live/initrd.img'),3)
 
