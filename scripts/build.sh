@@ -4,6 +4,7 @@ source "$(dirname "$0")/../versions.env"
 export SOURCE_DATE_EPOCH=1790812800
 src=$(realpath "$(dirname "$0")/..")
 builder=/var/lib/argos-live/builder
+mkdir -p /var/lib/argos-live
 exec 9>/var/lib/argos-live/build-run.lock
 flock -n 9 || { echo 'Another build owns this workspace.' >&2; exit 1; }
 [[ -f "$builder/etc/debian_version" ]] || { echo 'Run bootstrap-builder.sh first.' >&2; exit 1; }
@@ -17,7 +18,14 @@ cp "$src/runtime/argos.py" "$work/config/includes.chroot/usr/local/bin/argos"
 chmod +x "$work/config/includes.chroot/usr/local/bin/argos"
 cp "$src/runtime/launch.sh" "$work/config/includes.chroot/usr/local/bin/argos-launch"
 chmod +x "$work/config/includes.chroot/usr/local/bin/argos-launch"
+cp "$src/runtime/welcome.py" "$work/config/includes.chroot/usr/local/bin/argos-welcome"
+chmod +x "$work/config/includes.chroot/usr/local/bin/argos-welcome"
 chmod +x "$work/config/hooks/live/010-argos.hook.chroot"
+chmod +x "$work/config/hooks/live/020-wallpaper.hook.chroot"
+chmod +x "$work/config/hooks/live/050-argos-menu.hook.binary"
+chmod +x "$work/config/hooks/live/030-diagnostics.hook.chroot"
+install -D -m 755 "$src/scripts/argos-collect-boot" "$work/config/includes.chroot/usr/local/sbin/argos-collect-boot"
+install -D -m 755 "$src/scripts/argos-export-boot" "$work/config/includes.chroot/usr/local/sbin/argos-export-boot"
 if [[ -d /var/lib/argos-live/seed-model ]]; then
   bash "$src/scripts/stage-seed-model.sh" "$work/config/includes.chroot/usr/local/share/argos-live/seed-model"
 else

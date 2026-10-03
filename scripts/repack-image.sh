@@ -19,10 +19,14 @@ for area in config/includes.chroot chroot; do
   done
 done
 bash "$src/scripts/sync-build-runtime.sh"
+install -m 755 "$src/live/config/hooks/live/050-argos-menu.hook.binary" "$work/config/hooks/live/050-argos-menu.hook.binary"
 python3 - "$work/config/binary" <<'PY'
-import pathlib, sys
+import pathlib, sys, re
 p = pathlib.Path(sys.argv[1])
 s = p.read_text()
+s = re.sub(r'\s+console=ttyS\S*', '', s)
+if 'console=tty0' not in s:
+    s = s.replace('hostname=argos-live', 'hostname=argos-live console=tty0')
 if 'persistence-media=removable-usb' not in s:
     s = s.replace('persistence-encryption=luks username',
                   'persistence-encryption=luks persistence-media=removable-usb username')

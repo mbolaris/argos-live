@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+/usr/local/sbin/argos-collect-boot >/dev/null 2>&1
+exec 8>/var/log/argos-boot/.snapshot.lock
+flock -w 45 8 || exit 75
+tar --exclude='*.tmp' --exclude='.lock' --exclude='.snapshot.lock' -C /var/log -czf - argos-boot

@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+mkdir -p /var/log/journal
+systemctl enable argos-boot-log.timer

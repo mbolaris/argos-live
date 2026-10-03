@@ -1,0 +1,42 @@
+#!/bin/bash
+set -u
+umask 077
+base=/var/log/argos-boot
+mkdir -p "$base"
+exec 8>"$base/.snapshot.lock"
+flock -w 45 8 || exit 75
+boot=$(cat /proc/sys/kernel/random/boot_id)
+out="$base/$boot"
+mkdir -p "$out"
+: >"$out/source-log-times.txt"
+exec 9>"$out/.lock"
+flock -n 9 || exit 0
+capture() { local file=$1; shift; timeout 20 "$@" >"$out/$file.tmp" 2>&1; mv "$out/$file.tmp" "$out/$file"; }
+printf 'boot_id=%s\ncaptured_at=%s\n' "$boot" "$(date -Is)" >"$out/snapshot-metadata.txt"
+capture journal-boots.txt journalctl --list-boots --no-pager
+capture cmdline.txt cat /proc/cmdline
+capture kernel.txt journalctl -b -k --no-pager
+capture journal.txt journalctl -b --no-pager -n 15000
+capture failures.txt systemctl --failed --no-pager
+capture desktop.txt systemctl status lightdm display-manager --no-pager -l
+capture storage.txt lsblk -o NAME,MODEL,SERIAL,SIZE,FSTYPE,LABEL,UUID,MOUNTPOINTS
+capture mounts.txt findmnt
+capture secure-boot.txt mokutil --sb-state
+capture nvidia-modules.txt bash -c 'lsmod; modinfo nvidia-current; modinfo nvidia; dkms status'
+capture nvidia-device.txt lspci -nnk
+capture network.txt bash -c 'ip -brief address; ip route; systemctl status ssh --no-pager'
+capture persistence.txt bash -c 'findmnt /; findmnt -t overlay; findmnt | grep -E "persistence|mapper|live"; ls -l /dev/mapper; for d in /dev/mapper/*; do [ -b "$d" ] && cryptsetup status "${d##*/}"; done'
+# Only standard boot/display logs; never copy home directories or credentials.
+for dir in /var/log/lightdm /var/log/Xorg.0.log /var/log/live /run/live; do
+  if [ -e "$dir" ]; then stat -c '%n %y %s' "$dir" >>"$out/source-log-times.txt"; fi
+  if [ -f "$dir" ]; then tail -c 2097152 "$dir" >"$out/${dir##*/}"; fi
+  if [ -d "$dir" ] && [ "$dir" != /run/live ]; then
+    mkdir -p "$out/${dir##*/}"
+    find "$dir" -maxdepth 1 -type f -name '*.log' -exec bash -c 'tail -c 2097152 "$1" >"$2/${1##*/}"' _ {} "$out/${dir##*/}" \;
+  fi
+done
+journalctl --sync
+# Keep the most recent 12 boot snapshots; journals are bounded separately.
+mapfile -t old < <(find "$base" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +13 | cut -d' ' -f2-)
+for d in "${old[@]}"; do [[ "$d" == "$base/"* && "$d" != "$out" ]] && rm -rf -- "$d"; done
+exit 0

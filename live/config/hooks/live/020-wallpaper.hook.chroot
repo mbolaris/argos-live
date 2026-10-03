@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+# XFCE's initial monitor settings use this desktop-base default path.
+# Keep an explicitly chosen user wallpaper intact by changing the default asset.
+wallpaper=/usr/share/backgrounds/argos-live/futuristic-coastline.png
+test -s "$wallpaper"
+mkdir -p /usr/share/images/desktop-base
+ln -sfn "$wallpaper" /usr/share/images/desktop-base/default

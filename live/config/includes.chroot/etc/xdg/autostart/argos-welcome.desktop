@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Argos Welcome
+Comment=Start your local AI workspace
+Exec=argos-launch
+Icon=applications-science
+Terminal=false
+OnlyShowIn=XFCE;

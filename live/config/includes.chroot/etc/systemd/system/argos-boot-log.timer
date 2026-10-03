@@ -1,0 +1,7 @@
+[Unit]
+Description=Capture boot evidence before and after desktop startup
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=2min
+[Install]
+WantedBy=timers.target

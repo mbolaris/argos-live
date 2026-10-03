@@ -1,0 +1,6 @@
+[Unit]
+Description=Argos boot evidence snapshot
+After=local-fs.target systemd-journald.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/argos-collect-boot

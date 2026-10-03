@@ -8,6 +8,8 @@ lightdm
 firefox-esr
 network-manager
 network-manager-gnome
+openssh-server
+mokutil
 firmware-linux
 firmware-realtek
 firmware-iwlwifi

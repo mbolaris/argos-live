@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Argos Setup and Assistant
-Comment=Configure local AI, storage, and permissions
-Exec=xfce4-terminal --command=argos-launch
+Name=Argos Welcome and Assistant
+Comment=Start your local assistant and check your workspace
+Exec=argos-launch
 Icon=applications-science
 Categories=Utility;
 Terminal=false

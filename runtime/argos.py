@@ -16,6 +16,7 @@ import urllib.error
 
 STATE = Path.home() / '.config/argos-live/state.json'
 OC = Path.home() / '.openclaw'
+SEED = Path('/usr/local/share/argos-live/seed-model')
 
 def run(*args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
@@ -44,30 +45,30 @@ def persistence_present():
     # Full-root Debian live persistence contains /persistence.conf on its backing fs.
     return any(any(root.glob('*/persistence.conf')) for root in (Path('/run/live/persistence'), Path('/lib/live/mount/persistence')))
 
-def setup():
+def setup(ask=input):
     if STATE.exists():
         raise ValueError('Setup already exists. Back up state before reconfiguring.')
     if not persistence_present():
         print('WARNING: no live persistence detected. Settings will be lost at reboot.')
-        if input('Continue for a temporary test? Type TEMPORARY: ') != 'TEMPORARY':
+        if ask('Continue for a temporary test? Type TEMPORARY: ') != 'TEMPORARY':
             return
     print('Argos uses a local model. GitHub and cloud accounts are optional.')
     print('Default permissions: conversation and session status; shell, file tools, browser, and updates denied.')
-    if input('Accept these permissions? [yes/no]: ').strip().lower() != 'yes':
+    if ask('Accept these permissions? [yes/no]: ').strip().lower() != 'yes':
         raise ValueError('Permission setup cancelled. Broader permissions require deliberate configuration and review.')
     print('Model files on external storage are not encrypted by Argos. Use an encrypted volume if needed.')
     default = Path.home() / 'Models'
-    answer = input(f'Existing model storage directory, or Enter for {default}: ').strip()
+    answer = ask(f'Existing model storage directory, or Enter for {default}: ').strip()
     if not answer:
         default.mkdir(mode=0o700, exist_ok=True)
         answer = str(default)
     p, free = probe_storage(answer)
     print(f'Selected: {p}; free: {free / 2**30:.2f} GiB. No download has started.')
-    if input('Use this location? [yes/no]: ').strip().lower() != 'yes':
+    if ask('Use this location? [yes/no]: ').strip().lower() != 'yes':
         return
     models = p / 'argos-models'
     models.mkdir(exist_ok=True, mode=0o700)
-    seed = Path('/usr/local/share/argos-live/seed-model')
+    seed = SEED
     if seed.is_dir() and not (models / 'manifests').exists():
         probe_storage(models, 1024**3)
         print('Copying the bundled Qwen3 0.6B model (about 0.5 GiB) into selected storage.')
@@ -83,7 +84,7 @@ def setup():
     else:
         identity_path.write_text(identity + '\n')
         identity_path.chmod(0o600)
-    model = input('Local Ollama model tag [qwen3:0.6b]: ').strip() or 'qwen3:0.6b'
+    model = ask('Local Ollama model tag [qwen3:0.6b]: ').strip() or 'qwen3:0.6b'
     if not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or 'cloud' in model.split(':')[-1]:
         raise ValueError('Invalid local model tag.')
     config = {

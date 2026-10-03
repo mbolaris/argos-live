@@ -5,7 +5,7 @@ initrd=$(awk '$1=="initrd" {print $2;exit}' boot/grub/grub.cfg)
 test -n "$kernel" && test -n "$initrd"
 base='boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'
 diagnostic='nomodeset module_blacklist=nouveau,nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm systemd.unit=multi-user.target systemd.show_status=1'
-default=0
+default=1
 # Explicitly separate headless serial test media from physical boot media.
 if [ "${ARGOS_TEST_SERIAL_CONSOLE:-0}" = 1 ]; then
   base="$base console=ttyS0,115200"
@@ -14,13 +14,13 @@ fi
 cat > boot/grub/grub.cfg <<EOF
 source /boot/grub/config.cfg
 set default=$default
-set timeout=-1
+set timeout=15
 menuentry "Argos diagnostics - text, GPU disabled" {
  linux $kernel $base $diagnostic
  initrd $initrd
 }
 menuentry "Argos desktop" {
- linux $kernel $base
+ linux $kernel $base module_blacklist=nouveau
  initrd $initrd
 }
 menuentry "Argos desktop - basic graphics" {
@@ -31,15 +31,15 @@ EOF
 cat > isolinux/live.cfg <<EOF
 label argos-diagnostic
  menu label Argos diagnostics - text, GPU disabled
- menu default
  linux /live/vmlinuz
  initrd /live/initrd.img
  append $base $diagnostic
 label argos-desktop
  menu label Argos desktop
+ menu default
  linux /live/vmlinuz
  initrd /live/initrd.img
- append $base
+ append $base module_blacklist=nouveau
 label argos-basic
  menu label Argos desktop - basic graphics
  linux /live/vmlinuz
