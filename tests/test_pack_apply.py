@@ -157,3 +157,16 @@ class ApplyTests(unittest.TestCase):
                 self.activate(f)
             self.assertEqual((f[3] / 'SOUL.md').read_bytes(), b'New owner changes after preview')
             self.assertEqual(list(f[2].iterdir()), [])
+
+    def test_change_during_backup_is_retained_and_blocks_activation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stage, home, snapshots, workspace, sha, inventory, original = self.fixture(Path(directory))
+            class RacingRuntime(FixtureRuntime):
+                def backup(self, path):
+                    super().backup(path)
+                    (workspace / 'SOUL.md').write_bytes(b'Owner edit during backup')
+            with self.assertRaisesRegex(ValueError, 'changed while taking backup'):
+                pack_apply.apply(stage, home, snapshots, sha, RacingRuntime(home),
+                                 installed=inventory, reviewed_skills=True, gateway_stopped=True)
+            self.assertEqual((home / 'openclaw.json').read_bytes(), original)
+            self.assertEqual((workspace / 'SOUL.md').read_bytes(), b'Owner edit during backup')

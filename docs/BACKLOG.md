@@ -207,11 +207,12 @@ Depends on: P3.
 - This is preparation for P4, not active pack apply or rollback implementation. Record real-runtime CI separately from physical acceptance.
 - Evidence: pinned OpenClaw 2026.9.7 and Node 26.10.0 Linux CI passed three-agent schema validation, invalid-policy rejection, verified native backup, and fresh restore with byte-identical config/personas ([runtime run](https://github.com/mbolaris/argos-live/actions/runs/37167980872)). Windows suite: 58 tests, three platform skips; Linux tests passed. No owner profile activation or physical acceptance claimed.
 
-### P4 Apply with rollback — `in progress (PR pending)`
+### P4 Apply with rollback — `implemented (PR #13; merge pending)`
 Depends on: P3.
 - `argos pack apply STAGE_ID`: snapshots the current OpenClaw config and agent directories, creates or updates each agent with its own workspace and agentDir, writes persona files, assigns the resolved model or leaves the agent visibly pending a model, applies the default conversation-only tool policy, validates with `openclaw config validate`, and rolls back automatically if validation fails. `argos pack rollback SNAPSHOT_ID` restores a snapshot.
 - Accept: unit tests with a fake OpenClaw config; a smoke test with the pinned OpenClaw validates a three-agent sample pack, then rolls back and restores the original byte-for-byte.
 - Implementation: reviewed archive digest and fresh config/document baseline required; explicit stopped-gateway acknowledgment; verified native backup plus scoped originals; per-file atomic writes; candidate and active schema validation; automatic restoration on failure; rollback refuses later edits or damaged originals. Unmatched models stay pending outside the active roster; inventory CLI is explicit caller-supplied evidence until MD1 integration. Skills require a separate review acknowledgment. Encryption and gateway shutdown remain caller preconditions. Physical persona/model/tool acceptance remains P7/P5.
+- Evidence: 67 Windows tests passed (three platform skips), including failure restoration, add/update, stale review, edits during backup, rollback drift/corruption and pending models. Pinned OpenClaw 2026.9.7 Linux smoke passed actual three-agent apply/schema validation and byte-exact rollback, with new workspace removal ([runtime run](https://github.com/mbolaris/argos-live/actions/runs/37168658979)). Fictional inventory only; no real inference, effective tool-denial or owner/physical acceptance claim.
 
 ### P5 Per-agent permission profiles — `todo`
 Depends on: P4.
