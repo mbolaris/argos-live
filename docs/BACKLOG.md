@@ -107,13 +107,14 @@ Depends on: B3, B5, B6.
 
 ## E2 Models and storage
 
-### MD1 Curated catalog — `implemented (PR pending; catalog list awaits owner review per D4)`
+### MD1 Curated catalog — `implemented (PR #15; catalog list awaits owner review per D4)`
 Depends on: B1, B2.
 - `runtime/argoslive/data/catalog.json`: 8–12 entries (tag, family, parameter count, quantization, licence, capabilities such as tools/vision/thinking, description, registry manifest digest pinned at catalog update time, total download bytes from the manifest).
 - `catalog.py`: fit estimate = weight bytes + KV cache estimate at the default context + overhead, compared with free VRAM (GPU) or available RAM (CPU), giving fits / tight / won't fit and the reason.
 - `scripts/update-catalog.py` refreshes digests and sizes from the registry and fails on missing metadata.
 - Accept: unit tests for fit classification at boundaries; a catalog file validates against its schema; the agent proposes the list in the PR and the owner approves it (D4).
 - Proposed nine explicit local Ollama tags: qwen3:0.6b, 1.7b, 4b, 8b, 14b, 30b; qwen3-vl:4b; qwen2.5-coder:7b; optional huihui_ai/qwen3-abliterated:8b. Registry manifests, config/license blob sizes and hashes, immutable upstream architecture sources, full artifact byte totals and packaged licenses are checked. Claims/fit estimates never mark inference ready; source Windows aliases are not remapped. `argos catalog` lists the catalog; pack import resolves exact catalog preferences as needing download, not installed. Live downloads/capability tests remain MD4/physical work. See [MODEL-CATALOG.md](MODEL-CATALOG.md).
+- Evidence: metadata-only refresh of all nine live registry/upstream sources passed; 107 Windows tests passed (five platform skips); Linux Python/shell and Node CI passed, including installed catalog/license validation ([run](https://github.com/mbolaris/argos-live/actions/runs/37171194148)). Fit boundaries, full-context scaling, vision/MoE accounting, exact preference/quantization matches, duplicate artifact totals, malformed metadata, checksum/size/revision failures and license integrity are covered. No real inference or physical acceptance claimed.
 
 ### MD2 Model storage selection — `merged (PR #14)`
 Depends on: B1.
