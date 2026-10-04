@@ -280,6 +280,20 @@ Depends on: MD4b.
   fixed native endpoint, benchmarks and immutable-starter regression passed
   ([run](https://github.com/mbolaris/argos-live/actions/runs/37232807741)).
 
+### O2b Owned native gateway and private startup diagnostics — `in progress`
+Depends on: O1, O2a.
+- Reserve the reviewed local/token gateway endpoint; never adopt or kill an
+  unrelated listener. Verify the pinned host version and require the listening
+  PID to belong to the launched Node process group before reporting readiness.
+- Reuse Linux parent-death supervision and supervisor-held exclusion until the
+  whole launcher/gateway group stops. Private owner-only logs retain diagnostics;
+  configuration, tokens and tool permissions are not changed.
+- Accept: real Linux tests cover launcher child ownership, busy ports, version
+  mismatch, safe executable symlinks, linked log refusal and parent-death cleanup.
+  Native pinned gateway must pass authenticated health, UI document, competing
+  launch refusal and listener shutdown. This is not model-reply or browser-chat
+  acceptance; automatic dashboard login wiring remains O2.
+
 ### O3 Offer persistence later — `todo`
 Depends on: W2.
 - Dashboard banner in try mode explaining what is lost on reboot and linking to documented steps for creating encrypted persistence. No disk writes from the dashboard in this item.
