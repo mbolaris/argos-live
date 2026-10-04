@@ -31,3 +31,53 @@ A green build establishes image creation and artifact integrity. QEMU desktop,
 offline starter inference/dashboard timing and screenshots are C3. Physical
 NVIDIA support, USB persistence and owner personality acceptance remain separate.
 Do not rewrite the owner's USB from a build-only result.
+
+## Offline guest check
+
+The **Offline QEMU ISO acceptance** workflow accepts a successful build run ID,
+downloads that candidate and verifies its ISO SHA256 again. It boots the original
+desktop kernel/initrd under CPU software emulation with no NIC or host disk. A
+serial-console argument is added only to this VM launch; the ISO is unchanged.
+The [Debian Live factory test user](https://live-team.pages.debian.net/live-manual/html/live-manual/customizing-run-time-behaviours.en.html)
+is used only in a fresh disposable guest. No owner password or persistence is used.
+
+The guest checks XFCE, runs existing setup with fixed public test answers, starts
+the model service/dashboard, checks an authenticated status response, runs the
+short real CPU speed workload and verifies its saved result. The guest can
+instead use the workflow's `auto` setup mode on an O1 candidate: it
+calls `argos setup --auto`, requires a try session, verifies the read-only bundled
+model source and rejects copied weights in the selected writable store. Services
+are still started explicitly by the test; this is not automatic desktop startup.
+The default interactive mode remains compatible with the original C2 candidate.
+This disposable guest process bounds generation to eight tokens and records that setting;
+comparison with normal 128-token benchmark runs is refused. The first full-length
+TCG attempt reached desktop/dashboard/inference but was stopped after over twenty
+minutes: its observed generation rate was about 0.3 tokens/s. This is emulation
+overhead, not evidence of a desktop stall or a usable hardware performance score.
+Timings and a QEMU screen dump accompany the console. A private host UNIX-socket
+VNC display initializes the capture path without a LAN listener. The guest's
+test-only Firefox profile uses its built-in loopback Marionette driver to wait
+for real hardware/capability/catalog cards and a completed refresh. Kiosk mode
+hides the session URL; the test driver strips its query after the page has captured
+the token. This is test-only redaction, not ordinary browser startup behavior. Source is sent
+in acknowledged, hash-checked serial chunks; credentials are never printed.
+Blank/placeholder screenshots fail acceptance, and the captured desktop still
+requires visual review. See Mozilla's [Marionette protocol](https://firefox-source-docs.mozilla.org/remote/marionette/Protocol.html).
+The disposable guest disables X screensaver/DPMS and captures the dashboard once
+its native DOM is ready, before the long CPU-emulated benchmark. This avoids
+QEMU's VGA placeholder after unattended display power-off; ordinary distro idle
+and lock behavior is unchanged and remains a separate check.
+VM timing is not physical hardware performance.
+The current test starts setup/services explicitly; automatic O2 startup and actual
+UEFI/GRUB selection remain C3b. Failure never authorizes a USB rewrite.
+
+The accepted [run 37233824509](https://github.com/mbolaris/argos-live/actions/runs/37233824509)
+used automatic setup on the image built by [37231442525](https://github.com/mbolaris/argos-live/actions/runs/37231442525),
+ISO SHA256 `ab40929d95c0c6ff0f5a56bdd83d75aff6ab9a6e5e9c08bce3e6a9c0c2db61f5`.
+It passed all guest/host gates; the 1280 × 800 native Firefox dashboard capture
+was visually reviewed. Three eight-token CPU runs reported a median 0.342 tokens/s
+under TCG. Dashboard readiness was 210.08 seconds from the guest test stage,
+and the VM test elapsed 978.43 seconds. These measurements have explicit emulation
+and timing boundaries; they do not measure a physical desktop or boot duration.
+The dashboard correctly reported the assistant not ready: this test exercises
+the inference service and dashboard, not the OpenClaw gateway/conversation.
