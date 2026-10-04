@@ -43,7 +43,7 @@ Resolved October 3, 2026. Agents implement these; changing one needs the owner.
 
 ## E0 Foundations
 
-### F1 Make the test suite environment-independent — `in progress (PR pending)`
+### F1 Make the test suite environment-independent — `done ([PR #2](https://github.com/mbolaris/argos-live/pull/2))`
 Depends on: none.
 - `tests/test_welcome.py` must skip with a clear reason, not error, when `tkinter` is missing.
 - Add `.github/workflows/tests.yml` running `bash scripts/check.sh` and the Node upstream tests on `ubuntu-latest` for every push and PR.
