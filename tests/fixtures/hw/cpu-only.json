@@ -1,0 +1,8 @@
+{
+  "cpuinfo": "processor : 0\nmodel name : Fixture Laptop CPU\nphysical id : 0\ncore id : 0\n",
+  "meminfo": "MemTotal:        8388608 kB\nMemAvailable:    4194304 kB\n",
+  "nvidia": null,
+  "pci": "0000:00:00.0 Host bridge: Fixture CPU\n",
+  "lsblk": "{\"blockdevices\":[]}",
+  "secure_boot": 1
+}

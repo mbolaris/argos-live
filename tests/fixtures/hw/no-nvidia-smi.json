@@ -1,0 +1,8 @@
+{
+  "cpuinfo": "processor : 0\nmodel name : Fixture Hybrid CPU\n",
+  "meminfo": "MemTotal:        16777216 kB\n",
+  "nvidia": null,
+  "pci": "0000:00:02.0 VGA compatible controller: Intel Corporation Fixture Graphics\n0000:01:00.0 Display controller: Advanced Micro Devices, Inc. [AMD/ATI] Fixture Graphics\n",
+  "lsblk": null,
+  "secure_boot": null
+}
