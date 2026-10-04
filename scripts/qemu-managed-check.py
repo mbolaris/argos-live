@@ -66,6 +66,41 @@ def firefox_connected(port):
     return False
 
 
+def backend_observation(opener):
+    """Bounded fixture-only diagnostics: no command lines, environment or logs."""
+    items = []
+    for process in Path('/proc').iterdir():
+        if not process.name.isdigit():
+            continue
+        try:
+            if process.stat().st_uid != os.getuid() or (process / 'comm').read_text().strip() != 'ollama':
+                continue
+            inodes = set()
+            readable = True
+            try:
+                for descriptor in (process / 'fd').iterdir():
+                    try: inodes.add(os.readlink(descriptor))
+                    except (FileNotFoundError, ProcessLookupError): continue
+            except PermissionError:
+                readable = False
+            listeners = {}
+            for table in ('tcp', 'tcp6'):
+                rows = (process / 'net' / table).read_text().splitlines()[1:]
+                listeners[table] = any(row.split()[1].endswith(':2CAA') and row.split()[3] == '0A'
+                    and 'socket:[' + row.split()[9] + ']' in inodes for row in rows)
+            items.append({'pid': int(process.name), 'fd_readable': readable, 'owned_listener': listeners})
+            if len(items) >= 8: break
+        except (OSError, IndexError):
+            continue
+    reachable = False
+    try:
+        with opener.open('http://127.0.0.1:11434/api/version', timeout=1) as response:
+            reachable = json.load(response).get('version') == '0.35.1'
+    except OSError:
+        pass
+    return {'processes': items, 'pinned_api_reachable': reachable}
+
+
 def managed_check(started, desktop_seconds):
     from argoslive.desktop import session_url
     from argoslive.ollama import NoRedirect
@@ -77,6 +112,7 @@ def managed_check(started, desktop_seconds):
     opener = build_opener(ProxyHandler({}), NoRedirect())
     last = None
     stable_since = None
+    last_backend = None
     while time.monotonic() < deadline:
         if not descriptor.exists():
             time.sleep(2)
@@ -91,6 +127,11 @@ def managed_check(started, desktop_seconds):
             last = phase
         if phase in ('failed', 'stopped'):
             raise ValueError('Shipped automatic startup failed')
+        if phase == 'model-service':
+            observed = backend_observation(opener)
+            if observed != last_backend:
+                print('ARGOS_C3_BACKEND ' + json.dumps(observed), flush=True)
+                last_backend = observed
         if phase == 'ready':
             config = json.loads((home / '.openclaw/openclaw.json').read_text())
             port = config['gateway']['port']
