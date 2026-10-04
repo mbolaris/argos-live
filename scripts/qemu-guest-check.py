@@ -35,10 +35,23 @@ def main():
     spec = importlib.util.spec_from_loader('argos_guest', SourceFileLoader('argos_guest', '/usr/local/bin/argos'))
     argos = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(argos)
+    setup_mode = globals().get('ARGOS_QEMU_SETUP_MODE', 'interactive')
     stage('temporary-setup')
-    answers = iter(['TEMPORARY', 'yes', '', 'yes', ''])
-    argos.setup(ask=lambda prompt: next(answers))
+    if setup_mode == 'auto':
+        argos.main(['setup', '--auto'])
+    elif setup_mode == 'interactive':
+        answers = iter(['TEMPORARY', 'yes', '', 'yes', ''])
+        argos.setup(ask=lambda prompt: next(answers))
+    else:
+        raise ValueError('Unknown disposable setup mode')
     state = argos.load()
+    if setup_mode == 'auto':
+        from argoslive import starter
+        if state.get('mode') != 'try' or state.get('model_source') != 'bundled':
+            raise ValueError('Automatic setup did not select the bundled try session')
+        starter.read_only()
+        if any(path.name != '.argos-storage-id' for path in Path(state['storage']).iterdir()):
+            raise ValueError('Automatic setup copied weights to writable storage')
     stage('ollama')
     daemon = argos.server(state)
     dashboard = None
@@ -89,6 +102,7 @@ def main():
               'generation_limit': result['settings']['generation_limit'],
               'generation_tokens_per_second': result['prompts'][0]['summary']['generation_tokens_per_second'],
               'backend': 'CPU', 'result_round_trip': True, 'automatic_first_boot': False,
+              'setup_mode': setup_mode, 'bundled_read_only_source': setup_mode == 'auto',
               'native_firefox_dashboard': True,
               'physical_acceptance': False}), flush=True)
         # Keep services/page alive until the host captures its screenshot.

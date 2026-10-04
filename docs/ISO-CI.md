@@ -43,8 +43,13 @@ is used only in a fresh disposable guest. No owner password or persistence is us
 
 The guest checks XFCE, runs existing setup with fixed public test answers, starts
 the model service/dashboard, checks an authenticated status response, runs the
-short real CPU speed workload and verifies its saved result. This disposable
-guest process bounds generation to eight tokens and records that setting;
+short real CPU speed workload and verifies its saved result. The guest can
+instead use the workflow's `auto` setup mode on an O1 candidate: it
+calls `argos setup --auto`, requires a try session, verifies the read-only bundled
+model source and rejects copied weights in the selected writable store. Services
+are still started explicitly by the test; this is not automatic desktop startup.
+The default interactive mode remains compatible with the original C2 candidate.
+This disposable guest process bounds generation to eight tokens and records that setting;
 comparison with normal 128-token benchmark runs is refused. The first full-length
 TCG attempt reached desktop/dashboard/inference but was stopped after over twenty
 minutes: its observed generation rate was about 0.3 tokens/s. This is emulation

@@ -45,11 +45,17 @@ class BootEntryTests(unittest.TestCase):
                  'native_firefox_dashboard': True,
                  'network_routes': False, 'automatic_first_boot': False,
                  'physical_acceptance': False, 'backend': 'CPU', 'generation_limit': 8,
+                 'setup_mode': 'interactive', 'bundled_read_only_source': False,
                  'generation_tokens_per_second': {'median': 1.4, 'reported_runs': 3}}
         wire = 'noise\r\nARGOS_C3_RESULT ' + json.dumps(value) + '\r\n'
         for end in range(len(wire)):
             self.assertIsNone(module.guest_result(wire[:end]))
         self.assertEqual(module.guest_result(wire), value)
+        automatic = dict(value, setup_mode='auto', bundled_read_only_source=True)
+        automatic_wire = 'ARGOS_C3_RESULT ' + json.dumps(automatic) + '\n'
+        self.assertEqual(module.guest_result(automatic_wire, setup_mode='auto'), automatic)
+        with self.assertRaises(ValueError):
+            module.guest_result(automatic_wire)
         for changed in (dict(value, desktop_started=False), dict(value, network_routes=True),
                         dict(value, backend='GPU'), dict(value, generation_limit=128)):
             with self.assertRaises(ValueError):

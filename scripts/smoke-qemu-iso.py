@@ -54,7 +54,7 @@ def screenshot(qmp, path):
                     break
 
 
-def guest_result(serial):
+def guest_result(serial, *, setup_mode='interactive'):
     # Serial reads split anywhere, including after a nested JSON object's closing
     # brace. Only a complete newline-terminated record can establish acceptance.
     match = re.search(r'ARGOS_C3_RESULT (\{[^\r\n]+\})\r?\n', serial)
@@ -71,6 +71,8 @@ def guest_result(serial):
             raise ValueError('Unexpected guest acceptance scope')
     if result.get('backend') != 'CPU' or result.get('generation_limit') != 8:
         raise ValueError('Unexpected guest inference settings')
+    if result.get('setup_mode') != setup_mode or result.get('bundled_read_only_source') is not (setup_mode == 'auto'):
+        raise ValueError('Guest did not establish requested setup and model source')
     return result
 
 
@@ -110,7 +112,9 @@ def guest_commands(source):
     return commands
 
 
-def run(image, output, *, timeout=1800):
+def run(image, output, *, timeout=1800, setup_mode='interactive'):
+    if setup_mode not in ('interactive', 'auto'):
+        raise ValueError('Unknown disposable setup mode')
     if output.exists() and any(output.iterdir()):
         raise ValueError('Choose a fresh VM output directory')
     output.mkdir(parents=True, exist_ok=True)
@@ -123,7 +127,9 @@ def run(image, output, *, timeout=1800):
             digest.update(chunk)
     if digest.hexdigest() != record.split()[0]:
         raise ValueError('Candidate ISO checksum differs')
-    source = (ROOT / 'scripts/qemu-firefox-check.py').read_bytes() + b'\n' + (ROOT / 'scripts/qemu-guest-check.py').read_bytes()
+    source = (f'ARGOS_QEMU_SETUP_MODE = {setup_mode!r}\n'.encode() +
+              (ROOT / 'scripts/qemu-firefox-check.py').read_bytes() + b'\n' +
+              (ROOT / 'scripts/qemu-guest-check.py').read_bytes())
     guest = guest_commands(source)
     with tempfile.TemporaryDirectory(prefix='argos-qemu-') as temp:
         work = Path(temp)
@@ -190,7 +196,7 @@ def run(image, output, *, timeout=1800):
                         tail = ''
                     if 'ARGOS_C3_FAIL ' in tail:
                         raise ValueError('Guest acceptance failed; see console artifact')
-                    result = guest_result(tail)
+                    result = guest_result(tail, setup_mode=setup_mode)
                     if result is not None:
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
                                       boot_method='direct kernel/initrd from original desktop entry; serial appended',
@@ -216,5 +222,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('iso', type=Path)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--setup-mode', choices=('interactive', 'auto'), default='interactive')
     args = parser.parse_args()
-    run(args.iso.absolute(), args.output.absolute())
+    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode)
