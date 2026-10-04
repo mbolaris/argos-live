@@ -28,6 +28,7 @@ class ISOReportTests(unittest.TestCase):
             self.assertFalse(report['physical_acceptance'])
             self.assertTrue(report['credential_pattern_scan_passed'])
             self.assertEqual(report['pins']['DEBIAN_SUITE'], 'trixie')
+            self.assertEqual(len(report['pins']['OLLAMA_SHA256']), 64)
 
     def test_wrong_checksum_type_packages_or_commit_fail(self):
         with tempfile.TemporaryDirectory() as temp:
