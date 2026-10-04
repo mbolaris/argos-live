@@ -109,7 +109,7 @@ def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, cont
         process.stdout.close()
 
 
-def supervise(executable, lease):
+def supervise(executable, lease, *, arguments=None, log=None):
     import ctypes
     parent = os.getppid()
     child = None
@@ -128,8 +128,9 @@ def supervise(executable, lease):
         try:
             if stopping or os.getppid() != parent:
                 return
-            child = subprocess.Popen([executable, 'serve'], stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.DEVNULL, start_new_session=True)
+            output = subprocess.DEVNULL if log is None else log
+            child = subprocess.Popen([executable, *(arguments if arguments is not None else ['serve'])],
+                                     stdout=output, stderr=output, start_new_session=True)
             print(child.pid, flush=True)
             while not stopping and child.poll() is None:
                 time.sleep(0.1)
