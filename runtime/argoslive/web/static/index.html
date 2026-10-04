@@ -35,6 +35,16 @@
       </details>
       <p>This view observes existing downloads. Download controls are coming next.</p>
     </section>
+    <section aria-labelledby="benchmarks-title">
+      <h2 id="benchmarks-title">Model lab results</h2>
+      <p>Compare completed runs of the same suite and settings. Hardware and runtime versions can affect measurements.</p>
+      <p id="benchmarks-status" role="status">Checking saved benchmarks…</p>
+      <div id="benchmark-runs" class="cards"></div>
+      <button id="compare-runs" type="button" disabled>Compare selected runs</button>
+      <button id="download-comparison" type="button" disabled>Download comparison CSV</button>
+      <div id="benchmark-comparison" class="cards" aria-live="polite"></div>
+      <p>Run speed and ability tests with the benchmark commands. Dashboard start and cancel controls are coming next.</p>
+    </section>
     <section aria-labelledby="capabilities-title">
       <h2 id="capabilities-title">Capabilities</h2>
       <p>Available plugins still need setup and a successful test before they are ready.</p>
