@@ -120,7 +120,7 @@ class AbilityRunTests(unittest.TestCase):
         self.assertEqual(result['summary']['format_errors'], 20)
         for item in result['items']:
             self.assertTrue(item['output_truncated'])
-            self.assertEqual(len(item['output']), ability.LIMIT)
+            self.assertEqual(len(item['output']), bench.OUTPUT_LIMIT)
 
     def test_cli_round_trip_and_timeout_bounds(self):
         with tempfile.TemporaryDirectory() as temp:

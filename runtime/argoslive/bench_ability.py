@@ -16,6 +16,7 @@ from .storage import safe_local
 
 CONTEXT = 2048
 LIMIT = 128
+OUTPUT_LIMIT = 8192
 
 
 def summaries(items):
@@ -91,8 +92,8 @@ def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monoto
             # Bound saved raw output too; the scorer classifies oversized output as format_error.
             encoded = text.encode('utf-8', errors='replace') if isinstance(text, str) else b''
             scored.update(category=item['scorer']['kind'],
-                          output=encoded[:ability.LIMIT].decode('utf-8', errors='replace'),
-                          output_truncated=len(encoded) > ability.LIMIT,
+                          output=encoded[:OUTPUT_LIMIT].decode('utf-8', errors='ignore'),
+                          output_truncated=len(encoded) > OUTPUT_LIMIT,
                           latency_seconds=max(0, clock() - item_started),
                           measurement=measurement(reply, client.ps().get('models', []), model))
             result['items'].append(scored)
