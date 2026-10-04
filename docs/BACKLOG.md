@@ -134,7 +134,7 @@ Depends on: B2, MD2.
 - Durable job state for pulls: bytes done/total, recent MiB/s, ETA, pause/cancel/retry, and resume after reboot (Ollama resumes partial blobs). Space check before starting using the manifest size. One active pull at a time. Hash verification and load test as separate visible steps (see MODEL-ONBOARDING.md).
 - Accept: unit tests with a fake server simulate progress, interruption, resume, disk-full and corrupt-blob cases.
 
-### MD4a Durable pull-job engine — `implemented (PR pending)`
+### MD4a Durable pull-job engine — `in progress ([PR #16](https://github.com/mbolaris/argos-live/pull/16))`
 Depends on: B2, MD1, MD2.
 - Internal queue with atomic private state/control files, OS-held single-worker exclusion, validated artifact counters, measured speed/ETA and explicit pause/cancel/retry/stale-state recovery.
 - Recheck selected storage identity and pinned catalog revision; budget missing bytes plus safety margin, giving credit only to SHA-verified complete blobs. Reject corrupt blobs without deleting them.
