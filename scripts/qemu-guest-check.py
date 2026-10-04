@@ -77,9 +77,11 @@ def main():
         if store.load(result['id']) != result:
             raise ValueError('Guest benchmark result did not round-trip')
         env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
-        subprocess.Popen(['firefox', '--new-window', base + '/?token=' + token], env=env,
+        # Test-only kiosk hides the session URL even before page JS strips its
+        # query token. The ordinary distro browser startup remains unchanged.
+        subprocess.Popen(['firefox', '--kiosk', '--new-window', base + '/?token=' + token], env=env,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(20)
+        time.sleep(45)
         print('ARGOS_C3_RESULT ' + json.dumps({'schema': 'argos-qemu-smoke/1',
               'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
               'desktop_wait_seconds': desktop_seconds, 'dashboard_seconds': dashboard_seconds,

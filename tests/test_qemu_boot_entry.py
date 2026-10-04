@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import tempfile
 from pathlib import Path
 import unittest
 
@@ -10,6 +11,19 @@ spec.loader.exec_module(module)
 
 
 class BootEntryTests(unittest.TestCase):
+    def test_placeholder_screenshot_cannot_pass_graphical_acceptance(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'screen.ppm'
+            for raw in (b'not a PPM', b'P6\n640 480\n255\n' + b'\0' * (640 * 480 * 3),
+                        b'P6\n800 600\n255\n' + b'\0' * (800 * 600 * 3)):
+                path.write_bytes(raw)
+                with self.assertRaises(ValueError):
+                    module.graphical_frame(path)
+            path.write_bytes(b'P6\n800 600\n255\n' +
+                             bytes(value for pixel in range(800 * 600) for value in
+                                   (pixel % 251, pixel % 127, pixel % 31)))
+            module.graphical_frame(path)
+
     def test_serial_result_waits_for_whole_nested_record(self):
         value = {'schema': 'argos-qemu-smoke/1', 'desktop_started': True,
                  'dashboard_authenticated': True, 'result_round_trip': True,

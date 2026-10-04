@@ -73,6 +73,21 @@ def guest_result(serial):
     return result
 
 
+def graphical_frame(path):
+    raw = path.read_bytes()
+    header = re.match(rb'P6\s+(\d+)\s+(\d+)\s+255\s', raw)
+    if not header:
+        raise ValueError('Unexpected QEMU screenshot format')
+    width, height = int(header[1]), int(header[2])
+    pixels = raw[header.end():]
+    if width < 800 or height < 600 or len(pixels) != width * height * 3:
+        raise ValueError('QEMU did not capture the configured graphical desktop')
+    stride = max(3, len(pixels) // 6000 // 3 * 3)
+    colors = {pixels[offset:offset + 3] for offset in range(0, len(pixels) - 2, stride)}
+    if len(colors) < 9:
+        raise ValueError('QEMU captured a blank or placeholder frame; review screenshot')
+
+
 def run(image, output, *, timeout=1800):
     if output.exists() and any(output.iterdir()):
         raise ValueError('Choose a fresh VM output directory')
@@ -101,7 +116,8 @@ def run(image, output, *, timeout=1800):
         extract(initrd, work / 'initrd')
         qmp = work / 'qmp.sock'
         process = subprocess.Popen(['qemu-system-x86_64', '-accel', 'tcg', '-cpu', 'max', '-smp', '2',
-                    '-m', '4096', '-display', 'none', '-vga', 'std', '-nic', 'none', '-no-reboot',
+                    '-m', '4096', '-display', f'vnc=unix:{work / "vnc.sock"}', '-vga', 'std',
+                    '-nic', 'none', '-no-reboot',
                     '-kernel', str(work / 'kernel'), '-initrd', str(work / 'initrd'), '-append', append,
                     '-cdrom', str(image), '-serial', 'stdio', '-monitor', 'none',
                     '-qmp', f'unix:{qmp},server=on,wait=off'], stdin=subprocess.PIPE,
@@ -153,6 +169,7 @@ def run(image, output, *, timeout=1800):
                                       boot_method='direct kernel/initrd from original desktop entry; serial appended',
                                       firmware_boot_verified=False)
                         screenshot(qmp, output / 'desktop.ppm')
+                        graphical_frame(output / 'desktop.ppm')
                         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
                         print(json.dumps(result, indent=2))
                         return result
