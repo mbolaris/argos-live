@@ -14,6 +14,19 @@ spec.loader.exec_module(module)
 
 
 class CandidateTests(unittest.TestCase):
+    def test_repository_runtime_lock_backend_and_addon_pins_are_synchronized(self):
+        accepted = module.pins((ROOT / 'versions.env').read_text())
+        lock = json.loads((ROOT / 'live/config/includes.chroot/usr/local/share/argos-live/package-lock.json').read_text())
+        addon = json.loads((ROOT / 'runtime/argoslive/data/addons.json').read_text())
+        self.assertEqual(lock['packages']['']['dependencies']['openclaw'], accepted['OPENCLAW_VERSION'])
+        package = lock['packages']['node_modules/openclaw']
+        self.assertEqual(package['version'], accepted['OPENCLAW_VERSION'])
+        self.assertEqual(package['integrity'], accepted['OPENCLAW_INTEGRITY'])
+        self.assertEqual(addon['host_version'], accepted['OPENCLAW_VERSION'])
+        self.assertEqual(addon['host_integrity'], accepted['OPENCLAW_INTEGRITY'])
+        backend = (ROOT / 'runtime/argoslive/owned_ollama.py').read_text()
+        self.assertIn('PIN = ' + repr(accepted['OLLAMA_VERSION']) + '\n', backend)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
