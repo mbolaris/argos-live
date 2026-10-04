@@ -90,7 +90,7 @@ Depends on: F2. Can run in parallel with B1–B3.
 - Scorers: numeric answer extraction tolerant of formatting, multiple-choice letter extraction, instruction-following checks (length, format, keywords), JSON schema validation, tool-call shape validation, and code tasks run in a subprocess with timeout, no network, and a temporary directory.
 - Accept: every item has a passing reference answer and a failing wrong answer in unit tests; format failures and wrong answers are distinguished; code sandbox enforces timeout and cannot write outside its temporary directory.
 
-### B4a Original suites and nonexecuting scorers — `in progress (PR pending)`
+### B4a Original suites and nonexecuting scorers — `done ([PR #24](https://github.com/mbolaris/argos-live/pull/24))`
 Depends on: F2.
 - Original versioned MIT-licensed quick (20) and standard (70) suites for numeric,
   choice, instruction, closed JSON and inert tool-call formatting. Every item has
