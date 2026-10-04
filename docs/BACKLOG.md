@@ -199,6 +199,11 @@ Depends on: P1.
 - Accept: unit tests for new agents, updates with diffs, ID conflicts and unresolved models; existing staging directories are never overwritten.
 - Evidence: Windows/Linux CI pass generic new/update/file-status/conflict, exact model-inventory matching, checksum/source-mutation, retained-stage and CLI fixtures. No active files or permissions change. CLI catalog wiring awaits MD1; actual owner staging and P4 activation/rollback remain unverified.
 
+### P4a Pinned schema and native recovery compatibility gate — `in progress (PR pending)`
+Depends on: P3.
+- Run a disposable three-agent config through the pinned OpenClaw CLI, verify a native backup and restore into fresh staging with byte-identical config/personas. Reject an invalid config. CI uses the exact Node pin and checked-in transitive lock; no owner profiles or inference service.
+- This is preparation for P4, not active pack apply or rollback implementation. Record real-runtime CI separately from physical acceptance.
+
 ### P4 Apply with rollback — `todo`
 Depends on: P3.
 - `argos pack apply STAGE_ID`: snapshots the current OpenClaw config and agent directories, creates or updates each agent with its own workspace and agentDir, writes persona files, assigns the resolved model or leaves the agent visibly pending a model, applies the default conversation-only tool policy, validates with `openclaw config validate`, and rolls back automatically if validation fails. `argos pack rollback SNAPSHOT_ID` restores a snapshot.

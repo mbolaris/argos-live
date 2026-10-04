@@ -1,0 +1,52 @@
+name: Pinned OpenClaw compatibility
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/smoke-pack-schema.py
+      - .github/workflows/openclaw-compatibility.yml
+      - versions.env
+      - live/config/includes.chroot/usr/local/share/argos-live/package-lock.json
+  pull_request:
+    paths:
+      - scripts/smoke-pack-schema.py
+      - .github/workflows/openclaw-compatibility.yml
+      - versions.env
+      - live/config/includes.chroot/usr/local/share/argos-live/package-lock.json
+permissions:
+  contents: read
+jobs:
+  schema-and-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read exact runtime pins
+        id: pins
+        shell: bash
+        run: |
+          source versions.env
+          printf 'node=%s\n' "$NODE_VERSION" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+      - name: Install checked-in runtime lock
+        shell: bash
+        run: |
+          source versions.env
+          mkdir -p work/compatibility-runtime
+          cp live/config/includes.chroot/usr/local/share/argos-live/package-lock.json work/compatibility-runtime/
+          printf '{"name":"argos-live-runtime","version":"0.1.0","private":true,"dependencies":{"openclaw":"%s"}}\n' "$OPENCLAW_VERSION" > work/compatibility-runtime/package.json
+          EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./work/compatibility-runtime/package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
+          npm ci --ignore-scripts --no-audit --no-fund --prefix work/compatibility-runtime
+      - name: Validate schema and native recovery in disposable state
+        shell: bash
+        run: |
+          source versions.env
+          python3 scripts/smoke-pack-schema.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --version "$OPENCLAW_VERSION" --report work/openclaw-compatibility.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openclaw-compatibility
+          path: work/openclaw-compatibility.json
+          if-no-files-found: error
+          retention-days: 14
