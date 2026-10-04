@@ -113,7 +113,7 @@ Depends on: B2, B4.
 - Runs a suite against a model with the ability method above; streams progress (item n of N, elapsed, ETA from measured per-item time); supports cancel; records per-item output, score and latency.
 - Accept: unit tests with a fake model producing known right, wrong and malformed answers give exact expected scores; a smoke run of `quick` against `qwen3:0.6b` completes and records results.
 
-### B5a Nonexecuting ability runner — `in progress ([PR #25](https://github.com/mbolaris/argos-live/pull/25))`
+### B5a Nonexecuting ability runner — `done ([PR #25](https://github.com/mbolaris/argos-live/pull/25))`
 Depends on: B2, B4a.
 - Run the versioned 20/70 original probes, deterministic settings, measured progress,
   per-item scores/output/timings and private results; cancellation preserves partial
@@ -121,6 +121,10 @@ Depends on: B2, B4a.
 - Acceptance: reference/wrong/malformed fixtures score exactly; failure/cancellation,
   coverage, context, bounds and restoration pass tests; real pinned CPU Ollama quick
   suite completes and its result round-trips. Code execution is explicitly omitted.
+- Evidence: 188 Windows tests passed (seven platform skips), Linux CI passed, and
+  the real pinned Ollama CPU quick-suite completion, result round trip and unload
+  check passed ([run](https://github.com/mbolaris/argos-live/actions/runs/37215054664)).
+  No minimum score, GPU timing target or physical Live acceptance is claimed.
 
 ### B5b Sandboxed code-runner integration — `todo`
 Depends on: B4b, B5a.
