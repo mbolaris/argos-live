@@ -212,6 +212,9 @@ def select_model(model):
     print('Run argos download to review the exact registry download size.')
 
 def main():
+    if sys.argv[1:3] == ['bench', 'speed']:
+        from argoslive.bench_speed import main as bench_command
+        return bench_command(sys.argv[3:])
     if sys.argv[1:2] == ['pull']:
         from argoslive.model_onboarding import main as pull_command
         return pull_command(sys.argv[2:])

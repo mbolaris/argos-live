@@ -39,6 +39,10 @@ The current USB candidate and internal disks are recorded in [docs/INVENTORY.md]
 
 ## Keeping the distro current
 
+### Speed measurements
+
+`argos bench speed --model qwen3:0.6b --json` measures an installed model using fixed public prompts, one warm-up and three measured runs per size. It saves real counts/timings and median/range, unloads the candidate and restores the previously loaded model. Stop competing assistant workloads first. See [benchmark method and limits](docs/SPEED-BENCHMARK.md); Live/GPU acceptance and dashboard cards are still pending.
+
 ### Hardware snapshot
 
 `argos hw --json` reports CPU, RAM, GPU memory/driver, disks, kernel and readable Secure Boot state without requiring setup or modifying storage. Add `--model-dir /path/to/models` (repeatable) to check existing directories' capacity. Missing measurements are `null`; PCI GPU names alone do not establish driver or inference readiness. The CLI can also run from a source checkout with `python3 runtime/argos.py hw --json`.
