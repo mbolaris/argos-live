@@ -7,9 +7,11 @@ import secrets
 from urllib.parse import parse_qs, quote, urlsplit
 
 from argoslive import addons
+from argoslive.web import status as live_status
 
 ASSETS = Path(__file__).with_name('static')
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
+         '/favicon.svg': ('favicon.svg', 'image/svg+xml'),
          '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
          '/style.css': ('style.css', 'text/css; charset=utf-8')}
 
@@ -18,13 +20,16 @@ class DashboardServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False
 
-    def __init__(self, host='127.0.0.1', port=8765):
+    def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
+                 chat_provider=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
         if type(port) is not int or not 0 <= port <= 65535:
             raise ValueError('Invalid dashboard port')
         self.token = secrets.token_urlsafe(32)
+        self.status_provider = status_provider
+        self.chat_provider = chat_provider or (lambda: live_status.chat_url(Path.home() / '.openclaw/openclaw.json'))
         super().__init__((host, port), Handler)
 
     @property
@@ -52,7 +57,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         self.send_header('Referrer-Policy', 'no-referrer')
         self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+        self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
         self.send_header('Connection', 'close')
         self.end_headers()
         self.close_connection = True
@@ -91,8 +96,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = urlsplit(self.path).path
         if path == '/api/status':
-            self.reply(200, {'schema': 'argos-dashboard/1', 'dashboard': 'running',
-                             'assistant': 'not-checked', 'mode': 'read-only-preview'}, head=head)
+            try:
+                self.reply(200, self.server.status_provider(), head=head)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Live status unavailable'}, head=head)
+        elif path == '/api/assistant/chat':
+            try:
+                url = self.server.chat_provider()
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(409, {'error': 'Assistant chat is not ready'}, head=head)
+            else:
+                self.reply(200, {'url': url}, head=head)
         elif path == '/api/capabilities':
             try:
                 result = addons.inventory(addons.load())

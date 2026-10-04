@@ -10,7 +10,7 @@ p { line-height: 1.55; }
 .notice { margin: 28px 0 36px; padding: 20px 24px; border-left: 4px solid #1681aa; background: #fff; border-radius: 8px; }
 .notice p { margin-bottom: 0; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
-.card { padding: 22px; border: 1px solid #cbdde6; border-radius: 12px; background: #fff; }
+.card { padding: 22px; border: 1px solid #cbdde6; border-radius: 12px; background: #fff; overflow-wrap: anywhere; }
 .card h3 { margin: 0 0 12px; }
 .card p { margin: 12px 0 0; font-size: 14px; }
 .state { font-size: 13px; color: #71501b; background: #fff2d8; padding: 5px 9px; border-radius: 12px; display: inline-block; }
