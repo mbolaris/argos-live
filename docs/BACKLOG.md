@@ -144,7 +144,7 @@ Depends on: B3 (format), B5a. Code results follow B5b with distinct suite versio
   ([run](https://github.com/mbolaris/argos-live/actions/runs/37215548515)).
   No physical Live/GPU result acceptance claimed.
 
-### B7 CLI wiring — `in progress`
+### B7 CLI wiring — `done ([PR #27](https://github.com/mbolaris/argos-live/pull/27))`
 Depends on: B3, B5a, B6. Sandboxed code follows B5b with versioned suites.
 - `argos bench speed|ability [--suite quick|standard]|all --model TAG [--json]`, `argos bench results [--compare ID...]`, `argos hw`.
 - Human-readable summary tables by default; `--json` prints the result file.
@@ -155,6 +155,10 @@ Depends on: B3, B5a, B6. Sandboxed code follows B5b with versioned suites.
   Hardware and speed use readable defaults with explicit unknown measurements.
   An actual loopback HTTP fixture runs the combined CLI without setup and verifies
   deterministic payloads, scores, result-store round trips and candidate unload.
+- Evidence: 198 Windows tests passed (eight platform skips), Linux tests passed,
+  and unchanged real pinned CPU speed/ability store smoke passed
+  ([run](https://github.com/mbolaris/argos-live/actions/runs/37215960836)).
+  Code execution and physical Live/GPU acceptance remain separate.
 
 ## E2 Models and storage
 
