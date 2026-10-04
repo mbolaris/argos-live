@@ -49,4 +49,21 @@ Resolve only against verified Ollama catalog/installed manifest identities and r
 
 ## Inspection API
 
-`runtime/argoslive/packs.py` provides `validate_manifest(manifest)` and `inspect(path, expected_sha256=None)`. It snapshots a bounded archive into memory, returns a private inspection report/manifest and never extracts or writes target state. Reports may contain private names and notes: keep them on owner-restricted encrypted storage and out of public logs/Git. No CLI export/import or activation is implemented by P1.
+`runtime/argoslive/packs.py` provides `validate_manifest(manifest)` and `inspect(path, expected_sha256=None)`. It snapshots a bounded archive into memory, returns a private inspection report/manifest and never extracts or writes target state. Reports may contain private names and notes: keep them on owner-restricted encrypted storage and out of public logs/Git. Import, staging and activation remain P3–P4 work.
+
+## Deliberate export (P2)
+
+From a checkout on the source machine:
+
+```sh
+python3 runtime/argos.py pack export --source /private/openclaw-home \
+  --output /private/fresh-export --agent main --skill main:example
+```
+
+Use the available Python 3.11+ executable on Windows. Repeat `--agent` for explicitly selected roster IDs and `--skill agent:skill-id` for selected workspace skills. Without `--skill`, no skills are copied. The exporter supports native `agents.list` and customized `agents.entries`. It reads an explicit workspace, or the defaults workspace only for `main`; it does not guess other agent directories. When reading Windows path metadata from WSL/Linux, supply `--workspace agent=/actual/mounted/path` explicitly. Shared/global skill roots are not exported by this first implementation; select reviewed definitions placed in the corresponding workspace rather than copying arbitrary plugin folders.
+
+Choose a fresh output directory outside the source home and workspaces, with an existing private parent on verified encrypted storage. The exporter rejects existing destinations and linked paths. It creates owner-only directories/files on Linux and restricts fresh Windows output to the current owner and SYSTEM before writing private bytes. Encryption is the caller's storage check; ACLs are not encryption.
+
+Only allowlisted persona and explicitly selected skill-definition files enter the ZIP. Configuration, credential stores and selected source texts are read only to resolve the roster/model preference and redact known secret values. The credential scan includes `secrets.json` and direct JSON files in `credentials`; it does not certify arbitrary prose or other secret stores. Recognizable token/private-key patterns are also redacted. The private report identifies redacted files and excluded categories; no secret values are printed. Review the resulting content and skill dependencies locally.
+
+The exporter validates the manifest and writes a private candidate, then runs full P1 inspection before publishing `personality-pack.zip` and `SHA256SUMS`. If validation fails, an incomplete private output directory/candidate may remain for inspection; it must not be transferred as a verified pack. Source files/configuration are never changed. No OpenClaw command, helper or imported instruction is executed.

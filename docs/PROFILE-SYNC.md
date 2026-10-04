@@ -22,6 +22,8 @@ BACKLOG.md items P1–P5 implement this contract as a generic personality pack (
 
 ## Two distinct export types
 
+The narrow default exporter is now `argos pack export` (from a checkout: `python3 runtime/argos.py pack export`). Explicitly select agent IDs and workspace skills; it supports `agents.list` and customized `agents.entries`, produces a verified `argos-pack/1` and does not change source state. See [PERSONALITY-PACKS.md](PERSONALITY-PACKS.md) for private output/storage requirements and exclusions. Wider configuration archives below remain optional reference/recovery tools.
+
 **Configuration-only ZIP:** A local source agent can capture a redacted roster, personas, model/provider references and declarative settings. Credentials and executable helpers are excluded. History, memories and authentication are not implied. Inspect the exact manifest and exclusions; archive checks do not prove complete recovery or Linux compatibility.
 
 **Native private backup:** scripts/export-openclaw-profile.ps1 invokes the source's installed OpenClaw backup create --verify from Windows or WSL. It can contain credentials, sessions and memories. Use protected private output outside all OpenClaw state/workspace trees and outside the repository. Preserve source software; inspect CLI capabilities rather than upgrading to export. An incomplete backup must never be used as a recovery point.

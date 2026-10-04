@@ -201,6 +201,11 @@ def select_model(model):
     print('Run argos download to review the exact registry download size.')
 
 def main():
+    if sys.argv[1:3] == ['pack', 'export']:
+        # Source checkout support until the shared runtime installation lands.
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from argoslive.pack_export import main as export_pack
+        return export_pack(sys.argv[3:])
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model'])
     parser.add_argument('--model')
