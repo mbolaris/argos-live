@@ -65,3 +65,20 @@ checking status/capability cards, disabled unconfigured chat, refresh, console
 errors and narrow layout. It uses disposable HOME and emits screenshots of CI
 hardware only. Chromium is a proxy; Firefox ESR/physical ISO acceptance remains
 W2/C3 follow-up.
+
+W4a adds saved lab results, read-only comparison and authenticated JSON/CSV
+downloads. The view examines at most 1,024 filenames and reads at most 128 recent
+files by modification time. Each file uses the existing 1 MiB validated store
+bound. Cards omit raw output/hardware; a deliberate JSON download includes the
+full private result. Invalid entries are counted, and display truncation is visible.
+Two to eight distinct complete runs with matching suites/settings/coverage can
+be compared using the same B6 rules. Download routes accept only validated run
+IDs; filenames are fixed, and no arbitrary file path is served. CSV retains B6's
+spreadsheet formula protection. Results/model labels render as text, never markup.
+
+These GET routes retain per-session token, Host/Origin, no-store and no-referrer
+protections; downloads fetch with the token header and use a temporary local blob
+URL. They do not delete results, start jobs, mutate models or change agents.
+Benchmark start/progress/cancel remains W4b. Browser CI seeds two public authored
+fixture runs in its disposable HOME and checks inert labels, comparison and both
+download formats. Owner results are never copied into CI.
