@@ -62,11 +62,12 @@ Depends on: F1.
 
 ## E1 Benchmarks (M1)
 
-### B1 Hardware probe — `in progress (PR pending)`
+### B1 Hardware probe — `done ([PR #5](https://github.com/mbolaris/argos-live/pull/5))`
 Depends on: F2.
 - `hw.py` returns CPU model, cores/threads, RAM total/available, GPU list (name, VRAM total/used, driver) from `nvidia-smi --query-gpu ... --format=csv`, AMD/Intel GPUs from `lspci` names only, disks and free space for candidate model directories, kernel, Secure Boot state if readable.
 - Missing tools or files produce `null`s, not exceptions.
 - Accept: unit tests with recorded fixtures for an NVIDIA desktop, a CPU-only laptop and a no-`nvidia-smi` system; `argos hw --json` prints the snapshot.
+- Evidence: Windows and Linux CI pass hardware/CLI tests using authored, sanitized command-output fixtures (not owner hardware captures). NVIDIA fields/units checked against official documentation. Physical Live output and ISO inclusion remain unverified. Depends on F2 integration [PR #4](https://github.com/mbolaris/argos-live/pull/4) reaching main.
 
 ### B2 Ollama client — `todo`
 Depends on: F2.
