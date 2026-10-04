@@ -131,10 +131,14 @@ Depends on: B4b, B5a.
 - Add the verified code category to version-bumped suites and runner results.
 - Test actual sandbox enforcement before enabling generated code execution.
 
-### B6 Results store and comparison — `todo`
+### B6 Results store and comparison — `in progress`
 Depends on: B3 (format), B5a. Code results follow B5b with distinct suite versions.
 - `results.py`: save, list, load, delete; comparison table across runs that only ranks runs with the same benchmark kind and suite version; CSV export.
 - Accept: unit tests for round trip, schema version rejection, mixed-version comparison refusal and CSV output.
+- Implementation: private bounded store, exact-ID inspect/delete, invalid listing
+  reporting, evidence-derived summaries, matching settings/coverage and complete
+  ability runs required. CLI comparison/CSV includes digest and timestamp; missing
+  speed measurements remain unranked. See [BENCHMARK-RESULTS.md](BENCHMARK-RESULTS.md).
 
 ### B7 CLI wiring — `todo`
 Depends on: B3, B5, B6.

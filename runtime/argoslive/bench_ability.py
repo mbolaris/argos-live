@@ -10,9 +10,6 @@ import time
 from . import __version__, ability, hw
 from .bench_speed import measurement
 from .ollama import Client, Cancelled, OllamaError
-from .pack_export import private_directory
-from .pull_jobs import write_json
-from .storage import safe_local
 
 CONTEXT = 2048
 LIMIT = 128
@@ -137,15 +134,12 @@ def main(argv=None):
         result = run(Client(args.ollama, timeout=args.timeout), args.model, suite=args.suite, progress=progress)
     except OllamaError as exc:
         raise ValueError('Ability backend failed; no successful result was saved.') from exc
-    root = safe_local(args.results_dir.absolute())
-    if not root.exists():
-        root.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        private_directory(root)
-    write_json(root / (result['id'] + '.json'), result)
+    from .results import Store
+    path = Store(args.results_dir).save(result)
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print(f"Ability {result['state']}: {root / (result['id'] + '.json')}")
+        print(f"Ability {result['state']}: {path}")
         for name, category in result['summary']['categories'].items():
             print(f"{name}: {category['correct']}/{category['total']}; {category['format_errors']} format errors")
         print('Code execution excluded. Partial or cancelled results are not comparable to complete runs.')
