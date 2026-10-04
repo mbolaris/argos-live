@@ -246,11 +246,16 @@ Depends on: MD4a.
 
 ## E3 Questionless first boot (M2)
 
-### O1 Try-mode setup — `todo`
+### O1 Try-mode setup — `in progress`
 Depends on: MD2, MD3.
 - New non-interactive `argos setup --auto`: no prompts. Detects persistence, chooses storage via MD2, uses the starter model, writes the same safe OpenClaw config as today (loopback, token, conversation-only tools), and records `mode: try` or `mode: persistent`.
 - Keep the interactive path for owners who want explicit choices.
 - Accept: unit tests for both modes; existing setup tests still pass; no prompt is printed in auto mode.
+- Implementation: explicit `argos setup --auto` creates private conversation-only
+  configuration and an identity-marked planned model store, uses the bundled
+  image source, records settings persistence and model-storage encryption
+  separately, and never replaces existing owner configuration. No service starts.
+  Native schema, Linux filesystem and no-copy VM acceptance remain required.
 
 ### O2 Autostart flow — `todo`
 Depends on: O1, W1.

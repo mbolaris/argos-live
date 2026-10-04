@@ -17,6 +17,7 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
 from argoslive import pack_apply, pack_import
+from argoslive.auto_setup import conversation_config
 
 
 def activation_smoke(cli, version, root):
@@ -124,6 +125,15 @@ def smoke(cli, expected_version):
             raise RuntimeError('Installed OpenClaw differs from required version')
         run('config', 'validate')
         run('agents', 'list', '--json')
+        # Check the shared first-boot/interactive policy against actual pinned
+        # OpenClaw, then restore the three-agent fixture before recovery checks.
+        try:
+            fresh = conversation_config('qwen3:0.6b', state / 'fresh-workspace')
+            fresh['gateway']['auth']['token'] = 'fictional-ci-token-not-owner-data'
+            config_path.write_text(json.dumps(fresh))
+            run('config', 'validate')
+        finally:
+            config_path.write_bytes(original_config)
         backup = root / 'verified-native-backup.tar.gz'
         run('backup', 'create', '--output', str(backup), '--verify')
         run('backup', 'verify', str(backup))
@@ -150,7 +160,8 @@ def smoke(cli, expected_version):
         if invalid.returncode == 0:
             raise RuntimeError('Invalid fixture unexpectedly passed validation')
         return {'schema': 'argos-pack-runtime-smoke/1', 'openclaw_version': expected_version,
-                'valid_three_agent_config': True, 'invalid_config_rejected': True,
+                'valid_three_agent_config': True, 'valid_fresh_conversation_config': True,
+                'invalid_config_rejected': True,
                 'native_backup_verified': True, 'backup_sha256': backup_digest,
                 'fresh_restore_config_personas_byte_match': True,
                 'pack_apply_implemented': True, 'three_agent_apply_rollback_byte_match': activation,

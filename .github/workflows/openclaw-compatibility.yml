@@ -14,6 +14,8 @@ on:
       - runtime/argoslive/pack_import.py
       - runtime/argoslive/packs.py
       - runtime/argoslive/pack_export.py
+      - runtime/argoslive/auto_setup.py
+      - runtime/argos.py
       - .github/workflows/openclaw-compatibility.yml
       - versions.env
       - live/config/includes.chroot/usr/local/share/argos-live/package-lock.json
@@ -30,6 +32,8 @@ on:
       - runtime/argoslive/pack_import.py
       - runtime/argoslive/packs.py
       - runtime/argoslive/pack_export.py
+      - runtime/argoslive/auto_setup.py
+      - runtime/argos.py
       - .github/workflows/openclaw-compatibility.yml
       - versions.env
       - live/config/includes.chroot/usr/local/share/argos-live/package-lock.json
