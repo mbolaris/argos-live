@@ -17,3 +17,6 @@ p { line-height: 1.55; }
 button { margin-top: 24px; padding: 12px 20px; background: #126a91; color: #fff; border: 0; border-radius: 8px; font: inherit; cursor: pointer; }
 button:focus-visible { outline: 3px solid #e0aa2b; outline-offset: 3px; }
 button:disabled { opacity: .6; cursor: wait; }
+section { margin-top: 32px; }
+details { margin-top: 24px; }
+summary { cursor: pointer; font-size: 18px; font-weight: 650; }

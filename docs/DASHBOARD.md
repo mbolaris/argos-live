@@ -35,6 +35,27 @@ from the status output. Existing
 conversation and first-boot behavior stays with the welcome window until W2/O2
 and W6 add and verify the replacement flow.
 
+`GET /api/models` adds the W3a read-only Models view. It validates the configured
+store's marker/UUID, then reads standard Ollama registry.ollama.ai manifests and
+bounded metadata. Custom tags in that registry remain visible as unreviewed.
+Other registries are not enumerated in this first view. File presence/size is
+not full artifact hashing; a catalog manifest match is not successful inference.
+The read-only poll never runs expensive weight hashing or generation.
+
+The catalog reuses existing MD1 license/identity data and CPU/single-GPU full-
+context fit estimates. GPU capacities are not added together; absent capacity is
+unknown. Job cards reuse the existing durable queue's state and recorded progress,
+with whitelisted bytes, last measured speed and last ETA. No raw job errors,
+storage identities, conversations or configuration are returned. Receipts must
+match the selected store and catalog. A historical onboarding reply is labeled
+historical and never promoted to current readiness. Corrupt entries are omitted
+with review counts; enumeration is bounded to 1,024 manifests and 256 metadata
+files. Missing selection yields unknown inventories, not a fabricated empty store.
+
+W3a does not create queues, pull or delete weights, start services, or change the
+assistant. W3b will add reviewed controls using the existing native Ollama client
+and owned onboarding worker, with explicit mutation/assistant/storage checks.
+
 W1 acceptance uses disposable loopback HTTP fixtures: tokens, origin/host
 checks, static/JSON responses, traversal rejection, method policy, generic
 errors, no token access logs, per-session uniqueness, and clean server shutdown.
