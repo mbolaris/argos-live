@@ -281,10 +281,23 @@ Depends on: W1, W2, MD1, MD4.
   no writes or service startup. Browser CI renders catalog and inventory states.
   W3b retains full W3 mutation and real-download acceptance.
 
-### W4 Benchmarks page — `todo`
+### W4 Benchmarks page — `split into W4a and W4b`
 Depends on: W2, B7.
 - Run speed, quick ability or both on a selected model with live progress and cancel; results table; select runs to compare side by side; CSV/JSON download.
 - Accept: API tests; manual run against a real Ollama documented in the PR.
+
+### W4a Saved lab results and comparison — `in progress`
+Depends on: W2, B6, B7.
+- Read-only bounded result cards, select compatible complete runs, comparison,
+  authenticated CSV/JSON downloads. Reuse the validated result store and comparison
+  rules; no benchmark startup, deletion or profile change. Test API and real browser
+  with public scored fixtures; no owner output enters CI.
+
+### W4b Benchmark job controls — `todo`
+Depends on: W4a, owned assistant/backend lifecycle.
+- Start speed/ability/both with live progress and cancellation, release resources,
+  restore prior owned assistant state and test real Ollama. Do not run a competing
+  benchmark against an unrelated or active assistant daemon.
 
 ### W5 Agents page — `todo`
 Depends on: W2, P3.
