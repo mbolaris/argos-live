@@ -349,7 +349,7 @@ Depends on: P2, P4, MD4, physical hardware. Private; evidence stays out of this 
 
 ### C1 Tests in CI — covered by F1.
 
-### C2 ISO build in GitHub Actions — `in progress`
+### C2 ISO build in GitHub Actions — `done ([PR #28](https://github.com/mbolaris/argos-live/pull/28))`
 Depends on: F1.
 - Workflow (manual trigger and on tags) that frees runner disk, installs the builder per `scripts/bootstrap-builder.sh`, runs `scripts/lock-runtime.sh` check, fetches the seed model with `scripts/fetch-seed-model.py`, runs `scripts/build.sh`, and uploads the ISO, `SHA256SUMS`, package manifest and build log as workflow artifacts.
 - Accept: a green run producing an ISO whose checksum is recorded in the run summary; the build log contains no secrets.
@@ -357,6 +357,10 @@ Depends on: F1.
   nonmutating pinned runtime lock check, verified seed, candidate artifacts and
   checksum/provenance report. Failure logs pass a credential-pattern scan before
   upload. Actual green image build is required before marking done. See [ISO-CI.md](ISO-CI.md).
+- Evidence: the clean hosted build produced and verified the ISO, package list,
+  checksum/provenance report and scanned logs, then uploaded the 4.07 GB candidate
+  artifact ([run](https://github.com/mbolaris/argos-live/actions/runs/37216494685)).
+  Unit/shell and real CPU Ollama checks passed. QEMU/physical boot remains C3/H3.
 
 ### C3 QEMU smoke boot in CI — `todo`
 Depends on: C2.
