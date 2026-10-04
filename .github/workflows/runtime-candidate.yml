@@ -1,0 +1,60 @@
+name: Prepare stable runtime candidate
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/runtime-candidate.yml']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    if: github.event_name != 'push' || github.ref_name != github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Discover official stable releases
+        run: node scripts/check-upstream.mjs work/discovery
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Validate candidate without changing accepted pins
+        id: candidate
+        run: |
+          python3 scripts/prepare-runtime-candidate.py work/discovery/upstream.json --output work/runtime-candidate
+          python3 -c 'import json,os; v=json.load(open("work/runtime-candidate/candidate.json")); open(os.environ["GITHUB_OUTPUT"], "a").write("needed="+str(bool(v["changed"])).lower()+"\n")'
+      - name: Generate lock and bundled addon inventory in the disposable checkout
+        if: steps.candidate.outputs.needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_ACTIONS" == true && "$RUNNER_ENVIRONMENT" == github-hosted ]]
+          cp work/runtime-candidate/versions.env versions.env
+          cp work/runtime-candidate/owned_ollama.py runtime/argoslive/owned_ollama.py
+          sudo bash scripts/lock-runtime.sh
+          source versions.env
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/candidate-openclaw.tgz" "https://registry.npmjs.org/openclaw/-/openclaw-${OPENCLAW_VERSION}.tgz"
+          python3 scripts/update-addons.py --archive "$RUNNER_TEMP/candidate-openclaw.tgz" --output work/runtime-candidate/addons.json
+          cp live/config/includes.chroot/usr/local/share/argos-live/package-lock.json work/runtime-candidate/package-lock.json
+          cd /var/lib/argos-live/runtime-lock
+          sudo env PATH="/var/lib/argos-live/runtime-lock/node/bin:$PATH" npm audit --json > "$GITHUB_WORKSPACE/work/runtime-candidate/npm-audit.json" || test "$?" -eq 1
+          python3 -c 'import json,os; from pathlib import Path; p=Path(os.environ["GITHUB_WORKSPACE"])/"work/runtime-candidate/npm-audit.json"; assert p.stat().st_size <= 8*1024**2; v=json.loads(p.read_text()); assert "error" not in v and isinstance(v.get("vulnerabilities"), dict) and isinstance(v.get("metadata"), dict)'
+      - name: Record exact candidate provenance and file checksums
+        if: steps.candidate.outputs.needed == 'true'
+        run: |
+          python3 -c 'import json,os; from pathlib import Path; p=Path("work/runtime-candidate/provenance.json"); p.write_text(json.dumps({"schema":"argos-candidate-provenance/1","commit":os.environ["GITHUB_SHA"],"run_id":os.environ["GITHUB_RUN_ID"],"repository":os.environ["GITHUB_REPOSITORY"]},indent=2)+"\n")'
+          cd work/runtime-candidate
+          sha256sum versions.env owned_ollama.py package-lock.json addons.json npm-audit.json candidate.json provenance.json > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: steps.candidate.outputs.needed == 'true'
+        with:
+          name: argos-runtime-candidate-${{ github.run_id }}
+          path: work/runtime-candidate/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Already current
+        if: steps.candidate.outputs.needed == 'false'
+        run: echo 'Accepted runtime versions are already current; no candidate artifact or repository changes.' >> "$GITHUB_STEP_SUMMARY"

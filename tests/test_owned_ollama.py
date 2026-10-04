@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive.owned_ollama import owned, owns_port
+from argoslive.owned_ollama import owned, owns_port, PIN
 
 FAKE = '''#!/usr/bin/env python3
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -26,6 +26,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b'{"version":"0.35.0"}')
 HTTPServer((host, int(port)), Handler).serve_forever()
 '''
+FAKE = FAKE.replace('0.35.0', PIN)
 
 
 @unittest.skipUnless(sys.platform == 'linux', 'Linux process/parent-death supervision')
@@ -50,7 +51,7 @@ class OwnedTests(unittest.TestCase):
         import json
         with self.assertRaisesRegex(ValueError, 'fixture body'):
             with owned(self.root, executable=self.binary, timeout=3) as client:
-                self.assertEqual(client.version(), '0.35.0')
+                self.assertEqual(client.version(), PIN)
                 port = int(client.base_url.rsplit(':', 1)[1])
                 pid = int((self.root / 'pid').read_text())
                 self.assertTrue(owns_port(pid, port))
@@ -95,7 +96,7 @@ class OwnedTests(unittest.TestCase):
         lease_store = self.root / 'writable-lease'
         lease_store.mkdir()
         with owned(self.root, executable=self.binary, timeout=3, lease_store=lease_store) as client:
-            self.assertEqual(client.version(), '0.35.0')
+            self.assertEqual(client.version(), PIN)
             self.assertFalse((self.root / '.argos-daemon-lease').exists())
             self.assertTrue((lease_store / '.argos-daemon-lease').is_dir())
             with self.assertRaises(ValueError):

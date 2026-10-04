@@ -257,7 +257,7 @@ Depends on: O1, W1.
 - On desktop login: run auto setup if needed, start Ollama and the OpenClaw gateway in the background, start the dashboard, open Firefox at the tokenized dashboard URL. Single-instance lock. Logs to `~/.local/state/argos-live/`.
 - Accept: in a CI or local VM boot (C3), the dashboard responds within a measured time of reaching the desktop; reusing an already-running assistant does not start a second one.
 
-### O2a Owned backend at the native provider endpoint — `in progress`
+### O2a Owned backend at the native provider endpoint — `done ([PR #36](https://github.com/mbolaris/argos-live/pull/36))`
 Depends on: MD4b.
 - Allow the Linux supervisor to reserve an explicit loopback port and requested
   context for first-chat integration. Keep exact-version/PID-port checks, store
@@ -266,6 +266,9 @@ Depends on: MD4b.
   API does not change OpenClaw configuration or enable automatic desktop startup.
 - Accept: real Linux process tests for busy/fixed ports, context environment,
   invalid options and cleanup; pinned Ollama regression smoke.
+- Evidence: real Linux process tests and checksum-pinned Ollama CPU onboarding,
+  fixed native endpoint, benchmarks and immutable-starter regression passed
+  ([run](https://github.com/mbolaris/argos-live/actions/runs/37232807741)).
 
 ### O3 Offer persistence later — `todo`
 Depends on: W2.
@@ -421,10 +424,31 @@ Depends on: C2, C3.
 - Document for users that Google Drive shows a "can't scan for viruses" confirmation for large files and may temporarily limit downloads of popular files, and that the GitHub checksum is the authority.
 - Accept: a test tag publishes to a test Drive folder and a draft GitHub release; downloaded bytes match `SHA256SUMS`.
 
-### C5 Candidate bump PRs from upstream discovery — `todo`
+### C5 Candidate bump PRs from upstream discovery — `split into C5a and C5b`
 Depends on: C2.
 - Extend `upstream.yml` to open a PR updating `versions.env` and the runtime lock when discovery finds new stable versions, triggering C2 and C3 on that PR. Promotion still requires the release process.
 - Accept: dry run on a fork or test branch produces the expected PR diff.
+
+### C5a Verified candidate preparation — `done ([PR #37](https://github.com/mbolaris/argos-live/pull/37))`
+Depends on: C2.
+- Prepare stable public runtime pins in a fresh artifact without changing accepted
+  files. Reject stale reports, downgrades, Node major changes, checksum drift and
+  unrelated Debian/driver changes. Regenerate the lock with pinned Node and inert
+  addon metadata from the SHA512-verified host package; attach npm audit findings.
+- Accept: unit fixtures preserve accepted bytes and a hosted dry run produces the
+  candidate artifact. See [RUNTIME-CANDIDATES.md](RUNTIME-CANDIDATES.md).
+- Evidence: fixture and Linux checks passed; hosted pinned-Node generation
+  produced verified OpenClaw 2026.9.8/Ollama 0.35.1 candidate files, refreshed addon
+  inventory, audit, exact provenance and per-file checksums
+  ([run](https://github.com/mbolaris/argos-live/actions/runs/37233645763)).
+  Accepted runtime pins were unchanged; candidate promotion remains pending.
+
+### C5b Automatic reviewed candidate PR — `todo`
+Depends on: C5a.
+- Open a candidate PR from the verified artifact, synchronize runtime test pins,
+  trigger all compatibility/onboarding/ISO/VM gates and attach audit/exposure
+  review. No automatic release, installed update or owner-profile migration.
+- Accept: a tested candidate PR with exact provenance, artifacts and rollback.
 
 ## E7 Hardware and release hardening (M4)
 
