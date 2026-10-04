@@ -81,3 +81,34 @@ The staging root must already exist on owner-private, verified encrypted storage
 The importer validates the pack, snapshots the same bounded bytes, rechecks the staged archive and produces file-level added/changed/unchanged/unavailable statuses. Case-colliding IDs, differently named existing agents and unreadable/linked documents are conflicts. Unselected existing files are retained; no deletion or activation is proposed. No persona or skill extraction into workspaces occurs. It never writes active config, imports permissions/memory, installs addons or calls OpenClaw.
 
 The preview lists every selected skill as needing review. Model resolution can consume exact verified catalog/installed inventory mappings through the library API. CLI integration with the future MD1 catalog remains pending, so CLI preferences are currently unresolved. Caller-supplied inventory is reference evidence, not physical inference readiness; a quantization mismatch remains unresolved and no replacement is chosen. Protect preview reports: agent names, file paths and preferences may be private. P4 must still implement target snapshot, schema validation, reviewed activation and rollback.
+
+## Reviewed activation and rollback (P4)
+
+`argos pack apply STAGE_ID` and `argos pack rollback SNAPSHOT_ID` are offline maintenance operations. Stop the gateway and any writers first. `--gateway-stopped` acknowledges that precondition; it does not stop or detect running services. Verify that the active home, workspaces, staging and snapshot roots are owner-private and on encrypted storage. Encryption is not inferred from their paths. Do not use the unencrypted DATA model volume for these private files.
+
+```sh
+python3 runtime/argos.py pack apply STAGE_ID \
+  --active-home /private/openclaw-home \
+  --staging-root /private/packs/staging \
+  --snapshots-root /private/packs/snapshots \
+  --reviewed-sha256 REVIEWED_PACK_DIGEST \
+  --installed-inventory /private/verified-ollama-inventory.json \
+  --openclaw-version DISTRO_PIN --gateway-stopped
+
+python3 runtime/argos.py pack rollback SNAPSHOT_ID \
+  --active-home /private/openclaw-home \
+  --snapshots-root /private/packs/snapshots \
+  --openclaw-version DISTRO_PIN --gateway-stopped
+```
+
+The installed inventory is a caller-verified JSON mapping from exact model tags to `verified: true`, `manifest_sha256` (64 lowercase hex characters), and optional `quantization`. MD1 will supply this from real model verification. This interface does not download or verify weights itself and does not establish inference readiness. Activation also requires the same model ID in Live's existing loopback Ollama provider. Unresolved, catalog-only, missing-provider, quantization-mismatched or cloud models remain pending outside the active roster; existing pending agents remain unchanged. No default model substitution occurs.
+
+Review all selected persona prose locally. Packs with selected skills additionally require `--reviewed-skills` after reviewing every definition and its dependencies. This flag neither installs dependencies nor grants tools. Imported text never executes during migration. Each activated agent gets a separate workspace and agent directory and the minimal conversation policy; existing Live provider credentials, unrelated settings and unselected workspace files are retained. The current implementation requires the pinned native `agents.entries` schema and refuses legacy `agents.list` rather than converting it silently.
+
+Activation rechecks the ZIP and the staged config/document baseline. Old previews without baseline hashes, or changed target files, require a fresh import and review. It creates a verified upstream native backup, saves original affected bytes and modes in a private snapshot, validates the candidate, atomically replaces documents and config, then validates the active config. A failure restores those scoped originals. Snapshot IDs and reports may contain private paths/names; keep them private. No gateway is started.
+
+Explicit rollback verifies backup/original-file checksums and refuses to overwrite later target edits. It restores only transaction files and removes newly created directories only when empty. Other memory, sessions, credentials and later unrelated files remain. The native backup is retained for broader manual disaster recovery; restoring it is a separate reviewed action.
+
+A power interruption can leave a `prepared` transaction and `.argos-pack.lock` in the active home. Stop and inspect all writers before removing a stale lock, then use the retained snapshot for scoped rollback; never remove an in-use lock. An interrupted or failed recovery marked `recovery-required` needs local review. This operation coordinates pack commands only, not external editors or a running gateway, and does not provide filesystem-wide atomicity across power loss.
+
+The pinned-runtime CI smoke exercises three-agent schema validation, actual apply and scoped rollback with fictional fixtures. Inference, effective tool denials and physical reboot acceptance are separate checks; the owner's private personalities are not activated by CI.

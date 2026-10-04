@@ -199,16 +199,17 @@ Depends on: P1.
 - Accept: unit tests for new agents, updates with diffs, ID conflicts and unresolved models; existing staging directories are never overwritten.
 - Evidence: Windows/Linux CI pass generic new/update/file-status/conflict, exact model-inventory matching, checksum/source-mutation, retained-stage and CLI fixtures. No active files or permissions change. CLI catalog wiring awaits MD1; actual owner staging and P4 activation/rollback remain unverified.
 
-### P4a Pinned schema and native recovery compatibility gate — `implemented (PR #12; merge pending)`
+### P4a Pinned schema and native recovery compatibility gate — `merged (PR #12)`
 Depends on: P3.
 - Run a disposable three-agent config through the pinned OpenClaw CLI, verify a native backup and restore into fresh staging with byte-identical config/personas. Reject an invalid config. CI uses the exact Node pin and checked-in transitive lock; no owner profiles or inference service.
 - This is preparation for P4, not active pack apply or rollback implementation. Record real-runtime CI separately from physical acceptance.
 - Evidence: pinned OpenClaw 2026.9.7 and Node 26.10.0 Linux CI passed three-agent schema validation, invalid-policy rejection, verified native backup, and fresh restore with byte-identical config/personas ([runtime run](https://github.com/mbolaris/argos-live/actions/runs/37167980872)). Windows suite: 58 tests, three platform skips; Linux tests passed. No owner profile activation or physical acceptance claimed.
 
-### P4 Apply with rollback — `todo`
+### P4 Apply with rollback — `in progress (PR pending)`
 Depends on: P3.
 - `argos pack apply STAGE_ID`: snapshots the current OpenClaw config and agent directories, creates or updates each agent with its own workspace and agentDir, writes persona files, assigns the resolved model or leaves the agent visibly pending a model, applies the default conversation-only tool policy, validates with `openclaw config validate`, and rolls back automatically if validation fails. `argos pack rollback SNAPSHOT_ID` restores a snapshot.
 - Accept: unit tests with a fake OpenClaw config; a smoke test with the pinned OpenClaw validates a three-agent sample pack, then rolls back and restores the original byte-for-byte.
+- Implementation: reviewed archive digest and fresh config/document baseline required; explicit stopped-gateway acknowledgment; verified native backup plus scoped originals; per-file atomic writes; candidate and active schema validation; automatic restoration on failure; rollback refuses later edits or damaged originals. Unmatched models stay pending outside the active roster; inventory CLI is explicit caller-supplied evidence until MD1 integration. Skills require a separate review acknowledgment. Encryption and gateway shutdown remain caller preconditions. Physical persona/model/tool acceptance remains P7/P5.
 
 ### P5 Per-agent permission profiles — `todo`
 Depends on: P4.

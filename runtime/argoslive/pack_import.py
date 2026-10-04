@@ -69,7 +69,8 @@ def preview(manifest, roster, *, catalog=None, installed=None):
         conflicts = []
         if active and active['id'] != agent['id']:
             conflicts.append('Existing agent ID differs only by case')
-        if active and active.get('name') and active['name'] != agent['name']:
+        active_name = (active.get('name') or active.get('identity', {}).get('name')) if active else None
+        if active_name and active_name != agent['name']:
             conflicts.append('Existing ID belongs to a differently named agent')
         workspace = active.get('workspace') if active else None
         if active and (not isinstance(workspace, str) or not Path(workspace).is_absolute()):
@@ -80,6 +81,7 @@ def preview(manifest, roster, *, catalog=None, installed=None):
             parts = name.split('/')
             relative = Path(parts[3]) if parts[2] == 'persona' else Path('skills', *parts[3:])
             state = 'added' if not active else 'unavailable'
+            current_sha256 = None
             if workspace:
                 try:
                     path = unlinked(Path(workspace) / relative)
@@ -88,12 +90,13 @@ def preview(manifest, roster, *, catalog=None, installed=None):
                     state = 'changed' if path.exists() else 'added'
                     if path.exists():
                         current = bounded(path)
+                        current_sha256 = hashlib.sha256(current).hexdigest()
                         if hashlib.sha256(current).hexdigest() == files[name]['sha256']:
                             state = 'unchanged'
                 except (OSError, ValueError):
                     state = 'unavailable'
                     conflicts.append('Existing document cannot be safely compared')
-            diffs.append({'path': name, 'status': state})
+            diffs.append({'path': name, 'status': state, 'current_sha256': current_sha256})
         changes.append({'id': agent['id'], 'name': agent['name'],
                         'action': 'update' if active else 'add', 'conflicts': sorted(set(conflicts)),
                         'files': diffs, 'model': model_resolution(agent.get('model_preference'), catalog, installed),
@@ -134,6 +137,8 @@ def stage(archive, staging_root, active_home, expected=None, *, stage_id=None,
     packs.inspect(candidate, inspection['archive_sha256'])
     candidate.rename(target / 'reference.zip')
     report.update(stage_id=stage_id, archive_sha256=inspection['archive_sha256'])
+    config = unlinked(active_home) / 'openclaw.json'
+    report['active_config_sha256'] = hashlib.sha256(bounded(config)).hexdigest() if config.exists() else None
     for name, data in (('manifest.json', inspection['manifest']), ('preview.json', report)):
         path = target / name
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
