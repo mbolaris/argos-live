@@ -417,19 +417,26 @@ Depends on: C2.
 - Boot the ISO under QEMU without KVM (software emulation, slow but GPU-free), no network, and check over a serial console or forwarded port that the desktop session starts, the dashboard answers with its token, and a speed benchmark of the starter model completes on CPU.
 - Accept: green run with captured timings and a screenshot artifact; failures attach the console log.
 
-### C3a Offline desktop and CPU guest acceptance — `in progress`
+### C3a Offline desktop and CPU guest acceptance — `done ([PR #30](https://github.com/mbolaris/argos-live/pull/30))`
 Depends on: C2.
 - Reuse an existing candidate, verify its exact SHA256, extract its original desktop
   kernel/initrd and append a test-only serial console at VM launch. TCG, no NIC,
   no host disks, no writable ISO, no KVM. Serial login uses factory test credentials.
-- In a fresh guest, check XFCE, temporary interactive-setup defaults, authenticated
-  dashboard response and real CPU starter speed/result round trip. Record timings,
-  screenshot and console on failure. This does not verify firmware/menu boot or O2.
+- In a fresh guest, check XFCE, setup, authenticated dashboard APIs, native Firefox
+  DOM and real CPU starter speed/result round trip. Record timings, screenshot
+  and console on failure. This does not verify firmware/menu boot or O2.
+- Evidence: [run 37233824509](https://github.com/mbolaris/argos-live/actions/runs/37233824509)
+  passed on the O1 ISO with questionless setup, immutable SquashFS starter
+  inference, no copied weights and three eight-token CPU benchmark runs. The
+  1280 × 800 native Firefox dashboard capture was visually reviewed. Timings
+  start at the guest test stage and are not hardware boot/performance scores.
+  Services are test-started; native OpenClaw conversation remains separate.
 
 ### C3b Firmware boot and automatic dashboard acceptance — `todo`
 Depends on: C3a, O2.
 - Boot unchanged ISO through UEFI/GRUB, reach the automatic dashboard, measure
-  first-boot readiness and verify startup reuse. Keep physical acceptance separate.
+  first-boot readiness and a native chat reply, and verify startup reuse. Keep
+  physical acceptance separate; do not start setup/services from the test harness.
 
 ### C4 Release publishing — `todo`
 Depends on: C2, C3.

@@ -70,3 +70,14 @@ and lock behavior is unchanged and remains a separate check.
 VM timing is not physical hardware performance.
 The current test starts setup/services explicitly; automatic O2 startup and actual
 UEFI/GRUB selection remain C3b. Failure never authorizes a USB rewrite.
+
+The accepted [run 37233824509](https://github.com/mbolaris/argos-live/actions/runs/37233824509)
+used automatic setup on the image built by [37231442525](https://github.com/mbolaris/argos-live/actions/runs/37231442525),
+ISO SHA256 `ab40929d95c0c6ff0f5a56bdd83d75aff6ab9a6e5e9c08bce3e6a9c0c2db61f5`.
+It passed all guest/host gates; the 1280 × 800 native Firefox dashboard capture
+was visually reviewed. Three eight-token CPU runs reported a median 0.342 tokens/s
+under TCG. Dashboard readiness was 210.08 seconds from the guest test stage,
+and the VM test elapsed 978.43 seconds. These measurements have explicit emulation
+and timing boundaries; they do not measure a physical desktop or boot duration.
+The dashboard correctly reported the assistant not ready: this test exercises
+the inference service and dashboard, not the OpenClaw gateway/conversation.
