@@ -114,13 +114,13 @@ Depends on: B1, B2.
 - `scripts/update-catalog.py` refreshes digests and sizes from the registry and fails on missing metadata.
 - Accept: unit tests for fit classification at boundaries; a catalog file validates against its schema; the agent proposes the list in the PR and the owner approves it (D4).
 
-### MD2 Model storage selection — `implemented (PR pending)`
+### MD2 Model storage selection — `implemented (PR #14; merge pending)`
 Depends on: B1.
 - `storage.py`: choose a model directory automatically: owner-configured DATA directory if present and its identity marker matches; otherwise the largest writable non-USB-boot filesystem with enough space; otherwise RAM-backed storage only when available RAM exceeds the selected model's size plus a safety margin. Report the choice, whether it is encrypted, and why.
 - Keep the existing identity-marker and fail-closed rules for configured storage (`argos.py load()`).
 - Accept: unit tests over fixture mount tables cover each branch and the "no suitable storage" message.
 - Read-only `argos storage [--json] --required-gib N` previews existing identity-matched storage, otherwise the largest eligible mounted filesystem, otherwise mounted tmpfs with adequate free capacity and available RAM. The budget adds a 1 GiB safety margin. Missing/mismatched configured storage never falls back; optional persisted filesystem UUID is also checked. Automatic disk selection requires identifying the live boot medium and excludes its entire device ancestry, readonly/ambiguous/bind views, unknown UUIDs and nested-mount mismatches. No directory, marker, model, mount or state changes occur. Preparation and persistence of the selection belong to O1/MD4. Encryption evidence is conservative and does not authorize private profiles on DATA.
-- Evidence: fixture tests cover priority, boot siblings, budget boundaries, readonly/access failures, RAM pressure, configured marker/UUID mismatch, encrypted/mixed ancestry, path links, nested/stacked mounts and no suitable storage. Physical selection/creation and downloads remain unverified. See [MODEL-STORAGE.md](MODEL-STORAGE.md).
+- Evidence: 100 Windows tests passed (five platform skips); Linux Python/shell and Node CI passed ([run](https://github.com/mbolaris/argos-live/actions/runs/37170157999)). Fixture tests cover priority, boot siblings, budget boundaries, readonly/access failures, RAM pressure, configured marker/UUID mismatch, encrypted/mixed ancestry, path links, nested/stacked mounts and no suitable storage. Physical selection/creation and downloads remain unverified. See [MODEL-STORAGE.md](MODEL-STORAGE.md).
 
 ### MD3 Read-only starter model — `todo`
 Depends on: MD2.
