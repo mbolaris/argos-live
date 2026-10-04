@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -119,10 +120,8 @@ def load():
     if not STATE.exists():
         raise ValueError('Run argos setup first.')
     state = json.loads(STATE.read_text())
-    p = Path(state['storage'])
-    marker = p / '.argos-storage-id'
-    if not marker.is_file() or marker.read_text().strip() != state['storage_id']:
-        raise ValueError('Selected model storage is missing or has a different identity. Mount the original volume; no fallback writes occur.')
+    from argoslive.storage import validate_configured
+    p = validate_configured(state)
     probe_storage(p)
     return state
 
@@ -223,14 +222,28 @@ def main():
             return pack_command(sys.argv[2:])
         return pack_command(sys.argv[3:])
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model', 'hw'])
-    parser.add_argument('--json', action='store_true', help='Print hardware snapshot as JSON.')
+    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model', 'hw', 'storage'])
+    parser.add_argument('--json', action='store_true', help='Print the diagnostic result as JSON.')
     parser.add_argument('--model-dir', action='append', default=[],
                         help='Read-only capacity probe for an existing directory (repeatable).')
     parser.add_argument('--model')
     parser.add_argument('--required-gib', type=float, default=4,
                         help='Download space budget; increase for larger models after checking their advertised size.')
     args = parser.parse_args()
+    if args.command == 'storage':
+        from argoslive.storage import plan
+        if not math.isfinite(args.required_gib) or args.required_gib <= 0:
+            raise ValueError('Space budget must be positive.')
+        configured = json.loads(STATE.read_text()) if STATE.exists() else None
+        result = plan(int(args.required_gib * 2**30), configured)
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            encryption = {True: 'encrypted', False: 'unencrypted', None: 'unknown'}[result['encrypted']]
+            print(f"Model storage: {result['path']}; encryption: {encryption}; free: {result['free_bytes'] / 2**30:.2f} GiB")
+            print(result['reason'])
+            print('Selection preview only; no storage created or changed.')
+        return
     if args.command == 'hw':
         from argoslive.hw import snapshot
         result = snapshot(args.model_dir)
