@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from argoslive import addons
 from argoslive.web import status as live_status
 from argoslive.web import models
+from argoslive.web.benchmarks import View as BenchmarkView
 
 ASSETS = Path(__file__).with_name('static')
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
@@ -22,7 +23,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -31,6 +32,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.token = secrets.token_urlsafe(32)
         self.status_provider = status_provider
         self.models_provider = models_provider
+        self.benchmarks = benchmarks or BenchmarkView()
         self.chat_provider = chat_provider or (lambda: live_status.chat_url(Path.home() / '.openclaw/openclaw.json'))
         super().__init__((host, port), Handler)
 
@@ -50,12 +52,14 @@ class Handler(BaseHTTPRequestHandler):
         # Default access logging would expose the session token in request URLs.
         pass
 
-    def reply(self, status, body, content_type='application/json; charset=utf-8', *, head=False):
+    def reply(self, status, body, content_type='application/json; charset=utf-8', *, head=False, download=None):
         if isinstance(body, dict):
             body = json.dumps(body).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
+        if download:
+            self.send_header('Content-Disposition', 'attachment; filename="' + download + '"')
         self.send_header('Cache-Control', 'no-store')
         self.send_header('Referrer-Policy', 'no-referrer')
         self.send_header('X-Content-Type-Options', 'nosniff')
@@ -97,7 +101,26 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
-        if path == '/api/status':
+        if path == '/api/benchmarks' or path.startswith('/api/benchmarks/'):
+            try:
+                if path == '/api/benchmarks':
+                    self.reply(200, self.server.benchmarks.listing(), head=head)
+                elif path in ('/api/benchmarks/compare', '/api/benchmarks/compare.csv'):
+                    ids = parse_qs(urlsplit(self.path).query, max_num_fields=20).get('run', [])
+                    if path.endswith('.csv'):
+                        self.reply(200, self.server.benchmarks.csv(ids).encode('utf-8'),
+                                   'text/csv; charset=utf-8', head=head, download='argos-comparison.csv')
+                    else:
+                        self.reply(200, self.server.benchmarks.comparison(ids), head=head)
+                elif path.startswith('/api/benchmarks/run/'):
+                    run_id = path.removeprefix('/api/benchmarks/run/')
+                    value = self.server.benchmarks.load(run_id)
+                    self.reply(200, value, head=head, download='argos-' + value['id'] + '.json')
+                else:
+                    self.reply(404, {'error': 'Unknown benchmark route'}, head=head)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(409, {'error': 'Runs unavailable or not comparable. Select complete runs with matching suites and settings.'}, head=head)
+        elif path == '/api/status':
             try:
                 self.reply(200, self.server.status_provider(), head=head)
             except (OSError, ValueError, TypeError, KeyError, AttributeError):

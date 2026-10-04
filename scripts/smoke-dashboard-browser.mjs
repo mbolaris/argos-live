@@ -1,8 +1,8 @@
 // Real browser check using playwright-core already pinned by the runtime lock.
 // Chromium is a CI proxy for Firefox ESR; this is not physical ISO acceptance.
 import { createRequire } from 'node:module';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -10,6 +10,10 @@ import { createInterface } from 'node:readline';
 const require = createRequire(resolve('work/compatibility-runtime/package.json'));
 const { chromium } = require('playwright-core');
 const home = await mkdtemp(join(tmpdir(), 'argos-dashboard-browser-'));
+const seed = spawnSync('python3', ['-c',
+  "import sys; sys.path[:0]=['runtime','tests']; from test_results import ability_result; from argoslive.results import Store; s=Store(); a=ability_result(); b=ability_result('wrong'); b['model']='<b>Fixture label</b>'; s.save(a); s.save(b)"],
+  {env: {...process.env, HOME: home, USERPROFILE: home}, encoding: 'utf8'});
+if (seed.status !== 0) throw new Error('Public benchmark browser fixtures failed');
 const server = spawn('python3', ['-u', 'web/server.py', '--port', '0'], {
   env: {...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('OPENCLAW_'))),
     HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: join(home, 'config')},
@@ -41,6 +45,20 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#model-catalog .card').length >= 8, null, {timeout: 60000});
   await page.locator('summary').click();
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
+  await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
+  if (await page.locator('#benchmark-runs b').count()) throw new Error('Result label was treated as markup');
+  for (const input of await page.locator('#benchmark-runs input').all()) await input.check();
+  await page.locator('#compare-runs').click();
+  await page.getByText('accuracy: 1.000', {exact: true}).waitFor();
+  const csvPending = page.waitForEvent('download');
+  await page.locator('#download-comparison').click();
+  const csvDownload = await csvPending;
+  const csv = await readFile(await csvDownload.path(), 'utf8');
+  if (!csv.includes('manifest_digest') || !csv.includes('accuracy')) throw new Error('Comparison CSV failed');
+  const jsonPending = page.waitForEvent('download');
+  await page.locator('#benchmark-runs button').first().click();
+  const jsonDownload = await jsonPending;
+  if (JSON.parse(await readFile(await jsonDownload.path(), 'utf8')).kind !== 'ability') throw new Error('Result JSON failed');
   await page.locator('#refresh').click();
   await page.locator('#refresh').waitFor({state: 'visible'});
   await page.waitForFunction(() => !document.getElementById('refresh').disabled, null, {timeout: 60000});
