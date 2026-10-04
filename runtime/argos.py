@@ -214,8 +214,6 @@ def select_model(model):
 
 def main():
     if sys.argv[1:3] in (['pack', 'export'], ['pack', 'import'], ['pack', 'apply'], ['pack', 'rollback']):
-        # Source checkout support until the shared runtime installation lands.
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
         if sys.argv[2] == 'export':
             from argoslive.pack_export import main as pack_command
         elif sys.argv[2] == 'import':
