@@ -49,7 +49,7 @@ Resolve only against verified Ollama catalog/installed manifest identities and r
 
 ## Inspection API
 
-`runtime/argoslive/packs.py` provides `validate_manifest(manifest)` and `inspect(path, expected_sha256=None)`. It snapshots a bounded archive into memory, returns a private inspection report/manifest and never extracts or writes target state. Reports may contain private names and notes: keep them on owner-restricted encrypted storage and out of public logs/Git. Import, staging and activation remain P3–P4 work.
+`runtime/argoslive/packs.py` provides `validate_manifest(manifest)` and `inspect(path, expected_sha256=None)`. It snapshots a bounded archive into memory, returns a private inspection report/manifest and never extracts or writes target state. Reports may contain private names and notes: keep them on owner-restricted encrypted storage and out of public logs/Git. P3 provides inert staging below; activation/rollback remain P4 work.
 
 ## Deliberate export (P2)
 
@@ -67,3 +67,17 @@ Choose a fresh output directory outside the source home and workspaces, with an 
 Only allowlisted persona and explicitly selected skill-definition files enter the ZIP. Configuration, credential stores and selected source texts are read only to resolve the roster/model preference and redact known secret values. The credential scan includes `secrets.json` and direct JSON files in `credentials`; it does not certify arbitrary prose or other secret stores. Recognizable token/private-key patterns are also redacted. The private report identifies redacted files and excluded categories; no secret values are printed. Review the resulting content and skill dependencies locally.
 
 The exporter validates the manifest and writes a private candidate, then runs full P1 inspection before publishing `personality-pack.zip` and `SHA256SUMS`. If validation fails, an incomplete private output directory/candidate may remain for inspection; it must not be transferred as a verified pack. Source files/configuration are never changed. No OpenClaw command, helper or imported instruction is executed.
+
+## Verified staging and preview (P3)
+
+```sh
+python3 runtime/argos.py pack import /private/personality-pack.zip \
+  --sha256 <verified-transfer-digest> \
+  --staging-root /private/packs/staging --active-home /private/openclaw-home
+```
+
+The staging root must already exist on owner-private, verified encrypted storage. The intended Live location is `~/.local/share/argos-live/packs/staging/` on encrypted persistence. It must be outside the active OpenClaw home and known workspaces. Encryption remains a caller/storage requirement, not a claim inferred from a filesystem path. Each import creates a fresh private stage ID with `reference.zip`, `manifest.json` and `preview.json`; existing stages are rejected, and Windows ACLs/Linux private modes are applied before writing content. A failed write may leave an incomplete private stage; only a successfully returned report establishes completion.
+
+The importer validates the pack, snapshots the same bounded bytes, rechecks the staged archive and produces file-level added/changed/unchanged/unavailable statuses. Case-colliding IDs, differently named existing agents and unreadable/linked documents are conflicts. Unselected existing files are retained; no deletion or activation is proposed. No persona or skill extraction into workspaces occurs. It never writes active config, imports permissions/memory, installs addons or calls OpenClaw.
+
+The preview lists every selected skill as needing review. Model resolution can consume exact verified catalog/installed inventory mappings through the library API. CLI integration with the future MD1 catalog remains pending, so CLI preferences are currently unresolved. Caller-supplied inventory is reference evidence, not physical inference readiness; a quantization mismatch remains unresolved and no replacement is chosen. Protect preview reports: agent names, file paths and preferences may be private. P4 must still implement target snapshot, schema validation, reviewed activation and rollback.

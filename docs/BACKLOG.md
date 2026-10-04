@@ -193,7 +193,7 @@ Depends on: P1.
 - Accept: unit tests over a fixture OpenClaw tree for Windows and Linux path styles; output passes P1 validation; credentials planted in the fixture are never copied.
 - Evidence: Windows and Linux CI pass fictional native/custom roster, selected-skill, mounted Windows path mapping, redaction, source preservation, overwrite rejection and CLI fixtures; Linux checks linked-persona rejection. P1 inspection gates archive publication. Actual owner export/import remains unverified; shared/global skill roots are outside this first exporter.
 
-### P3 Verified import, staging and preview — `todo`
+### P3 Verified import, staging and preview — `in progress (PR pending)`
 Depends on: P1.
 - `argos pack import FILE [--sha256 HASH]`: validates, stages to a fresh directory under the staging location, and prints a preview: agents to add or update, file-level diffs against existing agents, model preference resolution (installed / in catalog / unresolved), skills needing review, and conflicts. Nothing is activated.
 - Accept: unit tests for new agents, updates with diffs, ID conflicts and unresolved models; existing staging directories are never overwritten.
