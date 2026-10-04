@@ -13,9 +13,26 @@ from argoslive.results import Store
 from argoslive.web.benchmarks import View
 from argoslive.web.server import DashboardServer
 from test_results import ability_result
+from argoslive import bench_speed
+from test_bench_speed import Backend
 
 
 class DashboardBenchmarkTests(unittest.TestCase):
+    def test_missing_speed_timings_are_visible_and_not_ranked(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store = Store(temp)
+            first = bench_speed.run(Backend(), 'fixture:latest', hardware=lambda: {}, sizes=['short'])
+            second = bench_speed.run(Backend(), 'fixture:latest', hardware=lambda: {}, sizes=['short'])
+            first['prompts'][0]['runs'][0]['generation_tokens_per_second'] = None
+            store.save(first); store.save(second)
+            view = View(store)
+            row = next(row for row in view.listing()['runs'] if row['id'] == first['id'])
+            timing = row['summary'][0]['generation_tokens_per_second']
+            self.assertEqual((timing['reported_runs'], timing['total_runs']), (2, 3))
+            compared = view.comparison([first['id'], second['id']])
+            incomplete = next(row for row in compared['rows'] if row['id'] == first['id'])
+            self.assertIsNone(incomplete['value'])
+
     def test_bounded_read_only_projection_comparison_and_download(self):
         with tempfile.TemporaryDirectory() as temp:
             store = Store(temp)

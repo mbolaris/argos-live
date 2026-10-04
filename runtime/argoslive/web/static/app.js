@@ -198,7 +198,12 @@ async function refreshBenchmarks() {
       const summary = document.createElement('p');
       summary.textContent = run.kind === 'ability' ?
         `${run.summary.correct}/${run.summary.total} correct · ${run.summary.format_errors} format errors · ${run.state}` :
-        run.summary.map(item => `${item.size}: ${item.skipped ? 'skipped' : item.generation_tokens_per_second.median === null ? 'unknown' : item.generation_tokens_per_second.median.toFixed(2) + ' tokens/s'}`).join('; ');
+        run.summary.map(item => {
+          if (item.skipped) return `${item.size}: skipped`;
+          const timing = item.generation_tokens_per_second;
+          const rate = timing.median === null ? 'unknown' : timing.median.toFixed(2) + ' tokens/s';
+          return `${item.size}: ${rate} · ${timing.reported_runs}/${timing.total_runs} timings reported`;
+        }).join('; ');
       const version = document.createElement('p'); version.textContent = `${run.suite_version} · ${run.created}`;
       const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Download JSON';
       button.addEventListener('click', () => download('/api/benchmarks/run/' + run.id, `argos-${run.id}.json`).catch(() => {
