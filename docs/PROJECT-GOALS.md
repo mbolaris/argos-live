@@ -1,6 +1,6 @@
 # Project goals
 
-Updated October 3, 2026. The implementation backlog is [BACKLOG.md](BACKLOG.md); this document says what we are building and why.
+Updated October 4, 2026. The implementation backlog is [BACKLOG.md](BACKLOG.md); this document says what we are building and why.
 
 Argos Live is a bootable Debian live distribution for playing with local agents and models. Someone should be able to boot it, chat with a local model, try other models, and get trustworthy speed and ability numbers within minutes. The owner can also bring their own agent personalities (Argos, Nyx, Proteus) to a fresh install without cloning a whole machine's configuration.
 
@@ -61,10 +61,14 @@ reviewed model catalog and storage planning, durable verified model onboarding,
 speed and original nonexecuting ability benchmarks with saved-result comparison,
 personality export/import preview and reviewed apply/rollback,
 pinned addon inventory, and the local dashboard with hardware/status/chat handoff
-and read-only model/catalog/download-progress views. Tests and real CPU Ollama
+and read-only model/catalog/download-progress and saved benchmark comparison
+views, with authenticated JSON/CSV downloads. Tests and real CPU Ollama
 smokes verify the implemented paths; browser CI uses Chromium as a Firefox proxy.
 
-Sandboxed code benchmarks, CI ISO build/boot acceptance, automatic first-boot dashboard
+The pinned ISO build passed in CI and its downloaded checksum matched. A Linux
+code-sandbox foundation passed isolation tests; code benchmark integration and
+unprivileged Live acceptance remain pending. Offline ISO guest acceptance,
+firmware boot acceptance, automatic first-boot dashboard
 startup, dashboard mutation controls and effective addon/agent permission tests
 remain pending. Existing OpenClaw addons should be reused where compatible; a
 bundled plugin alone is not functional readiness. The refusal-removed community
@@ -78,8 +82,8 @@ main-branch features are built into or physically verified on the USB. The
 owner's private reference export was received and verified; owner activation
 and personality/model/tool/reboot acceptance remain pending.
 
-Next order: finish remaining B4–B7 benchmark/result work, establish C2–C3 ISO
-build/boot CI, then first-boot defaults
+Next order: finish sandboxed code benchmark integration and C3 ISO boot
+acceptance, then first-boot defaults
 and dashboard actions (O1/W3/W4). Existing permissions, storage identity and
 destructive-operation protections remain in place.
 
