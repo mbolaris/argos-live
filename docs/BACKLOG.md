@@ -519,7 +519,7 @@ Depends on: A1, B2, MD1, MD4.
 - Implement D6: resolve selected model preferences to verified Ollama manifests and capabilities. Exercise native OpenClaw Ollama integration, image input where supported, GPU/offload, capacity failures and unload/restore behavior. Do not install a separate llama-cpp provider/server.
 - Accept: actual target chat and supported vision smoke tests; failure retains the starter assistant; exact host/Ollama/model versions recorded. Unsupported or unresolved preferences are visibly pending, with no silent replacement.
 
-### A2a Native OpenClaw CPU starter conversation — `in progress`
+### A2a Native OpenClaw CPU starter conversation — `done ([PR #39](https://github.com/mbolaris/argos-live/pull/39))`
 - A checksum-pinned disposable hosted fixture uses the same fresh conversation
   configuration as questionless setup and the native bundled Ollama provider.
   Native `agent --local` must return nonempty text with the exact provider/model,
@@ -529,9 +529,9 @@ Depends on: A1, B2, MD1, MD4.
   not prompts, replies, tokens or raw configuration. The 32-token fixture budget
   does not change the normal assistant budget. Downloads need networking; this
   hosted check is not no-NIC offline acceptance.
-- Evidence: [37235272119](https://github.com/mbolaris/argos-live/actions/runs/37235272119)
-  passed native OpenClaw 2026.9.7/Ollama 0.35.0 CPU chat without seed copies.
-  The updated accepted pins are being checked separately. Gateway UI, effective
+- Evidence: [37236087392](https://github.com/mbolaris/argos-live/actions/runs/37236087392)
+  passed native OpenClaw 2026.9.8/Ollama 0.35.1 CPU chat without seed copies.
+  The prior 2026.9.7/0.35.0 pair also passed. Gateway UI, effective
   tool denial, model switching, vision/GPU and physical acceptance remain pending.
 
 ### A2b Model switching, vision and capacity recovery — `todo`

@@ -71,7 +71,7 @@ code-sandbox foundation passed isolation tests; code benchmark integration and
 unprivileged Live acceptance remain pending. Offline CPU-emulated ISO acceptance
 passed desktop, questionless try-mode setup, immutable starter inference without
 weight copies, native Firefox dashboard and saved speed benchmarks. Native
-OpenClaw local conversation is being checked against updated runtime pins.
+OpenClaw embedded local conversation passed against the updated runtime pins.
 Firmware boot acceptance, automatic first-boot dashboard
 startup, dashboard mutation controls and effective addon/agent permission tests
 remain pending. Existing OpenClaw addons should be reused where compatible; a
