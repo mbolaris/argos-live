@@ -237,6 +237,7 @@ def command_parser():
     benchmarks.add_parser('speed', help='Measure Ollama speed', add_help=False).set_defaults(delegate='argoslive.bench_speed')
     benchmarks.add_parser('ability', help='Measure original ability probes', add_help=False).set_defaults(delegate='argoslive.bench_ability')
     benchmarks.add_parser('results', help='Inspect and compare saved runs', add_help=False).set_defaults(delegate='argoslive.results')
+    benchmarks.add_parser('all', help='Run speed and ability sequentially', add_help=False).set_defaults(delegate='argoslive.bench_all')
     pack = commands.add_parser('pack', help='Export, review, apply or roll back personality packs')
     packs = pack.add_subparsers(dest='operation', required=True)
     for operation in ('export', 'import', 'apply', 'rollback'):
@@ -290,9 +291,16 @@ def main(argv=None):
         else:
             cpu, ram = result['cpu'], result['ram']
             print(f"CPU: {cpu['model'] or 'unknown'}; cores {cpu['cores']}; threads {cpu['threads']}")
-            print(f"RAM bytes: total {ram['total_bytes']}; available {ram['available_bytes']}")
-            print(f"GPUs: {json.dumps(result['gpus'])}")
-            print(f"Model directories: {json.dumps(result['model_directories'])}")
+            def gib(value):
+                return f'{value / 2**30:.2f} GiB' if value is not None else 'unknown'
+            print(f"RAM: total {gib(ram['total_bytes'])}; available {gib(ram['available_bytes'])}")
+            for gpu in result['gpus']:
+                print(f"GPU: {gpu.get('name') or 'unknown'}; VRAM total {gib(gpu.get('vram_total_bytes'))}; "
+                      f"used {gib(gpu.get('vram_used_bytes'))}; driver {gpu.get('driver') or 'unknown'}")
+            if not result['gpus']:
+                print('GPU: no device reported')
+            for directory in result['model_directories']:
+                print(f"Model directory: {directory.get('path')}; free {gib(directory.get('free_bytes'))}")
             print(f"Kernel: {result['kernel']}; Secure Boot: {result['secure_boot']}")
         return
     if args.command == 'setup':

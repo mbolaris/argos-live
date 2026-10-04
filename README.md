@@ -47,6 +47,8 @@ The current USB candidate and internal disks are recorded in [docs/INVENTORY.md]
 
 `argos bench results` lists saved run IDs. `--compare ID ID` compares matching complete runs, `--csv` exports that comparison, `--load ID` shows raw JSON and `--delete ID` removes a selected result. See [comparison requirements](docs/BENCHMARK-RESULTS.md).
 
+`argos bench all --model qwen3:0.6b --suite quick --size short` runs speed followed by ability without setup. Omit `--size short` for the full speed workload. Both save independent results; `--json` emits one batch containing them. A failed ability stage keeps an already-saved speed result. `--ollama URL`, `--timeout 1–600` and `--results-dir PATH` work across benchmark commands. Stop competing workloads before benchmarking.
+
 ### Hardware snapshot
 
 `argos hw --json` reports CPU, RAM, GPU memory/driver, disks, kernel and readable Secure Boot state without requiring setup or modifying storage. Add `--model-dir /path/to/models` (repeatable) to check existing directories' capacity. Missing measurements are `null`; PCI GPU names alone do not establish driver or inference readiness. The CLI can also run from a source checkout with `python3 runtime/argos.py hw --json`.
