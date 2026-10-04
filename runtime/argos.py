@@ -222,7 +222,7 @@ def main():
             return pack_command(sys.argv[2:])
         return pack_command(sys.argv[3:])
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model', 'hw', 'storage'])
+    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model', 'hw', 'storage', 'catalog'])
     parser.add_argument('--json', action='store_true', help='Print the diagnostic result as JSON.')
     parser.add_argument('--model-dir', action='append', default=[],
                         help='Read-only capacity probe for an existing directory (repeatable).')
@@ -230,6 +230,16 @@ def main():
     parser.add_argument('--required-gib', type=float, default=4,
                         help='Download space budget; increase for larger models after checking their advertised size.')
     args = parser.parse_args()
+    if args.command == 'catalog':
+        from argoslive.catalog import load as load_catalog
+        data = load_catalog()
+        if args.json:
+            print(json.dumps(data, indent=2))
+        else:
+            for model in data['models']:
+                print(f"{model['tag']}: {model['total_download_bytes'] / 2**30:.2f} GiB; {model['quantization']}; {model['license']}")
+            print('Catalog metadata only; models and capabilities require local verification.')
+        return
     if args.command == 'storage':
         from argoslive.storage import plan
         if not math.isfinite(args.required_gib) or args.required_gib <= 0:

@@ -107,14 +107,15 @@ Depends on: B3, B5, B6.
 
 ## E2 Models and storage
 
-### MD1 Curated catalog — `todo`
+### MD1 Curated catalog — `implemented (PR pending; catalog list awaits owner review per D4)`
 Depends on: B1, B2.
 - `runtime/argoslive/data/catalog.json`: 8–12 entries (tag, family, parameter count, quantization, licence, capabilities such as tools/vision/thinking, description, registry manifest digest pinned at catalog update time, total download bytes from the manifest).
 - `catalog.py`: fit estimate = weight bytes + KV cache estimate at the default context + overhead, compared with free VRAM (GPU) or available RAM (CPU), giving fits / tight / won't fit and the reason.
 - `scripts/update-catalog.py` refreshes digests and sizes from the registry and fails on missing metadata.
 - Accept: unit tests for fit classification at boundaries; a catalog file validates against its schema; the agent proposes the list in the PR and the owner approves it (D4).
+- Proposed nine explicit local Ollama tags: qwen3:0.6b, 1.7b, 4b, 8b, 14b, 30b; qwen3-vl:4b; qwen2.5-coder:7b; optional huihui_ai/qwen3-abliterated:8b. Registry manifests, config/license blob sizes and hashes, immutable upstream architecture sources, full artifact byte totals and packaged licenses are checked. Claims/fit estimates never mark inference ready; source Windows aliases are not remapped. `argos catalog` lists the catalog; pack import resolves exact catalog preferences as needing download, not installed. Live downloads/capability tests remain MD4/physical work. See [MODEL-CATALOG.md](MODEL-CATALOG.md).
 
-### MD2 Model storage selection — `implemented (PR #14; merge pending)`
+### MD2 Model storage selection — `merged (PR #14)`
 Depends on: B1.
 - `storage.py`: choose a model directory automatically: owner-configured DATA directory if present and its identity marker matches; otherwise the largest writable non-USB-boot filesystem with enough space; otherwise RAM-backed storage only when available RAM exceeds the selected model's size plus a safety margin. Report the choice, whether it is encrypted, and why.
 - Keep the existing identity-marker and fail-closed rules for configured storage (`argos.py load()`).

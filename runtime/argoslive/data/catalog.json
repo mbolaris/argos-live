@@ -1,0 +1,521 @@
+{
+  "schema": "argos-catalog/1",
+  "updated": "2026-10-04T02:27:24.643224+00:00",
+  "models": [
+    {
+      "tag": "qwen3:0.6b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "parameter_count": 751630000,
+      "parameter_label": "751.63M",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12"
+      ],
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "capability_verified": false,
+      "description": "Small offline starter; modest CPU-friendly weight download.",
+      "publisher_url": "https://ollama.com/library/qwen3",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 28,
+        "kv_heads": 8,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3-0.6B/resolve/c1899de289a04d12100db370d81485cdf75e47ca/config.json",
+        "source_sha256": "660db3b73d788119c04535e48cf9be5f55bc3100841a718637ae695b442f27dd"
+      },
+      "manifest_digest": "sha256:7df6b6e09427a769808717c0a93cadc4ae99ed4eb8bf5ca557c90846becea435",
+      "artifacts": [
+        {
+          "digest": "sha256:b0830f4ff6a0220cfd995455206353b0ed23c0aee865218b154b7a75087b4e55",
+          "size": 490,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:7f4030143c1c477224c5434f8272c662a8b042079a0a584f0a27a1684fe2e1fa",
+          "size": 522640096,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:ae370d884f108d16e7cc8fd5259ebc5773a0afa6e078b11f4ed7e39a27e0dfc4",
+          "size": 1723,
+          "media_type": "application/vnd.ollama.image.template"
+        },
+        {
+          "digest": "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+          "size": 11338,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb",
+          "size": 120,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 522653767,
+      "weight_bytes": 522640096
+    },
+    {
+      "tag": "qwen3:1.7b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "parameter_count": 2000000000,
+      "parameter_label": "2.0B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12"
+      ],
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "capability_verified": false,
+      "description": "Small assistant for machines with limited memory.",
+      "publisher_url": "https://ollama.com/library/qwen3",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 28,
+        "kv_heads": 8,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3-1.7B/resolve/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/config.json",
+        "source_sha256": "1ddb5b89ebc90dcb417a45c213d818577e65976454d29385c8f6140771d95197"
+      },
+      "manifest_digest": "sha256:8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
+      "artifacts": [
+        {
+          "digest": "sha256:517ccaff02fe9f99718ab2f478e611aa2813c36263eeed86c2427bc122d14ad8",
+          "size": 487,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:3d0b790534fe4b79525fc3692950408dca41171676ed7e21db57af5c65ef6ab6",
+          "size": 1359279776,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:ae370d884f108d16e7cc8fd5259ebc5773a0afa6e078b11f4ed7e39a27e0dfc4",
+          "size": 1723,
+          "media_type": "application/vnd.ollama.image.template"
+        },
+        {
+          "digest": "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+          "size": 11338,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb",
+          "size": 120,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 1359293444,
+      "weight_bytes": 1359279776
+    },
+    {
+      "tag": "qwen3:4b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "parameter_count": 4000000000,
+      "parameter_label": "4.0B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12"
+      ],
+      "capabilities": [
+        "text",
+        "tools"
+      ],
+      "capability_verified": false,
+      "description": "Compact general assistant.",
+      "publisher_url": "https://ollama.com/library/qwen3",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 36,
+        "kv_heads": 8,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/resolve/cdbee75f17c01a7cc42f958dc650907174af0554/config.json",
+        "source_sha256": "5beea1a4a34c62782bfb2f911c606741a3bab8f92d80a118fa053c28af12e8ba"
+      },
+      "manifest_digest": "sha256:359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+      "artifacts": [
+        {
+          "digest": "sha256:e18a783aae5525fd2852fc94c985541a77e791e034abc2d3056474d59de336fc",
+          "size": 487,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:3e4cb14174460404e7a233e531675303b2fbf7749c02f91864fe311ab6344e4f",
+          "size": 2497280480,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:2d54db2b9bb29ce7db54fea63a891f5859603813c555b1f88b5e0994652897f9",
+          "size": 1506,
+          "media_type": "application/vnd.ollama.image.template"
+        },
+        {
+          "digest": "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+          "size": 11338,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb",
+          "size": 120,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 2497293931,
+      "weight_bytes": 2497280480
+    },
+    {
+      "tag": "qwen3:8b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "parameter_count": 8200000000,
+      "parameter_label": "8.2B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12"
+      ],
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "capability_verified": false,
+      "description": "Midrange reasoning and general conversation.",
+      "publisher_url": "https://ollama.com/library/qwen3",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 36,
+        "kv_heads": 8,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3-8B/resolve/b968826d9c46dd6066d109eabc6255188de91218/config.json",
+        "source_sha256": "f7c4eadfbbf522470667b797a3c89be2524832d2d599797248dc304fff447c30"
+      },
+      "manifest_digest": "sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "artifacts": [
+        {
+          "digest": "sha256:05a61d37b08453e59290add468e3bb2f688e23a01e967fecb0e2fa41218cea76",
+          "size": 487,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f",
+          "size": 5225374496,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:ae370d884f108d16e7cc8fd5259ebc5773a0afa6e078b11f4ed7e39a27e0dfc4",
+          "size": 1723,
+          "media_type": "application/vnd.ollama.image.template"
+        },
+        {
+          "digest": "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+          "size": 11338,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb",
+          "size": 120,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 5225388164,
+      "weight_bytes": 5225374496
+    },
+    {
+      "tag": "qwen3:14b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "parameter_count": 14800000000,
+      "parameter_label": "14.8B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12"
+      ],
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "capability_verified": false,
+      "description": "Larger general assistant; compare quality and speed locally.",
+      "publisher_url": "https://ollama.com/library/qwen3",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 40,
+        "kv_heads": 8,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3-14B/resolve/40c069824f4251a91eefaf281ebe4c544efd3e18/config.json",
+        "source_sha256": "e73c3664ca09b10a673fef0c22e8a6b456201d49bd4713c9691f775720e8857a"
+      },
+      "manifest_digest": "sha256:bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "artifacts": [
+        {
+          "digest": "sha256:78b3b822087d5199783c8203553a5a92ce5eb7b683a5a81003f8efea9b399d74",
+          "size": 488,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e",
+          "size": 9276184896,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:ae370d884f108d16e7cc8fd5259ebc5773a0afa6e078b11f4ed7e39a27e0dfc4",
+          "size": 1723,
+          "media_type": "application/vnd.ollama.image.template"
+        },
+        {
+          "digest": "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+          "size": 11338,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb",
+          "size": 120,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 9276198565,
+      "weight_bytes": 9276184896
+    },
+    {
+      "tag": "qwen3:30b",
+      "family": "qwen3moe",
+      "quantization": "Q4_K_M",
+      "parameter_count": 30500000000,
+      "parameter_label": "30.5B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12"
+      ],
+      "capabilities": [
+        "text",
+        "tools"
+      ],
+      "capability_verified": false,
+      "description": "Mixture-of-experts experiment; all expert weights still require storage and memory.",
+      "publisher_url": "https://ollama.com/library/qwen3",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 48,
+        "kv_heads": 4,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/resolve/0d7cf23991f47feeb3a57ecb4c9cee8ea4a17bfe/config.json",
+        "source_sha256": "a1ee086a68d0cbfc87316da00ba4b8507bd1292978108e2496201a30a450f438"
+      },
+      "manifest_digest": "sha256:ad815644918f0eaab341c12b67837cc6dd4562342cdaf118f83d5d554cb37226",
+      "artifacts": [
+        {
+          "digest": "sha256:3cdc64c2b371af88ae18b4cdac63d1097f76a8f6fd23d785aaaaa02c59450d61",
+          "size": 494,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:58574f2e94b99fb9e4391408b57e5aeaaaec10f6384e9a699fc2cb43a5c8eabf",
+          "size": 18556685856,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:2d54db2b9bb29ce7db54fea63a891f5859603813c555b1f88b5e0994652897f9",
+          "size": 1506,
+          "media_type": "application/vnd.ollama.image.template"
+        },
+        {
+          "digest": "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+          "size": 11338,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb",
+          "size": 120,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 18556699314,
+      "weight_bytes": 18556685856
+    },
+    {
+      "tag": "qwen3-vl:4b",
+      "family": "qwen3vl",
+      "quantization": "Q4_K_M",
+      "parameter_count": 4400000000,
+      "parameter_label": "4.4B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:7339fa418c9ad3e8e12e74ad0fd26a9cc4be8703f9c110728a992b193be85cb2"
+      ],
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking",
+        "vision"
+      ],
+      "capability_verified": false,
+      "description": "Vision-language experiment; image capability needs a real test.",
+      "publisher_url": "https://ollama.com/library/qwen3-vl",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 36,
+        "kv_heads": 8,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3-VL-4B-Thinking/resolve/1de27d8c51f12e819435303b9e84c4e25ba8401e/config.json",
+        "source_sha256": "edac7703329133edfc53e46ac0081835144c99d7eebf28b71c732694d435224d"
+      },
+      "manifest_digest": "sha256:1343d82ebee38e26a4dd6b0180b915eb91550184e67c505dea97509571c8f683",
+      "artifacts": [
+        {
+          "digest": "sha256:3353ed4a819bb8696f0b26dfe2ecc23cf3ba70566112fe6a6673f83a6b62fc30",
+          "size": 551,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:9c60bdd691c1897bbfe5ddbc67336848e18c346b7ee2ab8541b135f208e5bb38",
+          "size": 3295612832,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:7339fa418c9ad3e8e12e74ad0fd26a9cc4be8703f9c110728a992b193be85cb2",
+          "size": 11355,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:f6417cb1e26962991f8e875a93f3cb0f92bc9b4955e004881251ccbf934a19d2",
+          "size": 42,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 3295624780,
+      "weight_bytes": 3295612832
+    },
+    {
+      "tag": "qwen2.5-coder:7b",
+      "family": "qwen2",
+      "quantization": "Q4_K_M",
+      "parameter_count": 7600000000,
+      "parameter_label": "7.6B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e"
+      ],
+      "capabilities": [
+        "text",
+        "tools"
+      ],
+      "capability_verified": false,
+      "description": "Compact coding experiment; tool capability still requires local acceptance.",
+      "publisher_url": "https://ollama.com/library/qwen2.5-coder",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 28,
+        "kv_heads": 4,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct/resolve/c03e6d358207e414f1eca0bb1891e29f1db0e242/config.json",
+        "source_sha256": "c0242402ad6a13b331ea320feea8c7e3776ffb7a4eff0757b9cd667e116d9a28"
+      },
+      "manifest_digest": "sha256:dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+      "artifacts": [
+        {
+          "digest": "sha256:d9bb33f2786931fea42f50936a2424818aa2f14500638af2f01861eb2c8fb446",
+          "size": 487,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:60e05f2100071479f596b964f89f510f057ce397ea22f2833a0cfe029bfc2463",
+          "size": 4683074048,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e",
+          "size": 68,
+          "media_type": "application/vnd.ollama.image.system"
+        },
+        {
+          "digest": "sha256:1e65450c30670713aa47fe23e8b9662bdf4065e81cc8e3cbfaa98924fcc0d320",
+          "size": 1615,
+          "media_type": "application/vnd.ollama.image.template"
+        },
+        {
+          "digest": "sha256:832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+          "size": 11343,
+          "media_type": "application/vnd.ollama.image.license"
+        }
+      ],
+      "total_download_bytes": 4683087561,
+      "weight_bytes": 4683074048
+    },
+    {
+      "tag": "huihui_ai/qwen3-abliterated:8b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "parameter_count": 8200000000,
+      "parameter_label": "8.2B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12"
+      ],
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "capability_verified": false,
+      "description": "Optional community abliterated discussion model; not automatically assigned to any persona.",
+      "publisher_url": "https://ollama.com/huihui_ai/qwen3-abliterated",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 36,
+        "kv_heads": 8,
+        "head_dim": 128,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3-8B/resolve/b968826d9c46dd6066d109eabc6255188de91218/config.json",
+        "source_sha256": "f7c4eadfbbf522470667b797a3c89be2524832d2d599797248dc304fff447c30"
+      },
+      "manifest_digest": "sha256:543f9deff86d8347fd96ea1f3e54e73861ea70d52def71d31ccaeaf013de6ba6",
+      "artifacts": [
+        {
+          "digest": "sha256:b328f126e487d412563c86aa8793c5ddc1f516c6e76a3166d84ad54befc3f45d",
+          "size": 487,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:6da140c19a3625dc4e98e57a2d87cab5b5613854402f1f389def4540037541ab",
+          "size": 5027779392,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:ae370d884f108d16e7cc8fd5259ebc5773a0afa6e078b11f4ed7e39a27e0dfc4",
+          "size": 1723,
+          "media_type": "application/vnd.ollama.image.template"
+        },
+        {
+          "digest": "sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+          "size": 11338,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb",
+          "size": 120,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 5027793060,
+      "weight_bytes": 5027779392
+    }
+  ]
+}

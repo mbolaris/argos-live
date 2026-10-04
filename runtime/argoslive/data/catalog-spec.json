@@ -1,0 +1,120 @@
+{
+  "schema": "argos-catalog-spec/1",
+  "models": [
+    {
+      "tag": "qwen3:0.6b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-0.6B/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "description": "Small offline starter; modest CPU-friendly weight download.",
+      "publisher_url": "https://ollama.com/library/qwen3"
+    },
+    {
+      "tag": "qwen3:1.7b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-1.7B/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "description": "Small assistant for machines with limited memory.",
+      "publisher_url": "https://ollama.com/library/qwen3"
+    },
+    {
+      "tag": "qwen3:4b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools"
+      ],
+      "description": "Compact general assistant.",
+      "publisher_url": "https://ollama.com/library/qwen3"
+    },
+    {
+      "tag": "qwen3:8b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-8B/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "description": "Midrange reasoning and general conversation.",
+      "publisher_url": "https://ollama.com/library/qwen3"
+    },
+    {
+      "tag": "qwen3:14b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-14B/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "description": "Larger general assistant; compare quality and speed locally.",
+      "publisher_url": "https://ollama.com/library/qwen3"
+    },
+    {
+      "tag": "qwen3:30b",
+      "family": "qwen3moe",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools"
+      ],
+      "description": "Mixture-of-experts experiment; all expert weights still require storage and memory.",
+      "publisher_url": "https://ollama.com/library/qwen3"
+    },
+    {
+      "tag": "qwen3-vl:4b",
+      "family": "qwen3vl",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-VL-4B-Thinking/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking",
+        "vision"
+      ],
+      "description": "Vision-language experiment; image capability needs a real test.",
+      "publisher_url": "https://ollama.com/library/qwen3-vl"
+    },
+    {
+      "tag": "qwen2.5-coder:7b",
+      "family": "qwen2",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools"
+      ],
+      "description": "Compact coding experiment; tool capability still requires local acceptance.",
+      "publisher_url": "https://ollama.com/library/qwen2.5-coder"
+    },
+    {
+      "tag": "huihui_ai/qwen3-abliterated:8b",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-8B/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking"
+      ],
+      "description": "Optional community abliterated discussion model; not automatically assigned to any persona.",
+      "publisher_url": "https://ollama.com/huihui_ai/qwen3-abliterated"
+    }
+  ]
+}
