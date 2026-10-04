@@ -1,0 +1,52 @@
+name: Pinned native OpenClaw local chat
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/native-chat.yml'
+      - 'scripts/smoke-native-chat.py'
+      - 'runtime/argoslive/auto_setup.py'
+      - 'runtime/argoslive/starter.py'
+      - 'runtime/argoslive/owned_ollama.py'
+      - 'versions.env'
+      - 'live/config/includes.chroot/usr/local/share/argos-live/package-lock.json'
+permissions:
+  contents: read
+jobs:
+  native-chat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read exact Node pin
+        id: pins
+        shell: bash
+        run: |
+          source versions.env
+          printf 'node=%s\n' "$NODE_VERSION" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+      - name: Install checksum-pinned disposable runtimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          source versions.env
+          mkdir -p work/native-runtime "$RUNNER_TEMP/argos-ollama"
+          cp live/config/includes.chroot/usr/local/share/argos-live/package-lock.json work/native-runtime/
+          printf '{"name":"argos-live-runtime","version":"0.1.0","private":true,"dependencies":{"openclaw":"%s"}}\n' "$OPENCLAW_VERSION" > work/native-runtime/package.json
+          EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./work/native-runtime/package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
+          npm ci --ignore-scripts --no-audit --no-fund --prefix work/native-runtime
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/argos-ollama.tar.zst" "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
+          echo "$OLLAMA_SHA256  $RUNNER_TEMP/argos-ollama.tar.zst" | sha256sum -c -
+          tar --zstd -xf "$RUNNER_TEMP/argos-ollama.tar.zst" -C "$RUNNER_TEMP/argos-ollama"
+          python3 scripts/fetch-seed-model.py "$RUNNER_TEMP/argos-native-seed"
+      - name: Native conversation-only CPU reply without seed copies
+        run: |
+          python3 scripts/smoke-native-chat.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/native-chat.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-local-chat
+          path: work/native-chat.json
+          if-no-files-found: error
+          retention-days: 14
