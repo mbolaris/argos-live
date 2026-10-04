@@ -58,7 +58,7 @@ def report(root, commit):
     pins = {}
     for line in (ROOT / 'versions.env').read_text().splitlines():
         key, separator, value = line.partition('=')
-        if separator and re.fullmatch(r'[A-Z_]+', key):
+        if separator and re.fullmatch(r'[A-Z][A-Z0-9_]*', key):
             pins[key] = value
     return {'schema': 'argos-iso-build/1', 'commit': commit, 'pins': pins,
             'iso_sha256': digest.hexdigest(), 'iso_bytes': iso.stat().st_size,
