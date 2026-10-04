@@ -39,7 +39,34 @@ generated code is executed. Output is bounded to 64 KiB UTF-8; malformed Unicode
 and excessively nested JSON fail without evaluation or shell calls.
 
 B4b retains code tasks and an actual enforced no-network/filesystem sandbox.
-A temporary directory and timeout alone do not enforce those boundaries. B5
-adds the Ollama runner and actual model smoke; B6 adds comparable results; B7
-adds CLI commands. No model performance or physical acceptance is claimed by
-fixture-only B4a scoring.
+A temporary directory and timeout alone do not enforce those boundaries.
+
+## Running the probes
+
+`argos bench ability --model qwen3:0.6b --suite quick` runs without setup against
+an already-installed exact Ollama tag. Standard selects 70 items. Stop competing
+assistant workloads first. The model must advertise at least 2048 context tokens.
+Generation uses context 2048, seed 1, temperature 0 and a 128-token limit; thinking
+is disabled only when the model advertises that capability. Deterministic settings
+do not guarantee identical output across hardware or upstream runtime revisions.
+
+Each item saves bounded raw output, score, format outcome, measured latency,
+backend placement and reported token/timing fields. Progress reports completed
+items, elapsed time and ETA from measured completed-item time; no ETA appears
+before the first item completes. No answer is retried or judged by another model.
+The first item includes loading time; this is an ability run, not a speed ranking.
+
+The runner unloads the candidate in a finally block and reloads the previously
+loaded model with its reported context. More than one loaded model is refused.
+Other previous runner options cannot be recovered from `/api/ps`; restoration
+does not restore unreported settings. Ctrl+C or cancellation saves partial evidence
+with `state: cancelled`, incomplete coverage, and exit status 130. Backend or
+restoration errors fail the run and do not save a successful result.
+
+Private JSON files go to `~/.local/share/argos-live/results/`. `--json` emits the
+result without progress text; `--results-dir`, `--ollama` and a bounded `--timeout`
+are available. Quick and standard have distinct version identities. Code execution
+remains explicitly omitted, and partial runs must not rank beside complete ones.
+B6 adds result management/comparison; B7 adds combined speed/ability CLI runs.
+Real CPU integration checks completion and restoration, not a minimum model score
+or the GPU timing target. Physical Live/GPU acceptance remains separate.

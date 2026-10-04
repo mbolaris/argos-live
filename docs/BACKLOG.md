@@ -108,13 +108,27 @@ Depends on: B4a.
   directory is insufficient. Test timeout, outside-write and network rejection.
 - Code category is explicitly omitted by B4a; full B4 acceptance remains here.
 
-### B5 Ability runner — `todo`
+### B5 Ability runner — `split into B5a and B5b`
 Depends on: B2, B4.
 - Runs a suite against a model with the ability method above; streams progress (item n of N, elapsed, ETA from measured per-item time); supports cancel; records per-item output, score and latency.
 - Accept: unit tests with a fake model producing known right, wrong and malformed answers give exact expected scores; a smoke run of `quick` against `qwen3:0.6b` completes and records results.
 
+### B5a Nonexecuting ability runner — `in progress`
+Depends on: B2, B4a.
+- Run the versioned 20/70 original probes, deterministic settings, measured progress,
+  per-item scores/output/timings and private results; cancellation preserves partial
+  coverage and restores the prior model/context. Expose discoverable ability CLI.
+- Acceptance: reference/wrong/malformed fixtures score exactly; failure/cancellation,
+  coverage, context, bounds and restoration pass tests; real pinned CPU Ollama quick
+  suite completes and its result round-trips. Code execution is explicitly omitted.
+
+### B5b Sandboxed code-runner integration — `todo`
+Depends on: B4b, B5a.
+- Add the verified code category to version-bumped suites and runner results.
+- Test actual sandbox enforcement before enabling generated code execution.
+
 ### B6 Results store and comparison — `todo`
-Depends on: B3 (format), B5.
+Depends on: B3 (format), B5a. Code results follow B5b with distinct suite versions.
 - `results.py`: save, list, load, delete; comparison table across runs that only ranks runs with the same benchmark kind and suite version; CSV export.
 - Accept: unit tests for round trip, schema version rejection, mixed-version comparison refusal and CSV output.
 
