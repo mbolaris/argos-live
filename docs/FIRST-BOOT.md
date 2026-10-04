@@ -38,6 +38,34 @@ The no-NIC [VM acceptance run](https://github.com/mbolaris/argos-live/actions/ru
 passed questionless setup, immutable SquashFS starter CPU inference without weight
 copies, saved benchmarks and the native Firefox dashboard. The test explicitly
 starts services; automatic desktop startup and progress remain O2. Native
-OpenClaw first chat, downloaded-model switching and physical persistence/GPU
+OpenClaw embedded first chat separately passed the pinned hosted test; downloaded-model switching and physical persistence/GPU
 acceptance remain separate. Fixture mode tests do not prove a physical encrypted
 persistence reboot.
+
+## Managed desktop candidate
+
+`argos desktop` opens the local dashboard immediately and prepares the assistant
+in the background without setup questions. It verifies the selected model, starts
+owned Ollama, measures a bounded warmup reply, then starts the local token gateway.
+The page shows actual stages, first-token timing and backend-reported generation
+rate; unavailable measurements remain unknown. It opens the conversation once
+ready. Reopening the workspace reuses its verified session rather than starting
+another service. Start/Stop actions control only this launcher's owned job.
+
+The launcher accepts the reviewed local conversation profile. An existing broader
+or changed policy, channel configuration, unresolved model or unavailable storage
+stops automatic startup for review; nothing is reset or silently reconfigured.
+Stop during model/gateway startup cancels the job and releases owned services.
+Filesystem hashing and an in-flight prefill can take time before cancellation
+returns; the page stays at Stopping until cleanup finishes.
+
+Logs and the private session descriptor live under `~/.local/state/argos-live/`.
+Descriptors are removed only if still matching this launch. Private diagnostics
+do not appear in public HTTP responses or access logs. In try mode, workspace and
+conversation changes can be lost at reboot; persistence and model-store encryption
+remain separate status cards. No private configuration is moved to DATA.
+
+The desktop login hook uses this candidate launcher; legacy welcome code remains
+packaged during acceptance. Hosted domain and browser tests are separate from
+fresh ISO/Firefox/firmware and physical persistence/GPU acceptance. Do not promote
+or rewrite a USB solely from hosted startup evidence.

@@ -262,7 +262,7 @@ Depends on: MD2, MD3.
   native Firefox dashboard and saved three CPU benchmark runs. OpenClaw first
   conversation, automatic desktop startup and physical persistence remain separate.
 
-### O2 Autostart flow — `todo`
+### O2 Autostart flow — `in progress`
 Depends on: O1, W1.
 - On desktop login: run auto setup if needed, start Ollama and the OpenClaw gateway in the background, start the dashboard, open Firefox at the tokenized dashboard URL. Single-instance lock. Logs to `~/.local/state/argos-live/`.
 - Accept: in a CI or local VM boot (C3), the dashboard responds within a measured time of reaching the desktop; reusing an already-running assistant does not start a second one.
@@ -297,6 +297,23 @@ Depends on: O1, O2a.
   shutdown passed [37236247571](https://github.com/mbolaris/argos-live/actions/runs/37236247571).
   Ollama 0.35.1 supervisor regression also passed the real CPU onboarding and
   immutable starter checks [37236247586](https://github.com/mbolaris/argos-live/actions/runs/37236247586).
+
+### O2c Managed desktop progress and conversation handoff — `in progress`
+Depends on: O1, O2a, O2b, W2.
+- `argos desktop` starts the loopback dashboard immediately, performs questionless
+  setup and full selected-model verification, warms up with a bounded local reply,
+  then starts the owned gateway. Show measured first-token/generation metrics and
+  startup stages; claim automatic chat handoff once per started assistant.
+- Authenticated same-origin empty POSTs control only the owned start/stop job.
+  Repeated starts reuse one worker. Reopening checks a private descriptor's process
+  start identity, owned listening port and authenticated startup API; no unrelated
+  service is adopted. Changed or unsupported owner policies remain untouched and
+  require review rather than silently narrowed or widened.
+- New desktop login uses this launcher instead of the tkinter welcome. Legacy
+  welcome code is retained during acceptance; full retirement remains W6.
+- Accept: lifecycle/authentication/owner-preservation fixtures, browser controls
+  and actual pinned hosted startup, model warmup, session reuse and stop. Fresh ISO
+  automatic Firefox/chat acceptance and firmware boot remain C3b before promotion.
 
 ### O3 Offer persistence later — `todo`
 Depends on: W2.
