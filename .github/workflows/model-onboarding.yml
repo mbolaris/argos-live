@@ -9,6 +9,9 @@ on:
       - 'runtime/argoslive/model_verify.py'
       - 'runtime/argoslive/owned_ollama.py'
       - 'runtime/argoslive/bench_speed.py'
+      - 'runtime/argoslive/bench_ability.py'
+      - 'runtime/argoslive/ability.py'
+      - 'runtime/argoslive/data/ability/**'
 permissions:
   contents: read
 jobs:
@@ -26,5 +29,5 @@ jobs:
           curl --fail --location --retry 3 -o "$RUNNER_TEMP/argos-ollama.tar.zst" "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
           echo "$OLLAMA_SHA256  $RUNNER_TEMP/argos-ollama.tar.zst" | sha256sum -c -
           tar --zstd -xf "$RUNNER_TEMP/argos-ollama.tar.zst" -C "$RUNNER_TEMP/argos-ollama"
-      - name: Real CPU partial pull, resume, reply and speed benchmark
+      - name: Real CPU partial pull, resume, reply, speed and ability benchmarks
         run: python3 scripts/smoke-model-onboarding.py --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama"

@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive.model_onboarding import OnboardingQueue
 from argoslive.owned_ollama import owned
 from argoslive.bench_speed import run as speed_benchmark
+from argoslive.bench_ability import run as ability_benchmark
 from argoslive.pull_jobs import write_json
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -52,6 +53,16 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
             raise SystemExit('Benchmark did not restore the previously loaded model/context')
         client.unload(result['tag'])
         full_speed = speed_benchmark(client, result['tag'], progress=progress)
+        ability = ability_benchmark(client, result['tag'], progress=progress)
+        if not ability['coverage']['complete'] or len(ability['items']) != 20:
+            raise SystemExit('Real quick ability suite did not complete')
+        if client.ps()['models']:
+            raise SystemExit('Ability benchmark left a model loaded')
+        print(json.dumps({'ability_seconds': ability['elapsed_seconds'],
+                          'ability_summary': ability['summary']}), flush=True)
+    write_json(root / 'ability.json', ability)
+    if json.loads((root / 'ability.json').read_text())['coverage']['completed'] != 20:
+        raise SystemExit('Ability result did not round-trip')
     write_json(root / 'speed.json', speed)
     if json.loads((root / 'speed.json').read_text())['schema'] != 'argos-bench/1':
         raise SystemExit('Benchmark result file did not round-trip')

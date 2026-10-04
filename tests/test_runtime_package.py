@@ -32,7 +32,7 @@ class RuntimePackageTests(unittest.TestCase):
         self.assertTrue(cli.argoslive.__version__)
 
     def test_group_and_delegated_help(self):
-        for command in (['bench'], ['pack'], ['bench', 'speed'], ['pull'],
+        for command in (['bench'], ['pack'], ['bench', 'speed'], ['bench', 'ability'], ['pull'],
                         ['pack', 'export'], ['pack', 'import'], ['pack', 'apply'],
                         ['pack', 'rollback'], ['dashboard'], ['addons']):
             with self.subTest(command=command):
