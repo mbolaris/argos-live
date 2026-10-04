@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 
@@ -9,6 +10,21 @@ spec.loader.exec_module(module)
 
 
 class BootEntryTests(unittest.TestCase):
+    def test_serial_result_waits_for_whole_nested_record(self):
+        value = {'schema': 'argos-qemu-smoke/1', 'desktop_started': True,
+                 'dashboard_authenticated': True, 'result_round_trip': True,
+                 'network_routes': False, 'automatic_first_boot': False,
+                 'physical_acceptance': False, 'backend': 'CPU', 'generation_limit': 8,
+                 'generation_tokens_per_second': {'median': 1.4, 'reported_runs': 3}}
+        wire = 'noise\r\nARGOS_C3_RESULT ' + json.dumps(value) + '\r\n'
+        for end in range(len(wire)):
+            self.assertIsNone(module.guest_result(wire[:end]))
+        self.assertEqual(module.guest_result(wire), value)
+        for changed in (dict(value, desktop_started=False), dict(value, network_routes=True),
+                        dict(value, backend='GPU'), dict(value, generation_limit=128)):
+            with self.assertRaises(ValueError):
+                module.guest_result('ARGOS_C3_RESULT ' + json.dumps(changed) + '\n')
+
     def test_original_desktop_arguments_preserved_and_serial_only_added_for_vm(self):
         text = '''menuentry "Argos desktop" {
  linux /live/vmlinuz boot=live components persistence console=tty0 module_blacklist=nouveau

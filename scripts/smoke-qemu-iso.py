@@ -53,6 +53,26 @@ def screenshot(qmp, path):
                     break
 
 
+def guest_result(serial):
+    # Serial reads split anywhere, including after a nested JSON object's closing
+    # brace. Only a complete newline-terminated record can establish acceptance.
+    match = re.search(r'ARGOS_C3_RESULT (\{[^\r\n]+\})\r?\n', serial)
+    if not match:
+        return None
+    result = json.loads(match[1])
+    if not isinstance(result, dict) or result.get('schema') != 'argos-qemu-smoke/1':
+        raise ValueError('Unexpected guest acceptance record')
+    for field in ('desktop_started', 'dashboard_authenticated', 'result_round_trip'):
+        if result.get(field) is not True:
+            raise ValueError('Guest did not establish required acceptance')
+    for field in ('network_routes', 'automatic_first_boot', 'physical_acceptance'):
+        if result.get(field) is not False:
+            raise ValueError('Unexpected guest acceptance scope')
+    if result.get('backend') != 'CPU' or result.get('generation_limit') != 8:
+        raise ValueError('Unexpected guest inference settings')
+    return result
+
+
 def run(image, output, *, timeout=1800):
     if output.exists() and any(output.iterdir()):
         raise ValueError('Choose a fresh VM output directory')
@@ -105,7 +125,7 @@ def run(image, output, *, timeout=1800):
                         log.write(chunk)
                         log.flush()
                         tail = (tail + chunk.decode('utf-8', errors='replace'))[-65536:]
-                    for stage in re.findall(r'ARGOS_C3_STAGE ([a-z-]+)', tail):
+                    for stage in re.findall(r'ARGOS_C3_STAGE ([a-z-]+)\r?\n', tail):
                         if stage not in reported_stages:
                             reported_stages.add(stage)
                             print(f'Guest stage: {stage}', flush=True)
@@ -127,9 +147,8 @@ def run(image, output, *, timeout=1800):
                         tail = ''
                     if 'ARGOS_C3_FAIL ' in tail:
                         raise ValueError('Guest acceptance failed; see console artifact')
-                    match = re.search(r'ARGOS_C3_RESULT (\{[^\r\n]+\})', tail)
-                    if match:
-                        result = json.loads(match[1])
+                    result = guest_result(tail)
+                    if result is not None:
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
                                       boot_method='direct kernel/initrd from original desktop entry; serial appended',
                                       firmware_boot_verified=False)
