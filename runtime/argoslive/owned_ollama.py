@@ -11,6 +11,7 @@ import time
 
 from .ollama import Client, NotRunning
 from .storage import safe_local
+from .pull_jobs import worker_lock
 
 PIN = '0.35.0'
 
@@ -65,9 +66,12 @@ def owned(target, *, executable=None, timeout=60):
                OLLAMA_NO_CLOUD='1', OLLAMA_NOPRUNE='1', OLLAMA_CONTEXT_LENGTH='2048',
                OLLAMA_MAX_LOADED_MODELS='1', OLLAMA_NUM_PARALLEL='1')
     env['PYTHONPATH'] = str(Path(__file__).resolve().parents[1])
+    store = target.parent.parent if target.parent.name == '.argos-pulls' else target
+    lease = safe_local(store / '.argos-daemon-lease')
+    lease.mkdir(mode=0o700, exist_ok=True)
     # Supervisor emits only the child PID, never backend logs or credentials.
     process = subprocess.Popen([sys.executable, '-m', 'argoslive.owned_ollama',
-                                '--supervise', executable], env=env,
+                                '--supervise', executable, str(lease)], env=env,
                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                text=True, start_new_session=True)
     try:
@@ -100,7 +104,7 @@ def owned(target, *, executable=None, timeout=60):
         process.stdout.close()
 
 
-def supervise(executable):
+def supervise(executable, lease):
     import ctypes
     parent = os.getppid()
     child = None
@@ -113,20 +117,23 @@ def supervise(executable):
     # Linux PR_SET_PDEATHSIG. Install handler before arming it, check race afterward.
     if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM, 0, 0, 0) != 0:
         raise ValueError('Cannot establish parent-death supervision')
-    try:
-        if stopping or os.getppid() != parent:
-            return
-        child = subprocess.Popen([executable, 'serve'], stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL, start_new_session=True)
-        print(child.pid, flush=True)
-        while not stopping and child.poll() is None:
-            time.sleep(0.1)
-    finally:
-        if child:
-            stop_group(child)
+    # Supervisor owns this lease, so worker death cannot release daemon exclusion
+    # while the old process group is still shutting down.
+    with worker_lock(Path(lease)):
+        try:
+            if stopping or os.getppid() != parent:
+                return
+            child = subprocess.Popen([executable, 'serve'], stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL, start_new_session=True)
+            print(child.pid, flush=True)
+            while not stopping and child.poll() is None:
+                time.sleep(0.1)
+        finally:
+            if child:
+                stop_group(child)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3 or sys.argv[1] != '--supervise':
+    if len(sys.argv) != 4 or sys.argv[1] != '--supervise':
         raise SystemExit(2)
-    supervise(sys.argv[2])
+    supervise(sys.argv[2], sys.argv[3])
