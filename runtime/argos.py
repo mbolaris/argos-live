@@ -239,6 +239,7 @@ def command_parser():
         if name == 'setup':
             command.add_argument('--auto', action='store_true', help='Configure a fresh Live session without questions.')
     delegates = {'dashboard': ('argoslive.web.server', 'Open the local dashboard server'),
+                 'desktop': ('argoslive.desktop', 'Start or reopen the managed desktop workspace'),
                  'addons': ('argoslive.addons', 'Inspect addon capability candidates'),
                  'pull': ('argoslive.model_onboarding', 'Manage verified model download jobs')}
     for name, (module, help_text) in delegates.items():

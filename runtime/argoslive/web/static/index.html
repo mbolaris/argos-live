@@ -17,6 +17,13 @@
       <strong id="assistant-status">Checking your workspace…</strong>
       <p id="assistant-help">This page observes your workspace. It does not start or change services.</p>
       <button id="chat" type="button" disabled>Open chat</button>
+      <div id="startup-controls" hidden>
+        <p id="startup-status" role="status" aria-live="polite">Preparing your assistant…</p>
+        <progress id="startup-progress" max="5" value="0" aria-label="Assistant setup progress"></progress>
+        <p id="startup-metrics"></p>
+        <button id="start-assistant" type="button">Start Assistant</button>
+        <button id="stop-assistant" type="button" disabled>Stop Assistant</button>
+      </div>
     </section>
     <section aria-labelledby="hardware-title">
       <h2 id="hardware-title">Your computer</h2>

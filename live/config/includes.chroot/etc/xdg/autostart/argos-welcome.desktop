@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Argos Welcome
+Name=Argos Live Workspace
 Comment=Start your local AI workspace
 Exec=argos-launch
 Icon=applications-science

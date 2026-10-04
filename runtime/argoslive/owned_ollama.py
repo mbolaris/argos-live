@@ -46,7 +46,7 @@ def owns_port(pid, port):
 
 
 @contextmanager
-def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, context_tokens=2048):
+def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, context_tokens=2048, cancel=None):
     if sys.platform != 'linux':
         raise ValueError('Owned Ollama onboarding requires Linux')
     if type(port) is not int or not 0 <= port <= 65535:
@@ -88,6 +88,8 @@ def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, cont
         client = Client(f'http://127.0.0.1:{port}', timeout=30)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            if cancel and cancel():
+                raise ValueError('Owned Ollama startup stopped')
             if process.poll() is not None:
                 raise ValueError('Owned Ollama failed to start')
             if owns_port(pid, port):

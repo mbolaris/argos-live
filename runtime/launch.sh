@@ -1,3 +1,3 @@
 #!/bin/bash
 set -euo pipefail
-exec python3 /usr/local/bin/argos-welcome
+exec /usr/local/bin/argos desktop

@@ -58,6 +58,8 @@ def settings(path):
 
 
 def private_log(path):
+    if sys.platform != 'linux':
+        raise ValueError('Owner-only gateway diagnostics require Linux')
     path = safe_local(path)
     fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     info = os.fstat(fd)
@@ -69,7 +71,7 @@ def private_log(path):
 
 
 @contextmanager
-def owned(home=None, *, executable=None, config_path=None, timeout=180):
+def owned(home=None, *, executable=None, config_path=None, timeout=180, cancel=None):
     if sys.platform != 'linux':
         raise ValueError('Owned gateway requires Linux')
     if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 600:
@@ -111,6 +113,8 @@ def owned(home=None, *, executable=None, config_path=None, timeout=180):
             raise ValueError('Gateway supervisor did not acquire ownership') from None
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            if cancel and cancel():
+                raise ValueError('Owned gateway startup stopped')
             if process.poll() is not None:
                 raise ValueError('Owned gateway failed to start; inspect private gateway.log')
             if group_owns_port(group, port) and gateway_ready(origin):

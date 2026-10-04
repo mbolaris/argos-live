@@ -23,13 +23,14 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
         if type(port) is not int or not 0 <= port <= 65535:
             raise ValueError('Invalid dashboard port')
         self.token = secrets.token_urlsafe(32)
+        self.startup = startup
         self.status_provider = status_provider
         self.models_provider = models_provider
         self.benchmarks = benchmarks or BenchmarkView()
@@ -101,7 +102,10 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
-        if path == '/api/benchmarks' or path.startswith('/api/benchmarks/'):
+        if path == '/api/startup':
+            self.reply(200, self.server.startup.snapshot() if self.server.startup else
+                       {'schema': 'argos-startup/1', 'managed': False}, head=head)
+        elif path == '/api/benchmarks' or path.startswith('/api/benchmarks/'):
             try:
                 if path == '/api/benchmarks':
                     self.reply(200, self.server.benchmarks.listing(), head=head)
@@ -161,8 +165,25 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET(head=True)
 
     def do_POST(self):
-        if self.authorized(mutation=True):
-            self.reply(405, {'error': 'Dashboard preview has no mutation routes'})
+        if not self.authorized(mutation=True):
+            return
+        path = urlsplit(self.path).path
+        if self.command == 'POST' and self.server.startup and path in ('/api/startup/start', '/api/startup/stop', '/api/startup/chat'):
+            # These controls have no user-supplied configuration or command body.
+            if (self.headers.get('Transfer-Encoding') is not None or
+                    self.headers.get_all('Content-Length') not in (None, ['0'])):
+                self.reply(400, {'error': 'Startup controls require an empty body'})
+                return
+            try:
+                if path == '/api/startup/chat':
+                    value = {'url': self.server.startup.claim_chat()}
+                else:
+                    value = getattr(self.server.startup, path.rsplit('/', 1)[1])()
+                self.reply(200, value)
+            except (OSError, ValueError):
+                self.reply(409, {'error': 'Startup action is unavailable'})
+            return
+        self.reply(405, {'error': 'Dashboard action is unavailable'})
 
     do_PUT = do_POST
     do_PATCH = do_POST
