@@ -179,7 +179,7 @@ Depends on: O2, W2.
 
 ## E5 Portable personalities (M3)
 
-### P1 Pack format specification — `todo`
+### P1 Pack format specification — `in progress (PR pending)`
 Depends on: none.
 - `docs/PERSONALITY-PACKS.md` specifying `argos-pack/1`: manifest schema, allowed file types (Markdown, plain text, JSON skill definitions), size limits, hashing, forbidden content (credentials, memory/history, permissions, providers, executables, absolute paths), and how a model preference is expressed and resolved against the catalog.
 - `runtime/argoslive/packs.py`: manifest validation and archive inspection (reuse the checks in `scripts/inspect-config-bundle.py`: traversal, links, duplicates, CRC, expansion limits, executables).
