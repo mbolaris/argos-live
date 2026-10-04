@@ -8,7 +8,7 @@ Windows supplies Argos, Nyx and Proteus personality documents and explicitly sel
 
 Download model artifacts from Live into a dedicated owner-selected directory, such as `<DATA mount>/ArgosLive/Models/catalog`. This directory is independent of Windows model storage. Display that DATA model files are unencrypted; keep private personas, skill settings, credentials and conversation state in encrypted persistence. Reidentify storage using its stable identity and check free space before each job. Never repartition or rewrite a USB to add a model.
 
-Preserve each agent's model preference without silently substituting a different model or quantization. Resolve an authenticated upstream source, immutable revision, size and SHA256 for every weight shard and vision projector. Windows file hashes are useful comparison evidence, not download URLs. Missing provenance leaves a model visibly pending. No Windows model copy is required by this workflow.
+Preserve each agent's model preference without silently substituting a different model or quantization. Ollama is the supported inference backend: resolve preferences to exact Ollama model manifests, artifact sizes/digests and supported capabilities. Missing provenance or an unavailable Ollama equivalent leaves a model visibly pending. Historical Windows model/provider references are reference data, not target configuration. No Windows model copy or separate llama-cpp provider/server is required by this workflow.
 
 ## Welcome experience
 
@@ -40,7 +40,7 @@ These steps are broken into agent-sized items in [BACKLOG.md](BACKLOG.md): perso
 1. Narrow personality/skill export and preview: selected files, exclusions, Linux dependency review, fresh encrypted staging, conflict handling and rollback.
 2. Private model catalog: verified upstream revisions/artifacts, agent assignments, capacity estimates and dedicated target storage.
 3. Resumable download worker: durable job state, bounded retries, integrity verification, disk-full/cancel/reboot recovery and single-worker coordination.
-4. Linux backend adapter: supported pinned binaries, loopback listeners, model loading/unloading, timing and resource probes. Validate CLI flags against the installed version.
+4. Ollama integration: supported pinned runtime, loopback listener, model loading/unloading, timing and resource probes. Validate API/CLI behavior against the installed version.
 5. Welcome cards and benchmark runner: real progress, measured results, failure recovery and conversation handoff.
 6. Physical acceptance: acquire a model from Live, interrupt/resume its download, reject corrupt artifacts, preserve the starter chat, test each agent, reboot and confirm catalog/personality retention.
 
