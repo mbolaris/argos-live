@@ -72,6 +72,7 @@ class Controller:
         self.auto_open_chat = auto_open_chat
         self.chat_claimed = False
         self.origin = None
+        self.failure = None
 
     def transition(self, phase):
         if phase not in PHASES:
@@ -90,6 +91,7 @@ class Controller:
                 'elapsed_seconds': max(0, self.clock() - self.started) if self.started is not None else None,
                 'model': self.model, 'model_reply_verified': self.metrics is not None,
                 'metrics': copy.deepcopy(self.metrics), 'gateway_ready': self.phase == 'ready',
+                'failure': copy.deepcopy(self.failure),
                 'auto_open_chat': self.phase == 'ready' and self.auto_open_chat and not self.chat_claimed}
 
     def start(self):
@@ -99,6 +101,7 @@ class Controller:
             self.stop_event.clear()
             self.phase, self.started = 'setup', self.clock()
             self.model, self.metrics, self.origin = None, None, None
+            self.failure = None
             self.chat_claimed = False
             self.worker = threading.Thread(target=self.run, daemon=True, name='argos-startup')
             self.worker.start()
@@ -163,7 +166,11 @@ class Controller:
                 # Native group/backend cleanup remains inside ownership contexts.
                 client.unload(model)
             self.transition('stopped')
-        except Exception:
+        except Exception as error:
+            with self.lock:
+                frame = traceback.extract_tb(error.__traceback__)[-1]
+                self.failure = {'stage': self.phase, 'category': type(error).__name__,
+                                'module': Path(frame.filename).name, 'line': frame.lineno}
             self.transition('stopped' if self.stop_event.is_set() else 'failed')
             if not self.stop_event.is_set():
                 try:

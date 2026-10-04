@@ -73,7 +73,7 @@ def run(cli, ollama, seed):
                     report = request('/api/startup')
                     if report['phase'] == 'ready': break
                     if report['phase'] == 'failed' or errors or time.monotonic() >= deadline:
-                        raise ValueError('Managed desktop did not reach native readiness')
+                        raise ValueError('Managed desktop did not reach native readiness: ' + json.dumps(report.get('failure')))
                     time.sleep(.5)
                 if not report['model_reply_verified'] or report['metrics']['backend']['mode'] != 'CPU':
                     raise ValueError('Managed desktop model CPU reply was not established')
