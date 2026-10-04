@@ -92,6 +92,12 @@ class StatusTests(unittest.TestCase):
         self.assertFalse(result['chat_available'])
         self.assertNotIn('private-path', json.dumps(result))
 
+    def test_failed_loaded_model_probe_is_unknown_not_empty(self):
+        self.client.ps.side_effect = NotRunning('fixture failure')
+        result = self.snapshot()
+        self.assertTrue(result['ollama']['reachable'])
+        self.assertIsNone(result['ollama']['loaded_models'])
+
     def test_liveness_is_not_gateway_readiness(self):
         response = Mock()
         response.__enter__ = Mock(return_value=response)

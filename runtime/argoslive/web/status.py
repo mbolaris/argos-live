@@ -1,5 +1,6 @@
 """Read-only dashboard probes. Unknown measurements stay unknown; no write tests."""
 import json
+from http.client import HTTPException
 from pathlib import Path
 import time
 from urllib.parse import quote
@@ -37,7 +38,7 @@ def gateway_ready(origin):
         with opener.open(origin + '/readyz', timeout=2) as response:
             raw = response.read(16385)
         return len(raw) <= 16384 and json.loads(raw).get('ready') is True
-    except (OSError, ValueError, TypeError, AttributeError):
+    except (OSError, HTTPException, ValueError, TypeError, AttributeError):
         return False
 
 
@@ -83,7 +84,7 @@ def snapshot(home=None, *, run=hw.command, hardware=hw.snapshot, client=None,
     config_path = home / '.openclaw/openclaw.json'
     result = {'schema': 'argos-dashboard/1', 'dashboard': 'running', 'mode': 'read-only-status',
               'assistant': 'not-configured', 'chat_available': False,
-              'ollama': {'reachable': False, 'version': None, 'loaded_models': [], 'ownership_verified': False},
+              'ollama': {'reachable': False, 'version': None, 'loaded_models': None, 'ownership_verified': False},
               'network': {'default_route': None, 'internet_verified': False},
               'persistence': {'active': None, 'encrypted': None, 'mode': 'unknown'},
               'model_storage': {'state': 'not-configured', 'path': None, 'encrypted': None,
@@ -121,6 +122,7 @@ def snapshot(home=None, *, run=hw.command, hardware=hw.snapshot, client=None,
         result['ollama'].update(reachable=True, version=version if isinstance(version, str) else None)
         models = client.ps().get('models', [])
         if isinstance(models, list):
+            result['ollama']['loaded_models'] = []
             for model in models:
                 name = model.get('name') or model.get('model')
                 if isinstance(name, str):

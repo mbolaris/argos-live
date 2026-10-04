@@ -56,7 +56,7 @@ async function refreshLive() {
       live.network.default_route === false ? 'Offline · Local chat does not need internet' : 'Network status unknown');
     const ollama = live.ollama;
     card(cards, 'Model service', ollama.reachable ? `Ollama ${ollama.version || '(version unknown)'} reachable` : 'Ollama is not reachable');
-    card(cards, 'Models in use', ollama.loaded_models.length ? ollama.loaded_models.map(m =>
+    card(cards, 'Models in use', ollama.loaded_models === null ? 'Loaded model status unknown' : ollama.loaded_models.length ? ollama.loaded_models.map(m =>
       `${m.name} · ${m.backend.mode || 'Placement unknown'}`).join('; ') : 'No loaded models reported');
     document.getElementById('assistant-status').textContent = live.assistant === 'ready' ? 'Assistant gateway ready' :
       live.assistant === 'not-configured' ? 'Assistant setup needed' : 'Assistant is not ready';
