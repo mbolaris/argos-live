@@ -23,7 +23,7 @@ def fullscreen_capture():
         x11 = ctypes.CDLL('libX11.so.6')
         xtst = ctypes.CDLL('libXtst.so.6')
         x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
-        x11.XKeysymToKeycode.argtypes, x11.XKeysymToKeycode.restype = [ctypes.c_void_p, ctypes.c_ulong], ctypes.c_uint
+        x11.XKeysymToKeycode.argtypes, x11.XKeysymToKeycode.restype = [ctypes.c_void_p, ctypes.c_ulong], ctypes.c_ubyte
         x11.XFlush.argtypes = x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
         xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
         display = x11.XOpenDisplay(b':0')
