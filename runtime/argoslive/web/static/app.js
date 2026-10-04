@@ -18,6 +18,8 @@ const nextSteps = {'local-chat': 'Finish local model setup and test a reply.',
 let busy = false;
 let managedStartup = false;
 let handoffPending = false;
+let startupRefreshing = false;
+let liveRefreshing = false;
 const startupSteps = {idle: 0, setup: 0, 'select-storage': 1, 'write-configuration': 1,
   configured: 2,
   'verify-starter': 1, 'verify-model': 2, 'model-service': 3, 'first-reply': 3, gateway: 4, ready: 5};
@@ -34,6 +36,8 @@ async function startupAction(action) {
   return response.json();
 }
 async function refreshStartup() {
+  if (startupRefreshing) return;
+  startupRefreshing = true;
   try {
     const value = await api('/api/startup');
     managedStartup = value.managed === true;
@@ -57,6 +61,8 @@ async function refreshStartup() {
     }
   } catch (_) {
     if (managedStartup) document.getElementById('startup-status').textContent = 'Startup status unavailable. Retry with the current session link.';
+  } finally {
+    startupRefreshing = false;
   }
 }
 function card(parent, heading, detail) {
@@ -77,6 +83,8 @@ async function api(path) {
   return response.json();
 }
 async function refreshLive() {
+  if (liveRefreshing) return;
+  liveRefreshing = true;
   const status = document.getElementById('live-status');
   const chat = document.getElementById('chat');
   try {
@@ -114,6 +122,8 @@ async function refreshLive() {
     document.getElementById('assistant-status').textContent = 'Assistant status unavailable';
     chat.disabled = true;
     status.textContent = 'Live status unavailable. Retry using the current session link.';
+  } finally {
+    liveRefreshing = false;
   }
 }
 async function refreshModels() {
