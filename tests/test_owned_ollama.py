@@ -43,7 +43,7 @@ class OwnedTests(unittest.TestCase):
         path = Path(f'/proc/{pid}/stat')
         try:
             return path.read_text().split(')')[1].strip().startswith('Z')
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
             # Reaping can remove /proc between observation and reading it.
             return True
 

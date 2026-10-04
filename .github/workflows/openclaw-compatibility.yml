@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - scripts/smoke-pack-schema.py
+      - scripts/smoke-owned-gateway.py
+      - runtime/argoslive/owned_gateway.py
+      - runtime/argoslive/owned_ollama.py
       - scripts/smoke-addon-inventory.py
       - scripts/smoke-dashboard-browser.mjs
       - runtime/argoslive/web/**
@@ -22,6 +25,9 @@ on:
   pull_request:
     paths:
       - scripts/smoke-pack-schema.py
+      - scripts/smoke-owned-gateway.py
+      - runtime/argoslive/owned_gateway.py
+      - runtime/argoslive/owned_ollama.py
       - scripts/smoke-addon-inventory.py
       - scripts/smoke-dashboard-browser.mjs
       - runtime/argoslive/web/**
@@ -74,11 +80,14 @@ jobs:
         run: |
           source versions.env
           python3 scripts/smoke-pack-schema.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --version "$OPENCLAW_VERSION" --report work/openclaw-compatibility.json
+      - name: Native owned gateway health, UI document and shutdown
+        run: python3 scripts/smoke-owned-gateway.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw > work/native-gateway.json
       - uses: actions/upload-artifact@v4
         with:
           name: openclaw-compatibility
           path: |
             work/openclaw-compatibility.json
+            work/native-gateway.json
             work/addon-inventory.json
             work/dashboard-desktop.png
             work/dashboard-narrow.png

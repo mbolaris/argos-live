@@ -108,8 +108,9 @@ def run(cli, ollama, seed):
             result = summary(command(cli, ['agent', '--local', '--agent', 'main', '--message',
                 'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
                 '--timeout', '120', '--json'], env, timeout=180))
-            if placement(client.ps().get('models', []), starter.TAG)['mode'] != 'CPU':
-                raise ValueError('Native chat CPU placement was not established')
+            observed = placement(client.ps().get('models', []), starter.TAG)
+            if observed['mode'] != 'CPU':
+                raise ValueError('Native chat CPU placement was not established: ' + json.dumps(observed))
             client.unload(starter.TAG)
         if starter.verify(seed) != identity:
             raise ValueError('Native chat changed the image starter identity')

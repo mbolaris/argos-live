@@ -40,8 +40,9 @@ with starter.serve(seed, executable=args.ollama.absolute()) as client:
                              think=False, keep_alive='5m')
     if not answer['text'].strip() or answer['final'].get('eval_count', 0) <= 0:
         raise SystemExit('Read-only starter did not produce a measured reply')
-    if placement(client.ps()['models'], starter.TAG)['mode'] != 'CPU':
-        raise SystemExit('CPU inference was not established')
+    observed = placement(client.ps()['models'], starter.TAG)
+    if observed['mode'] != 'CPU':
+        raise SystemExit('CPU inference was not established: ' + json.dumps(observed))
     client.unload(starter.TAG)
 if snapshot() != before:
     raise SystemExit('Read-only seed file inventory or metadata changed')
