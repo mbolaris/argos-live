@@ -171,5 +171,6 @@ def main(argv=None):
                 print(f"{item['size']}: skipped ({item['reason']})")
             else:
                 value = item['summary']['generation_tokens_per_second']['median']
-                print(f"{item['size']}: median generation {value} tokens/s (three measured runs)")
+                measured = f'{value:.2f} tokens/s' if value is not None else 'unknown'
+                print(f"{item['size']}: median generation {measured} (three measured runs)")
     return 0

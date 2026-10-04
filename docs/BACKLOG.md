@@ -144,12 +144,17 @@ Depends on: B3 (format), B5a. Code results follow B5b with distinct suite versio
   ([run](https://github.com/mbolaris/argos-live/actions/runs/37215548515)).
   No physical Live/GPU result acceptance claimed.
 
-### B7 CLI wiring — `todo`
-Depends on: B3, B5, B6.
+### B7 CLI wiring — `in progress`
+Depends on: B3, B5a, B6. Sandboxed code follows B5b with versioned suites.
 - `argos bench speed|ability [--suite quick|standard]|all --model TAG [--json]`, `argos bench results [--compare ID...]`, `argos hw`.
 - Human-readable summary tables by default; `--json` prints the result file.
 - Works without `argos setup` against any reachable Ollama (`--ollama URL`), so it is useful outside the live image.
 - Accept: CLI tests with the fake server; documented in README.
+- Implementation: discoverable speed/ability/results/all commands; combined runs
+  save separate typed/versioned results and emit one JSON batch when requested.
+  Hardware and speed use readable defaults with explicit unknown measurements.
+  An actual loopback HTTP fixture runs the combined CLI without setup and verifies
+  deterministic payloads, scores, result-store round trips and candidate unload.
 
 ## E2 Models and storage
 
