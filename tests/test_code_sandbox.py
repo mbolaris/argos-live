@@ -72,7 +72,7 @@ for operation in (socket.socket, os.fork):
     except OSError as error: assert error.errno == errno.EPERM
     else: raise AssertionError("kernel restriction absent")
 libc = ctypes.CDLL(None, use_errno=True)
-for number in (435, 272, 308, 0x40000000 + 41):
+for number in (435, 272, 308, 250, 310, 438, 0x40000000 + 41):
     assert libc.syscall(number, 0, 0) == -1
     assert ctypes.get_errno() == errno.EPERM
 ''')

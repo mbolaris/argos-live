@@ -101,12 +101,27 @@ Depends on: F2.
   installed package contains both suites and their notice. No model or tool is
   invoked. See [ABILITY-BENCHMARK.md](ABILITY-BENCHMARK.md).
 
-### B4b Code tasks and enforced execution sandbox — `todo`
+### B4b Code tasks and enforced execution sandbox — `split into B4b1 and B4b2`
 Depends on: B4a.
 - Add versioned coding fixtures only with actual OS-enforced filesystem/network
   isolation and bounded subprocess lifetime. Merely setting cwd to a temporary
   directory is insufficient. Test timeout, outside-write and network rejection.
 - Code category is explicitly omitted by B4a; full B4 acceptance remains here.
+
+### B4b1 Sandbox foundation — `in progress`
+Depends on: F2.
+- Fail-closed Linux amd64 bubblewrap namespaces, no writable host mount, seccomp
+  denial of network/process creation, bounded tmpfs/output/source and hard resource
+  limits. Actual Linux tests cover filesystem/network rejection, timeout and cleanup.
+- Root-hosted CI exercises kernel enforcement without changing host security policy;
+  unprivileged Live availability and generated-code suite activation remain B4b2.
+  See [CODE-SANDBOX.md](CODE-SANDBOX.md).
+
+### B4b2 Coding fixtures and Live sandbox acceptance — `todo`
+Depends on: B4a, B4b1, C3.
+- Add versioned original code items with passing/wrong/malformed references,
+  verified scoring harness and unprivileged Live sandbox probe. Keep code omitted
+  when isolation is unavailable; use distinct suite identities for differing coverage.
 
 ### B5 Ability runner — `split into B5a and B5b`
 Depends on: B2, B4.
