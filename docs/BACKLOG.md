@@ -296,6 +296,11 @@ Capability contract: [OPENCLAW-ADDONS.md](OPENCLAW-ADDONS.md). These items cover
 
 ### A1 Pinned addon inventory and capability catalog — `todo`
 Depends on: F2; candidate inventory can be prepared before runtime wiring.
+- Inventory groundwork: PR #19 adds verified published-package metadata, inert
+  `argos addons` capability rows, installed-package hash checks and disposable
+  snapshot/runtime registration inspection. External engine selection, transitive
+  license review, per-agent grants and functional acceptance remain pending;
+  package discovery and registration do not establish readiness.
 - Inspect the pinned installation's plugin/skill inventory and shipped package contents. Record bundled/external source, exact compatible version/integrity, licenses, Linux dependencies/assets, credentials/network needs and effective tool grants. Treat imported skill metadata as inert data.
 - Include Ollama local chat/vision, memory, browser, documents, voice, image generation and optional channels. Choose external addon versions through verified compatibility metadata, not guessed package tags; no separate language-model backend.
 - Accept: generic schema/fixtures validate; actual pinned-install inventory distinguishes available, loaded and exercised; missing dependencies have explicit reasons. No private settings or automatic capability grants.
