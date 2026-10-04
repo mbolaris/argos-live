@@ -72,6 +72,43 @@ async function refreshLive() {
     status.textContent = 'Live status unavailable. Retry using the current session link.';
   }
 }
+async function refreshModels() {
+  const status = document.getElementById('models-status');
+  const installed = document.getElementById('installed-models');
+  const jobs = document.getElementById('model-jobs');
+  const catalog = document.getElementById('model-catalog');
+  installed.replaceChildren(); jobs.replaceChildren(); catalog.replaceChildren();
+  try {
+    const result = await api('/api/models');
+    status.textContent = result.storage_state === 'available' ? 'Reading your selected Ollama store.' :
+      result.storage_state === 'not-configured' ? 'Choose model storage in the welcome window.' :
+      'Selected storage or job metadata needs attention. No fallback location is used.';
+    if (result.invalid_manifests || result.invalid_jobs || result.truncated) {
+      status.textContent += ' Some entries need review or were omitted by the display limit.';
+    }
+    for (const model of result.installed || []) {
+      card(installed, model.tag, `${model.files_present ? 'Model files present' : 'Model files incomplete'} · ` +
+        `${model.catalog_manifest_match ? 'Matches catalog manifest' : 'Outside reviewed catalog revision'} · ` +
+        'Full artifact checks and current reply test are not performed by this view.');
+    }
+    if (result.installed !== null && result.installed.length === 0) card(installed, 'No local models found', 'The selected store has no model manifests to display.');
+    for (const job of result.jobs || []) {
+      const progress = job.progress;
+      const speed = progress.recent_mib_per_second === null ? 'Speed unknown' : `${progress.recent_mib_per_second.toFixed(1)} MiB/s`;
+      const eta = progress.eta_seconds === null ? 'ETA unknown' : `${Math.ceil(progress.eta_seconds)} seconds remaining`;
+      card(jobs, job.tag, `${job.state} · ${gib(progress.bytes_done)} / ${gib(progress.bytes_total)} · Last measured: ${speed} · Last estimate: ${eta}` +
+        (job.previous_reply_verified ? ' · A previous onboarding reply passed; current readiness has not been rechecked.' : ''));
+    }
+    if (result.jobs !== null && result.jobs.length === 0) card(jobs, 'No download jobs', 'Existing verified-download jobs will appear here as they progress.');
+    for (const model of result.catalog) {
+      card(catalog, model.tag, `${model.description} · ${model.parameter_label} · ${model.quantization} · ` +
+        `${gib(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · ` +
+        `${model.context_tokens.toLocaleString()} context · CPU: ${model.cpu_fit.status} · GPU: ${model.gpu_fit.status} (estimates)`);
+    }
+  } catch (_) {
+    status.textContent = 'Model inventory unavailable. Refresh status to retry.';
+  }
+}
 async function refresh() {
   if (busy) return;
   busy = true;
@@ -105,6 +142,7 @@ async function refresh() {
     status.textContent = 'Status unavailable. Reopen the dashboard using its current session link, then retry.';
   } finally {
     await refreshLive();
+    await refreshModels();
     busy = false;
     button.disabled = false;
   }

@@ -38,6 +38,8 @@ try {
   await page.getByText('Live measurements refreshed. Missing measurements remain unknown.', {exact: true}).waitFor({timeout: 60000});
   if (await page.locator('#hardware .card').count() !== 8) throw new Error('Missing live status cards');
   if (await page.locator('#capabilities .card').count() !== 10) throw new Error('Missing capability cards');
+  await page.waitForFunction(() => document.querySelectorAll('#model-catalog .card').length >= 8, null, {timeout: 60000});
+  await page.locator('summary').click();
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
   await page.locator('#refresh').click();
   await page.locator('#refresh').waitFor({state: 'visible'});

@@ -193,8 +193,22 @@ Depends on: W1, B1.
 
 ### W3 Models page — `todo`
 Depends on: W2, MD1, MD4.
+- Split delivery: W3a is the read-only selected-store/catalog/job projection;
+  W3b adds confirmed download/pause/cancel/retry and deletion controls with
+  assistant/process/storage safeguards. W3a does not initialize jobs or start
+  a daemon; real downloading and mutation acceptance belongs to W3b.
 - Installed models and catalog with fit badges, exact sizes, pull progress (bytes, speed, ETA), pause/cancel/retry, delete installed model with confirmation.
 - Accept: API tests with the fake server; manual run against a real Ollama documented in the PR.
+
+### W3a Read-only model inventory and progress — `in progress (PR pending)`
+Depends on: W1, W2, MD1, MD4.
+- Reuse Ollama's manifest layout, reviewed catalog/fit estimator and durable job
+  receipts. Show selected-store models, exact sizes, CPU/single-GPU fit estimates,
+  and recorded bytes/speed/ETA. Reject stale storage/catalog job identities;
+  omit invalid or oversized metadata with a visible review indicator.
+- Accept: fixture/API tests separate presence, metadata identity and readiness;
+  no writes or service startup. Browser CI renders catalog and inventory states.
+  W3b retains full W3 mutation and real-download acceptance.
 
 ### W4 Benchmarks page — `todo`
 Depends on: W2, B7.

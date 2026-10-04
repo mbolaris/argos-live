@@ -47,7 +47,7 @@ class DashboardTests(unittest.TestCase):
             self.assertGreaterEqual(len(other.token), 40)
 
     def test_missing_wrong_and_duplicate_tokens_rejected(self):
-        for route in ('/', '/app.js', '/style.css', '/api/status', '/api/capabilities', '/api/assistant/chat'):
+        for route in ('/', '/app.js', '/style.css', '/api/status', '/api/capabilities', '/api/assistant/chat', '/api/models'):
             self.assertEqual(self.request(route)[0], 403)
             self.assertEqual(self.request(route + '?token=wrong')[0], 403)
         route = '/api/status?token=' + self.server.token + '&token=' + self.server.token
@@ -115,3 +115,9 @@ class DashboardTests(unittest.TestCase):
             code, _, body = self.request('/api/assistant/chat', headers={'X-Argos-Token': self.server.token})
         self.assertEqual(code, 409)
         self.assertNotIn(b'fictional-secret', body)
+
+    def test_models_route_protected_read_only_projection(self):
+        with patch.object(self.server, 'models_provider', return_value={'schema': 'argos-models-view/1', 'read_only': True}):
+            code, _, body = self.request('/api/models', headers={'X-Argos-Token': self.server.token})
+        self.assertEqual(code, 200)
+        self.assertTrue(json.loads(body)['read_only'])
