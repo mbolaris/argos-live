@@ -5,7 +5,12 @@ source "$(dirname "$0")/../versions.env"
 root=/var/lib/argos-live/builder
 mkdir -p /var/lib/argos-live
 if [[ ! -f "$root/etc/debian_version" ]]; then
-  debootstrap --arch=amd64 --include=ca-certificates "$DEBIAN_SUITE" "$root" "https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/"
+  keyring=()
+  if [[ -n ${DEBOOTSTRAP_KEYRING:-} ]]; then
+    [[ -r "$DEBOOTSTRAP_KEYRING" ]] || { echo 'Bootstrap keyring is unreadable.' >&2; exit 1; }
+    keyring=(--keyring="$DEBOOTSTRAP_KEYRING")
+  fi
+  debootstrap "${keyring[@]}" --arch=amd64 --include=ca-certificates "$DEBIAN_SUITE" "$root" "https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/"
 fi
 printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/%s/ %s main\n' "$DEBIAN_SNAPSHOT" "$DEBIAN_SUITE" > "$root/etc/apt/sources.list"
 printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/%s/ %s-updates main\n' "$DEBIAN_SNAPSHOT" "$DEBIAN_SUITE" >> "$root/etc/apt/sources.list"

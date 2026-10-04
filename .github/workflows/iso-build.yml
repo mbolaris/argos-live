@@ -1,0 +1,62 @@
+name: Pinned Debian Live ISO
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - 'c2-iso-build-ci'
+permissions:
+  contents: read
+concurrency:
+  group: iso-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build pinned ISO in the disposable hosted runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh 2>&1 | tee artifacts/build.log
+      - name: Verify artifacts and record checksum
+        shell: bash
+        run: |
+          python3 scripts/report-iso-build.py artifacts --commit "$GITHUB_SHA" > artifacts/build-report.json
+          {
+            echo '## Pinned ISO candidate'
+            echo "Commit: $GITHUB_SHA"
+            echo '```text'
+            cat artifacts/SHA256SUMS
+            echo '```'
+            echo 'Build candidate only. QEMU boot and physical GPU/persistence acceptance remain required.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: argos-live-iso-${{ github.run_id }}
+          path: |
+            artifacts/argos-live-amd64.iso
+            artifacts/SHA256SUMS
+            artifacts/packages.txt
+            artifacts/build-report.json
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+      - name: Check failure log before upload
+        id: log-scan
+        if: always()
+        run: python3 scripts/report-iso-build.py artifacts --log-only
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.log-scan.outcome == 'success'
+        with:
+          name: argos-live-build-log-${{ github.run_id }}
+          path: artifacts/build.log
+          retention-days: 7
+          if-no-files-found: warn

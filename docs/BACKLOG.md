@@ -331,10 +331,14 @@ Depends on: P2, P4, MD4, physical hardware. Private; evidence stays out of this 
 
 ### C1 Tests in CI — covered by F1.
 
-### C2 ISO build in GitHub Actions — `todo`
+### C2 ISO build in GitHub Actions — `in progress`
 Depends on: F1.
 - Workflow (manual trigger and on tags) that frees runner disk, installs the builder per `scripts/bootstrap-builder.sh`, runs `scripts/lock-runtime.sh` check, fetches the seed model with `scripts/fetch-seed-model.py`, runs `scripts/build.sh`, and uploads the ISO, `SHA256SUMS`, package manifest and build log as workflow artifacts.
 - Accept: a green run producing an ISO whose checksum is recorded in the run summary; the build log contains no secrets.
+- Implementation: hosted-runner-only wrapper, isolated reviewed Debian keyring,
+  nonmutating pinned runtime lock check, verified seed, candidate artifacts and
+  checksum/provenance report. Failure logs pass a credential-pattern scan before
+  upload. Actual green image build is required before marking done. See [ISO-CI.md](ISO-CI.md).
 
 ### C3 QEMU smoke boot in CI — `todo`
 Depends on: C2.
