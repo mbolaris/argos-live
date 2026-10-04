@@ -61,7 +61,7 @@ def measurement(reply, loaded, tag):
 
 
 def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=None,
-        sizes=('short', 'medium', 'long')):
+        sizes=('short', 'medium', 'long'), progress=None):
     if not sizes or len(set(sizes)) != len(sizes) or set(sizes) - {'short', 'medium', 'long'}:
         raise ValueError('Choose unique short, medium or long prompt sizes')
     started = clock()
@@ -105,17 +105,26 @@ def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=Non
             prompt = ('alpha beta gamma delta ' * repeats +
                       '\nWrite a short paragraph about exploring a quiet coastline.')
             options = {'num_ctx': requested, 'num_predict': LIMIT, 'temperature': 0, 'seed': 1}
+            # Context changes require a fresh runner allocation. Explicit unload
+            # avoids keeping a mismatched runner resident through that transition.
+            client.unload(model)
             def generate():
                 response = client.generate(model, prompt, options=options,
                                            think=result['settings']['think'], keep_alive='5m', cancel=cancel)
                 if not response.get('text', '').strip():
                     raise ValueError('Benchmark produced an empty text reply')
                 return measurement(response, client.ps().get('models', []), model)
+            if progress:
+                progress({'size': name, 'phase': 'warmup'})
             warmup = generate()
             if result['cold'] is None:
                 result['cold'] = {'prompt_size': name, 'measurement': warmup,
                                   'filesystem_caches_cleared': False}
-            runs = [generate() for _ in range(3)]
+            runs = []
+            for index in range(3):
+                if progress:
+                    progress({'size': name, 'phase': 'measured', 'run': index + 1})
+                runs.append(generate())
             result['prompts'].append({'size': name, 'skipped': False, 'context_tokens': requested,
                                      'prompt_characters': len(prompt), 'prompt_version': SUITE,
                                      'warmup': warmup, 'runs': runs,

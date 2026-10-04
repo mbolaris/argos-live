@@ -43,12 +43,15 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     with backend(models) as client:
         client.timeout = 120  # Full CPU prefill can exceed the general API timeout.
         client.generate(result['tag'], '', options={'num_ctx': 2048}, keep_alive='5m')
-        speed = speed_benchmark(client, result['tag'], sizes=['short'])
+        def progress(value):
+            print(json.dumps({'benchmark_progress': value}), flush=True)
+        speed = speed_benchmark(client, result['tag'], sizes=['short'], progress=progress)
+        print(json.dumps({'short_benchmark_seconds': speed['elapsed_seconds']}), flush=True)
         loaded = client.ps()['models']
         if not any(m.get('name') == result['tag'] and m.get('context_length') == 2048 for m in loaded):
             raise SystemExit('Benchmark did not restore the previously loaded model/context')
         client.unload(result['tag'])
-        full_speed = speed_benchmark(client, result['tag'])
+        full_speed = speed_benchmark(client, result['tag'], progress=progress)
     write_json(root / 'speed.json', speed)
     if json.loads((root / 'speed.json').read_text())['schema'] != 'argos-bench/1':
         raise SystemExit('Benchmark result file did not round-trip')
