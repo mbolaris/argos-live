@@ -79,7 +79,7 @@ class GatewayProcessTests(unittest.TestCase):
         try:
             raw = Path(f'/proc/{pid}/stat').read_text()
             return raw[raw.rfind(')') + 2:].split()[0] == 'Z'
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
             return True
 
     def test_launcher_child_owned_and_private_logs_cleanup_on_failure(self):
@@ -110,6 +110,13 @@ class GatewayProcessTests(unittest.TestCase):
             self.assertEqual(listener.getsockname()[1], self.port)
             self.assertFalse((self.state / 'leader-pid').exists())
             self.assertFalse((self.home / '.local').exists())
+
+    def test_reviewed_bin_symlink_is_resolved_without_linking_owner_state(self):
+        link = self.home / 'openclaw-bin-link'
+        link.symlink_to(self.binary)
+        with owned(self.home, executable=link, timeout=5):
+            pid = int((self.state / 'worker-pid').read_text())
+        self.assertTrue(self.stopped(pid))
 
     def test_parent_death_stops_launcher_and_gateway_child(self):
         script = self.home / 'owner.py'

@@ -63,8 +63,14 @@ def run(cli):
                 pass
             if not gateway_ready(origin):
                 raise ValueError('Competing launcher stopped the owned gateway')
-        with socket.socket() as reservation:
-            reservation.bind(('127.0.0.1', port))
+        # A closed TCP connection can leave TIME_WAIT after the gateway exits;
+        # that does not mean a listener is still alive. Probe new connections.
+        with socket.socket() as probe:
+            probe.settimeout(2)
+            if probe.connect_ex(('127.0.0.1', port)) == 0:
+                raise ValueError('Native gateway listener survived cleanup')
+        if gateway_ready(origin):
+            raise ValueError('Native gateway remained ready after cleanup')
         if path.read_bytes() != original:
             raise ValueError('Native startup altered the reviewed fixture configuration')
         return {'schema': 'argos-native-gateway-smoke/1', 'host_version': addons.load()['host_version'],
