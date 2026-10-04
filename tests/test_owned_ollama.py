@@ -86,3 +86,14 @@ class OwnedTests(unittest.TestCase):
                 worker.kill()
                 worker.wait()
             worker.stdout.close()
+
+    def test_separate_lease_store_keeps_lock_files_out_of_model_source(self):
+        lease_store = self.root / 'writable-lease'
+        lease_store.mkdir()
+        with owned(self.root, executable=self.binary, timeout=3, lease_store=lease_store) as client:
+            self.assertEqual(client.version(), '0.35.0')
+            self.assertFalse((self.root / '.argos-daemon-lease').exists())
+            self.assertTrue((lease_store / '.argos-daemon-lease').is_dir())
+            with self.assertRaises(ValueError):
+                with owned(self.root, executable=self.binary, timeout=3, lease_store=lease_store):
+                    self.fail('Same lease allowed a competing daemon')

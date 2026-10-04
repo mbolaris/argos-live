@@ -46,7 +46,7 @@ def owns_port(pid, port):
 
 
 @contextmanager
-def owned(target, *, executable=None, timeout=60):
+def owned(target, *, executable=None, timeout=60, lease_store=None):
     if sys.platform != 'linux':
         raise ValueError('Owned Ollama onboarding requires Linux')
     target = safe_local(target)
@@ -66,7 +66,8 @@ def owned(target, *, executable=None, timeout=60):
                OLLAMA_NO_CLOUD='1', OLLAMA_NOPRUNE='1', OLLAMA_CONTEXT_LENGTH='2048',
                OLLAMA_MAX_LOADED_MODELS='1', OLLAMA_NUM_PARALLEL='1')
     env['PYTHONPATH'] = str(Path(__file__).resolve().parents[1])
-    store = target.parent.parent if target.parent.name == '.argos-pulls' else target
+    store = (safe_local(lease_store) if lease_store is not None else
+             target.parent.parent if target.parent.name == '.argos-pulls' else target)
     lease = safe_local(store / '.argos-daemon-lease')
     lease.mkdir(mode=0o700, exist_ok=True)
     # Supervisor emits only the child PID, never backend logs or credentials.

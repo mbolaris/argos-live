@@ -57,7 +57,7 @@ def blob_path(root, item):
     return storage.safe_local(Path(root) / 'blobs' / item['digest'].replace(':', '-'))
 
 
-def verify_blob(path, item, cancel=None, progress=None):
+def verify_blob(path, item, cancel=None, progress=None, *, sync=True):
     path = storage.safe_local(path)
     if not path.is_file() or path.stat().st_size != item['size']:
         raise ValueError('Missing or incorrectly sized artifact')
@@ -70,18 +70,18 @@ def verify_blob(path, item, cancel=None, progress=None):
             count += len(chunk)
             if progress:
                 progress(count)
-        if os.name != 'nt':
+        if sync and os.name != 'nt':
             os.fsync(stream.fileno())
     if 'sha256:' + digest.hexdigest() != item['digest']:
         raise ValueError('Artifact checksum mismatch')
 
 
-def verify(root, entry, cancel=None, progress=None):
+def verify(root, entry, cancel=None, progress=None, *, sync=True):
     check_manifest(read_manifest(root, entry['tag']), entry)
     checked = 0
     for item in entry['artifacts']:
         verify_blob(blob_path(root, item), item, cancel,
-                    lambda n: progress(checked + n) if progress else None)
+                    lambda n: progress(checked + n) if progress else None, sync=sync)
         checked += item['size']
     return checked
 

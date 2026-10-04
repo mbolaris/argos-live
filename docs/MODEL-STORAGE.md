@@ -17,3 +17,24 @@ For owner-configured storage without a recorded filesystem UUID, the existing ma
 DATA may hold downloaded public model weights and other owner-authorized files. Unencrypted DATA must not hold private personalities, credentials, history, pack receipts or backups; those remain on verified encrypted persistence. Reports can include private paths, so keep real machine reports out of public Git/CI artifacts.
 
 The parser follows [kernel mountinfo fields](https://docs.kernel.org/filesystems/proc.html) and uses explicit [lsblk output columns](https://man7.org/linux/man-pages/man8/lsblk.8.html), retaining repeated-device ancestry. Tests use fictional mount/device fixtures and injected capacity/access results; physical Toronado acceptance and real downloads are separate checks.
+
+## Read-only starter service foundation
+
+`argoslive.starter.serve()` is an internal Linux inference context for the image's
+`qwen3:0.6b` seed. It checks the reviewed catalog manifest and every artifact SHA
+before starting pinned Ollama directly on the seed. It refuses a source writable
+to the inference user. The supervisor lease uses a separate private temporary
+directory, and cloud requests/pruning are disabled. No weights are copied, no
+OpenClaw configuration is written, and no selected download store is adopted.
+Shutdown removes the temporary lease after daemon/runner cleanup.
+
+Read-only verification skips fsync on the image's read descriptors; downloaded
+model publication retains its existing sync checks. The public Linux integration
+fixture makes its seed unwritable to an unprivileged hosted-runner user, generates
+a real measured CPU reply, and rechecks the complete source inventory and hashes.
+This tests file-permission enforcement, not a SquashFS mount or physical USB.
+
+Existing interactive setup still copies the seed. Automatic source selection,
+downloaded-model switching, the dashboard source display and no-copy VM acceptance
+remain MD3b/O1/O2. The caller must own the overall single assistant lifecycle;
+this helper does not adopt a daemon or provide automatic first-boot startup.
