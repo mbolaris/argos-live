@@ -10,9 +10,6 @@ import time
 
 from . import __version__, hw
 from .ollama import Client, OllamaError
-from .pack_export import private_directory
-from .pull_jobs import write_json
-from .storage import safe_local
 
 SUITE = 'speed/1'
 LIMIT = 128
@@ -163,12 +160,8 @@ def main(argv=None):
     except OllamaError as exc:
         raise ValueError('Benchmark backend failed; check the service and timeout. '
                          'No successful result was saved.') from exc
-    root = safe_local(args.results_dir.absolute())
-    if not root.exists():
-        root.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        private_directory(root)
-    path = root / (result['id'] + '.json')
-    write_json(path, result)
+    from .results import Store
+    path = Store(args.results_dir).save(result)
     if args.json:
         print(json.dumps(result, indent=2))
     else:
