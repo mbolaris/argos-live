@@ -1,0 +1,10 @@
+{
+  "version": {"version": "0.35.0"},
+  "tags": {"models": [{"name": "fixture:latest", "digest": "fixture-digest", "size": 1000}]},
+  "show": {"parameters": "num_ctx 4096", "details": {"parameter_size": "0.6B", "quantization_level": "Q4_K_M"}, "model_info": {"general.architecture": "fixture", "fixture.context_length": 4096}, "capabilities": ["completion", "thinking"]},
+  "ps": {"models": [{"name": "fixture:latest", "size": 1000, "size_vram": 900, "context_length": 4096}]},
+  "pull": [{"status": "pulling manifest"}, {"status": "pulling fixture", "digest": "sha256:fixture", "total": 1000, "completed": 500}, {"status": "success"}],
+  "generate": [{"response": "", "done": false}, {"thinking": "Consider", "response": "", "done": false}, {"response": "Hello", "done": false}, {"response": "!", "done": true, "total_duration": 1000000000, "load_duration": 200000000, "prompt_eval_count": 10, "prompt_eval_duration": 100000000, "eval_count": 2, "eval_duration": 500000000}],
+  "chat": [{"message": {"role": "assistant", "content": "Hi"}, "done": false}, {"message": {"role": "assistant", "content": " there"}, "done": true, "eval_count": 2, "eval_duration": 500000000}],
+  "unload": {"done": true, "done_reason": "unload"}
+}
