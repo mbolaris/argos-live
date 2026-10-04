@@ -1,0 +1,53 @@
+name: Offline QEMU ISO acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful pinned ISO workflow run ID
+        required: true
+        default: '37216494685'
+        type: string
+  push:
+    branches:
+      - 'c3-qemu-smoke'
+    paths:
+      - '.github/workflows/iso-boot.yml'
+      - 'scripts/smoke-qemu-iso.py'
+      - 'scripts/qemu-guest-check.py'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  boot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      BUILD_RUN: ${{ inputs.build_run || '37216494685' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: argos-live-iso-${{ env.BUILD_RUN }}
+          run-id: ${{ env.BUILD_RUN }}
+          github-token: ${{ github.token }}
+          path: work/iso-candidate
+      - name: Install CPU-only VM tools
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso
+      - name: Boot existing ISO offline and check desktop/dashboard/CPU benchmark
+        run: python3 scripts/smoke-qemu-iso.py work/iso-candidate/argos-live-amd64.iso --output work/vm-smoke
+      - name: Record acceptance
+        run: |
+          echo '## Offline TCG guest acceptance' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat work/vm-smoke/result.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Direct-kernel VM test; firmware boot, automatic dashboard startup and physical GPU/persistence remain separate.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: argos-live-qemu-${{ github.run_id }}
+          path: work/vm-smoke/
+          retention-days: 7
+          if-no-files-found: warn
