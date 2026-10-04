@@ -1,0 +1,26 @@
+name: Linux code sandbox isolation
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'runtime/argoslive/code_sandbox.py'
+      - 'runtime/argoslive/sandbox_limits.py'
+      - 'tests/test_code_sandbox.py'
+      - '.github/workflows/code-sandbox.yml'
+permissions:
+  contents: read
+jobs:
+  isolation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install distro sandbox binary
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+      - name: Exercise actual kernel restrictions
+        # Root avoids Ubuntu's host-specific unprivileged namespace policy.
+        # Bubblewrap still drops all sandbox capabilities; seccomp denies forks.
+        # This does not establish unprivileged Live acceptance.
+        run: sudo env ARGOS_SANDBOX_REQUIRED=1 python3 -m unittest discover -s tests -p test_code_sandbox.py -v
