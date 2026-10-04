@@ -4,12 +4,20 @@ on:
   push:
     paths:
       - scripts/smoke-pack-schema.py
+      - runtime/argoslive/pack_apply.py
+      - runtime/argoslive/pack_import.py
+      - runtime/argoslive/packs.py
+      - runtime/argoslive/pack_export.py
       - .github/workflows/openclaw-compatibility.yml
       - versions.env
       - live/config/includes.chroot/usr/local/share/argos-live/package-lock.json
   pull_request:
     paths:
       - scripts/smoke-pack-schema.py
+      - runtime/argoslive/pack_apply.py
+      - runtime/argoslive/pack_import.py
+      - runtime/argoslive/packs.py
+      - runtime/argoslive/pack_export.py
       - .github/workflows/openclaw-compatibility.yml
       - versions.env
       - live/config/includes.chroot/usr/local/share/argos-live/package-lock.json
