@@ -171,7 +171,7 @@ Depends on: W2.
 
 ## E4 Dashboard (M2)
 
-### W1 Server skeleton — `in progress (PR pending)`
+### W1 Server skeleton — `in progress ([PR #20](https://github.com/mbolaris/argos-live/pull/20))`
 Depends on: F2.
 - Implemented loopback/token-protected server and a read-only capability preview.
   Disposable HTTP fixtures verify static/JSON routes, token/Origin/Host rejection,
@@ -346,4 +346,3 @@ Depends on: the owner creating the private repository (or Drive folder) and gran
 | Personalities | P1 → P2, P3 (parallel) → P4 → P5 |
 | Build | F1 → C2 → C3 → C5 |
 | Out-of-box lab | (after B1, B2) MD2 → MD3 → O1; W1 → W2 → W3, W4; O2 → W6 |
-
