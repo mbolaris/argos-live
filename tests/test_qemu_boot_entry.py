@@ -1,6 +1,10 @@
 import importlib.util
+import base64
+import hashlib
 import json
 import tempfile
+import re
+import zlib
 from pathlib import Path
 import unittest
 
@@ -11,6 +15,17 @@ spec.loader.exec_module(module)
 
 
 class BootEntryTests(unittest.TestCase):
+    def test_large_guest_payload_is_chunked_checked_and_never_shell_source(self):
+        source = b'$(untrusted shell text)' + b''.join(hashlib.sha256(str(i).encode()).digest() for i in range(200))
+        commands = module.guest_commands(source)
+        self.assertGreater(len(commands), 3)
+        self.assertTrue(all(len(command) < 2000 for command in commands))
+        encoded = ''.join(re.search(r"printf %s '([^']+)'", command)[1] for command in commands[:-1])
+        packed = base64.b64decode(encoded)
+        self.assertEqual(zlib.decompress(packed), source)
+        self.assertIn(hashlib.sha256(packed).hexdigest(), commands[-1])
+        self.assertNotIn('$(untrusted', ''.join(commands))
+
     def test_placeholder_screenshot_cannot_pass_graphical_acceptance(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'screen.ppm'
@@ -27,6 +42,7 @@ class BootEntryTests(unittest.TestCase):
     def test_serial_result_waits_for_whole_nested_record(self):
         value = {'schema': 'argos-qemu-smoke/1', 'desktop_started': True,
                  'dashboard_authenticated': True, 'result_round_trip': True,
+                 'native_firefox_dashboard': True,
                  'network_routes': False, 'automatic_first_boot': False,
                  'physical_acceptance': False, 'backend': 'CPU', 'generation_limit': 8,
                  'generation_tokens_per_second': {'median': 1.4, 'reported_runs': 3}}

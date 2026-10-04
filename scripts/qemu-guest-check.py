@@ -42,6 +42,7 @@ def main():
     stage('ollama')
     daemon = argos.server(state)
     dashboard = None
+    browser = None
     try:
         stage('dashboard')
         dashboard = subprocess.Popen(['argos', 'dashboard', '--port', '8765'], stdout=subprocess.PIPE,
@@ -77,11 +78,10 @@ def main():
         if store.load(result['id']) != result:
             raise ValueError('Guest benchmark result did not round-trip')
         env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
-        # Test-only kiosk hides the session URL even before page JS strips its
-        # query token. The ordinary distro browser startup remains unchanged.
-        subprocess.Popen(['firefox', '--kiosk', '--new-window', base + '/?token=' + token], env=env,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(45)
+        stage('firefox')
+        # Helper is prepended by the host. Its test-only profile, kiosk and
+        # loopback debugger do not change ordinary distro browser startup.
+        browser = ready_firefox(env, base + '/?token=' + token)
         print('ARGOS_C3_RESULT ' + json.dumps({'schema': 'argos-qemu-smoke/1',
               'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
               'desktop_wait_seconds': desktop_seconds, 'dashboard_seconds': dashboard_seconds,
@@ -89,10 +89,14 @@ def main():
               'generation_limit': result['settings']['generation_limit'],
               'generation_tokens_per_second': result['prompts'][0]['summary']['generation_tokens_per_second'],
               'backend': 'CPU', 'result_round_trip': True, 'automatic_first_boot': False,
+              'native_firefox_dashboard': True,
               'physical_acceptance': False}), flush=True)
         # Keep services/page alive until the host captures its screenshot.
         time.sleep(30)
     finally:
+        if browser:
+            browser.terminate()
+            browser.wait(timeout=10)
         if dashboard:
             dashboard.terminate()
             dashboard.wait(timeout=10)

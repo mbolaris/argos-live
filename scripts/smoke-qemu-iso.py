@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
+import secrets
 import selectors
 import shlex
 import socket
@@ -62,7 +63,7 @@ def guest_result(serial):
     result = json.loads(match[1])
     if not isinstance(result, dict) or result.get('schema') != 'argos-qemu-smoke/1':
         raise ValueError('Unexpected guest acceptance record')
-    for field in ('desktop_started', 'dashboard_authenticated', 'result_round_trip'):
+    for field in ('desktop_started', 'dashboard_authenticated', 'result_round_trip', 'native_firefox_dashboard'):
         if result.get(field) is not True:
             raise ValueError('Guest did not establish required acceptance')
     for field in ('network_routes', 'automatic_first_boot', 'physical_acceptance'):
@@ -88,6 +89,27 @@ def graphical_frame(path):
         raise ValueError('QEMU captured a blank or placeholder frame; review screenshot')
 
 
+def guest_commands(source):
+    packed = zlib.compress(source)
+    encoded = base64.b64encode(packed).decode()
+    path = '/tmp/argos-ci-check-' + secrets.token_hex(8)
+    commands = []
+    for offset in range(0, len(encoded), 1500):
+        index = len(commands)
+        prefix = 'stty -echo; umask 077; ' if index == 0 else ''
+        redirect = '>' if index == 0 else '>>'
+        commands.append(f"{prefix}printf %s '{encoded[offset:offset + 1500]}' {redirect} {path}; "
+                        f"printf '\\nARGOS_C3_PAYLOAD_{index}\\n'\n")
+    code = (f'import pathlib,base64,zlib,hashlib;p=pathlib.Path("{path}");'
+            'b=base64.b64decode(p.read_bytes());'
+            f'assert hashlib.sha256(b).hexdigest()=="{hashlib.sha256(packed).hexdigest()}";'
+            'p.unlink();exec(zlib.decompress(b))')
+    commands.append('python3 -c ' + shlex.quote(code) + '; stty echo\n')
+    if any(len(command) >= 2000 for command in commands):
+        raise ValueError('Guest command exceeds the serial line bound')
+    return commands
+
+
 def run(image, output, *, timeout=1800):
     if output.exists() and any(output.iterdir()):
         raise ValueError('Choose a fresh VM output directory')
@@ -101,10 +123,8 @@ def run(image, output, *, timeout=1800):
             digest.update(chunk)
     if digest.hexdigest() != record.split()[0]:
         raise ValueError('Candidate ISO checksum differs')
-    payload = base64.b64encode(zlib.compress((ROOT / 'scripts/qemu-guest-check.py').read_bytes())).decode()
-    guest = "stty -echo; python3 -c \"import base64,zlib;exec(zlib.decompress(base64.b64decode('" + payload + "')))\"; stty echo\n"
-    if len(guest) >= 3500:
-        raise ValueError('Guest payload exceeds the serial canonical-line bound')
+    source = (ROOT / 'scripts/qemu-firefox-check.py').read_bytes() + b'\n' + (ROOT / 'scripts/qemu-guest-check.py').read_bytes()
+    guest = guest_commands(source)
     with tempfile.TemporaryDirectory(prefix='argos-qemu-') as temp:
         work = Path(temp)
         def extract(source, destination):
@@ -128,6 +148,7 @@ def run(image, output, *, timeout=1800):
         next_heartbeat = started + 60
         tail = ''
         login_sent = password_sent = payload_sent = False
+        payload_next = None
         try:
             with (output / 'console.log').open('wb') as log, selectors.DefaultSelector() as selector:
                 selector.register(process.stdout, selectors.EVENT_READ)
@@ -157,9 +178,15 @@ def run(image, output, *, timeout=1800):
                         process.stdin.write(b'live\n'); process.stdin.flush()
                         password_sent = True
                         tail = ''
-                    elif not payload_sent and re.search(r'argos@[^\r\n]+\$\s*$', tail):
-                        process.stdin.write(guest.encode()); process.stdin.flush()
-                        payload_sent = True
+                    elif payload_next is None and re.search(r'argos@[^\r\n]+\$\s*$', tail):
+                        process.stdin.write(guest[0].encode()); process.stdin.flush()
+                        payload_next = 1
+                        tail = ''
+                    if (payload_next is not None and not payload_sent and
+                            re.search(fr'(?:^|\n)ARGOS_C3_PAYLOAD_{payload_next - 1}\r?\n', tail)):
+                        process.stdin.write(guest[payload_next].encode()); process.stdin.flush()
+                        payload_next += 1
+                        payload_sent = payload_next == len(guest)
                         tail = ''
                     if 'ARGOS_C3_FAIL ' in tail:
                         raise ValueError('Guest acceptance failed; see console artifact')
