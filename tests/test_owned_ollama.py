@@ -40,7 +40,11 @@ class OwnedTests(unittest.TestCase):
 
     def stopped(self, pid):
         path = Path(f'/proc/{pid}/stat')
-        return not path.exists() or path.read_text().split(')')[1].strip().startswith('Z')
+        try:
+            return path.read_text().split(')')[1].strip().startswith('Z')
+        except FileNotFoundError:
+            # Reaping can remove /proc between observation and reading it.
+            return True
 
     def test_loopback_owned_port_environment_and_cleanup_on_error(self):
         import json
@@ -97,3 +101,31 @@ class OwnedTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 with owned(self.root, executable=self.binary, timeout=3, lease_store=lease_store):
                     self.fail('Same lease allowed a competing daemon')
+
+    def test_fixed_loopback_port_context_and_busy_port_never_adopted(self):
+        import json
+        import socket
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            port = listener.getsockname()[1]
+            listener.listen()
+            with self.assertRaises(OSError):
+                with owned(self.root, executable=self.binary, port=port, timeout=3):
+                    self.fail('Unrelated listener was adopted')
+            self.assertFalse((self.root / 'pid').exists())
+            self.assertFalse((self.root / '.argos-daemon-lease').exists())
+        with owned(self.root, executable=self.binary, port=port, context_tokens=32768, timeout=3) as client:
+            pid = int((self.root / 'pid').read_text())
+            self.assertEqual(client.base_url, f'http://127.0.0.1:{port}')
+            self.assertTrue(owns_port(pid, port))
+            env = json.loads((self.root / 'env.json').read_text())
+            self.assertEqual(env['OLLAMA_CONTEXT_LENGTH'], '32768')
+        self.assertTrue(self.stopped(pid))
+
+    def test_invalid_fixed_port_or_context_starts_no_process(self):
+        for options in ({'port': True}, {'port': -1}, {'port': 65536}, {'port': '11434'},
+                        {'context_tokens': True}, {'context_tokens': 0}, {'context_tokens': 1048577}):
+            with self.assertRaises(ValueError):
+                with owned(self.root, executable=self.binary, **options):
+                    self.fail('Invalid options started a service')
+        self.assertFalse((self.root / 'pid').exists())

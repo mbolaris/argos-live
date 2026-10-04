@@ -42,7 +42,11 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     result = queue.run_verified(job['id'], backend=backend, assistant_stopped=True)
     if result['state'] != 'ready':
         raise SystemExit('Real resume/verification/reply failed: ' + json.dumps(result))
-    with backend(models) as client:
+    # Native OpenClaw's default provider points at this loopback endpoint. Own it
+    # explicitly rather than accepting whichever service already answers there.
+    with owned(models, executable=args.ollama.absolute(), port=11434, context_tokens=32768) as client:
+        if client.base_url != 'http://127.0.0.1:11434':
+            raise SystemExit('Native provider endpoint was not established')
         client.timeout = 600  # Dedicated full CPU lab test; quick run still gated under 60s.
         client.generate(result['tag'], '', options={'num_ctx': 2048}, keep_alive='5m')
         def progress(value):
@@ -80,6 +84,7 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
                       'reply_test': result['reply_test'],
                       'speed_benchmark_seconds': speed['elapsed_seconds'],
                       'speed_model_restored': speed['restoration']['succeeded'],
+                      'native_provider_endpoint_verified': True,
                       'full_speed_benchmark_seconds': full_speed['elapsed_seconds'],
                       'speed_summaries': [{'size': p['size'], 'summary': p.get('summary'),
                                             'skipped': p['skipped']} for p in full_speed['prompts']],

@@ -257,6 +257,16 @@ Depends on: O1, W1.
 - On desktop login: run auto setup if needed, start Ollama and the OpenClaw gateway in the background, start the dashboard, open Firefox at the tokenized dashboard URL. Single-instance lock. Logs to `~/.local/state/argos-live/`.
 - Accept: in a CI or local VM boot (C3), the dashboard responds within a measured time of reaching the desktop; reusing an already-running assistant does not start a second one.
 
+### O2a Owned backend at the native provider endpoint — `in progress`
+Depends on: MD4b.
+- Allow the Linux supervisor to reserve an explicit loopback port and requested
+  context for first-chat integration. Keep exact-version/PID-port checks, store
+  exclusion and parent-death cleanup. An unrelated listener is never adopted.
+- Existing onboarding keeps ephemeral ports and 2048-token context. This internal
+  API does not change OpenClaw configuration or enable automatic desktop startup.
+- Accept: real Linux process tests for busy/fixed ports, context environment,
+  invalid options and cleanup; pinned Ollama regression smoke.
+
 ### O3 Offer persistence later — `todo`
 Depends on: W2.
 - Dashboard banner in try mode explaining what is lost on reboot and linking to documented steps for creating encrypted persistence. No disk writes from the dashboard in this item.
