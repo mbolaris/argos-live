@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import auto_setup, startup
 from argoslive.web.server import DashboardServer
+from argoslive.ollama import Client as NativeClient
 
 
 class Client:
@@ -21,11 +22,11 @@ class Client:
         self.gate = gate
         self.generations = 0
     def generate(self, model, prompt, **options):
+        NativeClient._cancel(options['cancel'])
         self.generations += 1
         if self.gate:
             while not self.gate.wait(0.01):
-                if options['cancel']():
-                    raise ValueError('fixture cancelled')
+                NativeClient._cancel(options['cancel'])
         return {'text': 'Hello public fixture', 'time_to_first_token_seconds': .25,
             'elapsed_seconds': .5, 'final': {'eval_count': 4, 'eval_duration': 1000000000}}
     def ps(self):

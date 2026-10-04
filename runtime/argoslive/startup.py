@@ -146,7 +146,7 @@ class Controller:
                 client.timeout = 120
                 reply = client.generate(model, 'Say hello in one short sentence.',
                     options={'num_ctx': 32768, 'num_predict': 16, 'temperature': 0, 'seed': 1},
-                    think=False, keep_alive='5m', cancel=self.stop_event.is_set)
+                    think=False, keep_alive='5m', cancel=self.stop_event)
                 if (not reply.get('text', '').strip() or
                         type(reply.get('final', {}).get('eval_count')) is not int or reply['final']['eval_count'] <= 0):
                     raise ValueError('Selected model did not produce a measured reply')
