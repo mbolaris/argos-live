@@ -40,7 +40,8 @@ class RuntimePackageTests(unittest.TestCase):
                              (ROOT / 'runtime/argoslive/__init__.py').read_bytes())
             self.assertEqual(list(target.rglob('*.pyc')), [])
             self.assertEqual(list(target.rglob('__pycache__')), [])
-            program = 'import sys; sys.path.insert(0, sys.argv[1]); import argoslive; print(argoslive.__version__)'
+            program = ('import sys; sys.path.insert(0, sys.argv[1]); '
+                       'import argoslive, argoslive.pack_apply; print(argoslive.__version__)')
             result = subprocess.run([sys.executable, '-c', program, str(target)],
                                     capture_output=True, text=True, check=True, timeout=30)
             self.assertEqual(result.stdout.strip(), cli.argoslive.__version__)
