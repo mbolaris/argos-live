@@ -43,7 +43,13 @@ is used only in a fresh disposable guest. No owner password or persistence is us
 
 The guest checks XFCE, runs existing setup with fixed public test answers, starts
 the model service/dashboard, checks an authenticated status response, runs the
-short real CPU speed workload and verifies its saved result. Timings and a QEMU
+short real CPU speed workload and verifies its saved result. This disposable
+guest process bounds generation to eight tokens and records that setting;
+comparison with normal 128-token benchmark runs is refused. The first full-length
+TCG attempt reached desktop/dashboard/inference but was stopped after over twenty
+minutes: its observed generation rate was about 0.3 tokens/s. This is emulation
+overhead, not evidence of a desktop stall or a usable hardware performance score.
+Timings and a QEMU
 screen dump accompany the console. VM timing is not physical hardware performance.
 The current test starts setup/services explicitly; automatic O2 startup and actual
 UEFI/GRUB selection remain C3b. Failure never authorizes a USB rewrite.
