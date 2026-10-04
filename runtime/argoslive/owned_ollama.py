@@ -13,7 +13,7 @@ from .ollama import Client, NotRunning
 from .storage import safe_local
 from .pull_jobs import worker_lock
 
-PIN = '0.35.0'
+PIN = '0.35.1'
 
 
 def stop_group(process):

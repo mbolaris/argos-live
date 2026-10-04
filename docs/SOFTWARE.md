@@ -1,14 +1,16 @@
 # Software selection and redistribution
 
-Upstream checked October 1, 2026. Exact primary runtime pins are in `versions.env`.
+Upstream checked October 4, 2026. Exact primary runtime pins are in `versions.env`.
+These are development build pins; physical media acceptance is recorded separately
+in STATUS.md.
 
 | Component | Pin | License / status | Primary source |
 |---|---|---|---|
 | Debian | trixie, snapshot 20261001T000000Z | Per-package licenses, image copyright archive | https://www.debian.org/releases/ |
 | live-build | Builder version recorded by dpkg; target packages snapshot-pinned | GPL-2+ | https://packages.debian.org/trixie/live-build |
-| OpenClaw | 2026.9.7, npm sha512 integrity + transitive lock | MIT; dependencies have separate licenses | https://github.com/openclaw/openclaw/tree/v2026.9.7 |
+| OpenClaw | 2026.9.8, npm sha512 integrity + transitive lock | MIT; dependencies have separate licenses | https://github.com/openclaw/openclaw/tree/v2026.9.8 |
 | Node | 26.10.0, upstream SHA256 | MIT with bundled third-party notices | https://nodejs.org/dist/v26.10.0/ |
-| Ollama | 0.35.0, GitHub release SHA256 | MIT application; bundled CUDA libraries have NVIDIA terms | https://github.com/ollama/ollama/releases/tag/v0.35.0 |
+| Ollama | 0.35.1, GitHub release SHA256 | MIT application; bundled CUDA libraries have NVIDIA terms | https://github.com/ollama/ollama/releases/tag/v0.35.1 |
 | NVIDIA Debian driver | 550.163.01-2 | Proprietary NVIDIA components + separately licensed packaging/kernel code | https://packages.debian.org/trixie/nvidia-driver |
 | QEMU | Installed Ubuntu package recorded locally | GPL-2 with component exceptions | https://www.qemu.org/docs/master/system/invocation.html |
 | Tiny model | qwen3:0.6b, manifest SHA256 7df6b6e09427a769808717c0a93cadc4ae99ed4eb8bf5ca557c90846becea435 | Apache-2.0; registry license included | https://huggingface.co/Qwen/Qwen3-0.6B |
