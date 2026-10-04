@@ -630,6 +630,19 @@ Depends on: B4–B7, HA1.
   compatible runs; distinguish hardware speed from accuracy and tools/access.
   Reassess after model/config changes and surface actual failures.
 
+### HA5 Personal-AI cultivation experience — `todo`
+Depends on: HA1–HA4, model onboarding, capability dashboard and profile persistence.
+- Add a playful companionship/growth loop: useful goal, reviewed hardware or
+  optional online compute/model/software/addon change, measured outcome and a
+  milestone celebration. Preserve persona/history across model changes/reboots.
+- Show competence, capabilities, responsiveness, headroom and health separately.
+  Online compute includes visible provider/data destination, permissions and
+  cost/time budgets; private credentials stay private. Keep local/offline paths.
+- Accept: verified gains and regressions appear honestly; compatible before/after
+  results and rollback work; denied/offline/budget-exhausted upgrades remain usable.
+  No invented intelligence/happiness score, artificial decay or spending rewards.
+  Respect declined requests; improvements serve owner-selected useful tasks.
+
 ## Suggested parallel tracks
 
 | Track | Sequence |

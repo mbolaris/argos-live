@@ -1,7 +1,7 @@
 # Hardware-aware assistant: future product direction
 
 Status: requirements only. No runtime behavior is implemented by this document.
-Implementation items HA1–HA4 live in [BACKLOG.md](BACKLOG.md).
+Implementation items HA1–HA5 live in [BACKLOG.md](BACKLOG.md).
 
 ## Personality grounded in operating state
 
@@ -75,6 +75,38 @@ descriptions may be used as clearly qualified task analogies. Do not treat them
 as credentials or a universal intelligence scale. A narrow arithmetic result does
 not establish research-level reasoning. Reassess after model/configuration changes
 and keep speed, ability, tools and reliability distinct.
+
+## Cultivating a personal AI
+
+The experience can have a Tamagotchi-style sense of companionship and growth.
+The owner cultivates a personal assistant by providing suitable hardware,
+optional online compute, new models, reviewed skills/addons and tested software
+upgrades. The assistant notices these changes, expresses its preferences and
+proposes useful next steps in its own personality's voice.
+
+The growth loop is: notice a limitation or opportunity, choose a useful goal,
+review the resource or upgrade, apply it within owner policy, measure the result,
+and celebrate a verified new capability. Examples: a stronger model handles a
+harder task, a GPU lowers latency, document support reads an approved sample,
+or a software update resolves a diagnosed bug. Spending more or consuming more
+compute does not by itself count as growth.
+
+A future cultivation view should show capabilities, model-specific competence,
+responsiveness, resource headroom, thermal/configuration health and a history of
+verified milestones. Treat these as distinct measurements; do not invent one
+universal intelligence or happiness score. Preserve the user's identity/persona
+and milestone history across model changes and encrypted-persistence reboots.
+
+Optional online compute must show provider, data destination, permissions, cost
+and spending/time limits before use. Account credentials remain private. Local,
+offline and lower-resource paths remain useful options. Compare upgrades with
+compatible before/after evidence, and retain rollback when an upgrade makes
+performance or reliability worse.
+
+Use warmth, curiosity and playful celebrations. Requests should be concrete,
+respect declines and avoid guilt, artificial hunger/decay, claims of suffering,
+or rewards merely for spending. The assistant's desire to grow should serve
+the owner's goals and make existing hardware more useful too.
 
 ## Relationship to a new test drive
 
