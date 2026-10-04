@@ -1,0 +1,7 @@
+{"blockdevices":[
+ {"name":"/dev/sda","type":"disk","fstype":null,"uuid":null,"tran":"sata","maj:min":"8:0","children":[
+  {"name":"/dev/sda1","type":"part","fstype":"ext4","uuid":"fixture-small","maj:min":"8:1"},
+  {"name":"/dev/sda2","type":"part","fstype":"ntfs","uuid":"fixture-big","maj:min":"8:2"}]},
+ {"name":"/dev/sdb","type":"disk","fstype":null,"uuid":null,"tran":"usb","maj:min":"8:16","children":[
+  {"name":"/dev/sdb1","type":"part","fstype":"iso9660","uuid":"fixture-boot","maj:min":"8:17"},
+  {"name":"/dev/sdb2","type":"part","fstype":"ext4","uuid":"fixture-persistence","maj:min":"8:18"}]}]}

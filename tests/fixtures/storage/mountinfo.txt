@@ -1,0 +1,5 @@
+20 1 8:17 / /run/live/medium ro - iso9660 /dev/sdb1 ro
+21 1 8:1 / /mnt/small rw - ext4 /dev/sda1 rw
+22 1 8:2 / /mnt/big\040disk rw - ntfs3 /dev/sda2 rw
+23 1 8:18 / /mnt/boot-persistence rw - ext4 /dev/sdb2 rw
+24 1 0:25 / /ram rw - tmpfs tmpfs rw,size=16G
