@@ -129,10 +129,23 @@ Depends on: MD2.
 - Serve the bundled seed model without copying it: point Ollama at a model directory that combines the read-only image blobs and manifests with writable storage for pulls (for example, a directory whose blobs and manifests are symlinks into the image, plus copy-on-pull), or run a second read-only model path if the pinned Ollama supports one. Verify with the pinned Ollama version.
 - Accept: in a VM, chat with the starter model works with no persistence and no copy; pulling another model writes only to the selected storage; `argos verify` still checks hashes.
 
-### MD4 Pull jobs with progress and recovery — `todo`
+### MD4 Pull jobs with progress and recovery — `split into MD4a and MD4b`
 Depends on: B2, MD2.
 - Durable job state for pulls: bytes done/total, recent MiB/s, ETA, pause/cancel/retry, and resume after reboot (Ollama resumes partial blobs). Space check before starting using the manifest size. One active pull at a time. Hash verification and load test as separate visible steps (see MODEL-ONBOARDING.md).
 - Accept: unit tests with a fake server simulate progress, interruption, resume, disk-full and corrupt-blob cases.
+
+### MD4a Durable pull-job engine — `implemented (PR pending)`
+Depends on: B2, MD1, MD2.
+- Internal queue with atomic private state/control files, OS-held single-worker exclusion, validated artifact counters, measured speed/ETA and explicit pause/cancel/retry/stale-state recovery.
+- Recheck selected storage identity and pinned catalog revision; budget missing bytes plus safety margin, giving credit only to SHA-verified complete blobs. Reject corrupt blobs without deleting them.
+- Requires a caller-owned backend context that stops server-side writes before the lock releases. No production adapter/CLI/autostart yet; successful HTTP pulls end at `downloaded_needs_verification`, never ready.
+- Evidence: authored loopback fixture tests cover interrupted streams, explicit resume, controls, lock lifetime, stale-state recovery, space/corruption and identity/progress failures. See [MODEL-PULL-JOBS.md](MODEL-PULL-JOBS.md). Real Ollama resume and physical acceptance remain pending.
+
+### MD4b Owned daemon, integrity and load acceptance — `todo`
+Depends on: MD4a.
+- Implement/test the pinned isolated Ollama adapter, shutdown on controls/errors and retry/reboot CLI wiring. Keep one active pull per selected store and preserve the starter service.
+- Check registry revision and downloaded manifest/artifact integrity against MD1; show verification and load/test as separate steps before publication. Measure a fixed first reply and unload afterward.
+- Accept: fake-server/daemon tests cover cancellation cleanup, changed tags, corrupt post-pull artifacts and failed loading; real pinned Ollama smoke proves partial resume, verification and reply. Physical reboot/download acceptance remains separately required.
 
 ## E3 Questionless first boot (M2)
 
