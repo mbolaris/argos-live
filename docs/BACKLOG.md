@@ -286,12 +286,14 @@ Depends on: W2, B7.
 - Run speed, quick ability or both on a selected model with live progress and cancel; results table; select runs to compare side by side; CSV/JSON download.
 - Accept: API tests; manual run against a real Ollama documented in the PR.
 
-### W4a Saved lab results and comparison — `in progress`
+### W4a Saved lab results and comparison — `done ([PR #31](https://github.com/mbolaris/argos-live/pull/31))`
 Depends on: W2, B6, B7.
 - Read-only bounded result cards, select compatible complete runs, comparison,
   authenticated CSV/JSON downloads. Reuse the validated result store and comparison
   rules; no benchmark startup, deletion or profile change. Test API and real browser
   with public scored fixtures; no owner output enters CI.
+- Evidence: Windows/Linux API tests and real Chromium comparison/download checks
+  passed; physical Firefox acceptance and job controls remain pending.
 
 ### W4b Benchmark job controls — `todo`
 Depends on: W4a, owned assistant/backend lifecycle.
