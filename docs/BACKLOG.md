@@ -131,7 +131,7 @@ Depends on: B4b, B5a.
 - Add the verified code category to version-bumped suites and runner results.
 - Test actual sandbox enforcement before enabling generated code execution.
 
-### B6 Results store and comparison — `in progress`
+### B6 Results store and comparison — `done ([PR #26](https://github.com/mbolaris/argos-live/pull/26))`
 Depends on: B3 (format), B5a. Code results follow B5b with distinct suite versions.
 - `results.py`: save, list, load, delete; comparison table across runs that only ranks runs with the same benchmark kind and suite version; CSV export.
 - Accept: unit tests for round trip, schema version rejection, mixed-version comparison refusal and CSV output.
@@ -139,6 +139,10 @@ Depends on: B3 (format), B5a. Code results follow B5b with distinct suite versio
   reporting, evidence-derived summaries, matching settings/coverage and complete
   ability runs required. CLI comparison/CSV includes digest and timestamp; missing
   speed measurements remain unranked. See [BENCHMARK-RESULTS.md](BENCHMARK-RESULTS.md).
+- Evidence: Windows and Linux tests pass for store, comparison, CSV and CLI paths;
+  real pinned CPU speed/ability results pass validated store save/load equality
+  ([run](https://github.com/mbolaris/argos-live/actions/runs/37215548515)).
+  No physical Live/GPU result acceptance claimed.
 
 ### B7 CLI wiring — `todo`
 Depends on: B3, B5, B6.

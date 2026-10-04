@@ -58,12 +58,13 @@ M1 and E5's format/exporter work (P1–P2) can proceed in parallel. Repository r
 
 As of October 4, 2026, main includes the Ollama client and hardware probes,
 reviewed model catalog and storage planning, durable verified model onboarding,
-speed and original nonexecuting ability benchmarks, personality export/import preview and reviewed apply/rollback,
+speed and original nonexecuting ability benchmarks with saved-result comparison,
+personality export/import preview and reviewed apply/rollback,
 pinned addon inventory, and the local dashboard with hardware/status/chat handoff
 and read-only model/catalog/download-progress views. Tests and real CPU Ollama
 smokes verify the implemented paths; browser CI uses Chromium as a Firefox proxy.
 
-Sandboxed code benchmarks, result comparison, CI ISO build/boot acceptance, automatic first-boot dashboard
+Sandboxed code benchmarks, CI ISO build/boot acceptance, automatic first-boot dashboard
 startup, dashboard mutation controls and effective addon/agent permission tests
 remain pending. Existing OpenClaw addons should be reused where compatible; a
 bundled plugin alone is not functional readiness. The refusal-removed community
