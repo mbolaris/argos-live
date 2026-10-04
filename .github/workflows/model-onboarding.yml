@@ -1,0 +1,29 @@
+name: Pinned Ollama onboarding smoke
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/model-onboarding.yml'
+      - 'scripts/smoke-model-onboarding.py'
+      - 'runtime/argoslive/model_onboarding.py'
+      - 'runtime/argoslive/model_verify.py'
+      - 'runtime/argoslive/owned_ollama.py'
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download checksum-pinned runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          source versions.env
+          mkdir -p "$RUNNER_TEMP/argos-ollama"
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/argos-ollama.tar.zst" "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
+          echo "$OLLAMA_SHA256  $RUNNER_TEMP/argos-ollama.tar.zst" | sha256sum -c -
+          tar --zstd -xf "$RUNNER_TEMP/argos-ollama.tar.zst" -C "$RUNNER_TEMP/argos-ollama"
+      - name: Real CPU partial pull, resume, verification and first reply
+        run: python3 scripts/smoke-model-onboarding.py --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama"

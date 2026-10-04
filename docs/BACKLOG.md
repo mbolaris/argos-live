@@ -107,7 +107,7 @@ Depends on: B3, B5, B6.
 
 ## E2 Models and storage
 
-### MD1 Curated catalog — `implemented (PR #15; catalog list awaits owner review per D4)`
+### MD1 Curated catalog — `merged (included in PR #16; PR #15 closed as redundant)`
 Depends on: B1, B2.
 - `runtime/argoslive/data/catalog.json`: 8–12 entries (tag, family, parameter count, quantization, licence, capabilities such as tools/vision/thinking, description, registry manifest digest pinned at catalog update time, total download bytes from the manifest).
 - `catalog.py`: fit estimate = weight bytes + KV cache estimate at the default context + overhead, compared with free VRAM (GPU) or available RAM (CPU), giving fits / tight / won't fit and the reason.
@@ -134,18 +134,20 @@ Depends on: B2, MD2.
 - Durable job state for pulls: bytes done/total, recent MiB/s, ETA, pause/cancel/retry, and resume after reboot (Ollama resumes partial blobs). Space check before starting using the manifest size. One active pull at a time. Hash verification and load test as separate visible steps (see MODEL-ONBOARDING.md).
 - Accept: unit tests with a fake server simulate progress, interruption, resume, disk-full and corrupt-blob cases.
 
-### MD4a Durable pull-job engine — `in progress ([PR #16](https://github.com/mbolaris/argos-live/pull/16))`
+### MD4a Durable pull-job engine — `done ([PR #16](https://github.com/mbolaris/argos-live/pull/16))`
 Depends on: B2, MD1, MD2.
 - Internal queue with atomic private state/control files, OS-held single-worker exclusion, validated artifact counters, measured speed/ETA and explicit pause/cancel/retry/stale-state recovery.
 - Recheck selected storage identity and pinned catalog revision; budget missing bytes plus safety margin, giving credit only to SHA-verified complete blobs. Reject corrupt blobs without deleting them.
 - Requires a caller-owned backend context that stops server-side writes before the lock releases. No production adapter/CLI/autostart yet; successful HTTP pulls end at `downloaded_needs_verification`, never ready.
 - Evidence: authored loopback fixture tests cover interrupted streams, explicit resume, controls, lock lifetime, stale-state recovery, space/corruption and identity/progress failures. See [MODEL-PULL-JOBS.md](MODEL-PULL-JOBS.md). Real Ollama resume and physical acceptance remain pending.
 
-### MD4b Owned daemon, integrity and load acceptance — `todo`
+### MD4b Owned daemon, integrity and load acceptance — `implemented (PR pending)`
 Depends on: MD4a.
 - Implement/test the pinned isolated Ollama adapter, shutdown on controls/errors and retry/reboot CLI wiring. Keep one active pull per selected store and preserve the starter service.
 - Check registry revision and downloaded manifest/artifact integrity against MD1; show verification and load/test as separate steps before publication. Measure a fixed first reply and unload afterward.
 - Accept: fake-server/daemon tests cover cancellation cleanup, changed tags, corrupt post-pull artifacts and failed loading; real pinned Ollama smoke proves partial resume, verification and reply. Physical reboot/download acceptance remains separately required.
+- Implementation: Linux-supervised private Ollama listener/version, isolated staging with pruning/cloud disabled, registry/local manifest and full blob SHA checks, fixed 2048-context/32-token reply test, unload/shutdown before atomic blob/manifest publication without replacing existing tags. `argos pull init/create/status/run/pause/cancel/retry` exposes durable JSON progress; explicit stopped-assistant acknowledgement protects load testing. Model assignment, starter config and private profiles stay unchanged. Hard-link support is required and probed before downloading. See [MODEL-PULL-JOBS.md](MODEL-PULL-JOBS.md).
+- Evidence: Windows fixture tests pass; Linux process and real pinned-runtime network smoke are included in CI, pending first run. Full benchmark, vision/tool capability and physical Live/GPU acceptance remain separate.
 
 ## E3 Questionless first boot (M2)
 
