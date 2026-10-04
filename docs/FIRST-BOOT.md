@@ -34,6 +34,10 @@ image when the starter is chosen. `argos verify` checks the seed and any managed
 model artifacts. These source switches require restarting the assistant; model
 assignment does not itself download weights or establish tool capability.
 
-Automatic desktop startup and dashboard progress remain O2. No-copy offline VM,
-native first chat, downloaded-model switching and physical persistence/GPU
-acceptance are separate from the setup fixture and schema checks.
+The no-NIC [VM acceptance run](https://github.com/mbolaris/argos-live/actions/runs/37233824509)
+passed questionless setup, immutable SquashFS starter CPU inference without weight
+copies, saved benchmarks and the native Firefox dashboard. The test explicitly
+starts services; automatic desktop startup and progress remain O2. Native
+OpenClaw first chat, downloaded-model switching and physical persistence/GPU
+acceptance remain separate. Fixture mode tests do not prove a physical encrypted
+persistence reboot.
