@@ -213,7 +213,12 @@ def select_model(model):
     if 'model_source' in state:
         state['model_source'] = 'bundled' if model == 'qwen3:0.6b' and state.get('starter') else 'managed'
     save(STATE, state)
-    print('Run argos download to review the exact registry download size.')
+    if state.get('model_source') == 'bundled':
+        print('The bundled starter stays in the image. Restart the assistant to use this source.')
+    elif state.get('model_source') == 'managed':
+        print('Use argos pull for a reviewed model download, then restart the assistant.')
+    else:
+        print('Run argos download to review the exact registry download size.')
 
 def command_parser():
     common = argparse.ArgumentParser(add_help=False)

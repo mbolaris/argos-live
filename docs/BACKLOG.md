@@ -246,7 +246,7 @@ Depends on: MD4a.
 
 ## E3 Questionless first boot (M2)
 
-### O1 Try-mode setup — `in progress`
+### O1 Try-mode setup — `in progress ([PR #35](https://github.com/mbolaris/argos-live/pull/35))`
 Depends on: MD2, MD3.
 - New non-interactive `argos setup --auto`: no prompts. Detects persistence, chooses storage via MD2, uses the starter model, writes the same safe OpenClaw config as today (loopback, token, conversation-only tools), and records `mode: try` or `mode: persistent`.
 - Keep the interactive path for owners who want explicit choices.

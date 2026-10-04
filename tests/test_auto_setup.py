@@ -127,6 +127,43 @@ class AutoSetupTests(unittest.TestCase):
         self.assertFalse((self.models / '.argos-storage-id').exists())
         self.assertEqual(list(self.home.rglob('.setup-*')), [])
 
+    def test_unknown_persistence_does_not_create_state_or_storage(self):
+        with self.assertRaisesRegex(ValueError, 'Persistence status unavailable'):
+            auto_setup.configure(self.home, planner=lambda _: {'path': str(self.models), 'kind': 'ram'},
+                                 verify_seed=lambda: self.seed,
+                                 probe_persistence=lambda: {'active': None, 'encrypted': None})
+        self.assertFalse(self.models.exists())
+        self.assertEqual(list(self.home.iterdir()), [])
+
+    def test_explicit_model_switch_retains_storage_policy_and_uses_correct_source(self):
+        self.configure()
+        initial = json.loads(self.config.read_text())
+        marker = (self.models / '.argos-storage-id').read_bytes()
+        with patch.object(argos, 'STATE', self.state), patch.object(argos, 'OC', self.config.parent), \
+                patch('builtins.input', return_value='yes'), redirect_stdout(io.StringIO()):
+            for model, source in [('qwen3:1.7b', 'managed'), (starter.TAG, 'bundled')]:
+                argos.select_model(model)
+                state = argos.load()
+                config = json.loads(self.config.read_text())
+                self.assertEqual(state['model_source'], source)
+                self.assertEqual(state['storage'], str(self.models))
+                self.assertEqual(config['agents']['defaults']['model']['primary'], 'ollama/' + model)
+                self.assertEqual(config['tools'], initial['tools'])
+                self.assertEqual(config['gateway'], initial['gateway'])
+        self.assertEqual((self.models / '.argos-storage-id').read_bytes(), marker)
+        self.assertEqual([path.name for path in self.models.iterdir()], ['.argos-storage-id'])
+
+    def test_managed_server_does_not_read_or_write_bundled_seed(self):
+        from contextlib import nullcontext
+        with patch.object(argos, 'request', side_effect=[OSError('not running'), nullcontext()]), \
+                patch.object(argos.subprocess, 'Popen') as spawn, \
+                patch('argoslive.starter.read_only') as verify:
+            spawn.return_value.poll.return_value = None
+            argos.server({'storage': str(self.models), 'model_source': 'managed', 'model': 'qwen3:1.7b'})
+        verify.assert_not_called()
+        self.assertEqual(spawn.call_args.kwargs['env']['OLLAMA_MODELS'], str(self.models))
+        self.assertFalse(self.models.exists())
+
     def test_racing_owner_file_is_not_replaced(self):
         original = auto_setup.os.link
         def race(source, destination):
