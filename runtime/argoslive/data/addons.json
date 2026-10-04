@@ -1,0 +1,440 @@
+{
+  "external_addons": [],
+  "external_selection_pending": [
+    "local-transcription",
+    "local-image-generation"
+  ],
+  "host_integrity": "sha512-/8N2LnfTFQPvnZizi8qKSFfnLQaPvSG3Cb4xo1YV7b4JhYiUc43ZNRpXJ01bWghLK0Ezk3HVeo/DGHcIRQwRWA==",
+  "host_version": "2026.9.7",
+  "note": "Metadata only. Contracts/default enablement are not effective agent tool grants or readiness.",
+  "plugins": [
+    {
+      "compatible_host": "2026.9.7",
+      "declared_contracts": {
+        "embeddingProviders": [
+          "ollama"
+        ],
+        "tools": [
+          "node_inference"
+        ],
+        "webSearchProviders": [
+          "ollama"
+        ]
+      },
+      "declared_providers": [
+        "ollama",
+        "ollama-cloud"
+      ],
+      "distribution": "host-bundled",
+      "enabled_by_upstream_default": true,
+      "host_integrity": "sha512-/8N2LnfTFQPvnZizi8qKSFfnLQaPvSG3Cb4xo1YV7b4JhYiUc43ZNRpXJ01bWghLK0Ezk3HVeo/DGHcIRQwRWA==",
+      "id": "ollama",
+      "invocation_verified": false,
+      "license": "MIT",
+      "license_scope": "host-package",
+      "manifest_sha256": "0e693a5263bdb23530127dba9af6b481f4d928425959bd15c4925d7e44c30f1a",
+      "npm_dependencies": {
+        "typebox": "1.3.34"
+      },
+      "package": "@openclaw/ollama-provider",
+      "package_presence_verified": true,
+      "package_sha256": "e0a525adb58327d3d8044943af50a7100b06bc226265c94f95582221c49bf11f",
+      "version": "2026.9.7"
+    },
+    {
+      "compatible_host": "2026.9.7",
+      "declared_contracts": {
+        "tools": [
+          "intent",
+          "memory_get",
+          "memory_search"
+        ]
+      },
+      "declared_providers": [],
+      "distribution": "host-bundled",
+      "enabled_by_upstream_default": null,
+      "host_integrity": "sha512-/8N2LnfTFQPvnZizi8qKSFfnLQaPvSG3Cb4xo1YV7b4JhYiUc43ZNRpXJ01bWghLK0Ezk3HVeo/DGHcIRQwRWA==",
+      "id": "memory-core",
+      "invocation_verified": false,
+      "license": "MIT",
+      "license_scope": "host-package",
+      "manifest_sha256": "d8a557f1cc4ba394a874ff07b08fc6e8fcf4099fa45adaa4bd714ed1b48fa896",
+      "npm_dependencies": {
+        "@openclaw/fs-safe": "0.21.1",
+        "chokidar": "5.0.0",
+        "json5": "2.2.3",
+        "p-limit": "7.3.3",
+        "typebox": "1.3.34"
+      },
+      "package": "@openclaw/memory-core",
+      "package_presence_verified": true,
+      "package_sha256": "68ca094cd1c7794dad2498e8813ea78137d8ee0436df4a3fe00a4bd62af8325e",
+      "version": "2026.9.7"
+    },
+    {
+      "compatible_host": "2026.9.7",
+      "declared_contracts": {
+        "tools": [
+          "browser"
+        ]
+      },
+      "declared_providers": [],
+      "distribution": "host-bundled",
+      "enabled_by_upstream_default": true,
+      "host_integrity": "sha512-/8N2LnfTFQPvnZizi8qKSFfnLQaPvSG3Cb4xo1YV7b4JhYiUc43ZNRpXJ01bWghLK0Ezk3HVeo/DGHcIRQwRWA==",
+      "id": "browser",
+      "invocation_verified": false,
+      "license": "MIT",
+      "license_scope": "host-package",
+      "manifest_sha256": "6fb7a9c4c9992ca80802ada708b2575043b72caa2cbbce84c934572b2a37dfb3",
+      "npm_dependencies": {
+        "@modelcontextprotocol/sdk": "1.30.0",
+        "chrome-devtools-mcp": "1.9.0",
+        "express": "5.2.1",
+        "playwright-core": "1.63.0",
+        "typebox": "1.3.34",
+        "yargs-parser": "22.0.0",
+        "zod": "4.6.5"
+      },
+      "package": "@openclaw/browser-plugin",
+      "package_presence_verified": true,
+      "package_sha256": "6182afd243808e60e4b6dda0f2c756a4d1b56693f18f37ebdd968268d48c9622",
+      "version": "2026.9.7"
+    },
+    {
+      "compatible_host": "2026.9.7",
+      "declared_contracts": {
+        "documentExtractors": [
+          "pdf"
+        ]
+      },
+      "declared_providers": [],
+      "distribution": "host-bundled",
+      "enabled_by_upstream_default": true,
+      "host_integrity": "sha512-/8N2LnfTFQPvnZizi8qKSFfnLQaPvSG3Cb4xo1YV7b4JhYiUc43ZNRpXJ01bWghLK0Ezk3HVeo/DGHcIRQwRWA==",
+      "id": "document-extract",
+      "invocation_verified": false,
+      "license": "MIT",
+      "license_scope": "host-package",
+      "manifest_sha256": "00fd4d26ff42b658e61fd978966c36339e0214266bbbb2de7ee04d7133a7ffdc",
+      "npm_dependencies": {
+        "clawpdf": "0.3.2"
+      },
+      "package": "@openclaw/document-extract-plugin",
+      "package_presence_verified": true,
+      "package_sha256": "4fde7c89c5f1805c3cf8000e4be66cdf2d60dcf412a7cb3dc9ee812c4334cf19",
+      "version": "2026.9.7"
+    },
+    {
+      "compatible_host": "2026.9.7",
+      "declared_contracts": {
+        "speechProviders": [
+          "tts-local-cli",
+          "cli"
+        ]
+      },
+      "declared_providers": [],
+      "distribution": "host-bundled",
+      "enabled_by_upstream_default": true,
+      "host_integrity": "sha512-/8N2LnfTFQPvnZizi8qKSFfnLQaPvSG3Cb4xo1YV7b4JhYiUc43ZNRpXJ01bWghLK0Ezk3HVeo/DGHcIRQwRWA==",
+      "id": "tts-local-cli",
+      "invocation_verified": false,
+      "license": "MIT",
+      "license_scope": "host-package",
+      "manifest_sha256": "57d9c94482e1f02ecf54bd346460e21bc71358fb5a36c8ce5b151a0d63fb871e",
+      "npm_dependencies": {},
+      "package": "@openclaw/tts-local-cli",
+      "package_presence_verified": true,
+      "package_sha256": "3f929ad1e5a710c7409674dd1b4182de377e3aa9b7a9b8aedcda0e2d0b83dfc2",
+      "version": "2026.9.7"
+    },
+    {
+      "compatible_host": "2026.9.7",
+      "declared_contracts": {},
+      "declared_providers": [],
+      "distribution": "host-bundled",
+      "enabled_by_upstream_default": null,
+      "host_integrity": "sha512-/8N2LnfTFQPvnZizi8qKSFfnLQaPvSG3Cb4xo1YV7b4JhYiUc43ZNRpXJ01bWghLK0Ezk3HVeo/DGHcIRQwRWA==",
+      "id": "telegram",
+      "invocation_verified": false,
+      "license": "MIT",
+      "license_scope": "host-package",
+      "manifest_sha256": "a416b771b8a05e288cabeab6fed225bf7e97c68206efaaf5c3cf973511fba4ca",
+      "npm_dependencies": {
+        "@grammyjs/transformer-throttler": "1.2.1",
+        "abort-controller": "3.0.0",
+        "grammy": "1.46.0",
+        "typebox": "1.3.34",
+        "undici": "8.10.2",
+        "zod": "4.6.5"
+      },
+      "package": "@openclaw/telegram",
+      "package_presence_verified": true,
+      "package_sha256": "6acfedb3a3bb682c515e85c4429166c1a994bc3f07f948a91c8033c95ad4d018",
+      "version": "2026.9.7"
+    }
+  ],
+  "schema": "argos-addons/1",
+  "shipped_skill_documents": [
+    {
+      "path": "custodian-skills/add-model-provider/SKILL.md",
+      "sha256": "1767d76487a405fb7c4c581fd88d5207cdf64eaac577eaac6c32420bcc15bdad"
+    },
+    {
+      "path": "custodian-skills/cloud-image-bake/SKILL.md",
+      "sha256": "13c8eccdba99dde0649063ea561f424e398f30b630cf838814fdd95d2ac96c96"
+    },
+    {
+      "path": "custodian-skills/configure-channel/SKILL.md",
+      "sha256": "4f8afce2bd716c1513e270a34c41da467bb46d7913d996ecd544635613fa5296"
+    },
+    {
+      "path": "custodian-skills/diagnose-gateway/SKILL.md",
+      "sha256": "646eaebcab128bc023b5b0ca07cec94f5d3f24de5bf40122b0b1d3d0bbc5cb2e"
+    },
+    {
+      "path": "dist/extensions/browser/skills/browser-automation/SKILL.md",
+      "sha256": "f8fb55099d7ffef0362a1ed934cb0b3de191687689c42f44402ae592c614cf39"
+    },
+    {
+      "path": "dist/extensions/canvas/skills/canvas/SKILL.md",
+      "sha256": "8c373f5fa851990d5c66d4c9ddcec18f8e67ee958d520771955ada81b92ed664"
+    },
+    {
+      "path": "dist/extensions/crabbox/skills/crabbox-apps/SKILL.md",
+      "sha256": "aba7513c9fdce68e4cf8258e24cb7cd0b149ad9bfafa4c1f646be2f225bf7a77"
+    },
+    {
+      "path": "dist/extensions/memory-wiki/skills/obsidian-vault-maintainer/SKILL.md",
+      "sha256": "73826342d372fc8e903410054666a2079dde4ebd371da6734b1bf61dbdcdd955"
+    },
+    {
+      "path": "dist/extensions/memory-wiki/skills/wiki-maintainer/SKILL.md",
+      "sha256": "69f6c4e63c5f67af7de01036150ea89eed7eaa6ab49418942b6fc51b46699d04"
+    },
+    {
+      "path": "node_modules/chrome-devtools-mcp/skills/a11y-debugging/SKILL.md",
+      "sha256": "159587fc580e6112528bedcd89d8c69a52d2fbb54602f10c71d7d5ec8fdbf299"
+    },
+    {
+      "path": "node_modules/chrome-devtools-mcp/skills/chrome-devtools-cli/SKILL.md",
+      "sha256": "46be445e0fcfac0996da0fc3b167dac4fb195ad7b56155dc34c8c0fea8c0a1b9"
+    },
+    {
+      "path": "node_modules/chrome-devtools-mcp/skills/chrome-devtools/SKILL.md",
+      "sha256": "b27f4b6d68f775b744e9718698444e9df7b68444ed375ea7509fd7086e76ca4b"
+    },
+    {
+      "path": "node_modules/chrome-devtools-mcp/skills/cookie-debugging/SKILL.md",
+      "sha256": "eeb526491ce5de6f3881301886ed9c5a7fe3bd3f328e81ab39ab63510ccb0c60"
+    },
+    {
+      "path": "node_modules/chrome-devtools-mcp/skills/debug-optimize-lcp/SKILL.md",
+      "sha256": "8898b35108b12f73cef83a08964ffff0ebfad429389ffd42cb49a423025657ae"
+    },
+    {
+      "path": "node_modules/chrome-devtools-mcp/skills/memory-leak-debugging/SKILL.md",
+      "sha256": "895127ac55a3f2c4e0ca9be496e84165eee6408637c2bcc5516d69170a8de80e"
+    },
+    {
+      "path": "node_modules/chrome-devtools-mcp/skills/troubleshooting/SKILL.md",
+      "sha256": "e534a7845f71cd4c1843d92da3002716af917821b95877bc8e8555d17267e30e"
+    },
+    {
+      "path": "skills/1password/SKILL.md",
+      "sha256": "31721928c499579bad04ab1a61e14b22b6fd01c5dfa328aa911f9ea3e22ebfdf"
+    },
+    {
+      "path": "skills/apple-notes/SKILL.md",
+      "sha256": "d280e7ffffeb182172da7afad23528ef9f73ee4905ab88ebb124046aa6e6aed7"
+    },
+    {
+      "path": "skills/apple-reminders/SKILL.md",
+      "sha256": "08413d063e71c7ad7e4691e81a1063b455b816957ce7898576c2653542e8303d"
+    },
+    {
+      "path": "skills/bear-notes/SKILL.md",
+      "sha256": "10836e95358f59969972c161a38984e4f38695357aa56b51795743c85f55318d"
+    },
+    {
+      "path": "skills/blogwatcher/SKILL.md",
+      "sha256": "dc6b343e2c655215d15ddcc6e134d76d5b7973a6a1e5d59ee61fb9e0a902c670"
+    },
+    {
+      "path": "skills/blucli/SKILL.md",
+      "sha256": "977fde68700d0839357acdd3926cd19d646de5be3acbc3d0a1d71e00694bd619"
+    },
+    {
+      "path": "skills/camsnap/SKILL.md",
+      "sha256": "53a7e4cb6c1903d3c4022ee15943d38b7ac8b894dd96e1466935c5a043b37efc"
+    },
+    {
+      "path": "skills/clawhub/SKILL.md",
+      "sha256": "99bff7ff613a0f4b8a7c76e0853814adf7707eecdf5fe78b8893086ca4545696"
+    },
+    {
+      "path": "skills/coding-agent/SKILL.md",
+      "sha256": "cabfef83abacbecaf73081677a9fb1c718770594dfd729aafae93581dae2b242"
+    },
+    {
+      "path": "skills/control-ui/SKILL.md",
+      "sha256": "116b9ad9bef7a9ecceae3a39800880e017f302a3620fb8d8ab43f9d554fc77e6"
+    },
+    {
+      "path": "skills/diagram-maker/SKILL.md",
+      "sha256": "6195e03fcb04a1a68c4af72165e0c85efcd2719af79380d82e42996ea89ad74a"
+    },
+    {
+      "path": "skills/eightctl/SKILL.md",
+      "sha256": "3e46252f398017429c79101fe6049f81755882e35a8c6150803c4c8822205ba3"
+    },
+    {
+      "path": "skills/gemini/SKILL.md",
+      "sha256": "1aad57691db927cf26b489e15bab4eb909e390ebca361c128f98ab5bcf4bdf43"
+    },
+    {
+      "path": "skills/gh-issues/SKILL.md",
+      "sha256": "e7a64973e186211725e18a45d076803abc07915e348fd94691e7acaea367d54a"
+    },
+    {
+      "path": "skills/gifgrep/SKILL.md",
+      "sha256": "ac3981d030c96e79100328fb4cf84a317cecaef1c4e186d0acca21b9aef0dbe5"
+    },
+    {
+      "path": "skills/github/SKILL.md",
+      "sha256": "efee896479d9257a19ed787e324b005be28c62ac6446bd8f193798dce6574731"
+    },
+    {
+      "path": "skills/gog/SKILL.md",
+      "sha256": "d54a8e52b1e00bb5d33b46915fd549f8b792ef3a383fe40e92b195d11d2d5255"
+    },
+    {
+      "path": "skills/goplaces/SKILL.md",
+      "sha256": "81139f4e645a6355e23d15f94ee6d6ef3bfce8eb4a5716dad298880e2b38e24b"
+    },
+    {
+      "path": "skills/healthcheck/SKILL.md",
+      "sha256": "b41044aeb25afe95daa5c8ef6f2d6b8d197f6a0b113b0888deaa4dd69e42b59b"
+    },
+    {
+      "path": "skills/himalaya/SKILL.md",
+      "sha256": "040f5f7304ec39c20e1ea61ed1fabc05108eb16820516ffd8c09b29528e188bb"
+    },
+    {
+      "path": "skills/mcporter/SKILL.md",
+      "sha256": "010ed9b265e58d45d1e95e6deac5e60b1e46e6ebab00fc3fe30429a1048e236e"
+    },
+    {
+      "path": "skills/meme-maker/SKILL.md",
+      "sha256": "682db7cba34a3d3ca791f7cccaee9488810c731d6622d8886a9bcca77c59d2f3"
+    },
+    {
+      "path": "skills/model-usage/SKILL.md",
+      "sha256": "f4e40f006365acc5f519a55f4efacb6c722788026792e498fcf46dc1a0f0c1d1"
+    },
+    {
+      "path": "skills/nano-pdf/SKILL.md",
+      "sha256": "d8ab6db7572b0df862820dd3481c14ae306173a1dbcad7f07f9e48ada8efbe91"
+    },
+    {
+      "path": "skills/node-connect/SKILL.md",
+      "sha256": "334c20d3973238ba44a8b5885f0f6adf50342f5324940e1880bd75f61b86bfda"
+    },
+    {
+      "path": "skills/node-inspect-debugger/SKILL.md",
+      "sha256": "50d2f6828eaf4bbf7ccbaec5af928f9af978e93b7c679b0f3c8afe2a80ab7d52"
+    },
+    {
+      "path": "skills/notion/SKILL.md",
+      "sha256": "d45e2c1270d58c7878c13467ab27780530de2af89fb8b307c662b5d4859dc555"
+    },
+    {
+      "path": "skills/obsidian/SKILL.md",
+      "sha256": "d4ed3ce53146bd6538c47f81da2382fc790598ec1400d34b7d1f73a8839053b4"
+    },
+    {
+      "path": "skills/openai-whisper-api/SKILL.md",
+      "sha256": "afff70c706a9bae250b046b741e9930340ca87cc1689a82d4415dd4d6b45bfa1"
+    },
+    {
+      "path": "skills/openai-whisper/SKILL.md",
+      "sha256": "802e31d7310316fc25a5ec4fbe29308a0897c039cd2ae897f59fc25128ab4644"
+    },
+    {
+      "path": "skills/openhue/SKILL.md",
+      "sha256": "db350ab41088193693c991dbe601a3b39b619feedfccec1784e77c3161c11c89"
+    },
+    {
+      "path": "skills/oracle/SKILL.md",
+      "sha256": "b150b967b1326bec594bf24f8bddf10aeb78b49a64c91091dcdf5fdad35402c1"
+    },
+    {
+      "path": "skills/ordercli/SKILL.md",
+      "sha256": "890a7c2b4bbcec79c894ac9a4b76c11f734fa01b76b258a77e6429230b95a3c8"
+    },
+    {
+      "path": "skills/peekaboo/SKILL.md",
+      "sha256": "be53d9a46c6bb331dc62be48b26d4f83495737e8d0b263fe52aafd58bfa6a33e"
+    },
+    {
+      "path": "skills/python-debugpy/SKILL.md",
+      "sha256": "dd4600a228fcdce153e4e318c2b8644e6f7f3964826958e89b5bae90db4877d3"
+    },
+    {
+      "path": "skills/sag/SKILL.md",
+      "sha256": "d8efa1bea9d9b441eb289a6f64826b5ded51837a30a66103bb91223f3bb2cc7f"
+    },
+    {
+      "path": "skills/sherpa-onnx-tts/SKILL.md",
+      "sha256": "f3a4d30d0e7e14e76dcb5245e197e3dcf490e3f9e8298466e86e4f33847f532d"
+    },
+    {
+      "path": "skills/skill-creator/SKILL.md",
+      "sha256": "3b7b93823a496cedc957fc91bbc8f8be132f2edd095dcaa46cee5394c742f0e4"
+    },
+    {
+      "path": "skills/songsee/SKILL.md",
+      "sha256": "d72b37088b7a09d781183ab0ff38adcda0e3596db79d902c117b57dda73a432a"
+    },
+    {
+      "path": "skills/sonoscli/SKILL.md",
+      "sha256": "d048a8c8eb9ebbb1e6000baca132f581c7d74bebf81df18f81b11410e466f6e8"
+    },
+    {
+      "path": "skills/spike/SKILL.md",
+      "sha256": "1258cde2d0e5326706536aeeef06d5366fd65e7e1c174c66130b2ac53a4344d1"
+    },
+    {
+      "path": "skills/spotify-player/SKILL.md",
+      "sha256": "00f506401fa1126278b36412c3b352f288d19449e338d1f54fb843ebab634fba"
+    },
+    {
+      "path": "skills/summarize/SKILL.md",
+      "sha256": "b6d9be0ff47e646280a0ff40203823d7ca36913ab1bea25575b2de4afb3cc0df"
+    },
+    {
+      "path": "skills/things-mac/SKILL.md",
+      "sha256": "917110e26bc6a630d614acf47d05e84da5f81fb88c0d263f5987962dca2a05c2"
+    },
+    {
+      "path": "skills/tmux/SKILL.md",
+      "sha256": "98b6b8392ec57e119a3e850363bc03eae3c917adb7c9a90327cf71842d9042f1"
+    },
+    {
+      "path": "skills/trello/SKILL.md",
+      "sha256": "dc524f73bd87b8089d061187bb26add41101ee82e288a1597a2d7b89fd934222"
+    },
+    {
+      "path": "skills/visualize/SKILL.md",
+      "sha256": "31be648a3a8d3d5c41b242ce60be9037cb77cd95aafcfbbffdf7576f9c238308"
+    },
+    {
+      "path": "skills/weather/SKILL.md",
+      "sha256": "62ab4821aa873949d1c1091836be1659a42b32caadce4bd145f5505a1ceaeec1"
+    },
+    {
+      "path": "skills/xurl/SKILL.md",
+      "sha256": "0e5e736c382f0943e2c4ab974b593fe5b0b0a6ff7471f56f7ef9db69c19025f6"
+    }
+  ]
+}
