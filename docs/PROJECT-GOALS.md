@@ -63,12 +63,16 @@ personality export/import preview and reviewed apply/rollback,
 pinned addon inventory, and the local dashboard with hardware/status/chat handoff
 and read-only model/catalog/download-progress and saved benchmark comparison
 views, with authenticated JSON/CSV downloads. Tests and real CPU Ollama
-smokes verify the implemented paths; browser CI uses Chromium as a Firefox proxy.
+smokes verify the implemented paths. Browser CI uses Chromium, and offline ISO
+acceptance additionally exercises the native Firefox dashboard.
 
 The pinned ISO build passed in CI and its downloaded checksum matched. A Linux
 code-sandbox foundation passed isolation tests; code benchmark integration and
-unprivileged Live acceptance remain pending. Offline ISO guest acceptance,
-firmware boot acceptance, automatic first-boot dashboard
+unprivileged Live acceptance remain pending. Offline CPU-emulated ISO acceptance
+passed desktop, questionless try-mode setup, immutable starter inference without
+weight copies, native Firefox dashboard and saved speed benchmarks. Native
+OpenClaw local conversation is being checked against updated runtime pins.
+Firmware boot acceptance, automatic first-boot dashboard
 startup, dashboard mutation controls and effective addon/agent permission tests
 remain pending. Existing OpenClaw addons should be reused where compatible; a
 bundled plugin alone is not functional readiness. The refusal-removed community
@@ -82,9 +86,9 @@ main-branch features are built into or physically verified on the USB. The
 owner's private reference export was received and verified; owner activation
 and personality/model/tool/reboot acceptance remain pending.
 
-Next order: finish sandboxed code benchmark integration and C3 ISO boot
-acceptance, then first-boot defaults
-and dashboard actions (O1/W3/W4). Existing permissions, storage identity and
+Next order: finish native conversation and owned startup, automatic
+desktop-to-dashboard/chat (O2), dashboard actions (W3/W4), then remaining code
+benchmark integration and firmware acceptance. Existing permissions, storage identity and
 destructive-operation protections remain in place.
 
 References: [multi-agent routing](https://docs.openclaw.ai/concepts/multi-agent), [backup](https://docs.openclaw.ai/cli/backup), [migration](https://docs.openclaw.ai/install/migrating), [updating](https://docs.openclaw.ai/install/updating).

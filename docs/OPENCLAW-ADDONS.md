@@ -72,6 +72,15 @@ runtime state are unknown unless an explicit pinned observation is supplied.
 The CLI itself only reads metadata and checks executable availability; it does
 not load plugins, install dependencies, or change configuration.
 
+The separate **Pinned native OpenClaw local chat** workflow exercises the actual
+bundled Ollama provider using `agent --local`, a fresh private disposable home and
+the questionless setup's conversation policy. It checks exact host/backend/model
+identity, a nonempty native reply, actual CPU placement and unchanged read-only
+weights. Its public report excludes raw replies/configuration. This verifies
+embedded local conversation only; gateway/browser chat, effective denied tools,
+vision, model switching, recall and other addons remain separate acceptance gates.
+Prerequisite downloads use the hosted runner's network; this is not a no-NIC test.
+
 Evidence: pinned Linux CI [run 37184071031](https://github.com/mbolaris/argos-live/actions/runs/37184071031)
 verified all six installed manifest/package pairs and all 65 skill-document
 hashes. Ollama, memory-core, browser, document-extract and tts-local-cli registered
