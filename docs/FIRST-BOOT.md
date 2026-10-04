@@ -69,3 +69,10 @@ The desktop login hook uses this candidate launcher; legacy welcome code remains
 packaged during acceptance. Hosted domain and browser tests are separate from
 fresh ISO/Firefox/firmware and physical persistence/GPU acceptance. Do not promote
 or rewrite a USB solely from hosted startup evidence.
+
+The [native managed acceptance run](https://github.com/mbolaris/argos-live/actions/runs/37238664640)
+passed actual pinned setup, local CPU warmup, gateway startup, verified session
+reopen, repeated-start reuse, one-time chat URL handoff and clean shutdown. It
+confirmed unchanged configuration and no copied model weights. It did not open
+the browser conversation. Warmup numbers describe a short measured reply on the
+hosted test machine; use the longer benchmark suites for model comparisons.
