@@ -82,7 +82,7 @@ Depends on: B1, B2.
 - Unloads the model afterwards and restores the previously loaded model if one was loaded.
 - Accept: unit tests verify statistics, cold/warm separation, skipped long prompts and `null` handling when timing fields are missing; a smoke run against a real Ollama with `qwen3:0.6b` completes in under 60 seconds on CPU and writes an `argos-bench/1` file.
 - Implementation: `argos bench speed --model TAG [--json] [--ollama URL]` runs without setup against an installed exact model; private result files include hardware, revision/settings, raw backend counts/timings, per-size warm-up/three-run medians/ranges and conservative placement. Explicit unload separates the initial load sample; finally unload/previous-model reload restores its advertised context. Unknown/undersized contexts skip with reasons. See [SPEED-BENCHMARK.md](SPEED-BENCHMARK.md). Full B6 results management and remaining B7 commands are still pending.
-- Evidence: seven fixture tests pass for statistics, cold/warm separation, context skips, unknown fields, placement, restoration on error and CLI output. The first real CPU full run exceeded the general 30-second API timeout during long prefill. Benchmark reads now use a bounded 120-second timeout. The short onboarding smoke is gated under 60 seconds; the full three-size run is tested separately, pending rerun. This clarifies the quick smoke target without claiming that a full CPU lab run finishes under 60 seconds. Physical GPU acceptance remains separate.
+- Evidence: eight fixture tests pass for statistics, cold/warm separation, context skips, unknown fields, placement, restoration on error and CLI output. The first real CPU full run exceeded the general 30-second API timeout during long prefill. Benchmark reads now use a bounded 120-second timeout. The short onboarding smoke is gated under 60 seconds; the full three-size run is tested separately. 134 Windows tests passed (seven platform skips), Linux Python/shell/Node CI passed, and real pinned Ollama CPU acceptance passed: short 9.87 seconds, full 177.89 seconds, with model/context restoration and result-file round trip ([run](https://github.com/mbolaris/argos-live/actions/runs/37183286399)). Long CPU requests use an explicit 600-second bound in the lab; CLI --timeout permits 1–600 seconds (default 120). This clarifies the quick smoke target without claiming that a full CPU lab run finishes under 60 seconds. Physical GPU acceptance remains separate.
 
 ### B4 Ability datasets and scorers — `todo`
 Depends on: F2. Can run in parallel with B1–B3.
@@ -336,4 +336,5 @@ Depends on: the owner creating the private repository (or Drive folder) and gran
 | Personalities | P1 → P2, P3 (parallel) → P4 → P5 |
 | Build | F1 → C2 → C3 → C5 |
 | Out-of-box lab | (after B1, B2) MD2 → MD3 → O1; W1 → W2 → W3, W4; O2 → W6 |
+
 
