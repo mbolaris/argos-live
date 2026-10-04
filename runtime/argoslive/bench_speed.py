@@ -9,7 +9,7 @@ import statistics
 import time
 
 from . import __version__, hw
-from .ollama import Client
+from .ollama import Client, OllamaError
 from .pack_export import private_directory
 from .pull_jobs import write_json
 from .storage import safe_local
@@ -157,8 +157,12 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if not 1 <= args.timeout <= 600:
         raise ValueError('Benchmark timeout must be between 1 and 600 seconds')
-    result = run(Client(args.ollama, timeout=args.timeout), args.model,
-                 sizes=args.size or ('short', 'medium', 'long'))
+    try:
+        result = run(Client(args.ollama, timeout=args.timeout), args.model,
+                     sizes=args.size or ('short', 'medium', 'long'))
+    except OllamaError as exc:
+        raise ValueError('Benchmark backend failed; check the service and timeout. '
+                         'No successful result was saved.') from exc
     root = safe_local(args.results_dir.absolute())
     if not root.exists():
         root.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
