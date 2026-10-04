@@ -34,7 +34,14 @@ fixture makes its seed unwritable to an unprivileged hosted-runner user, generat
 a real measured CPU reply, and rechecks the complete source inventory and hashes.
 This tests file-permission enforcement, not a SquashFS mount or physical USB.
 
+The dashboard displays the bundled starter separately from downloaded models,
+including when selected download storage needs attention. This bounded metadata
+probe checks manifest identity, artifact sizes and read-only access; it never
+hashes the full weights or claims current inference readiness. An absent image
+source is omitted; incomplete or writable source files need attention. Unknown
+source selections are rejected without a fallback model store.
+
 Existing interactive setup still copies the seed. Automatic source selection,
-downloaded-model switching, the dashboard source display and no-copy VM acceptance
-remain MD3b/O1/O2. The caller must own the overall single assistant lifecycle;
+downloaded-model switching and no-copy VM acceptance remain MD3b/O1/O2.
+The caller must own the overall single assistant lifecycle;
 this helper does not adopt a daemon or provide automatic first-boot startup.

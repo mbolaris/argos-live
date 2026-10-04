@@ -3,9 +3,10 @@ import hashlib
 from itertools import islice
 import json
 import math
+import os
 from pathlib import Path
 
-from argoslive import catalog, hw, model_verify, storage
+from argoslive import catalog, hw, model_verify, starter, storage
 from argoslive.pull_jobs import ID, Queue
 from argoslive.web.status import read_json
 
@@ -82,16 +83,47 @@ def jobs(root, configured, data, selected_path):
     return result, invalid, len(paths) > 256
 
 
-def snapshot(home=None, *, data=None, hardware=hw.snapshot, validate=storage.validate_configured):
+def bundled_source(root, data):
+    """Cheap image metadata only: full integrity and inference are separate gates."""
+    result = {'state': 'missing', 'models': [], 'read_only': None}
+    try:
+        root = storage.safe_local(root)
+        if not root.exists():
+            return result
+        rows, invalid, truncated = present_models(root, data)
+        rows = [row for row in rows if row['tag'] == starter.TAG]
+        entry = next(entry for entry in data['models'] if entry['tag'] == starter.TAG)
+        manifest = model_verify.manifest_path(root, starter.TAG)
+        paths = {root, root / 'blobs', manifest, *manifest.parents}
+        paths = {path for path in paths if path == root or root in path.parents}
+        paths.update(model_verify.blob_path(root, item) for item in entry['artifacts'])
+        read_only = not any(os.access(path, os.W_OK) for path in paths)
+        valid = (not invalid and not truncated and len(rows) == 1 and
+                 rows[0]['files_present'] and rows[0]['catalog_manifest_match'] and read_only)
+        result.update(state='available' if valid else 'needs-attention',
+                      models=rows, read_only=read_only)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, StopIteration):
+        result.update(state='needs-attention', models=[], read_only=None)
+    return result
+
+
+def snapshot(home=None, *, data=None, hardware=hw.snapshot, validate=storage.validate_configured,
+             seed=starter.ROOT):
     home = Path.home() if home is None else Path(home)
     data = catalog.load() if data is None else catalog.validate(data)
     state_path = home / '.config/argos-live/state.json'
     result = {'schema': 'argos-models-view/1', 'storage_state': 'not-configured',
               'installed': None, 'jobs': None, 'catalog': [], 'invalid_manifests': 0,
               'invalid_jobs': 0, 'truncated': False, 'read_only': True}
+    result['bundled'] = bundled_source(seed, data)
+    result['selected_source'] = None
     try:
         configured = read_json(state_path)
         root = validate(configured)
+        source = configured.get('model_source') or 'managed'
+        if source not in ('managed', 'bundled') or (source == 'bundled' and configured.get('model') != starter.TAG):
+            raise ValueError('Unexpected configured model source')
+        result['selected_source'] = source
         result['storage_state'] = 'available'
         result['installed'], result['invalid_manifests'], truncated = present_models(root, data)
         result['truncated'] = truncated

@@ -37,12 +37,25 @@ try {
   const errors = [];
   page.on('pageerror', () => errors.push('Browser script error'));
   page.on('console', message => { if (message.type() === 'error') errors.push('Browser console error'); });
+  // Public display fixture only; no model weights, configuration or readiness
+  // claim. Other endpoints still exercise the actual unconfigured server.
+  await page.route('**/api/models', async route => {
+    const response = await route.fetch();
+    const value = await response.json();
+    value.bundled = {state: 'available', read_only: true, models: [{tag: 'qwen3:0.6b'}]};
+    value.selected_source = 'bundled';
+    await route.fulfill({response, json: value});
+  });
   const response = await page.goto(url);
   if (response.status() !== 200) throw new Error('Dashboard page did not load');
   await page.getByText('Live measurements refreshed. Missing measurements remain unknown.', {exact: true}).waitFor({timeout: 60000});
   if (await page.locator('#hardware .card').count() !== 8) throw new Error('Missing live status cards');
   if (await page.locator('#capabilities .card').count() !== 10) throw new Error('Missing capability cards');
   await page.waitForFunction(() => document.querySelectorAll('#model-catalog .card').length >= 8, null, {timeout: 60000});
+  await page.getByText('Bundled starter · qwen3:0.6b', {exact: true}).waitFor();
+  if (!(await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
+    throw new Error('Bundled source selection was not displayed');
+  }
   await page.locator('summary').click();
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
   await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
@@ -59,9 +72,11 @@ try {
   await page.locator('#benchmark-runs button').first().click();
   const jsonDownload = await jsonPending;
   if (JSON.parse(await readFile(await jsonDownload.path(), 'utf8')).kind !== 'ability') throw new Error('Result JSON failed');
+  await page.unroute('**/api/models');
   await page.locator('#refresh').click();
   await page.locator('#refresh').waitFor({state: 'visible'});
   await page.waitForFunction(() => !document.getElementById('refresh').disabled, null, {timeout: 60000});
+  if (await page.locator('#bundled-models .card').count()) throw new Error('Stale bundled source display');
   if (errors.length) throw new Error('Browser script failed');
   await page.screenshot({path: 'work/dashboard-desktop.png', fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
