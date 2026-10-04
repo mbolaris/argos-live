@@ -14,6 +14,7 @@ from .web.status import chat_url, gateway_ready, read_json
 PHASES = {'idle': 'Start your local assistant.', 'setup': 'Preparing your workspace…',
     'verify-starter': 'Checking the bundled model…', 'select-storage': 'Choosing space for future models…',
     'write-configuration': 'Saving your local workspace…', 'verify-model': 'Verifying selected model files…',
+    'configured': 'Your workspace is configured.',
     'model-service': 'Starting local inference…', 'first-reply': 'Warming up the local model…',
     'gateway': 'Starting your assistant…', 'ready': 'Your local assistant is ready.',
     'stopping': 'Stopping your assistant…', 'stopped': 'Your assistant is stopped.',

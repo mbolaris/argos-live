@@ -59,6 +59,7 @@ def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, cont
         raise ValueError('Pinned Ollama executable is unavailable')
     executable = str(safe_local(executable))
     with socket.socket() as reservation:
+        reservation.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         reservation.bind(('127.0.0.1', port))
         port = reservation.getsockname()[1]
     env = dict(os.environ)

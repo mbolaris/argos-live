@@ -81,6 +81,7 @@ def owned(home=None, *, executable=None, config_path=None, timeout=180, cancel=N
     origin, port = settings(config_path)
     # Fail before launching a CLI or creating a lease if any listener occupies it.
     with socket.socket() as reservation:
+        reservation.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         reservation.bind(('127.0.0.1', port))
     executable = executable or shutil.which('openclaw')
     if not executable:

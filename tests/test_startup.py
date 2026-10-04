@@ -107,6 +107,16 @@ class StartupTests(unittest.TestCase):
         self.assertEqual(self.calls[-1], 'backend-stop')
         self.assertFalse(value.snapshot()['model_reply_verified'])
 
+    def test_complete_auto_setup_progress_can_reach_gateway(self):
+        def configure(home, progress):
+            for phase in ('verify-starter', 'select-storage', 'write-configuration', 'configured'):
+                progress({'phase': phase})
+        value = self.controller(configure=configure)
+        value.start()
+        self.wait(value, 'ready')
+        value.close()
+        self.wait(value, 'stopped')
+
     def test_failure_keeps_owner_files_and_public_error_omits_details(self):
         owner = self.home / 'owner-config'
         owner.write_bytes(b'owner bytes')
