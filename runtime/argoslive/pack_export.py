@@ -49,7 +49,8 @@ def private_directory(path):
         if not re.fullmatch(r'S-1-[0-9-]+', sid):
             raise ValueError('Cannot establish private output owner')
         subprocess.run(['icacls.exe', str(path), '/inheritance:r', '/grant:r',
-                        f'*{sid}:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F'],
+                        f'*{sid}:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F',
+                        '/remove:g', '*S-1-5-32-544', '*S-1-3-4'],
                        check=True, stdout=subprocess.DEVNULL)
 
 

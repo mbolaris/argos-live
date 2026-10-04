@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -13,6 +14,20 @@ from argoslive import pack_export, packs
 
 
 class ExportTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == 'nt', 'Windows ACL acceptance requires Windows')
+    def test_private_directory_drops_python_explicit_group_grants(self):
+        with tempfile.TemporaryDirectory() as directory:
+            private = Path(directory) / 'private'
+            pack_export.private_directory(private)
+            program = '$ErrorActionPreference = "Stop"; ([IO.Directory]::GetAccessControl($env:ARGOS_TEST_PRIVATE_PATH)).GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]).IdentityReference.Value'
+            result = subprocess.check_output(['powershell.exe', '-NoProfile', '-NonInteractive',
+                                              '-Command', program], text=True,
+                                             env=dict(os.environ, ARGOS_TEST_PRIVATE_PATH=str(private)))
+            sids = set(result.split())
+            owner = subprocess.check_output(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command',
+                                             '[Security.Principal.WindowsIdentity]::GetCurrent().User.Value'], text=True).strip()
+            self.assertEqual(sids, {owner, 'S-1-5-18'})
+
     def fixture(self, root, style='list'):
         source = root / 'source'
         source.mkdir()
