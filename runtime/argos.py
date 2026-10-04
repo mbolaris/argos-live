@@ -14,6 +14,18 @@ import time
 import urllib.request
 import urllib.error
 
+
+def runtime_package_path(script=__file__, installed='/usr/local/lib/argos-live'):
+    """Use the checkout package when present, otherwise the image install path."""
+    checkout = Path(script).resolve().parent
+    if (checkout / 'argoslive/__init__.py').is_file():
+        return checkout
+    return Path(installed)
+
+
+sys.path.insert(0, str(runtime_package_path()))
+import argoslive
+
 STATE = Path.home() / '.config/argos-live/state.json'
 OC = Path.home() / '.openclaw'
 SEED = Path('/usr/local/share/argos-live/seed-model')
