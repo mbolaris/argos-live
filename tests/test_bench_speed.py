@@ -142,3 +142,11 @@ class BenchTests(unittest.TestCase):
         for sizes in ([], ['short', 'short'], ['invalid']):
             with self.assertRaises(ValueError):
                 bench.run(Backend(), 'fixture:latest', sizes=sizes)
+
+    def test_timeout_bounds_and_cli_backend_failure_are_clear(self):
+        for timeout in ('0', '601'):
+            with self.assertRaises(ValueError):
+                bench.main(['--model', 'fixture:latest', '--timeout', timeout])
+        with patch.object(bench, 'run', side_effect=Interrupted('fixture')):
+            with self.assertRaisesRegex(ValueError, 'No successful result'):
+                bench.main(['--model', 'fixture:latest', '--timeout', '600', '--size', 'long'])
