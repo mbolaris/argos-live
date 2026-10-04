@@ -13,6 +13,29 @@ from argoslive import desktop
 
 
 class SessionTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux listener identity')
+    def test_disappearing_unrelated_descriptor_does_not_hide_owned_listener(self):
+        import socket
+        from argoslive.owned_ollama import owns_port
+        original = os.readlink
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            listener.listen()
+            port = listener.getsockname()[1]
+            vanished = False
+            def readlink(path):
+                nonlocal vanished
+                value = original(path)
+                if not vanished and value != 'socket:[' + str(os.fstat(listener.fileno()).st_ino) + ']':
+                    vanished = True
+                    raise FileNotFoundError('Concurrent descriptor closed')
+                return value
+            with patch('argoslive.owned_ollama.os.readlink', side_effect=readlink):
+                self.assertTrue(owns_port(os.getpid(), port))
+            self.assertTrue(vanished)
+            listener.close()
+            self.assertFalse(owns_port(os.getpid(), port))
+
     def test_only_generated_loopback_session_endpoint_is_accepted(self):
         good = {'schema': 'argos-desktop-session/1', 'url': 'http://127.0.0.1:12345/?token=' + 'a' * 43}
         self.assertEqual(desktop.session_url(good), ('http://127.0.0.1:12345', 'a' * 43))

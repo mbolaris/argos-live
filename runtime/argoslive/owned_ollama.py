@@ -34,7 +34,14 @@ def stop_group(process):
 def owns_port(pid, port):
     """Do not accept a same-version daemon that won a port allocation race."""
     try:
-        inodes = {os.readlink(p) for p in Path(f'/proc/{pid}/fd').iterdir()}
+        inodes = set()
+        for descriptor in Path(f'/proc/{pid}/fd').iterdir():
+            try:
+                inodes.add(os.readlink(descriptor))
+            except (FileNotFoundError, ProcessLookupError):
+                # HTTP request threads can close another descriptor during
+                # enumeration. The listening socket must still match below.
+                continue
         for row in Path(f'/proc/{pid}/net/tcp').read_text().splitlines()[1:]:
             columns = row.split()
             if (columns[1] == f'0100007F:{port:04X}' and columns[3] == '0A'
