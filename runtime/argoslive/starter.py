@@ -45,7 +45,9 @@ def serve(root=ROOT, *, executable=None, data=None, timeout=60):
     with tempfile.TemporaryDirectory(prefix='argos-starter-') as lease:
         with owned(root, executable=executable, timeout=timeout, lease_store=Path(lease)) as client:
             models = client.list().get('models', [])
-            if not any(model.get('name') == TAG and model.get('digest') == identity['manifest_digest']
+            expected = identity['manifest_digest']
+            # Ollama's API uses bare hex; catalog descriptors include sha256:.
+            if not any(model.get('name') == TAG and model.get('digest') in (expected, expected[7:])
                        for model in models):
                 raise ValueError('Ollama starter identity differs from the verified image')
             yield client

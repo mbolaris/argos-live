@@ -68,7 +68,7 @@ class StarterTests(unittest.TestCase):
         seen = {}
         class Client:
             def list(inner):
-                return {'models': [{'name': starter.TAG, 'digest': self.entry['manifest_digest']}]}
+                return {'models': [{'name': starter.TAG, 'digest': self.entry['manifest_digest'][7:]}]}
         @contextmanager
         def backend(target, **options):
             seen.update(target=target, **options)
