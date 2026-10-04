@@ -36,6 +36,17 @@ The pack format, exporter, importer and the public sample packs are generic and 
 
 ## Product principles
 
+The assistant should have an expressive, evidence-based opinion about its own
+machine, configuration and capabilities. Its first greeting should briefly
+comment on the hardware; answers to "How do you feel?" should reflect resource
+pressure, temperature, known bugs and OpenClaw doctor results. It should seek
+useful improvements, consider hot/cold conditions, and explain its competence
+by task. This is future work, not a current image capability. Design and scoped
+acceptance criteria: [HARDWARE-AWARE-ASSISTANT.md](HARDWARE-AWARE-ASSISTANT.md),
+backlog HA1–HA5. A Tamagotchi-style cultivation experience should let the owner
+grow a personal AI through suitable hardware, optional online compute, models,
+skills and software upgrades, with verified useful milestones and its own voice.
+
 1. **Delight first, safely.** Remove questions, not protections. Loopback-only services, gateway tokens and the conversation-only default permission stay; widening permissions is an explicit, visible choice.
 2. **Measure, don't guess.** Speeds come from backend-reported timings, never character counts. Benchmarks are fixed, versioned and deterministic (temperature 0, fixed seed, thinking disabled unless the benchmark says otherwise). Unknown means "unavailable", not an estimate.
 3. **Separate image, personality and model lifecycles.** The image holds software plus a small licensed starter model. Personalities and conversations live in encrypted persistence when present. Large models go on the largest suitable writable disk, with encryption status visible. Changing a model or personality never requires rewriting the USB.

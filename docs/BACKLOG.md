@@ -605,6 +605,67 @@ Depends on: the owner creating the private repository (or Drive folder) and gran
 - Copy to the private repository first and confirm the copy, then remove from this repository in the same PR with short pointers. No history rewrite (D2).
 - Accept: README tells the lab story first; all remaining tests pass.
 
+## E9 Hardware-aware assistant personality — future work
+
+Design: [HARDWARE-AWARE-ASSISTANT.md](HARDWARE-AWARE-ASSISTANT.md).
+These requirements are recorded; no implementation or physical acceptance is claimed.
+
+### HA1 Verified self-state and first greeting — `todo`
+Depends on: B1, O2, A1.
+- Give each agent bounded, timestamped context for CPU, total/available RAM,
+  GPU/VRAM, actual model placement, model/context, storage, configuration health,
+  known bugs and safe OpenClaw doctor summaries. Prefer supported OpenClaw
+  mechanisms/addons; do not grant shell access just to read these facts.
+- First conversation includes a short hardware opinion. "How do you feel?"
+  refreshes available evidence and explains limitations or satisfaction in the
+  agent's voice. Missing/stale probes remain explicitly unknown.
+- Accept: real native chat uses current context; fixture coverage for powerful,
+  CPU-only, low-memory, missing-GPU, broken-driver and failed/stale diagnostics;
+  no owner persona overwrite or secret/raw-doctor output in public context.
+
+### HA2 Thermal awareness and useful seasonal compute — `todo`
+Depends on: HA1, B1, owned job lifecycle.
+- Observe supported temperature, power and throttling signals separately from
+  optional owner-provided or measured ambient conditions. On hot days recommend
+  lighter work or cooling. On cold days offer concrete useful queued compute
+  within owner-selected power, temperature, noise and time budgets.
+- Accept: missing sensors, hot/cold conditions, throttling, cancellation and
+  thermal limits tested; no fabricated ambient temperature or generic unsafe
+  threshold. No meaningless load, sustained stress test or heater claim.
+  Unattended compute requires an explicit owner policy and stops at its limits.
+
+### HA3 Resource proposals and expanding usefulness — `todo`
+Depends on: HA1, HA2, capability/permission dashboard.
+- Proactively suggest useful tasks, models, compatible addons and improvements.
+  Explain each proposed extra RAM/VRAM/compute/storage/hardware permission using
+  an observed bottleneck, expected benefit, alternatives, cost and uncertainty.
+- Accept: proposals reflect evidence, preserve local/offline options, respect
+  declines and do not repeatedly nag. No automatic purchase, cloud spending,
+  download, permission widening, driver change or workload outside owner policy.
+
+### HA4 Task-specific competence and confidence — `todo`
+Depends on: B4–B7, HA1.
+- Summarize measured ability by task with suite/model/version/settings/coverage,
+  weaknesses and confidence. Optional kindergarten/high-school/PhD/professor
+  language is a qualified analogy for the tested task, not a global credential,
+  human IQ or claim that one small suite establishes research competence.
+- Accept: unseen domains and absent evidence remain unassessed; compare only
+  compatible runs; distinguish hardware speed from accuracy and tools/access.
+  Reassess after model/config changes and surface actual failures.
+
+### HA5 Personal-AI cultivation experience — `todo`
+Depends on: HA1–HA4, model onboarding, capability dashboard and profile persistence.
+- Add a playful companionship/growth loop: useful goal, reviewed hardware or
+  optional online compute/model/software/addon change, measured outcome and a
+  milestone celebration. Preserve persona/history across model changes/reboots.
+- Show competence, capabilities, responsiveness, headroom and health separately.
+  Online compute includes visible provider/data destination, permissions and
+  cost/time budgets; private credentials stay private. Keep local/offline paths.
+- Accept: verified gains and regressions appear honestly; compatible before/after
+  results and rollback work; denied/offline/budget-exhausted upgrades remain usable.
+  No invented intelligence/happiness score, artificial decay or spending rewards.
+  Respect declined requests; improvements serve owner-selected useful tasks.
+
 ## Suggested parallel tracks
 
 | Track | Sequence |
