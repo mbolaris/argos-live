@@ -60,7 +60,10 @@ def measurement(reply, loaded, tag):
             'backend': placement(loaded, tag)}
 
 
-def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=None):
+def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=None,
+        sizes=('short', 'medium', 'long')):
+    if not sizes or len(set(sizes)) != len(sizes) or set(sizes) - {'short', 'medium', 'long'}:
+        raise ValueError('Choose unique short, medium or long prompt sizes')
     started = clock()
     models = client.list().get('models', [])
     identity = next((m for m in models if m.get('name') == model or m.get('model') == model), None)
@@ -83,7 +86,7 @@ def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=Non
               'metadata': {'details': metadata.get('details'), 'model_info': metadata.get('model_info'),
                            'capabilities': metadata.get('capabilities')},
               'ollama_version': client.version(), 'argos_version': __version__, 'hardware': hardware(),
-              'settings': {'seed': 1, 'temperature': 0, 'think': False if 'thinking' in
+              'settings': {'prompt_sizes': list(sizes), 'seed': 1, 'temperature': 0, 'think': False if 'thinking' in
                            metadata.get('capabilities', []) else None, 'generation_limit': LIMIT},
               'cold': None, 'prompts': [], 'restoration': {'previous_model': previous_model, 'succeeded': False}}
     try:
@@ -92,6 +95,8 @@ def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=Non
             client.unload(previous_model)
         client.unload(model)
         for name, repeats, requested in PROMPTS:
+            if name not in sizes:
+                continue
             if context is None or context < requested:
                 result['prompts'].append({'size': name, 'skipped': True,
                                           'reason': 'Advertised context unavailable or smaller than required',
@@ -135,9 +140,12 @@ def main(argv=None):
     parser.add_argument('--model', required=True)
     parser.add_argument('--ollama', default='http://127.0.0.1:11434')
     parser.add_argument('--json', action='store_true')
+    parser.add_argument('--size', action='append', choices=['short', 'medium', 'long'],
+                        help='Prompt size to run (repeatable); default all sizes.')
     parser.add_argument('--results-dir', type=Path, default=Path.home() / '.local/share/argos-live/results')
     args = parser.parse_args(argv)
-    result = run(Client(args.ollama), args.model)
+    result = run(Client(args.ollama, timeout=120), args.model,
+                 sizes=args.size or ('short', 'medium', 'long'))
     root = safe_local(args.results_dir.absolute())
     if not root.exists():
         root.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
