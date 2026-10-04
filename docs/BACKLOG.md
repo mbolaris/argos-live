@@ -50,22 +50,24 @@ Depends on: none.
 - Add `.github/workflows/tests.yml` running `bash scripts/check.sh` and the Node upstream tests on `ubuntu-latest` for every push and PR.
 - Accept: `scripts/check.sh` passes on a clean Ubuntu runner without `python3-tk`; CI job is green.
 
-### F2 Runtime package skeleton and install path — `todo`
+### F2 Runtime package skeleton and install path — `done ([PR #3](https://github.com/mbolaris/argos-live/pull/3))`
 Depends on: F1.
 - Create `runtime/argoslive/__init__.py` with a version string, and teach `runtime/argos.py` to import the package from its source checkout or from `/usr/local/lib/argos-live`.
 - Update `scripts/build.sh` and `scripts/sync-build-runtime.sh` to install the package directory into the image.
 - Accept: `python3 runtime/argos.py --help` works from a checkout; a unit test confirms the import path logic; build scripts pass `bash -n`; the repack path copies the package (checked by reading the script, verified by the next ISO build).
+- Evidence: checkout CLI/path tests pass on Windows; Linux CI passes the temporary package-install/import fixture and shell syntax checks. Both includes and existing-chroot repack paths call the installer. Actual ISO contents remain for the next build verification.
 
 ### F3 Reconcile the out-of-repo bench prototype — `closed (D5)`
 - Not needed. See D5.
 
 ## E1 Benchmarks (M1)
 
-### B1 Hardware probe — `todo`
+### B1 Hardware probe — `done ([PR #5](https://github.com/mbolaris/argos-live/pull/5))`
 Depends on: F2.
 - `hw.py` returns CPU model, cores/threads, RAM total/available, GPU list (name, VRAM total/used, driver) from `nvidia-smi --query-gpu ... --format=csv`, AMD/Intel GPUs from `lspci` names only, disks and free space for candidate model directories, kernel, Secure Boot state if readable.
 - Missing tools or files produce `null`s, not exceptions.
 - Accept: unit tests with recorded fixtures for an NVIDIA desktop, a CPU-only laptop and a no-`nvidia-smi` system; `argos hw --json` prints the snapshot.
+- Evidence: Windows and Linux CI pass hardware/CLI tests using authored, sanitized command-output fixtures (not owner hardware captures). NVIDIA fields/units checked against official documentation. Physical Live output and ISO inclusion remain unverified. Depends on F2 integration [PR #4](https://github.com/mbolaris/argos-live/pull/4) reaching main.
 
 ### B2 Ollama client — `todo`
 Depends on: F2.

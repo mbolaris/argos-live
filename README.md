@@ -39,6 +39,10 @@ The current USB candidate and internal disks are recorded in [docs/INVENTORY.md]
 
 ## Keeping the distro current
 
+### Hardware snapshot
+
+`argos hw --json` reports CPU, RAM, GPU memory/driver, disks, kernel and readable Secure Boot state without requiring setup or modifying storage. Add `--model-dir /path/to/models` (repeatable) to check existing directories' capacity. Missing measurements are `null`; PCI GPU names alone do not establish driver or inference readiness. The CLI can also run from a source checkout with `python3 runtime/argos.py hw --json`.
+
 The [release process](docs/RELEASE-PROCESS.md) tracks stable upstream releases daily, records verified candidate pins, and requires clean builds and regression/physical acceptance before promotion. Software discovery does not change a running personal profile.
 
 ## Acceptance and future milestones

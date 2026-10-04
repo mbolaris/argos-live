@@ -14,6 +14,18 @@ import time
 import urllib.request
 import urllib.error
 
+
+def runtime_package_path(script=__file__, installed='/usr/local/lib/argos-live'):
+    """Use the checkout package when present, otherwise the image install path."""
+    checkout = Path(script).resolve().parent
+    if (checkout / 'argoslive/__init__.py').is_file():
+        return checkout
+    return Path(installed)
+
+
+sys.path.insert(0, str(runtime_package_path()))
+import argoslive
+
 STATE = Path.home() / '.config/argos-live/state.json'
 OC = Path.home() / '.openclaw'
 SEED = Path('/usr/local/share/argos-live/seed-model')
@@ -213,11 +225,27 @@ def main():
             return pack_command(sys.argv[2:])
         return pack_command(sys.argv[3:])
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model'])
+    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model', 'hw'])
+    parser.add_argument('--json', action='store_true', help='Print hardware snapshot as JSON.')
+    parser.add_argument('--model-dir', action='append', default=[],
+                        help='Read-only capacity probe for an existing directory (repeatable).')
     parser.add_argument('--model')
     parser.add_argument('--required-gib', type=float, default=4,
                         help='Download space budget; increase for larger models after checking their advertised size.')
     args = parser.parse_args()
+    if args.command == 'hw':
+        from argoslive.hw import snapshot
+        result = snapshot(args.model_dir)
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            cpu, ram = result['cpu'], result['ram']
+            print(f"CPU: {cpu['model'] or 'unknown'}; cores {cpu['cores']}; threads {cpu['threads']}")
+            print(f"RAM bytes: total {ram['total_bytes']}; available {ram['available_bytes']}")
+            print(f"GPUs: {json.dumps(result['gpus'])}")
+            print(f"Model directories: {json.dumps(result['model_directories'])}")
+            print(f"Kernel: {result['kernel']}; Secure Boot: {result['secure_boot']}")
+        return
     if args.command == 'setup':
         return setup()
     if args.command == 'diagnostics':

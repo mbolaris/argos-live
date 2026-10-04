@@ -1,0 +1,8 @@
+{
+  "cpuinfo": "processor : 0\nmodel name : Fixture Desktop CPU\nphysical id : 0\ncore id : 0\n\nprocessor : 1\nmodel name : Fixture Desktop CPU\nphysical id : 0\ncore id : 0\n",
+  "meminfo": "MemTotal:       67108864 kB\nMemAvailable:   41943040 kB\n",
+  "nvidia": "00000000:01:00.0, NVIDIA GeForce RTX 3090, 24576, 4096, 550.163.01\n",
+  "pci": "0000:01:00.0 VGA compatible controller: NVIDIA Corporation Fixture GPU\n",
+  "lsblk": "{\"blockdevices\":[{\"name\":\"sda\",\"type\":\"disk\",\"size\":1000000000,\"children\":[{\"name\":\"sda1\",\"type\":\"part\",\"size\":900000000,\"fstype\":\"ext4\",\"mountpoints\":[\"/mnt/data\"]}]}]}",
+  "secure_boot": 0
+}
