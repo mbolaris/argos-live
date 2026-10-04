@@ -14,6 +14,7 @@ from argoslive.owned_ollama import owned
 from argoslive.bench_speed import run as speed_benchmark
 from argoslive.bench_ability import run as ability_benchmark
 from argoslive.pull_jobs import write_json
+from argoslive.results import Store
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--ollama', required=True, type=Path)
@@ -61,6 +62,11 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
         print(json.dumps({'ability_seconds': ability['elapsed_seconds'],
                           'ability_summary': ability['summary']}), flush=True)
     write_json(root / 'ability.json', ability)
+    store = Store(root / 'results')
+    for measured in (speed, full_speed, ability):
+        store.save(measured)
+        if store.load(measured['id']) != measured:
+            raise SystemExit('Validated benchmark store did not round-trip')
     if json.loads((root / 'ability.json').read_text())['coverage']['completed'] != 20:
         raise SystemExit('Ability result did not round-trip')
     write_json(root / 'speed.json', speed)
