@@ -1,8 +1,7 @@
 # Building the pinned live image in CI
 
 The **Pinned Debian Live ISO** workflow builds on a disposable GitHub-hosted
-Ubuntu runner, manually or on `v*` tags. During initial development it also runs
-on its implementation branch. It does not publish a release or modify a USB.
+Ubuntu runner, manually or on `v*` tags. It does not publish a release or modify a USB.
 
 The runner-only wrapper rejects owner/self-hosted machines, frees three fixed
 preinstalled tool directories and requires 35 GiB free. It bootstraps Debian

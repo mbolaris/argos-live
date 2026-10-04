@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - 'c2-iso-build-ci'
     paths:
       - '.github/workflows/iso-build.yml'
       - 'scripts/**'
