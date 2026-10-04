@@ -7,7 +7,12 @@ from unittest.mock import patch, Mock
 
 spec = importlib.util.spec_from_file_location('welcome', Path(__file__).parents[1] / 'runtime/welcome.py')
 w = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(w)
+try:
+    spec.loader.exec_module(w)
+except ModuleNotFoundError as exc:
+    if exc.name not in ('tkinter', '_tkinter'):
+        raise
+    raise unittest.SkipTest('Welcome tests require the optional tkinter module') from exc
 
 class WelcomeTests(unittest.TestCase):
     def test_liveness_is_not_readiness(self):
