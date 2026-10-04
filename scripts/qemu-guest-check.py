@@ -59,9 +59,14 @@ def main():
             raise ValueError('Dashboard did not report the model service')
         dashboard_seconds = time.monotonic() - started
         stage('cpu-inference')
-        from argoslive.bench_speed import run
+        from argoslive import bench_speed
         from argoslive.ollama import Client
-        result = run(Client(timeout=600), 'qwen3:0.6b', sizes=['short'])
+        # Only this disposable VM process uses eight tokens: TCG is instruction
+        # emulation, not a representative machine performance measurement.
+        # The result records the changed limit, so normal 128-token runs cannot
+        # be compared to it. The installed runtime and ISO stay unchanged.
+        bench_speed.LIMIT = 8
+        result = bench_speed.run(Client(timeout=600), 'qwen3:0.6b', sizes=['short'])
         if result['prompts'][0]['skipped'] or len(result['prompts'][0]['runs']) != 3:
             raise ValueError('Starter speed benchmark did not complete')
         if any(item['backend']['mode'] != 'CPU' for item in result['prompts'][0]['runs']):
@@ -79,6 +84,7 @@ def main():
               'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
               'desktop_wait_seconds': desktop_seconds, 'dashboard_seconds': dashboard_seconds,
               'benchmark_seconds': result['elapsed_seconds'],
+              'generation_limit': result['settings']['generation_limit'],
               'generation_tokens_per_second': result['prompts'][0]['summary']['generation_tokens_per_second'],
               'backend': 'CPU', 'result_round_trip': True, 'automatic_first_boot': False,
               'physical_acceptance': False}), flush=True)
