@@ -40,7 +40,7 @@ Each claimed feature must have a capability smoke test and a documented offline/
 
 `argos addons --json` exposes ten conservative capability rows. The inert catalog
 at `runtime/argoslive/data/addons.json` records six bundled candidates and the
-hashes of 65 shipped skill documents from the published OpenClaw 2026.9.7 npm
+hashes of 65 shipped skill documents from the published OpenClaw 2026.9.8 npm
 archive. `scripts/update-addons.py --archive PATH` verifies the exact SHA512 in
 `versions.env` before reading bounded metadata; it neither extracts nor executes
 the archive. Regenerate and review this catalog with every proposed host update.

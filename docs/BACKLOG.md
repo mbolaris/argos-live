@@ -479,8 +479,12 @@ Depends on: C5a.
 - Update SOFTWARE.md and RELEASE-PROCESS.md; a driver change still requires physical GPU acceptance (H3).
 - Accept: CI ISO build (C2) succeeds and its manifest shows the resolved driver; C3 CPU smoke boot passes; physical RTX 3090 acceptance recorded before release.
 
-### H2 Dependency audit — `todo`
+### H2 Dependency audit — `in progress`
 - Re-run the pinned OpenClaw npm audit (25 findings: 24 high, 1 moderate) against the newest stable candidate; document each remaining finding's exposure given loopback-only binding, or remediate through supported upstream versions.
+- The October 4 candidate report has four vulnerable packages (three high, one
+  moderate), all under npm's dependency subtree. Paths and exposure questions are
+  recorded in [RUNTIME-AUDIT-20261004.md](RUNTIME-AUDIT-20261004.md). Supported fixes
+  and effective invocation/policy acceptance remain open; no clean audit claimed.
 
 ### H3 Remaining physical checks — `todo`
 - Track the open items in PHYSICAL-BOOT-TODO.md (legacy boot, Secure Boot policy, reboot recall, offline chat, process cleanup). Physical hardware only.

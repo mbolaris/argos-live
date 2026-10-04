@@ -38,7 +38,12 @@ Daily read-only GitHub Actions discovery is configured for OpenClaw, Ollama and 
 
 ## Release follow-ups
 
-The exact pinned runtime npm audit has 25 findings: 24 high, one moderate, zero critical. Dependency remediation remains open; successful inference/configuration audits do not resolve it. Evaluate supported stable upstream releases with regression tests rather than applying blind runtime updates.
+The earlier runtime audit recorded 25 findings. The October 4 OpenClaw 2026.9.8
+candidate audit reports four vulnerable packages: three high, one moderate, zero
+critical, all under npm's dependency subtree. See
+[the path/exposure review](RUNTIME-AUDIT-20261004.md). Remediation and effective
+policy/invocation acceptance remain open; successful inference/configuration
+tests do not resolve these findings. The physical USB remains on the older pins.
 
 Further work: legacy firmware boot, Secure Boot policy/testing, repeated answer-quality tests, completely disconnected conversation, process cleanup/error acceptance, saved conversation recall through a further physical reboot, profile import/rollback and unattended rebuild/reproducibility checks.
 
