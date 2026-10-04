@@ -27,7 +27,37 @@ class RuntimePackageTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('setup', result.stdout)
+        for name in ('bench', 'pull', 'pack', 'dashboard', 'addons'):
+            self.assertIn(name, result.stdout)
         self.assertTrue(cli.argoslive.__version__)
+
+    def test_group_and_delegated_help(self):
+        for command in (['bench'], ['pack'], ['bench', 'speed'], ['pull'],
+                        ['pack', 'export'], ['pack', 'import'], ['pack', 'apply'],
+                        ['pack', 'rollback'], ['dashboard'], ['addons']):
+            with self.subTest(command=command):
+                result = subprocess.run([sys.executable, str(ROOT / 'runtime/argos.py'),
+                                         *command, '--help'], capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('usage:', result.stdout)
+
+    def test_delegation_preserves_options_and_pack_operation(self):
+        from unittest.mock import Mock, patch
+        module = Mock()
+        with patch('importlib.import_module', return_value=module):
+            cli.main(['bench', 'speed', '--model', 'fixture:test', '--size', 'short', '--json'])
+            module.main.assert_called_with(['--model', 'fixture:test', '--size', 'short', '--json'])
+            cli.main(['pull', '--state', 'fixture.json', 'create', 'fixture:test'])
+            module.main.assert_called_with(['--state', 'fixture.json', 'create', 'fixture:test'])
+            cli.main(['pack', 'apply', 'fixture-stage', '--gateway-stopped'])
+            module.main.assert_called_with(['apply', 'fixture-stage', '--gateway-stopped'])
+
+    def test_legacy_json_option_on_either_side_of_command(self):
+        for argv in (['--json', 'hw'], ['hw', '--json']):
+            args, remaining = cli.command_parser().parse_known_args(argv)
+            self.assertTrue(args.json)
+            self.assertEqual(args.command, 'hw')
+            self.assertEqual(remaining, [])
 
     @unittest.skipUnless(sys.platform != 'win32' and shutil.which('bash'),
                          'Package installation fixture requires Linux bash/tar')

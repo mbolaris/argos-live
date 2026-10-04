@@ -1,12 +1,12 @@
 # Implementation backlog
 
-Updated October 3, 2026. Goals and milestones: [PROJECT-GOALS.md](PROJECT-GOALS.md). Model onboarding design: [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md). Personality transfer rules: [PROFILE-SYNC.md](PROFILE-SYNC.md).
+Updated October 4, 2026. Goals and milestones: [PROJECT-GOALS.md](PROJECT-GOALS.md). Model onboarding design: [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md). Personality transfer rules: [PROFILE-SYNC.md](PROFILE-SYNC.md).
 
 Each item is sized for one agent session and one pull request. Pick an item whose dependencies are done, keep the change to its scope, and meet every acceptance criterion before opening the PR. If an item proves too large, split it in the PR description and update this file.
 
 ## Rules for implementing agents
 
-1. **Branch and PR per item.** Title the PR with the item ID, for example `B3: speed benchmark`. Update the item's status in this file in the same PR.
+1. **Branch and PR per item.** Title the PR with the item ID, for example `B3: speed benchmark`. Update the item's status in this file in the same PR. After checks pass and merge is authorized, merge through GitHub's PR action and delete the landed branch. Before deleting an older branch, verify its tip matches the merged PR and retain a local recovery reference; preserve branches with additional commits. Mark implemented items done when their scoped acceptance passes, and keep physical USB/release acceptance separate.
 2. **Stdlib-only Python 3.11+** for everything under `runtime/`. No pip dependencies in the image. Tests use `unittest` and must pass with `bash scripts/check.sh` on Linux; keep them importable on Windows (skip, don't fail, for Linux-only behavior).
 3. **No live network or GPU in unit tests.** Mock Ollama HTTP responses, `nvidia-smi` output and `/proc` files with recorded fixtures under `tests/fixtures/`. Integration checks that need a real Ollama go in `scripts/smoke-*.sh` and are labeled as such.
 4. **Say how it was verified.** Every PR states which acceptance criteria were checked by unit test, by a real Ollama run, by a CI ISO boot, or by physical hardware, and which remain unverified. Never claim physical acceptance from a VM.
@@ -76,7 +76,7 @@ Depends on: F2.
 - Accept: unit tests against a fake HTTP server serving recorded responses, including streaming chunks and an interrupted stream; field names checked against the pinned Ollama version's API documentation.
 - Evidence: Windows and Linux CI pass tests against a loopback fake server with authored protocol fixtures checked against pinned v0.35.0 API types. Progress, cancellation, chat/generation timings, unload and interruption/error paths pass. Real Ollama/model/GPU acceptance remains pending. See OLLAMA-CLIENT.md for bounded cancellation behavior.
 
-### B3 Speed benchmark — `in progress ([PR #18](https://github.com/mbolaris/argos-live/pull/18))`
+### B3 Speed benchmark — `done ([PR #18](https://github.com/mbolaris/argos-live/pull/18))`
 Depends on: B1, B2.
 - Implements the speed method above. Generation limit fixed (for example 128 tokens). Thinking disabled. Records whether the model ran on GPU, CPU or split, from `ps`.
 - Unloads the model afterwards and restores the previously loaded model if one was loaded.
@@ -181,7 +181,7 @@ Depends on: F2.
 - `web/server.py` per the dashboard decision; JSON API under `/api/`, static files under `/`, per-session token check, CSRF-safe (token in header for POSTs), loopback-only bind, graceful shutdown.
 - Accept: unit tests: missing or wrong token rejected, non-loopback bind refused, static and JSON routes served.
 
-### W2 Home: hardware and status — `in progress ([PR #21](https://github.com/mbolaris/argos-live/pull/21))`
+### W2 Home: hardware and status — `done ([PR #21](https://github.com/mbolaris/argos-live/pull/21))`
 Depends on: W1, B1.
 - Live read-only hardware, storage identity/encryption, persistence, route and
   service probes; measured loaded-model placement and authenticated chat link.
@@ -200,7 +200,7 @@ Depends on: W2, MD1, MD4.
 - Installed models and catalog with fit badges, exact sizes, pull progress (bytes, speed, ETA), pause/cancel/retry, delete installed model with confirmation.
 - Accept: API tests with the fake server; manual run against a real Ollama documented in the PR.
 
-### W3a Read-only model inventory and progress — `in progress ([PR #22](https://github.com/mbolaris/argos-live/pull/22))`
+### W3a Read-only model inventory and progress — `done ([PR #22](https://github.com/mbolaris/argos-live/pull/22))`
 Depends on: W1, W2, MD1, MD4.
 - Reuse Ollama's manifest layout, reviewed catalog/fit estimator and durable job
   receipts. Show selected-store models, exact sizes, CPU/single-GPU fit estimates,
@@ -253,7 +253,7 @@ Depends on: P3.
 - This is preparation for P4, not active pack apply or rollback implementation. Record real-runtime CI separately from physical acceptance.
 - Evidence: pinned OpenClaw 2026.9.7 and Node 26.10.0 Linux CI passed three-agent schema validation, invalid-policy rejection, verified native backup, and fresh restore with byte-identical config/personas ([runtime run](https://github.com/mbolaris/argos-live/actions/runs/37167980872)). Windows suite: 58 tests, three platform skips; Linux tests passed. No owner profile activation or physical acceptance claimed.
 
-### P4 Apply with rollback — `implemented (PR #13; merge pending)`
+### P4 Apply with rollback — `done ([PR #13](https://github.com/mbolaris/argos-live/pull/13))`
 Depends on: P3.
 - `argos pack apply STAGE_ID`: snapshots the current OpenClaw config and agent directories, creates or updates each agent with its own workspace and agentDir, writes persona files, assigns the resolved model or leaves the agent visibly pending a model, applies the default conversation-only tool policy, validates with `openclaw config validate`, and rolls back automatically if validation fails. `argos pack rollback SNAPSHOT_ID` restores a snapshot.
 - Accept: unit tests with a fake OpenClaw config; a smoke test with the pinned OpenClaw validates a three-agent sample pack, then rolls back and restores the original byte-for-byte.
@@ -318,9 +318,9 @@ Depends on: C2.
 
 Capability contract: [OPENCLAW-ADDONS.md](OPENCLAW-ADDONS.md). These items cover functional dependencies beyond the model lab; the catalog and dashboard must expose their readiness.
 
-### A1 Pinned addon inventory and capability catalog — `todo`
+### A1 Pinned addon inventory and capability catalog — `in progress ([PR #19](https://github.com/mbolaris/argos-live/pull/19))`
 Depends on: F2; candidate inventory can be prepared before runtime wiring.
-- Inventory groundwork: PR #19 adds verified published-package metadata, inert
+- Inventory groundwork is merged: PR #19 adds verified published-package metadata, inert
   `argos addons` capability rows, installed-package hash checks and disposable
   snapshot/runtime registration inspection. External engine selection, transitive
   license review, per-agent grants and functional acceptance remain pending;

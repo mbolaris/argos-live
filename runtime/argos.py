@@ -211,37 +211,51 @@ def select_model(model):
     save(STATE, state)
     print('Run argos download to review the exact registry download size.')
 
-def main():
-    if sys.argv[1:2] == ['dashboard']:
-        from argoslive.web.server import main as dashboard_command
-        return dashboard_command(sys.argv[2:])
-    if sys.argv[1:2] == ['addons']:
-        from argoslive.addons import main as addon_command
-        return addon_command(sys.argv[2:])
-    if sys.argv[1:3] == ['bench', 'speed']:
-        from argoslive.bench_speed import main as bench_command
-        return bench_command(sys.argv[3:])
-    if sys.argv[1:2] == ['pull']:
-        from argoslive.model_onboarding import main as pull_command
-        return pull_command(sys.argv[2:])
-    if sys.argv[1:3] in (['pack', 'export'], ['pack', 'import'], ['pack', 'apply'], ['pack', 'rollback']):
-        if sys.argv[2] == 'export':
-            from argoslive.pack_export import main as pack_command
-        elif sys.argv[2] == 'import':
-            from argoslive.pack_import import main as pack_command
-        else:
-            from argoslive.pack_apply import main as pack_command
-            return pack_command(sys.argv[2:])
-        return pack_command(sys.argv[3:])
-    parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['setup', 'start', 'download', 'verify', 'diagnostics', 'select-model', 'hw', 'storage', 'catalog'])
-    parser.add_argument('--json', action='store_true', help='Print the diagnostic result as JSON.')
-    parser.add_argument('--model-dir', action='append', default=[],
+def command_parser():
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument('--json', action='store_true', default=argparse.SUPPRESS, help='Print the diagnostic result as JSON.')
+    common.add_argument('--model-dir', action='append', default=argparse.SUPPRESS,
                         help='Read-only capacity probe for an existing directory (repeatable).')
-    parser.add_argument('--model')
-    parser.add_argument('--required-gib', type=float, default=4,
+    common.add_argument('--model', default=argparse.SUPPRESS)
+    common.add_argument('--required-gib', type=float, default=argparse.SUPPRESS,
                         help='Download space budget; increase for larger models after checking their advertised size.')
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser(prog='argos', description='Argos Live setup, local models, portable personalities and dashboard.', parents=[common])
+    commands = parser.add_subparsers(dest='command', required=True)
+    legacy = {'setup': 'Set up the local assistant', 'start': 'Start the assistant',
+              'download': 'Download the selected model (legacy)', 'verify': 'Verify model artifacts',
+              'diagnostics': 'Collect local diagnostics', 'select-model': 'Select a model',
+              'hw': 'Read hardware measurements', 'storage': 'Preview model storage', 'catalog': 'List reviewed models'}
+    for name, help_text in legacy.items():
+        commands.add_parser(name, help=help_text, parents=[common])
+    delegates = {'dashboard': ('argoslive.web.server', 'Open the local dashboard server'),
+                 'addons': ('argoslive.addons', 'Inspect addon capability candidates'),
+                 'pull': ('argoslive.model_onboarding', 'Manage verified model download jobs')}
+    for name, (module, help_text) in delegates.items():
+        commands.add_parser(name, help=help_text, add_help=False).set_defaults(delegate=module)
+    bench = commands.add_parser('bench', help='Run local model benchmarks')
+    benchmarks = bench.add_subparsers(dest='operation', required=True)
+    benchmarks.add_parser('speed', help='Measure Ollama speed', add_help=False).set_defaults(delegate='argoslive.bench_speed')
+    pack = commands.add_parser('pack', help='Export, review, apply or roll back personality packs')
+    packs = pack.add_subparsers(dest='operation', required=True)
+    for operation in ('export', 'import', 'apply', 'rollback'):
+        module = 'pack_' + operation if operation in ('export', 'import') else 'pack_apply'
+        packs.add_parser(operation, help=operation.title() + ' a personality pack', add_help=False).set_defaults(delegate='argoslive.' + module)
+    return parser
+
+
+def main(argv=None):
+    parser = command_parser()
+    args, remaining = parser.parse_known_args(argv)
+    if hasattr(args, 'delegate'):
+        from importlib import import_module
+        if args.delegate == 'argoslive.pack_apply':
+            remaining = [args.operation, *remaining]
+        return import_module(args.delegate).main(remaining)
+    if remaining:
+        parser.error('unrecognized arguments: ' + ' '.join(remaining))
+    for name, default in {'json': False, 'model_dir': [], 'model': None, 'required_gib': 4}.items():
+        if not hasattr(args, name):
+            setattr(args, name, default)
     if args.command == 'catalog':
         from argoslive.catalog import load as load_catalog
         data = load_catalog()
