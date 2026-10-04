@@ -171,7 +171,7 @@ Depends on: W2.
 
 ## E4 Dashboard (M2)
 
-### W1 Server skeleton — `in progress ([PR #20](https://github.com/mbolaris/argos-live/pull/20))`
+### W1 Server skeleton — `done ([PR #20](https://github.com/mbolaris/argos-live/pull/20))`
 Depends on: F2.
 - Implemented loopback/token-protected server and a read-only capability preview.
   Disposable HTTP fixtures verify static/JSON routes, token/Origin/Host rejection,
@@ -181,7 +181,7 @@ Depends on: F2.
 - `web/server.py` per the dashboard decision; JSON API under `/api/`, static files under `/`, per-session token check, CSRF-safe (token in header for POSTs), loopback-only bind, graceful shutdown.
 - Accept: unit tests: missing or wrong token rejected, non-loopback bind refused, static and JSON routes served.
 
-### W2 Home: hardware and status — `in progress (PR pending)`
+### W2 Home: hardware and status — `in progress ([PR #21](https://github.com/mbolaris/argos-live/pull/21))`
 Depends on: W1, B1.
 - Live read-only hardware, storage identity/encryption, persistence, route and
   service probes; measured loaded-model placement and authenticated chat link.
