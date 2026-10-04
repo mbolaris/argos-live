@@ -202,13 +202,16 @@ Depends on: MD2.
 - Serve the bundled seed model without copying it: point Ollama at a model directory that combines the read-only image blobs and manifests with writable storage for pulls (for example, a directory whose blobs and manifests are symlinks into the image, plus copy-on-pull), or run a second read-only model path if the pinned Ollama supports one. Verify with the pinned Ollama version.
 - Accept: in a VM, chat with the starter model works with no persistence and no copy; pulling another model writes only to the selected storage; `argos verify` still checks hashes.
 
-### MD3a Verified immutable starter service — `in progress`
+### MD3a Verified immutable starter service — `done ([PR #33](https://github.com/mbolaris/argos-live/pull/33))`
 Depends on: MD2, MD4b.
 - Internal owned Ollama context reads the exact reviewed starter directly from
   an unwritable image model tree, with full manifest/blob SHA checks and a private
   temporary process lease outside the source. No model copies or setup changes.
 - Accept: fixture integrity/cleanup tests and real pinned unprivileged Linux CPU
   inference; source file inventory and hashes remain unchanged. VM wiring is MD3b.
+- Evidence: Windows/Linux fixture/process tests and real checksum-pinned Ollama
+  CPU inference on an unwritable seed passed ([run](https://github.com/mbolaris/argos-live/actions/runs/37229233608)).
+  This is permission-enforced Linux acceptance; SquashFS/VM wiring remains MD3b.
 
 ### MD3b First-boot model-source wiring — `todo`
 Depends on: MD3a, C3a.
