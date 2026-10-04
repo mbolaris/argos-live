@@ -76,13 +76,13 @@ Depends on: F2.
 - Accept: unit tests against a fake HTTP server serving recorded responses, including streaming chunks and an interrupted stream; field names checked against the pinned Ollama version's API documentation.
 - Evidence: Windows and Linux CI pass tests against a loopback fake server with authored protocol fixtures checked against pinned v0.35.0 API types. Progress, cancellation, chat/generation timings, unload and interruption/error paths pass. Real Ollama/model/GPU acceptance remains pending. See OLLAMA-CLIENT.md for bounded cancellation behavior.
 
-### B3 Speed benchmark — `implemented (PR pending)`
+### B3 Speed benchmark — `in progress ([PR #18](https://github.com/mbolaris/argos-live/pull/18))`
 Depends on: B1, B2.
 - Implements the speed method above. Generation limit fixed (for example 128 tokens). Thinking disabled. Records whether the model ran on GPU, CPU or split, from `ps`.
 - Unloads the model afterwards and restores the previously loaded model if one was loaded.
 - Accept: unit tests verify statistics, cold/warm separation, skipped long prompts and `null` handling when timing fields are missing; a smoke run against a real Ollama with `qwen3:0.6b` completes in under 60 seconds on CPU and writes an `argos-bench/1` file.
 - Implementation: `argos bench speed --model TAG [--json] [--ollama URL]` runs without setup against an installed exact model; private result files include hardware, revision/settings, raw backend counts/timings, per-size warm-up/three-run medians/ranges and conservative placement. Explicit unload separates the initial load sample; finally unload/previous-model reload restores its advertised context. Unknown/undersized contexts skip with reasons. See [SPEED-BENCHMARK.md](SPEED-BENCHMARK.md). Full B6 results management and remaining B7 commands are still pending.
-- Evidence: six fixture tests pass for statistics, cold/warm separation, context skips, unknown fields, placement, restoration on error and CLI output. Real pinned-runtime CPU smoke is included in CI, pending its first benchmark run; physical GPU acceptance remains separate.
+- Evidence: seven fixture tests pass for statistics, cold/warm separation, context skips, unknown fields, placement, restoration on error and CLI output. The first real CPU full run exceeded the general 30-second API timeout during long prefill. Benchmark reads now use a bounded 120-second timeout. The short onboarding smoke is gated under 60 seconds; the full three-size run is tested separately, pending rerun. This clarifies the quick smoke target without claiming that a full CPU lab run finishes under 60 seconds. Physical GPU acceptance remains separate.
 
 ### B4 Ability datasets and scorers — `todo`
 Depends on: F2. Can run in parallel with B1–B3.
@@ -336,3 +336,4 @@ Depends on: the owner creating the private repository (or Drive folder) and gran
 | Personalities | P1 → P2, P3 (parallel) → P4 → P5 |
 | Build | F1 → C2 → C3 → C5 |
 | Out-of-box lab | (after B1, B2) MD2 → MD3 → O1; W1 → W2 → W3, W4; O2 → W6 |
+

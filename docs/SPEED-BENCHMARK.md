@@ -1,7 +1,7 @@
 # Speed benchmark
 
 `argos bench speed --model qwen3:0.6b [--json] [--ollama http://127.0.0.1:11434]`
-benchmarks an already-installed exact tag without setup or downloads. Stop other
+benchmarks an already-installed exact tag without setup or downloads. Add `--size short` for the quick onboarding run, or repeat `--size` to select cases; the default runs all three sizes. Selected sizes are recorded in settings and must match when comparing results. Stop other
 assistant workloads before benchmarking. The command does not stop or detect
 unrelated services. It refuses to begin if more than one model is already loaded.
 
@@ -51,5 +51,6 @@ Fixture tests cover cold/warm separation, median/range, skips, missing metrics,
 placement, refusal with multiple loaded models, restoration on interruption and
 CLI JSON output. The separately labeled network smoke uses checksum-pinned
 Ollama 0.35.0/qwen3:0.6b on a Linux CPU runner, saves a result, checks model/context
-restoration and gates the measured benchmark at under 60 seconds. Actual Live
+restoration and gates the short onboarding benchmark at under 60 seconds. The complete short/medium/long run is tested separately without that quick-run time target. Benchmark API reads have a bounded 120-second timeout for slow CPU prefill. Actual Live
 desktop/GPU performance cards and physical comparisons remain unverified.
+
