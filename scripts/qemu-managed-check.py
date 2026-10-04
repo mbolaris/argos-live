@@ -121,6 +121,7 @@ def managed_check(started, desktop_seconds):
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics, 'handoff_claimed': True,
         'firefox_gateway_connection': True, 'desktop_wait_seconds': desktop_seconds,
+        'managed_elapsed_seconds': report['elapsed_seconds'],
         'ready_seconds': time.monotonic() - started, 'physical_acceptance': False,
         'browser_chat_reply_verified': False, 'requires_screenshot_review': True}), flush=True)
     # The host captures the actual shipped Firefox; no substitute test browser.

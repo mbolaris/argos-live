@@ -483,11 +483,15 @@ Depends on: C2.
   start at the guest test stage and are not hardware boot/performance scores.
   Services are test-started; native OpenClaw conversation remains separate.
 
-### C3b Firmware boot and automatic dashboard acceptance — `todo`
+### C3b Firmware boot and automatic dashboard acceptance — `in progress (automatic startup; firmware pending)`
 Depends on: C3a, O2.
 - Boot unchanged ISO through UEFI/GRUB, reach the automatic dashboard, measure
   first-boot readiness and a native chat reply, and verify startup reuse. Keep
   physical acceptance separate; do not start setup/services from the test harness.
+- Candidate managed mode in [PR #41](https://github.com/mbolaris/argos-live/pull/41)
+  observes shipped autostart, real warmup and Firefox gateway connection using
+  direct-kernel boot. It does not establish firmware boot or a browser-submitted
+  reply. Require the actual run and visual review before recording any acceptance.
 
 ### C4 Release publishing — `todo`
 Depends on: C2, C3.
