@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Argos Live · Local workspace</title>
+  <link rel="stylesheet" href="/style.css?token=__SESSION_TOKEN__">
+  <script src="/app.js?token=__SESSION_TOKEN__" defer></script>
+</head>
+<body>
+  <main>
+    <header><span class="brand">Argos Live</span><span class="badge">Local workspace</span></header>
+    <h1>Your assistant workspace</h1>
+    <p class="intro">See what is available and what needs setup.</p>
+    <section class="notice" aria-label="Preview status">
+      <strong>Dashboard preview</strong>
+      <p>Assistant controls and hardware metrics are coming next. This page does not start or change your assistant.</p>
+    </section>
+    <section aria-labelledby="capabilities-title">
+      <h2 id="capabilities-title">Capabilities</h2>
+      <p>Available plugins still need setup and a successful test before they are ready.</p>
+      <p id="status" role="status">Checking capability inventory…</p>
+      <div id="capabilities" class="cards"></div>
+      <button id="refresh" type="button">Refresh status</button>
+    </section>
+  </main>
+</body>
+</html>

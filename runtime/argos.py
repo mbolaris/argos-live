@@ -212,6 +212,9 @@ def select_model(model):
     print('Run argos download to review the exact registry download size.')
 
 def main():
+    if sys.argv[1:2] == ['dashboard']:
+        from argoslive.web.server import main as dashboard_command
+        return dashboard_command(sys.argv[2:])
     if sys.argv[1:2] == ['addons']:
         from argoslive.addons import main as addon_command
         return addon_command(sys.argv[2:])
