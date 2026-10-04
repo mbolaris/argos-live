@@ -199,10 +199,11 @@ Depends on: P1.
 - Accept: unit tests for new agents, updates with diffs, ID conflicts and unresolved models; existing staging directories are never overwritten.
 - Evidence: Windows/Linux CI pass generic new/update/file-status/conflict, exact model-inventory matching, checksum/source-mutation, retained-stage and CLI fixtures. No active files or permissions change. CLI catalog wiring awaits MD1; actual owner staging and P4 activation/rollback remain unverified.
 
-### P4a Pinned schema and native recovery compatibility gate — `in progress (PR pending)`
+### P4a Pinned schema and native recovery compatibility gate — `implemented (PR #12; merge pending)`
 Depends on: P3.
 - Run a disposable three-agent config through the pinned OpenClaw CLI, verify a native backup and restore into fresh staging with byte-identical config/personas. Reject an invalid config. CI uses the exact Node pin and checked-in transitive lock; no owner profiles or inference service.
 - This is preparation for P4, not active pack apply or rollback implementation. Record real-runtime CI separately from physical acceptance.
+- Evidence: pinned OpenClaw 2026.9.7 and Node 26.10.0 Linux CI passed three-agent schema validation, invalid-policy rejection, verified native backup, and fresh restore with byte-identical config/personas ([runtime run](https://github.com/mbolaris/argos-live/actions/runs/37167980872)). Windows suite: 58 tests, three platform skips; Linux tests passed. No owner profile activation or physical acceptance claimed.
 
 ### P4 Apply with rollback — `todo`
 Depends on: P3.
