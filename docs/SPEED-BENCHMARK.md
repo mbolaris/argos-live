@@ -21,7 +21,7 @@ with a reason. The long prompt is not forced into a small model context.
 Each size has one warm-up and three measured requests. Temperature is zero and
 seed one. Thinking is disabled when the backend advertises that capability.
 Generation is limited to 128 tokens, not padded to 128 if the model ends earlier.
-Warm-ups are stored separately and excluded from medians/ranges. The first
+Warm-ups are stored separately and excluded from medians/ranges. Measured requests repeat the identical prompt and may reuse its prefix cache; their reported prompt rate is a warm/cached measurement, not a fresh-prefill claim. The per-size warm-up preserves the first processing/load timings separately. The first
 warm-up follows explicit unload and is additionally recorded as the cold load
 sample; operating-system filesystem caches are not cleared.
 
@@ -51,6 +51,10 @@ Fixture tests cover cold/warm separation, median/range, skips, missing metrics,
 placement, refusal with multiple loaded models, restoration on interruption and
 CLI JSON output. The separately labeled network smoke uses checksum-pinned
 Ollama 0.35.0/qwen3:0.6b on a Linux CPU runner, saves a result, checks model/context
-restoration and gates the short onboarding benchmark at under 60 seconds. The complete short/medium/long run is tested separately without that quick-run time target. Benchmark API reads have a bounded 120-second timeout for slow CPU prefill. Actual Live
+restoration and gates the short onboarding benchmark at under 60 seconds. The complete short/medium/long run is tested separately without that quick-run time target. Benchmark API reads default to 120 seconds; --timeout accepts 1–600 seconds for long CPU prefill. The integration lab explicitly selects 600 seconds. Short onboarding is separately gated under 60 seconds. Each context-size warm-up follows explicit unload. Backend failure produces no successful result file. Actual Live
 desktop/GPU performance cards and physical comparisons remain unverified.
+
+
+
+Real Linux CPU CI passed: short onboarding 9.87 seconds; full three-size run 177.89 seconds, including slow 8k-input prefill. Previous model/context restoration and result-file round trip passed. [Acceptance run](https://github.com/mbolaris/argos-live/actions/runs/37183286399). These are runner measurements, not Toronado performance.
 
