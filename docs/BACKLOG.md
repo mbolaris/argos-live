@@ -186,11 +186,12 @@ Depends on: none.
 - Accept: unit tests with valid and invalid fixture packs; no extraction occurs during inspection.
 - Evidence: Windows and Linux CI pass valid/invalid generic fixture packs, including integrity/CRC, traversal/links/executables, field/assignment exclusions and bounded expansion. Inspection performs no extraction or activation. Actual owner export/import and OpenClaw activation remain P2–P4 work.
 
-### P2 Exporter from an existing OpenClaw install — `in progress (PR pending)`
+### P2 Exporter from an existing OpenClaw install — `done ([PR #9](https://github.com/mbolaris/argos-live/pull/9))`
 Depends on: P1.
 - `argos pack export` (cross-platform, runs from a checkout on Windows, WSL or Linux): reads an OpenClaw installation's agent roster, lets the user select agents, copies only allowlisted persona and selected skill files into a pack, records each agent's model reference as a preference, and prints what was excluded and why.
 - Supersedes the default use of `scripts/export-personal-config.py` for personality transfer; the older scripts remain for optional full-backup recovery.
 - Accept: unit tests over a fixture OpenClaw tree for Windows and Linux path styles; output passes P1 validation; credentials planted in the fixture are never copied.
+- Evidence: Windows and Linux CI pass fictional native/custom roster, selected-skill, mounted Windows path mapping, redaction, source preservation, overwrite rejection and CLI fixtures; Linux checks linked-persona rejection. P1 inspection gates archive publication. Actual owner export/import remains unverified; shared/global skill roots are outside this first exporter.
 
 ### P3 Verified import, staging and preview — `todo`
 Depends on: P1.
