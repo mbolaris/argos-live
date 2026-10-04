@@ -181,8 +181,13 @@ Depends on: F2.
 - `web/server.py` per the dashboard decision; JSON API under `/api/`, static files under `/`, per-session token check, CSRF-safe (token in header for POSTs), loopback-only bind, graceful shutdown.
 - Accept: unit tests: missing or wrong token rejected, non-loopback bind refused, static and JSON routes served.
 
-### W2 Home: hardware and status — `todo`
+### W2 Home: hardware and status — `in progress (PR pending)`
 Depends on: W1, B1.
+- Live read-only hardware, storage identity/encryption, persistence, route and
+  service probes; measured loaded-model placement and authenticated chat link.
+  Default route is not internet proof, health is not ownership or inference proof,
+  missing probes remain unknown. Chromium CI uses the locked Playwright package;
+  physical Firefox/ISO acceptance remains pending. Startup wiring is O2/W6.
 - Hardware card, backend in use, model storage location and encryption status, persistence/try mode, Ollama and gateway health, network status. Button to open chat in OpenClaw.
 - Accept: API tests with fixtures; page renders in Firefox ESR without console errors (checked with headless Chromium in CI as a proxy, noted as such).
 

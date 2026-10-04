@@ -16,7 +16,7 @@ from argoslive.web.server import DashboardServer
 class DashboardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.server = DashboardServer(port=0)
+        cls.server = DashboardServer(port=0, status_provider=lambda: {'assistant': 'not-checked'})
         cls.worker = threading.Thread(target=cls.server.serve_forever,
                                       kwargs={'poll_interval': 0.01}, daemon=True)
         cls.worker.start()
@@ -47,7 +47,7 @@ class DashboardTests(unittest.TestCase):
             self.assertGreaterEqual(len(other.token), 40)
 
     def test_missing_wrong_and_duplicate_tokens_rejected(self):
-        for route in ('/', '/app.js', '/style.css', '/api/status', '/api/capabilities'):
+        for route in ('/', '/app.js', '/style.css', '/api/status', '/api/capabilities', '/api/assistant/chat'):
             self.assertEqual(self.request(route)[0], 403)
             self.assertEqual(self.request(route + '?token=wrong')[0], 403)
         route = '/api/status?token=' + self.server.token + '&token=' + self.server.token
@@ -109,3 +109,9 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertGreater(int(headers['Content-Length']), 0)
         self.assertEqual(body, b'')
+
+    def test_chat_unavailable_returns_generic_error(self):
+        with patch.object(self.server, 'chat_provider', side_effect=ValueError('fictional-secret')):
+            code, _, body = self.request('/api/assistant/chat', headers={'X-Argos-Token': self.server.token})
+        self.assertEqual(code, 409)
+        self.assertNotIn(b'fictional-secret', body)

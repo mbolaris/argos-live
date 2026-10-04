@@ -5,6 +5,8 @@ on:
     paths:
       - scripts/smoke-pack-schema.py
       - scripts/smoke-addon-inventory.py
+      - scripts/smoke-dashboard-browser.mjs
+      - runtime/argoslive/web/**
       - scripts/update-addons.py
       - runtime/argoslive/addons.py
       - runtime/argoslive/data/addons.json
@@ -19,6 +21,8 @@ on:
     paths:
       - scripts/smoke-pack-schema.py
       - scripts/smoke-addon-inventory.py
+      - scripts/smoke-dashboard-browser.mjs
+      - runtime/argoslive/web/**
       - scripts/update-addons.py
       - runtime/argoslive/addons.py
       - runtime/argoslive/data/addons.json
@@ -57,6 +61,10 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund --prefix work/compatibility-runtime
       - name: Inspect pinned addon registration in disposable state
         run: python3 scripts/smoke-addon-inventory.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --package-root work/compatibility-runtime/node_modules/openclaw --report work/addon-inventory.json
+      - name: Browser dashboard smoke (Chromium proxy for Firefox ESR)
+        run: |
+          node work/compatibility-runtime/node_modules/playwright-core/cli.js install --with-deps chromium
+          node scripts/smoke-dashboard-browser.mjs
       - name: Validate schema and native recovery in disposable state
         shell: bash
         run: |
@@ -68,5 +76,7 @@ jobs:
           path: |
             work/openclaw-compatibility.json
             work/addon-inventory.json
+            work/dashboard-desktop.png
+            work/dashboard-narrow.png
           if-no-files-found: error
           retention-days: 14
