@@ -5,6 +5,10 @@ on:
     paths:
       - '.github/workflows/native-chat.yml'
       - 'scripts/smoke-native-chat.py'
+      - 'scripts/smoke-desktop-startup.py'
+      - 'runtime/argoslive/startup.py'
+      - 'runtime/argoslive/desktop.py'
+      - 'runtime/argoslive/owned_gateway.py'
       - 'runtime/argoslive/auto_setup.py'
       - 'runtime/argoslive/starter.py'
       - 'runtime/argoslive/owned_ollama.py'
@@ -44,9 +48,14 @@ jobs:
       - name: Native conversation-only CPU reply without seed copies
         run: |
           python3 scripts/smoke-native-chat.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/native-chat.json
+      - name: Native managed desktop startup and authenticated controls
+        run: |
+          python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
       - uses: actions/upload-artifact@v4
         with:
           name: native-local-chat
-          path: work/native-chat.json
+          path: |
+            work/native-chat.json
+            work/desktop-startup.json
           if-no-files-found: error
           retention-days: 14
