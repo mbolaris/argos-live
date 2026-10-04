@@ -178,6 +178,7 @@ def apply(stage, home, snapshots, reviewed_sha256, runtime, *, installed=None,
             raise ValueError('Normalize the Live roster to the pinned entries schema first')
         entries = config.setdefault('agents', {}).setdefault('entries', {})
         writes, activated, pending, agent_directories = [], [], [], []
+        expected_before = {}
         provider = config.get('models', {}).get('providers', {}).get('ollama', {})
         local_provider = (provider.get('api') == 'ollama' and
                           re.fullmatch(r'http://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?/?',
@@ -202,6 +203,10 @@ def apply(stage, home, snapshots, reviewed_sha256, runtime, *, installed=None,
                         other_path = unlinked(other['workspace'])
                         if workspace.is_relative_to(other_path) or other_path.is_relative_to(workspace):
                             raise ValueError('Agent workspaces must be separate')
+                    if other_id != ident.casefold() and other.get('agentDir'):
+                        other_dir = unlinked(other['agentDir'])
+                        if agent_dir.is_relative_to(other_dir) or other_dir.is_relative_to(agent_dir):
+                            raise ValueError('Agent state directories must be separate')
                 if workspace == home or home.is_relative_to(workspace):
                     raise ValueError('Workspace cannot contain active state')
                 if agent_dir == home or home.is_relative_to(agent_dir):
@@ -218,11 +223,15 @@ def apply(stage, home, snapshots, reviewed_sha256, runtime, *, installed=None,
                 for name in agent['persona_files'] + agent['skill_files']:
                     parts = name.split('/')
                     relative = Path(parts[3]) if parts[2] == 'persona' else Path('skills', *parts[3:])
-                    writes.append((unlinked(workspace / relative), bundle.read(name)))
+                    target = unlinked(workspace / relative)
+                    writes.append((target, bundle.read(name)))
+                    expected_before[str(target)] = next(f['current_sha256'] for f in change['files']
+                                                        if f['path'] == name)
                 activated.append(ident)
         if not activated:
             return {'activation': False, 'activated': [], 'pending': pending, 'snapshot_id': None}
         writes.append((config_path, (json.dumps(config, indent=2) + '\n').encode()))
+        expected_before[str(config_path)] = digest(config_bytes)
         if len({str(p).casefold() for p, _ in writes}) != len(writes):
             raise ValueError('Overlapping target files')
         snapshot = snapshots / ('snapshot-' + uuid.uuid4().hex)
@@ -237,6 +246,8 @@ def apply(stage, home, snapshots, reviewed_sha256, runtime, *, installed=None,
                        'activated': activated, 'pending': pending}
         for index, (path, data) in enumerate(writes):
             before = bounded(path) if path.exists() else None
+            if (digest(before) if before is not None else None) != expected_before[str(path)]:
+                raise ValueError('Target changed while taking backup; import and review a fresh stage')
             name = 'before-' + str(index)
             if before is not None:
                 atomic(snapshot / name, before)
