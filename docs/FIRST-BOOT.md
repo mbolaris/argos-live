@@ -60,6 +60,10 @@ Filesystem hashing and an in-flight prefill can take time before cancellation
 returns; the page stays at Stopping until cleanup finishes.
 
 Logs and the private session descriptor live under `~/.local/state/argos-live/`.
+The managed backend writes stdout/stderr to `.argos-daemon-lease/ollama.log`
+under that directory; gateway and startup logs remain alongside it. Native logs
+must be owner-only regular files; linked or broadly readable files refuse startup.
+Do not publish raw backend logs or copy them into the public model store.
 Descriptors are removed only if still matching this launch. Private diagnostics
 do not appear in public HTTP responses or access logs. In try mode, workspace and
 conversation changes can be lost at reboot; persistence and model-store encryption

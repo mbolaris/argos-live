@@ -12,6 +12,7 @@ import time
 from .ollama import Client, NotRunning
 from .storage import safe_local
 from .pull_jobs import worker_lock
+from .private_files import private_log
 
 PIN = '0.35.1'
 
@@ -82,9 +83,13 @@ def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, cont
              target.parent.parent if target.parent.name == '.argos-pulls' else target)
     lease = safe_local(store / '.argos-daemon-lease')
     lease.mkdir(mode=0o700, exist_ok=True)
+    log_path = safe_local(lease / 'ollama.log')
+    # Validate privacy before launching; the supervisor owns the writing handle.
+    with private_log(log_path):
+        pass
     # Supervisor emits only the child PID, never backend logs or credentials.
     process = subprocess.Popen([sys.executable, '-m', 'argoslive.owned_ollama',
-                                '--supervise', executable, str(lease)], env=env,
+                                '--supervise', executable, str(lease), str(log_path)], env=env,
                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                text=True, start_new_session=True)
     try:
@@ -150,6 +155,10 @@ def supervise(executable, lease, *, arguments=None, log=None):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4 or sys.argv[1] != '--supervise':
+    if len(sys.argv) not in (4, 5) or sys.argv[1] != '--supervise':
         raise SystemExit(2)
-    supervise(sys.argv[2], sys.argv[3])
+    if len(sys.argv) == 5:
+        with private_log(Path(sys.argv[4])) as log:
+            supervise(sys.argv[2], sys.argv[3], log=log)
+    else:
+        supervise(sys.argv[2], sys.argv[3])

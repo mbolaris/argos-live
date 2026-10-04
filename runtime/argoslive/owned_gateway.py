@@ -7,13 +7,13 @@ import re
 import select
 import shutil
 import socket
-import stat
 import subprocess
 import sys
 import time
 
 from . import addons
 from .owned_ollama import owns_port, supervise
+from .private_files import private_log
 from .storage import safe_local
 from .web.status import gateway, gateway_ready, read_json
 
@@ -55,19 +55,6 @@ def settings(path):
             value['auth'].get('mode') != 'token' or not isinstance(token, str) or not token or len(token) > 4096):
         raise ValueError('Gateway requires reviewed local token configuration')
     return origin, int(origin.rsplit(':', 1)[1])
-
-
-def private_log(path):
-    if sys.platform != 'linux':
-        raise ValueError('Owner-only gateway diagnostics require Linux')
-    path = safe_local(path)
-    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
-    info = os.fstat(fd)
-    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
-            info.st_mode & 0o077 or info.st_nlink != 1):
-        os.close(fd)
-        raise ValueError('Gateway log must be an owner-only regular file')
-    return os.fdopen(fd, 'ab', buffering=0)
 
 
 @contextmanager
