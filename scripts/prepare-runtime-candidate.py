@@ -84,6 +84,7 @@ def prepare(report, repo, output, *, now=None):
         ''.join(key + '=' + candidate[key] + '\n' for key in current))
     (output / 'owned_ollama.py').write_text(module)
     (output / 'candidate.json').write_text(json.dumps({'schema': 'argos-runtime-candidate/1',
+        'discovery_checked_at': report['checkedAt'],
         'changed': changed, 'current': current, 'candidate': candidate, 'sources': expected,
         'accepted_pins_changed': False, 'promotion': 'lock, addon inventory, audit, ISO, VM and physical acceptance pending'},
         indent=2) + '\n')

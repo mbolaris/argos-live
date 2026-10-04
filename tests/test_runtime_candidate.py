@@ -23,14 +23,19 @@ class CandidateTests(unittest.TestCase):
         self.pins = module.pins((ROOT / 'versions.env').read_text())
         (self.repo / 'versions.env').write_text(''.join(k + '=' + v + '\n' for k, v in self.pins.items()))
         (self.repo / 'runtime/argoslive/owned_ollama.py').write_text('PIN = ' + repr(self.pins['OLLAMA_VERSION']) + '\n')
-        candidate = dict(self.pins, OPENCLAW_VERSION='2026.9.8', OLLAMA_VERSION='0.35.1',
+        def next_patch(value):
+            major, minor, patch = module.version(value)
+            return f'{major}.{minor}.{patch + 1}'
+        self.claw = next_patch(self.pins['OPENCLAW_VERSION'])
+        self.ollama = next_patch(self.pins['OLLAMA_VERSION'])
+        candidate = dict(self.pins, OPENCLAW_VERSION=self.claw, OLLAMA_VERSION=self.ollama,
                          OPENCLAW_INTEGRITY='sha512-' + base64.b64encode(b'a' * 64).decode(),
                          OLLAMA_SHA256='b' * 64)
         self.now = datetime(2026, 10, 4, tzinfo=timezone.utc)
         self.report = {'status': 'discovery-only', 'checkedAt': self.now.isoformat(),
             'current': self.pins, 'candidate': candidate, 'sources': {
-                'openclaw': 'https://github.com/openclaw/openclaw/releases/tag/v2026.9.8',
-                'ollama': 'https://github.com/ollama/ollama/releases/tag/v0.35.1',
+                'openclaw': 'https://github.com/openclaw/openclaw/releases/tag/v' + self.claw,
+                'ollama': 'https://github.com/ollama/ollama/releases/tag/v' + self.ollama,
                 'node': 'https://nodejs.org/dist/index.json'}}
         self.output = self.root / 'candidate'
 
@@ -40,7 +45,7 @@ class CandidateTests(unittest.TestCase):
     def test_public_candidate_does_not_change_accepted_files_or_reuse_output(self):
         before = {str(path): path.read_bytes() for path in self.repo.rglob('*') if path.is_file()}
         self.assertEqual(self.prepare(), ['OPENCLAW_VERSION', 'OLLAMA_VERSION'])
-        self.assertIn("PIN = '0.35.1'", (self.output / 'owned_ollama.py').read_text())
+        self.assertIn('PIN = ' + repr(self.ollama), (self.output / 'owned_ollama.py').read_text())
         metadata = json.loads((self.output / 'candidate.json').read_text())
         self.assertFalse(metadata['accepted_pins_changed'])
         self.assertEqual(module.pins((self.output / 'versions.env').read_text()), self.report['candidate'])
@@ -66,7 +71,7 @@ class CandidateTests(unittest.TestCase):
             self.assertFalse(self.output.exists())
 
     def test_downgrades_prerelease_shell_content_bad_hashes_and_base_changes_refused(self):
-        for key, value in [('OPENCLAW_VERSION', '2026.9.8-beta.1'), ('OLLAMA_VERSION', '0.34.0'),
+        for key, value in [('OPENCLAW_VERSION', self.claw + '-beta.1'), ('OLLAMA_VERSION', '0.0.0'),
                            ('NODE_VERSION', '28.0.0'), ('OLLAMA_VERSION', '0.35.1;command'),
                            ('OLLAMA_SHA256', 'missing'), ('OPENCLAW_INTEGRITY', 'sha512-a===bad'),
                            ('OPENCLAW_INTEGRITY', 'sha512-' + base64.b64encode(b'short').decode()),

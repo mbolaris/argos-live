@@ -38,6 +38,11 @@ jobs:
           cd /var/lib/argos-live/runtime-lock
           sudo env PATH="/var/lib/argos-live/runtime-lock/node/bin:$PATH" npm audit --json > "$GITHUB_WORKSPACE/work/runtime-candidate/npm-audit.json" || test "$?" -eq 1
           python3 -c 'import json,os; from pathlib import Path; p=Path(os.environ["GITHUB_WORKSPACE"])/"work/runtime-candidate/npm-audit.json"; assert p.stat().st_size <= 8*1024**2; v=json.loads(p.read_text()); assert "error" not in v and isinstance(v.get("vulnerabilities"), dict) and isinstance(v.get("metadata"), dict)'
+      - name: Record exact candidate provenance and file checksums
+        run: |
+          python3 -c 'import json,os; from pathlib import Path; p=Path("work/runtime-candidate/provenance.json"); p.write_text(json.dumps({"schema":"argos-candidate-provenance/1","commit":os.environ["GITHUB_SHA"],"run_id":os.environ["GITHUB_RUN_ID"],"repository":os.environ["GITHUB_REPOSITORY"]},indent=2)+"\n")'
+          cd work/runtime-candidate
+          sha256sum versions.env owned_ollama.py package-lock.json addons.json npm-audit.json candidate.json provenance.json > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: argos-runtime-candidate-${{ github.run_id }}

@@ -18,7 +18,8 @@ This inventory does not activate addons or establish functional readiness. Audit
 findings need exposure review and supported fixes; a report alone is not a pass.
 
 The seven-day artifact contains `versions.env`, the synchronized backend pin,
-`package-lock.json`, `addons.json`, `npm-audit.json` and `candidate.json`. No owner
+`package-lock.json`, `addons.json`, `npm-audit.json`, `candidate.json`, exact
+workflow commit/run provenance and per-file `SHA256SUMS`. No owner
 configurations, profiles, credentials or model data are read. The workflow has
 read-only repository permissions and makes no commit, PR, USB or release changes.
 

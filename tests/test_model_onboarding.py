@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import catalog, model_verify as artifacts
 from argoslive.model_onboarding import OnboardingQueue, main
 from argoslive.ollama import Client
+from argoslive.owned_ollama import PIN
 from argoslive.pull_jobs import Queue, worker_lock
 
 
@@ -66,7 +67,7 @@ class OnboardingTests(unittest.TestCase):
                 self.send_response(200)
                 self.end_headers()
                 if self.path == '/api/version':
-                    events = {'version': 'wrong' if outer.mode == 'wrong-version' else '0.35.0'}
+                    events = {'version': 'wrong' if outer.mode == 'wrong-version' else PIN}
                 elif self.path == '/api/show':
                     events = {'details': {'family': outer.entry['family'],
                                           'quantization_level': outer.entry['quantization']}}
