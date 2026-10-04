@@ -56,6 +56,30 @@ M1 and E5's format/exporter work (P1–P2) can proceed in parallel. Repository r
 
 ## Current state
 
-Physical desktop, welcome, encrypted persistence, stable-UUID DATA mounting, retained SSH/logging, local OpenClaw conversation and NVIDIA 29/29-layer offload pass on the updated USB (see [STATUS.md](STATUS.md)). Benchmarks, the catalog, the dashboard, questionless first boot and personality import are not implemented. The owner's redacted Argos/Nyx/Proteus reference export has been received and verified privately; nothing has been activated.
+As of October 4, 2026, main includes the Ollama client and hardware probes,
+reviewed model catalog and storage planning, durable verified model onboarding,
+speed benchmarks, personality export/import preview and reviewed apply/rollback,
+pinned addon inventory, and the local dashboard with hardware/status/chat handoff
+and read-only model/catalog/download-progress views. Tests and real CPU Ollama
+smokes verify the implemented paths; browser CI uses Chromium as a Firefox proxy.
+
+Ability benchmarks, CI ISO build/boot acceptance, automatic first-boot dashboard
+startup, dashboard mutation controls and effective addon/agent permission tests
+remain pending. Existing OpenClaw addons should be reused where compatible; a
+bundled plugin alone is not functional readiness. The refusal-removed community
+model remains an optional public-catalog choice by owner decision; it is neither
+bundled as weights nor automatically installed or assigned to Nyx.
+
+The earlier USB passed physical desktop/welcome, encrypted persistence, DATA
+mounting, retained SSH/logging, local conversation and NVIDIA offload checks
+(see [STATUS.md](STATUS.md)). That evidence does not establish that the newer
+main-branch features are built into or physically verified on the USB. The
+owner's private reference export was received and verified; owner activation
+and personality/model/tool/reboot acceptance remain pending.
+
+Next order: finish discoverable CLI help/status documentation, implement B4–B7
+ability benchmarks, establish C2–C3 ISO build/boot CI, then first-boot defaults
+and dashboard actions (O1/W3/W4). Existing permissions, storage identity and
+destructive-operation protections remain in place.
 
 References: [multi-agent routing](https://docs.openclaw.ai/concepts/multi-agent), [backup](https://docs.openclaw.ai/cli/backup), [migration](https://docs.openclaw.ai/install/migrating), [updating](https://docs.openclaw.ai/install/updating).
