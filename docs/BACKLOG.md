@@ -179,11 +179,12 @@ Depends on: O2, W2.
 
 ## E5 Portable personalities (M3)
 
-### P1 Pack format specification — `in progress (PR pending)`
+### P1 Pack format specification — `done ([PR #8](https://github.com/mbolaris/argos-live/pull/8))`
 Depends on: none.
 - `docs/PERSONALITY-PACKS.md` specifying `argos-pack/1`: manifest schema, allowed file types (Markdown, plain text, JSON skill definitions), size limits, hashing, forbidden content (credentials, memory/history, permissions, providers, executables, absolute paths), and how a model preference is expressed and resolved against the catalog.
 - `runtime/argoslive/packs.py`: manifest validation and archive inspection (reuse the checks in `scripts/inspect-config-bundle.py`: traversal, links, duplicates, CRC, expansion limits, executables).
 - Accept: unit tests with valid and invalid fixture packs; no extraction occurs during inspection.
+- Evidence: Windows and Linux CI pass valid/invalid generic fixture packs, including integrity/CRC, traversal/links/executables, field/assignment exclusions and bounded expansion. Inspection performs no extraction or activation. Actual owner export/import and OpenClaw activation remain P2–P4 work.
 
 ### P2 Exporter from an existing OpenClaw install — `todo`
 Depends on: P1.
