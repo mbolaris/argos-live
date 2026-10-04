@@ -108,7 +108,7 @@ Depends on: B4a.
   directory is insufficient. Test timeout, outside-write and network rejection.
 - Code category is explicitly omitted by B4a; full B4 acceptance remains here.
 
-### B4b1 Sandbox foundation — `in progress`
+### B4b1 Sandbox foundation — `done ([PR #29](https://github.com/mbolaris/argos-live/pull/29))`
 Depends on: F2.
 - Fail-closed Linux amd64 bubblewrap namespaces, no writable host mount, seccomp
   denial of network/process creation, bounded tmpfs/output/source and hard resource
@@ -116,6 +116,9 @@ Depends on: F2.
 - Root-hosted CI exercises kernel enforcement without changing host security policy;
   unprivileged Live availability and generated-code suite activation remain B4b2.
   See [CODE-SANDBOX.md](CODE-SANDBOX.md).
+- Evidence: actual Linux namespace/seccomp/resource tests passed
+  ([run](https://github.com/mbolaris/argos-live/actions/runs/37217988219));
+  normal Linux/Windows portability tests pass. Code suites remain omitted.
 
 ### B4b2 Coding fixtures and Live sandbox acceptance — `todo`
 Depends on: B4a, B4b1, C3.
