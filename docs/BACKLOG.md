@@ -314,6 +314,12 @@ Depends on: O1, O2a, O2b, W2.
 - Accept: lifecycle/authentication/owner-preservation fixtures, browser controls
   and actual pinned hosted startup, model warmup, session reuse and stop. Fresh ISO
   automatic Firefox/chat acceptance and firmware boot remain C3b before promotion.
+- Evidence: [37238664640](https://github.com/mbolaris/argos-live/actions/runs/37238664640)
+  passed real OpenClaw 2026.9.8/Ollama 0.35.1 CPU reply, managed setup/warmup,
+  gateway start, verified reopen, repeated-start reuse, once-only handoff and
+  clean stop with configuration/immutable weights unchanged. Hosted warmup was
+  65.62 generation tokens/s and 1.744 seconds to first token; this is not
+  Toronado performance or browser conversation acceptance.
 
 ### O3 Offer persistence later — `todo`
 Depends on: W2.
