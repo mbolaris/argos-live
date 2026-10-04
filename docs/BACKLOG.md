@@ -76,11 +76,13 @@ Depends on: F2.
 - Accept: unit tests against a fake HTTP server serving recorded responses, including streaming chunks and an interrupted stream; field names checked against the pinned Ollama version's API documentation.
 - Evidence: Windows and Linux CI pass tests against a loopback fake server with authored protocol fixtures checked against pinned v0.35.0 API types. Progress, cancellation, chat/generation timings, unload and interruption/error paths pass. Real Ollama/model/GPU acceptance remains pending. See OLLAMA-CLIENT.md for bounded cancellation behavior.
 
-### B3 Speed benchmark — `todo`
+### B3 Speed benchmark — `implemented (PR pending)`
 Depends on: B1, B2.
 - Implements the speed method above. Generation limit fixed (for example 128 tokens). Thinking disabled. Records whether the model ran on GPU, CPU or split, from `ps`.
 - Unloads the model afterwards and restores the previously loaded model if one was loaded.
 - Accept: unit tests verify statistics, cold/warm separation, skipped long prompts and `null` handling when timing fields are missing; a smoke run against a real Ollama with `qwen3:0.6b` completes in under 60 seconds on CPU and writes an `argos-bench/1` file.
+- Implementation: `argos bench speed --model TAG [--json] [--ollama URL]` runs without setup against an installed exact model; private result files include hardware, revision/settings, raw backend counts/timings, per-size warm-up/three-run medians/ranges and conservative placement. Explicit unload separates the initial load sample; finally unload/previous-model reload restores its advertised context. Unknown/undersized contexts skip with reasons. See [SPEED-BENCHMARK.md](SPEED-BENCHMARK.md). Full B6 results management and remaining B7 commands are still pending.
+- Evidence: six fixture tests pass for statistics, cold/warm separation, context skips, unknown fields, placement, restoration on error and CLI output. Real pinned-runtime CPU smoke is included in CI, pending its first benchmark run; physical GPU acceptance remains separate.
 
 ### B4 Ability datasets and scorers — `todo`
 Depends on: F2. Can run in parallel with B1–B3.
@@ -141,7 +143,7 @@ Depends on: B2, MD1, MD2.
 - Requires a caller-owned backend context that stops server-side writes before the lock releases. No production adapter/CLI/autostart yet; successful HTTP pulls end at `downloaded_needs_verification`, never ready.
 - Evidence: authored loopback fixture tests cover interrupted streams, explicit resume, controls, lock lifetime, stale-state recovery, space/corruption and identity/progress failures. See [MODEL-PULL-JOBS.md](MODEL-PULL-JOBS.md). Real Ollama resume and physical acceptance remain pending.
 
-### MD4b Owned daemon, integrity and load acceptance — `in progress ([PR #17](https://github.com/mbolaris/argos-live/pull/17))`
+### MD4b Owned daemon, integrity and load acceptance — `done ([PR #17](https://github.com/mbolaris/argos-live/pull/17))`
 Depends on: MD4a.
 - Implement/test the pinned isolated Ollama adapter, shutdown on controls/errors and retry/reboot CLI wiring. Keep one active pull per selected store and preserve the starter service.
 - Check registry revision and downloaded manifest/artifact integrity against MD1; show verification and load/test as separate steps before publication. Measure a fixed first reply and unload afterward.

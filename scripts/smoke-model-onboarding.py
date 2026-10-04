@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive.model_onboarding import OnboardingQueue
 from argoslive.owned_ollama import owned
+from argoslive.bench_speed import run as speed_benchmark
+from argoslive.pull_jobs import write_json
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--ollama', required=True, type=Path)
@@ -38,7 +40,24 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     result = queue.run_verified(job['id'], backend=backend, assistant_stopped=True)
     if result['state'] != 'ready':
         raise SystemExit('Real resume/verification/reply failed: ' + json.dumps(result))
+    with backend(models) as client:
+        client.generate(result['tag'], '', options={'num_ctx': 2048}, keep_alive='5m')
+        speed = speed_benchmark(client, result['tag'])
+        loaded = client.ps()['models']
+        if not any(m.get('name') == result['tag'] and m.get('context_length') == 2048 for m in loaded):
+            raise SystemExit('Benchmark did not restore the previously loaded model/context')
+        client.unload(result['tag'])
+    write_json(root / 'speed.json', speed)
+    if json.loads((root / 'speed.json').read_text())['schema'] != 'argos-bench/1':
+        raise SystemExit('Benchmark result file did not round-trip')
+    if speed['elapsed_seconds'] >= 60:
+        raise SystemExit('CPU starter benchmark exceeded the 60-second acceptance target')
     print(json.dumps({'schema': 'argos-onboarding-smoke/1', 'model': result['tag'],
                       'manifest_digest': result['manifest_digest'], 'pause_verified': True,
                       'retained_partial_files': len(partials), 'resumed_to_ready': True,
-                      'reply_test': result['reply_test'], 'physical_acceptance': False}, indent=2))
+                      'reply_test': result['reply_test'],
+                      'speed_benchmark_seconds': speed['elapsed_seconds'],
+                      'speed_model_restored': speed['restoration']['succeeded'],
+                      'speed_summaries': [{'size': p['size'], 'summary': p.get('summary'),
+                                            'skipped': p['skipped']} for p in speed['prompts']],
+                      'physical_acceptance': False}, indent=2))
