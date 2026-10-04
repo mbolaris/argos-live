@@ -36,3 +36,41 @@ Inspect registration and exercise the running gateway separately. Pin/review cod
 ## Release gate
 
 Each claimed feature must have a capability smoke test and a documented offline/online boundary. Run addon inventory, dependency and license audits alongside core runtime update checks. Exercise supported capabilities against the candidate OpenClaw release, then restore a known-good target profile. Retain exact package/backend/asset versions in release manifests. Physical audio, GPU and browser acceptance stays separate from fixture success. Unsupported features remain visibly pending, not advertised as ready.
+# Pinned inventory implementation
+
+`argos addons --json` exposes ten conservative capability rows. The inert catalog
+at `runtime/argoslive/data/addons.json` records six bundled candidates and the
+hashes of 65 shipped skill documents from the published OpenClaw 2026.9.7 npm
+archive. `scripts/update-addons.py --archive PATH` verifies the exact SHA512 in
+`versions.env` before reading bounded metadata; it neither extracts nor executes
+the archive. Regenerate and review this catalog with every proposed host update.
+
+The selected bundled plugins are `ollama`, `memory-core`, `browser`,
+`document-extract`, `tts-local-cli`, and `telegram`. Their manifest/package hashes,
+exact host version/integrity, declared contracts, npm dependencies and package
+license scope are recorded. The host license is MIT where a bundled package has
+no separate license field; this does not certify the licenses of every dependency
+or future model/voice asset. Transitive license and asset review remains pending.
+
+Requirements remain separate from provenance. Browser needs supported
+Chrome/Chromium; a Firefox installation does not establish compatibility.
+Document extraction uses the published `clawpdf` dependency. Local speech output
+still needs a selected Linux CLI and voice assets. Memory needs isolated encrypted
+agent state, local embeddings and recall tests. Vision needs a verified vision
+model and supplied-image test. Telegram requires owner-selected credentials and
+network access. Local transcription and image engines are not selected or pinned
+yet. Ollama's bundled cloud provider is not automatically enabled by this catalog.
+
+The pinned compatibility CI compares installed package metadata and skill hashes,
+then runs real plugin snapshot/runtime inspections and skill listing in a fresh
+disposable home. It preserves no raw configuration or inventory output in the
+report. Snapshot `loaded` is not evidence of importing a runtime; runtime
+registration is not a successful tool invocation or an effective per-agent grant.
+No gateway, channel or owner profile is started. Every capability stays
+`ready=false` until its controlled acceptance test exists. Target installation and
+runtime state are unknown unless an explicit pinned observation is supplied.
+The CLI itself only reads metadata and checks executable availability; it does
+not load plugins, install dependencies, or change configuration.
+
+Upstream references: [pinned plugin inventory](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/plugins/plugin-inventory.md)
+and [pinned inspection CLI](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/cli/plugins.md).

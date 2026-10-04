@@ -4,6 +4,10 @@ on:
   push:
     paths:
       - scripts/smoke-pack-schema.py
+      - scripts/smoke-addon-inventory.py
+      - scripts/update-addons.py
+      - runtime/argoslive/addons.py
+      - runtime/argoslive/data/addons.json
       - runtime/argoslive/pack_apply.py
       - runtime/argoslive/pack_import.py
       - runtime/argoslive/packs.py
@@ -14,6 +18,10 @@ on:
   pull_request:
     paths:
       - scripts/smoke-pack-schema.py
+      - scripts/smoke-addon-inventory.py
+      - scripts/update-addons.py
+      - runtime/argoslive/addons.py
+      - runtime/argoslive/data/addons.json
       - runtime/argoslive/pack_apply.py
       - runtime/argoslive/pack_import.py
       - runtime/argoslive/packs.py
@@ -47,6 +55,8 @@ jobs:
           printf '{"name":"argos-live-runtime","version":"0.1.0","private":true,"dependencies":{"openclaw":"%s"}}\n' "$OPENCLAW_VERSION" > work/compatibility-runtime/package.json
           EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./work/compatibility-runtime/package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
           npm ci --ignore-scripts --no-audit --no-fund --prefix work/compatibility-runtime
+      - name: Inspect pinned addon registration in disposable state
+        run: python3 scripts/smoke-addon-inventory.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --package-root work/compatibility-runtime/node_modules/openclaw --report work/addon-inventory.json
       - name: Validate schema and native recovery in disposable state
         shell: bash
         run: |
@@ -55,6 +65,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: openclaw-compatibility
-          path: work/openclaw-compatibility.json
+          path: |
+            work/openclaw-compatibility.json
+            work/addon-inventory.json
           if-no-files-found: error
           retention-days: 14
