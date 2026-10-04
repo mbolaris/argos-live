@@ -17,7 +17,8 @@ def main():
     started = time.monotonic()
     if os.environ.get('USER') != 'argos' or Path.home() != Path('/home/argos'):
         raise ValueError('Unexpected test guest user')
-    if Path('/home/argos/.config/argos-live/state.json').exists():
+    setup_mode = globals().get('ARGOS_QEMU_SETUP_MODE', 'interactive')
+    if setup_mode != 'managed' and Path('/home/argos/.config/argos-live/state.json').exists():
         raise ValueError('Test requires an unconfigured disposable guest')
     def stage(name):
         print('ARGOS_C3_STAGE ' + name, flush=True)
@@ -36,12 +37,14 @@ def main():
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if subprocess.check_output(['ip', 'route'], text=True).strip():
         raise ValueError('Test guest unexpectedly has a network route')
+    if setup_mode == 'managed':
+        managed_check(started, desktop_seconds)
+        return
     # Installed executable has no .py suffix; use an explicit source loader.
     from importlib.machinery import SourceFileLoader
     spec = importlib.util.spec_from_loader('argos_guest', SourceFileLoader('argos_guest', '/usr/local/bin/argos'))
     argos = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(argos)
-    setup_mode = globals().get('ARGOS_QEMU_SETUP_MODE', 'interactive')
     stage('temporary-setup')
     if setup_mode == 'auto':
         argos.main(['setup', '--auto'])
