@@ -5,3 +5,4 @@
 *.env text eol=lf
 *.py text eol=lf
 *.ps1 text eol=crlf
+runtime/argoslive/data/licenses/*.txt -text

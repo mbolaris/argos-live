@@ -147,11 +147,14 @@ def stage(archive, staging_root, active_home, expected=None, *, stage_id=None,
 
 
 def main(argv=None):
+    from . import catalog
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('archive')
     parser.add_argument('--sha256')
     parser.add_argument('--staging-root', required=True,
                         help='Existing owner-private directory on verified encrypted storage')
     parser.add_argument('--active-home', default=str(Path.home() / '.openclaw'))
+    parser.add_argument('--catalog', default=str(catalog.DEFAULT), help='Verified public catalog; does not imply installed weights')
     args = parser.parse_args(argv)
-    print(json.dumps(stage(args.archive, args.staging_root, args.active_home, args.sha256), indent=2))
+    print(json.dumps(stage(args.archive, args.staging_root, args.active_home, args.sha256,
+                           catalog=catalog.inventory(catalog.load(args.catalog))), indent=2))
