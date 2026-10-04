@@ -26,6 +26,8 @@ Updates should normally produce a new image plus a preservation-checked USB upda
 
 ## October 3, 2026 candidate
 
+Addon acceptance is a release gate: inventory bundled and external OpenClaw plugins, pin compatible external package versions/integrity, retain Linux dependency/model-asset notices, and smoke-test every advertised capability against the candidate host. Include per-agent tool denial, offline behavior, missing-provider recovery and private rollback. See [OPENCLAW-ADDONS.md](OPENCLAW-ADDONS.md); an installed plugin or copied skill is not a passed feature test.
+
 The physically accepted image remains OpenClaw 2026.9.7, Ollama 0.35.0 and Node 26.10.0. Official discovery found OpenClaw 2026.9.8 and Ollama 0.35.1; Node in the pinned major is unchanged. These are update candidates, not installed upgrades. Candidate build, dependency audit, profile compatibility and physical acceptance remain outstanding.
 
 The previous build disabled the security and updates repositories. Build configuration now enables both and pins the security archive separately; this change still requires a clean candidate build and package-manifest verification. Existing ISO/USB bytes are unchanged. The previous audit's 25 findings remain unresolved until a new audit proves otherwise.

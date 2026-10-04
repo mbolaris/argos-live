@@ -6,6 +6,8 @@ Argos Live is a bootable Debian live distribution for playing with local agents 
 
 ## Two product outcomes
 
+OpenClaw capability coverage is part of both outcomes: local memory, tools, voice, media and reviewed skills need working Linux dependencies and addon acceptance, not just installed model weights. See [OPENCLAW-ADDONS.md](OPENCLAW-ADDONS.md) and backlog A1–A5.
+
 ### 1. Out-of-the-box local AI lab (public)
 
 | Moment | Target experience |

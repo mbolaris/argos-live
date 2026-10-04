@@ -254,6 +254,36 @@ Depends on: C2.
 ### H3 Remaining physical checks — `todo`
 - Track the open items in PHYSICAL-BOOT-TODO.md (legacy boot, Secure Boot policy, reboot recall, offline chat, process cleanup). Physical hardware only.
 
+## E9 OpenClaw capabilities and addons
+
+Capability contract: [OPENCLAW-ADDONS.md](OPENCLAW-ADDONS.md). These items cover functional dependencies beyond the model lab; the catalog and dashboard must expose their readiness.
+
+### A1 Pinned addon inventory and capability catalog — `todo`
+Depends on: F2; candidate inventory can be prepared before runtime wiring.
+- Inspect the pinned installation's plugin/skill inventory and shipped package contents. Record bundled/external source, exact compatible version/integrity, licenses, Linux dependencies/assets, credentials/network needs and effective tool grants. Treat imported skill metadata as inert data.
+- Include local chat, GGUF/vision, memory, browser, documents, voice, image generation and optional channels. Choose external versions through verified compatibility metadata, not guessed package tags.
+- Accept: generic schema/fixtures validate; actual pinned-install inventory distinguishes available, loaded and exercised; missing dependencies have explicit reasons. No private settings or automatic capability grants.
+
+### A2 GGUF provider and Linux backend — `todo`
+Depends on: A1, MD2; model acquisition uses MD4 or a separately tested GGUF downloader.
+- Pin a compatible llama-cpp provider and Linux backend; support exact weight shards/projectors and loopback routes. Expose GPU/offload, capacity errors and unload/restore behavior.
+- Accept: actual target chat and vision smoke tests; failure retains the starter assistant; package/backend/asset versions recorded. Windows binaries or aliases do not establish Linux support.
+
+### A3 Local memory, browser and document readiness — `todo`
+Depends on: A1, P5.
+- Configure supported bundled capabilities per agent and their Linux dependencies; use local embeddings when semantic memory is enabled. Show policy/dependency/network status separately.
+- Accept: reboot recall, offline memory retrieval, sample document extraction, controlled browser task and denied-tool tests; independent agent state; rollback passes.
+
+### A4 Local voice and image workflows — `todo`
+Depends on: A1, B1, MD2, P5.
+- Select/pin Linux transcription, speech output and image-generation engines/adapters/assets. Port needed skill dependencies separately. Coordinate GPU-heavy work with model inference and expose progress.
+- Accept: supplied audio transcription, audible local speech, controlled image generation and resource recovery on physical hardware; offline boundaries explicit. No cloud requirement for basic chat.
+
+### A5 Capability dashboard and addon update acceptance — `todo`
+Depends on: A1 and dashboard E4; feature smoke tests depend on A2–A4.
+- Show per-agent addon states, missing dependencies/credentials and activation options. Track compatible stable external addon updates alongside host releases, with exact pins, license/audit checks and rollback.
+- Accept: unavailable/disabled/failed providers do not appear ready; controlled invocation proves each claimed capability; candidate host update runs supported-addon regression tests. Optional channel setup never blocks first chat.
+
 ## E8 Repository organization
 
 ### R1 Separate owner-specific material — `todo`
