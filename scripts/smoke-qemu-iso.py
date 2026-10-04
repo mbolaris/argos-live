@@ -87,6 +87,9 @@ def run(image, output, *, timeout=1800):
                     '-qmp', f'unix:{qmp},server=on,wait=off'], stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         started = time.monotonic()
+        print('Starting offline CPU-emulated guest; acceptance timeout is 30 minutes.', flush=True)
+        reported_stages = set()
+        next_heartbeat = started + 60
         tail = ''
         login_sent = password_sent = payload_sent = False
         try:
@@ -102,6 +105,14 @@ def run(image, output, *, timeout=1800):
                         log.write(chunk)
                         log.flush()
                         tail = (tail + chunk.decode('utf-8', errors='replace'))[-65536:]
+                    for stage in re.findall(r'ARGOS_C3_STAGE ([a-z-]+)', tail):
+                        if stage not in reported_stages:
+                            reported_stages.add(stage)
+                            print(f'Guest stage: {stage}', flush=True)
+                    if time.monotonic() >= next_heartbeat:
+                        print(f'Guest running: {int(time.monotonic() - started)} seconds; '
+                              f'payload started: {payload_sent}', flush=True)
+                        next_heartbeat = time.monotonic() + 60
                     if not login_sent and re.search(r'login:\s*$', tail):
                         process.stdin.write(b'argos\n'); process.stdin.flush()
                         login_sent = True

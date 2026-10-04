@@ -7,13 +7,6 @@ on:
         required: true
         default: '37216494685'
         type: string
-  push:
-    branches:
-      - 'c3-qemu-smoke'
-    paths:
-      - '.github/workflows/iso-boot.yml'
-      - 'scripts/smoke-qemu-iso.py'
-      - 'scripts/qemu-guest-check.py'
 permissions:
   contents: read
   actions: read
