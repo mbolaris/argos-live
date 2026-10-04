@@ -69,11 +69,12 @@ Depends on: F2.
 - Accept: unit tests with recorded fixtures for an NVIDIA desktop, a CPU-only laptop and a no-`nvidia-smi` system; `argos hw --json` prints the snapshot.
 - Evidence: Windows and Linux CI pass hardware/CLI tests using authored, sanitized command-output fixtures (not owner hardware captures). NVIDIA fields/units checked against official documentation. Physical Live output and ISO inclusion remain unverified. Depends on F2 integration [PR #4](https://github.com/mbolaris/argos-live/pull/4) reaching main.
 
-### B2 Ollama client — `in progress (PR pending)`
+### B2 Ollama client — `done ([PR #6](https://github.com/mbolaris/argos-live/pull/6))`
 Depends on: F2.
 - `ollama.py`: version, list, show (parameters, quantization, context length, capabilities), pull with streamed progress callbacks and cancellation, generate/chat with streaming that records time to first token and returns the final timing fields, unload (`keep_alive: 0`), and `ps` (loaded models, VRAM size).
 - Base URL configurable; default `http://127.0.0.1:11434`. Clear errors for "not running", "model missing" and HTTP failures.
 - Accept: unit tests against a fake HTTP server serving recorded responses, including streaming chunks and an interrupted stream; field names checked against the pinned Ollama version's API documentation.
+- Evidence: Windows and Linux CI pass tests against a loopback fake server with authored protocol fixtures checked against pinned v0.35.0 API types. Progress, cancellation, chat/generation timings, unload and interruption/error paths pass. Real Ollama/model/GPU acceptance remains pending. See OLLAMA-CLIENT.md for bounded cancellation behavior.
 
 ### B3 Speed benchmark — `todo`
 Depends on: B1, B2.
