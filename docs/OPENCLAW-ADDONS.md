@@ -2,12 +2,14 @@
 
 The distro must deliver working agent capabilities alongside model downloads and benchmarks. This is a capability plan, not an installed-addon receipt. Validate against the OpenClaw version pinned in `versions.env`; recheck inventory and API compatibility with each candidate release.
 
+Owner decision: Ollama is the supported language-model inference backend. Use native OpenClaw Ollama integration and Ollama-managed model manifests/assets. Separate llama-cpp provider/server installation, routing and GGUF downloader work are outside this milestone. Historical source provider references remain inert; resolve model preferences to verified Ollama artifacts before activation.
+
 ## Required capability coverage
 
 | Capability | Implementation candidate | Live acceptance |
 |---|---|---|
 | Local conversation and model switching | Bundled `ollama` provider | Offline reply, streaming, tool compatibility, model selection and failed-load recovery |
-| GGUF models and vision projectors | External `@openclaw/llama-cpp-provider`, with a separately verified Linux backend | Resolve compatible exact plugin version and integrity; test chat, projector, routing and GPU/offload on target hardware |
+| Preferred models and vision | Ollama model catalog and bundled `ollama` provider | Verify exact model/quantization and vision support; test image input, GPU/offload and failed-load recovery; unresolved preferences remain pending |
 | Persistent agent memory | Existing `memory-core`; local embedding provider if semantic recall is enabled | Separate agent state; recall after reboot; offline retrieval; report unavailable embeddings rather than require a cloud account |
 | Browser tasks | Bundled `browser` plugin plus a supported Linux browser runtime | Actual navigation and a controlled tool test; denied for chat-only profiles; isolated browser profile |
 | Local document input | Bundled `document-extract` candidate plus required format dependencies | Extract a sample PDF/text document; distinguish text extraction from model vision |

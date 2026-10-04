@@ -40,6 +40,7 @@ Resolved October 3, 2026. Agents implement these; changing one needs the owner.
 | D3 | **Do not pin a specific NVIDIA driver version.** Install Debian's `nvidia-driver` package as resolved by the build's Debian snapshot (preferring the newest supported branch Debian offers for the suite, such as backports, when it adds GPU support). The package manifest records the version actually shipped. Detect at boot whether the driver supports the installed GPU and fall back to CPU with a visible explanation. | H1 |
 | D4 | **Ship one generic Argos-like sample agent publicly.** A capable, friendly primary assistant, written fresh for the public image and not derived from the owner's private Argos persona. The starter catalog list is proposed by the MD1 agent and approved by the owner in that PR. | P6, MD1 |
 | D5 | **The Toronado `bench.py` prototype is not a dependency.** E1 is built from this backlog. If the prototype is pushed to a branch, E1 agents may reuse ideas or items from it, subject to this backlog's design decisions and dataset licensing rules. | F3 (closed) |
+| D6 | **Ollama is the supported language-model inference backend.** No separate llama-cpp plugin/server or GGUF download path in this milestone. Resolve personality model preferences to verified Ollama artifacts; unresolved choices remain pending rather than silently substituted. | B2, MD1–MD4, A2, P3–P4 |
 
 ## E0 Foundations
 
@@ -261,13 +262,13 @@ Capability contract: [OPENCLAW-ADDONS.md](OPENCLAW-ADDONS.md). These items cover
 ### A1 Pinned addon inventory and capability catalog — `todo`
 Depends on: F2; candidate inventory can be prepared before runtime wiring.
 - Inspect the pinned installation's plugin/skill inventory and shipped package contents. Record bundled/external source, exact compatible version/integrity, licenses, Linux dependencies/assets, credentials/network needs and effective tool grants. Treat imported skill metadata as inert data.
-- Include local chat, GGUF/vision, memory, browser, documents, voice, image generation and optional channels. Choose external versions through verified compatibility metadata, not guessed package tags.
+- Include Ollama local chat/vision, memory, browser, documents, voice, image generation and optional channels. Choose external addon versions through verified compatibility metadata, not guessed package tags; no separate language-model backend.
 - Accept: generic schema/fixtures validate; actual pinned-install inventory distinguishes available, loaded and exercised; missing dependencies have explicit reasons. No private settings or automatic capability grants.
 
-### A2 GGUF provider and Linux backend — `todo`
-Depends on: A1, MD2; model acquisition uses MD4 or a separately tested GGUF downloader.
-- Pin a compatible llama-cpp provider and Linux backend; support exact weight shards/projectors and loopback routes. Expose GPU/offload, capacity errors and unload/restore behavior.
-- Accept: actual target chat and vision smoke tests; failure retains the starter assistant; package/backend/asset versions recorded. Windows binaries or aliases do not establish Linux support.
+### A2 Ollama model and vision capability acceptance — `todo`
+Depends on: A1, B2, MD1, MD4.
+- Implement D6: resolve selected model preferences to verified Ollama manifests and capabilities. Exercise native OpenClaw Ollama integration, image input where supported, GPU/offload, capacity failures and unload/restore behavior. Do not install a separate llama-cpp provider/server.
+- Accept: actual target chat and supported vision smoke tests; failure retains the starter assistant; exact host/Ollama/model versions recorded. Unsupported or unresolved preferences are visibly pending, with no silent replacement.
 
 ### A3 Local memory, browser and document readiness — `todo`
 Depends on: A1, P5.
