@@ -1,0 +1,296 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "quick",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "math-01",
+      "prompt": "Calculate 10 * 3 - 1. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "29"
+      },
+      "reference": "29",
+      "wrong": "30",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-02",
+      "prompt": "Calculate 17 * 4 - 2. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "66"
+      },
+      "reference": "66",
+      "wrong": "67",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-03",
+      "prompt": "Calculate 24 * 5 - 3. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "117"
+      },
+      "reference": "117",
+      "wrong": "118",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-04",
+      "prompt": "Calculate 31 * 6 - 4. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "182"
+      },
+      "reference": "182",
+      "wrong": "183",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "choice-01",
+      "prompt": "Which number is prime?\nA. 15\nB. 17\nC. 21\nD. 27\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-02",
+      "prompt": "Which planet is closest to the Sun?\nA. Earth\nB. Mars\nC. Mercury\nD. Venus\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-03",
+      "prompt": "What is binary 10 in decimal?\nA. 1\nB. 2\nC. 10\nD. 16\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-04",
+      "prompt": "Which is the chemical formula for water?\nA. CO2\nB. O2\nC. H2O\nD. NaCl\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "instruction-01",
+      "prompt": "Write one line of two to five words including the whole word \"ready\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "ready"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "ready is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-02",
+      "prompt": "Write one line of two to five words including the whole word \"local\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "local"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "LOCAL IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-03",
+      "prompt": "Write one line of two to five words including the whole word \"private\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "private"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-04",
+      "prompt": "Write one line of two to five words including the whole word \"model\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "model"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "MODEL IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "json-01",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-1\", count=the sum of 1 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-1",
+          "count": 4,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-1\", \"count\": 4, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-1\", \"count\": 5, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-02",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-2\", count=the sum of 2 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-2",
+          "count": 5,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-2\", \"count\": 5, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-2\", \"count\": 6, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-03",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-3\", count=the sum of 3 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-3",
+          "count": 6,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-3\", \"count\": 6, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-3\", \"count\": 7, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-04",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-4\", count=the sum of 4 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-4",
+          "count": 7,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-4\", \"count\": 7, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-4\", \"count\": 8, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "tool-01",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=1 and b=6. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 1,
+            "b": 6
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 1, \"b\": 6}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 1, \"b\": 6}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-02",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=2 and b=7. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 2,
+            "b": 7
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 2, \"b\": 7}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 2, \"b\": 7}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-03",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=3 and b=8. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 3,
+            "b": 8
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 3, \"b\": 8}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 3, \"b\": 8}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-04",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=4 and b=9. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 4,
+            "b": 9
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 4, \"b\": 9}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 4, \"b\": 9}}",
+      "malformed": "Run add_numbers now"
+    }
+  ]
+}
