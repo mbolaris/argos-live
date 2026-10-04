@@ -72,5 +72,11 @@ runtime state are unknown unless an explicit pinned observation is supplied.
 The CLI itself only reads metadata and checks executable availability; it does
 not load plugins, install dependencies, or change configuration.
 
+Evidence: pinned Linux CI [run 37184071031](https://github.com/mbolaris/argos-live/actions/runs/37184071031)
+verified all six installed manifest/package pairs and all 65 skill-document
+hashes. Ollama, memory-core, browser, document-extract and tts-local-cli registered
+as loaded; Telegram stayed disabled. The separate schema/native recovery smoke
+also passed. These are disposable CI results, not Toronado capability acceptance.
+
 Upstream references: [pinned plugin inventory](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/plugins/plugin-inventory.md)
 and [pinned inspection CLI](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/cli/plugins.md).

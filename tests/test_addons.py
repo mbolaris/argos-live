@@ -51,6 +51,11 @@ class AddonInventoryTests(unittest.TestCase):
         self.assertTrue(all(not row['ready'] for row in rows.values()))
         self.assertTrue(rows['optional-channel']['requirements_pending'])
 
+    def test_observed_version_must_match_catalog(self):
+        receipt = addons.observation({'plugin': {'id': 'ollama', 'version': '0.0.0', 'status': 'loaded'}}, runtime=True)
+        with self.assertRaisesRegex(ValueError, 'outside the pinned catalog'):
+            addons.inventory(addons.load(), observations=[receipt])
+
     def test_published_archive_rejected_before_metadata_read(self):
         import tempfile
         spec = importlib.util.spec_from_file_location('update_addons', ROOT / 'scripts/update-addons.py')
