@@ -91,5 +91,6 @@ jobs:
             work/addon-inventory.json
             work/dashboard-desktop.png
             work/dashboard-narrow.png
+            work/dashboard-startup.png
           if-no-files-found: error
           retention-days: 14

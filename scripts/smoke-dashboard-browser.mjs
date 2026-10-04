@@ -84,6 +84,42 @@ try {
     throw new Error('Dashboard overflows narrow viewport');
   }
   await page.screenshot({path: 'work/dashboard-narrow.png', fullPage: true});
+  // Managed controls use an authored display fixture. Actual native services
+  // and measured warmup are exercised separately by smoke-desktop-startup.py.
+  let startup = {schema: 'argos-startup/1', managed: true, phase: 'first-reply',
+    message: 'Warming up the local model…', active: true, can_start: false, can_stop: true,
+    elapsed_seconds: 2, model_reply_verified: false, metrics: null, auto_open_chat: false};
+  const controlCalls = [];
+  await page.route('**/api/startup', route => route.fulfill({json: startup}));
+  for (const action of ['start', 'stop']) await page.route('**/api/startup/' + action, async route => {
+    if (route.request().method() !== 'POST' ||
+        route.request().headers()['x-argos-token'] !== new URL(url).searchParams.get('token') ||
+        route.request().postData()) throw new Error('Managed browser control authorization failed');
+    controlCalls.push(action);
+    startup = {...startup, phase: action === 'stop' ? 'stopped' : 'first-reply',
+      message: action === 'stop' ? 'Your assistant is stopped.' : 'Warming up the local model…',
+      can_start: action === 'stop', can_stop: action === 'start'};
+    await route.fulfill({json: startup});
+  });
+  await page.reload();
+  await page.locator('#startup-controls').waitFor({state: 'visible'});
+  if (!(await page.locator('#start-assistant').isDisabled()) || await page.locator('#stop-assistant').isDisabled()) {
+    throw new Error('Managed warmup controls are incorrect');
+  }
+  await page.locator('#stop-assistant').click();
+  await page.waitForFunction(() => !document.getElementById('start-assistant').disabled);
+  await page.locator('#start-assistant').click();
+  await page.waitForFunction(() => document.getElementById('start-assistant').disabled);
+  if (controlCalls.join(',') !== 'stop,start') throw new Error('Managed browser controls did not run');
+  startup = {...startup, model_reply_verified: true, metrics: {backend: {mode: 'CPU'},
+    generation_tokens_per_second: 4, time_to_first_token_seconds: .25}};
+  await page.waitForFunction(() => document.getElementById('startup-metrics').textContent.includes('4.0 tokens/s'));
+  if (!(await page.locator('#startup-metrics').textContent()).includes('First token 0.25 s')) {
+    throw new Error('Measured warmup display is missing');
+  }
+  await page.setViewportSize({width: 1200, height: 1000});
+  await page.screenshot({path: 'work/dashboard-startup.png', fullPage: true});
+  if (errors.length) throw new Error('Managed browser script failed');
   console.log('PASS: live/capability cards, disabled unconfigured chat, refresh, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
 } finally {
   if (browser) await browser.close();
