@@ -15,4 +15,6 @@ jobs:
       - name: Python tests and shell syntax
         run: bash scripts/check.sh
       - name: Node upstream tests
-        run: node --test tests/test-upstream.mjs
+        run: |
+          node --check runtime/argoslive/web/static/app.js
+          node --test tests/test-upstream.mjs

@@ -171,8 +171,13 @@ Depends on: W2.
 
 ## E4 Dashboard (M2)
 
-### W1 Server skeleton — `todo`
+### W1 Server skeleton — `in progress (PR pending)`
 Depends on: F2.
+- Implemented loopback/token-protected server and a read-only capability preview.
+  Disposable HTTP fixtures verify static/JSON routes, token/Origin/Host rejection,
+  traversal and mutation blocking, token-free logs and listener shutdown. W2/O2
+  still own assistant startup, live metrics, browser acceptance and boot wiring.
+  See [DASHBOARD.md](DASHBOARD.md).
 - `web/server.py` per the dashboard decision; JSON API under `/api/`, static files under `/`, per-session token check, CSRF-safe (token in header for POSTs), loopback-only bind, graceful shutdown.
 - Accept: unit tests: missing or wrong token rejected, non-loopback bind refused, static and JSON routes served.
 
@@ -341,5 +346,4 @@ Depends on: the owner creating the private repository (or Drive folder) and gran
 | Personalities | P1 → P2, P3 (parallel) → P4 → P5 |
 | Build | F1 → C2 → C3 → C5 |
 | Out-of-box lab | (after B1, B2) MD2 → MD3 → O1; W1 → W2 → W3, W4; O2 → W6 |
-
 

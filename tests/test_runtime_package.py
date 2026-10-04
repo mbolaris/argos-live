@@ -42,6 +42,8 @@ class RuntimePackageTests(unittest.TestCase):
             self.assertEqual(list(target.rglob('__pycache__')), [])
             program = ('import sys; sys.path.insert(0, sys.argv[1]); '
                        'import argoslive, argoslive.pack_apply, argoslive.catalog, argoslive.addons; '
+                       'from argoslive.web.server import ASSETS; '
+                       'assert (ASSETS / "index.html").is_file(); '
                        'argoslive.catalog.load(); argoslive.addons.load(); print(argoslive.__version__)')
             result = subprocess.run([sys.executable, '-c', program, str(target)],
                                     capture_output=True, text=True, check=True, timeout=30)
