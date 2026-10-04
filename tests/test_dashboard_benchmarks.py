@@ -1,4 +1,5 @@
 import http.client
+from contextlib import closing
 import json
 from pathlib import Path
 import sys
@@ -32,7 +33,7 @@ class DashboardBenchmarkTests(unittest.TestCase):
                 worker = threading.Thread(target=server.serve_forever, daemon=True)
                 worker.start()
                 def request(path, headers=None, method='GET'):
-                    with http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5) as connection:
+                    with closing(http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5)) as connection:
                         connection.request(method, path, headers=headers or {})
                         reply = connection.getresponse()
                         return reply.status, dict(reply.getheaders()), reply.read()
