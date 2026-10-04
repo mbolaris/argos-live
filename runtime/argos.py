@@ -212,6 +212,9 @@ def select_model(model):
     print('Run argos download to review the exact registry download size.')
 
 def main():
+    if sys.argv[1:2] == ['pull']:
+        from argoslive.model_onboarding import main as pull_command
+        return pull_command(sys.argv[2:])
     if sys.argv[1:3] in (['pack', 'export'], ['pack', 'import'], ['pack', 'apply'], ['pack', 'rollback']):
         if sys.argv[2] == 'export':
             from argoslive.pack_export import main as pack_command
@@ -310,7 +313,7 @@ def main():
 
 if __name__ == '__main__':
     try:
-        main()
+        sys.exit(main())
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(f'Argos: {error}', file=sys.stderr)
         sys.exit(1)

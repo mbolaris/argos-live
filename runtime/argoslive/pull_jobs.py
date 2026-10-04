@@ -23,7 +23,7 @@ from .pack_export import private_directory
 LIMIT = 1024 * 1024
 ID = re.compile(r'[a-f0-9]{32}')
 STATES = {'queued', 'downloading', 'paused', 'cancelled', 'interrupted',
-          'failed', 'downloaded_needs_verification'}
+          'failed', 'downloaded_needs_verification', 'verifying', 'loading', 'testing', 'publishing', 'ready'}
 
 
 def stamp():
@@ -204,8 +204,10 @@ exclusion against unrelated Ollama processes is claimed.
         job = read_json(self.path(job_id))
         if (job.get('schema') != 'argos-pull/1' or job.get('id') != job_id
                 or job.get('state') not in STATES or type(job.get('attempts')) is not int
-                or job['attempts'] < 0 or job.get('integrity_verified') is not False
-                or job.get('inference_ready') is not False):
+                or job['attempts'] < 0 or type(job.get('integrity_verified')) is not bool
+                or type(job.get('inference_ready')) is not bool
+                or (job['inference_ready'] and (not job['integrity_verified'] or job['state'] != 'ready'))
+                or (job['state'] == 'ready' and not job['inference_ready'])):
             raise ValueError('Invalid durable job state')
         return job
 
@@ -219,10 +221,12 @@ exclusion against unrelated Ollama processes is claimed.
     def retry(self, job_id):
         with worker_lock(self.root):
             job = self.get(job_id)
-            if job['state'] not in {'paused', 'interrupted', 'failed', 'downloading'}:
+            if job['state'] not in {'paused', 'interrupted', 'failed', 'downloading',
+                                    'downloaded_needs_verification', 'verifying', 'loading', 'testing', 'publishing'}:
                 raise ValueError('Job is not resumable; cancelled jobs stay cancelled')
             self.check(job)
-            job.update(state='queued', error=None, updated=stamp())
+            job.update(state='queued', error=None, updated=stamp(),
+                       integrity_verified=False, inference_ready=False)
             write_json(self.path(job_id, '.control.json'), {'action': 'run'})
             write_json(self.path(job_id), job)
             return job
