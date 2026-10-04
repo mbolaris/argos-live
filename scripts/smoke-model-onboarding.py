@@ -41,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     if result['state'] != 'ready':
         raise SystemExit('Real resume/verification/reply failed: ' + json.dumps(result))
     with backend(models) as client:
-        client.timeout = 120  # Full CPU prefill can exceed the general API timeout.
+        client.timeout = 600  # Dedicated full CPU lab test; quick run still gated under 60s.
         client.generate(result['tag'], '', options={'num_ctx': 2048}, keep_alive='5m')
         def progress(value):
             print(json.dumps({'benchmark_progress': value}), flush=True)

@@ -151,9 +151,13 @@ def main(argv=None):
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--size', action='append', choices=['short', 'medium', 'long'],
                         help='Prompt size to run (repeatable); default all sizes.')
+    parser.add_argument('--timeout', type=int, default=120,
+                        help='API read timeout seconds, 1–600; increase for long CPU prefill.')
     parser.add_argument('--results-dir', type=Path, default=Path.home() / '.local/share/argos-live/results')
     args = parser.parse_args(argv)
-    result = run(Client(args.ollama, timeout=120), args.model,
+    if not 1 <= args.timeout <= 600:
+        raise ValueError('Benchmark timeout must be between 1 and 600 seconds')
+    result = run(Client(args.ollama, timeout=args.timeout), args.model,
                  sizes=args.size or ('short', 'medium', 'long'))
     root = safe_local(args.results_dir.absolute())
     if not root.exists():
