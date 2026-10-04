@@ -75,9 +75,10 @@ async function refreshLive() {
 async function refreshModels() {
   const status = document.getElementById('models-status');
   const installed = document.getElementById('installed-models');
+  const bundled = document.getElementById('bundled-models');
   const jobs = document.getElementById('model-jobs');
   const catalog = document.getElementById('model-catalog');
-  installed.replaceChildren(); jobs.replaceChildren(); catalog.replaceChildren();
+  installed.replaceChildren(); bundled.replaceChildren(); jobs.replaceChildren(); catalog.replaceChildren();
   try {
     const result = await api('/api/models');
     status.textContent = result.storage_state === 'available' ? 'Reading your selected Ollama store.' :
@@ -86,12 +87,21 @@ async function refreshModels() {
     if (result.invalid_manifests || result.invalid_jobs || result.truncated) {
       status.textContent += ' Some entries need review or were omitted by the display limit.';
     }
+    if (result.bundled?.state === 'available') {
+      card(bundled, `Bundled starter · ${result.bundled.models[0].tag}`,
+        'Stored in the read-only live image. No download or weight copy needed.' +
+        (result.selected_source === 'bundled' ? ' Selected for this session.' : '') +
+        ' Startup checks full integrity; this view does not test a reply.');
+    } else if (result.bundled?.state === 'needs-attention') {
+      card(bundled, 'Bundled starter needs attention',
+        'Image model files or read-only access could not be confirmed. Startup must verify the source.');
+    }
     for (const model of result.installed || []) {
       card(installed, model.tag, `${model.files_present ? 'Model files present' : 'Model files incomplete'} · ` +
         `${model.catalog_manifest_match ? 'Matches catalog manifest' : 'Outside reviewed catalog revision'} · ` +
         'Full artifact checks and current reply test are not performed by this view.');
     }
-    if (result.installed !== null && result.installed.length === 0) card(installed, 'No local models found', 'The selected store has no model manifests to display.');
+    if (result.installed !== null && result.installed.length === 0) card(installed, 'No downloaded models yet', 'New model downloads will be stored in your selected location.');
     for (const job of result.jobs || []) {
       const progress = job.progress;
       const speed = progress.recent_mib_per_second === null ? 'Speed unknown' : `${progress.recent_mib_per_second.toFixed(1)} MiB/s`;

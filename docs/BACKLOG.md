@@ -213,13 +213,16 @@ Depends on: MD2, MD4b.
   CPU inference on an unwritable seed passed ([run](https://github.com/mbolaris/argos-live/actions/runs/37229233608)).
   This is permission-enforced Linux acceptance; SquashFS/VM wiring remains MD3b.
 
-### MD3b First-boot model-source wiring — `todo`
+### MD3b First-boot model-source wiring — `in progress`
 Depends on: MD3a, C3a.
 - Auto setup selects the bundled read-only source for starter inference and keeps
   the identity-matched writable store for managed pulls. Show both locations in
   the dashboard and include the seed in verification; retain existing owner state.
 - Accept: fresh offline VM replies without copying seed weights or persistence;
   new model pulls publish only to selected storage, then model switching works.
+- Dashboard projection distinguishes the immutable starter from downloaded models
+  without claiming a full hash check or reply. Automatic setup/source switching
+  and VM acceptance are separate pending gates.
 
 ### MD4 Pull jobs with progress and recovery — `split into MD4a and MD4b`
 Depends on: B2, MD2.
