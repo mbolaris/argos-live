@@ -10,6 +10,8 @@ files in a disposable hosted checkout. It requires a fresh discovery report that
 matches every current pin, validates stable versions and artifact identities,
 rejects downgrades/Node major changes/unrelated base updates, and checks official
 release URLs. The candidate output directory is never reused.
+When accepted versions are already current, the workflow succeeds without a
+candidate artifact. A changed checksum at the same version still fails review.
 
 The runner uses checksum-pinned candidate Node to regenerate the npm lock with
 scripts disabled. It checks the published OpenClaw archive against SHA512 before

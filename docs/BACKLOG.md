@@ -429,7 +429,7 @@ Depends on: C2.
 - Extend `upstream.yml` to open a PR updating `versions.env` and the runtime lock when discovery finds new stable versions, triggering C2 and C3 on that PR. Promotion still requires the release process.
 - Accept: dry run on a fork or test branch produces the expected PR diff.
 
-### C5a Verified candidate preparation — `in progress ([PR #37](https://github.com/mbolaris/argos-live/pull/37))`
+### C5a Verified candidate preparation — `done ([PR #37](https://github.com/mbolaris/argos-live/pull/37))`
 Depends on: C2.
 - Prepare stable public runtime pins in a fresh artifact without changing accepted
   files. Reject stale reports, downgrades, Node major changes, checksum drift and
@@ -437,6 +437,11 @@ Depends on: C2.
   addon metadata from the SHA512-verified host package; attach npm audit findings.
 - Accept: unit fixtures preserve accepted bytes and a hosted dry run produces the
   candidate artifact. See [RUNTIME-CANDIDATES.md](RUNTIME-CANDIDATES.md).
+- Evidence: fixture and Linux checks passed; hosted pinned-Node generation
+  produced verified OpenClaw 2026.9.8/Ollama 0.35.1 candidate files, refreshed addon
+  inventory, audit, exact provenance and per-file checksums
+  ([run](https://github.com/mbolaris/argos-live/actions/runs/37233645763)).
+  Accepted runtime pins were unchanged; candidate promotion remains pending.
 
 ### C5b Automatic reviewed candidate PR — `todo`
 Depends on: C5a.

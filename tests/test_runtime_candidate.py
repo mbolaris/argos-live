@@ -90,3 +90,16 @@ class CandidateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'backend pin'):
             self.prepare()
         self.assertFalse(self.output.exists())
+
+    def test_already_current_is_success_but_republished_artifact_drift_is_not(self):
+        report = copy.deepcopy(self.report)
+        report['candidate'] = dict(self.pins)
+        for name, key in [('openclaw', 'OPENCLAW_VERSION'), ('ollama', 'OLLAMA_VERSION')]:
+            report['sources'][name] = report['sources'][name].rsplit('/v', 1)[0] + '/v' + self.pins[key]
+        self.assertEqual(self.prepare(report), [])
+        self.assertEqual(json.loads((self.output / 'candidate.json').read_text())['status'], 'up-to-date')
+        self.output = self.root / 'drift'
+        report['candidate']['OLLAMA_SHA256'] = 'e' * 64
+        with self.assertRaisesRegex(ValueError, 'different artifact identity'):
+            self.prepare(report)
+        self.assertFalse(self.output.exists())

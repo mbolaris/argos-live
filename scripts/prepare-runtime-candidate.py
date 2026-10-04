@@ -44,8 +44,6 @@ def prepare(report, repo, output, *, now=None):
     if any(candidate[key] != current[key] for key in current if key not in ALLOWED):
         raise ValueError('Debian, security and driver changes need a separate reviewed update')
     changed = [key for key in VERSIONS if candidate[key] != current[key]]
-    if not changed:
-        raise ValueError('No stable runtime version changes')
     for key in VERSIONS:
         if version(candidate[key]) < version(current[key]):
             raise ValueError('Candidate downgrade refused')
@@ -84,6 +82,7 @@ def prepare(report, repo, output, *, now=None):
         ''.join(key + '=' + candidate[key] + '\n' for key in current))
     (output / 'owned_ollama.py').write_text(module)
     (output / 'candidate.json').write_text(json.dumps({'schema': 'argos-runtime-candidate/1',
+        'status': 'candidate' if changed else 'up-to-date',
         'discovery_checked_at': report['checkedAt'],
         'changed': changed, 'current': current, 'candidate': candidate, 'sources': expected,
         'accepted_pins_changed': False, 'promotion': 'lock, addon inventory, audit, ISO, VM and physical acceptance pending'},
@@ -101,7 +100,7 @@ def main():
     if len(raw) > 32768:
         raise ValueError('Discovery report exceeds the size bound')
     changed = prepare(json.loads(raw), ROOT, args.output.absolute())
-    print('Prepared candidate only: ' + ', '.join(changed))
+    print('Prepared candidate only: ' + ', '.join(changed) if changed else 'Accepted runtime versions are up to date.')
 
 
 if __name__ == '__main__':
