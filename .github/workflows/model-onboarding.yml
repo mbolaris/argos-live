@@ -8,6 +8,8 @@ on:
       - 'runtime/argoslive/model_onboarding.py'
       - 'runtime/argoslive/model_verify.py'
       - 'runtime/argoslive/owned_ollama.py'
+      - 'runtime/argoslive/starter.py'
+      - 'scripts/smoke-readonly-starter.py'
       - 'runtime/argoslive/bench_speed.py'
       - 'runtime/argoslive/bench_ability.py'
       - 'runtime/argoslive/ability.py'
@@ -31,3 +33,7 @@ jobs:
           tar --zstd -xf "$RUNNER_TEMP/argos-ollama.tar.zst" -C "$RUNNER_TEMP/argos-ollama"
       - name: Real CPU partial pull, resume, reply, speed and ability benchmarks
         run: python3 scripts/smoke-model-onboarding.py --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama"
+      - name: Real CPU inference from an unwritable public starter without copying
+        run: |
+          python3 scripts/fetch-seed-model.py "$RUNNER_TEMP/argos-readonly-seed"
+          python3 scripts/smoke-readonly-starter.py --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-readonly-seed"

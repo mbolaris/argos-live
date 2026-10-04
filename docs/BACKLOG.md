@@ -197,10 +197,26 @@ Depends on: B1.
 - Read-only `argos storage [--json] --required-gib N` previews existing identity-matched storage, otherwise the largest eligible mounted filesystem, otherwise mounted tmpfs with adequate free capacity and available RAM. The budget adds a 1 GiB safety margin. Missing/mismatched configured storage never falls back; optional persisted filesystem UUID is also checked. Automatic disk selection requires identifying the live boot medium and excludes its entire device ancestry, readonly/ambiguous/bind views, unknown UUIDs and nested-mount mismatches. No directory, marker, model, mount or state changes occur. Preparation and persistence of the selection belong to O1/MD4. Encryption evidence is conservative and does not authorize private profiles on DATA.
 - Evidence: 100 Windows tests passed (five platform skips); Linux Python/shell and Node CI passed ([run](https://github.com/mbolaris/argos-live/actions/runs/37170157999)). Fixture tests cover priority, boot siblings, budget boundaries, readonly/access failures, RAM pressure, configured marker/UUID mismatch, encrypted/mixed ancestry, path links, nested/stacked mounts and no suitable storage. Physical selection/creation and downloads remain unverified. See [MODEL-STORAGE.md](MODEL-STORAGE.md).
 
-### MD3 Read-only starter model — `todo`
+### MD3 Read-only starter model — `split into MD3a and MD3b`
 Depends on: MD2.
 - Serve the bundled seed model without copying it: point Ollama at a model directory that combines the read-only image blobs and manifests with writable storage for pulls (for example, a directory whose blobs and manifests are symlinks into the image, plus copy-on-pull), or run a second read-only model path if the pinned Ollama supports one. Verify with the pinned Ollama version.
 - Accept: in a VM, chat with the starter model works with no persistence and no copy; pulling another model writes only to the selected storage; `argos verify` still checks hashes.
+
+### MD3a Verified immutable starter service — `in progress`
+Depends on: MD2, MD4b.
+- Internal owned Ollama context reads the exact reviewed starter directly from
+  an unwritable image model tree, with full manifest/blob SHA checks and a private
+  temporary process lease outside the source. No model copies or setup changes.
+- Accept: fixture integrity/cleanup tests and real pinned unprivileged Linux CPU
+  inference; source file inventory and hashes remain unchanged. VM wiring is MD3b.
+
+### MD3b First-boot model-source wiring — `todo`
+Depends on: MD3a, C3a.
+- Auto setup selects the bundled read-only source for starter inference and keeps
+  the identity-matched writable store for managed pulls. Show both locations in
+  the dashboard and include the seed in verification; retain existing owner state.
+- Accept: fresh offline VM replies without copying seed weights or persistence;
+  new model pulls publish only to selected storage, then model switching works.
 
 ### MD4 Pull jobs with progress and recovery — `split into MD4a and MD4b`
 Depends on: B2, MD2.
