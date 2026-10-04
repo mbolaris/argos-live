@@ -23,14 +23,8 @@ def verify(root=ROOT, *, data=None):
     return {'tag': TAG, 'manifest_digest': entry['manifest_digest'], 'verified_bytes': count}
 
 
-@contextmanager
-def serve(root=ROOT, *, executable=None, data=None, timeout=60):
-    """Internal inference context; first-boot wiring is a separate change.
-
-    The source must be unwritable to this process. The private temporary lease
-    and Ollama process are discarded on exit; the image remains the model store.
-    No persistence, selected download store or OpenClaw configuration is touched.
-    """
+def read_only(root=ROOT, *, data=None):
+    """Verify both content identity and an unwritable model source."""
     root = safe_local(root)
     identity = verify(root, data=data)
     entry = next(entry for entry in (data or catalog.load())['models'] if entry['tag'] == TAG)
@@ -42,6 +36,14 @@ def serve(root=ROOT, *, executable=None, data=None, timeout=60):
     paths.update(model_verify.blob_path(root, item) for item in entry['artifacts'])
     if any(os.access(path, os.W_OK) for path in paths):
         raise ValueError('Starter source must be read-only to the inference user')
+    return identity
+
+
+@contextmanager
+def serve(root=ROOT, *, executable=None, data=None, timeout=60):
+    """Own inference on image weights, with private temporary process leases."""
+    root = safe_local(root)
+    identity = read_only(root, data=data)
     with tempfile.TemporaryDirectory(prefix='argos-starter-') as lease:
         with owned(root, executable=executable, timeout=timeout, lease_store=Path(lease)) as client:
             models = client.list().get('models', [])

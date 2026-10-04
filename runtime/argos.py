@@ -100,16 +100,8 @@ def setup(ask=input):
     model = ask('Local Ollama model tag [qwen3:0.6b]: ').strip() or 'qwen3:0.6b'
     if not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or 'cloud' in model.split(':')[-1]:
         raise ValueError('Invalid local model tag.')
-    config = {
-        'gateway': {'mode': 'local', 'bind': 'loopback', 'auth': {'mode': 'token', 'token': secrets.token_hex(32)}},
-        'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(OC / 'workspace')}},
-        'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama',
-             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,
-                         'contextWindow': 32768, 'maxTokens': 4096,
-                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
-        'tools': {'profile': 'minimal', 'deny': ['gateway', 'group:runtime', 'group:fs', 'group:web', 'browser'], 'elevated': {'enabled': False}},
-        'commands': {'bash': False, 'restart': False}
-    }
+    from argoslive.auto_setup import conversation_config
+    config = conversation_config(model, OC / 'workspace')
     save(OC / 'openclaw.json', config)
     (OC / 'workspace').mkdir(exist_ok=True, mode=0o700)
     save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'conversation-only'})
@@ -123,6 +115,10 @@ def load():
     from argoslive.storage import validate_configured
     p = validate_configured(state)
     probe_storage(p)
+    if state.get('model_source') not in (None, 'managed', 'bundled'):
+        raise ValueError('Unknown model source; no fallback service is started.')
+    if state.get('model_source') == 'bundled' and state.get('model') != 'qwen3:0.6b':
+        raise ValueError('Bundled model source only supports the reviewed starter.')
     return state
 
 def request(endpoint, body=None):
@@ -132,7 +128,13 @@ def request(endpoint, body=None):
     return urllib.request.urlopen(req, timeout=600)
 
 def server(state):
-    env = dict(os.environ, OLLAMA_HOST='127.0.0.1:11434', OLLAMA_MODELS=state['storage'], OLLAMA_NO_CLOUD='1', OLLAMA_CONTEXT_LENGTH='32768')
+    source = state['storage']
+    if state.get('model_source') == 'bundled':
+        from argoslive import starter
+        starter.read_only(SEED)
+        source = str(SEED)
+    env = dict(os.environ, OLLAMA_HOST='127.0.0.1:11434', OLLAMA_MODELS=source,
+               OLLAMA_NO_CLOUD='1', OLLAMA_NOPRUNE='1', OLLAMA_CONTEXT_LENGTH='32768')
     # Own the process and storage explicitly; never reuse an unrelated host daemon.
     try:
         with request('/api/version'):
@@ -208,8 +210,15 @@ def select_model(model):
     entry['name'] = model
     save(config_path, config)
     state['model'] = model
+    if 'model_source' in state:
+        state['model_source'] = 'bundled' if model == 'qwen3:0.6b' and state.get('starter') else 'managed'
     save(STATE, state)
-    print('Run argos download to review the exact registry download size.')
+    if state.get('model_source') == 'bundled':
+        print('The bundled starter stays in the image. Restart the assistant to use this source.')
+    elif state.get('model_source') == 'managed':
+        print('Use argos pull for a reviewed model download, then restart the assistant.')
+    else:
+        print('Run argos download to review the exact registry download size.')
 
 def command_parser():
     common = argparse.ArgumentParser(add_help=False)
@@ -226,7 +235,9 @@ def command_parser():
               'diagnostics': 'Collect local diagnostics', 'select-model': 'Select a model',
               'hw': 'Read hardware measurements', 'storage': 'Preview model storage', 'catalog': 'List reviewed models'}
     for name, help_text in legacy.items():
-        commands.add_parser(name, help=help_text, parents=[common])
+        command = commands.add_parser(name, help=help_text, parents=[common])
+        if name == 'setup':
+            command.add_argument('--auto', action='store_true', help='Configure a fresh Live session without questions.')
     delegates = {'dashboard': ('argoslive.web.server', 'Open the local dashboard server'),
                  'addons': ('argoslive.addons', 'Inspect addon capability candidates'),
                  'pull': ('argoslive.model_onboarding', 'Manage verified model download jobs')}
@@ -304,6 +315,17 @@ def main(argv=None):
             print(f"Kernel: {result['kernel']}; Secure Boot: {result['secure_boot']}")
         return
     if args.command == 'setup':
+        if args.auto:
+            from argoslive.auto_setup import configure
+            result = configure()
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                print(f"Setup {result['status']}: {result['model']}; {result['mode'] or 'existing'} session.")
+                print('Bundled weights stay in the image.' if result.get('model_source') == 'bundled'
+                      else 'Existing model storage configuration retained.')
+                print('Assistant startup remains a separate action.')
+            return 0
         return setup()
     if args.command == 'diagnostics':
         for cmd in [('lsblk', '-o', 'NAME,MODEL,SERIAL,TRAN,SIZE,FSTYPE,UUID,MOUNTPOINTS'), ('df', '-h'), ('nvidia-smi',), ('ollama', '--version'), ('openclaw', '--version')]:
@@ -316,9 +338,17 @@ def main(argv=None):
     if args.command == 'select-model':
         return select_model(args.model)
     if args.command == 'verify':
+        if state.get('model_source') == 'bundled':
+            from argoslive import starter
+            result = starter.verify(SEED)
+            print(f"Verified bundled starter: {result['verified_bytes']} content-addressed bytes.")
+            if not any(path.is_file() for path in (Path(state['storage']) / 'manifests').rglob('*')):
+                return 0
         print(f"Verified {verify_blobs(state['storage'])} content-addressed artifacts.")
         return
     if args.command == 'download':
+        if state.get('model_source') == 'bundled':
+            raise ValueError('Bundled weights are read-only. Use managed argos pull jobs for new models.')
         if args.required_gib <= 0:
             raise ValueError('Space budget must be positive.')
         missing, required = download_budget(state['model'], state['storage'])
