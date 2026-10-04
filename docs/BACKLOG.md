@@ -200,7 +200,7 @@ Depends on: W2, MD1, MD4.
 - Installed models and catalog with fit badges, exact sizes, pull progress (bytes, speed, ETA), pause/cancel/retry, delete installed model with confirmation.
 - Accept: API tests with the fake server; manual run against a real Ollama documented in the PR.
 
-### W3a Read-only model inventory and progress — `in progress (PR pending)`
+### W3a Read-only model inventory and progress — `in progress ([PR #22](https://github.com/mbolaris/argos-live/pull/22))`
 Depends on: W1, W2, MD1, MD4.
 - Reuse Ollama's manifest layout, reviewed catalog/fit estimator and durable job
   receipts. Show selected-store models, exact sizes, CPU/single-GPU fit estimates,
