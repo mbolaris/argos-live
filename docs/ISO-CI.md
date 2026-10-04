@@ -31,3 +31,19 @@ A green build establishes image creation and artifact integrity. QEMU desktop,
 offline starter inference/dashboard timing and screenshots are C3. Physical
 NVIDIA support, USB persistence and owner personality acceptance remain separate.
 Do not rewrite the owner's USB from a build-only result.
+
+## Offline guest check
+
+The **Offline QEMU ISO acceptance** workflow accepts a successful build run ID,
+downloads that candidate and verifies its ISO SHA256 again. It boots the original
+desktop kernel/initrd under CPU software emulation with no NIC or host disk. A
+serial-console argument is added only to this VM launch; the ISO is unchanged.
+The [Debian Live factory test user](https://live-team.pages.debian.net/live-manual/html/live-manual/customizing-run-time-behaviours.en.html)
+is used only in a fresh disposable guest. No owner password or persistence is used.
+
+The guest checks XFCE, runs existing setup with fixed public test answers, starts
+the model service/dashboard, checks an authenticated status response, runs the
+short real CPU speed workload and verifies its saved result. Timings and a QEMU
+screen dump accompany the console. VM timing is not physical hardware performance.
+The current test starts setup/services explicitly; automatic O2 startup and actual
+UEFI/GRUB selection remain C3b. Failure never authorizes a USB rewrite.

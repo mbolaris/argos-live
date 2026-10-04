@@ -412,10 +412,24 @@ Depends on: F1.
   artifact ([run](https://github.com/mbolaris/argos-live/actions/runs/37216494685)).
   Unit/shell and real CPU Ollama checks passed. QEMU/physical boot remains C3/H3.
 
-### C3 QEMU smoke boot in CI — `todo`
+### C3 QEMU smoke boot in CI — `split into C3a and C3b`
 Depends on: C2.
 - Boot the ISO under QEMU without KVM (software emulation, slow but GPU-free), no network, and check over a serial console or forwarded port that the desktop session starts, the dashboard answers with its token, and a speed benchmark of the starter model completes on CPU.
 - Accept: green run with captured timings and a screenshot artifact; failures attach the console log.
+
+### C3a Offline desktop and CPU guest acceptance — `in progress`
+Depends on: C2.
+- Reuse an existing candidate, verify its exact SHA256, extract its original desktop
+  kernel/initrd and append a test-only serial console at VM launch. TCG, no NIC,
+  no host disks, no writable ISO, no KVM. Serial login uses factory test credentials.
+- In a fresh guest, check XFCE, temporary interactive-setup defaults, authenticated
+  dashboard response and real CPU starter speed/result round trip. Record timings,
+  screenshot and console on failure. This does not verify firmware/menu boot or O2.
+
+### C3b Firmware boot and automatic dashboard acceptance — `todo`
+Depends on: C3a, O2.
+- Boot unchanged ISO through UEFI/GRUB, reach the automatic dashboard, measure
+  first-boot readiness and verify startup reuse. Keep physical acceptance separate.
 
 ### C4 Release publishing — `todo`
 Depends on: C2, C3.
