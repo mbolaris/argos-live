@@ -280,7 +280,7 @@ Depends on: MD4b.
   fixed native endpoint, benchmarks and immutable-starter regression passed
   ([run](https://github.com/mbolaris/argos-live/actions/runs/37232807741)).
 
-### O2b Owned native gateway and private startup diagnostics — `in progress`
+### O2b Owned native gateway and private startup diagnostics — `done ([PR #40](https://github.com/mbolaris/argos-live/pull/40))`
 Depends on: O1, O2a.
 - Reserve the reviewed local/token gateway endpoint; never adopt or kill an
   unrelated listener. Verify the pinned host version and require the listening
@@ -293,6 +293,10 @@ Depends on: O1, O2a.
   Native pinned gateway must pass authenticated health, UI document, competing
   launch refusal and listener shutdown. This is not model-reply or browser-chat
   acceptance; automatic dashboard login wiring remains O2.
+- Evidence: Linux process tests and native OpenClaw 2026.9.8 gateway health/UI/
+  shutdown passed [37236247571](https://github.com/mbolaris/argos-live/actions/runs/37236247571).
+  Ollama 0.35.1 supervisor regression also passed the real CPU onboarding and
+  immutable starter checks [37236247586](https://github.com/mbolaris/argos-live/actions/runs/37236247586).
 
 ### O3 Offer persistence later — `todo`
 Depends on: W2.
