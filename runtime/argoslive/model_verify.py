@@ -70,6 +70,8 @@ def verify_blob(path, item, cancel=None, progress=None):
             count += len(chunk)
             if progress:
                 progress(count)
+        if os.name != 'nt':
+            os.fsync(stream.fileno())
     if 'sha256:' + digest.hexdigest() != item['digest']:
         raise ValueError('Artifact checksum mismatch')
 
@@ -113,3 +115,10 @@ def publish(stage, target, entry, cancel=None):
         # Link the already fsynced verified raw manifest, never replace a tag.
         os.link(manifest_path(stage, entry['tag']), destination)
     verify(target, entry, cancel)
+    if os.name != 'nt':
+        for path in (blobs, destination.parent):
+            fd = os.open(path, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)

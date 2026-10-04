@@ -55,6 +55,9 @@ class OwnedTests(unittest.TestCase):
                 self.assertEqual(env['OLLAMA_MODELS'], str(self.root))
                 self.assertEqual(env['OLLAMA_NOPRUNE'], '1')
                 self.assertEqual(env['OLLAMA_NO_CLOUD'], '1')
+                with self.assertRaises(ValueError):
+                    with owned(self.root, executable=self.binary, timeout=3):
+                        self.fail('A second daemon acquired the same store lease')
                 raise ValueError('fixture body')
         self.assertTrue(self.stopped(pid))
 

@@ -2,7 +2,8 @@
 
 Internal API: the caller supplies a context manager owning an isolated backend.
 It must stop all server-side writes before __exit__ returns (also on errors).
-No CLI or production daemon adapter is exposed until MD4b verifies this contract.
+model_onboarding supplies the verified CLI/daemon adapter; run() below remains
+the original internal download-only API and never marks a model ready.
 """
 from collections import deque
 from contextlib import contextmanager
