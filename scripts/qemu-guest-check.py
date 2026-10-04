@@ -72,6 +72,10 @@ def main():
         if not status['ollama']['reachable']:
             raise ValueError('Dashboard did not report the model service')
         dashboard_seconds = time.monotonic() - started
+        env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
+        stage('firefox')
+        # Test-only profile and loopback driver; fail before slow TCG inference.
+        browser = ready_firefox(env, base + '/?token=' + token)
         stage('cpu-inference')
         from argoslive import bench_speed
         from argoslive.ollama import Client
@@ -90,11 +94,6 @@ def main():
         store.save(result)
         if store.load(result['id']) != result:
             raise ValueError('Guest benchmark result did not round-trip')
-        env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
-        stage('firefox')
-        # Helper is prepended by the host. Its test-only profile, kiosk and
-        # loopback debugger do not change ordinary distro browser startup.
-        browser = ready_firefox(env, base + '/?token=' + token)
         print('ARGOS_C3_RESULT ' + json.dumps({'schema': 'argos-qemu-smoke/1',
               'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
               'desktop_wait_seconds': desktop_seconds, 'dashboard_seconds': dashboard_seconds,

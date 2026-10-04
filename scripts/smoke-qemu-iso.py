@@ -194,7 +194,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
                         payload_next += 1
                         payload_sent = payload_next == len(guest)
                         tail = ''
-                    if 'ARGOS_C3_FAIL ' in tail:
+                    if re.search(r'ARGOS_C3_FAIL [A-Za-z]+\r?\n', tail):
                         raise ValueError('Guest acceptance failed; see console artifact')
                     result = guest_result(tail, setup_mode=setup_mode)
                     if result is not None:
@@ -208,6 +208,11 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
                         return result
                 raise ValueError('QEMU acceptance timed out; see console artifact')
         finally:
+            if qmp.exists() and not (output / 'desktop.ppm').exists():
+                try:
+                    screenshot(qmp, output / 'desktop.ppm')
+                except (OSError, ValueError):
+                    pass  # Preserve the original failure and console evidence.
             process.terminate()
             try:
                 process.wait(timeout=10)

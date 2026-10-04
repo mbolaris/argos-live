@@ -58,7 +58,8 @@ Timings and a QEMU screen dump accompany the console. A private host UNIX-socket
 VNC display initializes the capture path without a LAN listener. The guest's
 test-only Firefox profile uses its built-in loopback Marionette driver to wait
 for real hardware/capability/catalog cards and a completed refresh. Kiosk mode
-hides the session URL before page JavaScript removes its token. Source is sent
+hides the session URL; the test driver strips its query after the page has captured
+the token. This is test-only redaction, not ordinary browser startup behavior. Source is sent
 in acknowledged, hash-checked serial chunks; credentials are never printed.
 Blank/placeholder screenshots fail acceptance, and the captured desktop still
 requires visual review. See Mozilla's [Marionette protocol](https://firefox-source-docs.mozilla.org/remote/marionette/Protocol.html).
