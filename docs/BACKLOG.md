@@ -141,13 +141,13 @@ Depends on: B2, MD1, MD2.
 - Requires a caller-owned backend context that stops server-side writes before the lock releases. No production adapter/CLI/autostart yet; successful HTTP pulls end at `downloaded_needs_verification`, never ready.
 - Evidence: authored loopback fixture tests cover interrupted streams, explicit resume, controls, lock lifetime, stale-state recovery, space/corruption and identity/progress failures. See [MODEL-PULL-JOBS.md](MODEL-PULL-JOBS.md). Real Ollama resume and physical acceptance remain pending.
 
-### MD4b Owned daemon, integrity and load acceptance — `implemented (PR pending)`
+### MD4b Owned daemon, integrity and load acceptance — `in progress ([PR #17](https://github.com/mbolaris/argos-live/pull/17))`
 Depends on: MD4a.
 - Implement/test the pinned isolated Ollama adapter, shutdown on controls/errors and retry/reboot CLI wiring. Keep one active pull per selected store and preserve the starter service.
 - Check registry revision and downloaded manifest/artifact integrity against MD1; show verification and load/test as separate steps before publication. Measure a fixed first reply and unload afterward.
 - Accept: fake-server/daemon tests cover cancellation cleanup, changed tags, corrupt post-pull artifacts and failed loading; real pinned Ollama smoke proves partial resume, verification and reply. Physical reboot/download acceptance remains separately required.
 - Implementation: Linux-supervised private Ollama listener/version, isolated staging with pruning/cloud disabled, registry/local manifest and full blob SHA checks, fixed 2048-context/32-token reply test, unload/shutdown before atomic blob/manifest publication without replacing existing tags. `argos pull init/create/status/run/pause/cancel/retry` exposes durable JSON progress; explicit stopped-assistant acknowledgement protects load testing. Model assignment, starter config and private profiles stay unchanged. Hard-link support is required and probed before downloading. See [MODEL-PULL-JOBS.md](MODEL-PULL-JOBS.md).
-- Evidence: 126 Windows tests passed (seven platform skips); Linux process/shell/Node CI and real checksum-pinned Ollama network smoke passed. The smoke retained seven partial files, resumed qwen3:0.6b, verified its exact pinned manifest/artifacts and generated a CPU reply ([run](https://github.com/mbolaris/argos-live/actions/runs/37181878186)). Final supervisor-held store-lease hardening is undergoing CI. Full benchmark, vision/tool capability and physical Live/GPU acceptance remain separate.
+- Evidence: 126 Windows tests passed (seven platform skips); Linux process/shell/Node CI and real checksum-pinned Ollama network smoke passed. The smoke retained seven partial files, resumed qwen3:0.6b, verified its exact pinned manifest/artifacts and generated a CPU reply. Final supervisor-held store-lease/fsync hardening also passed Linux tests and the real smoke ([run](https://github.com/mbolaris/argos-live/actions/runs/37181979824)). Full benchmark, vision/tool capability and physical Live/GPU acceptance remain separate.
 
 ## E3 Questionless first boot (M2)
 
