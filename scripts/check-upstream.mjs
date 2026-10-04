@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 export function parsePins(text) {
-  return Object.fromEntries(text.split(/\r?\n/).filter(l=>/^[A-Z_]+=/.test(l)).map(l=>{
+  return Object.fromEntries(text.split(/\r?\n/).filter(l=>/^[A-Z][A-Z_0-9]*=/.test(l)).map(l=>{
     const at=l.indexOf('='); return [l.slice(0,at),l.slice(at+1)];
   }));
 }

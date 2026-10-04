@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parsePins,stableRelease,sha256Asset,patchRelease} from '../scripts/check-upstream.mjs';
 test('pins retain base64 padding and ignore comments',()=>{
-  assert.deepEqual(parsePins('# comment\nOPENCLAW_INTEGRITY=sha512-abc==\r\n'),{OPENCLAW_INTEGRITY:'sha512-abc=='});
+  assert.deepEqual(parsePins('# comment\nOPENCLAW_INTEGRITY=sha512-abc==\r\nNODE_SHA256=abc\n'),
+    {OPENCLAW_INTEGRITY:'sha512-abc==',NODE_SHA256:'abc'});
 });
 test('unstable and draft releases cannot be promoted',()=>{
   for(const r of [{tag_name:'v1.2.3-beta.1'},{tag_name:'v1.2.3',prerelease:true},{tag_name:'v1.2.3',draft:true}])

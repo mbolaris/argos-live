@@ -421,10 +421,26 @@ Depends on: C2, C3.
 - Document for users that Google Drive shows a "can't scan for viruses" confirmation for large files and may temporarily limit downloads of popular files, and that the GitHub checksum is the authority.
 - Accept: a test tag publishes to a test Drive folder and a draft GitHub release; downloaded bytes match `SHA256SUMS`.
 
-### C5 Candidate bump PRs from upstream discovery — `todo`
+### C5 Candidate bump PRs from upstream discovery — `split into C5a and C5b`
 Depends on: C2.
 - Extend `upstream.yml` to open a PR updating `versions.env` and the runtime lock when discovery finds new stable versions, triggering C2 and C3 on that PR. Promotion still requires the release process.
 - Accept: dry run on a fork or test branch produces the expected PR diff.
+
+### C5a Verified candidate preparation — `in progress`
+Depends on: C2.
+- Prepare stable public runtime pins in a fresh artifact without changing accepted
+  files. Reject stale reports, downgrades, Node major changes, checksum drift and
+  unrelated Debian/driver changes. Regenerate the lock with pinned Node and inert
+  addon metadata from the SHA512-verified host package; attach npm audit findings.
+- Accept: unit fixtures preserve accepted bytes and a hosted dry run produces the
+  candidate artifact. See [RUNTIME-CANDIDATES.md](RUNTIME-CANDIDATES.md).
+
+### C5b Automatic reviewed candidate PR — `todo`
+Depends on: C5a.
+- Open a candidate PR from the verified artifact, synchronize runtime test pins,
+  trigger all compatibility/onboarding/ISO/VM gates and attach audit/exposure
+  review. No automatic release, installed update or owner-profile migration.
+- Accept: a tested candidate PR with exact provenance, artifacts and rollback.
 
 ## E7 Hardware and release hardening (M4)
 
