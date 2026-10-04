@@ -39,8 +39,9 @@ def seccomp():
                instruction(0x06, value=0x80000000), instruction(0x20, value=0),
                instruction(0x35, jf=1, value=0x40000000), instruction(0x06, value=deny)]
     # Linux x86-64 syscall numbers; supported architecture is checked by caller and filter.
-    for number in (41, 42, 53, 56, 57, 58, 101, 155, 161, 165, 166, 272, 298,
-                   308, 321, 425, 426, 427, 428, 429, 430, 431, 432, 433, 435):
+    for number in (41, 42, 53, 56, 57, 58, 101, 155, 161, 165, 166, 248, 249, 250,
+                   272, 298, 304, 308, 310, 311, 321, 323, 425, 426, 427,
+                   428, 429, 430, 431, 432, 433, 435, 438):
         program += [instruction(0x15, jf=1, value=number), instruction(0x06, value=deny)]
     program.append(instruction(0x06, value=0x7fff0000))
     return b''.join(program)
