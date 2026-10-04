@@ -6,6 +6,20 @@ Argos is a generic live image plus an optional private profile. Capture source c
 
 The owner narrowed the default transfer on October 3: transfer personality/identity documents and reviewed skills only. Live owns model downloads, providers, permissions and runtime configuration. The wider exports and native-backup workflows below remain optional reference/recovery tools, not a request to restore Windows configuration. Exclude memory/history, credentials, source tool grants and Windows helpers from this default path. Resolve model preferences separately and download artifacts directly into Live's dedicated model directory. See [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md) for onboarding progress and measured performance acceptance.
 
+## Transfer contract
+
+The first supported workflow is a deliberate one-way transfer of personalities and reviewed skills. Windows is the source for these documents; Live owns its runtime configuration and downloads its own models into an owner-selected dedicated data location. Bidirectional merge is a later feature, with explicit conflict handling. See [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md).
+
+1. Locate the actual native Windows or WSL OpenClaw installation and inventory its version, agent roster, model/provider settings, workspaces, tools, skills/plugins and bindings.
+2. Export a narrow allowlist of identity/personality documents and selected skill definitions. Existing wider archives remain private reference material. Exclude memory/history, credentials, provider configuration, channel bindings, Windows helpers and source permission settings from the default transfer.
+3. Verify the archive and stage documents as inert data in a fresh encrypted-persistence directory. Never extract a supplied archive over the active home directory. A native full backup is an optional separate recovery workflow, not the default personality transfer.
+4. Preview the exact document selection and independent Linux paths. Review each skill's capabilities and dependencies; port required helpers separately. Configure access locally rather than inheriting source global/per-agent grants.
+5. Retain the target gateway token, loopback binding, trusted SSH identity and persistence/storage configuration. Resolve model source revisions, hashes and projectors, then download them directly from Live into its own model directory. Source weights stay untouched. Credentials and history/memory remain separate explicit choices.
+6. Validate the staged config against the target's installed OpenClaw schema. Back up the active profile before activation, keep sync conflicts visible, and support restoration of the previous version. Do not execute imported setup scripts as part of archive inspection.
+7. Verify each agent's identity, selected model, tools, conversation and independent state. Reboot once for persistence/recall acceptance, without rewriting the USB for profile changes.
+
+BACKLOG.md items P1–P5 implement this contract as a generic personality pack (`argos-pack/1`); P7 is the owner's physical acceptance.
+
 ## Two distinct export types
 
 **Configuration-only ZIP:** A local source agent can capture a redacted roster, personas, model/provider references and declarative settings. Credentials and executable helpers are excluded. History, memories and authentication are not implied. Inspect the exact manifest and exclusions; archive checks do not prove complete recovery or Linux compatibility.
