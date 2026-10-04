@@ -28,6 +28,12 @@ def main():
             raise ValueError('Desktop session did not start')
         time.sleep(2)
     desktop_seconds = time.monotonic() - started
+    env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
+    # Long TCG inference is unattended. Test-only anti-idle settings prevent
+    # DPMS from replacing the captured VGA surface with QEMU's placeholder.
+    for command in (['xset', 's', 'off'], ['xset', '-dpms'], ['xset', 's', 'noblank']):
+        subprocess.run(command, env=env, check=True, timeout=15,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if subprocess.check_output(['ip', 'route'], text=True).strip():
         raise ValueError('Test guest unexpectedly has a network route')
     # Installed executable has no .py suffix; use an explicit source loader.
@@ -72,7 +78,6 @@ def main():
         if not status['ollama']['reachable']:
             raise ValueError('Dashboard did not report the model service')
         dashboard_seconds = time.monotonic() - started
-        env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
         stage('firefox')
         # Test-only profile and loopback driver; fail before slow TCG inference.
         browser = ready_firefox(env, base + '/?token=' + token)

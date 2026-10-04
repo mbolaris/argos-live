@@ -172,6 +172,12 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
                         if stage not in reported_stages:
                             reported_stages.add(stage)
                             print(f'Guest stage: {stage}', flush=True)
+                    if 'cpu-inference' in reported_stages and not (output / 'desktop.ppm').exists():
+                        # Native DOM readiness plus paint delay precede this
+                        # stage. Capture startup, not the idle desktop after a
+                        # several-minute CPU emulation workload.
+                        screenshot(qmp, output / 'desktop.ppm')
+                        graphical_frame(output / 'desktop.ppm')
                     if time.monotonic() >= next_heartbeat:
                         print(f'Guest running: {int(time.monotonic() - started)} seconds; '
                               f'payload started: {payload_sent}', flush=True)
@@ -201,8 +207,10 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
                                       boot_method='direct kernel/initrd from original desktop entry; serial appended',
                                       firmware_boot_verified=False)
-                        screenshot(qmp, output / 'desktop.ppm')
+                        if not (output / 'desktop.ppm').exists():
+                            raise ValueError('Native dashboard startup screenshot missing')
                         graphical_frame(output / 'desktop.ppm')
+                        result['screenshot_stage'] = 'native Firefox dashboard before CPU benchmark'
                         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
                         print(json.dumps(result, indent=2))
                         return result

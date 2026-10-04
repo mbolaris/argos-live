@@ -63,6 +63,10 @@ the token. This is test-only redaction, not ordinary browser startup behavior. S
 in acknowledged, hash-checked serial chunks; credentials are never printed.
 Blank/placeholder screenshots fail acceptance, and the captured desktop still
 requires visual review. See Mozilla's [Marionette protocol](https://firefox-source-docs.mozilla.org/remote/marionette/Protocol.html).
+The disposable guest disables X screensaver/DPMS and captures the dashboard once
+its native DOM is ready, before the long CPU-emulated benchmark. This avoids
+QEMU's VGA placeholder after unattended display power-off; ordinary distro idle
+and lock behavior is unchanged and remains a separate check.
 VM timing is not physical hardware performance.
 The current test starts setup/services explicitly; automatic O2 startup and actual
 UEFI/GRUB selection remain C3b. Failure never authorizes a USB rewrite.
