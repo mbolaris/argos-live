@@ -62,7 +62,7 @@ Depends on: F1.
 
 ## E1 Benchmarks (M1)
 
-### B1 Hardware probe — `todo`
+### B1 Hardware probe — `in progress (PR pending)`
 Depends on: F2.
 - `hw.py` returns CPU model, cores/threads, RAM total/available, GPU list (name, VRAM total/used, driver) from `nvidia-smi --query-gpu ... --format=csv`, AMD/Intel GPUs from `lspci` names only, disks and free space for candidate model directories, kernel, Secure Boot state if readable.
 - Missing tools or files produce `null`s, not exceptions.
