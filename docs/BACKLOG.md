@@ -49,7 +49,7 @@ Depends on: none.
 - Add `.github/workflows/tests.yml` running `bash scripts/check.sh` and the Node upstream tests on `ubuntu-latest` for every push and PR.
 - Accept: `scripts/check.sh` passes on a clean Ubuntu runner without `python3-tk`; CI job is green.
 
-### F2 Runtime package skeleton and install path — `todo`
+### F2 Runtime package skeleton and install path — `in progress (PR pending)`
 Depends on: F1.
 - Create `runtime/argoslive/__init__.py` with a version string, and teach `runtime/argos.py` to import the package from its source checkout or from `/usr/local/lib/argos-live`.
 - Update `scripts/build.sh` and `scripts/sync-build-runtime.sh` to install the package directory into the image.
