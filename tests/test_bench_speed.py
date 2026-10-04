@@ -125,7 +125,7 @@ class BenchTests(unittest.TestCase):
             with patch.object(bench, 'Client', return_value=Backend()), patch.object(bench.hw, 'snapshot'):
                 # Pass real public fixture hardware because run's default is bound at definition.
                 original = bench.run
-                with patch.object(bench, 'run', side_effect=lambda client, model: original(client, model, hardware=lambda: {})):
+                with patch.object(bench, 'run', side_effect=lambda client, model, **kw: original(client, model, hardware=lambda: {}, **kw)):
                     with patch('builtins.print'):
                         bench.main(['--model', 'fixture:latest', '--results-dir', tmp, '--json'])
             files = list(Path(tmp).glob('*.json'))
@@ -133,3 +133,12 @@ class BenchTests(unittest.TestCase):
             result = json.loads(files[0].read_text())
             self.assertEqual(result['kind'], 'speed')
             self.assertEqual(result['suite_version'], 'speed/1')
+
+    def test_short_only_selection_is_recorded_and_validated(self):
+        result = bench.run(Backend(previous=False), 'fixture:latest', sizes=['short'], hardware=lambda: {})
+        self.assertEqual(result['settings']['prompt_sizes'], ['short'])
+        self.assertEqual(len(result['prompts']), 1)
+        self.assertEqual(len(result['prompts'][0]['runs']), 3)
+        for sizes in ([], ['short', 'short'], ['invalid']):
+            with self.assertRaises(ValueError):
+                bench.run(Backend(), 'fixture:latest', sizes=sizes)

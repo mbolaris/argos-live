@@ -41,12 +41,14 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     if result['state'] != 'ready':
         raise SystemExit('Real resume/verification/reply failed: ' + json.dumps(result))
     with backend(models) as client:
+        client.timeout = 120  # Full CPU prefill can exceed the general API timeout.
         client.generate(result['tag'], '', options={'num_ctx': 2048}, keep_alive='5m')
-        speed = speed_benchmark(client, result['tag'])
+        speed = speed_benchmark(client, result['tag'], sizes=['short'])
         loaded = client.ps()['models']
         if not any(m.get('name') == result['tag'] and m.get('context_length') == 2048 for m in loaded):
             raise SystemExit('Benchmark did not restore the previously loaded model/context')
         client.unload(result['tag'])
+        full_speed = speed_benchmark(client, result['tag'])
     write_json(root / 'speed.json', speed)
     if json.loads((root / 'speed.json').read_text())['schema'] != 'argos-bench/1':
         raise SystemExit('Benchmark result file did not round-trip')
@@ -58,6 +60,7 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
                       'reply_test': result['reply_test'],
                       'speed_benchmark_seconds': speed['elapsed_seconds'],
                       'speed_model_restored': speed['restoration']['succeeded'],
+                      'full_speed_benchmark_seconds': full_speed['elapsed_seconds'],
                       'speed_summaries': [{'size': p['size'], 'summary': p.get('summary'),
-                                            'skipped': p['skipped']} for p in speed['prompts']],
+                                            'skipped': p['skipped']} for p in full_speed['prompts']],
                       'physical_acceptance': False}, indent=2))
