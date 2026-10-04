@@ -46,16 +46,20 @@ def owns_port(pid, port):
 
 
 @contextmanager
-def owned(target, *, executable=None, timeout=60, lease_store=None):
+def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, context_tokens=2048):
     if sys.platform != 'linux':
         raise ValueError('Owned Ollama onboarding requires Linux')
+    if type(port) is not int or not 0 <= port <= 65535:
+        raise ValueError('Owned Ollama requires an integer loopback port')
+    if type(context_tokens) is not int or not 256 <= context_tokens <= 1048576:
+        raise ValueError('Owned Ollama context is outside the supported bounds')
     target = safe_local(target)
     executable = executable or shutil.which('ollama')
     if not executable:
         raise ValueError('Pinned Ollama executable is unavailable')
     executable = str(safe_local(executable))
     with socket.socket() as reservation:
-        reservation.bind(('127.0.0.1', 0))
+        reservation.bind(('127.0.0.1', port))
         port = reservation.getsockname()[1]
     env = dict(os.environ)
     # Do not pass custom upstream/auth/proxy/GPU overrides into public pulls.
@@ -63,7 +67,7 @@ def owned(target, *, executable=None, timeout=60, lease_store=None):
         if key.startswith('OLLAMA_') or key.lower().endswith('_proxy'):
             env.pop(key)
     env.update(OLLAMA_HOST=f'127.0.0.1:{port}', OLLAMA_MODELS=str(target),
-               OLLAMA_NO_CLOUD='1', OLLAMA_NOPRUNE='1', OLLAMA_CONTEXT_LENGTH='2048',
+               OLLAMA_NO_CLOUD='1', OLLAMA_NOPRUNE='1', OLLAMA_CONTEXT_LENGTH=str(context_tokens),
                OLLAMA_MAX_LOADED_MODELS='1', OLLAMA_NUM_PARALLEL='1')
     env['PYTHONPATH'] = str(Path(__file__).resolve().parents[1])
     store = (safe_local(lease_store) if lease_store is not None else
