@@ -50,7 +50,9 @@ async function refreshStartup() {
     document.getElementById('stop-assistant').disabled = !value.can_stop;
     const metrics = value.metrics;
     document.getElementById('startup-metrics').textContent = metrics && value.model_reply_verified ?
-      `Measured model reply · ${metrics.backend.mode || 'Placement unknown'} · ` +
+      'Warmup reply · ' +
+      (Number.isInteger(metrics.raw?.eval_count) && metrics.raw.eval_count > 0 ? `${metrics.raw.eval_count} output tokens · ` : '') +
+      `${metrics.backend.mode || 'Placement unknown'} · ` +
       (Number.isFinite(metrics.generation_tokens_per_second) ? `${metrics.generation_tokens_per_second.toFixed(1)} tokens/s` : 'Generation rate unavailable') +
       (Number.isFinite(metrics.time_to_first_token_seconds) ? ` · First token ${metrics.time_to_first_token_seconds.toFixed(2)} s` : '') :
       'The model check runs locally. Optional capabilities have their own setup and tests.';
