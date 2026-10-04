@@ -50,7 +50,7 @@ Generation uses context 2048, seed 1, temperature 0 and a 128-token limit; think
 is disabled only when the model advertises that capability. Deterministic settings
 do not guarantee identical output across hardware or upstream runtime revisions.
 
-Each item saves bounded raw output, score, format outcome, measured latency,
+Each item saves raw output bounded to 8 KiB UTF-8 (with a truncation flag), score, format outcome, measured latency,
 backend placement and reported token/timing fields. Progress reports completed
 items, elapsed time and ETA from measured completed-item time; no ETA appears
 before the first item completes. No answer is retried or judged by another model.
