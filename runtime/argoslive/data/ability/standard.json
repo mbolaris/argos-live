@@ -1,0 +1,1006 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "standard",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "math-01",
+      "prompt": "Calculate 10 * 3 - 1. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "29"
+      },
+      "reference": "29",
+      "wrong": "30",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-02",
+      "prompt": "Calculate 17 * 4 - 2. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "66"
+      },
+      "reference": "66",
+      "wrong": "67",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-03",
+      "prompt": "Calculate 24 * 5 - 3. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "117"
+      },
+      "reference": "117",
+      "wrong": "118",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-04",
+      "prompt": "Calculate 31 * 6 - 4. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "182"
+      },
+      "reference": "182",
+      "wrong": "183",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-05",
+      "prompt": "Calculate 38 * 7 - 5. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "261"
+      },
+      "reference": "261",
+      "wrong": "262",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-06",
+      "prompt": "Calculate 45 * 8 - 6. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "354"
+      },
+      "reference": "354",
+      "wrong": "355",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-07",
+      "prompt": "Calculate 52 * 9 - 7. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "461"
+      },
+      "reference": "461",
+      "wrong": "462",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-08",
+      "prompt": "Calculate 59 * 10 - 8. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "582"
+      },
+      "reference": "582",
+      "wrong": "583",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-09",
+      "prompt": "Calculate 66 * 11 - 9. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "717"
+      },
+      "reference": "717",
+      "wrong": "718",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-10",
+      "prompt": "Calculate 73 * 12 - 10. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "866"
+      },
+      "reference": "866",
+      "wrong": "867",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-11",
+      "prompt": "Calculate 80 * 13 - 11. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "1029"
+      },
+      "reference": "1029",
+      "wrong": "1030",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-12",
+      "prompt": "Calculate 87 * 14 - 12. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "1206"
+      },
+      "reference": "1206",
+      "wrong": "1207",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-13",
+      "prompt": "Calculate 94 * 15 - 13. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "1397"
+      },
+      "reference": "1397",
+      "wrong": "1398",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "math-14",
+      "prompt": "Calculate 101 * 16 - 14. Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "1602"
+      },
+      "reference": "1602",
+      "wrong": "1603",
+      "malformed": "No numeric answer."
+    },
+    {
+      "id": "choice-01",
+      "prompt": "Which number is prime?\nA. 15\nB. 17\nC. 21\nD. 27\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-02",
+      "prompt": "Which planet is closest to the Sun?\nA. Earth\nB. Mars\nC. Mercury\nD. Venus\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-03",
+      "prompt": "What is binary 10 in decimal?\nA. 1\nB. 2\nC. 10\nD. 16\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-04",
+      "prompt": "Which is the chemical formula for water?\nA. CO2\nB. O2\nC. H2O\nD. NaCl\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-05",
+      "prompt": "Which shape has three sides?\nA. Triangle\nB. Square\nC. Pentagon\nD. Hexagon\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "B",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-06",
+      "prompt": "What is hexadecimal F in decimal?\nA. 12\nB. 13\nC. 14\nD. 15\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-07",
+      "prompt": "Which ocean is largest by area?\nA. Arctic\nB. Indian\nC. Atlantic\nD. Pacific\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-08",
+      "prompt": "Which mammal lays eggs?\nA. Cat\nB. Platypus\nC. Horse\nD. Whale\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-09",
+      "prompt": "Which unit measures electric current?\nA. Ampere\nB. Metre\nC. Kelvin\nD. Second\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "B",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-10",
+      "prompt": "What is the chemical symbol for oxygen?\nA. Ox\nB. Og\nC. O\nD. On\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-11",
+      "prompt": "Which pair contains exactly the binary digits?\nA. 1 and 2\nB. 0 and 1\nC. 0 and 2\nD. 2 and 3\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-12",
+      "prompt": "Which word comes first alphabetically?\nA. Pear\nB. Plum\nC. Peach\nD. Apple\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-13",
+      "prompt": "Which number is divisible by both 2 and 3?\nA. 14\nB. 15\nC. 18\nD. 25\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "choice-14",
+      "prompt": "Which data structure follows first-in first-out order?\nA. Queue\nB. Stack\nC. Set\nD. Tree\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "B",
+      "malformed": "Unknown"
+    },
+    {
+      "id": "instruction-01",
+      "prompt": "Write one line of two to five words including the whole word \"ready\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "ready"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "ready is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-02",
+      "prompt": "Write one line of two to five words including the whole word \"local\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "local"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "LOCAL IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-03",
+      "prompt": "Write one line of two to five words including the whole word \"private\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "private"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-04",
+      "prompt": "Write one line of two to five words including the whole word \"model\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "model"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "MODEL IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-05",
+      "prompt": "Write one line of two to five words including the whole word \"memory\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "memory"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "memory is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-06",
+      "prompt": "Write one line of two to five words including the whole word \"voice\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "voice"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "VOICE IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-07",
+      "prompt": "Write one line of two to five words including the whole word \"image\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "image"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "image is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-08",
+      "prompt": "Write one line of two to five words including the whole word \"browser\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "browser"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "BROWSER IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-09",
+      "prompt": "Write one line of two to five words including the whole word \"files\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "files"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "files is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-10",
+      "prompt": "Write one line of two to five words including the whole word \"network\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "network"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "NETWORK IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-11",
+      "prompt": "Write one line of two to five words including the whole word \"storage\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "storage"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "storage is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-12",
+      "prompt": "Write one line of two to five words including the whole word \"assistant\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "assistant"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "ASSISTANT IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-13",
+      "prompt": "Write one line of two to five words including the whole word \"offline\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "offline"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "offline is ready",
+      "wrong": "wrong answer",
+      "malformed": ""
+    },
+    {
+      "id": "instruction-14",
+      "prompt": "Write one line of two to five words including the whole word \"workspace\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 2,
+        "max_words": 5,
+        "keywords": [
+          "workspace"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "WORKSPACE IS READY",
+      "wrong": "WRONG ANSWER",
+      "malformed": ""
+    },
+    {
+      "id": "json-01",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-1\", count=the sum of 1 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-1",
+          "count": 4,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-1\", \"count\": 4, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-1\", \"count\": 5, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-02",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-2\", count=the sum of 2 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-2",
+          "count": 5,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-2\", \"count\": 5, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-2\", \"count\": 6, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-03",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-3\", count=the sum of 3 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-3",
+          "count": 6,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-3\", \"count\": 6, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-3\", \"count\": 7, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-04",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-4\", count=the sum of 4 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-4",
+          "count": 7,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-4\", \"count\": 7, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-4\", \"count\": 8, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-05",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-5\", count=the sum of 5 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-5",
+          "count": 8,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-5\", \"count\": 8, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-5\", \"count\": 9, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-06",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-6\", count=the sum of 6 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-6",
+          "count": 9,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-6\", \"count\": 9, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-6\", \"count\": 10, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-07",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-7\", count=the sum of 7 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-7",
+          "count": 10,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-7\", \"count\": 10, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-7\", \"count\": 11, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-08",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-8\", count=the sum of 8 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-8",
+          "count": 11,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-8\", \"count\": 11, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-8\", \"count\": 12, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-09",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-9\", count=the sum of 9 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-9",
+          "count": 12,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-9\", \"count\": 12, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-9\", \"count\": 13, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-10",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-10\", count=the sum of 10 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-10",
+          "count": 13,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-10\", \"count\": 13, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-10\", \"count\": 14, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-11",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-11\", count=the sum of 11 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-11",
+          "count": 14,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-11\", \"count\": 14, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-11\", \"count\": 15, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-12",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-12\", count=the sum of 12 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-12",
+          "count": 15,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-12\", \"count\": 15, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-12\", \"count\": 16, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-13",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-13\", count=the sum of 13 and 3, enabled=false. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-13",
+          "count": 16,
+          "enabled": false
+        }
+      },
+      "reference": "{\"name\": \"item-13\", \"count\": 16, \"enabled\": false}",
+      "wrong": "{\"name\": \"item-13\", \"count\": 17, \"enabled\": false}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "json-14",
+      "prompt": "Return only JSON with exactly three keys: name=\"item-14\", count=the sum of 14 and 3, enabled=true. Use a string, integer and boolean respectively.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "name": "item-14",
+          "count": 17,
+          "enabled": true
+        }
+      },
+      "reference": "{\"name\": \"item-14\", \"count\": 17, \"enabled\": true}",
+      "wrong": "{\"name\": \"item-14\", \"count\": 18, \"enabled\": true}",
+      "malformed": "{invalid}"
+    },
+    {
+      "id": "tool-01",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=1 and b=6. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 1,
+            "b": 6
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 1, \"b\": 6}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 1, \"b\": 6}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-02",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=2 and b=7. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 2,
+            "b": 7
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 2, \"b\": 7}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 2, \"b\": 7}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-03",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=3 and b=8. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 3,
+            "b": 8
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 3, \"b\": 8}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 3, \"b\": 8}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-04",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=4 and b=9. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 4,
+            "b": 9
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 4, \"b\": 9}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 4, \"b\": 9}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-05",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=5 and b=10. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 5,
+            "b": 10
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 5, \"b\": 10}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 5, \"b\": 10}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-06",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=6 and b=11. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 6,
+            "b": 11
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 6, \"b\": 11}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 6, \"b\": 11}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-07",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=7 and b=12. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 7,
+            "b": 12
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 7, \"b\": 12}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 7, \"b\": 12}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-08",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=8 and b=13. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 8,
+            "b": 13
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 8, \"b\": 13}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 8, \"b\": 13}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-09",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=9 and b=14. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 9,
+            "b": 14
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 9, \"b\": 14}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 9, \"b\": 14}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-10",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=10 and b=15. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 10,
+            "b": 15
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 10, \"b\": 15}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 10, \"b\": 15}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-11",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=11 and b=16. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 11,
+            "b": 16
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 11, \"b\": 16}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 11, \"b\": 16}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-12",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=12 and b=17. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 12,
+            "b": 17
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 12, \"b\": 17}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 12, \"b\": 17}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-13",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=13 and b=18. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 13,
+            "b": 18
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 13, \"b\": 18}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 13, \"b\": 18}}",
+      "malformed": "Run add_numbers now"
+    },
+    {
+      "id": "tool-14",
+      "prompt": "Format a proposed tool call as JSON only: name \"add_numbers\", arguments containing integer a=14 and b=19. Do not run any tool. Use exactly name and arguments at the top level.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "add_numbers",
+          "arguments": {
+            "a": 14,
+            "b": 19
+          }
+        }
+      },
+      "reference": "{\"name\": \"add_numbers\", \"arguments\": {\"a\": 14, \"b\": 19}}",
+      "wrong": "{\"name\": \"subtract_numbers\", \"arguments\": {\"a\": 14, \"b\": 19}}",
+      "malformed": "Run add_numbers now"
+    }
+  ]
+}

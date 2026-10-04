@@ -84,11 +84,29 @@ Depends on: B1, B2.
 - Implementation: `argos bench speed --model TAG [--json] [--ollama URL]` runs without setup against an installed exact model; private result files include hardware, revision/settings, raw backend counts/timings, per-size warm-up/three-run medians/ranges and conservative placement. Explicit unload separates the initial load sample; finally unload/previous-model reload restores its advertised context. Unknown/undersized contexts skip with reasons. See [SPEED-BENCHMARK.md](SPEED-BENCHMARK.md). Full B6 results management and remaining B7 commands are still pending.
 - Evidence: eight fixture tests pass for statistics, cold/warm separation, context skips, unknown fields, placement, restoration on error and CLI output. The first real CPU full run exceeded the general 30-second API timeout during long prefill. Benchmark reads now use a bounded 120-second timeout. The short onboarding smoke is gated under 60 seconds; the full three-size run is tested separately. 134 Windows tests passed (seven platform skips), Linux Python/shell/Node CI passed, and real pinned Ollama CPU acceptance passed: short 9.87 seconds, full 177.89 seconds, with model/context restoration and result-file round trip ([run](https://github.com/mbolaris/argos-live/actions/runs/37183286399)). Long CPU requests use an explicit 600-second bound in the lab; CLI --timeout permits 1–600 seconds (default 120). This clarifies the quick smoke target without claiming that a full CPU lab run finishes under 60 seconds. Physical GPU acceptance remains separate.
 
-### B4 Ability datasets and scorers — `todo`
+### B4 Ability datasets and scorers — `split into B4a and B4b`
 Depends on: F2. Can run in parallel with B1–B3.
 - Vendored `quick` and `standard` suites per the dataset rules above, with licence notices added to the image's notices.
 - Scorers: numeric answer extraction tolerant of formatting, multiple-choice letter extraction, instruction-following checks (length, format, keywords), JSON schema validation, tool-call shape validation, and code tasks run in a subprocess with timeout, no network, and a temporary directory.
 - Accept: every item has a passing reference answer and a failing wrong answer in unit tests; format failures and wrong answers are distinguished; code sandbox enforces timeout and cannot write outside its temporary directory.
+
+### B4a Original suites and nonexecuting scorers — `in progress (PR pending)`
+Depends on: F2.
+- Original versioned MIT-licensed quick (20) and standard (70) suites for numeric,
+  choice, instruction, closed JSON and inert tool-call formatting. Every item has
+  passing, wrong and malformed reference fixtures. Packaged notices and an offline
+  reproducible generator ship with the runtime.
+- Accept: all item fixtures pass, format/wrong outcomes differ, duplicate keys,
+  ambiguous numbers, malformed Unicode, bounds and invalid suites are rejected;
+  installed package contains both suites and their notice. No model or tool is
+  invoked. See [ABILITY-BENCHMARK.md](ABILITY-BENCHMARK.md).
+
+### B4b Code tasks and enforced execution sandbox — `todo`
+Depends on: B4a.
+- Add versioned coding fixtures only with actual OS-enforced filesystem/network
+  isolation and bounded subprocess lifetime. Merely setting cwd to a temporary
+  directory is insufficient. Test timeout, outside-write and network rejection.
+- Code category is explicitly omitted by B4a; full B4 acceptance remains here.
 
 ### B5 Ability runner — `todo`
 Depends on: B2, B4.

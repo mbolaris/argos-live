@@ -73,6 +73,8 @@ class RuntimePackageTests(unittest.TestCase):
             program = ('import sys; sys.path.insert(0, sys.argv[1]); '
                        'import argoslive, argoslive.pack_apply, argoslive.catalog, argoslive.addons; '
                        'from argoslive.web.server import ASSETS; '
+                       'from argoslive.ability import load, DATA; '
+                       'assert len(load()["items"]) == 20; assert (DATA / "NOTICE.txt").is_file(); '
                        'assert (ASSETS / "index.html").is_file(); '
                        'argoslive.catalog.load(); argoslive.addons.load(); print(argoslive.__version__)')
             result = subprocess.run([sys.executable, '-c', program, str(target)],
