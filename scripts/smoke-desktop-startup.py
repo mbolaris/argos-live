@@ -139,7 +139,9 @@ def run(cli, ollama, seed):
                 if request('/api/startup')['phase'] != 'ready':
                     raise ValueError('Selected native OpenClaw assistant is not ready')
                 native = runpy.run_path(str(ROOT / 'scripts/smoke-native-chat.py'))
-                native['summary'](native['command'](cli, ['agent', '--local', '--agent', 'main', '--message',
+                # The pinned host rejects --local when this owned gateway runs.
+                # Exercise the live gateway's agent path, not a competing embedded host.
+                native['summary'](native['command'](cli, ['agent', '--agent', 'main', '--message',
                     'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
                     '--timeout', '120', '--json'], native['child_environment'](home), timeout=180))
                 request('/api/startup/stop', 'POST')
@@ -220,7 +222,7 @@ def run(cli, ollama, seed):
         'blocked_warmup_stop_verified': True,
         'native_model_lab_completed': True, 'model_lab_assistant_resumed': True,
         'native_verified_model_selection': True,
-        'native_openclaw_reply_after_starter_reselection': True,
+        'native_openclaw_gateway_reply_after_starter_reselection': True,
         'configuration_unchanged': True, 'weights_copied': False, 'startup_metrics': report['metrics'],
         'browser_conversation_verified': False, 'physical_acceptance': False}
 

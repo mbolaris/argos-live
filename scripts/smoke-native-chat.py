@@ -65,6 +65,7 @@ def command(cli, arguments, env, *, timeout=180):
             text = (stdout + stderr)[-65536:].decode(errors='replace').lower()
             indicators = {name: any(term in text for term in terms) for name, terms in {
                 'session_lock': ('session file locked', 'lock timeout', 'already locked'),
+                'embedded_gateway_conflict': ('a gateway is running for this state directory',),
                 'agent_selection': ('unknown agent', 'agent not found', 'requires --agent'),
                 'invalid_config': ('invalid config', 'config validation'),
                 'model_missing': ('model not found', 'model does not exist'),

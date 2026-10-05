@@ -34,7 +34,7 @@ not establish actual GPU offload, speed, quality or thermal suitability.
 - Browser proxy: review/dismiss/confirm/cancel, current model, responsive layout,
   benchmark comparisons and explicit download acquisition controls.
 - Native pinned Linux: starter reselection through the real owned Ollama and
-  OpenClaw services, then an actual OpenClaw local reply. This is not acceptance
+  OpenClaw services, then an actual OpenClaw gateway reply. This is not acceptance
   of a larger downloaded model or of browser-submitted chat.
 - Fresh image: full checksum/source/manifest verification, offline managed boot
   and visual Firefox review. Physical reboot, encrypted persistence recovery,
