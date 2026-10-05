@@ -332,7 +332,11 @@ def managed_check(started, desktop_seconds):
             if (report['auto_open_chat'] is False and firefox_connected(port)
                     and firefox_control_page_visible()):
                 stable_since = stable_since or time.monotonic()
-                if time.monotonic() - stable_since >= 5:
+                # The pinned Control page paints a loading skeleton before its
+                # JavaScript initializes in TCG. Keep observing the same active
+                # page/connection before capture, within the existing deadline.
+                # Visual review remains mandatory; this is not reply acceptance.
+                if time.monotonic() - stable_since >= 120:
                     break
             else:
                 stable_since = None
