@@ -1,6 +1,8 @@
 """Linux-only private Ollama process, supervised for parent-death cleanup."""
 from contextlib import contextmanager
 import os
+import math
+import select
 from pathlib import Path
 import signal
 import shutil
@@ -12,8 +14,39 @@ import time
 from .ollama import Client, NotRunning
 from .storage import safe_local
 from .pull_jobs import worker_lock
+from .private_files import private_log
 
 PIN = '0.35.1'
+
+
+def supervisor_pid(process, *, deadline, cancel=None):
+    """Read only a bounded PID line, with cancellation and one startup budget.
+
+    Avoid blocking readline after a partial pipe write. A cold Live interpreter
+    can take longer than five seconds before executing the supervisor module.
+    """
+    pending = b''
+    while True:
+        if cancel and cancel():
+            raise ValueError('Supervisor startup stopped')
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ValueError('Supervisor startup timed out; inspect private supervisor log')
+        if not select.select([process.stdout], [], [], min(.1, remaining))[0]:
+            if process.poll() is not None:
+                raise ValueError('Supervisor exited before publishing ownership')
+            continue
+        chunk = os.read(process.stdout.fileno(), 33 - len(pending))
+        if not chunk:
+            raise ValueError('Supervisor closed its ownership pipe')
+        pending += chunk
+        if len(pending) > 32:
+            raise ValueError('Supervisor ownership record exceeds the bound')
+        if b'\n' in pending:
+            pid, extra = pending.split(b'\n', 1)
+            if extra or not pid.isdigit() or not 0 < int(pid) <= 2147483647:
+                raise ValueError('Invalid supervisor ownership record')
+            return int(pid)
 
 
 def stop_group(process):
@@ -34,7 +67,14 @@ def stop_group(process):
 def owns_port(pid, port):
     """Do not accept a same-version daemon that won a port allocation race."""
     try:
-        inodes = {os.readlink(p) for p in Path(f'/proc/{pid}/fd').iterdir()}
+        inodes = set()
+        for descriptor in Path(f'/proc/{pid}/fd').iterdir():
+            try:
+                inodes.add(os.readlink(descriptor))
+            except (FileNotFoundError, ProcessLookupError):
+                # HTTP request threads can close another descriptor during
+                # enumeration. The listening socket must still match below.
+                continue
         for row in Path(f'/proc/{pid}/net/tcp').read_text().splitlines()[1:]:
             columns = row.split()
             if (columns[1] == f'0100007F:{port:04X}' and columns[3] == '0A'
@@ -46,9 +86,11 @@ def owns_port(pid, port):
 
 
 @contextmanager
-def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, context_tokens=2048):
+def owned(target, *, executable=None, timeout=180, lease_store=None, port=0, context_tokens=2048, cancel=None):
     if sys.platform != 'linux':
         raise ValueError('Owned Ollama onboarding requires Linux')
+    if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 600:
+        raise ValueError('Owned Ollama startup timeout is outside supported bounds')
     if type(port) is not int or not 0 <= port <= 65535:
         raise ValueError('Owned Ollama requires an integer loopback port')
     if type(context_tokens) is not int or not 256 <= context_tokens <= 1048576:
@@ -59,6 +101,7 @@ def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, cont
         raise ValueError('Pinned Ollama executable is unavailable')
     executable = str(safe_local(executable))
     with socket.socket() as reservation:
+        reservation.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         reservation.bind(('127.0.0.1', port))
         port = reservation.getsockname()[1]
     env = dict(os.environ)
@@ -74,20 +117,23 @@ def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, cont
              target.parent.parent if target.parent.name == '.argos-pulls' else target)
     lease = safe_local(store / '.argos-daemon-lease')
     lease.mkdir(mode=0o700, exist_ok=True)
+    log_path = safe_local(lease / 'ollama.log')
+    # Validate privacy before launching; the supervisor owns the writing handle.
+    with private_log(log_path):
+        pass
     # Supervisor emits only the child PID, never backend logs or credentials.
-    process = subprocess.Popen([sys.executable, '-m', 'argoslive.owned_ollama',
-                                '--supervise', executable, str(lease)], env=env,
-                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                               text=True, start_new_session=True)
+    deadline = time.monotonic() + timeout
+    with private_log(lease / 'supervisor.log') as supervisor_log:
+        process = subprocess.Popen([sys.executable, '-m', 'argoslive.owned_ollama',
+                                    '--supervise', executable, str(lease), str(log_path)], env=env,
+                                   stdout=subprocess.PIPE, stderr=supervisor_log,
+                                   text=True, start_new_session=True)
     try:
-        # Supervisor startup has no network/model work before this single line.
-        import select
-        if not select.select([process.stdout], [], [], 5)[0]:
-            raise ValueError('Ollama supervisor did not start')
-        pid = int(process.stdout.readline().strip())
+        pid = supervisor_pid(process, deadline=deadline, cancel=cancel)
         client = Client(f'http://127.0.0.1:{port}', timeout=30)
-        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            if cancel and cancel():
+                raise ValueError('Owned Ollama startup stopped')
             if process.poll() is not None:
                 raise ValueError('Owned Ollama failed to start')
             if owns_port(pid, port):
@@ -109,7 +155,7 @@ def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, cont
         process.stdout.close()
 
 
-def supervise(executable, lease, *, arguments=None, log=None):
+def supervise(executable, lease, *, arguments=None, log=None, report_exit=False):
     import ctypes
     parent = os.getppid()
     child = None
@@ -134,12 +180,20 @@ def supervise(executable, lease, *, arguments=None, log=None):
             print(child.pid, flush=True)
             while not stopping and child.poll() is None:
                 time.sleep(0.1)
+            # Preserve the natural child result before group cleanup. Never
+            # include executable names, arguments, environment or private logs.
+            if report_exit and not stopping and child.returncode is not None:
+                print(f'ARGOS_OWNED_EXIT returncode={child.returncode}', file=sys.stderr, flush=True)
         finally:
             if child:
                 stop_group(child)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4 or sys.argv[1] != '--supervise':
+    if len(sys.argv) not in (4, 5) or sys.argv[1] != '--supervise':
         raise SystemExit(2)
-    supervise(sys.argv[2], sys.argv[3])
+    if len(sys.argv) == 5:
+        with private_log(Path(sys.argv[4])) as log:
+            supervise(sys.argv[2], sys.argv[3], log=log)
+    else:
+        supervise(sys.argv[2], sys.argv[3])

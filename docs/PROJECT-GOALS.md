@@ -83,6 +83,10 @@ unprivileged Live acceptance remain pending. Offline CPU-emulated ISO acceptance
 passed desktop, questionless try-mode setup, immutable starter inference without
 weight copies, native Firefox dashboard and saved speed benchmarks. Native
 OpenClaw embedded local conversation passed against the updated runtime pins.
+The managed desktop candidate also passed hosted automatic setup, measured CPU
+warmup, owned gateway startup, verified session reopen and clean stop with
+configuration and immutable weights preserved. This establishes native lifecycle
+behavior, not shipped browser navigation or physical first boot.
 Firmware boot acceptance, automatic first-boot dashboard
 startup, dashboard mutation controls and effective addon/agent permission tests
 remain pending. Existing OpenClaw addons should be reused where compatible; a
@@ -97,8 +101,8 @@ main-branch features are built into or physically verified on the USB. The
 owner's private reference export was received and verified; owner activation
 and personality/model/tool/reboot acceptance remain pending.
 
-Next order: finish native conversation and owned startup, automatic
-desktop-to-dashboard/chat (O2), dashboard actions (W3/W4), then remaining code
+Next order: verify automatic shipped
+desktop-to-dashboard/chat (O2/C3b), dashboard actions (W3/W4), then remaining code
 benchmark integration and firmware acceptance. Existing permissions, storage identity and
 destructive-operation protections remain in place.
 

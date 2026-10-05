@@ -71,6 +71,19 @@ VM timing is not physical hardware performance.
 The current test starts setup/services explicitly; automatic O2 startup and actual
 UEFI/GRUB selection remain C3b. Failure never authorizes a USB rewrite.
 
+The candidate `managed` mode observes shipped desktop autostart without calling
+setup or starting a replacement dashboard, model service, gateway or browser.
+It requires an authenticated private session, a real CPU warmup, claimed automatic
+chat handoff and a stable gateway connection held by Firefox. This VM uses 8192
+MiB RAM for the shipped 32768-token context; other modes retain 4096 MiB. It
+captures the actual shipped browser in test-only fullscreen after handoff, so
+browser chrome does not expose a fixture token. Unredacted failure screenshots
+are not captured in this mode. The screenshot still requires visual review:
+a TCP connection does not by itself prove successful UI authentication or a
+browser-submitted chat reply. The record explicitly leaves browser chat reply,
+firmware and physical acceptance unverified. This mode is not accepted until a
+real candidate run passes and its screenshot is reviewed.
+
 The accepted [run 37233824509](https://github.com/mbolaris/argos-live/actions/runs/37233824509)
 used automatic setup on the image built by [37231442525](https://github.com/mbolaris/argos-live/actions/runs/37231442525),
 ISO SHA256 `ab40929d95c0c6ff0f5a56bdd83d75aff6ab9a6e5e9c08bce3e6a9c0c2db61f5`.
@@ -81,3 +94,13 @@ and the VM test elapsed 978.43 seconds. These measurements have explicit emulati
 and timing boundaries; they do not measure a physical desktop or boot duration.
 The dashboard correctly reported the assistant not ready: this test exercises
 the inference service and dashboard, not the OpenClaw gateway/conversation.
+
+The updated-pins ISO built by
+[37236087580](https://github.com/mbolaris/argos-live/actions/runs/37236087580)
+also passed [37238133529](https://github.com/mbolaris/argos-live/actions/runs/37238133529).
+Its downloaded 4,085,645,312-byte image matched full SHA256
+`cb2cd6e107ffe7bed1e1152f754b9777d7ce9609409a8f9d0acbfbc82e36a0e7`.
+The actual 1280 × 800 Firefox screenshot was reviewed. Three eight-token CPU runs
+reported median 0.332 tokens/s under TCG; VM elapsed time was 940.57 seconds.
+This image contains OpenClaw 2026.9.8 and Ollama 0.35.1 but predates the managed
+desktop launcher. The same explicit-service, direct-kernel scope applies.

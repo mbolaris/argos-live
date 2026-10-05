@@ -4,6 +4,7 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import threading
 import tempfile
 import time
 import unittest
@@ -100,6 +101,21 @@ class GatewayProcessTests(unittest.TestCase):
         self.assertTrue(self.stopped(worker))
         self.assertEqual(self.config.read_bytes(), original)
 
+    def test_natural_exit_and_signal_are_recorded_before_cleanup(self):
+        prefix = FAKE.split('config = ')[0]
+        records = []
+        for body, expected in (('sys.exit(7)\n', 7),
+                               ('os.kill(os.getpid(), 9)\n', -9)):
+            with self.subTest(expected=expected):
+                self.binary.write_text(prefix + body)
+                with self.assertRaisesRegex(ValueError, 'failed to start'):
+                    with owned(self.home, executable=self.binary, timeout=5):
+                        self.fail('An exited gateway was accepted')
+                diagnostic = self.home / '.local/state/argos-live/gateway-supervisor.log'
+                records.append(f'ARGOS_OWNED_EXIT returncode={expected}')
+                self.assertEqual(diagnostic.read_text().splitlines(), records)
+                self.assertEqual(diagnostic.stat().st_mode & 0o777, 0o600)
+
     def test_busy_port_never_adopted_or_killed(self):
         with socket.socket() as listener:
             listener.bind(('127.0.0.1', self.port))
@@ -110,6 +126,38 @@ class GatewayProcessTests(unittest.TestCase):
             self.assertEqual(listener.getsockname()[1], self.port)
             self.assertFalse((self.state / 'leader-pid').exists())
             self.assertFalse((self.home / '.local').exists())
+
+    def test_stop_during_unready_gateway_cleans_up_inside_cold_budget(self):
+        self.binary.write_text(FAKE.replace('"ready":true', '"ready":false'))
+        original = self.config.read_bytes()
+        stopped = threading.Event()
+        child = []
+        def cancel_when_listening():
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    leader = int((self.state / 'leader-pid').read_text())
+                    worker = int((self.state / 'worker-pid').read_text())
+                    if group_owns_port(leader, self.port):
+                        child.extend((leader, worker))
+                        stopped.set()
+                        return
+                except (OSError, ValueError):
+                    pass
+                time.sleep(.05)
+            stopped.set()
+        canceller = threading.Thread(target=cancel_when_listening)
+        canceller.start()
+        try:
+            with self.assertRaisesRegex(ValueError, 'stopped'):
+                with owned(self.home, executable=self.binary, cancel=stopped.is_set):
+                    self.fail('Unready gateway was accepted')
+        finally:
+            stopped.set()
+            canceller.join(timeout=6)
+        self.assertEqual(len(child), 2)
+        self.assertTrue(all(self.stopped(pid) for pid in child))
+        self.assertEqual(self.config.read_bytes(), original)
 
     def test_reviewed_bin_symlink_is_resolved_without_linking_owner_state(self):
         link = self.home / 'openclaw-bin-link'

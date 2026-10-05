@@ -36,7 +36,11 @@ started = time.monotonic()
 with starter.serve(seed, executable=args.ollama.absolute()) as client:
     client.timeout = 120
     answer = client.generate(starter.TAG, 'Say hello in one short sentence.',
-                             options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
+                             # CPU acceptance must request CPU explicitly;
+                             # Ollama otherwise chooses placement dynamically.
+                             # This affects only the hosted public fixture.
+                             options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1,
+                                      'num_gpu': 0},
                              think=False, keep_alive='5m')
     if not answer['text'].strip() or answer['final'].get('eval_count', 0) <= 0:
         raise SystemExit('Read-only starter did not produce a measured reply')
@@ -50,5 +54,6 @@ identity = starter.verify(seed)
 print(json.dumps({'schema': 'argos-readonly-starter-smoke/1', **identity,
                   'elapsed_seconds': time.monotonic() - started, 'backend': 'CPU',
                   'seed_unchanged': True, 'weights_copied': False,
+                  'requested_gpu_layers': 0,
                   'source_access': 'unwritable to unprivileged CI user',
                   'physical_acceptance': False}, indent=2))

@@ -8,13 +8,14 @@ on:
         default: '37216494685'
         type: string
       setup_mode:
-        description: Disposable guest setup (auto requires an O1 candidate)
+        description: Disposable setup, or observe shipped managed autostart (O2 candidate)
         required: true
         default: interactive
         type: choice
         options:
           - interactive
           - auto
+          - managed
 permissions:
   contents: read
   actions: read

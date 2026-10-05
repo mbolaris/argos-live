@@ -16,6 +16,58 @@ const nextSteps = {'local-chat': 'Finish local model setup and test a reply.',
   'reviewed-skills': 'Review your personal skills and their required permissions.',
   'optional-channel': 'Optional: connect a messaging account. Local chat does not require one.'};
 let busy = false;
+let managedStartup = false;
+let handoffPending = false;
+let startupRefreshing = false;
+let liveRefreshing = false;
+const startupSteps = {idle: 0, setup: 0, 'select-storage': 1, 'write-configuration': 1,
+  configured: 2,
+  'verify-starter': 1, 'verify-model': 2, 'model-service': 3, 'first-reply': 3, gateway: 4,
+  reconnecting: 4, ready: 5};
+function openConversation(value) {
+  const url = new URL(value);
+  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.pathname !== '/chat' ||
+      url.username || url.password) throw new Error('Invalid chat URL');
+  window.location.assign(url.href);
+}
+async function startupAction(action) {
+  const response = await fetch('/api/startup/' + action, {method: 'POST',
+    headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
+  if (!response.ok) throw new Error('Startup action unavailable');
+  return response.json();
+}
+async function refreshStartup() {
+  if (startupRefreshing) return;
+  startupRefreshing = true;
+  try {
+    const value = await api('/api/startup');
+    managedStartup = value.managed === true;
+    document.getElementById('startup-controls').hidden = !managedStartup;
+    if (!managedStartup) return;
+    document.getElementById('startup-status').textContent = value.message +
+      (Number.isFinite(value.elapsed_seconds) ? ` · ${value.elapsed_seconds.toFixed(1)} s since starting` : '');
+    document.getElementById('startup-progress').value = startupSteps[value.phase] ?? 0;
+    document.getElementById('start-assistant').disabled = !value.can_start;
+    document.getElementById('stop-assistant').disabled = !value.can_stop;
+    const metrics = value.metrics;
+    document.getElementById('startup-metrics').textContent = metrics && value.model_reply_verified ?
+      'Warmup reply · ' +
+      (Number.isInteger(metrics.raw?.eval_count) && metrics.raw.eval_count > 0 ? `${metrics.raw.eval_count} output tokens · ` : '') +
+      `${metrics.backend.mode || 'Placement unknown'} · ` +
+      (Number.isFinite(metrics.generation_tokens_per_second) ? `${metrics.generation_tokens_per_second.toFixed(1)} tokens/s` : 'Generation rate unavailable') +
+      (Number.isFinite(metrics.time_to_first_token_seconds) ? ` · First token ${metrics.time_to_first_token_seconds.toFixed(2)} s` : '') :
+      'The model check runs locally. Optional capabilities have their own setup and tests.';
+    if (value.auto_open_chat && !handoffPending) {
+      handoffPending = true;
+      try { openConversation((await startupAction('chat')).url); }
+      catch (_) { handoffPending = false; }
+    }
+  } catch (_) {
+    if (managedStartup) document.getElementById('startup-status').textContent = 'Startup status unavailable. Retry with the current session link.';
+  } finally {
+    startupRefreshing = false;
+  }
+}
 function card(parent, heading, detail) {
   const article = document.createElement('article');
   article.className = 'card';
@@ -34,6 +86,8 @@ async function api(path) {
   return response.json();
 }
 async function refreshLive() {
+  if (liveRefreshing) return;
+  liveRefreshing = true;
   const status = document.getElementById('live-status');
   const chat = document.getElementById('chat');
   try {
@@ -62,6 +116,7 @@ async function refreshLive() {
       live.assistant === 'not-configured' ? 'Assistant setup needed' : 'Assistant is not ready';
     document.getElementById('assistant-help').textContent = live.chat_available ?
       'Open your existing conversation. A ready gateway does not yet verify a model reply.' :
+      managedStartup ? 'Your local assistant is being prepared. Progress and controls appear below.' :
       'Use Start Assistant in the welcome window. This dashboard does not start a second assistant.';
     chat.disabled = !live.chat_available;
     status.textContent = 'Live measurements refreshed. Missing measurements remain unknown.';
@@ -70,6 +125,8 @@ async function refreshLive() {
     document.getElementById('assistant-status').textContent = 'Assistant status unavailable';
     chat.disabled = true;
     status.textContent = 'Live status unavailable. Retry using the current session link.';
+  } finally {
+    liveRefreshing = false;
   }
 }
 async function refreshModels() {
@@ -161,14 +218,20 @@ async function refresh() {
 document.getElementById('chat').addEventListener('click', async () => {
   try {
     const result = await api('/api/assistant/chat');
-    const url = new URL(result.url);
-    if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.pathname !== '/chat') throw new Error('Invalid chat URL');
-    window.location.assign(url.href);
+    openConversation(result.url);
   } catch (_) {
     document.getElementById('assistant-help').textContent = 'Chat is not ready. Refresh status and retry.';
   }
 });
 document.getElementById('refresh').addEventListener('click', refresh);
+for (const action of ['start', 'stop']) document.getElementById(action + '-assistant').addEventListener('click', async () => {
+  try { await startupAction(action); await refreshStartup(); }
+  catch (_) { document.getElementById('startup-status').textContent = 'Assistant action unavailable. Refresh and retry.'; }
+});
+refreshStartup();
+setInterval(async () => {
+  if (managedStartup) { await refreshStartup(); await refreshLive(); }
+}, 3000);
 const selectedRuns = new Set();
 let comparedRuns = [];
 async function download(path, filename) {

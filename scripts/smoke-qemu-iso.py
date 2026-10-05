@@ -61,6 +61,20 @@ def guest_result(serial, *, setup_mode='interactive'):
     if not match:
         return None
     result = json.loads(match[1])
+    if setup_mode == 'managed':
+        if not isinstance(result, dict) or result.get('schema') != 'argos-qemu-managed/1':
+            raise ValueError('Unexpected managed guest record')
+        for field in ('desktop_started', 'dashboard_authenticated', 'automatic_first_boot',
+                      'bundled_read_only_source', 'model_reply_verified', 'handoff_claimed',
+                      'firefox_gateway_connection', 'firefox_control_page_visible', 'requires_screenshot_review'):
+            if result.get(field) is not True:
+                raise ValueError('Managed guest did not establish startup acceptance')
+        for field in ('network_routes', 'physical_acceptance', 'browser_chat_reply_verified'):
+            if result.get(field) is not False:
+                raise ValueError('Unexpected managed guest scope')
+        if result.get('setup_mode') != 'managed' or result.get('startup_metrics', {}).get('backend', {}).get('mode') != 'CPU':
+            raise ValueError('Managed guest did not establish CPU startup')
+        return result
     if not isinstance(result, dict) or result.get('schema') != 'argos-qemu-smoke/1':
         raise ValueError('Unexpected guest acceptance record')
     for field in ('desktop_started', 'dashboard_authenticated', 'result_round_trip', 'native_firefox_dashboard'):
@@ -113,7 +127,7 @@ def guest_commands(source):
 
 
 def run(image, output, *, timeout=1800, setup_mode='interactive'):
-    if setup_mode not in ('interactive', 'auto'):
+    if setup_mode not in ('interactive', 'auto', 'managed'):
         raise ValueError('Unknown disposable setup mode')
     if output.exists() and any(output.iterdir()):
         raise ValueError('Choose a fresh VM output directory')
@@ -129,6 +143,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
         raise ValueError('Candidate ISO checksum differs')
     source = (f'ARGOS_QEMU_SETUP_MODE = {setup_mode!r}\n'.encode() +
               (ROOT / 'scripts/qemu-firefox-check.py').read_bytes() + b'\n' +
+              (ROOT / 'scripts/qemu-managed-check.py').read_bytes() + b'\n' +
               (ROOT / 'scripts/qemu-guest-check.py').read_bytes())
     guest = guest_commands(source)
     with tempfile.TemporaryDirectory(prefix='argos-qemu-') as temp:
@@ -142,7 +157,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
         extract(initrd, work / 'initrd')
         qmp = work / 'qmp.sock'
         process = subprocess.Popen(['qemu-system-x86_64', '-accel', 'tcg', '-cpu', 'max', '-smp', '2',
-                    '-m', '4096', '-display', f'vnc=unix:{work / "vnc.sock"}', '-vga', 'std',
+                    '-m', '8192' if setup_mode == 'managed' else '4096', '-display', f'vnc=unix:{work / "vnc.sock"}', '-vga', 'std',
                     '-nic', 'none', '-no-reboot',
                     '-kernel', str(work / 'kernel'), '-initrd', str(work / 'initrd'), '-append', append,
                     '-cdrom', str(image), '-serial', 'stdio', '-monitor', 'none',
@@ -172,7 +187,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
                         if stage not in reported_stages:
                             reported_stages.add(stage)
                             print(f'Guest stage: {stage}', flush=True)
-                    if 'cpu-inference' in reported_stages and not (output / 'desktop.ppm').exists():
+                    if {'cpu-inference', 'managed-browser'} & reported_stages and not (output / 'desktop.ppm').exists():
                         # Native DOM readiness plus paint delay precede this
                         # stage. Capture startup, not the idle desktop after a
                         # several-minute CPU emulation workload.
@@ -205,18 +220,20 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
                     result = guest_result(tail, setup_mode=setup_mode)
                     if result is not None:
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
+                                      vm_memory_mib=8192 if setup_mode == 'managed' else 4096,
                                       boot_method='direct kernel/initrd from original desktop entry; serial appended',
                                       firmware_boot_verified=False)
                         if not (output / 'desktop.ppm').exists():
                             raise ValueError('Native dashboard startup screenshot missing')
                         graphical_frame(output / 'desktop.ppm')
-                        result['screenshot_stage'] = 'native Firefox dashboard before CPU benchmark'
+                        result['screenshot_stage'] = ('shipped Firefox after automatic gateway handoff; test-only fullscreen'
+                            if setup_mode == 'managed' else 'native Firefox dashboard before CPU benchmark')
                         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
                         print(json.dumps(result, indent=2))
                         return result
                 raise ValueError('QEMU acceptance timed out; see console artifact')
         finally:
-            if qmp.exists() and not (output / 'desktop.ppm').exists():
+            if setup_mode != 'managed' and qmp.exists() and not (output / 'desktop.ppm').exists():
                 try:
                     screenshot(qmp, output / 'desktop.ppm')
                 except (OSError, ValueError):
@@ -235,6 +252,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('iso', type=Path)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--setup-mode', choices=('interactive', 'auto'), default='interactive')
+    parser.add_argument('--setup-mode', choices=('interactive', 'auto', 'managed'), default='interactive')
     args = parser.parse_args()
     run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode)

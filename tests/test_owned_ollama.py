@@ -47,6 +47,32 @@ class OwnedTests(unittest.TestCase):
             # Reaping can remove /proc between observation and reading it.
             return True
 
+    def test_private_backend_log_and_link_refusal(self):
+        lease = self.root / '.argos-daemon-lease'
+        lease.mkdir(mode=0o700)
+        log = lease / 'ollama.log'
+        target = self.root / 'owner-data'
+        target.write_bytes(b'owner bytes')
+        log.symlink_to(target)
+        with self.assertRaises(ValueError):
+            with owned(self.root, executable=self.binary, timeout=3):
+                self.fail('Linked diagnostic log must refuse startup')
+        self.assertEqual(target.read_bytes(), b'owner bytes')
+        log.unlink()
+        noisy = self.binary.read_text().replace('host, port =', 'print("public stdout", flush=True)\nprint("public stderr", file=__import__("sys").stderr, flush=True)\nhost, port =')
+        self.binary.write_text(noisy)
+        with owned(self.root, executable=self.binary, timeout=3):
+            self.assertEqual(log.stat().st_mode & 0o777, 0o600)
+            text = log.read_text()
+            self.assertIn('public stdout', text)
+            self.assertIn('public stderr', text)
+        before = log.read_bytes()
+        log.chmod(0o644)
+        with self.assertRaises(ValueError):
+            with owned(self.root, executable=self.binary, timeout=3):
+                self.fail('Broad diagnostic permissions must refuse startup')
+        self.assertEqual(log.read_bytes(), before)
+
     def test_loopback_owned_port_environment_and_cleanup_on_error(self):
         import json
         with self.assertRaisesRegex(ValueError, 'fixture body'):
@@ -125,7 +151,8 @@ class OwnedTests(unittest.TestCase):
 
     def test_invalid_fixed_port_or_context_starts_no_process(self):
         for options in ({'port': True}, {'port': -1}, {'port': 65536}, {'port': '11434'},
-                        {'context_tokens': True}, {'context_tokens': 0}, {'context_tokens': 1048577}):
+                        {'context_tokens': True}, {'context_tokens': 0}, {'context_tokens': 1048577},
+                        {'timeout': True}, {'timeout': 0}, {'timeout': float('inf')}, {'timeout': 601}):
             with self.assertRaises(ValueError):
                 with owned(self.root, executable=self.binary, **options):
                     self.fail('Invalid options started a service')
