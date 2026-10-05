@@ -75,6 +75,11 @@ class ModelControlsTests(unittest.TestCase):
         self.assertTrue(gate.wait(3))
         other = lab.Controller(self.assistant)
         with self.assertRaises(ValueError): other.start()
+        original_request = self.queue.request
+        def durable_first(job, action):
+            self.assertFalse(self.controller.cancel_event.is_set())
+            original_request(job, action)
+        self.queue.request = durable_first
         self.controller.cancel('pause')
         self.finish()
         self.assertEqual(self.controller.snapshot()['phase'], 'paused')
