@@ -56,8 +56,12 @@ The launcher accepts the reviewed local conversation profile. An existing broade
 or changed policy, channel configuration, unresolved model or unavailable storage
 stops automatic startup for review; nothing is reset or silently reconfigured.
 Stop during model/gateway startup cancels the job and releases owned services.
-Filesystem hashing and an in-flight prefill can take time before cancellation
-returns; the page stays at Stopping until cleanup finishes.
+Filesystem hashing and initial health probes can take time before cancellation
+returns; the page stays at Stopping until cleanup finishes. Cold model service
+startup has a bounded 180-second grace period and warmup has a 600-second socket
+read budget. Stop during blocked warmup releases the owned backend; it does not
+wait for a full prefill/read timeout. A pending reply reader prevents a new start
+until it finishes. These budgets are not promises of first-boot speed.
 
 Logs and the private session descriptor live under `~/.local/state/argos-live/`.
 The managed backend writes stdout/stderr to `.argos-daemon-lease/ollama.log`

@@ -65,6 +65,7 @@ class Controller:
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.worker = None
+        self.reply_worker = None
         self.phase = 'idle'
         self.started = None
         self.metrics = None
@@ -84,10 +85,11 @@ class Controller:
 
     def snapshot(self):
         with self.lock:
-            active = self.worker is not None and self.worker.is_alive()
+            worker_active = self.worker is not None and self.worker.is_alive()
+            active = worker_active or (self.reply_worker is not None and self.reply_worker.is_alive())
             return {'schema': 'argos-startup/1', 'managed': True, 'phase': self.phase, 'message': PHASES[self.phase],
                 'active': active, 'can_start': not active,
-                'can_stop': active and not self.stop_event.is_set(),
+                'can_stop': worker_active and not self.stop_event.is_set(),
                 'elapsed_seconds': max(0, self.clock() - self.started) if self.started is not None else None,
                 'model': self.model, 'model_reply_verified': self.metrics is not None,
                 'metrics': copy.deepcopy(self.metrics), 'gateway_ready': self.phase == 'ready',
@@ -96,7 +98,7 @@ class Controller:
 
     def start(self):
         with self.lock:
-            if self.worker is not None and self.worker.is_alive():
+            if self.snapshot()['active']:
                 return self.snapshot()
             self.stop_event.clear()
             self.phase, self.started = 'setup', self.clock()
@@ -127,6 +129,30 @@ class Controller:
         if self.stop_event.is_set():
             raise ValueError('Startup stopped')
 
+    def warmup(self, client, model):
+        # A cold read-only Live source can initialize slowly. Keep a bounded
+        # read budget while allowing Stop to release the owned backend even
+        # when urllib is waiting for response headers or the first token.
+        completed = threading.Event()
+        result = {}
+        def generate():
+            try:
+                result['reply'] = client.generate(model, 'Say hello in one short sentence.',
+                    options={'num_ctx': 32768, 'num_predict': 16, 'temperature': 0, 'seed': 1},
+                    think=False, keep_alive='5m', cancel=self.stop_event)
+            except Exception as error:
+                result['error'] = error
+            finally:
+                completed.set()
+        self.reply_worker = threading.Thread(target=generate, daemon=True, name='argos-warmup')
+        self.reply_worker.start()
+        while not completed.wait(.1):
+            self.interrupted()
+        self.interrupted()
+        if 'error' in result:
+            raise result['error']
+        return result['reply']
+
     def run(self):
         try:
             self.configure(self.home, progress=lambda event: self.transition(event['phase']))
@@ -143,10 +169,12 @@ class Controller:
                               cancel=self.stop_event.is_set) as client:
                 self.interrupted()
                 self.transition('first-reply')
-                client.timeout = 120
-                reply = client.generate(model, 'Say hello in one short sentence.',
-                    options={'num_ctx': 32768, 'num_predict': 16, 'temperature': 0, 'seed': 1},
-                    think=False, keep_alive='5m', cancel=self.stop_event)
+                client.timeout = 600
+                try:
+                    reply = self.warmup(client, model)
+                finally:
+                    # The cold prefill budget does not extend ps/unload calls.
+                    client.timeout = 30
                 if (not reply.get('text', '').strip() or
                         type(reply.get('final', {}).get('eval_count')) is not int or reply['final']['eval_count'] <= 0):
                     raise ValueError('Selected model did not produce a measured reply')
@@ -169,8 +197,9 @@ class Controller:
         except Exception as error:
             with self.lock:
                 frame = traceback.extract_tb(error.__traceback__)[-1]
-                self.failure = {'stage': self.phase, 'category': type(error).__name__,
-                                'module': Path(frame.filename).name, 'line': frame.lineno}
+                self.failure = (None if self.stop_event.is_set() else
+                    {'stage': self.phase, 'category': type(error).__name__,
+                     'module': Path(frame.filename).name, 'line': frame.lineno})
             self.transition('stopped' if self.stop_event.is_set() else 'failed')
             if not self.stop_event.is_set():
                 try:
@@ -185,3 +214,5 @@ class Controller:
         self.stop()
         if self.worker is not None:
             self.worker.join(timeout=5)
+        if self.reply_worker is not None:
+            self.reply_worker.join(timeout=1)

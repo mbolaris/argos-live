@@ -1,6 +1,7 @@
 """Linux-only private Ollama process, supervised for parent-death cleanup."""
 from contextlib import contextmanager
 import os
+import math
 from pathlib import Path
 import signal
 import shutil
@@ -54,9 +55,11 @@ def owns_port(pid, port):
 
 
 @contextmanager
-def owned(target, *, executable=None, timeout=60, lease_store=None, port=0, context_tokens=2048, cancel=None):
+def owned(target, *, executable=None, timeout=180, lease_store=None, port=0, context_tokens=2048, cancel=None):
     if sys.platform != 'linux':
         raise ValueError('Owned Ollama onboarding requires Linux')
+    if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 600:
+        raise ValueError('Owned Ollama startup timeout is outside supported bounds')
     if type(port) is not int or not 0 <= port <= 65535:
         raise ValueError('Owned Ollama requires an integer loopback port')
     if type(context_tokens) is not int or not 256 <= context_tokens <= 1048576:

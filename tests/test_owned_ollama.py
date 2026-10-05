@@ -151,7 +151,8 @@ class OwnedTests(unittest.TestCase):
 
     def test_invalid_fixed_port_or_context_starts_no_process(self):
         for options in ({'port': True}, {'port': -1}, {'port': 65536}, {'port': '11434'},
-                        {'context_tokens': True}, {'context_tokens': 0}, {'context_tokens': 1048577}):
+                        {'context_tokens': True}, {'context_tokens': 0}, {'context_tokens': 1048577},
+                        {'timeout': True}, {'timeout': 0}, {'timeout': float('inf')}, {'timeout': 601}):
             with self.assertRaises(ValueError):
                 with owned(self.root, executable=self.binary, **options):
                     self.fail('Invalid options started a service')

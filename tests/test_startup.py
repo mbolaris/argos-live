@@ -116,6 +116,30 @@ class StartupTests(unittest.TestCase):
         value.start()
         self.wait(value, 'ready')
         value.close()
+
+    def test_stop_releases_backend_while_first_response_is_blocked(self):
+        entered, released = threading.Event(), threading.Event()
+        class BlockedClient(Client):
+            def generate(self, *args, **options):
+                entered.set()
+                if not released.wait(5): raise AssertionError('Owned backend was not released')
+                raise OSError('Public fixture socket closed by backend cleanup')
+        self.client = BlockedClient()
+        @contextmanager
+        def backend(target, **options):
+            try: yield self.client
+            finally:
+                self.calls.append('backend-stop')
+                released.set()
+        value = self.controller(backend=backend)
+        value.start()
+        self.assertTrue(entered.wait(5))
+        value.close()
+        self.assertEqual(value.snapshot()['phase'], 'stopped')
+        self.assertIsNone(value.snapshot()['failure'])
+        self.assertFalse(value.worker.is_alive())
+        self.assertFalse(value.reply_worker.is_alive())
+        self.assertEqual(self.calls, ['setup', 'backend-stop'])
         self.wait(value, 'stopped')
 
     def test_failure_keeps_owner_files_and_public_error_omits_details(self):
