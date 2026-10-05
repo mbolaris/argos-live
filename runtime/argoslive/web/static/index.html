@@ -57,6 +57,7 @@
       <div id="download-controls" class="notice" hidden>
         <strong>Download and verify a catalog model</strong>
         <p id="download-status" role="status" aria-live="polite">Choose a model below to review its download.</p>
+        <progress id="download-progress" max="100" value="0" aria-label="Model bytes downloaded" hidden></progress>
         <button id="download-pause" type="button" disabled>Pause download</button>
         <button id="download-cancel" type="button" disabled>Cancel download</button>
         <p>Chat pauses for acquisition and its local reply check, then prior assistant startup is requested again. A downloaded model is not automatically selected. Cancelled partial files are retained; nothing is erased.</p>

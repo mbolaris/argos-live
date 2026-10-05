@@ -26,6 +26,8 @@ let downloadRefreshing = false;
 let lastDownloadPhase = null;
 let downloadChoice = null;
 let catalogPreview = new Map();
+let modelDestination = null;
+let modelEncryption = null;
 const startupSteps = {idle: 0, setup: 0, 'select-storage': 1, 'write-configuration': 1,
   configured: 2,
   'verify-starter': 1, 'verify-model': 2, 'model-service': 3, 'first-reply': 3, gateway: 4,
@@ -85,6 +87,8 @@ function card(parent, heading, detail) {
   parent.append(article);
 }
 const gib = bytes => typeof bytes === 'number' ? `${(bytes / 2 ** 30).toFixed(1)} GiB` : 'Unknown';
+const byteSize = bytes => !Number.isFinite(bytes) ? 'Unknown' : bytes >= 2 ** 30 ? `${(bytes / 2 ** 30).toFixed(2)} GiB` :
+  bytes >= 2 ** 20 ? `${(bytes / 2 ** 20).toFixed(1)} MiB` : bytes >= 1024 ? `${(bytes / 1024).toFixed(1)} KiB` : `${bytes} bytes`;
 const encrypted = value => value === true ? 'Encrypted' : value === false ? 'Unencrypted' : 'Encryption unknown';
 async function api(path) {
   const response = await fetch(path, {headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
@@ -145,6 +149,8 @@ async function refreshModels() {
   try {
     const result = await api('/api/models');
     catalogPreview = new Map(result.catalog.map(model => [model.tag, model]));
+    modelDestination = result.storage_path || null;
+    modelEncryption = result.storage_encrypted;
     status.textContent = result.storage_state === 'available' ? 'Reading your selected Ollama store.' :
       result.storage_state === 'not-configured' ? 'Choose model storage in the welcome window.' :
       'Selected storage or job metadata needs attention. No fallback location is used.';
@@ -170,7 +176,7 @@ async function refreshModels() {
       const progress = job.progress;
       const speed = progress.recent_mib_per_second === null ? 'Speed unknown' : `${progress.recent_mib_per_second.toFixed(1)} MiB/s`;
       const eta = progress.eta_seconds === null ? 'ETA unknown' : `${Math.ceil(progress.eta_seconds)} seconds remaining`;
-      card(jobs, job.tag, `${job.state} · ${gib(progress.bytes_done)} / ${gib(progress.bytes_total)} · Last measured: ${speed} · Last estimate: ${eta}` +
+      card(jobs, job.tag, `${job.state} · ${byteSize(progress.bytes_done)} / ${byteSize(progress.bytes_total)} · Last measured: ${speed} · Last estimate: ${eta}` +
         (job.previous_reply_verified ? ' · A previous onboarding reply passed; current readiness has not been rechecked.' : ''));
       if (downloadAvailable && ['queued', 'paused', 'interrupted', 'failed', 'downloading', 'verifying', 'loading', 'testing', 'publishing'].includes(job.state)) {
         const button = document.createElement('button'); button.type = 'button';
@@ -301,8 +307,8 @@ function reviewDownload(choice, tag) {
   downloadChoice = choice;
   const model = catalogPreview.get(tag);
   document.getElementById('download-review-details').textContent = model ?
-    `${tag} · ${gib(model.total_download_bytes)} download · ${model.license} · Estimated GPU fit: ${model.gpu_fit.status}. ` +
-    'Destination: your configured model store (see Model storage below).' :
+    `${tag} · ${byteSize(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · Estimated GPU fit: ${model.gpu_fit.status}. ` +
+    `Destination: ${modelDestination || 'your configured model store'} · ${encrypted(modelEncryption)}.` :
     `${tag} · Retry against the current catalog and the same identity-checked store.`;
   document.getElementById('download-confirm').disabled = false;
   document.getElementById('download-review').showModal();
@@ -326,11 +332,14 @@ async function refreshModelControls() {
       interrupted: 'Backend interrupted. Review before retrying.'};
     let message = names[value.phase] || 'Checking model job…';
     if (value.model) message += ' · ' + value.model;
+    const bar = document.getElementById('download-progress');
+    bar.hidden = !(Number.isFinite(value.progress?.bytes_done) && value.progress?.bytes_total > 0);
+    if (!bar.hidden) bar.value = Math.min(100, value.progress.bytes_done * 100 / value.progress.bytes_total);
     if (value.progress && Number.isFinite(value.progress.bytes_done)) {
       const p = value.progress;
-      message += ` · ${gib(p.bytes_done)} / ${gib(p.bytes_total)}`;
-      if (Number.isFinite(p.recent_mib_per_second)) message += ` · ${p.recent_mib_per_second.toFixed(1)} MiB/s`;
-      if (Number.isFinite(p.eta_seconds)) message += ` · Estimated ${Math.ceil(p.eta_seconds)} s remaining`;
+      message += ` · ${byteSize(p.bytes_done)} / ${byteSize(p.bytes_total)}`;
+      if (Number.isFinite(p.recent_mib_per_second)) message += ` · Last measured ${p.recent_mib_per_second.toFixed(1)} MiB/s`;
+      if (Number.isFinite(p.eta_seconds)) message += ` · Last estimate ${Math.ceil(p.eta_seconds)} s remaining`;
     }
     const reply = value.reply_test;
     if (reply?.text_reply_verified) {
