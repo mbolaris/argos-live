@@ -103,6 +103,7 @@ class GatewayProcessTests(unittest.TestCase):
 
     def test_natural_exit_and_signal_are_recorded_before_cleanup(self):
         prefix = FAKE.split('config = ')[0]
+        records = []
         for body, expected in (('sys.exit(7)\n', 7),
                                ('os.kill(os.getpid(), 9)\n', -9)):
             with self.subTest(expected=expected):
@@ -111,7 +112,8 @@ class GatewayProcessTests(unittest.TestCase):
                     with owned(self.home, executable=self.binary, timeout=5):
                         self.fail('An exited gateway was accepted')
                 diagnostic = self.home / '.local/state/argos-live/gateway-supervisor.log'
-                self.assertEqual(diagnostic.read_text().strip(), f'ARGOS_OWNED_EXIT returncode={expected}')
+                records.append(f'ARGOS_OWNED_EXIT returncode={expected}')
+                self.assertEqual(diagnostic.read_text().splitlines(), records)
                 self.assertEqual(diagnostic.stat().st_mode & 0o777, 0o600)
 
     def test_busy_port_never_adopted_or_killed(self):
