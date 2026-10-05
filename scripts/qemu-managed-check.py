@@ -27,16 +27,35 @@ def log_flags(raw):
         'plugin_activity': ('plugin', 'extension'),
         'node_warning': ('experimentalwarning', 'deprecationwarning'),
         'unsettled_await': ('unsettled top-level await',),
+        'prewarm_failure': ('post-ready gateway data prewarm failed',),
+        'plugin_service_failure': ('plugin services failed to start',),
+        'hook_failure': ('failed to load hooks', 'gateway startup hook failed'),
+        'channel_failure': ('channel startup failed',),
+        'sidecar_failure': ('gateway sidecars failed to start', 'failed after gateway ready'),
+        'authentication_failure': ('pairing required', 'token mismatch', 'unauthorized'),
     }
     return {key: any(term in text for term in terms) for key, terms in groups.items()}
 
 
 def startup_trace(raw):
     """Admit only known upstream stage names and bounded numeric timings."""
-    stages = ('entry.bootstrap', 'entry.argv', 'entry.run-main-import')
+    # Fixed names reviewed in the integrity-verified pinned upstream package.
+    # Never admit dynamic skills/agent IDs, filenames, metric strings or errors.
+    stages = ('entry.bootstrap', 'entry.argv', 'entry.run-main-import', 'ready',
+        'plugins.runtime-post-bind', 'post-attach.system-ca', 'post-attach.log',
+        'sidecars.total', 'sidecars.internal-hooks', 'sidecars.model-runtime',
+        'sidecars.model-auth', 'sidecars.reply-runtime', 'sidecars.chat-metadata',
+        'sidecars.channels', 'sidecars.channel-start', 'sidecars.channel-skip',
+        'sidecars.plugin-services', 'sidecars.main-session-recovery',
+        'post-ready.gateway-data.connection', 'post-ready.gateway-data.chat.history',
+        'post-ready.gateway-data.chat.send', 'post-ready.gateway-data.sessions.list',
+        'post-ready.gateway-data.session-history-worker', 'post-ready.gateway-data.agent-events',
+        'post-ready.gateway-data.session-key', 'post-ready.gateway-data.context-window-cache',
+        'post-ready.gateway-data.memory-search', 'post-ready.gateway-data.plugins')
     records = {}
-    pattern = re.compile(r'\[gateway\] startup trace: ([a-z.-]+) ([0-9.]+)ms total=([0-9.]+)ms')
-    for stage, duration, total in pattern.findall(raw.decode(errors='replace')):
+    pattern = re.compile(r'startup trace: ([a-z.-]+) ([0-9.]+)ms total=([0-9.]+)ms'
+                         r'(?: eventLoopMax=([0-9.]+)ms)?')
+    for stage, duration, total, event_loop in pattern.findall(raw.decode(errors='replace')):
         if stage not in stages:
             continue
         try:
@@ -46,6 +65,13 @@ def startup_trace(raw):
         except ValueError:
             continue
         records[stage] = {'duration_ms': duration, 'total_ms': total}
+        if event_loop:
+            try:
+                delay = float(event_loop)
+                if 0 <= delay <= 3600000:
+                    records[stage]['event_loop_max_ms'] = delay
+            except ValueError:
+                pass
     return records
 
 

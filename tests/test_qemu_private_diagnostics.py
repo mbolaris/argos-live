@@ -32,6 +32,20 @@ class DiagnosticFlagsTests(unittest.TestCase):
                     b'ARGOS_OWNED_EXIT returncode=1 token=secret\n', b'xARGOS_OWNED_EXIT returncode=1\n'):
             self.assertIsNone(module.owned_exit(raw))
 
+    def test_post_ready_trace_excludes_dynamic_personal_stages_and_metric_text(self):
+        raw = (b'{"message":"startup trace: sidecars.reply-runtime 9000ms total=12000ms eventLoopMax=8000ms token=secret"}\n'
+            b'startup trace: post-ready.gateway-data.skills.private-agent 10ms total=12001ms\n'
+            b'startup trace: post-ready.gateway-data.chat.history 12ms total=13000ms eventLoopMax=999999999ms\n')
+        value = module.startup_trace(raw)
+        self.assertEqual(value['sidecars.reply-runtime']['event_loop_max_ms'], 8000)
+        self.assertEqual(value['post-ready.gateway-data.chat.history'],
+                         {'duration_ms': 12, 'total_ms': 13000})
+        self.assertNotIn('secret', json.dumps(value))
+        self.assertNotIn('private-agent', json.dumps(value))
+        flags = module.log_flags(b'plugin services failed to start: private token=secret')
+        self.assertTrue(flags['plugin_service_failure'])
+        self.assertNotIn('secret', json.dumps(flags))
+
     def test_startup_trace_exposes_only_known_stages_and_bounded_timings(self):
         raw = (b'[gateway] startup trace: entry.bootstrap 12.5ms total=20.0ms start=7.5ms secret=token\n'
             b'[gateway] startup trace: owner.private-secret 10ms total=30ms\n'
