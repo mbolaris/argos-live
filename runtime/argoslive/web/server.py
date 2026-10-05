@@ -23,7 +23,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -31,6 +31,7 @@ class DashboardServer(ThreadingHTTPServer):
             raise ValueError('Invalid dashboard port')
         self.token = secrets.token_urlsafe(32)
         self.startup = startup
+        self.lab = lab
         self.status_provider = status_provider
         self.models_provider = models_provider
         self.benchmarks = benchmarks or BenchmarkView()
@@ -102,7 +103,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
-        if path == '/api/startup':
+        if path == '/api/lab':
+            self.reply(200, self.server.lab.snapshot() if self.server.lab else {'available': False}, head=head)
+        elif path == '/api/startup':
             self.reply(200, self.server.startup.snapshot() if self.server.startup else
                        {'schema': 'argos-startup/1', 'managed': False}, head=head)
         elif path == '/api/benchmarks' or path.startswith('/api/benchmarks/'):
@@ -168,6 +171,16 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized(mutation=True):
             return
         path = urlsplit(self.path).path
+        if self.command == 'POST' and self.server.lab and path in ('/api/lab/start', '/api/lab/cancel'):
+            if (self.headers.get('Transfer-Encoding') is not None or
+                    self.headers.get_all('Content-Length') not in (None, ['0'])):
+                self.reply(400, {'error': 'Model lab controls require an empty body'})
+                return
+            try:
+                self.reply(200, getattr(self.server.lab, path.rsplit('/', 1)[1])())
+            except (ValueError, OSError):
+                self.reply(409, {'error': 'Model lab action unavailable'})
+            return
         if self.command == 'POST' and self.server.startup and path in ('/api/startup/start', '/api/startup/stop', '/api/startup/chat'):
             # These controls have no user-supplied configuration or command body.
             if (self.headers.get('Transfer-Encoding') is not None or

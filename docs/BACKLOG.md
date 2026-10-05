@@ -386,6 +386,7 @@ Depends on: W4a, owned assistant/backend lifecycle.
 - Start speed/ability/both with live progress and cancellation, release resources,
   restore prior owned assistant state and test real Ollama. Do not run a competing
   benchmark against an unrelated or active assistant daemon.
+- Candidate: guided configured-model quick baseline pauses the managed assistant, runs short speed plus quick ability in an owned service, saves results, supports cancellation and requests prior assistant restart. Local lifecycle/browser checks pass; native Linux/ISO/physical job acceptance and broader model/suite selection remain pending. See [GUIDED-MODEL-LAB.md](GUIDED-MODEL-LAB.md).
 
 ### W5 Agents page — `todo`
 Depends on: W2, P3.

@@ -97,6 +97,30 @@ def run(cli, ollama, seed):
                     if error.code != 409: raise
                 else:
                     raise ValueError('Automatic chat handoff was claimed twice')
+                request('/api/lab/start', 'POST')
+                lab_deadline = time.monotonic() + 900
+                while True:
+                    lab_report = request('/api/lab')
+                    if not lab_report['active']: break
+                    if time.monotonic() >= lab_deadline:
+                        raise ValueError('Native model lab exceeded its batch bound')
+                    time.sleep(.5)
+                if (lab_report['phase'] != 'completed' or len(lab_report['runs']) != 2
+                        or not lab_report['resume_requested']):
+                    raise ValueError('Native model lab did not save both results and request restart')
+                for run_id in lab_report['runs']:
+                    result = request('/api/benchmarks/run/' + run_id)
+                    if not result['restoration']['succeeded']:
+                        raise ValueError('Native benchmark resource restoration failed')
+                    if result['kind'] == 'ability' and not result['coverage']['complete']:
+                        raise ValueError('Native quick ability coverage incomplete')
+                    if result['kind'] == 'speed' and not result['prompts'][0]['runs']:
+                        raise ValueError('Native speed measurements missing')
+                restart_deadline = time.monotonic() + 360
+                while request('/api/startup')['phase'] != 'ready':
+                    if time.monotonic() >= restart_deadline:
+                        raise ValueError('Native assistant did not return after model lab cleanup')
+                    time.sleep(.5)
                 request('/api/startup/stop', 'POST')
                 controller.worker.join(timeout=30)
                 if controller.snapshot()['phase'] != 'stopped' or controller.worker.is_alive():
@@ -173,6 +197,7 @@ def run(cli, ollama, seed):
         'native_gateway': True, 'local_cpu_reply': True, 'reused_worker': True,
         'verified_session_reopen': True, 'once_only_chat_handoff': True, 'stop_cleanup': True,
         'blocked_warmup_stop_verified': True,
+        'native_model_lab_completed': True, 'model_lab_assistant_resumed': True,
         'configuration_unchanged': True, 'weights_copied': False, 'startup_metrics': report['metrics'],
         'browser_conversation_verified': False, 'physical_acceptance': False}
 

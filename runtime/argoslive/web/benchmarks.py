@@ -33,6 +33,10 @@ class View:
                 else:
                     from argoslive.bench_speed import numeric, summary
                     row['summary'] = [{'size': prompt['size'], 'skipped': prompt['skipped'],
+                        'time_to_first_token_seconds': summary([
+                            numeric(item.get('time_to_first_token_seconds')) for item in prompt['runs']]),
+                        'prompt_tokens_per_second': summary([
+                            numeric(item.get('prompt_tokens_per_second')) for item in prompt['runs']]),
                         'generation_tokens_per_second': summary([
                             numeric(item.get('generation_tokens_per_second')) for item in prompt['runs']])}
                         for prompt in run['prompts']]

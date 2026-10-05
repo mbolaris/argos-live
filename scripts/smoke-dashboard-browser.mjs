@@ -62,7 +62,7 @@ try {
   if (await page.locator('#benchmark-runs b').count()) throw new Error('Result label was treated as markup');
   for (const input of await page.locator('#benchmark-runs input').all()) await input.check();
   await page.locator('#compare-runs').click();
-  await page.getByText('accuracy: 1.000', {exact: true}).waitFor();
+  await page.getByText('Test accuracy: 100.0%', {exact: true}).waitFor();
   const csvPending = page.waitForEvent('download');
   await page.locator('#download-comparison').click();
   const csvDownload = await csvPending;
@@ -73,11 +73,36 @@ try {
   const jsonDownload = await jsonPending;
   if (JSON.parse(await readFile(await jsonDownload.path(), 'utf8')).kind !== 'ability') throw new Error('Result JSON failed');
   await page.unroute('**/api/models');
+  await page.waitForFunction(() => !document.getElementById('refresh').disabled, null, {timeout: 60000});
   await page.locator('#refresh').click();
   await page.locator('#refresh').waitFor({state: 'visible'});
   await page.waitForFunction(() => !document.getElementById('refresh').disabled, null, {timeout: 60000});
-  if (await page.locator('#bundled-models .card').count()) throw new Error('Stale bundled source display');
+  if ((await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
+    throw new Error('Stale bundled source selection display');
+  }
   if (errors.length) throw new Error('Browser script failed');
+  let lab = {available: true, active: false, phase: 'idle', runs: []};
+  const labCalls = [];
+  await page.route('**/api/lab', route => route.fulfill({json: lab}));
+  for (const action of ['start', 'cancel']) await page.route('**/api/lab/' + action, async route => {
+    if (route.request().method() !== 'POST' || route.request().postData() ||
+        route.request().headers()['x-argos-token'] !== new URL(url).searchParams.get('token')) {
+      throw new Error('Lab browser control authorization failed');
+    }
+    labCalls.push(action);
+    lab = {...lab, active: action === 'start', phase: action === 'start' ? 'speed' : 'cancelled',
+      model: 'qwen3:0.6b', progress: {phase: 'measured', run: 1}};
+    await route.fulfill({json: lab});
+  });
+  await page.reload();
+  await page.locator('#lab-controls').waitFor({state: 'visible'});
+  await page.locator('#lab-start').click();
+  await page.waitForFunction(() => document.getElementById('lab-start').disabled &&
+    document.getElementById('lab-status').textContent.includes('Measured run 1/3'));
+  await page.locator('#lab-cancel').click();
+  await page.waitForFunction(() => !document.getElementById('lab-start').disabled &&
+    document.getElementById('lab-status').textContent.includes('Test cancelled'));
+  if (labCalls.join(',') !== 'start,cancel') throw new Error('Lab controls did not run');
   await page.screenshot({path: 'work/dashboard-desktop.png', fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
   if (!(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))) {
