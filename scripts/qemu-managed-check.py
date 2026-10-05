@@ -25,6 +25,8 @@ def log_flags(raw):
         'instruction_failure': ('illegal instruction', 'sigill'),
         'error_reported': ('"level":"error"', '"level":"fatal"', 'unhandled', 'error:'),
         'plugin_activity': ('plugin', 'extension'),
+        'node_warning': ('experimentalwarning', 'deprecationwarning'),
+        'unsettled_await': ('unsettled top-level await',),
     }
     return {key: any(term in text for term in terms) for key, terms in groups.items()}
 
@@ -44,9 +46,45 @@ def private_log_observation(path):
             return {'state': 'unsafe'}
         os.lseek(fd, max(0, info.st_size - 65536), os.SEEK_SET)
         raw = os.read(fd, 65536)
-        return {'state': 'readable', 'nonempty': bool(raw), 'flags': log_flags(raw)}
+        return {'state': 'readable', 'nonempty': bool(raw), 'bytes': info.st_size,
+                'flags': log_flags(raw)}
     finally:
         os.close(fd)
+
+
+def resource_observation(proc=Path('/proc')):
+    """Fixed numeric guest facts; no paths, arguments or environment values."""
+    memory = {key: None for key in ('MemAvailable', 'SwapTotal', 'SwapFree')}
+    counters = {key: None for key in ('oom_kill', 'pgmajfault')}
+    for filename, wanted, unit in (('meminfo', memory, 'kB'), ('vmstat', counters, None)):
+        try:
+            raw = (proc / filename).read_text()[:65536]
+            for line in raw.splitlines():
+                parts = line.split()
+                key = parts[0].rstrip(':') if parts else ''
+                if (key in wanted and len(parts) == (3 if unit else 2)
+                        and parts[1].isdigit() and (unit is None or parts[2] == unit)):
+                    wanted[key] = int(parts[1])
+        except OSError:
+            pass
+    return {'memory_kib': memory, 'vm_counters': counters}
+
+
+def node_observation(process):
+    raw = (process / 'stat').read_text()
+    fields = raw[raw.rfind(')') + 2:].split()
+    result = {'pid': int(process.name), 'state': fields[0],
+        'cpu_ticks': int(fields[11]) + int(fields[12]),
+        'major_faults': int(fields[9]), 'resident_pages': int(fields[21]),
+        'read_bytes': None, 'read_chars': None}
+    try:
+        values = dict(line.split(':', 1) for line in (process / 'io').read_text().splitlines())
+        for output, key in (('read_bytes', 'read_bytes'), ('read_chars', 'rchar')):
+            value = values.get(key, '').strip()
+            if value.isdigit(): result[output] = int(value)
+    except OSError:
+        pass
+    return result
 
 
 def gateway_observation(home, opener):
@@ -58,6 +96,7 @@ def gateway_observation(home, opener):
     port = int(origin.rsplit(':', 1)[1])
     listener = False
     node_count = 0
+    nodes = []
     for process in Path('/proc').iterdir():
         if not process.name.isdigit():
             continue
@@ -68,9 +107,11 @@ def gateway_observation(home, opener):
             if comm not in ('node', 'openclaw', 'openclaw-gatewa'):
                 continue
             node_count += 1
+            if len(nodes) < 8:
+                nodes.append(node_observation(process))
             from argoslive.owned_ollama import owns_port
             listener = listener or owns_port(int(process.name), port)
-        except OSError:
+        except (OSError, ValueError, IndexError):
             continue
     health = {'reachable': False, 'status': None, 'ready': False}
     try:
@@ -87,6 +128,7 @@ def gateway_observation(home, opener):
     root = home / '.local/state/argos-live'
     return {'same_user_node_processes': min(node_count, 32),
         'same_user_gateway_listener': listener, 'health': health,
+        'node_activity': nodes, 'guest_resources': resource_observation(),
         'gateway_log': private_log_observation(root / 'gateway.log'),
         'supervisor_log': private_log_observation(root / 'gateway-supervisor.log')}
 
@@ -198,6 +240,8 @@ def managed_check(started, desktop_seconds):
     stable_since = None
     last_backend = None
     last_gateway = None
+    last_gateway_at = 0
+    last_gateway_phase = None
     while time.monotonic() < deadline:
         if not descriptor.exists():
             time.sleep(2)
@@ -210,11 +254,13 @@ def managed_check(started, desktop_seconds):
         if phase != last:
             print('ARGOS_C3_MANAGED ' + json.dumps({'phase': phase, 'failure': report.get('failure')}), flush=True)
             last = phase
-        if phase in ('gateway', 'ready', 'failed'):
+        if (phase in ('gateway', 'ready', 'failed') and
+                (phase != last_gateway_phase or time.monotonic() - last_gateway_at >= 15)):
             observed = gateway_observation(home, opener)
             if observed != last_gateway:
                 print('ARGOS_C3_GATEWAY ' + json.dumps(observed), flush=True)
                 last_gateway = observed
+            last_gateway_at, last_gateway_phase = time.monotonic(), phase
         if phase in ('failed', 'stopped'):
             raise ValueError('Shipped automatic startup failed')
         if phase == 'model-service':
