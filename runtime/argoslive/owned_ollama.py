@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 import os
 import math
+import select
 from pathlib import Path
 import signal
 import shutil
@@ -16,6 +17,36 @@ from .pull_jobs import worker_lock
 from .private_files import private_log
 
 PIN = '0.35.1'
+
+
+def supervisor_pid(process, *, deadline, cancel=None):
+    """Read only a bounded PID line, with cancellation and one startup budget.
+
+    Avoid blocking readline after a partial pipe write. A cold Live interpreter
+    can take longer than five seconds before executing the supervisor module.
+    """
+    pending = b''
+    while True:
+        if cancel and cancel():
+            raise ValueError('Supervisor startup stopped')
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ValueError('Supervisor startup timed out; inspect private supervisor log')
+        if not select.select([process.stdout], [], [], min(.1, remaining))[0]:
+            if process.poll() is not None:
+                raise ValueError('Supervisor exited before publishing ownership')
+            continue
+        chunk = os.read(process.stdout.fileno(), 33 - len(pending))
+        if not chunk:
+            raise ValueError('Supervisor closed its ownership pipe')
+        pending += chunk
+        if len(pending) > 32:
+            raise ValueError('Supervisor ownership record exceeds the bound')
+        if b'\n' in pending:
+            pid, extra = pending.split(b'\n', 1)
+            if extra or not pid.isdigit() or not 0 < int(pid) <= 2147483647:
+                raise ValueError('Invalid supervisor ownership record')
+            return int(pid)
 
 
 def stop_group(process):
@@ -91,18 +122,15 @@ def owned(target, *, executable=None, timeout=180, lease_store=None, port=0, con
     with private_log(log_path):
         pass
     # Supervisor emits only the child PID, never backend logs or credentials.
-    process = subprocess.Popen([sys.executable, '-m', 'argoslive.owned_ollama',
-                                '--supervise', executable, str(lease), str(log_path)], env=env,
-                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                               text=True, start_new_session=True)
+    deadline = time.monotonic() + timeout
+    with private_log(lease / 'supervisor.log') as supervisor_log:
+        process = subprocess.Popen([sys.executable, '-m', 'argoslive.owned_ollama',
+                                    '--supervise', executable, str(lease), str(log_path)], env=env,
+                                   stdout=subprocess.PIPE, stderr=supervisor_log,
+                                   text=True, start_new_session=True)
     try:
-        # Supervisor startup has no network/model work before this single line.
-        import select
-        if not select.select([process.stdout], [], [], 5)[0]:
-            raise ValueError('Ollama supervisor did not start')
-        pid = int(process.stdout.readline().strip())
+        pid = supervisor_pid(process, deadline=deadline, cancel=cancel)
         client = Client(f'http://127.0.0.1:{port}', timeout=30)
-        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if cancel and cancel():
                 raise ValueError('Owned Ollama startup stopped')

@@ -4,7 +4,6 @@ import math
 import os
 from pathlib import Path
 import re
-import select
 import shutil
 import socket
 import subprocess
@@ -12,7 +11,7 @@ import sys
 import time
 
 from . import addons
-from .owned_ollama import owns_port, supervise
+from .owned_ollama import owns_port, supervise, supervisor_pid
 from .private_files import private_log
 from .storage import safe_local
 from .web.status import gateway, gateway_ready, read_json
@@ -89,17 +88,13 @@ def owned(home=None, *, executable=None, config_path=None, timeout=180, cancel=N
         if path.stat().st_uid != os.getuid() or path.stat().st_mode & 0o077:
             raise ValueError('Gateway runtime directories must be owner-only')
     # Supervisor alone holds the lease until the gateway group has stopped.
-    process = subprocess.Popen([sys.executable, '-m', 'argoslive.owned_gateway', '--supervise',
-                                executable, str(lease)], env=env, stdout=subprocess.PIPE,
-                               stderr=subprocess.DEVNULL, text=True, start_new_session=True)
+    deadline = time.monotonic() + timeout
+    with private_log(root / 'gateway-supervisor.log') as supervisor_log:
+        process = subprocess.Popen([sys.executable, '-m', 'argoslive.owned_gateway', '--supervise',
+                                    executable, str(lease)], env=env, stdout=subprocess.PIPE,
+                                   stderr=supervisor_log, text=True, start_new_session=True)
     try:
-        if not select.select([process.stdout], [], [], 5)[0]:
-            raise ValueError('Gateway supervisor did not start')
-        try:
-            group = int(process.stdout.readline().strip())
-        except ValueError:
-            raise ValueError('Gateway supervisor did not acquire ownership') from None
-        deadline = time.monotonic() + timeout
+        group = supervisor_pid(process, deadline=deadline, cancel=cancel)
         while time.monotonic() < deadline:
             if cancel and cancel():
                 raise ValueError('Owned gateway startup stopped')
