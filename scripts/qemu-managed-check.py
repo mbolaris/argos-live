@@ -1,12 +1,94 @@
 """Observe shipped autostart in an offline disposable guest; never start services."""
 import json
 import ctypes
+from http.client import HTTPException
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import time
 from urllib.request import Request, ProxyHandler, build_opener
+from urllib.error import HTTPError
+
+
+def log_flags(raw):
+    """Publish fixed diagnostic indicators, never log text or extracted values."""
+    text = raw.decode(errors='replace').lower()
+    groups = {
+        'listening_reported': ('listening on', 'gateway listening'),
+        'configuration_error': ('invalid config', 'config invalid', 'unrecognized key'),
+        'address_in_use': ('eaddrinuse', 'address already in use'),
+        'permission_error': ('eacces', 'permission denied'),
+        'missing_dependency': ('cannot find module', 'module not found', 'err_module_not_found'),
+        'memory_failure': ('out of memory', 'heap limit', 'allocation failed'),
+        'instruction_failure': ('illegal instruction', 'sigill'),
+        'error_reported': ('"level":"error"', '"level":"fatal"', 'unhandled', 'error:'),
+        'plugin_activity': ('plugin', 'extension'),
+    }
+    return {key: any(term in text for term in terms) for key, terms in groups.items()}
+
+
+def private_log_observation(path):
+    """Inspect only an owner-only regular log; emit a bounded fixed vocabulary."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return {'state': 'absent'}
+    except OSError:
+        return {'state': 'unavailable'}
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o077 or info.st_nlink != 1):
+            return {'state': 'unsafe'}
+        os.lseek(fd, max(0, info.st_size - 65536), os.SEEK_SET)
+        raw = os.read(fd, 65536)
+        return {'state': 'readable', 'nonempty': bool(raw), 'flags': log_flags(raw)}
+    finally:
+        os.close(fd)
+
+
+def gateway_observation(home, opener):
+    from argoslive.web.status import gateway, read_json
+    try:
+        origin = gateway(read_json(home / '.openclaw/openclaw.json'))
+    except (OSError, ValueError, AttributeError, TypeError):
+        return {'state': 'configuration_unavailable'}
+    port = int(origin.rsplit(':', 1)[1])
+    listener = False
+    node_count = 0
+    for process in Path('/proc').iterdir():
+        if not process.name.isdigit():
+            continue
+        try:
+            if process.stat().st_uid != os.getuid():
+                continue
+            comm = (process / 'comm').read_text().strip()
+            if comm not in ('node', 'openclaw', 'openclaw-gatewa'):
+                continue
+            node_count += 1
+            from argoslive.owned_ollama import owns_port
+            listener = listener or owns_port(int(process.name), port)
+        except OSError:
+            continue
+    health = {'reachable': False, 'status': None, 'ready': False}
+    try:
+        with opener.open(origin + '/readyz', timeout=1) as response:
+            health['reachable'], health['status'] = True, response.status
+            raw = response.read(16385)
+            if len(raw) <= 16384:
+                health['ready'] = json.loads(raw).get('ready') is True
+    except HTTPError as error:
+        health['reachable'], health['status'] = True, error.code
+        error.close()
+    except (OSError, ValueError, AttributeError, HTTPException):
+        pass
+    root = home / '.local/state/argos-live'
+    return {'same_user_node_processes': min(node_count, 32),
+        'same_user_gateway_listener': listener, 'health': health,
+        'gateway_log': private_log_observation(root / 'gateway.log'),
+        'supervisor_log': private_log_observation(root / 'gateway-supervisor.log')}
 
 
 def fullscreen_capture():
@@ -115,6 +197,7 @@ def managed_check(started, desktop_seconds):
     last = None
     stable_since = None
     last_backend = None
+    last_gateway = None
     while time.monotonic() < deadline:
         if not descriptor.exists():
             time.sleep(2)
@@ -127,6 +210,11 @@ def managed_check(started, desktop_seconds):
         if phase != last:
             print('ARGOS_C3_MANAGED ' + json.dumps({'phase': phase, 'failure': report.get('failure')}), flush=True)
             last = phase
+        if phase in ('gateway', 'ready', 'failed'):
+            observed = gateway_observation(home, opener)
+            if observed != last_gateway:
+                print('ARGOS_C3_GATEWAY ' + json.dumps(observed), flush=True)
+                last_gateway = observed
         if phase in ('failed', 'stopped'):
             raise ValueError('Shipped automatic startup failed')
         if phase == 'model-service':
