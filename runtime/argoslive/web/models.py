@@ -124,6 +124,8 @@ def snapshot(home=None, *, data=None, hardware=hw.snapshot, validate=storage.val
         if source not in ('managed', 'bundled') or (source == 'bundled' and configured.get('model') != starter.TAG):
             raise ValueError('Unexpected configured model source')
         result['selected_source'] = source
+        result['storage_path'] = str(root)
+        result['storage_encrypted'] = configured.get('storage_encrypted') if type(configured.get('storage_encrypted')) is bool else None
         result['storage_state'] = 'available'
         result['installed'], result['invalid_manifests'], truncated = present_models(root, data)
         result['truncated'] = truncated

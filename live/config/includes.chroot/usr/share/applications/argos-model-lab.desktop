@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Argos Model Lab
+Comment=Measure your model and explore verified upgrades
+Exec=argos desktop
+Icon=applications-science
+Categories=Utility;
+Terminal=false

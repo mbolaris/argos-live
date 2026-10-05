@@ -92,5 +92,7 @@ jobs:
             work/dashboard-desktop.png
             work/dashboard-narrow.png
             work/dashboard-startup.png
+            work/dashboard-download-review.png
+            work/dashboard-download-progress.png
           if-no-files-found: error
           retention-days: 14

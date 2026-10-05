@@ -20,6 +20,14 @@ let managedStartup = false;
 let handoffPending = false;
 let startupRefreshing = false;
 let liveRefreshing = false;
+let downloadAvailable = false;
+let downloadActive = false;
+let downloadRefreshing = false;
+let lastDownloadPhase = null;
+let downloadChoice = null;
+let catalogPreview = new Map();
+let modelDestination = null;
+let modelEncryption = null;
 const startupSteps = {idle: 0, setup: 0, 'select-storage': 1, 'write-configuration': 1,
   configured: 2,
   'verify-starter': 1, 'verify-model': 2, 'model-service': 3, 'first-reply': 3, gateway: 4,
@@ -79,6 +87,8 @@ function card(parent, heading, detail) {
   parent.append(article);
 }
 const gib = bytes => typeof bytes === 'number' ? `${(bytes / 2 ** 30).toFixed(1)} GiB` : 'Unknown';
+const byteSize = bytes => !Number.isFinite(bytes) ? 'Unknown' : bytes >= 2 ** 30 ? `${(bytes / 2 ** 30).toFixed(2)} GiB` :
+  bytes >= 2 ** 20 ? `${(bytes / 2 ** 20).toFixed(1)} MiB` : bytes >= 1024 ? `${(bytes / 1024).toFixed(1)} KiB` : `${bytes} bytes`;
 const encrypted = value => value === true ? 'Encrypted' : value === false ? 'Unencrypted' : 'Encryption unknown';
 async function api(path) {
   const response = await fetch(path, {headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
@@ -138,6 +148,9 @@ async function refreshModels() {
   installed.replaceChildren(); bundled.replaceChildren(); jobs.replaceChildren(); catalog.replaceChildren();
   try {
     const result = await api('/api/models');
+    catalogPreview = new Map(result.catalog.map(model => [model.tag, model]));
+    modelDestination = result.storage_path || null;
+    modelEncryption = result.storage_encrypted;
     status.textContent = result.storage_state === 'available' ? 'Reading your selected Ollama store.' :
       result.storage_state === 'not-configured' ? 'Choose model storage in the welcome window.' :
       'Selected storage or job metadata needs attention. No fallback location is used.';
@@ -163,14 +176,27 @@ async function refreshModels() {
       const progress = job.progress;
       const speed = progress.recent_mib_per_second === null ? 'Speed unknown' : `${progress.recent_mib_per_second.toFixed(1)} MiB/s`;
       const eta = progress.eta_seconds === null ? 'ETA unknown' : `${Math.ceil(progress.eta_seconds)} seconds remaining`;
-      card(jobs, job.tag, `${job.state} · ${gib(progress.bytes_done)} / ${gib(progress.bytes_total)} · Last measured: ${speed} · Last estimate: ${eta}` +
+      card(jobs, job.tag, `${job.state} · ${byteSize(progress.bytes_done)} / ${byteSize(progress.bytes_total)} · Last measured: ${speed} · Last estimate: ${eta}` +
         (job.previous_reply_verified ? ' · A previous onboarding reply passed; current readiness has not been rechecked.' : ''));
+      if (downloadAvailable && ['queued', 'paused', 'interrupted', 'failed', 'downloading', 'verifying', 'loading', 'testing', 'publishing'].includes(job.state)) {
+        const button = document.createElement('button'); button.type = 'button';
+        button.textContent = 'Review retry'; button.disabled = downloadActive;
+        button.addEventListener('click', () => reviewDownload({job: job.id}, job.tag));
+        jobs.lastElementChild.append(button);
+      }
     }
     if (result.jobs !== null && result.jobs.length === 0) card(jobs, 'No download jobs', 'Existing verified-download jobs will appear here as they progress.');
     for (const model of result.catalog) {
       card(catalog, model.tag, `${model.description} · ${model.parameter_label} · ${model.quantization} · ` +
         `${gib(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · ` +
         `${model.context_tokens.toLocaleString()} context · CPU: ${model.cpu_fit.status} · GPU: ${model.gpu_fit.status} (estimates)`);
+      if (downloadAvailable) {
+        const button = document.createElement('button'); button.type = 'button';
+        button.textContent = 'Review download';
+        button.disabled = downloadActive || result.storage_state !== 'available';
+        button.addEventListener('click', () => reviewDownload({tag: model.tag}, model.tag));
+        catalog.lastElementChild.append(button);
+      }
     }
   } catch (_) {
     status.textContent = 'Model inventory unavailable. Refresh status to retry.';
@@ -209,6 +235,7 @@ async function refresh() {
     status.textContent = 'Status unavailable. Reopen the dashboard using its current session link, then retry.';
   } finally {
     await refreshLive();
+    await refreshModelControls();
     await refreshModels();
     await refreshBenchmarks();
     await refreshLab();
@@ -249,7 +276,7 @@ async function refreshLab() {
     document.getElementById('lab-controls').hidden = !value.available;
     document.getElementById('lab-unavailable').hidden = value.available;
     if (!value.available) return;
-    document.getElementById('lab-start').disabled = value.active;
+    document.getElementById('lab-start').disabled = value.active || downloadActive;
     document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
     let message = labPhases[value.phase] || 'Checking test status…';
     if (value.model) message += ' · ' + value.model;
@@ -276,6 +303,82 @@ for (const action of ['start', 'cancel']) document.getElementById('lab-' + actio
 setInterval(async () => { await refreshLab(); }, 3000);
 const metricLabels = {accuracy: 'Test accuracy', short_generation_tokens_per_second: 'Short-prompt output tokens/s',
   medium_generation_tokens_per_second: 'Medium-prompt output tokens/s', long_generation_tokens_per_second: 'Long-prompt output tokens/s'};
+function reviewDownload(choice, tag) {
+  downloadChoice = choice;
+  const model = catalogPreview.get(tag);
+  document.getElementById('download-review-details').textContent = model ?
+    `${tag} · ${byteSize(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · Estimated GPU fit: ${model.gpu_fit.status}. ` +
+    `Destination: ${modelDestination || 'your configured model store'} · ${encrypted(modelEncryption)}.` :
+    `${tag} · Retry against the current catalog and the same identity-checked store.`;
+  document.getElementById('download-confirm').disabled = false;
+  document.getElementById('download-review').showModal();
+}
+async function refreshModelControls() {
+  if (downloadRefreshing) return;
+  downloadRefreshing = true;
+  try {
+    const value = await api('/api/models/control');
+    downloadAvailable = value.available === true;
+    downloadActive = value.active === true;
+    document.getElementById('download-controls').hidden = !downloadAvailable;
+    document.getElementById('download-pause').disabled = !downloadActive || value.phase === 'cancelling';
+    document.getElementById('download-cancel').disabled = !downloadActive || value.phase === 'cancelling';
+    const names = {idle: 'Choose a model below to review its download.', pausing: 'Pausing chat…',
+      downloading: 'Downloading model artifacts…', verifying: 'Checking full artifact hashes…',
+      loading: 'Loading the new model…', testing: 'Testing a short local reply…', publishing: 'Publishing verified files…',
+      completed: 'Downloaded and reply-tested. Your active model is unchanged.', paused: 'Paused; review a retry to resume.',
+      cancelled: 'Cancelled. Partial files retained; no automatic retry.', cancelling: 'Stopping the job and cleaning up its owned service…',
+      failed: 'Download, storage or verification needs attention. Review before retrying.',
+      interrupted: 'Backend interrupted. Review before retrying.'};
+    let message = names[value.phase] || 'Checking model job…';
+    if (value.model) message += ' · ' + value.model;
+    const bar = document.getElementById('download-progress');
+    bar.hidden = !(Number.isFinite(value.progress?.bytes_done) && value.progress?.bytes_total > 0);
+    if (!bar.hidden) bar.value = Math.min(100, value.progress.bytes_done * 100 / value.progress.bytes_total);
+    if (value.progress && Number.isFinite(value.progress.bytes_done)) {
+      const p = value.progress;
+      message += ` · ${byteSize(p.bytes_done)} / ${byteSize(p.bytes_total)}`;
+      if (Number.isFinite(p.recent_mib_per_second)) message += ` · Last measured ${p.recent_mib_per_second.toFixed(1)} MiB/s`;
+      if (Number.isFinite(p.eta_seconds)) message += ` · Last estimate ${Math.ceil(p.eta_seconds)} s remaining`;
+    }
+    const reply = value.reply_test;
+    if (reply?.text_reply_verified) {
+      message += ' · Onboarding reply sample';
+      if (Number.isFinite(reply.eval_count)) message += `: ${reply.eval_count} output tokens`;
+      if (reply.eval_duration > 0 && Number.isFinite(reply.eval_count)) message += ` · ${(reply.eval_count * 1e9 / reply.eval_duration).toFixed(1)} tokens/s`;
+      message += ' (not a repeated benchmark)';
+    }
+    if (value.resume_requested) message += ' · Prior assistant restart requested.';
+    document.getElementById('download-status').textContent = message;
+    if (downloadActive) document.getElementById('lab-start').disabled = true;
+    const changed = lastDownloadPhase !== value.phase;
+    lastDownloadPhase = value.phase;
+    if (changed && value.available) await refreshModels();
+  } catch (_) {
+    document.getElementById('download-status').textContent = 'Download status unavailable. Refresh before taking another action.';
+  } finally { downloadRefreshing = false; }
+}
+document.getElementById('download-dismiss').addEventListener('click', () => document.getElementById('download-review').close());
+document.getElementById('download-confirm').addEventListener('click', async () => {
+  document.getElementById('download-confirm').disabled = true;
+  try {
+    const response = await fetch('/api/models/download', {method: 'POST',
+      headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'}, body: JSON.stringify(downloadChoice)});
+    if (!response.ok) throw new Error('Download unavailable');
+    document.getElementById('download-review').close();
+    await refreshModelControls();
+  } catch (_) {
+    document.getElementById('download-review-details').textContent = 'Download could not start. Check selected storage and active jobs, then refresh and review again.';
+  }
+});
+for (const action of ['pause', 'cancel']) document.getElementById('download-' + action).addEventListener('click', async () => {
+  try {
+    const response = await fetch('/api/models/' + action, {method: 'POST', headers: {'X-Argos-Token': token || ''}});
+    if (!response.ok) throw new Error('Control unavailable');
+    await refreshModelControls();
+  } catch (_) { document.getElementById('download-status').textContent = 'Job control unavailable. Refresh to check its state.'; }
+});
+setInterval(refreshModelControls, 3000);
 async function download(path, filename) {
   const response = await fetch(path, {headers: {'X-Argos-Token': token}, cache: 'no-store'});
   if (!response.ok) throw new Error('Download unavailable');

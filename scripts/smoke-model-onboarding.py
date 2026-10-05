@@ -15,6 +15,8 @@ from argoslive.bench_speed import run as speed_benchmark
 from argoslive.bench_ability import run as ability_benchmark
 from argoslive.pull_jobs import write_json
 from argoslive.results import Store
+from argoslive.model_controls import Controller as ModelControls
+from argoslive.startup import Controller as Startup
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--ollama', required=True, type=Path)
@@ -38,8 +40,19 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     partials = list((models / '.argos-pulls' / job['id'] / 'blobs').glob('*partial*'))
     if not partials:
         raise SystemExit('No real partial artifacts retained')
-    queue.retry(job['id'])
-    result = queue.run_verified(job['id'], backend=backend, assistant_stopped=True)
+    # Exercise the same desktop acquisition adapter with a real isolated backend.
+    # There is no running assistant in this fixture; native desktop restart is
+    # accepted separately by smoke-desktop-startup.py.
+    assistant = Startup(root, resolve_source=lambda home: (models, 'qwen3:0.6b'), backend=backend)
+    guided = ModelControls(assistant, queue_factory=lambda home: queue)
+    try:
+        guided.start(job=job['id'])
+        guided.worker.join(timeout=900)
+        if guided.worker.is_alive() or guided.snapshot()['phase'] != 'completed':
+            raise SystemExit('Guided native acquisition did not complete')
+        result = queue.get(job['id'])
+    finally:
+        guided.close()
     if result['state'] != 'ready':
         raise SystemExit('Real resume/verification/reply failed: ' + json.dumps(result))
     # Native OpenClaw's default provider points at this loopback endpoint. Own it
@@ -81,6 +94,7 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     print(json.dumps({'schema': 'argos-onboarding-smoke/1', 'model': result['tag'],
                       'manifest_digest': result['manifest_digest'], 'pause_verified': True,
                       'retained_partial_files': len(partials), 'resumed_to_ready': True,
+                      'guided_download_adapter_verified': True,
                       'reply_test': result['reply_test'],
                       'speed_benchmark_seconds': speed['elapsed_seconds'],
                       'speed_model_restored': speed['restoration']['succeeded'],

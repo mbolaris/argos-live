@@ -367,6 +367,15 @@ Depends on: W1, W2, MD1, MD4.
   no writes or service startup. Browser CI renders catalog and inventory states.
   W3b retains full W3 mutation and real-download acceptance.
 
+### W3b Guided acquisition controls � `in progress`
+Depends on: W3a, MD2, owned desktop workload lifecycle.
+- Candidate: catalog review/confirm, byte/rate/ETA progress, durable pause/cancel,
+  explicit retry, exact verification and local reply before publication. The
+  owned assistant is paused, benchmarks excluded and prior startup requested.
+  Active model/configuration/permissions remain unchanged. Native acquisition,
+  ISO and physical control acceptance pending; deletion and model activation
+  remain separate. See [GUIDED-DOWNLOADS.md](GUIDED-DOWNLOADS.md).
+
 ### W4 Benchmarks page — `split into W4a and W4b`
 Depends on: W2, B7.
 - Run speed, quick ability or both on a selected model with live progress and cancel; results table; select runs to compare side by side; CSV/JSON download.
@@ -386,7 +395,7 @@ Depends on: W4a, owned assistant/backend lifecycle.
 - Start speed/ability/both with live progress and cancellation, release resources,
   restore prior owned assistant state and test real Ollama. Do not run a competing
   benchmark against an unrelated or active assistant daemon.
-- Candidate: guided configured-model quick baseline pauses the managed assistant, runs short speed plus quick ability in an owned service, saves results, supports cancellation and requests prior assistant restart. Local lifecycle/browser checks pass; native Linux/ISO/physical job acceptance and broader model/suite selection remain pending. See [GUIDED-MODEL-LAB.md](GUIDED-MODEL-LAB.md).
+- Candidate: guided configured-model quick baseline pauses the managed assistant, runs short speed plus quick ability in an owned service, saves results, supports cancellation and requests prior assistant restart. Local lifecycle/browser and native Linux job/results/assistant-resume checks passed in PR44. ISO/physical job acceptance and broader model/suite selection remain pending. See [GUIDED-MODEL-LAB.md](GUIDED-MODEL-LAB.md).
 
 ### W5 Agents page — `todo`
 Depends on: W2, P3.

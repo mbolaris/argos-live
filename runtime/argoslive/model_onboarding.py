@@ -15,7 +15,7 @@ from .pull_jobs import Queue, Control, Progress, worker_lock, write_json, read_j
 class OnboardingQueue(Queue):
     def run_verified(self, job_id, *, backend=owned, revision=artifacts.registry_revision,
                      free=lambda p: shutil.disk_usage(p).free, callback=None,
-                     assistant_stopped=False):
+                     assistant_stopped=False, cancel=None):
         if not assistant_stopped:
             raise ValueError('Stop the assistant before model load testing; acknowledge --assistant-stopped')
         with worker_lock(self.root):
@@ -26,7 +26,7 @@ class OnboardingQueue(Queue):
             target = Path(job['storage']['path'])
             # Store-wide exclusion across cooperating queues/users.
             with worker_lock(target):
-                control = Control(self, job_id)
+                control = Control(self, job_id, external=cancel)
                 def save(state=None):
                     if state:
                         job['state'] = state
