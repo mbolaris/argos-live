@@ -106,6 +106,7 @@ def managed_check(started, desktop_seconds):
     from argoslive.desktop import session_url
     from argoslive.ollama import NoRedirect
     from argoslive import starter
+    from argoslive.web.status import gateway
     home = Path.home()
     descriptor = home / '.local/state/argos-live/desktop-session.json'
     deadline = time.monotonic() + 1200
@@ -135,9 +136,9 @@ def managed_check(started, desktop_seconds):
                 last_backend = observed
         if phase == 'ready':
             config = json.loads((home / '.openclaw/openclaw.json').read_text())
-            port = config['gateway']['port']
-            if type(port) is not int or not 1 <= port <= 65535:
-                raise ValueError('Unexpected fixture gateway port')
+            # Public first-boot configuration uses OpenClaw's default port.
+            # Resolve it through the same validator as the shipped launcher.
+            port = int(gateway(config).rsplit(':', 1)[1])
             metrics = report.get('metrics')
             if not report['model_reply_verified'] or metrics['backend']['mode'] != 'CPU':
                 raise ValueError('Automatic startup did not establish a measured CPU reply')
