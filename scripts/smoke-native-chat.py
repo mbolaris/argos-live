@@ -62,7 +62,21 @@ def command(cli, arguments, env, *, timeout=180):
         stdout, stderr = process.communicate(timeout=timeout)
         if process.returncode:
             # Output can contain config; never place it in public action logs.
-            raise ValueError('Native OpenClaw command failed')
+            text = (stdout + stderr)[-65536:].decode(errors='replace').lower()
+            indicators = {name: any(term in text for term in terms) for name, terms in {
+                'session_lock': ('session file locked', 'lock timeout', 'already locked'),
+                'agent_selection': ('unknown agent', 'agent not found', 'requires --agent'),
+                'invalid_config': ('invalid config', 'config validation'),
+                'model_missing': ('model not found', 'model does not exist'),
+                'context_capacity': ('context window', 'context length', 'out of memory'),
+                'connection': ('econnrefused', 'fetch failed', 'connection refused', 'socket hang up'),
+                'auth': ('unauthorized', 'missing api key', 'authentication'),
+                'permission': ('permission denied', 'eacces'),
+                'port_conflict': ('eaddrinuse', 'address already in use'),
+                'model_load': ('unable to load model', 'failed to load model'),
+                'timeout': ('timed out', 'timeout'),
+            }.items()}
+            raise ValueError('Native OpenClaw command failed: ' + json.dumps({'exit_code': process.returncode, **indicators}))
         return stdout
     finally:
         stop_group(process)
