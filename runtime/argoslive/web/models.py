@@ -124,6 +124,7 @@ def snapshot(home=None, *, data=None, hardware=hw.snapshot, validate=storage.val
         if source not in ('managed', 'bundled') or (source == 'bundled' and configured.get('model') != starter.TAG):
             raise ValueError('Unexpected configured model source')
         result['selected_source'] = source
+        result['selected_model'] = configured.get('model')
         result['storage_path'] = str(root)
         result['storage_encrypted'] = configured.get('storage_encrypted') if type(configured.get('storage_encrypted')) is bool else None
         result['storage_state'] = 'available'
@@ -145,6 +146,18 @@ def snapshot(home=None, *, data=None, hardware=hw.snapshot, validate=storage.val
     for entry in data['models']:
         result['catalog'].append({key: entry[key] for key in ('tag', 'description', 'parameter_label',
             'quantization', 'context_tokens', 'total_download_bytes', 'weight_bytes', 'license', 'capabilities')})
-        result['catalog'][-1].update(cpu_fit=catalog.fit(entry, ram, device='cpu'),
-                                    gpu_fit=catalog.fit(entry, vram, device='gpu'))
+        result['catalog'][-1].update(cpu_fit=catalog.fit(entry, ram, device='cpu', context_tokens=32768),
+                                    gpu_fit=catalog.fit(entry, vram, device='gpu', context_tokens=32768))
+    current = next((e for e in data['models'] if e['tag'] == result.get('selected_model')), None)
+    # Conservative next-size suggestion; memory fit is not a quality score.
+    candidates = [e for e in result['catalog'] if current and e['weight_bytes'] > current['weight_bytes']
+                  and '/' not in e['tag'] and 'text' in e['capabilities']
+                  and e['context_tokens'] >= 32768
+                  and (e['gpu_fit']['status'] == 'fits' or e['cpu_fit']['status'] == 'fits')]
+    next_model = min(candidates, key=lambda e: e['weight_bytes'], default=None)
+    result['guidance'] = {'next_model': next_model['tag'] if next_model else None,
+        'available_ram_bytes': ram, 'available_gpu_bytes': vram,
+        'message': ('Try ' + next_model['tag'] + ' next: a larger reviewed model with estimated memory headroom. Save a baseline, then compare the same speed and ability tests.'
+                    if next_model else 'Save a baseline for your current model. No larger standard model has measured comfortable memory headroom; inspect hardware and catalog estimates before upgrading.'),
+        'estimate': True, 'quality_improvement_verified': False}
     return result

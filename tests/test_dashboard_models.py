@@ -31,6 +31,20 @@ class ModelViewTests(unittest.TestCase):
     def snapshot(self):
         return models.snapshot(self.home, data=self.data, hardware=self.hardware, seed=self.home / 'seed')
 
+    def test_guidance_uses_available_memory_without_quality_claim_or_gpu_sum(self):
+        self.configured.update(model=starter.TAG, model_source='bundled')
+        self.state.write_text(json.dumps(self.configured))
+        self.hardware = lambda: {'ram': {'available_bytes': 64 * 1024**3}, 'gpus': [
+            {'vram_total_bytes': 8 * 1024**3, 'vram_used_bytes': 1024**3},
+            {'vram_total_bytes': 8 * 1024**3, 'vram_used_bytes': 2 * 1024**3}]}
+        value = self.snapshot()
+        self.assertEqual(value['guidance']['available_gpu_bytes'], 7 * 1024**3)
+        self.assertIsNotNone(value['guidance']['next_model'])
+        self.assertFalse(value['guidance']['quality_improvement_verified'])
+        self.assertEqual(value['catalog'][0]['cpu_fit']['context_tokens'], 32768)
+        self.hardware = lambda: {'ram': {'available_bytes': None}, 'gpus': None}
+        self.assertIsNone(self.snapshot()['guidance']['next_model'])
+
     def seed_fixture(self):
         root = self.home / 'seed'
         (root / 'blobs').mkdir(parents=True)

@@ -98,9 +98,9 @@ class Controller:
                 'failure': copy.deepcopy(self.failure),
                 'auto_open_chat': self.phase == 'ready' and self.auto_open_chat and not self.chat_claimed}
 
-    def start(self):
+    def start(self, *, _reserved=False):
         with self.lock:
-            if self.lab_active:
+            if self.lab_active and not _reserved:
                 raise ValueError('Model lab owns the assistant resources')
             if self.snapshot()['active']:
                 return self.snapshot()

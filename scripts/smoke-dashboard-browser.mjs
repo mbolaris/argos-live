@@ -148,6 +148,41 @@ try {
   if (modelCalls.join(',') !== 'download,pause') throw new Error('Guided download controls failed');
   await page.locator('summary').click();
   await page.locator('section:has(#models-title)').screenshot({path: 'work/dashboard-download-progress.png'});
+  let selection = {available: true, active: false, phase: 'idle'};
+  const selectionCalls = [];
+  await page.route('**/api/models/selection', route => route.fulfill({json: selection}));
+  await page.route('**/api/models', async route => {
+    const response = await route.fetch(); const value = await response.json();
+    value.storage_state = 'available'; value.selected_model = 'qwen3:0.6b'; value.selected_source = 'bundled';
+    value.bundled = {state: 'available', models: [{tag: 'qwen3:0.6b'}]};
+    value.installed = [{tag: 'qwen3:4b', files_present: true, catalog_manifest_match: true}];
+    await route.fulfill({response, json: value});
+  });
+  await page.route('**/api/models/select', async route => {
+    if (route.request().method() !== 'POST' || route.request().headers()['x-argos-token'] !== new URL(url).searchParams.get('token') ||
+        route.request().postDataJSON().tag !== 'qwen3:4b') throw new Error('Selection input invalid');
+    selectionCalls.push('select'); selection = {...selection, active: true, phase: 'starting'};
+    await route.fulfill({json: selection});
+  });
+  await page.route('**/api/models/select-cancel', async route => {
+    selectionCalls.push('cancel'); selection = {...selection, active: false, phase: 'cancelled'};
+    await route.fulfill({json: selection});
+  });
+  await page.reload();
+  await page.locator('#installed-models button').waitFor();
+  await page.locator('#installed-models button').click();
+  await page.locator('#selection-review').waitFor({state: 'visible'});
+  await page.screenshot({path: 'work/dashboard-selection-review.png'});
+  if (selectionCalls.length) throw new Error('Review switched model');
+  await page.locator('#selection-dismiss').click();
+  if (selectionCalls.length) throw new Error('Dismiss switched model');
+  await page.locator('#installed-models button').click();
+  await page.locator('#selection-confirm').click();
+  await page.waitForFunction(() => document.getElementById('selection-status').textContent.includes('Testing the selected'));
+  if (!(await page.locator('#lab-start').isDisabled())) throw new Error('Selection did not exclude benchmark');
+  await page.locator('#selection-cancel').click();
+  await page.waitForFunction(() => document.getElementById('selection-status').textContent.includes('Switch cancelled'));
+  if (selectionCalls.join(',') !== 'select,cancel') throw new Error('Selection controls failed');
   await page.screenshot({path: 'work/dashboard-desktop.png', fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
   if (!(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))) {

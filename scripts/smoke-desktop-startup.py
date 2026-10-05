@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import json
 import os
 import signal
+import runpy
 from pathlib import Path
 import sys
 import tempfile
@@ -63,9 +64,12 @@ def run(cli, ollama, seed):
                         raise ValueError('Managed desktop descriptor was not published')
                     time.sleep(.1)
                 origin, token = session_url(json.loads((root / 'desktop-session.json').read_text()))
-                def request(path, method='GET'):
-                    req = Request(origin + path, data=b'' if method == 'POST' else None,
-                        method=method, headers={'X-Argos-Token': token, 'Origin': origin})
+                def request(path, method='GET', body=None):
+                    headers = {'X-Argos-Token': token, 'Origin': origin}
+                    if body is not None:
+                        headers['Content-Type'] = 'application/json'
+                    req = Request(origin + path, data=json.dumps(body).encode() if body is not None else b'' if method == 'POST' else None,
+                        method=method, headers=headers)
                     with opener.open(req, timeout=5) as response:
                         raw = response.read(65537)
                     if len(raw) > 65536:
@@ -121,6 +125,25 @@ def run(cli, ollama, seed):
                     if time.monotonic() >= restart_deadline:
                         raise ValueError('Native assistant did not return after model lab cleanup')
                     time.sleep(.5)
+                request('/api/models/select', 'POST', {'tag': starter.TAG})
+                switch_deadline = time.monotonic() + 360
+                while True:
+                    switched = request('/api/models/selection')
+                    if not switched['active']:
+                        if switched['phase'] != 'completed':
+                            raise ValueError('Native verified selection did not complete')
+                        break
+                    if time.monotonic() >= switch_deadline:
+                        raise ValueError('Native verified selection exceeded test budget')
+                    time.sleep(.5)
+                if request('/api/startup')['phase'] != 'ready':
+                    raise ValueError('Selected native OpenClaw assistant is not ready')
+                native = runpy.run_path(str(ROOT / 'scripts/smoke-native-chat.py'))
+                # The pinned host rejects --local when this owned gateway runs.
+                # Exercise the live gateway's agent path, not a competing embedded host.
+                native['summary'](native['command'](cli, ['agent', '--agent', 'main', '--message',
+                    'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
+                    '--timeout', '120', '--json'], native['child_environment'](home), timeout=180))
                 request('/api/startup/stop', 'POST')
                 controller.worker.join(timeout=30)
                 if controller.snapshot()['phase'] != 'stopped' or controller.worker.is_alive():
@@ -198,6 +221,8 @@ def run(cli, ollama, seed):
         'verified_session_reopen': True, 'once_only_chat_handoff': True, 'stop_cleanup': True,
         'blocked_warmup_stop_verified': True,
         'native_model_lab_completed': True, 'model_lab_assistant_resumed': True,
+        'native_verified_model_selection': True,
+        'native_openclaw_gateway_reply_after_starter_reselection': True,
         'configuration_unchanged': True, 'weights_copied': False, 'startup_metrics': report['metrics'],
         'browser_conversation_verified': False, 'physical_acceptance': False}
 
