@@ -14,6 +14,13 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_probe_failure_only_emits_fixed_categories_not_private_error_text(self):
+        self.assertEqual(module.probe_failure(TimeoutError('private token')), 'timeout')
+        self.assertEqual(module.probe_failure(module.URLError(ConnectionRefusedError(
+            module.errno.ECONNREFUSED, 'private path'))), 'connection-refused')
+        self.assertEqual(module.probe_failure(ValueError('private response body')), 'invalid-response')
+        self.assertEqual(module.probe_failure(module.HTTPException('private URL')), 'http-protocol-error')
+
     def test_capture_gate_requires_active_firefox_control_page(self):
         for kind, title, expected in (
                 ('"firefox-esr"', '"Argos Live — Mozilla Firefox"', False),

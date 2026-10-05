@@ -1,6 +1,7 @@
 """Observe shipped autostart in an offline disposable guest; never start services."""
 import json
 import ctypes
+import errno
 from http.client import HTTPException
 import os
 from pathlib import Path
@@ -9,7 +10,7 @@ import stat
 import subprocess
 import time
 from urllib.request import Request, ProxyHandler, build_opener
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 
 def log_flags(raw):
@@ -33,6 +34,12 @@ def log_flags(raw):
         'channel_failure': ('channel startup failed',),
         'sidecar_failure': ('gateway sidecars failed to start', 'failed after gateway ready'),
         'authentication_failure': ('pairing required', 'token mismatch', 'unauthorized'),
+        'javascript_type_error': ('typeerror:',),
+        'javascript_reference_error': ('referenceerror:',),
+        'network_timeout': ('etimedout', 'connect timeout', 'headers timeout'),
+        'connection_refused': ('econnrefused',),
+        'missing_file': ('enoent',),
+        'database_error': ('sqlite_error', 'sqlite_cantopen', 'sqlite_busy'),
     }
     return {key: any(term in text for term in terms) for key, terms in groups.items()}
 
@@ -142,6 +149,20 @@ def node_observation(process):
     return result
 
 
+def probe_failure(error):
+    """Fixed transport categories; no exception messages or response bodies."""
+    reason = error.reason if isinstance(error, URLError) else error
+    if isinstance(reason, TimeoutError):
+        return 'timeout'
+    if isinstance(reason, OSError):
+        return {errno.ECONNREFUSED: 'connection-refused', errno.ECONNRESET: 'connection-reset',
+                errno.ETIMEDOUT: 'timeout', errno.ENETUNREACH: 'network-unreachable'}.get(
+                    reason.errno, 'transport-error')
+    if isinstance(reason, HTTPException):
+        return 'http-protocol-error'
+    return 'invalid-response'
+
+
 def gateway_observation(home, opener):
     from argoslive.web.status import gateway, read_json
     try:
@@ -168,7 +189,8 @@ def gateway_observation(home, opener):
             listener = listener or owns_port(int(process.name), port)
         except (OSError, ValueError, IndexError):
             continue
-    health = {'reachable': False, 'status': None, 'ready': False}
+    health = {'reachable': False, 'status': None, 'ready': False, 'failure': None}
+    probe_started = time.monotonic()
     try:
         with opener.open(origin + '/readyz', timeout=1) as response:
             health['reachable'], health['status'] = True, response.status
@@ -177,9 +199,11 @@ def gateway_observation(home, opener):
                 health['ready'] = json.loads(raw).get('ready') is True
     except HTTPError as error:
         health['reachable'], health['status'] = True, error.code
+        health['failure'] = 'http-status'
         error.close()
-    except (OSError, ValueError, AttributeError, HTTPException):
-        pass
+    except (OSError, ValueError, AttributeError, HTTPException) as error:
+        health['failure'] = probe_failure(error)
+    health['probe_seconds'] = round(min(30, max(0, time.monotonic() - probe_started)), 3)
     root = home / '.local/state/argos-live'
     return {'same_user_node_processes': min(node_count, 32),
         'same_user_gateway_listener': listener, 'health': health,
