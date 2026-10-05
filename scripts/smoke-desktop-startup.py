@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Hosted managed startup/reopen/stop acceptance with actual pinned local services."""
 import argparse
+from contextlib import contextmanager
 import json
 import os
+import signal
 from pathlib import Path
 import sys
 import tempfile
@@ -19,7 +21,7 @@ from argoslive import auto_setup, starter, storage
 from argoslive.desktop import reconnect, serve, session_url
 from argoslive.ollama import NoRedirect
 from argoslive.owned_gateway import owned as gateway_owned
-from argoslive.owned_ollama import owned as backend_owned
+from argoslive.owned_ollama import owned as backend_owned, owns_port
 from argoslive.startup import Controller
 
 
@@ -103,6 +105,63 @@ def run(cli, ollama, seed):
                     raise ValueError('Managed controls changed owner configuration')
                 if any(path.is_file() and path.name != '.argos-storage-id' for path in selected.rglob('*')):
                     raise ValueError('Managed startup copied model weights')
+                entered = threading.Event()
+                listener = []
+                @contextmanager
+                def blocked_backend(target, **options):
+                    with backend_owned(target, executable=ollama, **options) as client:
+                        # Pause only the listener validated by this fresh owned
+                        # lease. A pidfd anchors the signal against PID reuse.
+                        candidates = []
+                        for path in Path('/proc').iterdir():
+                            try:
+                                if (path.name.isdigit() and path.stat().st_uid == os.geteuid()
+                                        and owns_port(int(path.name), 11434)):
+                                    candidates.append(int(path.name))
+                            except (FileNotFoundError, ProcessLookupError):
+                                continue
+                        if len(candidates) != 1:
+                            raise ValueError('Fixture-owned listener is not unique')
+                        pid = candidates[0]
+                        descriptor = os.pidfd_open(pid)
+                        try:
+                            if not owns_port(pid, 11434):
+                                raise ValueError('Fixture-owned listener changed')
+                            signal.pidfd_send_signal(descriptor, signal.SIGSTOP)
+                            listener.append(pid)
+                            original_open = client._open
+                            def waiting_open(*args, **kwargs):
+                                entered.set()
+                                return original_open(*args, **kwargs)
+                            client._open = waiting_open
+                            yield client
+                        finally:
+                            os.close(descriptor)
+                def unexpected_gateway(*args, **kwargs):
+                    raise ValueError('Stopped warmup reached gateway startup')
+                blocked = Controller(home, configure=configure, backend=blocked_backend,
+                    gateway=unexpected_gateway)
+                try:
+                    blocked.start()
+                    if not entered.wait(180) or blocked.snapshot()['phase'] != 'first-reply':
+                        raise ValueError('Native blocked warmup was not established')
+                    time.sleep(.2)
+                    if not blocked.reply_worker.is_alive():
+                        raise ValueError('Native warmup did not remain blocked')
+                    began_stop = time.monotonic()
+                    blocked.stop()
+                    blocked.worker.join(timeout=30)
+                    if blocked.reply_worker is not None:
+                        blocked.reply_worker.join(timeout=5)
+                    stopped = blocked.snapshot()
+                    if (time.monotonic() - began_stop > 30 or stopped['phase'] != 'stopped'
+                            or stopped['active'] or stopped['failure'] is not None
+                            or not listener or owns_port(listener[0], 11434)):
+                        raise ValueError('Native blocked warmup did not stop and clean up')
+                    if (home / '.openclaw/openclaw.json').read_bytes() != original:
+                        raise ValueError('Blocked warmup changed owner configuration')
+                finally:
+                    blocked.close()
             finally:
                 stop.set()
                 thread.join(timeout=30)
@@ -113,6 +172,7 @@ def run(cli, ollama, seed):
     return {'schema': 'argos-desktop-startup-smoke/1', 'automatic_setup': True,
         'native_gateway': True, 'local_cpu_reply': True, 'reused_worker': True,
         'verified_session_reopen': True, 'once_only_chat_handoff': True, 'stop_cleanup': True,
+        'blocked_warmup_stop_verified': True,
         'configuration_unchanged': True, 'weights_copied': False, 'startup_metrics': report['metrics'],
         'browser_conversation_verified': False, 'physical_acceptance': False}
 
