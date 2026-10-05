@@ -31,6 +31,24 @@ def log_flags(raw):
     return {key: any(term in text for term in terms) for key, terms in groups.items()}
 
 
+def startup_trace(raw):
+    """Admit only known upstream stage names and bounded numeric timings."""
+    stages = ('entry.bootstrap', 'entry.argv', 'entry.run-main-import')
+    records = {}
+    pattern = re.compile(r'\[gateway\] startup trace: ([a-z.-]+) ([0-9.]+)ms total=([0-9.]+)ms')
+    for stage, duration, total in pattern.findall(raw.decode(errors='replace')):
+        if stage not in stages:
+            continue
+        try:
+            duration, total = float(duration), float(total)
+            if not 0 <= duration <= total <= 3600000:
+                continue
+        except ValueError:
+            continue
+        records[stage] = {'duration_ms': duration, 'total_ms': total}
+    return records
+
+
 def private_log_observation(path):
     """Inspect only an owner-only regular log; emit a bounded fixed vocabulary."""
     try:
@@ -47,7 +65,7 @@ def private_log_observation(path):
         os.lseek(fd, max(0, info.st_size - 65536), os.SEEK_SET)
         raw = os.read(fd, 65536)
         return {'state': 'readable', 'nonempty': bool(raw), 'bytes': info.st_size,
-                'flags': log_flags(raw)}
+                'flags': log_flags(raw), 'startup_trace': startup_trace(raw)}
     finally:
         os.close(fd)
 

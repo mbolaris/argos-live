@@ -13,6 +13,16 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_startup_trace_exposes_only_known_stages_and_bounded_timings(self):
+        raw = (b'[gateway] startup trace: entry.bootstrap 12.5ms total=20.0ms start=7.5ms secret=token\n'
+            b'[gateway] startup trace: owner.private-secret 10ms total=30ms\n'
+            b'[gateway] startup trace: entry.argv 40ms total=30ms\n'
+            b'[gateway] startup trace: entry.run-main-import 10ms total=999999999ms\n')
+        report = module.startup_trace(raw)
+        self.assertEqual(report, {'entry.bootstrap': {'duration_ms': 12.5, 'total_ms': 20.0}})
+        self.assertNotIn('secret', json.dumps(report))
+        self.assertNotIn('token', json.dumps(report))
+
     def test_resource_snapshot_reports_numeric_units_and_missing_as_unknown(self):
         with tempfile.TemporaryDirectory() as temp:
             proc = Path(temp)

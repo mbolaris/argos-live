@@ -22,7 +22,8 @@ def environment(home, config):
     env = {key: os.environ[key] for key in ('PATH', 'LANG', 'LC_ALL', 'TZ') if key in os.environ}
     env.update(HOME=str(home), USERPROFILE=str(home), XDG_CONFIG_HOME=str(home / '.config'),
                XDG_DATA_HOME=str(home / '.local/share'), XDG_CACHE_HOME=str(home / '.cache'),
-               OPENCLAW_CONFIG_PATH=str(config), OPENCLAW_STATE_DIR=str(config.parent), NO_COLOR='1')
+               OPENCLAW_CONFIG_PATH=str(config), OPENCLAW_STATE_DIR=str(config.parent), NO_COLOR='1',
+               OPENCLAW_GATEWAY_STARTUP_TRACE='1')
     env['PYTHONPATH'] = str(Path(__file__).resolve().parents[1])
     return env
 
@@ -57,7 +58,7 @@ def settings(path):
 
 
 @contextmanager
-def owned(home=None, *, executable=None, config_path=None, timeout=180, cancel=None):
+def owned(home=None, *, executable=None, config_path=None, timeout=600, cancel=None):
     if sys.platform != 'linux':
         raise ValueError('Owned gateway requires Linux')
     if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 600:

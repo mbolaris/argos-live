@@ -4,6 +4,7 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import threading
 import tempfile
 import time
 import unittest
@@ -110,6 +111,38 @@ class GatewayProcessTests(unittest.TestCase):
             self.assertEqual(listener.getsockname()[1], self.port)
             self.assertFalse((self.state / 'leader-pid').exists())
             self.assertFalse((self.home / '.local').exists())
+
+    def test_stop_during_unready_gateway_cleans_up_inside_cold_budget(self):
+        self.binary.write_text(FAKE.replace('"ready":true', '"ready":false'))
+        original = self.config.read_bytes()
+        stopped = threading.Event()
+        child = []
+        def cancel_when_listening():
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    leader = int((self.state / 'leader-pid').read_text())
+                    worker = int((self.state / 'worker-pid').read_text())
+                    if group_owns_port(leader, self.port):
+                        child.extend((leader, worker))
+                        stopped.set()
+                        return
+                except (OSError, ValueError):
+                    pass
+                time.sleep(.05)
+            stopped.set()
+        canceller = threading.Thread(target=cancel_when_listening)
+        canceller.start()
+        try:
+            with self.assertRaisesRegex(ValueError, 'stopped'):
+                with owned(self.home, executable=self.binary, cancel=stopped.is_set):
+                    self.fail('Unready gateway was accepted')
+        finally:
+            stopped.set()
+            canceller.join(timeout=6)
+        self.assertEqual(len(child), 2)
+        self.assertTrue(all(self.stopped(pid) for pid in child))
+        self.assertEqual(self.config.read_bytes(), original)
 
     def test_reviewed_bin_symlink_is_resolved_without_linking_owner_state(self):
         link = self.home / 'openclaw-bin-link'
