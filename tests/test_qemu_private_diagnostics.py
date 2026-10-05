@@ -26,7 +26,11 @@ class DiagnosticFlagsTests(unittest.TestCase):
                 ('"firefox-esr"', '"Argos Live — Mozilla Firefox"', False),
                 ('"other-browser"', '"OpenClaw Control"', False),
                 ('"firefox-esr"', '"OpenClaw Control — Mozilla Firefox"', True),
-                ('"firefox-esr"', '"OpenClaw Control"', True)):
+                ('"firefox-esr"', '"OpenClaw Control"', True),
+                ('"firefox-esr"', '"main — OpenClaw — Mozilla Firefox"', True),
+                ('"firefox-esr"', '"main — OpenClaw"', True),
+                ('"firefox-esr"', '"main — OpenClaw unrelated"', False),
+                ('"other-browser"', '"main — OpenClaw"', False)):
             with self.subTest(title=title, kind=kind), patch.object(module.subprocess,
                     'check_output', side_effect=['_NET_ACTIVE_WINDOW: 0x123', kind,
                                                  '_NET_WM_NAME(UTF8_STRING) = ' + title]):

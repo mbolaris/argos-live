@@ -231,7 +231,11 @@ def firefox_control_page_visible():
             return False
         title = subprocess.check_output(['xprop', '-id', match[0], '_NET_WM_NAME'],
                                         env=env, text=True, timeout=10)
-        return bool(re.search(r' = "OpenClaw Control(?:[ —-]|")', title))
+        # The initial HTML title changes after the shipped app renders a session.
+        # Both remain capture hints; the resulting screen still needs review.
+        return bool(re.search(
+            r' = "(?:OpenClaw Control(?: — Mozilla Firefox)?|'
+            r'[^"\r\n]{1,160} — OpenClaw(?: — Mozilla Firefox)?)"\s*$', title))
     except (OSError, subprocess.SubprocessError):
         return False
 
