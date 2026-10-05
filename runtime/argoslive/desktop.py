@@ -20,6 +20,7 @@ from .startup import Controller
 from .lab import Controller as LabController
 from .results import Store
 from .web.server import DashboardServer
+from .web.benchmarks import View as BenchmarkView
 from .web.status import read_json
 from .ollama import NoRedirect
 
@@ -79,8 +80,9 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
         info = path.stat()
         if info.st_uid != os.getuid() or info.st_mode & 0o077 or info.st_nlink != 1:
             raise ValueError('Existing desktop session metadata needs review')
-    lab = LabController(controller, store=Store(home / '.local/share/argos-live/results'))
-    with DashboardServer(port=port, startup=controller, lab=lab) as server:
+    results = Store(home / '.local/share/argos-live/results')
+    lab = LabController(controller, store=results)
+    with DashboardServer(port=port, startup=controller, lab=lab, benchmarks=BenchmarkView(results)) as server:
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)
         raw = (json.dumps({'schema': 'argos-desktop-session/1', 'pid': os.getpid(),
             'process_start': process_identity(os.getpid()), 'url': server.url}) + '\n').encode()
