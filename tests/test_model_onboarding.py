@@ -21,6 +21,13 @@ from argoslive.pull_jobs import Queue, worker_lock
 
 
 class OnboardingTests(unittest.TestCase):
+    def test_external_shutdown_cancelled_before_artifact_requests(self):
+        value = self.queue.run_verified(self.job['id'], backend=self.backend,
+            assistant_stopped=True, cancel=lambda: True)
+        self.assertEqual(value['state'], 'paused')
+        self.assertFalse(value['inference_ready'])
+        self.assertFalse(artifacts.manifest_path(self.models, self.entry['tag']).exists())
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

@@ -6,6 +6,8 @@ on:
       - '.github/workflows/model-onboarding.yml'
       - 'scripts/smoke-model-onboarding.py'
       - 'runtime/argoslive/model_onboarding.py'
+      - 'runtime/argoslive/model_controls.py'
+      - 'runtime/argoslive/lab.py'
       - 'runtime/argoslive/model_verify.py'
       - 'runtime/argoslive/owned_ollama.py'
       - 'runtime/argoslive/starter.py'

@@ -7,6 +7,7 @@ import secrets
 from urllib.parse import parse_qs, quote, urlsplit
 
 from argoslive import addons
+from argoslive.ability import object_pairs
 from argoslive.web import status as live_status
 from argoslive.web import models
 from argoslive.web.benchmarks import View as BenchmarkView
@@ -23,7 +24,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -32,6 +33,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.token = secrets.token_urlsafe(32)
         self.startup = startup
         self.lab = lab
+        self.downloads = downloads
         self.status_provider = status_provider
         self.models_provider = models_provider
         self.benchmarks = benchmarks or BenchmarkView()
@@ -103,7 +105,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
-        if path == '/api/lab':
+        if path == '/api/models/control':
+            self.reply(200, self.server.downloads.snapshot() if self.server.downloads else {'available': False}, head=head)
+        elif path == '/api/lab':
             self.reply(200, self.server.lab.snapshot() if self.server.lab else {'available': False}, head=head)
         elif path == '/api/startup':
             self.reply(200, self.server.startup.snapshot() if self.server.startup else
@@ -171,6 +175,32 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized(mutation=True):
             return
         path = urlsplit(self.path).path
+        if self.command == 'POST' and self.server.downloads and path == '/api/models/download':
+            lengths = self.headers.get_all('Content-Length')
+            if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                    or len(lengths[0]) > 3 or not lengths[0].isdigit() or not 1 <= int(lengths[0]) <= 512
+                    or self.headers.get('Content-Type') != 'application/json'):
+                self.reply(400, {'error': 'A bounded JSON model choice is required'})
+                return
+            try:
+                self.connection.settimeout(3)
+                body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                if not isinstance(body, dict) or set(body) not in ({'tag'}, {'job'}):
+                    raise ValueError('Unknown model choice')
+                self.reply(200, self.server.downloads.start(**body))
+            except (ValueError, OSError, UnicodeError, TypeError):
+                self.reply(409, {'error': 'Model download unavailable; check the catalog, storage and active jobs'})
+            return
+        if self.command == 'POST' and self.server.downloads and path in ('/api/models/pause', '/api/models/cancel'):
+            if (self.headers.get('Transfer-Encoding') is not None or
+                    self.headers.get_all('Content-Length') not in (None, ['0'])):
+                self.reply(400, {'error': 'Model controls require an empty body'})
+                return
+            try:
+                self.reply(200, self.server.downloads.cancel(path.rsplit('/', 1)[1]))
+            except (ValueError, OSError):
+                self.reply(409, {'error': 'Model control unavailable'})
+            return
         if self.command == 'POST' and self.server.lab and path in ('/api/lab/start', '/api/lab/cancel'):
             if (self.headers.get('Transfer-Encoding') is not None or
                     self.headers.get_all('Content-Length') not in (None, ['0'])):

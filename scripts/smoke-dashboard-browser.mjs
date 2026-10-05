@@ -103,6 +103,51 @@ try {
   await page.waitForFunction(() => !document.getElementById('lab-start').disabled &&
     document.getElementById('lab-status').textContent.includes('Test cancelled'));
   if (labCalls.join(',') !== 'start,cancel') throw new Error('Lab controls did not run');
+  let acquisition = {available: true, active: false, phase: 'idle'};
+  const modelCalls = [];
+  await page.route('**/api/models/control', route => route.fulfill({json: acquisition}));
+  await page.route('**/api/models', async route => {
+    const response = await route.fetch();
+    const value = await response.json();
+    value.storage_state = 'available';
+    await route.fulfill({response, json: value});
+  });
+  await page.route('**/api/models/download', async route => {
+    if (route.request().method() !== 'POST' ||
+        route.request().headers()['x-argos-token'] !== new URL(url).searchParams.get('token')) {
+      throw new Error('Download browser authorization failed');
+    }
+    const choice = route.request().postDataJSON();
+    if (Object.keys(choice).join(',') !== 'tag') throw new Error('Unexpected model download input');
+    modelCalls.push('download');
+    acquisition = {...acquisition, active: true, phase: 'downloading', model: choice.tag,
+      progress: {bytes_done: 1048576, bytes_total: 2097152, recent_mib_per_second: 2.5, eta_seconds: 1}};
+    await route.fulfill({json: acquisition});
+  });
+  await page.route('**/api/models/pause', async route => {
+    if (route.request().method() !== 'POST' || route.request().postData()) throw new Error('Pause input invalid');
+    modelCalls.push('pause');
+    acquisition = {...acquisition, active: false, phase: 'paused'};
+    await route.fulfill({json: acquisition});
+  });
+  await page.reload();
+  await page.locator('#download-controls').waitFor({state: 'visible'});
+  await page.locator('summary').click();
+  await page.locator('#model-catalog button').first().click();
+  await page.locator('#download-review').waitFor({state: 'visible'});
+  await page.screenshot({path: 'work/dashboard-download-review.png'});
+  if (modelCalls.length) throw new Error('Opening review started a download');
+  await page.locator('#download-dismiss').click();
+  if (modelCalls.length) throw new Error('Dismissal started a download');
+  await page.locator('#model-catalog button').first().click();
+  await page.locator('#download-confirm').click();
+  await page.waitForFunction(() => document.getElementById('download-status').textContent.includes('2.5 MiB/s'));
+  if (!(await page.locator('#lab-start').isDisabled())) throw new Error('Competing lab action enabled');
+  await page.locator('#download-pause').click();
+  await page.waitForFunction(() => document.getElementById('download-status').textContent.includes('Paused;'));
+  if (modelCalls.join(',') !== 'download,pause') throw new Error('Guided download controls failed');
+  await page.locator('summary').click();
+  await page.locator('section:has(#models-title)').screenshot({path: 'work/dashboard-download-progress.png'});
   await page.screenshot({path: 'work/dashboard-desktop.png', fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
   if (!(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))) {

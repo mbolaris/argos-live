@@ -136,8 +136,9 @@ class Progress:
 
 
 class Control:
-    def __init__(self, queue, job_id):
+    def __init__(self, queue, job_id, external=None):
         self.queue, self.job_id = queue, job_id
+        self.external = external
 
     def action(self):
         value = read_json(self.queue.path(self.job_id, '.control.json'))
@@ -147,7 +148,7 @@ class Control:
         return action
 
     def is_set(self):
-        return self.action() != 'run'
+        return bool(self.external and self.external()) or self.action() != 'run'
 
 
 class Queue:

@@ -9,6 +9,8 @@ from .results import Store
 
 
 class Controller:
+    budget_seconds = 900
+
     def __init__(self, startup, *, store=None, clock=time.monotonic,
                  speed=bench_speed.run, ability=bench_ability.run):
         self.startup = startup
@@ -42,8 +44,8 @@ class Controller:
         with self.startup.lock, self.lock:
             if self.closed:
                 raise ValueError('The model lab is closed')
-            if self.snapshot()['active']:
-                raise ValueError('A model test is already active')
+            if self.snapshot()['active'] or self.startup.lab_active:
+                raise ValueError('Another desktop workload is already active')
             status = self.startup.snapshot()
             self.resume = status['active']
             self.startup.lab_active = True
@@ -70,7 +72,7 @@ class Controller:
                 self.phase, self.progress = phase, copy.deepcopy(value)
 
     def run(self):
-        timer = threading.Timer(900, self.cancel_event.set)
+        timer = threading.Timer(self.budget_seconds, self.cancel)
         timer.daemon = True
         timer.start()
         outcome = 'failed'
@@ -83,28 +85,14 @@ class Controller:
                     raise ValueError('Assistant did not release resources')
             if self.cancel_event.is_set():
                 raise Cancelled('Cancelled before benchmark')
-            target, model = self.startup.resolve_source(self.startup.home)
-            with self.lock:
-                self.model = model
-            self.report('model-service')
-            lease = self.startup.home / '.local/state/argos-live'
-            with self.startup.backend(target, lease_store=lease, cancel=self.cancel_event.is_set) as client:
-                client.timeout = 120
-                for phase, runner, options in (
-                        ('speed', self.speed, {'sizes': ('short',)}),
-                        ('ability', self.ability, {'suite': 'quick'})):
-                    if self.cancel_event.is_set():
-                        raise Cancelled('Cancelled between tests')
-                    self.report(phase)
-                    result = runner(client, model, cancel=self.cancel_event,
-                                    progress=lambda value, phase=phase: self.report(phase, value), **options)
-                    self.store.save(result)
-                    with self.lock:
-                        self.runs.append(result['id'])
-                outcome = 'cancelled' if self.cancel_event.is_set() else 'completed'
+            outcome = self.execute()
         except Exception:
             # Never export private configuration paths or exception text to HTTP.
             outcome = 'cancelled' if self.cancel_event.is_set() else 'failed'
+            try:
+                self.settle_unstarted()
+            except (ValueError, OSError):
+                pass
         finally:
             timer.cancel()
             with self.startup.lock, self.lock:
@@ -121,11 +109,36 @@ class Controller:
                 self.phase = outcome
                 self.finished = self.clock()
 
+    def execute(self):
+        target, model = self.startup.resolve_source(self.startup.home)
+        with self.lock:
+            self.model = model
+        self.report('model-service')
+        lease = self.startup.home / '.local/state/argos-live'
+        with self.startup.backend(target, lease_store=lease, cancel=self.cancel_event.is_set) as client:
+            client.timeout = 120
+            for phase, runner, options in (
+                    ('speed', self.speed, {'sizes': ('short',)}),
+                    ('ability', self.ability, {'suite': 'quick'})):
+                if self.cancel_event.is_set():
+                    raise Cancelled('Cancelled between tests')
+                self.report(phase)
+                result = runner(client, model, cancel=self.cancel_event,
+                                progress=lambda value, phase=phase: self.report(phase, value), **options)
+                self.store.save(result)
+                with self.lock:
+                    self.runs.append(result['id'])
+        return 'cancelled' if self.cancel_event.is_set() else 'completed'
+
+    def settle_unstarted(self):
+        """Specialized workloads may settle a receipt without backend startup."""
+        pass
+
     def close(self):
         with self.lock:
             self.closed = True
             self.resume = False
-            self.cancel_event.set()
+            self.cancel()
             worker = self.worker
         if worker:
             worker.join(timeout=200)
