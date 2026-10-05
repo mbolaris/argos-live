@@ -75,6 +75,7 @@ class Controller:
         self.chat_claimed = False
         self.origin = None
         self.failure = None
+        self.lab_active = False
 
     def transition(self, phase):
         if phase not in PHASES:
@@ -89,7 +90,7 @@ class Controller:
             worker_active = self.worker is not None and self.worker.is_alive()
             active = worker_active or (self.reply_worker is not None and self.reply_worker.is_alive())
             return {'schema': 'argos-startup/1', 'managed': True, 'phase': self.phase, 'message': PHASES[self.phase],
-                'active': active, 'can_start': not active,
+                'active': active, 'can_start': not active and not self.lab_active,
                 'can_stop': worker_active and not self.stop_event.is_set(),
                 'elapsed_seconds': max(0, self.clock() - self.started) if self.started is not None else None,
                 'model': self.model, 'model_reply_verified': self.metrics is not None,
@@ -99,6 +100,8 @@ class Controller:
 
     def start(self):
         with self.lock:
+            if self.lab_active:
+                raise ValueError('Model lab owns the assistant resources')
             if self.snapshot()['active']:
                 return self.snapshot()
             self.stop_event.clear()

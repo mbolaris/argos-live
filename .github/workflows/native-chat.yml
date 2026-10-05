@@ -8,6 +8,7 @@ on:
       - 'scripts/smoke-desktop-startup.py'
       - 'runtime/argoslive/startup.py'
       - 'runtime/argoslive/desktop.py'
+      - 'runtime/argoslive/lab.py'
       - 'runtime/argoslive/owned_gateway.py'
       - 'runtime/argoslive/auto_setup.py'
       - 'runtime/argoslive/starter.py'
@@ -19,7 +20,7 @@ permissions:
 jobs:
   native-chat:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin

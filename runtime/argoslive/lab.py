@@ -1,0 +1,131 @@
+"""Desktop-owned quick baseline: pause chat, test fixed prompts, save, resume."""
+import copy
+import threading
+import time
+
+from . import bench_ability, bench_speed
+from .ollama import Cancelled
+from .results import Store
+
+
+class Controller:
+    def __init__(self, startup, *, store=None, clock=time.monotonic,
+                 speed=bench_speed.run, ability=bench_ability.run):
+        self.startup = startup
+        self.store = store or Store(startup.home / '.local/share/argos-live/results')
+        self.clock, self.speed, self.ability = clock, speed, ability
+        self.lock = threading.RLock()
+        self.cancel_event = threading.Event()
+        self.worker = None
+        self.phase = 'idle'
+        self.progress = None
+        self.runs = []
+        self.started = None
+        self.finished = None
+        self.model = None
+        self.resume = False
+        self.resume_requested = False
+        self.closed = False
+
+    def snapshot(self):
+        with self.lock:
+            active = self.worker is not None and self.worker.is_alive()
+            return {'available': not self.closed, 'active': active,
+                    'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
+                    'model': self.model, 'progress': copy.deepcopy(self.progress),
+                    'runs': list(self.runs), 'resume_requested': self.resume_requested,
+                    'elapsed_seconds': max(0, (self.finished if self.finished is not None else self.clock()) - self.started)
+                    if self.started is not None else None}
+
+    def start(self):
+        # Share startup's reservation: chat cannot restart into a benchmark.
+        with self.startup.lock, self.lock:
+            if self.closed:
+                raise ValueError('The model lab is closed')
+            if self.snapshot()['active']:
+                raise ValueError('A model test is already active')
+            status = self.startup.snapshot()
+            self.resume = status['active']
+            self.startup.lab_active = True
+            self.startup.stop()
+            self.cancel_event.clear()
+            self.phase, self.started = 'pausing', self.clock()
+            self.finished = None
+            self.progress, self.runs, self.model = None, [], None
+            self.resume_requested = False
+            self.worker = threading.Thread(target=self.run, daemon=True, name='argos-model-lab')
+            self.worker.start()
+            return self.snapshot()
+
+    def cancel(self):
+        with self.lock:
+            if self.snapshot()['active']:
+                self.cancel_event.set()
+                self.phase = 'cancelling'
+            return self.snapshot()
+
+    def report(self, phase, value=None):
+        with self.lock:
+            if not self.cancel_event.is_set():
+                self.phase, self.progress = phase, copy.deepcopy(value)
+
+    def run(self):
+        timer = threading.Timer(900, self.cancel_event.set)
+        timer.daemon = True
+        timer.start()
+        outcome = 'failed'
+        try:
+            deadline = self.clock() + 180
+            while self.startup.snapshot()['active']:
+                if self.cancel_event.wait(.1):
+                    raise Cancelled('Cancelled while pausing')
+                if self.clock() >= deadline:
+                    raise ValueError('Assistant did not release resources')
+            if self.cancel_event.is_set():
+                raise Cancelled('Cancelled before benchmark')
+            target, model = self.startup.resolve_source(self.startup.home)
+            with self.lock:
+                self.model = model
+            self.report('model-service')
+            lease = self.startup.home / '.local/state/argos-live'
+            with self.startup.backend(target, lease_store=lease, cancel=self.cancel_event.is_set) as client:
+                client.timeout = 120
+                for phase, runner, options in (
+                        ('speed', self.speed, {'sizes': ('short',)}),
+                        ('ability', self.ability, {'suite': 'quick'})):
+                    if self.cancel_event.is_set():
+                        raise Cancelled('Cancelled between tests')
+                    self.report(phase)
+                    result = runner(client, model, cancel=self.cancel_event,
+                                    progress=lambda value, phase=phase: self.report(phase, value), **options)
+                    self.store.save(result)
+                    with self.lock:
+                        self.runs.append(result['id'])
+                outcome = 'cancelled' if self.cancel_event.is_set() else 'completed'
+        except Exception:
+            # Never export private configuration paths or exception text to HTTP.
+            outcome = 'cancelled' if self.cancel_event.is_set() else 'failed'
+        finally:
+            timer.cancel()
+            with self.startup.lock, self.lock:
+                self.startup.lab_active = False
+                if self.resume:
+                    try:
+                        self.startup.start()
+                        # Keep the lab visible; the owner can choose Open chat.
+                        self.startup.chat_claimed = True
+                        self.resume_requested = True
+                    except (ValueError, OSError):
+                        outcome = 'failed'
+            with self.lock:
+                self.phase = outcome
+                self.finished = self.clock()
+
+    def close(self):
+        with self.lock:
+            self.closed = True
+            self.resume = False
+            self.cancel_event.set()
+            worker = self.worker
+        if worker:
+            worker.join(timeout=200)

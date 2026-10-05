@@ -211,6 +211,7 @@ async function refresh() {
     await refreshLive();
     await refreshModels();
     await refreshBenchmarks();
+    await refreshLab();
     busy = false;
     button.disabled = false;
   }
@@ -234,6 +235,47 @@ setInterval(async () => {
 }, 3000);
 const selectedRuns = new Set();
 let comparedRuns = [];
+let labRefreshing = false;
+const labPhases = {idle: 'Ready to measure your model.', pausing: 'Pausing chat and releasing its resources…',
+  'model-service': 'Starting the isolated local test service…', speed: 'Measuring model speed…',
+  ability: 'Testing ability with fixed scored tasks…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
+  completed: 'Baseline saved. Compare the results below.', cancelled: 'Test cancelled. Any completed results remain saved.',
+  failed: 'Test could not finish. Any completed results remain saved. Check model setup before retrying.'};
+async function refreshLab() {
+  if (labRefreshing) return;
+  labRefreshing = true;
+  try {
+    const value = await api('/api/lab');
+    document.getElementById('lab-controls').hidden = !value.available;
+    document.getElementById('lab-unavailable').hidden = value.available;
+    if (!value.available) return;
+    document.getElementById('lab-start').disabled = value.active;
+    document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
+    let message = labPhases[value.phase] || 'Checking test status…';
+    if (value.model) message += ' · ' + value.model;
+    if (Number.isFinite(value.elapsed_seconds)) message += ` · ${Math.round(value.elapsed_seconds)} s`;
+    const progress = value.progress;
+    if (value.phase === 'speed' && progress) message += progress.phase === 'warmup' ? ' · Load / warmup sample' : ` · Measured run ${progress.run}/3`;
+    if (value.phase === 'ability' && progress) message += ` · ${progress.completed}/${progress.total} tasks scored`;
+    if (value.resume_requested) message += ' · Assistant restart requested; see assistant status above.';
+    document.getElementById('lab-status').textContent = message;
+  } catch (_) {
+    document.getElementById('lab-start').disabled = true;
+    document.getElementById('lab-cancel').disabled = true;
+    document.getElementById('lab-status').textContent = 'Test status unavailable. Refresh to retry.';
+  } finally { labRefreshing = false; }
+}
+for (const action of ['start', 'cancel']) document.getElementById('lab-' + action).addEventListener('click', async () => {
+  document.getElementById('lab-start').disabled = true;
+  try {
+    const response = await fetch('/api/lab/' + action, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
+    if (!response.ok) throw new Error('Test unavailable');
+    await refreshLab(); await refreshStartup();
+  } catch (_) { document.getElementById('lab-status').textContent = 'Test action unavailable. Refresh and retry.'; }
+});
+setInterval(async () => { await refreshLab(); }, 3000);
+const metricLabels = {accuracy: 'Test accuracy', short_generation_tokens_per_second: 'Short-prompt output tokens/s',
+  medium_generation_tokens_per_second: 'Medium-prompt output tokens/s', long_generation_tokens_per_second: 'Long-prompt output tokens/s'};
 async function download(path, filename) {
   const response = await fetch(path, {headers: {'X-Argos-Token': token}, cache: 'no-store'});
   if (!response.ok) throw new Error('Download unavailable');
@@ -277,6 +319,17 @@ async function refreshBenchmarks() {
           const rate = timing.median === null ? 'unknown' : timing.median.toFixed(2) + ' tokens/s';
           return `${item.size}: ${rate} · ${timing.reported_runs}/${timing.total_runs} timings reported`;
         }).join('; ');
+      if (run.kind === 'ability' && run.summary.categories) {
+        summary.textContent += ' · ' + Object.entries(run.summary.categories).map(([name, value]) =>
+          `${name.replaceAll('_', ' ')}: ${value.correct}/${value.total}`).join(' · ');
+      }
+      if (run.kind === 'speed') {
+        summary.textContent += ' · ' + run.summary.filter(item => !item.skipped).map(item => {
+          const first = item.time_to_first_token_seconds?.median;
+          const prefill = item.prompt_tokens_per_second?.median;
+          return `${item.size}: first token ${Number.isFinite(first) ? first.toFixed(2) + ' s' : 'unknown'}; input ${Number.isFinite(prefill) ? prefill.toFixed(1) + ' tokens/s' : 'unknown'}`;
+        }).join(' · ');
+      }
       const version = document.createElement('p'); version.textContent = `${run.suite_version} · ${run.created}`;
       const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Download JSON';
       button.addEventListener('click', () => download('/api/benchmarks/run/' + run.id, `argos-${run.id}.json`).catch(() => {
@@ -300,7 +353,8 @@ document.getElementById('compare-runs').addEventListener('click', async () => {
   try {
     const ids = [...selectedRuns];
     const result = await api('/api/benchmarks/compare?' + comparisonQuery(ids));
-    for (const row of result.rows) card(output, row.model, `${row.metric}: ${row.value === null ? 'unknown' : row.value.toFixed(3)}`);
+    for (const row of result.rows) card(output, row.model,
+      `${metricLabels[row.metric] || row.metric}: ${row.value === null ? 'unknown' : row.metric === 'accuracy' ? (row.value * 100).toFixed(1) + '%' : row.value.toFixed(2)}`);
     document.getElementById('benchmarks-status').textContent = result.limitations;
     comparedRuns = ids; document.getElementById('download-comparison').disabled = false;
   } catch (_) {

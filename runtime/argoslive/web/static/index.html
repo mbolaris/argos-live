@@ -11,8 +11,9 @@
 <body>
   <main>
     <header><span class="brand">Argos Live</span><span class="badge">Local workspace</span></header>
-    <h1>Your assistant workspace</h1>
-    <p class="intro">See what is available and what needs setup.</p>
+    <h1>Grow your personal AI</h1>
+    <p class="intro">Start with a conversation. Measure what your model can do, then choose your next upgrade.</p>
+    <nav class="lab-nav" aria-label="Workspace sections"><a href="#benchmarks-title">Test your model</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Expand capabilities</a><a href="#hardware-title">Hardware and storage</a></nav>
     <section class="notice" aria-label="Assistant status">
       <strong id="assistant-status">Checking your workspace…</strong>
       <p id="assistant-help">This page observes your workspace. It does not start or change services.</p>
@@ -25,13 +26,33 @@
         <button id="stop-assistant" type="button" disabled>Stop Assistant</button>
       </div>
     </section>
-    <section aria-labelledby="hardware-title">
-      <h2 id="hardware-title">Your computer</h2>
-      <div id="hardware" class="cards"></div>
-      <p id="live-status" role="status">Checking hardware and services…</p>
+    <section aria-labelledby="benchmarks-title">
+      <h2 id="benchmarks-title">Model lab results</h2>
+      <p>How fast does it answer? Which tasks does it get right? Build a baseline you can compare after each model upgrade.</p>
+      <div class="cards">
+        <article class="card"><h3>Responsiveness</h3><p>Output tokens/s measures generation speed. First-token latency measures the wait before an answer starts. Prompt tokens/s measures how quickly it reads input.</p></article>
+        <article class="card"><h3>Tested ability</h3><p>Fixed, scored tasks measure specific abilities. The quick suite reports correct answers and format errors by category. These are small probes, not an intelligence score or a test of real tool use.</p></article>
+        <article class="card"><h3>Your upgrade loop</h3><p>1. Test this model. 2. Choose an upgrade for a useful task. 3. Repeat the same suite. 4. Compare gains and regressions. Keep speed and quality separate.</p></article>
+      </div>
+      <div id="lab-controls" class="notice" hidden>
+        <h3>Quick baseline for your configured model</h3>
+        <p>Chat pauses while this local test runs. It measures short-prompt speed three times and runs the quick ability suite. Your prior assistant startup is requested again afterward; chat may take time to return. No model download is required.</p>
+        <button id="lab-start" type="button">Pause chat and test this model</button>
+        <button id="lab-cancel" type="button" disabled>Cancel test</button>
+        <p id="lab-status" role="status" aria-live="polite">Ready to measure your model.</p>
+        <p>Tests use fixed public prompts with tools disabled. Cancellation can take up to a backend request timeout plus cleanup. Each batch has a 15-minute limit.</p>
+      </div>
+      <p id="lab-unavailable">Open Argos Setup and Assistant to run guided tests in the managed workspace.</p>
+      <p id="benchmarks-status" role="status">Checking saved benchmarks…</p>
+      <div id="benchmark-runs" class="cards"></div>
+      <button id="compare-runs" type="button" disabled>Compare selected runs</button>
+      <button id="download-comparison" type="button" disabled>Download comparison CSV</button>
+      <div id="benchmark-comparison" class="cards" aria-live="polite"></div>
+      <p>Select two to eight completed runs of the same type, suite and settings. Hardware and runtime versions can affect the results. A short startup warmup is shown separately from repeated benchmarks.</p>
     </section>
     <section aria-labelledby="models-title">
-      <h2 id="models-title">Models</h2>
+      <h2 id="models-title">Upgrade your model</h2>
+      <p>Save a baseline first. After changing the configured model, run the same tests to compare responsiveness and tested ability. A bigger model is not automatically better at every task.</p>
       <p id="models-status" role="status">Checking selected model storage…</p>
       <div id="bundled-models" class="cards"></div>
       <h3>Downloaded models</h3>
@@ -44,22 +65,17 @@
       </details>
       <p>This view observes existing downloads. Download controls are coming next.</p>
     </section>
-    <section aria-labelledby="benchmarks-title">
-      <h2 id="benchmarks-title">Model lab results</h2>
-      <p>Compare completed runs of the same suite and settings. Hardware and runtime versions can affect measurements.</p>
-      <p id="benchmarks-status" role="status">Checking saved benchmarks…</p>
-      <div id="benchmark-runs" class="cards"></div>
-      <button id="compare-runs" type="button" disabled>Compare selected runs</button>
-      <button id="download-comparison" type="button" disabled>Download comparison CSV</button>
-      <div id="benchmark-comparison" class="cards" aria-live="polite"></div>
-      <p>Run speed and ability tests with the benchmark commands. Dashboard start and cancel controls are coming next.</p>
-    </section>
     <section aria-labelledby="capabilities-title">
       <h2 id="capabilities-title">Capabilities</h2>
-      <p>Available plugins still need setup and a successful test before they are ready.</p>
+      <p>Choose what you want your assistant to do next. Each card explains the setup and a practical acceptance test. Available plugins still need setup and a successful test before they are ready.</p>
       <p id="status" role="status">Checking capability inventory…</p>
       <div id="capabilities" class="cards"></div>
       <button id="refresh" type="button">Refresh status</button>
+    </section>
+    <section aria-labelledby="hardware-title">
+      <h2 id="hardware-title">Your computer</h2>
+      <div id="hardware" class="cards"></div>
+      <p id="live-status" role="status">Checking hardware and services…</p>
     </section>
   </main>
 </body>
