@@ -367,12 +367,12 @@ Depends on: W1, W2, MD1, MD4.
   no writes or service startup. Browser CI renders catalog and inventory states.
   W3b retains full W3 mutation and real-download acceptance.
 
-### W3b Guided acquisition controls � `in progress`
+### W3b Guided acquisition controls � `in progress`
 Depends on: W3a, MD2, owned desktop workload lifecycle.
 - Candidate: catalog review/confirm, byte/rate/ETA progress, durable pause/cancel,
   explicit retry, exact verification and local reply before publication. The
   owned assistant is paused, benchmarks excluded and prior startup requested.
-  Active model/configuration/permissions remain unchanged. Native acquisition,
+  Active model/configuration/permissions remain unchanged. Native acquisition passed in PR45;
   ISO and physical control acceptance pending; deletion and model activation
   remain separate. See [GUIDED-DOWNLOADS.md](GUIDED-DOWNLOADS.md).
 
@@ -688,3 +688,8 @@ Depends on: HA1–HA4, model onboarding, capability dashboard and profile persis
 | Personalities | P1 → P2, P3 (parallel) → P4 → P5 |
 | Build | F1 → C2 → C3 → C5 |
 | Out-of-box lab | (after B1, B2) MD2 → MD3 → O1; W1 → W2 → W3, W4; O2 → W6 |
+
+
+### W3c Reviewed model selection and upgrade guidance — in progress
+- Candidate: single-agent model switching with full artifact verification, private durable recovery journal, exact configuration rollback, owner-edit preservation and startup validation. Hardware guidance uses measured RAM/VRAM at 32K context; no quality claim.
+- Local transaction/browser checks pass; native pinned starter reselection and OpenClaw reply, fresh ISO and physical upgrade acceptance pending. See [GUIDED-MODEL-SELECTION.md](GUIDED-MODEL-SELECTION.md).

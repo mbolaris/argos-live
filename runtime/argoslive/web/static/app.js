@@ -28,6 +28,9 @@ let downloadChoice = null;
 let catalogPreview = new Map();
 let modelDestination = null;
 let modelEncryption = null;
+let selectionAvailable = false;
+let selectionActive = false;
+let selectionTag = null;
 const startupSteps = {idle: 0, setup: 0, 'select-storage': 1, 'write-configuration': 1,
   configured: 2,
   'verify-starter': 1, 'verify-model': 2, 'model-service': 3, 'first-reply': 3, gateway: 4,
@@ -151,6 +154,7 @@ async function refreshModels() {
     catalogPreview = new Map(result.catalog.map(model => [model.tag, model]));
     modelDestination = result.storage_path || null;
     modelEncryption = result.storage_encrypted;
+    document.getElementById('upgrade-guidance').textContent = result.guidance?.message || 'Save a baseline, then compare the same tests after upgrading.';
     status.textContent = result.storage_state === 'available' ? 'Reading your selected Ollama store.' :
       result.storage_state === 'not-configured' ? 'Choose model storage in the welcome window.' :
       'Selected storage or job metadata needs attention. No fallback location is used.';
@@ -162,6 +166,7 @@ async function refreshModels() {
         'Stored in the read-only live image. No download or weight copy needed.' +
         (result.selected_source === 'bundled' ? ' Selected for this session.' : '') +
         ' Startup checks full integrity; this view does not test a reply.');
+      selectionButton(bundled.lastElementChild, result.bundled.models[0].tag, result.selected_model);
     } else if (result.bundled?.state === 'needs-attention') {
       card(bundled, 'Bundled starter needs attention',
         'Image model files or read-only access could not be confirmed. Startup must verify the source.');
@@ -170,6 +175,7 @@ async function refreshModels() {
       card(installed, model.tag, `${model.files_present ? 'Model files present' : 'Model files incomplete'} · ` +
         `${model.catalog_manifest_match ? 'Matches catalog manifest' : 'Outside reviewed catalog revision'} · ` +
         'Full artifact checks and current reply test are not performed by this view.');
+      if (model.files_present && model.catalog_manifest_match) selectionButton(installed.lastElementChild, model.tag, result.selected_model);
     }
     if (result.installed !== null && result.installed.length === 0) card(installed, 'No downloaded models yet', 'New model downloads will be stored in your selected location.');
     for (const job of result.jobs || []) {
@@ -193,7 +199,7 @@ async function refreshModels() {
       if (downloadAvailable) {
         const button = document.createElement('button'); button.type = 'button';
         button.textContent = 'Review download';
-        button.disabled = downloadActive || result.storage_state !== 'available';
+        button.disabled = downloadActive || selectionActive || result.storage_state !== 'available';
         button.addEventListener('click', () => reviewDownload({tag: model.tag}, model.tag));
         catalog.lastElementChild.append(button);
       }
@@ -276,7 +282,7 @@ async function refreshLab() {
     document.getElementById('lab-controls').hidden = !value.available;
     document.getElementById('lab-unavailable').hidden = value.available;
     if (!value.available) return;
-    document.getElementById('lab-start').disabled = value.active || downloadActive;
+    document.getElementById('lab-start').disabled = value.active || downloadActive || selectionActive;
     document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
     let message = labPhases[value.phase] || 'Checking test status…';
     if (value.model) message += ' · ' + value.model;
@@ -379,6 +385,63 @@ for (const action of ['pause', 'cancel']) document.getElementById('download-' + 
   } catch (_) { document.getElementById('download-status').textContent = 'Job control unavailable. Refresh to check its state.'; }
 });
 setInterval(refreshModelControls, 3000);
+
+function selectionButton(parent, tag, selected) {
+  if (!selectionAvailable) return;
+  const button = document.createElement('button'); button.type = 'button';
+  button.textContent = tag === selected ? 'Current model' : 'Review switch';
+  button.disabled = tag === selected || downloadActive || selectionActive;
+  button.addEventListener('click', () => {
+    selectionTag = tag;
+    const model = catalogPreview.get(tag);
+    document.getElementById('selection-details').textContent = `${selected || 'Current model'} → ${tag}. ` +
+      (model ? `CPU fit: ${model.cpu_fit.status}; GPU fit: ${model.gpu_fit.status} (estimates). ` : '') +
+      'Uses existing local files; no download is started.';
+    document.getElementById('selection-confirm').disabled = false;
+    document.getElementById('selection-review').showModal();
+  });
+  parent.append(button);
+}
+let selectionPhase = null;
+let selectionRefreshing = false;
+async function refreshSelection() {
+  if (selectionRefreshing) return;
+  selectionRefreshing = true;
+  try {
+    const value = await api('/api/models/selection');
+    const changed = value.available !== selectionAvailable || value.phase !== selectionPhase || value.active !== selectionActive;
+    selectionAvailable = value.available === true; selectionActive = value.active === true; selectionPhase = value.phase;
+    document.getElementById('selection-controls').hidden = !selectionAvailable;
+    document.getElementById('selection-cancel').disabled = !selectionActive || value.phase === 'cancelling';
+    const messages = {idle: 'Choose Review switch on a local model.', pausing: 'Pausing the current assistant…',
+      verifying: 'Rechecking all model artifacts…', starting: 'Testing the selected model through OpenClaw…',
+      restoring: 'Restoring the previous selection…', 'rolled-back': 'Startup failed. The previous selection was restored.',
+      completed: 'Selected model is ready. Run a baseline to compare speed and ability, or open chat.',
+      cancelled: 'Switch cancelled. The previous selection was retained or restored.',
+      cancelling: 'Cancelling switch and releasing resources…', failed: 'Switch needs attention. Inspect private diagnostics; owner edits are preserved.'};
+    messages['recovery-blocked'] = 'Owner edits prevent automatic rollback. Assistant is stopped; private recovery record retained for review.';
+    document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+    if (selectionActive) document.getElementById('lab-start').disabled = true;
+    if (changed) await refreshModels();
+  } catch (_) { document.getElementById('selection-status').textContent = 'Selection status unavailable. Refresh before switching.'; }
+  finally { selectionRefreshing = false; }
+}
+document.getElementById('selection-dismiss').addEventListener('click', () => document.getElementById('selection-review').close());
+document.getElementById('selection-confirm').addEventListener('click', async () => {
+  document.getElementById('selection-confirm').disabled = true;
+  try {
+    const response = await fetch('/api/models/select', {method: 'POST', headers: {'X-Argos-Token': token || '',
+      'Content-Type': 'application/json'}, body: JSON.stringify({tag: selectionTag})});
+    if (!response.ok) throw new Error('Unavailable');
+    document.getElementById('selection-review').close(); await refreshSelection();
+  } catch (_) { document.getElementById('selection-details').textContent = 'Switch unavailable. Check local files and active workloads, then review again.'; }
+});
+document.getElementById('selection-cancel').addEventListener('click', async () => {
+  await fetch('/api/models/select-cancel', {method: 'POST', headers: {'X-Argos-Token': token || ''}});
+  await refreshSelection();
+});
+refreshSelection();
+setInterval(refreshSelection, 3000);
 async function download(path, filename) {
   const response = await fetch(path, {headers: {'X-Argos-Token': token}, cache: 'no-store'});
   if (!response.ok) throw new Error('Download unavailable');

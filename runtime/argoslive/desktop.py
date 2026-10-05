@@ -73,6 +73,8 @@ def reconnect(home, *, browser=open_browser):
 
 
 def serve(home, root, *, port=0, browser=open_browser, no_browser=False, controller=None, stop=None):
+    from .model_selection import Controller as Selection, restore
+    restore(home)
     controller = controller or Controller(home)
     stop = stop or threading.Event()
     path = safe_local(root / 'desktop-session.json')
@@ -85,7 +87,8 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
     results = Store(home / '.local/share/argos-live/results')
     lab = LabController(controller, store=results)
     downloads = ModelController(controller, store=results)
-    with DashboardServer(port=port, startup=controller, lab=lab, downloads=downloads,
+    selection = Selection(controller, store=results)
+    with DashboardServer(port=port, startup=controller, lab=lab, downloads=downloads, selection=selection,
             benchmarks=BenchmarkView(results), models_provider=lambda: model_view.snapshot(home),
             status_provider=lambda: status_view.snapshot(home)) as server:
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)
@@ -107,6 +110,7 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
             stop.wait()
         finally:
             temporary.unlink(missing_ok=True)
+            selection.close()
             downloads.close()
             lab.close()
             controller.close()

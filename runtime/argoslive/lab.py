@@ -88,7 +88,7 @@ class Controller:
             outcome = self.execute()
         except Exception:
             # Never export private configuration paths or exception text to HTTP.
-            outcome = 'cancelled' if self.cancel_event.is_set() else 'failed'
+            outcome = self.failure_outcome()
             try:
                 self.settle_unstarted()
             except (ValueError, OSError):
@@ -133,6 +133,9 @@ class Controller:
     def settle_unstarted(self):
         """Specialized workloads may settle a receipt without backend startup."""
         pass
+
+    def failure_outcome(self):
+        return 'cancelled' if self.cancel_event.is_set() else 'failed'
 
     def close(self):
         with self.lock:

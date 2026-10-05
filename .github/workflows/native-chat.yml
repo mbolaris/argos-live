@@ -10,6 +10,7 @@ on:
       - 'runtime/argoslive/desktop.py'
       - 'runtime/argoslive/lab.py'
       - 'runtime/argoslive/model_controls.py'
+      - 'runtime/argoslive/model_selection.py'
       - 'runtime/argoslive/owned_gateway.py'
       - 'runtime/argoslive/auto_setup.py'
       - 'runtime/argoslive/starter.py'

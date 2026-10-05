@@ -55,6 +55,7 @@
       <p>Save a baseline first. After changing the configured model, run the same tests to compare responsiveness and tested ability. A bigger model is not automatically better at every task.</p>
       <p id="models-status" role="status">Checking selected model storage…</p>
       <div id="download-controls" class="notice" hidden>
+        <p id="upgrade-guidance"></p>
         <strong>Download and verify a catalog model</strong>
         <p id="download-status" role="status" aria-live="polite">Choose a model below to review its download.</p>
         <progress id="download-progress" max="100" value="0" aria-label="Model bytes downloaded" hidden></progress>
@@ -68,6 +69,18 @@
         <p>Uses your selected model store and internet connection. Chat will pause while download, full artifact checks and a short local reply test run. No change to your active model or permissions.</p>
         <button id="download-confirm" type="button">Pause chat, download and verify</button>
         <button id="download-dismiss" type="button">Keep current setup</button>
+      </dialog>
+      <div id="selection-controls" class="notice" hidden>
+        <strong>Try a verified model</strong>
+        <p id="selection-status" role="status" aria-live="polite"></p>
+        <button id="selection-cancel" type="button" disabled>Cancel switch and restore</button>
+      </div>
+      <dialog id="selection-review" aria-labelledby="selection-title">
+        <h3 id="selection-title">Review model switch</h3>
+        <p id="selection-details"></p>
+        <p>Chat pauses while files are reverified and the model starts through OpenClaw. Your previous selection is restored if startup fails. Your personality, skills and permissions are preserved. Run the same baseline afterward to compare measured speed and tested ability.</p>
+        <button id="selection-confirm" type="button">Switch and test startup</button>
+        <button id="selection-dismiss" type="button">Keep current model</button>
       </dialog>
       <div id="bundled-models" class="cards"></div>
       <h3>Downloaded models</h3>
