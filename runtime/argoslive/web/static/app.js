@@ -22,7 +22,8 @@ let startupRefreshing = false;
 let liveRefreshing = false;
 const startupSteps = {idle: 0, setup: 0, 'select-storage': 1, 'write-configuration': 1,
   configured: 2,
-  'verify-starter': 1, 'verify-model': 2, 'model-service': 3, 'first-reply': 3, gateway: 4, ready: 5};
+  'verify-starter': 1, 'verify-model': 2, 'model-service': 3, 'first-reply': 3, gateway: 4,
+  reconnecting: 4, ready: 5};
 function openConversation(value) {
   const url = new URL(value);
   if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.pathname !== '/chat' ||

@@ -68,13 +68,52 @@ class StartupTests(unittest.TestCase):
         self.addCleanup(value.close)
         return value
 
-    def wait(self, controller, phase):
-        deadline = time.monotonic() + 5
+    def wait(self, controller, phase, timeout=5):
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if controller.snapshot()['phase'] == phase:
                 return
             time.sleep(.01)
         self.fail('Startup did not reach ' + phase + ': ' + json.dumps(controller.snapshot()))
+
+    def test_transient_probe_failure_recovers_without_restarting_services(self):
+        probes = iter((False, True))
+        recovered = threading.Event()
+        def ready(origin):
+            result = next(probes, True)
+            if result:
+                recovered.set()
+            return result
+        value = self.controller(ready=ready)
+        value.start()
+        self.wait(value, 'ready')
+        self.wait(value, 'reconnecting')
+        self.assertFalse(value.snapshot()['auto_open_chat'])
+        with self.assertRaises(ValueError):
+            value.claim_chat()
+        self.assertNotIn('gateway-stop', self.calls)
+        self.assertTrue(recovered.wait(5))
+        self.wait(value, 'ready')
+        self.assertEqual(self.calls.count('gateway-start'), 1)
+        value.close()
+        self.assertEqual(self.calls[-2:], ['gateway-stop', 'backend-stop'])
+
+    def test_sustained_probe_failure_releases_owned_services(self):
+        value = self.controller(ready=lambda origin: False)
+        value.start()
+        self.wait(value, 'failed', timeout=10)
+        self.assertEqual(self.calls[-2:], ['gateway-stop', 'backend-stop'])
+        self.assertEqual(value.snapshot()['failure']['stage'], 'reconnecting')
+        self.assertFalse(value.snapshot()['auto_open_chat'])
+
+    def test_stop_during_probe_recovery_releases_services_promptly(self):
+        value = self.controller(ready=lambda origin: False)
+        value.start()
+        self.wait(value, 'reconnecting')
+        value.close()
+        self.wait(value, 'stopped')
+        self.assertEqual(self.calls[-2:], ['gateway-stop', 'backend-stop'])
+        self.assertIsNone(value.snapshot()['failure'])
 
     def test_one_worker_measured_reply_once_handoff_and_ordered_owned_cleanup(self):
         value = self.controller()

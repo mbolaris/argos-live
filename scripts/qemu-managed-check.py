@@ -307,7 +307,7 @@ def managed_check(started, desktop_seconds):
         if phase != last:
             print('ARGOS_C3_MANAGED ' + json.dumps({'phase': phase, 'failure': report.get('failure')}), flush=True)
             last = phase
-        if (phase in ('gateway', 'ready', 'failed') and
+        if (phase in ('gateway', 'ready', 'reconnecting', 'failed') and
                 (phase != last_gateway_phase or time.monotonic() - last_gateway_at >= 15)):
             observed = gateway_observation(home, opener)
             if observed != last_gateway:

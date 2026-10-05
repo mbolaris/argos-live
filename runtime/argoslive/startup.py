@@ -17,6 +17,7 @@ PHASES = {'idle': 'Start your local assistant.', 'setup': 'Preparing your worksp
     'configured': 'Your workspace is configured.',
     'model-service': 'Starting local inference…', 'first-reply': 'Warming up the local model…',
     'gateway': 'Starting your assistant…', 'ready': 'Your local assistant is ready.',
+    'reconnecting': 'The assistant is busy or temporarily unavailable. Checking the connection…',
     'stopping': 'Stopping your assistant…', 'stopped': 'Your assistant is stopped.',
     'failed': 'Startup needs attention. Check the private startup diagnostics, then retry.'}
 
@@ -188,9 +189,16 @@ class Controller:
                     with self.lock:
                         self.origin = origin
                     self.transition('ready')
+                    missed_probes = 0
                     while not self.stop_event.wait(2):
                         if not self.ready(origin):
-                            raise ValueError('Owned gateway stopped responding')
+                            missed_probes += 1
+                            self.transition('reconnecting')
+                            if missed_probes >= 3:
+                                raise ValueError('Owned gateway stopped responding')
+                        else:
+                            missed_probes = 0
+                            self.transition('ready')
                 # Native group/backend cleanup remains inside ownership contexts.
                 client.unload(model)
             self.transition('stopped')
