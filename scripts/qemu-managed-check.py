@@ -49,6 +49,16 @@ def startup_trace(raw):
     return records
 
 
+def owned_exit(raw):
+    """Only a whole fixed numeric record; never expose arbitrary log fields."""
+    result = None
+    for value in re.findall(rb'^ARGOS_OWNED_EXIT returncode=(-?[0-9]{1,3})$', raw, re.MULTILINE):
+        code = int(value)
+        if -64 <= code <= 255:
+            result = code
+    return result
+
+
 def private_log_observation(path):
     """Inspect only an owner-only regular log; emit a bounded fixed vocabulary."""
     try:
@@ -65,7 +75,8 @@ def private_log_observation(path):
         os.lseek(fd, max(0, info.st_size - 65536), os.SEEK_SET)
         raw = os.read(fd, 65536)
         return {'state': 'readable', 'nonempty': bool(raw), 'bytes': info.st_size,
-                'flags': log_flags(raw), 'startup_trace': startup_trace(raw)}
+                'flags': log_flags(raw), 'startup_trace': startup_trace(raw),
+                'owned_exit_code': owned_exit(raw)}
     finally:
         os.close(fd)
 

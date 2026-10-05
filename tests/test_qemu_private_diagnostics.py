@@ -13,6 +13,13 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_owned_exit_only_admits_bounded_whole_numeric_records(self):
+        self.assertEqual(module.owned_exit(b'private token\nARGOS_OWNED_EXIT returncode=-11\n'), -11)
+        self.assertEqual(module.owned_exit(b'ARGOS_OWNED_EXIT returncode=0\n'), 0)
+        for raw in (b'ARGOS_OWNED_EXIT returncode=999\n', b'ARGOS_OWNED_EXIT returncode=-65\n',
+                    b'ARGOS_OWNED_EXIT returncode=1 token=secret\n', b'xARGOS_OWNED_EXIT returncode=1\n'):
+            self.assertIsNone(module.owned_exit(raw))
+
     def test_startup_trace_exposes_only_known_stages_and_bounded_timings(self):
         raw = (b'[gateway] startup trace: entry.bootstrap 12.5ms total=20.0ms start=7.5ms secret=token\n'
             b'[gateway] startup trace: owner.private-secret 10ms total=30ms\n'

@@ -155,7 +155,7 @@ def owned(target, *, executable=None, timeout=180, lease_store=None, port=0, con
         process.stdout.close()
 
 
-def supervise(executable, lease, *, arguments=None, log=None):
+def supervise(executable, lease, *, arguments=None, log=None, report_exit=False):
     import ctypes
     parent = os.getppid()
     child = None
@@ -180,6 +180,10 @@ def supervise(executable, lease, *, arguments=None, log=None):
             print(child.pid, flush=True)
             while not stopping and child.poll() is None:
                 time.sleep(0.1)
+            # Preserve the natural child result before group cleanup. Never
+            # include executable names, arguments, environment or private logs.
+            if report_exit and not stopping and child.returncode is not None:
+                print(f'ARGOS_OWNED_EXIT returncode={child.returncode}', file=sys.stderr, flush=True)
         finally:
             if child:
                 stop_group(child)

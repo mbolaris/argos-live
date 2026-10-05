@@ -119,4 +119,5 @@ if __name__ == '__main__':
     origin, port = settings(config)
     lease = safe_local(Path(sys.argv[3]))
     with private_log(lease.parent / 'gateway.log') as log:
-        supervise(sys.argv[2], lease, arguments=['gateway', 'run', '--bind', 'loopback', '--port', str(port)], log=log)
+        supervise(sys.argv[2], lease, arguments=['gateway', 'run', '--bind', 'loopback', '--port', str(port)],
+                  log=log, report_exit=True)
