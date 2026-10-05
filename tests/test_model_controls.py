@@ -103,8 +103,9 @@ class ModelControlsTests(unittest.TestCase):
         with DashboardServer(port=0, downloads=self.controller) as server:
             worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .01}, daemon=True)
             worker.start()
-            def request(raw, auth=True, path='/api/models/download'):
+            def request(raw, auth=True, path='/api/models/download', length=None):
                 headers = {'Content-Type': 'application/json'}
+                if length is not None: headers['Content-Length'] = str(length)
                 if auth: headers['X-Argos-Token'] = server.token
                 conn = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5)
                 try:
@@ -114,9 +115,9 @@ class ModelControlsTests(unittest.TestCase):
                     return reply.status
                 finally: conn.close()
             try:
-                self.assertEqual(request('{"tag":"qwen3:0.6b"}', auth=False,
+                self.assertEqual(request(None, auth=False,
                     path='/api/models/download?token=' + server.token), 403)
-                self.assertEqual(request('x' * 513), 400)
+                self.assertEqual(request(None, length=513), 400)
                 for raw in ('{"tag":"qwen3:0.6b","tag":"qwen3:0.6b"}', '{"command":"shell"}', '[]'):
                     self.assertEqual(request(raw), 409)
                 self.assertEqual(self.assistant.calls, [])

@@ -61,14 +61,13 @@ class Controller(Workload):
         with self.lock:
             active = self.snapshot()['active']
             self.cancel_action = action
-            result = super().cancel()
             if active and self.queue and self.job_id:
                 try:
                     self.queue.request(self.job_id, action)
                 except (ValueError, OSError):
                     # A shutdown request must still reach the owned backend.
                     pass
-            return result
+            return super().cancel()
 
     def execute(self):
         self.startup.resolve_source(self.startup.home)
