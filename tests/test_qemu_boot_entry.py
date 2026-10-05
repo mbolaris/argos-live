@@ -19,7 +19,8 @@ class BootEntryTests(unittest.TestCase):
         value = {'schema': 'argos-qemu-managed/1', 'setup_mode': 'managed',
             'desktop_started': True, 'dashboard_authenticated': True, 'automatic_first_boot': True,
             'bundled_read_only_source': True, 'model_reply_verified': True, 'handoff_claimed': True,
-            'firefox_gateway_connection': True, 'requires_screenshot_review': True,
+            'firefox_gateway_connection': True, 'firefox_control_page_visible': True,
+            'requires_screenshot_review': True,
             'network_routes': False, 'physical_acceptance': False, 'browser_chat_reply_verified': False,
             'startup_metrics': {'backend': {'mode': 'CPU'}}}
         def wire(item): return 'ARGOS_C3_RESULT ' + json.dumps(item) + '\n'
@@ -27,6 +28,7 @@ class BootEntryTests(unittest.TestCase):
         self.assertIsNone(module.guest_result(wire(value)[:-1], setup_mode='managed'))
         for changed in (dict(value, physical_acceptance=True), dict(value, browser_chat_reply_verified=True),
                         dict(value, handoff_claimed=False), dict(value, firefox_gateway_connection=False),
+                        dict(value, firefox_control_page_visible=False),
                         dict(value, network_routes=True), dict(value, schema='argos-qemu-smoke/1')):
             with self.assertRaises(ValueError):
                 module.guest_result(wire(changed), setup_mode='managed')

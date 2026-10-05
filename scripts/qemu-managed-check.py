@@ -162,6 +162,30 @@ def gateway_observation(home, opener):
         'supervisor_log': private_log_observation(root / 'gateway-supervisor.log')}
 
 
+def firefox_control_page_visible():
+    """Observe the active shipped page title, never publish title or URL text.
+
+    A TCP connection can precede navigation and still leave the dashboard visible.
+    This is a capture gate, not proof of an authenticated conversation or reply.
+    """
+    env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(Path.home() / '.Xauthority'))
+    try:
+        active = subprocess.check_output(['xprop', '-root', '_NET_ACTIVE_WINDOW'],
+                                         env=env, text=True, timeout=10)
+        match = re.search(r'0x[0-9a-fA-F]+', active)
+        if not match:
+            return False
+        kind = subprocess.check_output(['xprop', '-id', match[0], 'WM_CLASS'],
+                                       env=env, text=True, timeout=10)
+        if 'firefox' not in kind.lower():
+            return False
+        title = subprocess.check_output(['xprop', '-id', match[0], '_NET_WM_NAME'],
+                                        env=env, text=True, timeout=10)
+        return bool(re.search(r' = "OpenClaw Control(?:[ —-]|")', title))
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def fullscreen_capture():
     """Test-only F11 on the verified Firefox window hides tokenized browser chrome."""
     env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(Path.home() / '.Xauthority'))
@@ -305,7 +329,8 @@ def managed_check(started, desktop_seconds):
             metrics = report.get('metrics')
             if not report['model_reply_verified'] or metrics['backend']['mode'] != 'CPU':
                 raise ValueError('Automatic startup did not establish a measured CPU reply')
-            if report['auto_open_chat'] is False and firefox_connected(port):
+            if (report['auto_open_chat'] is False and firefox_connected(port)
+                    and firefox_control_page_visible()):
                 stable_since = stable_since or time.monotonic()
                 if time.monotonic() - stable_since >= 5:
                     break
@@ -326,7 +351,8 @@ def managed_check(started, desktop_seconds):
         'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics, 'handoff_claimed': True,
-        'firefox_gateway_connection': True, 'desktop_wait_seconds': desktop_seconds,
+        'firefox_gateway_connection': True, 'firefox_control_page_visible': True,
+        'desktop_wait_seconds': desktop_seconds,
         'managed_elapsed_seconds': report['elapsed_seconds'],
         'ready_seconds': time.monotonic() - started, 'physical_acceptance': False,
         'browser_chat_reply_verified': False, 'requires_screenshot_review': True}), flush=True)

@@ -66,7 +66,7 @@ def guest_result(serial, *, setup_mode='interactive'):
             raise ValueError('Unexpected managed guest record')
         for field in ('desktop_started', 'dashboard_authenticated', 'automatic_first_boot',
                       'bundled_read_only_source', 'model_reply_verified', 'handoff_claimed',
-                      'firefox_gateway_connection', 'requires_screenshot_review'):
+                      'firefox_gateway_connection', 'firefox_control_page_visible', 'requires_screenshot_review'):
             if result.get(field) is not True:
                 raise ValueError('Managed guest did not establish startup acceptance')
         for field in ('network_routes', 'physical_acceptance', 'browser_chat_reply_verified'):

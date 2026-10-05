@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('managed_check', ROOT / 'scripts/qemu-managed-check.py')
@@ -13,6 +14,17 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_capture_gate_requires_active_firefox_control_page(self):
+        for kind, title, expected in (
+                ('"firefox-esr"', '"Argos Live — Mozilla Firefox"', False),
+                ('"other-browser"', '"OpenClaw Control"', False),
+                ('"firefox-esr"', '"OpenClaw Control — Mozilla Firefox"', True),
+                ('"firefox-esr"', '"OpenClaw Control"', True)):
+            with self.subTest(title=title, kind=kind), patch.object(module.subprocess,
+                    'check_output', side_effect=['_NET_ACTIVE_WINDOW: 0x123', kind,
+                                                 '_NET_WM_NAME(UTF8_STRING) = ' + title]):
+                self.assertEqual(module.firefox_control_page_visible(), expected)
+
     def test_owned_exit_only_admits_bounded_whole_numeric_records(self):
         self.assertEqual(module.owned_exit(b'private token\nARGOS_OWNED_EXIT returncode=-11\n'), -11)
         self.assertEqual(module.owned_exit(b'ARGOS_OWNED_EXIT returncode=0\n'), 0)
