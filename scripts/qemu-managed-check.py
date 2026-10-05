@@ -68,6 +68,7 @@ def firefox_connected(port):
 
 def backend_observation(opener):
     """Bounded fixture-only diagnostics: no command lines, environment or logs."""
+    from argoslive.owned_ollama import PIN
     items = []
     for process in Path('/proc').iterdir():
         if not process.name.isdigit():
@@ -95,7 +96,7 @@ def backend_observation(opener):
     reachable = False
     try:
         with opener.open('http://127.0.0.1:11434/api/version', timeout=1) as response:
-            reachable = json.load(response).get('version') == '0.35.1'
+            reachable = json.load(response).get('version') == PIN
     except OSError:
         pass
     return {'processes': items, 'pinned_api_reachable': reachable}
