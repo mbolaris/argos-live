@@ -3,6 +3,8 @@
 The managed desktop catalog now offers a review dialog showing the exact tag,
 download size, license and advisory GPU fit. Only **Pause chat, download and
 verify** starts an operation. Dismissing the review makes no changes.
+**Applications → Argos Model Lab** reopens the managed dashboard using the existing
+verified desktop session, so the lab remains discoverable after chat opens.
 
 Acquisition and benchmarks share the desktop workload reservation. The owned
 assistant is paused and its resources released first. A download uses the existing
