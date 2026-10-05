@@ -69,6 +69,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(after['tools'], before['tools'])
         self.assertEqual(after['agents']['defaults']['workspace'], before['agents']['defaults']['workspace'])
         self.assertEqual(after['agents']['defaults']['model']['primary'], 'ollama/' + self.tag)
+        self.assertEqual(after['models']['providers']['ollama']['models'][0], before['models']['providers']['ollama']['models'][0])
         self.assertEqual(len(checks), 1)
         self.assertFalse(self.journal.exists())
         self.assertTrue(startup.active)

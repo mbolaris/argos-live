@@ -129,7 +129,11 @@ class Controller(Workload):
         provider = after['config']['models']['providers']['ollama']
         template = copy.deepcopy(provider['models'][0])
         template.update(id=self.tag, name=self.tag, input=['text'], reasoning=False)
-        provider['models'] = [template]
+        existing = next((index for index, item in enumerate(provider['models']) if item.get('id') == self.tag), None)
+        if existing is None:
+            provider['models'].append(template)
+        else:
+            provider['models'][existing] = template
         # Complete owner-only journal reaches durable storage before either file.
         candidate = {key: raw[key] if value == before[key] else json.dumps(value, sort_keys=True, indent=2) + '\n'
                      for key, value in after.items()}
