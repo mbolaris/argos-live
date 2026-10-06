@@ -227,8 +227,8 @@ try {
   // The menu launches the dashboard in its model-lab view. A ready managed
   // assistant must not immediately redirect that page into chat; the ordinary
   // startup view keeps its existing automatic handoff.
-  startup = {...startup, phase: 'ready', active: false, can_start: false, can_stop: false,
-    auto_open_chat: true, model_reply_verified: true};
+  startup = {...startup, phase: 'ready', message: 'Your local assistant is ready.', elapsed_seconds: 60,
+    active: false, can_start: false, can_stop: false, auto_open_chat: true, model_reply_verified: true};
   const chatHandoffs = [];
   await page.route('**/api/startup/chat', async route => {
     if (route.request().method() !== 'POST' || route.request().postData() ||
@@ -242,11 +242,13 @@ try {
     route.fulfill({contentType: 'text/html', body: '<title>Chat fixture</title><h1>Assistant conversation</h1>'}));
   await page.goto(url + '&view=lab#benchmarks-title');
   await page.getByRole('heading', {name: 'Model lab results'}).waitFor();
-  await page.screenshot({path: 'work/dashboard-model-lab.png', fullPage: true});
+  await page.locator('#lab-controls').waitFor({state: 'visible'});
+  await page.getByText('Live measurements refreshed. Missing measurements remain unknown.', {exact: true}).waitFor();
   await page.waitForTimeout(3500);
   if (chatHandoffs.length || new URL(page.url()).searchParams.get('view') !== 'lab') {
     throw new Error('Model lab view was redirected into chat');
   }
+  await page.screenshot({path: 'work/dashboard-model-lab.png', fullPage: true});
   await page.goto(url);
   await page.waitForURL('http://127.0.0.1:18789/chat#token=fixture');
   await page.getByRole('heading', {name: 'Assistant conversation'}).waitFor();
