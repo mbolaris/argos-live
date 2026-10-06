@@ -263,11 +263,13 @@ def matched_details(values):
                           for v in ordered}}
                 for u in ordered[0].get('unscored', []) if isinstance(u.get('item_id'), str)]
         items = []
-        for position, item in enumerate(ordered[0]['items']):
+        for item in ordered[0]['items']:
             row = {'item_id': item['item_id'], 'category': item['category'], 'passage_id': item.get('passage_id'),
                    'question': item.get('question'), 'runs': {}}
             for value in ordered:
-                scored = value['items'][position]
+                scored = next((x for x in value['items'] if x['item_id'] == item['item_id']), None)
+                if scored is None:
+                    raise ValueError('Runs do not cover the same items')
                 output = scored.get('output')
                 row['runs'][value['id']] = {'outcome': scored['outcome'], 'score': scored['score'],
                                             'output': output[:ITEM_OUTPUT_LIMIT] if isinstance(output, str) else None}

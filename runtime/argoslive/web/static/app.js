@@ -531,14 +531,61 @@ async function refreshBenchmarks() {
     status.textContent = 'Saved results unavailable. Refresh to retry.';
   }
 }
+const pct = (v) => v === null || v === undefined ? 'unknown' : (v * 100).toFixed(1) + '%';
+const num = (v, unit) => v === null || v === undefined ? 'unknown' : v.toFixed(2) + (unit || '');
+function cell(row, text, header) {
+  const c = document.createElement(header ? 'th' : 'td'); c.textContent = text; row.append(c); return c;
+}
+function table(parent, caption, heads, rows) {
+  const t = document.createElement('table'); const cap = document.createElement('caption'); cap.textContent = caption; t.append(cap);
+  const head = document.createElement('tr'); heads.forEach((h) => cell(head, h, true)); t.append(head);
+  for (const r of rows) { const tr = document.createElement('tr'); r.forEach((v, i) => cell(tr, v, i === 0)); t.append(tr); }
+  parent.append(t);
+}
+function renderMatched(output, result) {
+  const runs = result.runs || [];
+  const names = runs.map((r, i) => `${i === 0 ? 'Before' : runs.length > 2 ? 'Run ' + (i + 1) : 'After'}: ${r.model}`);
+  if (result.kind === 'ability') {
+    table(output, 'Accuracy and format, shown separately from speed', ['Run', 'Correct', 'Accuracy', 'Format errors', 'Document criteria'],
+      runs.map((r, i) => [names[i], `${r.correct}/${r.total}`, pct(r.accuracy), String(r.format_errors),
+        r.qualification ? (r.qualification.complete ? (r.qualification.qualified ? 'Met' : 'Not met') : 'Incomplete') : 'Not applicable']));
+    const cats = [...new Set(runs.flatMap((r) => Object.keys(r.categories || {})))];
+    if (cats.length) table(output, 'By category', ['Category', ...names], cats.map((c) => [c.replace('_', ' '),
+      ...runs.map((r) => { const v = (r.categories || {})[c]; return v ? `${v.correct}/${v.total}` : 'n/a'; })]));
+    const items = result.items || [];
+    const changed = items.filter((i) => new Set(Object.values(i.runs).map((x) => x.outcome)).size > 1);
+    const heading = document.createElement('h3'); heading.textContent = `Same questions, side by side (${changed.length} of ${items.length} differ)`; output.append(heading);
+    for (const item of (changed.length ? changed : items.slice(0, 3))) {
+      const box = document.createElement('details'); const sum = document.createElement('summary');
+      sum.textContent = `${item.category.replace('_', ' ')}: ${item.question || item.item_id}`; box.append(sum);
+      runs.forEach((r, i) => { const x = item.runs[r.id]; const p = document.createElement('p');
+        p.textContent = `${names[i]} (${x.outcome.replace('_', ' ')}): ${x.output ?? 'no output kept'}`; box.append(p); });
+      output.append(box);
+    }
+    if ((result.summaries || []).length) {
+      const h = document.createElement('h3'); h.textContent = 'Summaries for you to judge (not scored)'; output.append(h);
+      for (const s of result.summaries) { const box = document.createElement('details'); const sm = document.createElement('summary');
+        sm.textContent = s.question || s.item_id; box.append(sm);
+        runs.forEach((r, i) => { const p = document.createElement('p'); p.textContent = `${names[i]}: ${s.runs[r.id] ?? 'no output kept'}`; box.append(p); });
+        output.append(box); }
+    }
+  } else {
+    const sizes = [...new Set(runs.flatMap((r) => (r.prompts || []).map((p) => p.size)))];
+    for (const [field, label, unit] of [['generation_tokens_per_second', 'Generation speed', ' tok/s'],
+        ['prompt_tokens_per_second', 'Prompt processing speed', ' tok/s'], ['time_to_first_token_seconds', 'Wait for first token', ' s']]) {
+      table(output, label, ['Prompt size', ...names], sizes.map((s) => [s, ...runs.map((r) => {
+        const p = (r.prompts || []).find((x) => x.size === s); return !p || p.skipped ? 'skipped' : num(p[field], unit); })]));
+    }
+  }
+  const note = document.createElement('p'); note.textContent = 'Speed and accuracy are separate. You decide which tradeoff is worth keeping.'; output.append(note);
+}
 document.getElementById('compare-runs').addEventListener('click', async () => {
   const output = document.getElementById('benchmark-comparison'); output.replaceChildren();
   comparedRuns = []; document.getElementById('download-comparison').disabled = true;
   try {
     const ids = [...selectedRuns];
     const result = await api('/api/benchmarks/compare?' + comparisonQuery(ids));
-    for (const row of result.rows) card(output, row.model,
-      `${metricLabels[row.metric] || row.metric}: ${row.value === null ? 'unknown' : row.metric === 'accuracy' ? (row.value * 100).toFixed(1) + '%' : row.value.toFixed(2)}`);
+    renderMatched(output, result);
     document.getElementById('benchmarks-status').textContent = result.limitations;
     comparedRuns = ids; document.getElementById('download-comparison').disabled = false;
   } catch (_) {
