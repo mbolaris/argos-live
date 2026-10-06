@@ -414,11 +414,19 @@ room, and will they still be there after reboot?
 - **S1 Location report.** For each category above, resolve the real backing
   filesystem and device from the mount table, including overlay to persistence
   device. Unknown stays unknown.
-- **S2 Reboot evidence.** Write a small private marker carrying the current boot
-  ID to each persistent category. After a later boot, read it back under a
-  different boot ID and record "verified across reboot" with the date. Until
+- **S2 Reboot evidence.** Place a small marker inside the selected Argos
+  directory for each persistent category. On DATA, that is the selected Argos
+  model storage directory, never elsewhere on the volume. The marker holds only
+  a random identifier, a schema version and the boot ID at creation; no personal
+  content. Create it exclusively, never overwriting an existing file, and flush
+  it to disk. On a later boot, read it back, confirm the identifier and a
+  different boot ID, and record "verified across reboot" with the date. Until
   then, show "reboot verification pending". Do not infer it from
   `persistence.conf`.
+  Scope of this evidence: it proves that this directory retained the marker
+  across a reboot. It does not prove encryption, encrypted persistence as a
+  whole, or that conversations can be recovered. Conversation recall stays a
+  separate test.
 - **S3 Write check.** A bounded write, read-back and removal of a test file in
   the dedicated directory before a download, instead of access bits.
 - **S4 Deliberate choice.** List every eligible candidate (today `select` returns
@@ -432,7 +440,7 @@ room, and will they still be there after reboot?
 Example storage copy (templates, illustrative numbers):
 
 - "Models: DATA (internal disk), 1.2 TB free, unencrypted. Reboot verification pending."
-- "Conversations and personality: USB persistence, encrypted. Verified across reboot on Oct 9."
+- "Personal data folder: USB persistence, encrypted. Retained across reboot on Oct 9. Conversation recall not yet tested."
 - "DATA (internal disk) is mounted but not used for models. Choose it?"
 
 ### Choosing a model
@@ -459,8 +467,9 @@ requires an Apache-2.0 license. Its fit is computed from that entry, not asserte
 
 - **D1 Suite.** Original passages written for this project, versioned and
   licensed under the dataset rules in [BACKLOG.md](BACKLOG.md). No private
-  documents. Short passages first, with medium (about 2k tokens) and long
-  (about 8k) variants when the model's context allows.
+  documents. The first suite uses short documents that fit, with the prompt and
+  answer, inside the tested context. Longer documents are a separate
+  qualification (see D2).
 - **Tasks per passage:**
   - Answer questions, scored by exact or numeric match.
   - Quote the supporting passage. The quote must appear verbatim in the text and
@@ -470,9 +479,13 @@ requires an Apache-2.0 license. Its fit is computed from that entry, not asserte
   - Summarize. Not machine scored; shown side by side for the owner's judgment.
 - Structured JSON output, programmatic scoring, no LLM judge. Format errors are
   reported separately from wrong answers. Deterministic settings per the backlog.
-- **D2 Context.** The ability benchmark runs at a 2,048-token context today, so
-  medium and long passages need a larger, recorded context setting. KV cache
-  memory rises with it, and fit must be rechecked at that setting.
+- **D2 Context.** Treat the context limit explicitly. The ability benchmark runs
+  at a 2,048-token context today. Qualification states the context it was tested
+  at, and a short-document qualification says nothing about longer documents.
+  Longer-document support (for example about 2k and 8k token passages) is its
+  own qualification at a larger, recorded context setting. KV cache memory rises
+  with context, so fit is rechecked at that setting, and the card shows the
+  longest document size actually tested.
 - **D3 Lab speed.** Document work is dominated by prompt processing. The lab
   should run the medium prompt size alongside short, and show prompt-processing
   tokens/s and first-token wait next to generation tokens/s.
@@ -482,16 +495,24 @@ requires an Apache-2.0 license. Its fit is computed from that entry, not asserte
   `results.compare` accepts.
 - **Field mission.** The owner pastes their own document. The result stays
   private and is recorded as the owner's assessment, never in the benchmark store.
-- Qualification thresholds are set by the owner after seeing a baseline, not
-  fixed in advance.
+- **Qualification uses fixed criteria, defined in advance with the suite.** The
+  baseline is for comparison only: a weak baseline must not make another weak
+  model qualified. Criteria cover three things, each with its own fixed bar:
+  correct answers, supported quotations, and appropriate "not stated" answers
+  (including not inventing answers the text lacks). Changing a criterion is a
+  suite version change.
+- **Speed is reported separately** and is not part of qualification. A candidate
+  does not have to win every metric. The owner sees accuracy and speed side by
+  side and chooses the tradeoff; a faster model that still qualifies is a valid
+  choice, and so is a slower one that answers better.
 
 ### Ceremony for this mission
 
 | Tier | Document mission examples |
 |---|---|
 | Routine | Storage configured, download verified, trial completed |
-| Qualified | A model meets the owner's threshold on the document suite at stated settings; a reproducible prompt-processing gain |
-| Commissioned | Storage proven across reboot (S2); first adopted model with a matched document gain and an accepted real document task |
+| Qualified | A model meets the fixed document-suite criteria at the stated context and settings; separately, a reproducible prompt-processing gain |
+| Commissioned | Model storage directory retained across reboot (S2); first adopted model that qualifies, compares favorably or acceptably on matched trials, and completes an accepted real document task |
 
 A restore after a regression gets the same respectful acknowledgment as a gain.
 
@@ -505,7 +526,7 @@ A restore after a regression gets the same respectful acknowledgment as a gain.
 | Rendered conversation | The chat page loads in the shipped browser | That a reply was submitted and returned |
 | Browser-submitted reply | End-to-end chat through the UI | GPU use or persistence |
 | GPU inference | Backend placement and offload reported by Ollama | Answer quality |
-| Physical reboot persistence | S2 markers read back after a real reboot | Anything about a VM run |
+| Physical reboot retention | S2 markers read back after a real reboot | Encryption, conversation recall, or anything about a VM run |
 | Owner real-task acceptance | The upgrade helped with real work | General competence |
 
 Some hosted VM gateway checks still have unresolved failures. A working owner
@@ -525,7 +546,9 @@ desktop does not mark those checks as passed.
    same document; and how to restore.
 
 Out of scope for Phase 0: runtime or UI changes, Argos/Nyx/Proteus activation,
-the coding mission, file reading, and any download or model switch.
+the coding mission, file reading, writing reboot markers, and any download or
+model switch. The decisions above are plan decisions, not authorization to
+implement them.
 
 ## How we will evaluate the experience
 
