@@ -78,6 +78,11 @@ and keep speed, ability, tools and reliability distinct.
 
 ## Cultivating a personal AI
 
+The detailed user-experience proposal is
+[How badass is my AI?](PERSONAL-ROBOT-EXPERIENCE.md): a personal robot Command
+Center, missions, trials, reviewed upgrades and earned capability milestones.
+It is a documentation-only plan and does not establish shipped functionality.
+
 The experience can have a Tamagotchi-style sense of companionship and growth.
 The owner cultivates a personal assistant by providing suitable hardware,
 optional online compute, new models, reviewed skills/addons and tested software

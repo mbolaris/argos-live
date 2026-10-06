@@ -36,6 +36,14 @@ The pack format, exporter, importer and the public sample packs are generic and 
 
 ## Product principles
 
+The planned cultivation experience should make evaluating and improving a
+personal agent fun and rewarding. The owner builds a remarkable robot companion
+through useful missions, measured trials and visible upgrades. The design-only
+plan [How badass is my AI?](PERSONAL-ROBOT-EXPERIENCE.md) describes the Command
+Center, robot systems, storage/model journey, milestones and usability review.
+It rewards demonstrated usefulness and understanding, with confidence grounded
+in evidence rather than spending or a universal intelligence score.
+
 The assistant should have an expressive, evidence-based opinion about its own
 machine, configuration and capabilities. Its first greeting should briefly
 comment on the hardware; answers to "How do you feel?" should reflect resource
