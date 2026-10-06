@@ -9,6 +9,7 @@ from .hw import command, memory_info, read
 
 DISK_FILESYSTEMS = {'ext4', 'xfs', 'btrfs', 'ntfs', 'ntfs3', 'fuseblk', 'exfat', 'vfat'}
 LIVE_MEDIA = {'/run/live/medium', '/lib/live/mount/medium'}
+LSBLK = ['lsblk', '--json', '--paths', '--output', 'NAME,TYPE,FSTYPE,UUID,LABEL,TRAN,MAJ:MIN']
 
 
 def safe_local(path):
@@ -36,7 +37,7 @@ def validate_configured(configured, *, mounts=None, blocks=None):
     if configured.get('storage_uuid'):
         if mounts is None:
             mounts = mount_table(read(Path('/proc/self/mountinfo')))
-            output = command(['lsblk', '--json', '--paths', '--output', 'NAME,TYPE,FSTYPE,UUID,TRAN,MAJ:MIN'])
+            output = command(LSBLK)
             blocks = block_table(output) if output else {}
         mount = covering(path, mounts)
         block = block_for(mount, blocks or {}) if mount else None
@@ -79,7 +80,9 @@ def block_table(text):
         elif not ancestry and node.get('type') != 'disk':
             # Loop files and incomplete topology do not prove at-rest encryption.
             encrypted = None
-        entry = result.setdefault(key, {'name': node.get('name'), 'uuid': node.get('uuid'),
+        label = node.get('label') if isinstance(node.get('label'), str) else None
+        entry = result.setdefault(key, {'name': node.get('name'), 'uuid': node.get('uuid'), 'label': label,
+                                       'type': node.get('type'), 'tran': node.get('tran'),
                                        'ancestors': set(), 'encrypted_paths': []})
         if (entry['name'], entry['uuid']) != (node.get('name'), node.get('uuid')):
             raise ValueError('Ambiguous repeated block identity')
@@ -138,20 +141,7 @@ def select(mounts, blocks, required_bytes, *, configured=None, ram_available=Non
     budget = required_bytes + safety_bytes
     uid = os.getuid() if uid is None and hasattr(os, 'getuid') else (uid or 0)
     def result(path, mount, metrics, reason, kind, block=None):
-        encrypted = None
-        if block:
-            states = set(block['encrypted_paths'])
-            encrypted = next(iter(states)) if len(states) == 1 else None
-        return {'schema': 'argos-storage/1', 'path': str(path), 'kind': kind,
-                'mountpoint': mount['target'] if mount else None,
-                'filesystem': mount['fstype'] if mount else None,
-                'volume_uuid': block.get('uuid') if block else None,
-                'encrypted': encrypted, 'encryption_evidence': 'lsblk ancestry' if block else 'unknown',
-                'total_bytes': metrics['total_bytes'], 'free_bytes': metrics['free_bytes'],
-                'required_bytes': required_bytes, 'safety_bytes': safety_bytes,
-                'reason': reason, 'persistent': False if kind == 'ram' else (True if block else None),
-                'selection_only': True,
-                'write_verified': False}
+        return select_result(path, mount, metrics, reason, kind, block, required_bytes, safety_bytes)
     if configured is not None:
         path = validate_configured(configured, mounts=mounts, blocks=blocks)
         mount = covering(path, mounts)
@@ -169,12 +159,39 @@ def select(mounts, blocks, required_bytes, *, configured=None, ram_available=Non
         if kind == 'ram' and (ram_available is None or ram_available < budget):
             raise ValueError('Configured RAM storage lacks the required available memory; no fallback writes occur')
         return result(path, mount, metrics, 'Owner-configured storage identity matched', kind, block)
+    candidates = eligible(mounts, blocks, required_bytes, ram_available=ram_available,
+                          safety_bytes=safety_bytes, probe=probe, uid=uid, _result=result)
+    disks = [c for c in candidates if c['kind'] == 'disk']
+    candidates = disks or candidates
+    if not candidates:
+        detail = '' if boot_devices(mounts, blocks) else ' Live boot device identity unavailable; automatic disk selection is blocked.'
+        raise ValueError('No suitable model storage with sufficient space.' + detail)
+    return candidates[0]
+
+
+def boot_devices(mounts, blocks):
     boot = set()
     for mount in mounts:
         if mount['target'] in LIVE_MEDIA:
             block = block_for(mount, blocks)
             if block:
                 boot.update(block['ancestors'])
+    return boot
+
+
+def eligible(mounts, blocks, required_bytes, *, ram_available=None, safety_bytes=1024**3,
+             probe=capacity, uid=None, _result=None):
+    """Every candidate the automatic selector would consider, largest first.
+
+    Disks exclude every device sharing the live boot medium's ancestry. RAM
+    candidates are temporary and listed only when RAM covers the budget.
+    """
+    if _result is None:
+        def _result(path, mount, metrics, reason, kind, block=None):
+            return select_result(path, mount, metrics, reason, kind, block, required_bytes, safety_bytes)
+    budget = required_bytes + safety_bytes
+    uid = os.getuid() if uid is None and hasattr(os, 'getuid') else (uid or 0)
+    boot = boot_devices(mounts, blocks)
     disks, ram = [], []
     for mount in mounts:
         if 'ro' in mount['options'] or 'ro' in mount['super_options'] or mount['root'] != '/':
@@ -190,8 +207,8 @@ def select(mounts, blocks, required_bytes, *, configured=None, ram_available=Non
             except (OSError, ValueError):
                 continue
             if metrics and metrics['free_bytes'] >= budget:
-                disks.append(result(path, mount, metrics, 'Largest eligible writable filesystem; boot device excluded',
-                                    'disk', block))
+                disks.append(_result(path, mount, metrics, 'Largest eligible writable filesystem; boot device excluded',
+                                     'disk', block))
         elif mount['fstype'] == 'tmpfs' and ram_available is not None and ram_available >= budget:
             path = mount['target'].rstrip('/') + '/argos-live-' + str(uid) + '/models'
             try:
@@ -201,17 +218,33 @@ def select(mounts, blocks, required_bytes, *, configured=None, ram_available=Non
             except (OSError, ValueError):
                 continue
             if metrics and metrics['free_bytes'] >= budget:
-                ram.append(result(path, mount, metrics, 'No eligible disk; mounted tmpfs and available RAM cover budget', 'ram'))
-    candidates = disks or ram
-    if not candidates:
-        detail = ' Live boot device identity unavailable; automatic disk selection is blocked.' if not boot else ''
-        raise ValueError('No suitable model storage with sufficient space.' + detail)
-    return sorted(candidates, key=lambda c: (-c['total_bytes'], -c['free_bytes'], c['path']))[0]
+                ram.append(_result(path, mount, metrics, 'No eligible disk; mounted tmpfs and available RAM cover budget', 'ram'))
+    order = lambda c: (-c['total_bytes'], -c['free_bytes'], c['path'])
+    return sorted(disks, key=order) + sorted(ram, key=order)
+
+
+def select_result(path, mount, metrics, reason, kind, block, required_bytes, safety_bytes):
+    encrypted = None
+    if block:
+        states = set(block['encrypted_paths'])
+        encrypted = next(iter(states)) if len(states) == 1 else None
+    return {'schema': 'argos-storage/1', 'path': str(path), 'kind': kind,
+            'mountpoint': mount['target'] if mount else None,
+            'filesystem': mount['fstype'] if mount else None,
+            'volume_uuid': block.get('uuid') if block else None,
+            'volume_label': block.get('label') if block else None,
+            'device': block.get('name') if block else None,
+            'encrypted': encrypted, 'encryption_evidence': 'lsblk ancestry' if block else 'unknown',
+            'total_bytes': metrics['total_bytes'], 'free_bytes': metrics['free_bytes'],
+            'required_bytes': required_bytes, 'safety_bytes': safety_bytes,
+            'reason': reason, 'persistent': False if kind == 'ram' else (True if block else None),
+            'selection_only': True,
+            'write_verified': False}
 
 
 def plan(required_bytes, configured=None, *, proc_root=Path('/proc'), run=command):
     mounts = mount_table(read(Path(proc_root) / 'self/mountinfo'))
-    output = run(['lsblk', '--json', '--paths', '--output', 'NAME,TYPE,FSTYPE,UUID,TRAN,MAJ:MIN'])
+    output = run(LSBLK)
     blocks = block_table(output) if output else {}
     ram = memory_info(read(Path(proc_root) / 'meminfo'))['available_bytes']
     return select(mounts, blocks, required_bytes, configured=configured, ram_available=ram)

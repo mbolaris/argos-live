@@ -24,7 +24,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -35,6 +35,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.lab = lab
         self.downloads = downloads
         self.selection = selection
+        self.storage = storage
         self.status_provider = status_provider
         self.models_provider = models_provider
         self.benchmarks = benchmarks or BenchmarkView()
@@ -110,6 +111,14 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, self.server.selection.snapshot() if self.server.selection else {'available': False}, head=head)
         elif path == '/api/models/control':
             self.reply(200, self.server.downloads.snapshot() if self.server.downloads else {'available': False}, head=head)
+        elif path == '/api/storage':
+            if not self.server.storage:
+                self.reply(200, {'available': False}, head=head)
+            else:
+                try:
+                    self.reply(200, self.server.storage.snapshot(), head=head)
+                except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                    self.reply(503, {'error': 'Storage evidence unavailable'}, head=head)
         elif path == '/api/lab':
             self.reply(200, self.server.lab.snapshot() if self.server.lab else {'available': False}, head=head)
         elif path == '/api/startup':
@@ -197,6 +206,31 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, controller.start(**body))
             except (ValueError, OSError, UnicodeError, TypeError):
                 self.reply(409, {'error': 'Model action unavailable; check the catalog, storage and active jobs'})
+            return
+        if self.command == 'POST' and self.server.storage and path == '/api/storage/choose':
+            lengths = self.headers.get_all('Content-Length')
+            if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                    or len(lengths[0]) > 3 or not lengths[0].isdigit() or not 1 <= int(lengths[0]) <= 256
+                    or self.headers.get('Content-Type') != 'application/json'):
+                self.reply(400, {'error': 'A bounded JSON storage choice is required'})
+                return
+            try:
+                self.connection.settimeout(3)
+                body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                if not isinstance(body, dict) or set(body) != {'candidate'}:
+                    raise ValueError('Unknown storage choice')
+                self.reply(200, self.server.storage.choose(body['candidate']))
+            except (ValueError, OSError, UnicodeError, TypeError, KeyError):
+                self.reply(409, {'error': 'Storage choice unavailable. Refresh, then choose an eligible empty location.'})
+            return
+        if self.command == 'POST' and self.server.storage and path == '/api/storage/reboot-check':
+            if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                self.reply(400, {'error': 'An empty request is required'})
+                return
+            try:
+                self.reply(200, self.server.storage.reboot_check())
+            except (ValueError, OSError, TypeError, KeyError):
+                self.reply(409, {'error': 'Reboot check unavailable; configured storage needs attention'})
             return
         if self.command == 'POST' and self.server.selection and path == '/api/models/select-cancel':
             if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):

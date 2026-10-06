@@ -49,7 +49,7 @@ class ModelControlsTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.assistant = Assistant(Path(temp.name))
         self.queue = Queue()
-        self.controller = model_controls.Controller(self.assistant, queue_factory=lambda _: self.queue)
+        self.controller = model_controls.Controller(self.assistant, queue_factory=lambda _: self.queue, storage_gate=lambda home: None)
         self.addCleanup(self.controller.close)
     def finish(self):
         self.controller.worker.join(5)
@@ -63,6 +63,25 @@ class ModelControlsTests(unittest.TestCase):
         self.assertTrue(value['reply_test']['text_reply_verified'])
         self.assertNotIn('PRIVATE', str(value))
         self.assertEqual(self.assistant.calls, ['pause', 'resolve', 'backend-start', 'backend-stop', 'resume'])
+    def test_unconfirmed_or_failing_storage_stops_download_before_any_job(self):
+        for failure in (ValueError('Choose where models are stored before downloading'), OSError('read-only')):
+            def gate(home, failure=failure):
+                raise failure
+            controller = model_controls.Controller(self.assistant, queue_factory=lambda _: self.queue, storage_gate=gate)
+            self.addCleanup(controller.close)
+            with self.assertRaises(type(failure)):
+                controller.start(tag='qwen3:0.6b')
+            self.assertEqual(self.queue.calls, [])
+            self.assertEqual(self.assistant.calls, [])
+            self.assertIsNone(controller.worker)
+    def test_gate_receives_the_desktop_home(self):
+        seen = []
+        controller = model_controls.Controller(self.assistant, queue_factory=lambda _: self.queue,
+                                               storage_gate=seen.append)
+        self.addCleanup(controller.close)
+        controller.start(tag='qwen3:0.6b')
+        controller.worker.join(5)
+        self.assertEqual(seen, [self.assistant.home])
     def test_explicit_retry_uses_same_durable_job(self):
         self.controller.start(job='a' * 32)
         self.finish()

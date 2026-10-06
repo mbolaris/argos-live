@@ -1,5 +1,5 @@
 """Guided catalog acquisition using the existing verified Ollama pipeline."""
-from . import catalog, storage
+from . import catalog, storage, storage_view
 from .lab import Controller as Workload
 from .model_onboarding import OnboardingQueue
 from .pull_jobs import write_json, worker_lock, stamp
@@ -17,9 +17,11 @@ def queue(home):
 class Controller(Workload):
     budget_seconds = 3600
 
-    def __init__(self, startup, *, queue_factory=queue, **options):
+    def __init__(self, startup, *, queue_factory=queue, storage_gate=storage_view.require_ready_for_download,
+                 **options):
         super().__init__(startup, **options)
         self.queue_factory = queue_factory
+        self.storage_gate = storage_gate
         self.queue = None
         self.job_id = None
         self.receipt = None
@@ -40,6 +42,8 @@ class Controller(Workload):
         with self.startup.lock, self.lock:
             if self.closed or self.snapshot()['active'] or self.startup.lab_active:
                 raise ValueError('Another desktop workload is active')
+            # Deliberate storage choice and a fresh bounded write check (S3/S4).
+            self.storage_gate(self.startup.home)
             self.queue = self.queue_factory(self.startup.home)
             if tag is not None:
                 value = self.queue.create(tag)

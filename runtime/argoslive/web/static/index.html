@@ -13,7 +13,7 @@
     <header><span class="brand">Argos Live</span><span class="badge">Local workspace</span></header>
     <h1>Grow your personal AI</h1>
     <p class="intro">Start with a conversation. Measure what your model can do, then choose your next upgrade.</p>
-    <nav class="lab-nav" aria-label="Workspace sections"><a href="#benchmarks-title">Test your model</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Expand capabilities</a><a href="#hardware-title">Hardware and storage</a></nav>
+    <nav class="lab-nav" aria-label="Workspace sections"><a href="#benchmarks-title">Test your model</a><a href="#storage-title">Where your data lives</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Expand capabilities</a><a href="#hardware-title">Hardware and storage</a></nav>
     <section class="notice" aria-label="Assistant status">
       <strong id="assistant-status">Checking your workspace…</strong>
       <p id="assistant-help">This page observes your workspace. It does not start or change services.</p>
@@ -49,6 +49,25 @@
       <button id="download-comparison" type="button" disabled>Download comparison CSV</button>
       <div id="benchmark-comparison" class="cards" aria-live="polite"></div>
       <p>Select two to eight completed runs of the same type, suite and settings. Hardware and runtime versions can affect the results. A short startup warmup is shown separately from repeated benchmarks.</p>
+    </section>
+    <section aria-labelledby="storage-title">
+      <h2 id="storage-title">Where your data lives</h2>
+      <p>Models, your assistant profile, conversations and results can sit on different drives. Each row shows the real location, what backs it, its encryption and free space. Anything Argos cannot confirm says unknown.</p>
+      <p id="storage-status" role="status" aria-live="polite">Checking storage…</p>
+      <div id="storage-locations" class="cards"></div>
+      <h3>Choose where models are stored</h3>
+      <p id="storage-choice-help">Large downloads need a deliberate choice of location. Temporary memory storage disappears at reboot. A mounted drive is not used for models until you choose it here.</p>
+      <div id="storage-choices" class="cards"></div>
+      <h3>Reboot check</h3>
+      <p>A small marker file holding only a random identifier and boot ID is written inside Argos folders. After you restart, this page reports whether those folders kept it. That shows the folder was retained. It does not show encryption, and it does not test conversation recall.</p>
+      <button id="reboot-check" type="button" disabled>Start reboot check</button>
+      <dialog id="storage-review" aria-labelledby="storage-review-title">
+        <h3 id="storage-review-title">Review model storage</h3>
+        <p id="storage-review-details"></p>
+        <p>Argos creates one new empty folder here, runs a short write check, and records its identity. Existing files are never adopted or moved.</p>
+        <button id="storage-confirm" type="button">Use this location</button>
+        <button id="storage-dismiss" type="button">Keep current choice</button>
+      </dialog>
     </section>
     <section aria-labelledby="models-title">
       <h2 id="models-title">Upgrade your model</h2>

@@ -246,6 +246,7 @@ async function refresh() {
     await refreshModels();
     await refreshBenchmarks();
     await refreshLab();
+    await refreshStorage();
     busy = false;
     button.disabled = false;
   }
@@ -317,7 +318,9 @@ function reviewDownload(choice, tag) {
     `${tag} · ${byteSize(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · Estimated GPU fit: ${model.gpu_fit.status}. ` +
     `Destination: ${modelDestination || 'your configured model store'} · ${encrypted(modelEncryption)}.` :
     `${tag} · Retry against the current catalog and the same identity-checked store.`;
-  document.getElementById('download-confirm').disabled = false;
+  document.getElementById('download-confirm').disabled = !storageConfirmed;
+  if (!storageConfirmed) document.getElementById('download-review-details').textContent +=
+    ' Choose where models are stored (Where your data lives) before downloading.';
   document.getElementById('download-review').showModal();
 }
 async function refreshModelControls() {
@@ -534,5 +537,86 @@ document.getElementById('download-comparison').addEventListener('click', () => {
     document.getElementById('benchmarks-status').textContent = 'Comparison download unavailable. Refresh and compare again.';
   });
 });
+let storageConfirmed = false;
+let storageChoice = null;
+let storageRefreshing = false;
+const rebootText = {'not-started': 'Reboot check not started', pending: 'Reboot check started. Restart to verify.',
+  retained: 'Kept across a reboot', 'not-retained': 'Marker missing after reboot', 'needs-attention': 'Reboot evidence needs review',
+  unknown: 'Reboot evidence unknown'};
+function backingText(backing) {
+  if (!backing) return 'Backing device unknown';
+  if (backing.kind === 'ram') return 'Temporary memory. Lost at reboot.';
+  if (backing.kind !== 'disk') return 'Backing device unknown';
+  const name = backing.label || backing.device || 'Unnamed volume';
+  return `${name} · ${backing.filesystem || 'filesystem unknown'} · ${encrypted(backing.encrypted)}` +
+    (backing.live_persistence ? ' · Live persistence' : '') + (backing.boot_medium ? ' · Boot drive' : '');
+}
+async function refreshStorage() {
+  if (storageRefreshing) return;
+  storageRefreshing = true;
+  const status = document.getElementById('storage-status');
+  const places = document.getElementById('storage-locations');
+  const choices = document.getElementById('storage-choices');
+  try {
+    const view = await api('/api/storage');
+    if (view.available === false) { status.textContent = 'Storage details are available in the managed desktop workspace.'; return; }
+    places.replaceChildren(); choices.replaceChildren();
+    storageConfirmed = view.confirmed === true;
+    for (const row of view.locations) {
+      const free = row.free_bytes === null ? '' : ` · ${gib(row.free_bytes)} free of ${gib(row.total_bytes)}`;
+      card(places, row.label, `${row.path || 'Not chosen yet'} · ${backingText(row.backing)}${free} · ${rebootText[row.reboot?.state] || rebootText.unknown}` +
+        (row.reboot?.verified_at ? ` (${row.reboot.verified_at.slice(0, 10)})` : '') + (row.note ? ' · ' + row.note : ''));
+    }
+    status.textContent = view.state === 'not-configured' ? 'No model location chosen yet.' :
+      view.state === 'needs-attention' ? 'Selected model storage needs attention. No fallback location is used.' :
+      storageConfirmed ? 'Model location confirmed.' : 'Model location not yet confirmed. Confirm it before large downloads.';
+    if (!view.boot_id_available) status.textContent += ' Boot identity is unavailable, so reboot checks cannot run.';
+    for (const item of view.candidates) {
+      const detail = `${item.volume_label || item.mountpoint} · ${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
+        (item.temporary ? ' · Temporary: models are lost at reboot' : '') + (item.current ? ' · In use' : '') +
+        (item.contains_data ? ' · Folder already has files; it cannot be used' : '');
+      card(choices, item.kind === 'ram' ? 'Temporary memory' : 'Drive', detail);
+      const button = document.createElement('button'); button.type = 'button';
+      button.textContent = item.current ? (storageConfirmed ? 'Confirmed' : 'Confirm this location') : 'Review this location';
+      button.disabled = item.contains_data || (!item.current && !view.can_change) || (item.current && storageConfirmed);
+      button.addEventListener('click', () => {
+        storageChoice = item.id;
+        document.getElementById('storage-review-details').textContent = `${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
+          (item.temporary ? '. Temporary: downloaded models will be lost at reboot.' : '.') +
+          (view.change_blocked_reason ? ' ' + view.change_blocked_reason : '');
+        document.getElementById('storage-confirm').disabled = false;
+        document.getElementById('storage-review').showModal();
+      });
+      choices.lastElementChild.append(button);
+    }
+    if (!view.candidates.length) card(choices, 'No eligible location', 'No writable drive has enough free space. Chat and the bundled starter still work offline.');
+    if (view.change_blocked_reason) document.getElementById('storage-choice-help').textContent = view.change_blocked_reason;
+    document.getElementById('reboot-check').disabled = view.state !== 'available' || !view.boot_id_available;
+  } catch (_) {
+    status.textContent = 'Storage details unavailable. Refresh to retry.';
+  } finally { storageRefreshing = false; }
+}
+document.getElementById('storage-dismiss').addEventListener('click', () => document.getElementById('storage-review').close());
+document.getElementById('storage-confirm').addEventListener('click', async () => {
+  document.getElementById('storage-confirm').disabled = true;
+  try {
+    const response = await fetch('/api/storage/choose', {method: 'POST',
+      headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'}, body: JSON.stringify({candidate: storageChoice})});
+    if (!response.ok) throw new Error('Storage unavailable');
+    document.getElementById('storage-review').close();
+    await refreshStorage(); await refreshModels();
+  } catch (_) {
+    document.getElementById('storage-review-details').textContent = 'That location could not be used. Its write check or space check failed, or it changed. Refresh and choose again.';
+  }
+});
+document.getElementById('reboot-check').addEventListener('click', async () => {
+  document.getElementById('reboot-check').disabled = true;
+  try {
+    const response = await fetch('/api/storage/reboot-check', {method: 'POST', headers: {'X-Argos-Token': token || ''}});
+    if (!response.ok) throw new Error('Reboot check unavailable');
+    await refreshStorage();
+  } catch (_) { document.getElementById('storage-status').textContent = 'Reboot check could not start. Refresh and retry.'; }
+});
+
 refresh();
 setInterval(refresh, 20000);

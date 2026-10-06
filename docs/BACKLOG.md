@@ -693,3 +693,15 @@ Depends on: HA1–HA4, model onboarding, capability dashboard and profile persis
 ### W3c Reviewed model selection and upgrade guidance — in progress
 - Candidate: single-agent model switching with full artifact verification, private durable recovery journal, exact configuration rollback, owner-edit preservation and startup validation. Hardware guidance uses measured RAM/VRAM at 32K context; no quality claim.
 - Local transaction/browser checks pass; native pinned starter reselection and OpenClaw reply, fresh ISO and physical upgrade acceptance pending. See [GUIDED-MODEL-SELECTION.md](GUIDED-MODEL-SELECTION.md).
+
+## E10 Guided journey (personal robot experience)
+
+Plan: [PERSONAL-ROBOT-EXPERIENCE.md](PERSONAL-ROBOT-EXPERIENCE.md). Implemented in the order below; each stage keeps its own acceptance and states what was and was not verified.
+
+### S1-S5 Storage evidence and deliberate choice — `in progress`
+- S1 location report: `storage_view.snapshot` resolves the backing device of models, profile, conversations, results and settings, following an overlay root to its persistence upper directory. Unknown stays null.
+- S2 reboot evidence: `reboot_evidence` writes a marker (random id, schema, boot id) exclusively inside Argos directories, flushes it, and reports `retained` only when read back under a different boot id. It proves retention of that directory, not encryption or conversation recovery.
+- S3 bounded write check before every download and on confirmation.
+- S4 deliberate choice: every eligible location is listed with label, capacity, encryption and a temporary warning. Downloads require a confirmed store. Existing data is never adopted; a store that already holds models is not moved automatically.
+- S5 capacity: candidates must hold the budget plus safety margin; each download re-checks its own space.
+- Verified: unit and fixture tests (`test_storage_view`, `test_reboot_evidence`, `test_dashboard_storage`, `test_model_controls`). Not verified: real devices, shipped Firefox, physical reboot.
