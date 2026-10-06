@@ -13,6 +13,16 @@ from argoslive import desktop
 
 
 class SessionTests(unittest.TestCase):
+    def test_model_lab_url_opens_results_section_and_only_known_view_is_allowed(self):
+        base = 'http://127.0.0.1:12345/?token=' + 'a' * 43
+        self.assertEqual(desktop.dashboard_url(base), base)
+        self.assertEqual(desktop.dashboard_url(base, 'lab'),
+                         base + '&view=lab#benchmarks-title')
+        with self.assertRaises(ValueError):
+            desktop.dashboard_url(base, 'arbitrary')
+        with self.assertRaises(ValueError):
+            desktop.dashboard_url('http://192.168.1.30/?token=' + 'a' * 43, 'lab')
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux listener identity')
     def test_disappearing_unrelated_descriptor_does_not_hide_owned_listener(self):
         import socket
@@ -70,6 +80,30 @@ class SessionTests(unittest.TestCase):
             self.assertEqual(opened, [])
             self.assertEqual(json.loads(path.read_text()), value)
 
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux session process identity')
+    def test_reconnect_preserves_lab_view_for_existing_desktop_session(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            root = home / '.local/state/argos-live'
+            root.mkdir(parents=True, mode=0o700)
+            path = root / 'desktop-session.json'
+            value = {'schema': 'argos-desktop-session/1',
+                     'url': 'http://127.0.0.1:12345/?token=' + 'a' * 43,
+                     'pid': os.getpid(), 'process_start': desktop.process_identity(os.getpid())}
+            path.write_text(json.dumps(value))
+            path.chmod(0o600)
+            class Response:
+                def __enter__(self): return self
+                def __exit__(self, *args): return False
+                def read(self, size): return b'{"schema":"argos-startup/1"}'
+            class Opener:
+                def open(self, request, timeout): return Response()
+            opened = []
+            with patch('argoslive.desktop.owns_port', return_value=True), \
+                    patch('argoslive.desktop.build_opener', return_value=Opener()):
+                desktop.reconnect(home, browser=opened.append, view='lab')
+            self.assertEqual(opened, [desktop.dashboard_url(value['url'], 'lab')])
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux descriptor cleanup')
     def test_failed_browser_start_cleans_descriptor_and_server_without_configuration_changes(self):
         import threading
@@ -91,3 +125,28 @@ class SessionTests(unittest.TestCase):
             self.assertFalse((home / 'desktop-session.json').exists())
             self.assertFalse((home / '.desktop-session-new').exists())
             self.assertEqual(owner.read_bytes(), b'owner bytes')
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux desktop listener')
+    def test_model_lab_launch_opens_results_view_without_changing_owner_files(self):
+        import threading
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            owner = home / 'owner-data'
+            owner.write_bytes(b'owner bytes')
+            class Fixture:
+                closed = False
+                def start(self): self.started = True
+                def close(self): self.closed = True
+                def snapshot(self): return {'schema': 'argos-startup/1'}
+            controller = Fixture()
+            opened = []
+            stop = threading.Event()
+            stop.set()
+            desktop.serve(home, home, browser=opened.append, controller=controller,
+                          stop=stop, view='lab')
+            self.assertEqual(len(opened), 1)
+            self.assertIn('&view=lab#benchmarks-title', opened[0])
+            self.assertTrue(controller.started)
+            self.assertTrue(controller.closed)
+            self.assertEqual(owner.read_bytes(), b'owner bytes')
+            self.assertFalse((home / 'desktop-session.json').exists())

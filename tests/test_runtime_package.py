@@ -45,6 +45,15 @@ class RuntimePackageTests(unittest.TestCase):
         hook = (ROOT / 'live/config/hooks/live/010-argos.hook.chroot').read_text()
         self.assertIn('systemctl enable argos-refresh-runtime.service', hook)
 
+    def test_model_lab_menu_uses_non_handoff_desktop_view(self):
+        menu = ROOT / 'live/config/includes.chroot/usr/share/applications/argos-model-lab.desktop'
+        self.assertIn('Exec=argos desktop --model-lab', menu.read_text())
+        desktop = (ROOT / 'runtime/argoslive/desktop.py').read_text()
+        self.assertIn("view='lab' if args.model_lab else None", desktop)
+        javascript = (ROOT / 'runtime/argoslive/web/static/app.js').read_text()
+        self.assertIn("get('view') === 'lab'", javascript)
+        self.assertIn('value.auto_open_chat && !modelLabView', javascript)
+
     def test_group_and_delegated_help(self):
         for command in (['bench'], ['pack'], ['bench', 'speed'], ['bench', 'ability'], ['bench', 'results'], ['bench', 'all'], ['pull'],
                         ['pack', 'export'], ['pack', 'import'], ['pack', 'apply'],

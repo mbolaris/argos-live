@@ -9,7 +9,7 @@ import signal
 import subprocess
 import sys
 import threading
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
 
 from .owned_gateway import private_log
@@ -45,6 +45,17 @@ def session_url(value):
     return f'http://127.0.0.1:{url.port}', token[0]
 
 
+def dashboard_url(url, view=None):
+    """Build a known dashboard view URL without changing its session token."""
+    if view is None:
+        session_url({'schema': 'argos-desktop-session/1', 'url': url})
+        return url
+    if view != 'lab':
+        raise ValueError('Unknown desktop view')
+    origin, token = session_url({'schema': 'argos-desktop-session/1', 'url': url})
+    return f'{origin}/?token={quote(token)}&view=lab#benchmarks-title'
+
+
 def open_browser(url):
     browser = next((shutil.which(name) for name in ('firefox-esr', 'firefox', 'xdg-open') if shutil.which(name)), None)
     if not browser:
@@ -52,7 +63,7 @@ def open_browser(url):
     subprocess.Popen([browser, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def reconnect(home, *, browser=open_browser):
+def reconnect(home, *, browser=open_browser, view=None):
     path = safe_local(home / '.local/state/argos-live/desktop-session.json')
     info = path.stat()
     if info.st_uid != os.getuid() or info.st_mode & 0o077 or info.st_nlink != 1:
@@ -69,10 +80,10 @@ def reconnect(home, *, browser=open_browser):
         raw = response.read(65537)
     if len(raw) > 65536 or json.loads(raw).get('schema') != 'argos-startup/1':
         raise ValueError('Desktop session did not establish its identity')
-    browser(value['url'])
+    browser(dashboard_url(value['url'], view))
 
 
-def serve(home, root, *, port=0, browser=open_browser, no_browser=False, controller=None, stop=None):
+def serve(home, root, *, port=0, browser=open_browser, no_browser=False, controller=None, stop=None, view=None):
     from .model_selection import Controller as Selection, restore
     restore(home)
     controller = controller or Controller(home)
@@ -105,7 +116,7 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
             inode = path.stat().st_ino
             worker.start()
             if not no_browser:
-                browser(server.url)
+                browser(dashboard_url(server.url, view))
             controller.start()
             stop.wait()
         finally:
@@ -125,6 +136,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=0, help='Loopback dashboard port; default chooses a free port')
     parser.add_argument('--no-browser', action='store_true', help='Run managed services without opening a browser')
+    parser.add_argument('--model-lab', action='store_true',
+                        help='Open the model lab without automatically handing off to chat')
     args = parser.parse_args(argv)
     if sys.platform != 'linux':
         raise ValueError('The managed desktop launcher requires Linux')
@@ -140,12 +153,15 @@ def main(argv=None):
     try:
         lock.__enter__()
     except ValueError:
-        reconnect(home, browser=(lambda url: None) if args.no_browser else open_browser)
+        reconnect(home, browser=(lambda url: None) if args.no_browser else open_browser,
+                  view='lab' if args.model_lab else None)
         return 0
     stop = threading.Event()
     prior = {sig: signal.signal(sig, lambda *args: stop.set()) for sig in (signal.SIGTERM, signal.SIGINT)}
     try:
-        serve(home, root, port=args.port, no_browser=args.no_browser, stop=stop)
+        controller = Controller(home, auto_open_chat=not args.model_lab)
+        serve(home, root, port=args.port, no_browser=args.no_browser, stop=stop,
+              controller=controller, view='lab' if args.model_lab else None)
     except Exception:
         # Native private logs explain failures; never print a tokenized URL.
         import traceback

@@ -2,7 +2,7 @@
 Type=Application
 Name=Argos Model Lab
 Comment=Measure your model and explore verified upgrades
-Exec=argos desktop
+Exec=argos desktop --model-lab
 Icon=applications-science
 Categories=Utility;
 Terminal=false

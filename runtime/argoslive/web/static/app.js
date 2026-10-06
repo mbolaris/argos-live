@@ -1,5 +1,6 @@
 'use strict';
 const token = new URLSearchParams(window.location.search).get('token');
+const modelLabView = new URLSearchParams(window.location.search).get('view') === 'lab';
 const labels = {'local-chat': 'Local chat', 'local-vision': 'Image understanding', memory: 'Memory',
   browser: 'Browser', documents: 'Documents', 'voice-output': 'Speech output', 'voice-input': 'Speech input',
   'image-generation': 'Image generation', 'reviewed-skills': 'Personal skills', 'optional-channel': 'Messaging'};
@@ -68,7 +69,7 @@ async function refreshStartup() {
       (Number.isFinite(metrics.generation_tokens_per_second) ? `${metrics.generation_tokens_per_second.toFixed(1)} tokens/s` : 'Generation rate unavailable') +
       (Number.isFinite(metrics.time_to_first_token_seconds) ? ` · First token ${metrics.time_to_first_token_seconds.toFixed(2)} s` : '') :
       'The model check runs locally. Optional capabilities have their own setup and tests.';
-    if (value.auto_open_chat && !handoffPending) {
+    if (value.auto_open_chat && !modelLabView && !handoffPending) {
       handoffPending = true;
       try { openConversation((await startupAction('chat')).url); }
       catch (_) { handoffPending = false; }
