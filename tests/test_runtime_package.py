@@ -31,6 +31,20 @@ class RuntimePackageTests(unittest.TestCase):
             self.assertIn(name, result.stdout)
         self.assertTrue(cli.argoslive.__version__)
 
+    def test_live_overlay_refresh_is_staged_and_enabled_before_desktop(self):
+        unit = ROOT / 'live/config/includes.chroot/etc/systemd/system/argos-refresh-runtime.service'
+        launcher = ROOT / 'runtime/argos-refresh-runtime'
+        service = unit.read_text()
+        self.assertTrue(launcher.is_file())
+        self.assertIn('argoslive.image_refresh', launcher.read_text())
+        self.assertIn('Before=display-manager.service', service)
+        self.assertIn('After=local-fs.target', service)
+        for script in ('scripts/build.sh', 'scripts/sync-build-runtime.sh'):
+            content = (ROOT / script).read_text()
+            self.assertIn('argos-refresh-runtime', content)
+        hook = (ROOT / 'live/config/hooks/live/010-argos.hook.chroot').read_text()
+        self.assertIn('systemctl enable argos-refresh-runtime.service', hook)
+
     def test_group_and_delegated_help(self):
         for command in (['bench'], ['pack'], ['bench', 'speed'], ['bench', 'ability'], ['bench', 'results'], ['bench', 'all'], ['pull'],
                         ['pack', 'export'], ['pack', 'import'], ['pack', 'apply'],

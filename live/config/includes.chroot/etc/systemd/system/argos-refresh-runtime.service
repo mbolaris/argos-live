@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh Argos command entrypoints from the current live image
+After=local-fs.target
+Before=display-manager.service
+ConditionPathExists=/run/live/rootfs/filesystem.squashfs/usr/local/bin/argos
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/argos-refresh-runtime
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

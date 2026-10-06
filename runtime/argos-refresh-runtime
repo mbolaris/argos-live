@@ -1,0 +1,8 @@
+#!/usr/bin/python3
+"""Refresh only Argos-owned command entrypoints masked by live persistence."""
+import sys
+
+sys.path.insert(0, '/usr/local/lib/argos-live')
+from argoslive.image_refresh import main
+
+raise SystemExit(main())

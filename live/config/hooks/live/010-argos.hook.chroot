@@ -35,6 +35,7 @@ rm -f /var/lib/dkms/mok.key
 update-initramfs -u -k all
 # SSH is opt-in after a trusted owner key and LAN restriction are installed.
 systemctl disable ssh.service || true
+systemctl enable argos-refresh-runtime.service
 rm -f /etc/ssh/ssh_host_*key /etc/ssh/ssh_host_*key.pub
 truncate -s 0 /etc/machine-id
 find /usr/share/doc -name copyright -print0 | tar --null -T - -czf /usr/local/share/argos-live/debian-copyrights.tar.gz
