@@ -56,7 +56,7 @@ try {
   if (!(await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
     throw new Error('Bundled source selection was not displayed');
   }
-  await page.locator('summary').click();
+  await page.locator('details:has(#model-catalog) > summary').click();
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
   await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
   if (await page.locator('#benchmark-runs b').count()) throw new Error('Result label was treated as markup');
@@ -158,7 +158,7 @@ try {
   });
   await page.reload();
   await page.locator('#download-controls').waitFor({state: 'visible'});
-  await page.locator('summary').click();
+  await page.locator('details:has(#model-catalog) > summary').click();
   await page.locator('#model-catalog button').first().click();
   await page.locator('#download-review').waitFor({state: 'visible'});
   if (!(await page.locator('#download-confirm').isDisabled())) throw new Error('Download was allowed before storage was confirmed');
@@ -181,7 +181,7 @@ try {
   await page.locator('#download-pause').click();
   await page.waitForFunction(() => document.getElementById('download-status').textContent.includes('Paused;'));
   if (modelCalls.join(',') !== 'download,pause') throw new Error('Guided download controls failed');
-  await page.locator('summary').click();
+  await page.locator('details:has(#model-catalog) > summary').click();
   await page.locator('section:has(#models-title)').screenshot({path: 'work/dashboard-download-progress.png'});
   let selection = {available: true, active: false, phase: 'idle'};
   const selectionCalls = [];
