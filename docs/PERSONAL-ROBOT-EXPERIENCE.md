@@ -1,6 +1,7 @@
 # How badass is my AI? — personal robot experience plan
 
-Status: design proposal, October 6, 2026. Documentation only; no runtime, UI,
+Status: design proposal, October 6, 2026, with the Phase 0 specification for the
+first mission added the same day. Documentation only; no runtime, UI,
 model, storage, addon or USB changes are authorized by this document.
 
 Related plans: [hardware-aware personality](HARDWARE-AWARE-ASSISTANT.md),
@@ -306,14 +307,21 @@ with visible spending limits, not a mandatory route to advancement.
 ## An example first session
 
 1. "Meet your robot" introduces the local companion and the machine it runs on.
-2. The user picks "Help me code" and runs a short first trial.
-3. The results show real speed and task outcomes; one failed exercise is explained.
-4. "Your next upgrade" offers suitable model storage and a reviewed coding brain.
+2. A short conversation confirms the assistant replies. The user then picks
+   "Understand a document" and runs the first document trial on pasted text.
+3. The results show real speed and task outcomes; one wrong or unsupported answer
+   is shown next to the passage it should have used.
+4. "Your next upgrade" confirms where models and personal data live, then offers
+   a reviewed candidate brain that fits this machine.
 5. The user reviews destination, download/resources and chat interruption, then
    chooses whether to proceed. Installation has visible, cancellable progress.
-6. The same trials reveal gains and tradeoffs; the user chooses keep or restore.
-7. An earned qualification enters the journal and the user starts a real coding
-   task. First accepted useful work can commission this configuration.
+6. The same trials, on the same passages, reveal gains and tradeoffs; the user
+   chooses keep or restore.
+7. An earned qualification enters the journal and the user pastes a document of
+   their own. First accepted useful work can commission this configuration.
+
+The concrete Phase 0 version of this session, including backend gaps, is
+[specified below](#phase-0-specification-understand-a-document).
 
 Each step remains optional and resumable. The user can chat immediately and
 return to training later; no growth tutorial should block basic offline usefulness.
@@ -330,6 +338,217 @@ return to training later; no growth tutorial should block basic offline usefulne
 
 These are proposed phases, not implementation commitments or completed backlog
 items. Agree on mockups and the first mission before changing runtime behavior.
+
+## Phase 0 specification: understand a document
+
+Status: proposed October 6, 2026. Documentation only. This section turns the
+plan above into one reviewable journey for the first mission. It names the
+existing code each step relies on, so Phase 1 extends working features instead
+of rebuilding them, and it lists the evidence the current code does not yet
+produce. Code references were checked against `main` at `7434035`.
+
+### Mission choice
+
+The first mission is **Understand a document**. A short general conversation
+comes first as a connectivity check (routine status, not a trial).
+
+A document gives the owner a concrete result to judge: a summary, answers to
+questions, the passage that supports each answer, and an honest "not stated"
+when the text does not contain the answer. Phase 0 and 1 use **pasted text**.
+Reading files is a separate Sensors qualification through the `documents`
+addon path (`document-extract`, see [OPENCLAW-ADDONS.md](OPENCLAW-ADDONS.md))
+after its Linux dependencies pass their own acceptance. Coding follows once
+execution and tool permissions are accepted.
+
+Benchmarks qualify a component. A useful task shows why the upgrade matters.
+The journey therefore shows **the same document task before and after** a model
+change, alongside measured speed and accuracy.
+
+### The journey, step by step
+
+| Step | What the owner sees | Existing foundation | New work (Phase 1 candidates) |
+|---|---|---|---|
+| 0. Connectivity | "Talk to Argos" and one reply | Owned startup and chat handoff (`/api/startup`, `/api/assistant/chat`) | The dashboard reports gateway readiness, which does not verify a model reply. Show a reply as the check, not readiness. |
+| 1. Storage check | Where each kind of data lives, encryption, free space, reboot status | `web/status.py` persistence and model-storage fields; `storage.py` planning | Prerequisite gaps S1 to S5 below |
+| 2. Baseline | Document trial plus speed on the current model | `lab.Controller` pauses chat, runs `speed/1` and `ability/quick`, saves results | Document suite (D1); Lab runs only the short speed prompt today, while documents depend on medium and long prompt processing (D3) |
+| 3. Choose a candidate | Two or three cards, not the whole catalog | `/api/models` with `catalog.fit` GPU/CPU estimates at 32K context and a conservative next-size suggestion | Card fields below; "tested on this machine" record |
+| 4. Download and verify | Size, destination, encryption, progress, pause/cancel | `pull_jobs` via `/api/models/download`, verified manifests and artifact hashes | Requires a deliberate storage choice first (S4) |
+| 5. Matched trials | Same passages, questions and settings as the baseline | `results.compare` refuses mismatched kind, suite version, settings or coverage; ability results keep bounded per-item output | Before/after view of the same item (D4) |
+| 6. Adopt or restore | Review, confirm, rollback if needed | `/api/models/select` with journaled rollback in `model_selection` | None for one agent. Argos/Nyx/Proteus activation stays a separate milestone. |
+| 7. Use it now | The owner pastes a document of their own | OpenClaw chat | Record the owner's verdict as a private field mission, separate from benchmark results |
+
+### Storage is a prerequisite
+
+Before any large download, the owner should be able to answer: where do my
+models go, where do my profile and conversations go, are they encrypted, is there
+room, and will they still be there after reboot?
+
+| Category | Where it lives today | What to show |
+|---|---|---|
+| Model weights | Configured store in `~/.config/argos-live/state.json`, checked by identity marker and filesystem UUID | Volume label, path, free space against the download, encryption, reboot status |
+| Agent configuration and personality | `~/.openclaw/` | Backing device, encryption, reboot status |
+| Conversations and sessions | OpenClaw state under `~/.openclaw/` | Backing device, encryption, reboot status |
+| Benchmark results and lab history | `~/.local/share/argos-live/results/` | Backing device, encryption, reboot status |
+| Mounted volumes not used by Argos | Any other mounted disk, including DATA | "Mounted, not used for models" until the owner chooses it |
+
+**What the current code establishes, and what it does not**
+
+- `status.persistence()` reports persistence active when a mount under the live
+  persistence path contains `persistence.conf`, and reads encryption from the
+  lsblk ancestry. It does not parse `persistence.conf` or confirm that the home
+  directory paths above are actually backed by that overlay.
+- Model storage is validated by marker and UUID with free space and encryption
+  from lsblk. Status probes are read-only. `storage.select` returns
+  `write_verified: false` and `selection_only: true`.
+- Automatic first setup (`auto_setup.configure`) chooses storage itself through
+  `storage.plan(1)`: the largest eligible writable disk, otherwise a RAM-backed
+  tmpfs location. The owner is not asked. Later downloads use that destination
+  after their own space check.
+- Nothing records reboot evidence. No marker is written with a boot identity and
+  read back after a later boot.
+- Status has no fields for profile, conversation or results locations.
+- A mounted DATA volume does not mean the assistant uses it.
+
+**Backend gaps to close in Phase 1** (each its own backlog item):
+
+- **S1 Location report.** For each category above, resolve the real backing
+  filesystem and device from the mount table, including overlay to persistence
+  device. Unknown stays unknown.
+- **S2 Reboot evidence.** Place a small marker inside the selected Argos
+  directory for each persistent category. On DATA, that is the selected Argos
+  model storage directory, never elsewhere on the volume. The marker holds only
+  a random identifier, a schema version and the boot ID at creation; no personal
+  content. Create it exclusively, never overwriting an existing file, and flush
+  it to disk. On a later boot, read it back, confirm the identifier and a
+  different boot ID, and record "verified across reboot" with the date. Until
+  then, show "reboot verification pending". Do not infer it from
+  `persistence.conf`.
+  Scope of this evidence: it proves that this directory retained the marker
+  across a reboot. It does not prove encryption, encrypted persistence as a
+  whole, or that conversations can be recovered. Conversation recall stays a
+  separate test.
+- **S3 Write check.** A bounded write, read-back and removal of a test file in
+  the dedicated directory before a download, instead of access bits.
+- **S4 Deliberate choice.** List every eligible candidate (today `select` returns
+  only the largest), with label, free space, encryption, persistence and what
+  will be stored there. The owner confirms before a large download. RAM storage
+  is labeled temporary. Moving an existing store keeps the documented migration
+  in [DATA-STORAGE.md](DATA-STORAGE.md); nothing moves automatically.
+- **S5 Capacity budget.** Show download size plus safety margin against free
+  space on the chosen destination, before the download is offered.
+
+Example storage copy (templates, illustrative numbers):
+
+- "Models: DATA (internal disk), 1.2 TB free, unencrypted. Reboot verification pending."
+- "Personal data folder: USB persistence, encrypted. Retained across reboot on Oct 9. Conversation recall not yet tested."
+- "DATA (internal disk) is mounted but not used for models. Choose it?"
+
+### Choosing a model
+
+Each candidate card shows:
+
+- Exact Ollama tag, quantization and manifest digest.
+- Download size and the destination it will use.
+- Fit breakdown from `catalog.fit`: weights, KV cache at the managed 32K context,
+  and overhead, against measured available VRAM on the largest single GPU and
+  available RAM. Status is fits, tight or won't fit, with its reason. Fit is not
+  speed or quality.
+- What has been tested on this machine. Nothing, until trials run here.
+- Expected tradeoffs, labeled as expectations until measured.
+- Reversibility: "Your current model stays installed. Restore returns to it."
+
+Qwen3.8 27B is a candidate to evaluate, not a recommendation. It is not in the
+reviewed catalog today; the largest entry is `qwen3:30b`. Adding it needs a
+`catalog-spec.json` entry with the exact Ollama tag, manifest digest and
+architecture source for the KV estimate. The current catalog validator also
+requires an Apache-2.0 license. Its fit is computed from that entry, not asserted.
+
+### Document trial (proposed, not implemented)
+
+- **D1 Suite.** Original passages written for this project, versioned and
+  licensed under the dataset rules in [BACKLOG.md](BACKLOG.md). No private
+  documents. The first suite uses short documents that fit, with the prompt and
+  answer, inside the tested context. Longer documents are a separate
+  qualification (see D2).
+- **Tasks per passage:**
+  - Answer questions, scored by exact or numeric match.
+  - Quote the supporting passage. The quote must appear verbatim in the text and
+    contain the answer.
+  - Recognize missing information. Unanswerable questions require a structured
+    "not stated" answer.
+  - Summarize. Not machine scored; shown side by side for the owner's judgment.
+- Structured JSON output, programmatic scoring, no LLM judge. Format errors are
+  reported separately from wrong answers. Deterministic settings per the backlog.
+- **D2 Context.** Treat the context limit explicitly. The ability benchmark runs
+  at a 2,048-token context today. Qualification states the context it was tested
+  at, and a short-document qualification says nothing about longer documents.
+  Longer-document support (for example about 2k and 8k token passages) is its
+  own qualification at a larger, recorded context setting. KV cache memory rises
+  with context, so fit is rechecked at that setting, and the card shows the
+  longest document size actually tested.
+- **D3 Lab speed.** Document work is dominated by prompt processing. The lab
+  should run the medium prompt size alongside short, and show prompt-processing
+  tokens/s and first-token wait next to generation tokens/s.
+- **D4 Before/after.** The same passage and question with the previous and new
+  answer side by side, the supporting quote, and the matched speed and accuracy
+  numbers. Reuse the stored per-item output; compare only runs that
+  `results.compare` accepts.
+- **Field mission.** The owner pastes their own document. The result stays
+  private and is recorded as the owner's assessment, never in the benchmark store.
+- **Qualification uses fixed criteria, defined in advance with the suite.** The
+  baseline is for comparison only: a weak baseline must not make another weak
+  model qualified. Criteria cover three things, each with its own fixed bar:
+  correct answers, supported quotations, and appropriate "not stated" answers
+  (including not inventing answers the text lacks). Changing a criterion is a
+  suite version change.
+- **Speed is reported separately** and is not part of qualification. A candidate
+  does not have to win every metric. The owner sees accuracy and speed side by
+  side and chooses the tradeoff; a faster model that still qualifies is a valid
+  choice, and so is a slower one that answers better.
+
+### Ceremony for this mission
+
+| Tier | Document mission examples |
+|---|---|
+| Routine | Storage configured, download verified, trial completed |
+| Qualified | A model meets the fixed document-suite criteria at the stated context and settings; separately, a reproducible prompt-processing gain |
+| Commissioned | Model storage directory retained across reboot (S2); first adopted model that qualifies, compares favorably or acceptably on matched trials, and completes an accepted real document task |
+
+A restore after a regression gets the same respectful acknowledgment as a gain.
+
+### Keep the evidence separate
+
+| Check | What it shows | What it does not show |
+|---|---|---|
+| Unit and fixture tests | Logic and error handling | Real models, services or hardware |
+| Native pinned Linux reply | Ollama and the OpenClaw gateway produce a reply | Desktop startup or browser use |
+| Automatic desktop startup (VM) | The shipped image starts the assistant without help | Firmware boot or physical hardware |
+| Rendered conversation | The chat page loads in the shipped browser | That a reply was submitted and returned |
+| Browser-submitted reply | End-to-end chat through the UI | GPU use or persistence |
+| GPU inference | Backend placement and offload reported by Ollama | Answer quality |
+| Physical reboot retention | S2 markers read back after a real reboot | Encryption, conversation recall, or anything about a VM run |
+| Owner real-task acceptance | The upgrade helped with real work | General competence |
+
+Some hosted VM gateway checks still have unresolved failures. A working owner
+desktop does not mark those checks as passed.
+
+### Phase 0 deliverables
+
+1. Static mockups with fixture data, not wired to the runtime: Command Center,
+   storage panel, candidate cards, document trial result, before/after view and
+   restore confirmation.
+2. A copy table for this mission, reviewed against the ceremony tiers.
+3. Proposed backlog items S1 to S5 and D1 to D4, each with acceptance criteria
+   that name the check type from the table above.
+4. An owner walkthrough of the mockups. Pass when the owner can say, without
+   help: where models and conversations live and whether they survive reboot;
+   which candidate to try and what it costs; whether the change helped on the
+   same document; and how to restore.
+
+Out of scope for Phase 0: runtime or UI changes, Argos/Nyx/Proteus activation,
+the coding mission, file reading, writing reboot markers, and any download or
+model switch. The decisions above are plan decisions, not authorization to
+implement them.
 
 ## How we will evaluate the experience
 
@@ -356,7 +575,9 @@ observations; repeated benchmarks alone are not evidence of user value.
 - Visual identity: an octopus-shaped robot, a humanoid giant, or selectable bodies.
 - Adopted tone: restrained mission control with warmth from the companion.
   Review the amount of blueprint animation and agent acknowledgment in mockups.
-- First mission: general conversation, coding, or understanding a document.
+- First mission: resolved October 6. "Understand a document" on pasted text,
+  preceded by a general conversation connectivity check. Coding follows after
+  execution and tool permissions pass acceptance.
 - Define mission-specific qualification gates and build-stage vocabulary; review
   Routine, Qualified and Commissioned examples against actual evidence.
 - Whether the public distro offers the owner's three-agent structure as a generic
