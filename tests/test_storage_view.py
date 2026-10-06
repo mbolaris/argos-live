@@ -293,11 +293,11 @@ class DownloadGateTests(Base):
         (self.home / '.config/argos-live/state.json').write_text(json.dumps(state))
         def check(path):
             raise OSError('read-only file system')
-        with self.assertRaises(OSError):
+        with self.assertRaisesRegex(ValueError, 'did not accept a test write'):
             sv.require_ready_for_download(self.home, check=check)
 
     def test_missing_state_blocks_download(self):
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaisesRegex(ValueError, 'Choose where models are stored'):
             sv.require_ready_for_download(self.home, check=lambda p: None)
 
 

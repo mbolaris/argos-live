@@ -6,6 +6,7 @@ only writes are explicit owner actions: a bounded write check, a new empty
 model store with its identity marker, and reboot markers.
 """
 from datetime import datetime, timezone
+import errno
 import hashlib
 import json
 import os
@@ -188,12 +189,27 @@ def write_check(directory, *, size=WRITE_CHECK_BYTES):
 
 
 def require_ready_for_download(home, *, check=write_check):
-    """Downloads need a deliberately confirmed store that accepts a write now."""
-    configured = read_state(home)
+    """Downloads need a deliberately confirmed store that accepts a write now.
+
+    Every failure is a ValueError with a message the owner can act on, so a
+    missing state file, a swapped volume, a full or read-only drive all stop the
+    download before any job is created.
+    """
+    try:
+        configured = read_state(home)
+    except FileNotFoundError:
+        raise ValueError('Choose where models are stored before downloading') from None
+    except (OSError, TypeError):
+        raise ValueError('Model storage settings could not be read; refresh and choose a location') from None
     path = storage.validate_configured(configured)
     if not confirmed(configured):
         raise ValueError('Choose where models are stored before downloading')
-    check(path)
+    try:
+        check(path)
+    except OSError as exc:
+        if exc.errno == errno.ENOSPC:
+            raise ValueError('The model drive is full. Free space or choose another location.') from None
+        raise ValueError('The model drive did not accept a test write. It may be read-only or unplugged.') from None
     return path
 
 
