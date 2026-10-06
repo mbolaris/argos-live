@@ -202,8 +202,82 @@ def compare(values):
     rows.sort(key=lambda row: (row['metric'], row['value'] is None,
                               -(row['value'] or 0), row['id']))
     return {'kind': first['kind'], 'suite_version': first['suite_version'], 'settings': first['settings'],
-            'rows': rows, 'limitations': 'Hardware and runtime versions can differ; inspect original runs. '
+            'rows': rows, **matched_details(values), 'limitations': 'Hardware and runtime versions can differ; inspect original runs. '
             'Missing measurements are unranked. Tool formatting is not tool execution.'}
+
+
+ITEM_OUTPUT_LIMIT = 600
+
+
+def median_of(prompt, field):
+    """Recompute from raw runs; a median needs all three measured runs."""
+    from .bench_speed import numeric, summary
+    if prompt['skipped']:
+        return {'median': None, 'reported_runs': 0}
+    values = [numeric(run.get(field)) for run in prompt['runs']]
+    reported = sum(v is not None for v in values)
+    return {'median': summary(values)['median'] if reported == 3 else None, 'reported_runs': reported}
+
+
+def matched_details(values):
+    """Per-run measurements and per-item answers for runs already proven comparable.
+
+    Speed, input processing, first-token wait and accuracy stay separate fields.
+    Nothing here ranks or combines them.
+    """
+    ordered = sorted(values, key=lambda v: (v['created'], v['id']))
+    runs = []
+    for value in ordered:
+        entry = {'id': value['id'], 'model': value['model'], 'created': value['created'],
+                 'manifest_digest': value.get('manifest_digest'), 'kind': value['kind'],
+                 'suite_version': value['suite_version']}
+        if value['kind'] == 'ability':
+            summary = value['summary']
+            entry.update(accuracy=summary['accuracy'], correct=summary['correct'], total=summary['total'],
+                         format_errors=summary['format_errors'], categories=summary['categories'],
+                         qualification=value.get('qualification'), document_context=value.get('document_context'),
+                         context=value['settings'].get('context'))
+        else:
+            entry['prompts'] = []
+            for p in value['prompts']:
+                row = {'size': p['size'], 'skipped': p['skipped'],
+                       'backend_modes': sorted({r['backend']['mode'] for r in p['runs']
+                                                if isinstance(r.get('backend'), dict) and r['backend'].get('mode')})}
+                for field in ('generation_tokens_per_second', 'prompt_tokens_per_second', 'time_to_first_token_seconds'):
+                    measured = median_of(p, field)
+                    row[field] = measured['median']
+                    row[field + '_reported_runs'] = measured['reported_runs']
+                entry['prompts'].append(row)
+        runs.append(entry)
+    result = {'runs': runs}
+    if ordered[0]['kind'] == 'ability':
+        passages = {}
+        for value in ordered:
+            found = (value.get('document_suite') or {}).get('passages')
+            if isinstance(found, dict):
+                passages.update({k: v for k, v in found.items() if isinstance(k, str) and isinstance(v, str)})
+        if passages:
+            result['passages'] = passages
+            result['summaries'] = [
+                {'item_id': u['item_id'], 'passage_id': u.get('passage_id'), 'question': u.get('question'),
+                 'runs': {v['id']: next((x['output'][:ITEM_OUTPUT_LIMIT] for x in v.get('unscored', [])
+                                         if x.get('item_id') == u['item_id'] and isinstance(x.get('output'), str)), None)
+                          for v in ordered}}
+                for u in ordered[0].get('unscored', []) if isinstance(u.get('item_id'), str)]
+        items = []
+        for item in ordered[0]['items']:
+            row = {'item_id': item['item_id'], 'category': item['category'], 'passage_id': item.get('passage_id'),
+                   'question': item.get('question'), 'runs': {}}
+            for value in ordered:
+                scored = next((x for x in value['items'] if x['item_id'] == item['item_id']), None)
+                if scored is None:
+                    raise ValueError('Runs do not cover the same items')
+                output = scored.get('output')
+                row['runs'][value['id']] = {'outcome': scored['outcome'], 'score': scored['score'],
+                                            'output': output[:ITEM_OUTPUT_LIMIT] if isinstance(output, str) else None}
+            items.append(row)
+        result['items'] = items
+    return result
 
 
 def export_csv(comparison):

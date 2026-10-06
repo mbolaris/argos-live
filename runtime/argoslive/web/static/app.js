@@ -246,6 +246,7 @@ async function refresh() {
     await refreshModels();
     await refreshBenchmarks();
     await refreshLab();
+    await refreshStorage();
     busy = false;
     button.disabled = false;
   }
@@ -270,9 +271,10 @@ setInterval(async () => {
 const selectedRuns = new Set();
 let comparedRuns = [];
 let labRefreshing = false;
+let lastLabPhase = null;
 const labPhases = {idle: 'Ready to measure your model.', pausing: 'Pausing chat and releasing its resources…',
   'model-service': 'Starting the isolated local test service…', speed: 'Measuring model speed…',
-  ability: 'Testing ability with fixed scored tasks…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
+  task: 'Reading your document…', ability: 'Testing ability with fixed scored tasks…', documents: 'Reading short documents and answering from them…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
   completed: 'Baseline saved. Compare the results below.', cancelled: 'Test cancelled. Any completed results remain saved.',
   failed: 'Test could not finish. Any completed results remain saved. Check model setup before retrying.'};
 async function refreshLab() {
@@ -284,25 +286,33 @@ async function refreshLab() {
     document.getElementById('lab-unavailable').hidden = value.available;
     if (!value.available) return;
     document.getElementById('lab-start').disabled = value.active || downloadActive || selectionActive;
+    document.getElementById('lab-start-documents').disabled = value.active || downloadActive || selectionActive;
     document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
     let message = labPhases[value.phase] || 'Checking test status…';
     if (value.model) message += ' · ' + value.model;
     if (Number.isFinite(value.elapsed_seconds)) message += ` · ${Math.round(value.elapsed_seconds)} s`;
     const progress = value.progress;
     if (value.phase === 'speed' && progress) message += progress.phase === 'warmup' ? ' · Load / warmup sample' : ` · Measured run ${progress.run}/3`;
-    if (value.phase === 'ability' && progress) message += ` · ${progress.completed}/${progress.total} tasks scored`;
+    if ((value.phase === 'ability' || value.phase === 'documents') && progress) message += ` · ${progress.completed}/${progress.total} tasks scored`;
+    if (value.phase === 'completed' && value.plan === 'documents') message = 'Document trial saved. Compare the results below.' + (value.model ? ' · ' + value.model : '');
     if (value.resume_requested) message += ' · Assistant restart requested; see assistant status above.';
     document.getElementById('lab-status').textContent = message;
+    renderTask(value);
+    document.querySelector('#cc-schematic [data-system="power-core"]')?.classList.toggle('working', value.active === true);
+    if (lastLabPhase && lastLabPhase !== value.phase && !value.active) refreshCommand();
+    lastLabPhase = value.phase;
   } catch (_) {
     document.getElementById('lab-start').disabled = true;
+    document.getElementById('lab-start-documents').disabled = true;
     document.getElementById('lab-cancel').disabled = true;
     document.getElementById('lab-status').textContent = 'Test status unavailable. Refresh to retry.';
   } finally { labRefreshing = false; }
 }
-for (const action of ['start', 'cancel']) document.getElementById('lab-' + action).addEventListener('click', async () => {
+for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
   document.getElementById('lab-start').disabled = true;
+  document.getElementById('lab-start-documents').disabled = true;
   try {
-    const response = await fetch('/api/lab/' + action, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
+    const response = await fetch('/api/lab/' + route, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
     if (!response.ok) throw new Error('Test unavailable');
     await refreshLab(); await refreshStartup();
   } catch (_) { document.getElementById('lab-status').textContent = 'Test action unavailable. Refresh and retry.'; }
@@ -317,7 +327,9 @@ function reviewDownload(choice, tag) {
     `${tag} · ${byteSize(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · Estimated GPU fit: ${model.gpu_fit.status}. ` +
     `Destination: ${modelDestination || 'your configured model store'} · ${encrypted(modelEncryption)}.` :
     `${tag} · Retry against the current catalog and the same identity-checked store.`;
-  document.getElementById('download-confirm').disabled = false;
+  document.getElementById('download-confirm').disabled = !storageConfirmed;
+  if (!storageConfirmed) document.getElementById('download-review-details').textContent +=
+    ' Choose where models are stored (Where your data lives) before downloading.';
   document.getElementById('download-review').showModal();
 }
 async function refreshModelControls() {
@@ -498,6 +510,16 @@ async function refreshBenchmarks() {
         }).join(' · ');
       }
       const version = document.createElement('p'); version.textContent = `${run.suite_version} · ${run.created}`;
+      if (run.qualification) {
+        const q = run.qualification;
+        const verdict = document.createElement('p');
+        verdict.textContent = (q.qualified ? 'Qualified for short documents. ' : q.complete ? 'Not qualified for short documents. ' : 'Incomplete run: not qualified. ') +
+          q.checks.map(c => `${c.label}: ${c.observed} (${c.name === 'format_errors' ? 'at most' : 'needs'} ${c.required}) ${c.met ? 'met' : 'not met'}`).join(' · ') +
+          ` · Context ${run.document_context?.context ?? 'unknown'}` +
+          (run.document_context?.longest_prompt_tokens_tested ? `, longest prompt ${run.document_context.longest_prompt_tokens_tested} tokens` : '') +
+          '. ' + q.scope;
+        article.append(verdict);
+      }
       const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Download JSON';
       button.addEventListener('click', () => download('/api/benchmarks/run/' + run.id, `argos-${run.id}.json`).catch(() => {
         status.textContent = 'Result download unavailable. Refresh and retry.';
@@ -514,14 +536,61 @@ async function refreshBenchmarks() {
     status.textContent = 'Saved results unavailable. Refresh to retry.';
   }
 }
+const pct = (v) => v === null || v === undefined ? 'unknown' : (v * 100).toFixed(1) + '%';
+const num = (v, unit) => v === null || v === undefined ? 'unknown' : v.toFixed(2) + (unit || '');
+function cell(row, text, header) {
+  const c = document.createElement(header ? 'th' : 'td'); c.textContent = text; row.append(c); return c;
+}
+function table(parent, caption, heads, rows) {
+  const t = document.createElement('table'); const cap = document.createElement('caption'); cap.textContent = caption; t.append(cap);
+  const head = document.createElement('tr'); heads.forEach((h) => cell(head, h, true)); t.append(head);
+  for (const r of rows) { const tr = document.createElement('tr'); r.forEach((v, i) => cell(tr, v, i === 0)); t.append(tr); }
+  parent.append(t);
+}
+function renderMatched(output, result) {
+  const runs = result.runs || [];
+  const names = runs.map((r, i) => `${i === 0 ? 'Before' : runs.length > 2 ? 'Run ' + (i + 1) : 'After'}: ${r.model}`);
+  if (result.kind === 'ability') {
+    table(output, 'Accuracy and format, shown separately from speed', ['Run', 'Correct', 'Accuracy', 'Format errors', 'Document criteria'],
+      runs.map((r, i) => [names[i], `${r.correct}/${r.total}`, pct(r.accuracy), String(r.format_errors),
+        r.qualification ? (r.qualification.complete ? (r.qualification.qualified ? 'Met' : 'Not met') : 'Incomplete') : 'Not applicable']));
+    const cats = [...new Set(runs.flatMap((r) => Object.keys(r.categories || {})))];
+    if (cats.length) table(output, 'By category', ['Category', ...names], cats.map((c) => [c.replace('_', ' '),
+      ...runs.map((r) => { const v = (r.categories || {})[c]; return v ? `${v.correct}/${v.total}` : 'n/a'; })]));
+    const items = result.items || [];
+    const changed = items.filter((i) => new Set(Object.values(i.runs).map((x) => x.outcome)).size > 1);
+    const heading = document.createElement('h3'); heading.textContent = `Same questions, side by side (${changed.length} of ${items.length} differ)`; output.append(heading);
+    for (const item of (changed.length ? changed : items.slice(0, 3))) {
+      const box = document.createElement('details'); const sum = document.createElement('summary');
+      sum.textContent = `${item.category.replace('_', ' ')}: ${item.question || item.item_id}`; box.append(sum);
+      runs.forEach((r, i) => { const x = item.runs[r.id]; const p = document.createElement('p');
+        p.textContent = `${names[i]} (${x.outcome.replace('_', ' ')}): ${x.output ?? 'no output kept'}`; box.append(p); });
+      output.append(box);
+    }
+    if ((result.summaries || []).length) {
+      const h = document.createElement('h3'); h.textContent = 'Summaries for you to judge (not scored)'; output.append(h);
+      for (const s of result.summaries) { const box = document.createElement('details'); const sm = document.createElement('summary');
+        sm.textContent = s.question || s.item_id; box.append(sm);
+        runs.forEach((r, i) => { const p = document.createElement('p'); p.textContent = `${names[i]}: ${s.runs[r.id] ?? 'no output kept'}`; box.append(p); });
+        output.append(box); }
+    }
+  } else {
+    const sizes = [...new Set(runs.flatMap((r) => (r.prompts || []).map((p) => p.size)))];
+    for (const [field, label, unit] of [['generation_tokens_per_second', 'Generation speed', ' tok/s'],
+        ['prompt_tokens_per_second', 'Prompt processing speed', ' tok/s'], ['time_to_first_token_seconds', 'Wait for first token', ' s']]) {
+      table(output, label, ['Prompt size', ...names], sizes.map((s) => [s, ...runs.map((r) => {
+        const p = (r.prompts || []).find((x) => x.size === s); return !p || p.skipped ? 'skipped' : num(p[field], unit); })]));
+    }
+  }
+  const note = document.createElement('p'); note.textContent = 'Speed and accuracy are separate. You decide which tradeoff is worth keeping.'; output.append(note);
+}
 document.getElementById('compare-runs').addEventListener('click', async () => {
   const output = document.getElementById('benchmark-comparison'); output.replaceChildren();
   comparedRuns = []; document.getElementById('download-comparison').disabled = true;
   try {
     const ids = [...selectedRuns];
     const result = await api('/api/benchmarks/compare?' + comparisonQuery(ids));
-    for (const row of result.rows) card(output, row.model,
-      `${metricLabels[row.metric] || row.metric}: ${row.value === null ? 'unknown' : row.metric === 'accuracy' ? (row.value * 100).toFixed(1) + '%' : row.value.toFixed(2)}`);
+    renderMatched(output, result);
     document.getElementById('benchmarks-status').textContent = result.limitations;
     comparedRuns = ids; document.getElementById('download-comparison').disabled = false;
   } catch (_) {
@@ -534,5 +603,222 @@ document.getElementById('download-comparison').addEventListener('click', () => {
     document.getElementById('benchmarks-status').textContent = 'Comparison download unavailable. Refresh and compare again.';
   });
 });
+let storageConfirmed = false;
+let storageChoice = null;
+let storageRefreshing = false;
+const rebootText = {'not-started': 'Reboot check not started', pending: 'Reboot check started. Restart to verify.',
+  retained: 'Kept across a reboot', 'not-retained': 'Marker missing after reboot', 'needs-attention': 'Reboot evidence needs review',
+  unknown: 'Reboot evidence unknown'};
+function backingText(backing) {
+  if (!backing) return 'Backing device unknown';
+  if (backing.kind === 'ram') return 'Temporary memory. Lost at reboot.';
+  if (backing.kind !== 'disk') return 'Backing device unknown';
+  const name = backing.label || backing.device || 'Unnamed volume';
+  return `${name} · ${backing.filesystem || 'filesystem unknown'} · ${encrypted(backing.encrypted)}` +
+    (backing.live_persistence ? ' · Live persistence' : '') + (backing.boot_medium ? ' · Boot drive' : '');
+}
+async function refreshStorage() {
+  if (storageRefreshing) return;
+  storageRefreshing = true;
+  const status = document.getElementById('storage-status');
+  const places = document.getElementById('storage-locations');
+  const choices = document.getElementById('storage-choices');
+  try {
+    const view = await api('/api/storage');
+    if (view.available === false) { status.textContent = 'Storage details are available in the managed desktop workspace.'; return; }
+    places.replaceChildren(); choices.replaceChildren();
+    storageConfirmed = view.confirmed === true;
+    for (const row of view.locations) {
+      const free = row.free_bytes === null ? '' : ` · ${gib(row.free_bytes)} free of ${gib(row.total_bytes)}`;
+      card(places, row.label, `${row.path || 'Not chosen yet'} · ${backingText(row.backing)}${free} · ${rebootText[row.reboot?.state] || rebootText.unknown}` +
+        (row.reboot?.verified_at ? ` (${row.reboot.verified_at.slice(0, 10)})` : '') + (row.note ? ' · ' + row.note : ''));
+    }
+    status.textContent = view.state === 'not-configured' ? 'No model location chosen yet.' :
+      view.state === 'needs-attention' ? 'Selected model storage needs attention. No fallback location is used.' :
+      storageConfirmed ? 'Model location confirmed.' : 'Model location not yet confirmed. Confirm it before large downloads.';
+    if (!view.boot_id_available) status.textContent += ' Boot identity is unavailable, so reboot checks cannot run.';
+    for (const item of view.candidates) {
+      const detail = `${item.volume_label || item.mountpoint} · ${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
+        (item.temporary ? ' · Temporary: models are lost at reboot' : '') + (item.current ? ' · In use' : '') +
+        (item.contains_data ? ' · Folder already has files; it cannot be used' : '');
+      card(choices, item.kind === 'ram' ? 'Temporary memory' : 'Drive', detail);
+      const button = document.createElement('button'); button.type = 'button';
+      button.textContent = item.current ? (storageConfirmed ? 'Confirmed' : 'Confirm this location') : 'Review this location';
+      button.disabled = item.contains_data || (!item.current && !view.can_change) || (item.current && storageConfirmed);
+      button.addEventListener('click', () => {
+        storageChoice = item.id;
+        document.getElementById('storage-review-details').textContent = `${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
+          (item.temporary ? '. Temporary: downloaded models will be lost at reboot.' : '.') +
+          (view.change_blocked_reason ? ' ' + view.change_blocked_reason : '');
+        document.getElementById('storage-confirm').disabled = false;
+        document.getElementById('storage-review').showModal();
+      });
+      choices.lastElementChild.append(button);
+    }
+    if (!view.candidates.length) card(choices, 'No eligible location', 'No writable drive has enough free space. Chat and the bundled starter still work offline.');
+    if (view.change_blocked_reason) document.getElementById('storage-choice-help').textContent = view.change_blocked_reason;
+    document.getElementById('reboot-check').disabled = view.state !== 'available' || !view.boot_id_available;
+  } catch (_) {
+    status.textContent = 'Storage details unavailable. Refresh to retry.';
+  } finally { storageRefreshing = false; }
+}
+document.getElementById('storage-dismiss').addEventListener('click', () => document.getElementById('storage-review').close());
+document.getElementById('storage-confirm').addEventListener('click', async () => {
+  document.getElementById('storage-confirm').disabled = true;
+  try {
+    const response = await fetch('/api/storage/choose', {method: 'POST',
+      headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'}, body: JSON.stringify({candidate: storageChoice})});
+    if (!response.ok) throw new Error('Storage unavailable');
+    document.getElementById('storage-review').close();
+    await refreshStorage(); await refreshModels();
+  } catch (_) {
+    document.getElementById('storage-review-details').textContent = 'That location could not be used. Its write check or space check failed, or it changed. Refresh and choose again.';
+  }
+});
+document.getElementById('reboot-check').addEventListener('click', async () => {
+  document.getElementById('reboot-check').disabled = true;
+  try {
+    const response = await fetch('/api/storage/reboot-check', {method: 'POST', headers: {'X-Argos-Token': token || ''}});
+    if (!response.ok) throw new Error('Reboot check unavailable');
+    await refreshStorage();
+  } catch (_) { document.getElementById('storage-status').textContent = 'Reboot check could not start. Refresh and retry.'; }
+});
+
 refresh();
 setInterval(refresh, 20000);
+
+const tierText = {routine: 'Routine', qualified: 'Qualified', commissioned: 'Commissioned'};
+const systemState = {unknown: 'Not yet tested', 'bench-test': 'Bench test', qualified: 'Qualified', commissioned: 'Commissioned',
+  attention: 'Needs attention'};
+let commandAction = null;
+function focusSection(id, control) {
+  const target = document.getElementById(id);
+  target.scrollIntoView({behavior: 'smooth', block: 'start'});
+  if (control) document.getElementById(control)?.focus({preventScroll: true});
+}
+const commandActions = {
+  storage: () => focusSection('storage-title'),
+  baseline: () => focusSection('benchmarks-title', 'lab-start'),
+  documents: () => focusSection('benchmarks-title', 'lab-start-documents'),
+  models: () => focusSection('models-title'),
+  reboot: () => focusSection('storage-title', 'reboot-check'),
+  chat: () => document.getElementById('chat').click(),
+  task: () => { const box = document.getElementById('cc-task-box'); box.open = true; focusSection('cc-task-box', 'cc-doc'); },
+  restore: () => {
+    if (!commandAction?.model) return focusSection('models-title');
+    selectionTag = commandAction.model;
+    document.getElementById('selection-details').textContent = `Restore ${commandAction.model}. Uses existing local files; no download is started.`;
+    document.getElementById('selection-confirm').disabled = false;
+    document.getElementById('selection-review').showModal();
+  }};
+let commandRefreshing = false;
+async function refreshCommand() {
+  if (commandRefreshing) return;
+  commandRefreshing = true;
+  try {
+    const value = await api('/api/command-center');
+    const section = document.getElementById('command-center');
+    section.hidden = value.available === false;
+    if (value.available === false) return;
+    document.getElementById('cc-name').textContent = value.name + (value.model ? ' · ' + value.model : '');
+    const next = value.next_action;
+    commandAction = next;
+    document.getElementById('cc-next-title').textContent = next.title;
+    document.getElementById('cc-next-reason').textContent = next.reason;
+    const go = document.getElementById('cc-next-go');
+    go.hidden = !next.action; go.textContent = {storage: 'Choose storage', baseline: 'Go to baseline', documents: 'Go to document trial',
+      models: 'Explore models', reboot: 'Go to reboot check', chat: 'Open chat', task: 'Try my document', restore: 'Review restore'}[next.action] || 'Go';
+    const list = document.getElementById('cc-systems'); list.replaceChildren();
+    for (const system of value.systems) {
+      const item = document.createElement('li');
+      item.textContent = `${system.label}: ${systemState[system.state] || system.state}. ${system.detail}`;
+      list.append(item);
+      const shape = document.querySelector(`#cc-schematic [data-system="${system.id}"]`);
+      if (shape) shape.dataset.state = system.state;
+    }
+    document.getElementById('cc-scope').textContent = value.scope;
+    const journalList = document.getElementById('cc-journal'); journalList.replaceChildren();
+    if (!value.journal.length) { const empty = document.createElement('li'); empty.textContent = 'No milestones yet. Every robot starts on the bench.'; journalList.append(empty); }
+    for (const entry of value.journal) {
+      const item = document.createElement('li');
+      item.textContent = `${tierText[entry.tier]} · ${entry.title}. ${entry.detail} (${entry.at.slice(0, 10)})` +
+        (entry.applies_to_selected === false ? ' Earlier model files; not evidence for the files selected now.' : '');
+      journalList.append(item);
+    }
+    const moment = document.getElementById('cc-moment');
+    moment.hidden = !value.moment;
+    if (value.moment) {
+      document.getElementById('cc-moment-title').textContent = value.moment.title;
+      document.getElementById('cc-moment-tier').textContent = tierText[value.moment.tier];
+      document.getElementById('cc-moment-detail').textContent = value.moment.detail;
+    }
+    document.getElementById('cc-quiet').checked = value.quiet === true;
+  } catch (_) {
+    document.getElementById('cc-next-title').textContent = 'Command center unavailable. Refresh to retry.';
+  } finally { commandRefreshing = false; }
+}
+async function post(path, body) {
+  const headers = {'X-Argos-Token': token || ''};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const response = await fetch(path, {method: 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store'});
+  if (!response.ok) throw new Error('Action unavailable');
+  return response.json();
+}
+document.getElementById('cc-next-go').addEventListener('click', () => commandActions[commandAction?.action]?.());
+document.getElementById('cc-moment-dismiss').addEventListener('click', async () => {
+  try { await post('/api/command-center/seen'); } catch (_) {}
+  await refreshCommand();
+});
+document.getElementById('cc-quiet').addEventListener('change', async (event) => {
+  try { await post('/api/command-center/quiet', {quiet: event.target.checked}); } catch (_) {}
+  await refreshCommand();
+});
+document.getElementById('cc-ask').addEventListener('click', async () => {
+  const status = document.getElementById('cc-task-status');
+  document.getElementById('cc-ask').disabled = true;
+  try {
+    await post('/api/lab/task', {document: document.getElementById('cc-doc').value, question: document.getElementById('cc-question').value});
+    status.textContent = 'Pausing chat and reading your document…';
+    await refreshLab(); await refreshStartup();
+  } catch (_) {
+    status.textContent = 'Could not start. Paste a document up to 6000 characters, ask a question, and make sure no other test or download is running.';
+    document.getElementById('cc-ask').disabled = false;
+  }
+});
+for (const [id, verdict] of [['cc-accept', 'accepted'], ['cc-reject', 'rejected']]) document.getElementById(id).addEventListener('click', async () => {
+  try {
+    await post('/api/lab/task-verdict', {verdict});
+    document.getElementById('cc-task-note').textContent = verdict === 'accepted' ? 'Recorded: you accepted this answer.' : 'Recorded: not good enough. The result stays private.';
+    document.getElementById('cc-accept').disabled = document.getElementById('cc-reject').disabled = true;
+    await refreshCommand();
+  } catch (_) { document.getElementById('cc-task-note').textContent = 'Could not record that. The answer may already be judged.'; }
+});
+let shownTask = null;
+function renderTask(value) {
+  const status = document.getElementById('cc-task-status');
+  const box = document.getElementById('cc-task-result');
+  const active = value.active && value.plan === 'task';
+  document.getElementById('cc-ask').disabled = value.active === true || downloadActive || selectionActive;
+  if (active) { status.textContent = labPhases[value.phase] || 'Working…'; box.hidden = true; return; }
+  const task = value.plan === 'task' ? value.task : null;
+  if (!task) {
+    if (value.plan === 'task' && ['failed', 'cancelled'].includes(value.phase)) status.textContent = 'The document could not be read. Chat is restored.';
+    return;
+  }
+  const answers = {answered: task.answer || '(empty answer)', not_stated: 'The document does not say.',
+    too_long: 'This document is too long for the tested context. Nothing was truncated; try a shorter passage.',
+    format_error: 'The model did not answer in the required form. Try again or judge it not good enough.'};
+  box.hidden = false;
+  document.getElementById('cc-answer').textContent = answers[task.outcome] || 'No answer.';
+  document.getElementById('cc-quote').textContent = task.quote ? `Quoted: “${task.quote}”` : '';
+  const judged = task.outcome === 'answered' || task.outcome === 'not_stated';
+  if (shownTask !== task.task_id) {
+    shownTask = task.task_id;
+    document.getElementById('cc-task-note').textContent = !judged ? '' : task.quote_supported ? 'The quoted sentence appears in your text.' :
+      task.outcome === 'answered' ? 'The quoted sentence was not found in your text. Check the answer before trusting it.' : '';
+    document.getElementById('cc-accept').disabled = document.getElementById('cc-reject').disabled = !judged;
+  }
+  status.textContent = `Answered by ${task.model} in ${Number.isFinite(task.elapsed_seconds) ? task.elapsed_seconds.toFixed(1) + ' s' : 'unknown time'}. Chat is restored.`;
+}
+refreshCommand();
+setInterval(refreshCommand, 20000);

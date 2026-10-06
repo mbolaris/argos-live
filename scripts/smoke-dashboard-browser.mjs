@@ -56,13 +56,22 @@ try {
   if (!(await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
     throw new Error('Bundled source selection was not displayed');
   }
-  await page.locator('summary').click();
+  await page.locator('details:has(#model-catalog) > summary').click();
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
   await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
   if (await page.locator('#benchmark-runs b').count()) throw new Error('Result label was treated as markup');
   for (const input of await page.locator('#benchmark-runs input').all()) await input.check();
   await page.locator('#compare-runs').click();
-  await page.getByText('Test accuracy: 100.0%', {exact: true}).waitFor();
+  // The comparison is a before/after table that keeps accuracy separate from speed.
+  await page.getByText('Accuracy and format, shown separately from speed', {exact: true}).waitFor();
+  const accuracyRows = await page.locator('#benchmark-comparison table').first().locator('tr').allTextContents();
+  if (accuracyRows.length !== 3 || !accuracyRows.some(r => r.includes('100.0%')) || !accuracyRows.some(r => r.includes('0.0%')) ||
+      await page.locator('#benchmark-comparison b').count()) {
+    throw new Error('Before/after accuracy table was not rendered correctly: ' + JSON.stringify(accuracyRows));
+  }
+  if (!(await page.locator('#benchmark-comparison').textContent()).includes('Speed and accuracy are separate.')) {
+    throw new Error('Comparison did not state that speed and accuracy are separate');
+  }
   const csvPending = page.waitForEvent('download');
   await page.locator('#download-comparison').click();
   const csvDownload = await csvPending;
@@ -130,9 +139,35 @@ try {
     acquisition = {...acquisition, active: false, phase: 'paused'};
     await route.fulfill({json: acquisition});
   });
+  // Display fixture for storage state; the real server routes and gate are covered by unit and onboarding tests.
+  let storageView = {schema: 'argos-storage-view/1', configured: {}, confirmed: false, state: 'available',
+    locations: [{label: 'Models', path: '/media/data/ArgosLive/Models/catalog', backing: null, free_bytes: 200 * 2**30,
+      total_bytes: 500 * 2**30, reboot: {state: 'not-started'}}],
+    candidates: [{id: 'a'.repeat(20), current: true, kind: 'disk', path: '/media/data/ArgosLive/Models/catalog',
+      free_bytes: 200 * 2**30, encrypted: false, volume_label: 'DATA', mountpoint: '/media/data', contains_data: false,
+      temporary: false}], unused_volumes: [], boot_id_available: true, can_change: true, change_blocked_reason: null};
+  const storageCalls = [];
+  await page.route('**/api/storage', route => route.fulfill({json: storageView}));
+  await page.route('**/api/storage/choose', async route => {
+    const request = route.request();
+    if (request.method() !== 'POST' || request.headers()['x-argos-token'] !== new URL(url).searchParams.get('token') ||
+        Object.keys(request.postDataJSON()).join(',') !== 'candidate') throw new Error('Storage choice authorization failed');
+    storageCalls.push(request.postDataJSON().candidate);
+    storageView = {...storageView, confirmed: true};
+    await route.fulfill({json: {changed: false}});
+  });
   await page.reload();
   await page.locator('#download-controls').waitFor({state: 'visible'});
-  await page.locator('summary').click();
+  await page.locator('details:has(#model-catalog) > summary').click();
+  await page.locator('#model-catalog button').first().click();
+  await page.locator('#download-review').waitFor({state: 'visible'});
+  if (!(await page.locator('#download-confirm').isDisabled())) throw new Error('Download was allowed before storage was confirmed');
+  await page.locator('#download-dismiss').click();
+  await page.getByRole('button', {name: 'Confirm this location'}).click();
+  await page.locator('#storage-review').waitFor({state: 'visible'});
+  await page.locator('#storage-confirm').click();
+  await page.waitForFunction(() => document.getElementById('storage-status').textContent.includes('Model location confirmed.'));
+  if (storageCalls.join(',') !== 'a'.repeat(20)) throw new Error('Storage choice was not submitted');
   await page.locator('#model-catalog button').first().click();
   await page.locator('#download-review').waitFor({state: 'visible'});
   await page.screenshot({path: 'work/dashboard-download-review.png'});
@@ -146,7 +181,7 @@ try {
   await page.locator('#download-pause').click();
   await page.waitForFunction(() => document.getElementById('download-status').textContent.includes('Paused;'));
   if (modelCalls.join(',') !== 'download,pause') throw new Error('Guided download controls failed');
-  await page.locator('summary').click();
+  await page.locator('details:has(#model-catalog) > summary').click();
   await page.locator('section:has(#models-title)').screenshot({path: 'work/dashboard-download-progress.png'});
   let selection = {available: true, active: false, phase: 'idle'};
   const selectionCalls = [];

@@ -55,7 +55,7 @@ class RuntimePackageTests(unittest.TestCase):
         self.assertIn('value.auto_open_chat && !modelLabView', javascript)
 
     def test_group_and_delegated_help(self):
-        for command in (['bench'], ['pack'], ['bench', 'speed'], ['bench', 'ability'], ['bench', 'results'], ['bench', 'all'], ['pull'],
+        for command in (['bench'], ['pack'], ['bench', 'speed'], ['bench', 'ability'], ['bench', 'documents'], ['bench', 'results'], ['bench', 'all'], ['pull'],
                         ['pack', 'export'], ['pack', 'import'], ['pack', 'apply'],
                         ['pack', 'rollback'], ['dashboard'], ['desktop'], ['addons']):
             with self.subTest(command=command):
@@ -99,6 +99,7 @@ class RuntimePackageTests(unittest.TestCase):
                        'from argoslive.ability import load, DATA; '
                        'assert len(load()["items"]) == 20; assert len(load("standard")["items"]) == 70; '
                        'assert (DATA / "NOTICE.txt").is_file(); '
+                       'from argoslive.doc_trial import load as docs; assert len(docs()["items"]) == 32; '
                        'assert (ASSETS / "index.html").is_file(); '
                        'argoslive.catalog.load(); argoslive.addons.load(); print(argoslive.__version__)')
             result = subprocess.run([sys.executable, '-c', program, str(target)],

@@ -6,11 +6,13 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive.model_onboarding import OnboardingQueue
 from argoslive.owned_ollama import owned
+from argoslive import storage, storage_view
 from argoslive.bench_speed import run as speed_benchmark
 from argoslive.bench_ability import run as ability_benchmark
 from argoslive.pull_jobs import write_json
@@ -23,12 +25,50 @@ parser.add_argument('--ollama', required=True, type=Path)
 args = parser.parse_args()
 with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     root = Path(temp)
-    models = root / 'models'
-    models.mkdir()
-    (models / '.argos-storage-id').write_text('public-integration-fixture')
+    # Device discovery cannot be real in CI (no USB layout), so mountinfo and lsblk
+    # are simulated. Everything else is real: the candidate listing, the choice, the
+    # 64 KiB write/read-back/delete check, state.json, and the download gate.
+    volume = root / 'volume'
+    (volume).mkdir()
+    (root / 'medium').mkdir()
+    home = root / 'home'
+    (home / '.config/argos-live').mkdir(parents=True)
+    initial = root / 'initial'
+    initial.mkdir()
+    (initial / '.argos-storage-id').write_text('initial\n')
+    (home / '.config/argos-live/state.json').write_text(json.dumps(
+        {'storage': str(initial), 'storage_id': 'initial', 'model': 'qwen3:0.6b'}))
+    mountinfo = '\n'.join([f'20 1 8:17 / {root}/medium ro - iso9660 /dev/sdb1 ro',
+                           f'30 1 8:1 / {volume} rw - ext4 /dev/sda1 rw'])
+    lsblk = json.dumps({'blockdevices': [
+        {'name': '/dev/sda', 'type': 'disk', 'fstype': None, 'uuid': None, 'label': None, 'tran': 'sata',
+         'maj:min': '8:0', 'children': [{'name': '/dev/sda1', 'type': 'part', 'fstype': 'ext4',
+                                         'uuid': 'smoke-volume-uuid', 'label': 'DATA', 'maj:min': '8:1'}]},
+        {'name': '/dev/sdb', 'type': 'disk', 'fstype': None, 'uuid': None, 'label': None, 'tran': 'usb',
+         'maj:min': '8:16', 'children': [{'name': '/dev/sdb1', 'type': 'part', 'fstype': 'iso9660',
+                                          'uuid': 'smoke-boot-uuid', 'label': 'ARGOS', 'maj:min': '8:17'}]}]})
+    real_read, real_command = storage.read, storage.command
+    patches = [
+        mock.patch.object(storage, 'LIVE_MEDIA', {str(root / 'medium')}),
+        mock.patch.object(storage, 'read', lambda p, *a, **k: mountinfo if str(p) == '/proc/self/mountinfo' else real_read(p, *a, **k)),
+        mock.patch.object(storage, 'command', lambda c, *a, **k: lsblk if c == storage.LSBLK else real_command(c, *a, **k))]
+    for patch in patches:
+        patch.start()
+    topology = lambda: (storage.mount_table(mountinfo), storage.block_table(lsblk), 8 * 1024**3)
+    try:
+        storage_view.require_ready_for_download(home)
+        raise SystemExit('Download gate opened before a storage choice')
+    except ValueError:
+        pass
+    choice = next(row for row in storage_view.candidates(*topology()) if row['path'].startswith(str(volume)))
+    chosen = storage_view.choose(home, choice['id'], topology=topology)
+    if not chosen['write_check'].get('verified'):
+        raise SystemExit('Storage write verification failed: ' + json.dumps(chosen))
+    models = storage_view.require_ready_for_download(home)
+    print('Storage chosen and verified:', models)
     queue_root = root / 'jobs'
     queue_root.mkdir(mode=0o700)
-    queue = OnboardingQueue(queue_root, {'storage': str(models), 'storage_id': 'public-integration-fixture'})
+    queue = OnboardingQueue(queue_root, {'storage': str(models), 'storage_id': json.loads((home / '.config/argos-live/state.json').read_text())['storage_id']})
     job = queue.create('qwen3:0.6b')
     backend = partial(owned, executable=args.ollama.absolute())
     def pause(snapshot):
@@ -43,8 +83,8 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
     # Exercise the same desktop acquisition adapter with a real isolated backend.
     # There is no running assistant in this fixture; native desktop restart is
     # accepted separately by smoke-desktop-startup.py.
-    assistant = Startup(root, resolve_source=lambda home: (models, 'qwen3:0.6b'), backend=backend)
-    guided = ModelControls(assistant, queue_factory=lambda home: queue)
+    assistant = Startup(home, resolve_source=lambda home: (models, 'qwen3:0.6b'), backend=backend)
+    guided = ModelControls(assistant, queue_factory=lambda home: queue)  # default storage gate stays on
     try:
         guided.start(job=job['id'])
         guided.worker.join(timeout=900)

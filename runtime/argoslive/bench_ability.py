@@ -35,6 +35,18 @@ def summaries(items):
 def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monotonic,
         cancel=None, progress=None):
     data = ability.load(suite)
+    return execute(client, model, data, suite=suite, suite_version='ability/' + suite + '/' + data['version'],
+                   context=CONTEXT, score=ability.score, category=lambda item: item['scorer']['kind'],
+                   hardware=hardware, clock=clock, cancel=cancel, progress=progress)
+
+
+def execute(client, model, data, *, suite, suite_version, context, score, category, hardware=hw.snapshot,
+            clock=time.monotonic, cancel=None, progress=None, extra=None, annotate=None):
+    """Shared deterministic run loop.
+
+    An item whose scorer returns None is recorded as unscored output (for example
+    a summary the owner judges) and never counts toward coverage or accuracy.
+    """
     started = clock()
     identity = next((m for m in client.list().get('models', [])
                      if m.get('name') == model or m.get('model') == model), None)
@@ -42,9 +54,9 @@ def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monoto
         raise ValueError('Benchmark model must already be installed with its exact tag')
     metadata = client.show(model)
     info = metadata.get('model_info', {})
-    context = info.get(str(info.get('general.architecture')) + '.context_length')
-    if type(context) is not int or context < CONTEXT:
-        raise ValueError('Ability benchmark requires an advertised context of at least 2048 tokens')
+    advertised = info.get(str(info.get('general.architecture')) + '.context_length')
+    if type(advertised) is not int or advertised < context:
+        raise ValueError(f'This benchmark requires an advertised context of at least {context} tokens')
     previous = client.ps().get('models', [])
     if len(previous) > 1:
         raise ValueError('Benchmark requires at most one loaded model; stop other workloads first')
@@ -55,20 +67,24 @@ def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monoto
     think = False if 'thinking' in metadata.get('capabilities', []) else None
     result = {'schema': 'argos-bench/1', 'id': secrets.token_hex(16),
               'created': datetime.now(timezone.utc).isoformat(), 'kind': 'ability',
-              'suite': suite, 'suite_version': 'ability/' + suite + '/' + data['version'],
+              'suite': suite, 'suite_version': suite_version,
               'model': model, 'manifest_digest': identity.get('digest'),
               'metadata': {'details': metadata.get('details'), 'model_info': info,
                            'capabilities': metadata.get('capabilities')},
               'ollama_version': client.version(), 'argos_version': __version__, 'hardware': hardware(),
-              'settings': {'context': CONTEXT, 'seed': 1, 'temperature': 0, 'think': think,
+              'settings': {'context': context, 'seed': 1, 'temperature': 0, 'think': think,
                            'generation_limit': LIMIT},
               'omitted_categories': data['omitted_categories'], 'state': 'running', 'items': [],
               'restoration': {'previous_model': previous_model, 'succeeded': False}}
-    options = {'num_ctx': CONTEXT, 'num_predict': LIMIT, 'temperature': 0, 'seed': 1}
+    if extra:
+        result.update(extra)
+    options = {'num_ctx': context, 'num_predict': LIMIT, 'temperature': 0, 'seed': 1}
     total = len(data['items'])
+    scored_total = sum(1 for item in data['items'] if item.get('scored', True))
+    done = 0
     def report(phase, item_id=None):
         if progress:
-            completed = len(result['items'])
+            completed = done
             elapsed = max(0, clock() - started)
             progress({'phase': phase, 'item_id': item_id, 'completed': completed, 'total': total,
                       'elapsed_seconds': elapsed,
@@ -85,15 +101,23 @@ def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monoto
             reply = client.generate(model, item['prompt'], options=dict(options), think=think,
                                     keep_alive='5m', cancel=cancel)
             text = reply.get('text', '')
-            scored = ability.score(item, text)
+            scored = score(item, text)
             # Bound saved raw output too; the scorer classifies oversized output as format_error.
             encoded = text.encode('utf-8', errors='replace') if isinstance(text, str) else b''
-            scored.update(category=item['scorer']['kind'],
-                          output=encoded[:OUTPUT_LIMIT].decode('utf-8', errors='ignore'),
-                          output_truncated=len(encoded) > OUTPUT_LIMIT,
-                          latency_seconds=max(0, clock() - item_started),
-                          measurement=measurement(reply, client.ps().get('models', []), model))
-            result['items'].append(scored)
+            output = encoded[:OUTPUT_LIMIT].decode('utf-8', errors='ignore')
+            measured = measurement(reply, client.ps().get('models', []), model)
+            notes = annotate(item) if annotate else {}
+            if scored is None:
+                result.setdefault('unscored', []).append({
+                    **notes, 'item_id': item['id'], 'category': category(item), 'output': output,
+                    'output_truncated': len(encoded) > OUTPUT_LIMIT,
+                    'latency_seconds': max(0, clock() - item_started), 'measurement': measured})
+            else:
+                scored.update(notes, category=category(item), output=output,
+                              output_truncated=len(encoded) > OUTPUT_LIMIT,
+                              latency_seconds=max(0, clock() - item_started), measurement=measured)
+                result['items'].append(scored)
+            done += 1
             report('scored', item['id'])
         result['state'] = 'completed'
     except (Cancelled, KeyboardInterrupt):
@@ -108,8 +132,8 @@ def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monoto
             result['restoration']['succeeded'] = True
     result['elapsed_seconds'] = max(0, clock() - started)
     result['summary'] = summaries(result['items'])
-    result['coverage'] = {'completed': len(result['items']), 'total': total,
-                          'complete': result['state'] == 'completed'}
+    result['coverage'] = {'completed': len(result['items']), 'total': scored_total,
+                          'complete': result['state'] == 'completed' and len(result['items']) == scored_total}
     report(result['state'])
     return result
 

@@ -1,21 +1,33 @@
 """Desktop-owned quick baseline: pause chat, test fixed prompts, save, resume."""
 import copy
+import secrets
 import threading
 import time
 
-from . import bench_ability, bench_speed
+from . import bench_ability, bench_speed, doc_trial
 from .ollama import Cancelled
 from .results import Store
+
+
+# Each plan lists (phase, runner attribute, options). Plans are fixed so a later
+# run of the same plan on another model is a matched, comparable measurement.
+PLANS = {'baseline': (('speed', 'speed', {'sizes': ('short',)}), ('ability', 'ability', {'suite': 'quick'})),
+         'documents': (('speed', 'speed', {'sizes': ('short', 'medium')}), ('documents', 'documents', {})),
+         # The owner's own pasted document. Its text and the answer stay in memory and are never saved.
+         'task': (('task', 'task', {}),)}
 
 
 class Controller:
     budget_seconds = 900
 
     def __init__(self, startup, *, store=None, clock=time.monotonic,
-                 speed=bench_speed.run, ability=bench_ability.run):
+                 speed=bench_speed.run, ability=bench_ability.run, documents=doc_trial.run):
         self.startup = startup
         self.store = store or Store(startup.home / '.local/share/argos-live/results')
-        self.clock, self.speed, self.ability = clock, speed, ability
+        self.clock, self.speed, self.ability, self.documents = clock, speed, ability, documents
+        self.plan = 'baseline'
+        self.task_input = None
+        self.task_result = None
         self.lock = threading.RLock()
         self.cancel_event = threading.Event()
         self.worker = None
@@ -34,13 +46,15 @@ class Controller:
             active = self.worker is not None and self.worker.is_alive()
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
-                    'model': self.model, 'progress': copy.deepcopy(self.progress),
-                    'runs': list(self.runs), 'resume_requested': self.resume_requested,
+                    'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
+                    'runs': list(self.runs), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
                     'elapsed_seconds': max(0, (self.finished if self.finished is not None else self.clock()) - self.started)
                     if self.started is not None else None}
 
-    def start(self):
+    def start(self, plan='baseline'):
         # Share startup's reservation: chat cannot restart into a benchmark.
+        if plan not in PLANS:
+            raise ValueError('Unknown model lab plan')
         with self.startup.lock, self.lock:
             if self.closed:
                 raise ValueError('The model lab is closed')
@@ -50,6 +64,7 @@ class Controller:
             self.resume = status['active']
             self.startup.lab_active = True
             self.startup.stop()
+            self.plan = plan
             self.cancel_event.clear()
             self.phase, self.started = 'pausing', self.clock()
             self.finished = None
@@ -58,6 +73,36 @@ class Controller:
             self.worker = threading.Thread(target=self.run, daemon=True, name='argos-model-lab')
             self.worker.start()
             return self.snapshot()
+
+    def start_documents(self):
+        return self.start('documents')
+
+    def start_task(self, document, question):
+        if (not isinstance(document, str) or not document.strip() or len(document) > doc_trial.TASK_DOCUMENT_LIMIT
+                or not isinstance(question, str) or not question.strip() or len(question) > doc_trial.TASK_QUESTION_LIMIT):
+            raise ValueError('Paste a document and ask a question within the stated limits')
+        with self.lock:
+            self.task_input = (document, question)
+            self.task_result = None
+        try:
+            return self.start('task')
+        except ValueError:
+            with self.lock:
+                self.task_input = None
+            raise
+
+    def task(self, client, model, *, cancel=None, progress=None):
+        document, question = self.task_input
+        answer = doc_trial.ask(client, model, document, question, cancel=cancel)
+        answer['task_id'] = secrets.token_hex(16)
+        with self.lock:
+            self.task_result = answer
+        return answer
+
+    def clear_task(self):
+        with self.lock:
+            if not self.snapshot()['active']:
+                self.task_input = self.task_result = None
 
     def cancel(self):
         with self.lock:
@@ -117,17 +162,17 @@ class Controller:
         lease = self.startup.home / '.local/state/argos-live'
         with self.startup.backend(target, lease_store=lease, cancel=self.cancel_event.is_set) as client:
             client.timeout = 120
-            for phase, runner, options in (
-                    ('speed', self.speed, {'sizes': ('short',)}),
-                    ('ability', self.ability, {'suite': 'quick'})):
+            for phase, name, options in PLANS[self.plan]:
+                runner = getattr(self, name)
                 if self.cancel_event.is_set():
                     raise Cancelled('Cancelled between tests')
                 self.report(phase)
                 result = runner(client, model, cancel=self.cancel_event,
                                 progress=lambda value, phase=phase: self.report(phase, value), **options)
-                self.store.save(result)
-                with self.lock:
-                    self.runs.append(result['id'])
+                if name != 'task':
+                    self.store.save(result)
+                    with self.lock:
+                        self.runs.append(result['id'])
         return 'cancelled' if self.cancel_event.is_set() else 'completed'
 
     def settle_unstarted(self):

@@ -20,6 +20,7 @@ from .startup import Controller
 from .lab import Controller as LabController
 from .model_controls import Controller as ModelController
 from .results import Store
+from . import command_center
 from .web.server import DashboardServer
 from .web.benchmarks import View as BenchmarkView
 from .web import models as model_view, status as status_view
@@ -85,7 +86,13 @@ def reconnect(home, *, browser=open_browser, view=None):
 
 def serve(home, root, *, port=0, browser=open_browser, no_browser=False, controller=None, stop=None, view=None):
     from .model_selection import Controller as Selection, restore
+    from . import storage_view
     restore(home)
+    try:
+        # Record retained reboot markers once per boot; failures stay visible as unknown.
+        storage_view.record_reboot_evidence(home)
+    except (OSError, ValueError, TypeError):
+        pass
     controller = controller or Controller(home)
     stop = stop or threading.Event()
     path = safe_local(root / 'desktop-session.json')
@@ -99,7 +106,10 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
     lab = LabController(controller, store=results)
     downloads = ModelController(controller, store=results)
     selection = Selection(controller, store=results)
+    storage_controller = storage_view.Controller(controller, home=home)
+    command = command_center.Controller(home, results, lab=lab, storage=storage_controller)
     with DashboardServer(port=port, startup=controller, lab=lab, downloads=downloads, selection=selection,
+            storage=storage_controller, command=command,
             benchmarks=BenchmarkView(results), models_provider=lambda: model_view.snapshot(home),
             status_provider=lambda: status_view.snapshot(home)) as server:
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)

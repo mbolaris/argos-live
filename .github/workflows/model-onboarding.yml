@@ -8,6 +8,9 @@ on:
       - 'runtime/argoslive/model_onboarding.py'
       - 'runtime/argoslive/model_controls.py'
       - 'runtime/argoslive/lab.py'
+      - 'runtime/argoslive/storage_view.py'
+      - 'runtime/argoslive/storage.py'
+      - 'runtime/argoslive/doc_trial.py'
       - 'runtime/argoslive/model_verify.py'
       - 'runtime/argoslive/owned_ollama.py'
       - 'runtime/argoslive/starter.py'
@@ -34,8 +37,8 @@ jobs:
           echo "$OLLAMA_SHA256  $RUNNER_TEMP/argos-ollama.tar.zst" | sha256sum -c -
           tar --zstd -xf "$RUNNER_TEMP/argos-ollama.tar.zst" -C "$RUNNER_TEMP/argos-ollama"
       - name: Real CPU partial pull, resume, reply, speed and ability benchmarks
-        run: python3 scripts/smoke-model-onboarding.py --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama"
+        run: scripts/ci-annotate-failure.sh "Onboarding smoke" python3 scripts/smoke-model-onboarding.py --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama"
       - name: Real CPU inference from an unwritable public starter without copying
         run: |
-          python3 scripts/fetch-seed-model.py "$RUNNER_TEMP/argos-readonly-seed"
-          python3 scripts/smoke-readonly-starter.py --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-readonly-seed"
+          scripts/ci-annotate-failure.sh "Seed fetch" python3 scripts/fetch-seed-model.py "$RUNNER_TEMP/argos-readonly-seed"
+          scripts/ci-annotate-failure.sh "Read-only starter smoke" python3 scripts/smoke-readonly-starter.py --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-readonly-seed"

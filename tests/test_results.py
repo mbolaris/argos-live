@@ -72,6 +72,32 @@ class ResultsTests(unittest.TestCase):
         self.assertEqual(rows[0]['value'], '1.0')
         self.assertIn('Hardware', compared['limitations'])
 
+    def test_matched_details_keep_measurements_separate(self):
+        first, second = ability_result(), ability_result('wrong')
+        first['id'], second['id'] = 'a' * 32, 'b' * 32
+        second['created'] = '2999-01-01T00:00:00+00:00'
+        second['items'][0]['output'] = 'x' * 5000
+        compared = results.compare([second, first])
+        self.assertEqual([r['id'] for r in compared['runs']], [first['id'], second['id']])
+        self.assertEqual([r['accuracy'] for r in compared['runs']], [1, 0])
+        row = compared['items'][0]['runs']
+        self.assertEqual(len(row[second['id']]['output']), results.ITEM_OUTPUT_LIMIT)
+        self.assertEqual(row[first['id']]['outcome'], 'pass')
+        self.assertEqual(compared['rows'][0]['metric'], 'accuracy')
+
+    def test_matched_speed_details_need_every_run(self):
+        speed = bench_speed.run(Backend(), 'fixture:latest', hardware=lambda: {})
+        other = dict(copy.deepcopy(speed), id='c' * 32, created='2999-01-01T00:00:00+00:00')
+        compared = results.compare([speed, other])
+        self.assertNotIn('items', compared)
+        measured = [p for p in compared['runs'][0]['prompts'] if not p['skipped']]
+        self.assertTrue(measured)
+        for prompt in measured:
+            for field in ('generation_tokens_per_second', 'prompt_tokens_per_second', 'time_to_first_token_seconds'):
+                self.assertTrue(prompt[field] is None or isinstance(prompt[field], (int, float)), field)
+                self.assertIn(field + '_reported_runs', prompt)
+        self.assertTrue(any(isinstance(p['generation_tokens_per_second'], (int, float)) for p in measured))
+
     def test_mixed_kind_version_settings_and_duplicate_refused(self):
         first, second = ability_result(), ability_result()
         speed = bench_speed.run(Backend(), 'fixture:latest', hardware=lambda: {})
