@@ -36,6 +36,12 @@ def main():
                                   text=True, timeout=20)
     if not re.search(r'\bdesktop\b', help_result.stdout):
         raise ValueError('The installed Argos CLI is missing the managed desktop command')
+    lab_help = subprocess.run(['argos', 'desktop', '--help'], check=True, capture_output=True,
+                              text=True, timeout=20)
+    lab_menu = Path('/usr/share/applications/argos-model-lab.desktop').read_text()
+    if '--model-lab' not in lab_help.stdout or not re.search(
+            r'^Exec=argos desktop --model-lab\s*$', lab_menu, re.M):
+        raise ValueError('The installed Model Lab menu does not open its dedicated dashboard view')
     desktop_seconds = time.monotonic() - started
     env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
     # Long TCG inference is unattended. Test-only anti-idle settings prevent
@@ -112,6 +118,7 @@ def main():
             raise ValueError('Guest benchmark result did not round-trip')
         print('ARGOS_C3_RESULT ' + json.dumps({'schema': 'argos-qemu-smoke/1',
               'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
+              'model_lab_launcher_available': True,
               'desktop_wait_seconds': desktop_seconds, 'dashboard_seconds': dashboard_seconds,
               'benchmark_seconds': result['elapsed_seconds'],
               'generation_limit': result['settings']['generation_limit'],

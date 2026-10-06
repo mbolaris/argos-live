@@ -407,6 +407,7 @@ def managed_check(started, desktop_seconds):
     print('ARGOS_C3_STAGE managed-browser', flush=True)
     print('ARGOS_C3_RESULT ' + json.dumps({'schema': 'argos-qemu-managed/1',
         'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
+        'model_lab_launcher_available': True,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics, 'handoff_claimed': True,
         'firefox_gateway_connection': True, 'firefox_control_page_visible': True,

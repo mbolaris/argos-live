@@ -20,7 +20,7 @@ class BootEntryTests(unittest.TestCase):
             'desktop_started': True, 'dashboard_authenticated': True, 'automatic_first_boot': True,
             'bundled_read_only_source': True, 'model_reply_verified': True, 'handoff_claimed': True,
             'firefox_gateway_connection': True, 'firefox_control_page_visible': True,
-            'requires_screenshot_review': True,
+            'requires_screenshot_review': True, 'model_lab_launcher_available': True,
             'network_routes': False, 'physical_acceptance': False, 'browser_chat_reply_verified': False,
             'startup_metrics': {'backend': {'mode': 'CPU'}}}
         def wire(item): return 'ARGOS_C3_RESULT ' + json.dumps(item) + '\n'
@@ -61,6 +61,7 @@ class BootEntryTests(unittest.TestCase):
         value = {'schema': 'argos-qemu-smoke/1', 'desktop_started': True,
                  'dashboard_authenticated': True, 'result_round_trip': True,
                  'native_firefox_dashboard': True,
+                 'model_lab_launcher_available': True,
                  'network_routes': False, 'automatic_first_boot': False,
                  'physical_acceptance': False, 'backend': 'CPU', 'generation_limit': 8,
                  'setup_mode': 'interactive', 'bundled_read_only_source': False,
