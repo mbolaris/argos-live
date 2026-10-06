@@ -271,9 +271,10 @@ setInterval(async () => {
 const selectedRuns = new Set();
 let comparedRuns = [];
 let labRefreshing = false;
+let lastLabPhase = null;
 const labPhases = {idle: 'Ready to measure your model.', pausing: 'Pausing chat and releasing its resources…',
   'model-service': 'Starting the isolated local test service…', speed: 'Measuring model speed…',
-  ability: 'Testing ability with fixed scored tasks…', documents: 'Reading short documents and answering from them…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
+  task: 'Reading your document…', ability: 'Testing ability with fixed scored tasks…', documents: 'Reading short documents and answering from them…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
   completed: 'Baseline saved. Compare the results below.', cancelled: 'Test cancelled. Any completed results remain saved.',
   failed: 'Test could not finish. Any completed results remain saved. Check model setup before retrying.'};
 async function refreshLab() {
@@ -296,6 +297,10 @@ async function refreshLab() {
     if (value.phase === 'completed' && value.plan === 'documents') message = 'Document trial saved. Compare the results below.' + (value.model ? ' · ' + value.model : '');
     if (value.resume_requested) message += ' · Assistant restart requested; see assistant status above.';
     document.getElementById('lab-status').textContent = message;
+    renderTask(value);
+    document.querySelector('#cc-schematic [data-system="power-core"]')?.classList.toggle('working', value.active === true);
+    if (lastLabPhase && lastLabPhase !== value.phase && !value.active) refreshCommand();
+    lastLabPhase = value.phase;
   } catch (_) {
     document.getElementById('lab-start').disabled = true;
     document.getElementById('lab-start-documents').disabled = true;
@@ -681,3 +686,138 @@ document.getElementById('reboot-check').addEventListener('click', async () => {
 
 refresh();
 setInterval(refresh, 20000);
+
+const tierText = {routine: 'Routine', qualified: 'Qualified', commissioned: 'Commissioned'};
+const systemState = {unknown: 'Not yet tested', 'bench-test': 'Bench test', qualified: 'Qualified', commissioned: 'Commissioned',
+  attention: 'Needs attention'};
+let commandAction = null;
+function focusSection(id, control) {
+  const target = document.getElementById(id);
+  target.scrollIntoView({behavior: 'smooth', block: 'start'});
+  if (control) document.getElementById(control)?.focus({preventScroll: true});
+}
+const commandActions = {
+  storage: () => focusSection('storage-title'),
+  baseline: () => focusSection('benchmarks-title', 'lab-start'),
+  documents: () => focusSection('benchmarks-title', 'lab-start-documents'),
+  models: () => focusSection('models-title'),
+  reboot: () => focusSection('storage-title', 'reboot-check'),
+  chat: () => document.getElementById('chat').click(),
+  task: () => { const box = document.getElementById('cc-task-box'); box.open = true; focusSection('cc-task-box', 'cc-doc'); },
+  restore: () => {
+    if (!commandAction?.model) return focusSection('models-title');
+    selectionTag = commandAction.model;
+    document.getElementById('selection-details').textContent = `Restore ${commandAction.model}. Uses existing local files; no download is started.`;
+    document.getElementById('selection-confirm').disabled = false;
+    document.getElementById('selection-review').showModal();
+  }};
+let commandRefreshing = false;
+async function refreshCommand() {
+  if (commandRefreshing) return;
+  commandRefreshing = true;
+  try {
+    const value = await api('/api/command-center');
+    const section = document.getElementById('command-center');
+    section.hidden = value.available === false;
+    if (value.available === false) return;
+    document.getElementById('cc-name').textContent = value.name + (value.model ? ' · ' + value.model : '');
+    const next = value.next_action;
+    commandAction = next;
+    document.getElementById('cc-next-title').textContent = next.title;
+    document.getElementById('cc-next-reason').textContent = next.reason;
+    const go = document.getElementById('cc-next-go');
+    go.hidden = !next.action; go.textContent = {storage: 'Choose storage', baseline: 'Go to baseline', documents: 'Go to document trial',
+      models: 'Explore models', reboot: 'Go to reboot check', chat: 'Open chat', task: 'Try my document', restore: 'Review restore'}[next.action] || 'Go';
+    const list = document.getElementById('cc-systems'); list.replaceChildren();
+    for (const system of value.systems) {
+      const item = document.createElement('li');
+      item.textContent = `${system.label}: ${systemState[system.state] || system.state}. ${system.detail}`;
+      list.append(item);
+      const shape = document.querySelector(`#cc-schematic [data-system="${system.id}"]`);
+      if (shape) shape.dataset.state = system.state;
+    }
+    document.getElementById('cc-scope').textContent = value.scope;
+    const journalList = document.getElementById('cc-journal'); journalList.replaceChildren();
+    if (!value.journal.length) { const empty = document.createElement('li'); empty.textContent = 'No milestones yet. Every robot starts on the bench.'; journalList.append(empty); }
+    for (const entry of value.journal) {
+      const item = document.createElement('li');
+      item.textContent = `${tierText[entry.tier]} · ${entry.title}. ${entry.detail} (${entry.at.slice(0, 10)})`;
+      journalList.append(item);
+    }
+    const moment = document.getElementById('cc-moment');
+    moment.hidden = !value.moment;
+    if (value.moment) {
+      document.getElementById('cc-moment-title').textContent = value.moment.title;
+      document.getElementById('cc-moment-tier').textContent = tierText[value.moment.tier];
+      document.getElementById('cc-moment-detail').textContent = value.moment.detail;
+    }
+    document.getElementById('cc-quiet').checked = value.quiet === true;
+  } catch (_) {
+    document.getElementById('cc-next-title').textContent = 'Command center unavailable. Refresh to retry.';
+  } finally { commandRefreshing = false; }
+}
+async function post(path, body) {
+  const headers = {'X-Argos-Token': token || ''};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const response = await fetch(path, {method: 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store'});
+  if (!response.ok) throw new Error('Action unavailable');
+  return response.json();
+}
+document.getElementById('cc-next-go').addEventListener('click', () => commandActions[commandAction?.action]?.());
+document.getElementById('cc-moment-dismiss').addEventListener('click', async () => {
+  try { await post('/api/command-center/seen'); } catch (_) {}
+  await refreshCommand();
+});
+document.getElementById('cc-quiet').addEventListener('change', async (event) => {
+  try { await post('/api/command-center/quiet', {quiet: event.target.checked}); } catch (_) {}
+  await refreshCommand();
+});
+document.getElementById('cc-ask').addEventListener('click', async () => {
+  const status = document.getElementById('cc-task-status');
+  document.getElementById('cc-ask').disabled = true;
+  try {
+    await post('/api/lab/task', {document: document.getElementById('cc-doc').value, question: document.getElementById('cc-question').value});
+    status.textContent = 'Pausing chat and reading your document…';
+    await refreshLab(); await refreshStartup();
+  } catch (_) {
+    status.textContent = 'Could not start. Paste a document up to 6000 characters, ask a question, and make sure no other test or download is running.';
+    document.getElementById('cc-ask').disabled = false;
+  }
+});
+for (const [id, verdict] of [['cc-accept', 'accepted'], ['cc-reject', 'rejected']]) document.getElementById(id).addEventListener('click', async () => {
+  try {
+    await post('/api/lab/task-verdict', {verdict});
+    document.getElementById('cc-task-note').textContent = verdict === 'accepted' ? 'Recorded: you accepted this answer.' : 'Recorded: not good enough. The result stays private.';
+    document.getElementById('cc-accept').disabled = document.getElementById('cc-reject').disabled = true;
+    await refreshCommand();
+  } catch (_) { document.getElementById('cc-task-note').textContent = 'Could not record that. The answer may already be judged.'; }
+});
+let shownTask = null;
+function renderTask(value) {
+  const status = document.getElementById('cc-task-status');
+  const box = document.getElementById('cc-task-result');
+  const active = value.active && value.plan === 'task';
+  document.getElementById('cc-ask').disabled = value.active === true || downloadActive || selectionActive;
+  if (active) { status.textContent = labPhases[value.phase] || 'Working…'; box.hidden = true; return; }
+  const task = value.plan === 'task' ? value.task : null;
+  if (!task) {
+    if (value.plan === 'task' && ['failed', 'cancelled'].includes(value.phase)) status.textContent = 'The document could not be read. Chat is restored.';
+    return;
+  }
+  const answers = {answered: task.answer || '(empty answer)', not_stated: 'The document does not say.',
+    too_long: 'This document is too long for the tested context. Nothing was truncated; try a shorter passage.',
+    format_error: 'The model did not answer in the required form. Try again or judge it not good enough.'};
+  box.hidden = false;
+  document.getElementById('cc-answer').textContent = answers[task.outcome] || 'No answer.';
+  document.getElementById('cc-quote').textContent = task.quote ? `Quoted: “${task.quote}”` : '';
+  const judged = task.outcome === 'answered' || task.outcome === 'not_stated';
+  if (shownTask !== task.task_id) {
+    shownTask = task.task_id;
+    document.getElementById('cc-task-note').textContent = !judged ? '' : task.quote_supported ? 'The quoted sentence appears in your text.' :
+      task.outcome === 'answered' ? 'The quoted sentence was not found in your text. Check the answer before trusting it.' : '';
+    document.getElementById('cc-accept').disabled = document.getElementById('cc-reject').disabled = !judged;
+  }
+  status.textContent = `Answered by ${task.model} in ${Number.isFinite(task.elapsed_seconds) ? task.elapsed_seconds.toFixed(1) + ' s' : 'unknown time'}. Chat is restored.`;
+}
+refreshCommand();
+setInterval(refreshCommand, 20000);

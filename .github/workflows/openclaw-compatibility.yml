@@ -75,6 +75,7 @@ jobs:
         run: |
           node work/compatibility-runtime/node_modules/playwright-core/cli.js install --with-deps chromium
           node scripts/smoke-dashboard-browser.mjs
+          node scripts/smoke-journey-browser.mjs
       - name: Validate schema and native recovery in disposable state
         shell: bash
         run: |

@@ -28,3 +28,23 @@ a:focus-visible { outline: 3px solid #e0aa2b; outline-offset: 3px; }
 #lab-cancel { margin-left: 8px; background: #516b7b; }
 dialog { max-width: 540px; width: calc(100% - 64px); color: inherit; border: 1px solid #cbdde6; border-radius: 12px; padding: 24px; }
 dialog::backdrop { background: rgb(15 35 50 / 55%); }
+
+.cc-grid { display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 24px; align-items: start; }
+@media (max-width: 640px) { .cc-grid { grid-template-columns: 1fr; } }
+.cc-figure { margin: 0; text-align: center; }
+#cc-schematic { width: 100%; max-width: 240px; }
+#cc-schematic g { fill: none; stroke: #6f8da0; stroke-width: 2; stroke-dasharray: 5 4; }
+#cc-schematic g[data-state="bench-test"] { stroke: #126a91; stroke-dasharray: none; }
+#cc-schematic g[data-state="qualified"] { stroke: #126a91; stroke-dasharray: none; fill: #d9edf5; }
+#cc-schematic g[data-state="commissioned"] { stroke: #0d4f6e; stroke-dasharray: none; fill: #a9d3e6; stroke-width: 3; }
+#cc-schematic g[data-state="attention"] { stroke: #9a5b00; stroke-dasharray: 2 2; }
+#cc-schematic g.working { animation: cc-pulse 1.6s ease-in-out infinite; }
+@keyframes cc-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { #cc-schematic g.working { animation: none; } }
+.cc-systems, .cc-journal { padding-left: 20px; }
+.cc-systems { list-style: none; padding: 0; margin: 16px 0 0; }
+.cc-systems li { padding: 8px 0; border-bottom: 1px solid #dbe8ef; }
+.cc-journal li { margin: 8px 0; }
+.moment { border-left-color: #0d4f6e; }
+textarea, input[type="text"] { display: block; width: 100%; box-sizing: border-box; font: inherit; padding: 10px; margin: 6px 0 14px; border: 1px solid #b6d2df; border-radius: 8px; }
+#cc-reject { margin-left: 8px; background: #516b7b; }

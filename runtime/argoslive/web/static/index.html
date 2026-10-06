@@ -13,6 +13,54 @@
     <header><span class="brand">Argos Live</span><span class="badge">Local workspace</span></header>
     <h1>Grow your personal AI</h1>
     <p class="intro">Start with a conversation. Measure what your model can do, then choose your next upgrade.</p>
+    <section id="command-center" aria-labelledby="cc-title" hidden>
+      <h2 id="cc-title">Command center</h2>
+      <div id="cc-moment" class="notice moment" role="status" hidden>
+        <strong id="cc-moment-title"></strong> <span id="cc-moment-tier" class="state"></span>
+        <p id="cc-moment-detail"></p>
+        <button id="cc-moment-dismiss" type="button">Noted</button>
+      </div>
+      <div class="cc-grid">
+        <figure class="cc-figure">
+          <svg id="cc-schematic" viewBox="0 0 220 300" role="img" aria-labelledby="cc-schematic-label" focusable="false">
+            <title id="cc-schematic-label">Robot blueprint. Outlined sections are not yet demonstrated; solid sections are.</title>
+            <g data-system="brain"><rect x="70" y="14" width="80" height="56" rx="10"/><title>Brain</title></g>
+            <g data-system="sensors"><circle cx="93" cy="42" r="8"/><circle cx="127" cy="42" r="8"/><title>Sensors</title></g>
+            <g data-system="power-core"><rect x="80" y="90" width="60" height="58" rx="8"/><circle cx="110" cy="119" r="13"/><title>Power core</title></g>
+            <g data-system="cooling"><path d="M86 154h48M86 162h48M86 170h48"/><title>Cooling</title></g>
+            <g data-system="memory-banks"><rect x="76" y="182" width="68" height="40" rx="6"/><path d="M92 190v24M110 190v24M128 190v24"/><title>Memory banks</title></g>
+            <g data-system="hands"><rect x="28" y="96" width="34" height="76" rx="8"/><rect x="158" y="96" width="34" height="76" rx="8"/><title>Hands</title></g>
+            <g data-system="stability"><path d="M84 230v52h-18v8h40v-8h-4v-52M136 230v52h18v8h-40v-8h4v-52"/><title>Stability</title></g>
+          </svg>
+          <figcaption id="cc-name">Argos</figcaption>
+        </figure>
+        <div>
+          <article class="card" id="cc-next">
+            <h3 id="cc-next-title">Checking your robot…</h3>
+            <p id="cc-next-reason"></p>
+            <button id="cc-next-go" type="button" hidden>Go</button>
+          </article>
+          <ul id="cc-systems" class="cc-systems"></ul>
+          <p id="cc-scope"></p>
+        </div>
+      </div>
+      <h3>Progress journal</h3>
+      <ol id="cc-journal" class="cc-journal"></ol>
+      <label><input id="cc-quiet" type="checkbox"> Quiet acknowledgments. Progress is still recorded.</label>
+      <details id="cc-task-box"><summary>Try a document of your own</summary>
+        <p>Paste something real and ask one question. Chat pauses while the model reads it. The text and the answer stay on screen only; they are not saved. The answer must quote a sentence from your text, and Argos checks that the quote is really there.</p>
+        <label for="cc-doc">Document (up to 6000 characters)</label>
+        <textarea id="cc-doc" rows="8" maxlength="6000"></textarea>
+        <label for="cc-question">Question</label>
+        <input id="cc-question" type="text" maxlength="300">
+        <button id="cc-ask" type="button">Pause chat and ask</button>
+        <div id="cc-task-result" class="card" hidden aria-live="polite">
+          <h3 id="cc-answer"></h3><p id="cc-quote"></p><p id="cc-task-note"></p>
+          <button id="cc-accept" type="button">Good answer</button><button id="cc-reject" type="button">Not good enough</button>
+        </div>
+        <p id="cc-task-status" role="status"></p>
+      </details>
+    </section>
     <nav class="lab-nav" aria-label="Workspace sections"><a href="#benchmarks-title">Test your model</a><a href="#storage-title">Where your data lives</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Expand capabilities</a><a href="#hardware-title">Hardware and storage</a></nav>
     <section class="notice" aria-label="Assistant status">
       <strong id="assistant-status">Checking your workspace…</strong>
