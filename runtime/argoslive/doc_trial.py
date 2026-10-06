@@ -196,6 +196,47 @@ def passages(data):
     return found
 
 
+TASK_PROMPT = ('Read the document and answer using only the document. Do not use outside knowledge.\n\n'
+               'DOCUMENT:\n{document}\n\nQUESTION: {question}\n\n'
+               'Respond with only a JSON object with exactly these keys: '
+               '{{"status": "answered" or "not_stated", "answer": "a short answer, or an empty string", '
+               '"quote": "one sentence copied exactly from the document that supports the answer, or an empty string"}}. '
+               'If the document does not contain the answer, use status "not_stated" with an empty answer and quote.')
+TASK_DOCUMENT_LIMIT = 6000
+TASK_QUESTION_LIMIT = 300
+
+
+def ask(client, model, document, question, *, cancel=None):
+    """One owner question about one pasted document. Nothing is saved here.
+
+    The quotation is checked against the pasted text so the owner can see
+    whether the answer is supported. A document that fills the context is
+    refused rather than silently truncated.
+    """
+    if (not isinstance(document, str) or not document.strip() or len(document) > TASK_DOCUMENT_LIMIT
+            or not isinstance(question, str) or not question.strip() or len(question) > TASK_QUESTION_LIMIT):
+        raise ValueError(f'Paste up to {TASK_DOCUMENT_LIMIT} characters and ask a question of up to {TASK_QUESTION_LIMIT}')
+    reply = client.generate(model, TASK_PROMPT.format(document=document.strip(), question=question.strip()),
+                            options={'num_ctx': CONTEXT, 'num_predict': 400, 'temperature': 0, 'seed': 1},
+                            think=False, keep_alive='5m', cancel=cancel)
+    final = reply.get('final') if isinstance(reply.get('final'), dict) else {}
+    used = final.get('prompt_eval_count')
+    result = {'model': model, 'context': CONTEXT, 'prompt_tokens': used if isinstance(used, int) else None,
+              'elapsed_seconds': reply.get('elapsed_seconds'),
+              'time_to_first_token_seconds': reply.get('time_to_first_token_seconds')}
+    if isinstance(used, int) and used >= CONTEXT - 32:
+        return dict(result, outcome='too_long', status=None, answer='', quote='', quote_supported=False)
+    try:
+        value = parse(reply.get('text', ''))
+    except (ValueError, TypeError, UnicodeError, RecursionError):
+        return dict(result, outcome='format_error', status=None, answer='', quote='', quote_supported=False,
+                    raw=str(reply.get('text', ''))[:600])
+    quote = collapse(value['quote'])
+    supported_quote = bool(quote) and len(quote) <= MAX_QUOTE and quote in collapse(document)
+    return dict(result, outcome='answered' if value['status'] == 'answered' else 'not_stated', status=value['status'],
+                answer=value['answer'][:600], quote=value['quote'][:MAX_QUOTE], quote_supported=supported_quote)
+
+
 def run(client, model, *, hardware=None, clock=None, cancel=None, progress=None, **options):
     data = load()
     args = {key: value for key, value in (('hardware', hardware), ('clock', clock)) if value is not None}

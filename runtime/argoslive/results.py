@@ -238,14 +238,16 @@ def matched_details(values):
                          qualification=value.get('qualification'), document_context=value.get('document_context'),
                          context=value['settings'].get('context'))
         else:
-            entry['prompts'] = [{'size': p['size'], 'skipped': p['skipped'],
-                                 'generation_tokens_per_second': median_of(p, 'generation_tokens_per_second'),
-                                 'prompt_tokens_per_second': median_of(p, 'prompt_tokens_per_second'),
-                                 'time_to_first_token_seconds': median_of(p, 'time_to_first_token_seconds'),
-                                 'backend_modes': sorted({r['backend']['mode'] for r in p['runs']
-                                                          if isinstance(r.get('backend'), dict)
-                                                          and r['backend'].get('mode')})}
-                                for p in value['prompts']]
+            entry['prompts'] = []
+            for p in value['prompts']:
+                row = {'size': p['size'], 'skipped': p['skipped'],
+                       'backend_modes': sorted({r['backend']['mode'] for r in p['runs']
+                                                if isinstance(r.get('backend'), dict) and r['backend'].get('mode')})}
+                for field in ('generation_tokens_per_second', 'prompt_tokens_per_second', 'time_to_first_token_seconds'):
+                    measured = median_of(p, field)
+                    row[field] = measured['median']
+                    row[field + '_reported_runs'] = measured['reported_runs']
+                entry['prompts'].append(row)
         runs.append(entry)
     result = {'runs': runs}
     if ordered[0]['kind'] == 'ability':

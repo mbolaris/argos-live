@@ -1,5 +1,6 @@
 """Desktop-owned quick baseline: pause chat, test fixed prompts, save, resume."""
 import copy
+import secrets
 import threading
 import time
 
@@ -11,7 +12,9 @@ from .results import Store
 # Each plan lists (phase, runner attribute, options). Plans are fixed so a later
 # run of the same plan on another model is a matched, comparable measurement.
 PLANS = {'baseline': (('speed', 'speed', {'sizes': ('short',)}), ('ability', 'ability', {'suite': 'quick'})),
-         'documents': (('speed', 'speed', {'sizes': ('short', 'medium')}), ('documents', 'documents', {}))}
+         'documents': (('speed', 'speed', {'sizes': ('short', 'medium')}), ('documents', 'documents', {})),
+         # The owner's own pasted document. Its text and the answer stay in memory and are never saved.
+         'task': (('task', 'task', {}),)}
 
 
 class Controller:
@@ -23,6 +26,8 @@ class Controller:
         self.store = store or Store(startup.home / '.local/share/argos-live/results')
         self.clock, self.speed, self.ability, self.documents = clock, speed, ability, documents
         self.plan = 'baseline'
+        self.task_input = None
+        self.task_result = None
         self.lock = threading.RLock()
         self.cancel_event = threading.Event()
         self.worker = None
@@ -42,7 +47,7 @@ class Controller:
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
                     'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
-                    'runs': list(self.runs), 'resume_requested': self.resume_requested,
+                    'runs': list(self.runs), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
                     'elapsed_seconds': max(0, (self.finished if self.finished is not None else self.clock()) - self.started)
                     if self.started is not None else None}
 
@@ -71,6 +76,33 @@ class Controller:
 
     def start_documents(self):
         return self.start('documents')
+
+    def start_task(self, document, question):
+        if (not isinstance(document, str) or not document.strip() or len(document) > doc_trial.TASK_DOCUMENT_LIMIT
+                or not isinstance(question, str) or not question.strip() or len(question) > doc_trial.TASK_QUESTION_LIMIT):
+            raise ValueError('Paste a document and ask a question within the stated limits')
+        with self.lock:
+            self.task_input = (document, question)
+            self.task_result = None
+        try:
+            return self.start('task')
+        except ValueError:
+            with self.lock:
+                self.task_input = None
+            raise
+
+    def task(self, client, model, *, cancel=None, progress=None):
+        document, question = self.task_input
+        answer = doc_trial.ask(client, model, document, question, cancel=cancel)
+        answer['task_id'] = secrets.token_hex(16)
+        with self.lock:
+            self.task_result = answer
+        return answer
+
+    def clear_task(self):
+        with self.lock:
+            if not self.snapshot()['active']:
+                self.task_input = self.task_result = None
 
     def cancel(self):
         with self.lock:
@@ -137,9 +169,10 @@ class Controller:
                 self.report(phase)
                 result = runner(client, model, cancel=self.cancel_event,
                                 progress=lambda value, phase=phase: self.report(phase, value), **options)
-                self.store.save(result)
-                with self.lock:
-                    self.runs.append(result['id'])
+                if name != 'task':
+                    self.store.save(result)
+                    with self.lock:
+                        self.runs.append(result['id'])
         return 'cancelled' if self.cancel_event.is_set() else 'completed'
 
     def settle_unstarted(self):

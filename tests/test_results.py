@@ -90,10 +90,13 @@ class ResultsTests(unittest.TestCase):
         other = dict(copy.deepcopy(speed), id='c' * 32, created='2999-01-01T00:00:00+00:00')
         compared = results.compare([speed, other])
         self.assertNotIn('items', compared)
-        for prompt in compared['runs'][0]['prompts']:
-            if not prompt['skipped']:
-                self.assertIn('prompt_tokens_per_second', prompt)
-                self.assertIn('time_to_first_token_seconds', prompt)
+        measured = [p for p in compared['runs'][0]['prompts'] if not p['skipped']]
+        self.assertTrue(measured)
+        for prompt in measured:
+            for field in ('generation_tokens_per_second', 'prompt_tokens_per_second', 'time_to_first_token_seconds'):
+                self.assertTrue(prompt[field] is None or isinstance(prompt[field], (int, float)), field)
+                self.assertIn(field + '_reported_runs', prompt)
+        self.assertTrue(any(isinstance(p['generation_tokens_per_second'], (int, float)) for p in measured))
 
     def test_mixed_kind_version_settings_and_duplicate_refused(self):
         first, second = ability_result(), ability_result()
