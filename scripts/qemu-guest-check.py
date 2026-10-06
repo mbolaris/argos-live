@@ -28,6 +28,14 @@ def main():
         if time.monotonic() >= deadline:
             raise ValueError('Desktop session did not start')
         time.sleep(2)
+    refresh = subprocess.run(['systemctl', 'is-active', '--quiet', 'argos-refresh-runtime.service'],
+                             timeout=10)
+    if refresh.returncode:
+        raise ValueError('Argos persistence refresh did not run before the desktop')
+    help_result = subprocess.run(['argos', '--help'], check=True, capture_output=True,
+                                  text=True, timeout=20)
+    if not re.search(r'\bdesktop\b', help_result.stdout):
+        raise ValueError('The installed Argos CLI is missing the managed desktop command')
     desktop_seconds = time.monotonic() - started
     env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
     # Long TCG inference is unattended. Test-only anti-idle settings prevent
