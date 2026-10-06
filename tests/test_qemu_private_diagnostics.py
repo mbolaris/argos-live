@@ -36,6 +36,19 @@ class DiagnosticFlagsTests(unittest.TestCase):
                                                  '_NET_WM_NAME(UTF8_STRING) = ' + title]):
                 self.assertEqual(module.firefox_control_page_visible(), expected)
 
+    def test_model_lab_capture_requires_the_active_shipped_firefox_dashboard(self):
+        for kind, title, expected in (
+                ('"firefox-esr"', '"Argos Live · Local workspace"', True),
+                ('"firefox-esr"', '"Argos Live · Local workspace — Mozilla Firefox"', True),
+                ('"other-browser"', '"Argos Live · Local workspace"', False),
+                ('"firefox-esr"', '"OpenClaw Control"', False),
+                ('"firefox-esr"', '"Argos Live — Mozilla Firefox"', False),
+                ('"firefox-esr"', '"Argos Live · Local workspace with private URL"', False)):
+            with self.subTest(title=title, kind=kind), patch.object(module.subprocess,
+                    'check_output', side_effect=['_NET_ACTIVE_WINDOW: 0x123', kind,
+                                                 '_NET_WM_NAME(UTF8_STRING) = ' + title]):
+                self.assertEqual(module.firefox_model_lab_visible(), expected)
+
     def test_owned_exit_only_admits_bounded_whole_numeric_records(self):
         self.assertEqual(module.owned_exit(b'private token\nARGOS_OWNED_EXIT returncode=-11\n'), -11)
         self.assertEqual(module.owned_exit(b'ARGOS_OWNED_EXIT returncode=0\n'), 0)

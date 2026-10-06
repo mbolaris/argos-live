@@ -21,6 +21,10 @@ class BootEntryTests(unittest.TestCase):
             'bundled_read_only_source': True, 'model_reply_verified': True, 'handoff_claimed': True,
             'firefox_gateway_connection': True, 'firefox_control_page_visible': True,
             'requires_screenshot_review': True, 'model_lab_launcher_available': True,
+            'model_lab_launch_command_succeeded': True, 'model_lab_ui_visible': True,
+            'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
+            'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
+            'model_lab_assistant_resumed': True,
             'network_routes': False, 'physical_acceptance': False, 'browser_chat_reply_verified': False,
             'startup_metrics': {'backend': {'mode': 'CPU'}}}
         def wire(item): return 'ARGOS_C3_RESULT ' + json.dumps(item) + '\n'
@@ -29,6 +33,13 @@ class BootEntryTests(unittest.TestCase):
         for changed in (dict(value, physical_acceptance=True), dict(value, browser_chat_reply_verified=True),
                         dict(value, handoff_claimed=False), dict(value, firefox_gateway_connection=False),
                         dict(value, firefox_control_page_visible=False),
+                        dict(value, model_lab_launch_command_succeeded=False),
+                        dict(value, model_lab_ui_visible=False),
+                        dict(value, model_lab_button_clicked=False),
+                        dict(value, model_lab_baseline_completed=False),
+                        dict(value, model_lab_speed_result_saved=False),
+                        dict(value, model_lab_ability_result_saved=False),
+                        dict(value, model_lab_assistant_resumed=False),
                         dict(value, network_routes=True), dict(value, schema='argos-qemu-smoke/1')):
             with self.assertRaises(ValueError):
                 module.guest_result(wire(changed), setup_mode='managed')
@@ -38,7 +49,9 @@ class BootEntryTests(unittest.TestCase):
         commands = module.guest_commands(source)
         self.assertGreater(len(commands), 3)
         self.assertTrue(all(len(command) < 2000 for command in commands))
-        encoded = ''.join(re.search(r"printf %s '([^']+)'", command)[1] for command in commands[:-1])
+        chunks = [re.search(r"printf %s '([^']+)'", command)[1] for command in commands[:-1]]
+        self.assertTrue(all(len(chunk) <= module.GUEST_PAYLOAD_CHUNK_SIZE for chunk in chunks))
+        encoded = ''.join(chunks)
         packed = base64.b64decode(encoded)
         self.assertEqual(zlib.decompress(packed), source)
         self.assertIn(hashlib.sha256(packed).hexdigest(), commands[-1])

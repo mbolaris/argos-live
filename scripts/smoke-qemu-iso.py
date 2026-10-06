@@ -16,6 +16,7 @@ import time
 import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
+GUEST_PAYLOAD_CHUNK_SIZE = 240
 
 
 def desktop_entry(text):
@@ -67,7 +68,10 @@ def guest_result(serial, *, setup_mode='interactive'):
         for field in ('desktop_started', 'dashboard_authenticated', 'automatic_first_boot',
                       'bundled_read_only_source', 'model_reply_verified', 'handoff_claimed',
                       'firefox_gateway_connection', 'firefox_control_page_visible', 'requires_screenshot_review',
-                      'model_lab_launcher_available'):
+                      'model_lab_launcher_available', 'model_lab_launch_command_succeeded',
+                      'model_lab_ui_visible', 'model_lab_button_clicked',
+                      'model_lab_baseline_completed', 'model_lab_speed_result_saved',
+                      'model_lab_ability_result_saved', 'model_lab_assistant_resumed'):
             if result.get(field) is not True:
                 raise ValueError('Managed guest did not establish startup acceptance')
         for field in ('network_routes', 'physical_acceptance', 'browser_chat_reply_verified'):
@@ -112,11 +116,13 @@ def guest_commands(source):
     encoded = base64.b64encode(packed).decode()
     path = '/tmp/argos-ci-check-' + secrets.token_hex(8)
     commands = []
-    for offset in range(0, len(encoded), 1500):
+    # Keep serial terminal lines small: longer canonical lines have lost bytes
+    # on some VM hosts even when the following completion marker was received.
+    for offset in range(0, len(encoded), GUEST_PAYLOAD_CHUNK_SIZE):
         index = len(commands)
         prefix = 'stty -echo; umask 077; ' if index == 0 else ''
         redirect = '>' if index == 0 else '>>'
-        commands.append(f"{prefix}printf %s '{encoded[offset:offset + 1500]}' {redirect} {path}; "
+        commands.append(f"{prefix}printf %s '{encoded[offset:offset + GUEST_PAYLOAD_CHUNK_SIZE]}' {redirect} {path}; "
                         f"printf '\\nARGOS_C3_PAYLOAD_{index}\\n'\n")
     code = (f'import pathlib,base64,zlib,hashlib;p=pathlib.Path("{path}");'
             'b=base64.b64decode(p.read_bytes());'

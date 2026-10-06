@@ -240,6 +240,26 @@ def firefox_control_page_visible():
         return False
 
 
+def firefox_model_lab_visible():
+    """Recognize the active shipped Argos dashboard by its fixed page title."""
+    env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(Path.home() / '.Xauthority'))
+    try:
+        active = subprocess.check_output(['xprop', '-root', '_NET_ACTIVE_WINDOW'],
+                                         env=env, text=True, timeout=10)
+        match = re.search(r'0x[0-9a-fA-F]+', active)
+        if not match:
+            return False
+        kind = subprocess.check_output(['xprop', '-id', match[0], 'WM_CLASS'],
+                                       env=env, text=True, timeout=10)
+        if 'firefox' not in kind.lower():
+            return False
+        title = subprocess.check_output(['xprop', '-id', match[0], '_NET_WM_NAME'],
+                                        env=env, text=True, timeout=10)
+        return bool(re.search(r' = "Argos Live · Local workspace(?: — Mozilla Firefox)?"\s*$', title))
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def fullscreen_capture():
     """Test-only F11 on the verified Firefox window hides tokenized browser chrome."""
     env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(Path.home() / '.Xauthority'))
@@ -273,6 +293,40 @@ def fullscreen_capture():
                 raise ValueError('Firefox browser chrome was not hidden for capture')
             time.sleep(.5)
     time.sleep(5)
+
+
+def click_model_lab_baseline():
+    """Click the visible Lab action through X11, as a desktop user would."""
+    x11 = ctypes.CDLL('libX11.so.6')
+    xtst = ctypes.CDLL('libXtst.so.6')
+    x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
+    x11.XDisplayWidth.argtypes, x11.XDisplayWidth.restype = [ctypes.c_void_p, ctypes.c_int], ctypes.c_int
+    x11.XDisplayHeight.argtypes, x11.XDisplayHeight.restype = [ctypes.c_void_p, ctypes.c_int], ctypes.c_int
+    x11.XFlush.argtypes, x11.XCloseDisplay.argtypes = [ctypes.c_void_p], [ctypes.c_void_p]
+    xtst.XTestFakeMotionEvent.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
+                                          ctypes.c_int, ctypes.c_ulong]
+    xtst.XTestFakeMotionEvent.restype = ctypes.c_int
+    xtst.XTestFakeButtonEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int,
+                                          ctypes.c_ulong]
+    xtst.XTestFakeButtonEvent.restype = ctypes.c_int
+    display = x11.XOpenDisplay(b':0')
+    if not display:
+        raise ValueError('Model Lab input display is unavailable')
+    try:
+        # At the verified 1280x800 acceptance resolution, this targets the
+        # visible "Pause chat and test this model" button in the Lab card.
+        x = int(x11.XDisplayWidth(display, 0) * .23)
+        y = int(x11.XDisplayHeight(display, 0) * .63)
+        if (not xtst.XTestFakeMotionEvent(display, 0, x, y, 0) or
+                not xtst.XTestFakeButtonEvent(display, 1, 1, 0)):
+            raise ValueError('Model Lab button click could not be sent')
+        x11.XFlush(display)
+        time.sleep(.15)
+        if not xtst.XTestFakeButtonEvent(display, 1, 0, 0):
+            raise ValueError('Model Lab button release could not be sent')
+        x11.XFlush(display)
+    finally:
+        x11.XCloseDisplay(display)
 
 
 def firefox_connected(port):
@@ -403,11 +457,102 @@ def managed_check(started, desktop_seconds):
     starter.read_only()
     if any(path.name != '.argos-storage-id' for path in Path(state['storage']).iterdir()):
         raise ValueError('Automatic setup copied model files')
+    # Exercise the exact command installed in the Applications menu. The live
+    # desktop is already owned and ready, so this follows its authenticated
+    # reconnect path and opens the dedicated Lab view in shipped Firefox.
+    print('ARGOS_C3_STAGE model-lab-launch', flush=True)
+    lab_env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(home / '.Xauthority'))
+    subprocess.run(['argos', 'desktop', '--model-lab'], check=True, timeout=20,
+                   env=lab_env,
+                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL)
+    print('ARGOS_C3_STAGE model-lab-command-returned', flush=True)
+    lab_deadline = time.monotonic() + 30
+    while not firefox_model_lab_visible():
+        if time.monotonic() >= lab_deadline:
+            raise ValueError('Model Lab command did not open its shipped Firefox view')
+        time.sleep(.5)
+    time.sleep(5)
+    if not firefox_model_lab_visible():
+        raise ValueError('Model Lab view did not remain open after assistant readiness')
+    print('ARGOS_C3_STAGE model-lab-visible', flush=True)
     fullscreen_capture()
     print('ARGOS_C3_STAGE managed-browser', flush=True)
+    # Give the host-side QMP capture a moment to save the idle Lab screen,
+    # then exercise the actual visible button rather than calling its API.
+    time.sleep(5)
+    print('ARGOS_C3_STAGE model-lab-button-click', flush=True)
+    click_model_lab_baseline()
+
+    def dashboard_json(path):
+        request = Request(origin + path, headers={'X-Argos-Token': token})
+        with opener.open(request, timeout=10) as response:
+            raw = response.read(1048577)
+        if len(raw) > 1048576:
+            raise ValueError('Model Lab status exceeded the bounded response size')
+        return json.loads(raw)
+
+    lab_value = None
+    click_deadline = time.monotonic() + 20
+    while time.monotonic() < click_deadline:
+        lab_value = dashboard_json('/api/lab')
+        if lab_value.get('active') and lab_value.get('phase') in (
+                'pausing', 'model-service', 'speed', 'ability', 'cancelling'):
+            break
+        time.sleep(.5)
+    else:
+        raise ValueError('Visible Model Lab button did not start the baseline')
+    print('ARGOS_C3_LAB ' + json.dumps({'phase': lab_value['phase']}), flush=True)
+
+    lab_deadline = time.monotonic() + 900
+    last_lab_phase = lab_value['phase']
+    while time.monotonic() < lab_deadline:
+        lab_value = dashboard_json('/api/lab')
+        phase = lab_value.get('phase')
+        if phase != last_lab_phase:
+            if phase in ('pausing', 'model-service', 'speed', 'ability', 'cancelling',
+                         'completed', 'cancelled', 'failed'):
+                print('ARGOS_C3_LAB ' + json.dumps({'phase': phase}), flush=True)
+            last_lab_phase = phase
+        if phase in ('completed', 'cancelled', 'failed'):
+            break
+        time.sleep(2)
+    if not lab_value or lab_value.get('phase') != 'completed':
+        raise ValueError('Visible Model Lab baseline did not complete successfully')
+    run_ids = lab_value.get('runs')
+    if not isinstance(run_ids, list) or len(run_ids) != 2 or any(
+            not isinstance(run_id, str) or not re.fullmatch(r'[a-f0-9]{32}', run_id)
+            for run_id in run_ids):
+        raise ValueError('Model Lab did not save both baseline runs')
+    benchmark_rows = dashboard_json('/api/benchmarks').get('runs')
+    saved_rows = [row for row in benchmark_rows if row.get('id') in run_ids]
+    if (len(saved_rows) != 2 or {row.get('kind') for row in saved_rows} != {'speed', 'ability'}
+            or not lab_value.get('resume_requested')):
+        raise ValueError('Model Lab results or assistant resume request are missing')
+    print('ARGOS_C3_STAGE model-lab-results-saved', flush=True)
+
+    resumed = False
+    resume_deadline = time.monotonic() + 300
+    while time.monotonic() < resume_deadline:
+        startup_value = dashboard_json('/api/startup')
+        if (startup_value.get('phase') == 'ready' and
+                startup_value.get('model_reply_verified') is True and
+                startup_value.get('auto_open_chat') is False):
+            resumed = True
+            break
+        if startup_value.get('phase') in ('failed', 'stopped'):
+            break
+        time.sleep(2)
+    if not resumed or not firefox_model_lab_visible():
+        raise ValueError('Assistant did not resume while keeping Model Lab open')
+    print('ARGOS_C3_STAGE model-lab-assistant-resumed', flush=True)
     print('ARGOS_C3_RESULT ' + json.dumps({'schema': 'argos-qemu-managed/1',
         'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
         'model_lab_launcher_available': True,
+        'model_lab_launch_command_succeeded': True, 'model_lab_ui_visible': True,
+        'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
+        'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
+        'model_lab_assistant_resumed': True,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics, 'handoff_claimed': True,
         'firefox_gateway_connection': True, 'firefox_control_page_visible': True,
