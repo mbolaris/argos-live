@@ -41,7 +41,7 @@ def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monoto
 
 
 def execute(client, model, data, *, suite, suite_version, context, score, category, hardware=hw.snapshot,
-            clock=time.monotonic, cancel=None, progress=None, extra=None):
+            clock=time.monotonic, cancel=None, progress=None, extra=None, annotate=None):
     """Shared deterministic run loop.
 
     An item whose scorer returns None is recorded as unscored output (for example
@@ -106,13 +106,14 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
             encoded = text.encode('utf-8', errors='replace') if isinstance(text, str) else b''
             output = encoded[:OUTPUT_LIMIT].decode('utf-8', errors='ignore')
             measured = measurement(reply, client.ps().get('models', []), model)
+            notes = annotate(item) if annotate else {}
             if scored is None:
                 result.setdefault('unscored', []).append({
-                    'item_id': item['id'], 'category': category(item), 'output': output,
+                    **notes, 'item_id': item['id'], 'category': category(item), 'output': output,
                     'output_truncated': len(encoded) > OUTPUT_LIMIT,
                     'latency_seconds': max(0, clock() - item_started), 'measurement': measured})
             else:
-                scored.update(category=category(item), output=output,
+                scored.update(notes, category=category(item), output=output,
                               output_truncated=len(encoded) > OUTPUT_LIMIT,
                               latency_seconds=max(0, clock() - item_started), measurement=measured)
                 result['items'].append(scored)

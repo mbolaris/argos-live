@@ -132,19 +132,22 @@ def build():
         text = passage['text']
         question, accepted = passage['answer']
         items.append({'id': f'answer-{key}', 'passage_id': passage['id'], 'category': 'answer', 'scored': True,
+                      'question': passage['answer'][0],
                       'prompt': INSTRUCTION.format(passage=text, question=question),
                       'scorer': {'kind': 'doc-answer', 'accepted': accepted, 'passage': text}})
         question, accepted, quote = passage['quote']
         items.append({'id': f'quote-{key}', 'passage_id': passage['id'], 'category': 'quote', 'scored': True,
+                      'question': passage['quote'][0],
                       'prompt': INSTRUCTION.format(passage=text, question=question),
                       'scorer': {'kind': 'doc-quote', 'accepted': accepted, 'passage': text,
                                  'reference_quote': quote}})
         items.append({'id': f'missing-{key}', 'passage_id': passage['id'], 'category': 'not_stated', 'scored': True,
+                      'question': passage['not_stated'],
                       'prompt': INSTRUCTION.format(passage=text, question=passage['not_stated']),
                       'scorer': {'kind': 'doc-not-stated', 'passage': text}})
     for number, passage in enumerate(PASSAGES, 1):
         items.append({'id': f'summary-{number:02d}', 'passage_id': passage['id'], 'category': 'summary',
-                      'scored': False,
+                      'scored': False, 'question': passage['summary'],
                       'prompt': SUMMARY_PROMPT.format(passage=passage['text'], question=passage['summary']),
                       'scorer': {'kind': 'doc-summary'}})
     for item in items:

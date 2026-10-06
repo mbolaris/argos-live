@@ -124,7 +124,8 @@ def validate(data):
                 or item.get('category') not in (*CATEGORIES, 'summary')
                 or type(item.get('scored')) is not bool
                 or not isinstance(item.get('scorer'), dict) or item['scorer'].get('kind') not in KINDS
-                or not isinstance(item.get('passage_id'), str)):
+                or not isinstance(item.get('passage_id'), str)
+                or not isinstance(item.get('question'), str) or not 1 <= len(item['question']) <= 200):
             raise ValueError('Invalid document item')
         seen.add(item['id'])
         rule = item['scorer']
@@ -185,13 +186,24 @@ def qualify(items, criteria, *, complete):
             'qualified': bool(complete and all(c['met'] for c in checks)), 'checks': checks, 'scope': SCOPE}
 
 
+def passages(data):
+    """Each passage once, so a result explains its own questions."""
+    found = {}
+    for item in data['items']:
+        text = item['scorer'].get('passage')
+        if text is not None:
+            found.setdefault(item['passage_id'], text)
+    return found
+
+
 def run(client, model, *, hardware=None, clock=None, cancel=None, progress=None, **options):
     data = load()
     args = {key: value for key, value in (('hardware', hardware), ('clock', clock)) if value is not None}
     result = bench_ability.execute(
         client, model, data, suite='documents-short', suite_version='documents/short/' + data['version'],
         context=CONTEXT, score=score, category=lambda item: item['category'], cancel=cancel, progress=progress,
-        extra={'document_suite': {'criteria': data['criteria'], 'scope': SCOPE}}, **args)
+        annotate=lambda item: {'passage_id': item['passage_id'], 'question': item['question']},
+        extra={'document_suite': {'criteria': data['criteria'], 'scope': SCOPE, 'passages': passages(data)}}, **args)
     prompt_tokens = [i['measurement']['raw'].get('prompt_eval_count') for i in result['items']
                      if isinstance(i.get('measurement'), dict) and isinstance(i['measurement'].get('raw'), dict)]
     prompt_tokens = [t for t in prompt_tokens if isinstance(t, (int, float)) and t > 0]
