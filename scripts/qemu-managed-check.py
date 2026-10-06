@@ -452,7 +452,8 @@ def managed_check(started, desktop_seconds):
     else:
         raise ValueError('Automatic browser/gateway startup exceeded the guest deadline')
     state = json.loads((home / '.config/argos-live/state.json').read_text())
-    if state.get('mode') != 'try' or state.get('model_source') != 'bundled':
+    is_guest = globals().get('ARGOS_QEMU_GUEST_MODE', False)
+    if state.get('mode') != ('guest' if is_guest else 'try') or state.get('model_source') != 'bundled':
         raise ValueError('Automatic setup did not use immutable try-mode starter')
     starter.read_only()
     if any(path.name != '.argos-storage-id' for path in Path(state['storage']).iterdir()):
@@ -546,7 +547,19 @@ def managed_check(started, desktop_seconds):
     if not resumed or not firefox_model_lab_visible():
         raise ValueError('Assistant did not resume while keeping Model Lab open')
     print('ARGOS_C3_STAGE model-lab-assistant-resumed', flush=True)
+    if is_guest:
+        from argoslive import session_mode, storage_view
+        from argoslive.web.status import mounts_and_blocks, persistence
+        mounts, blocks = mounts_and_blocks()
+        if not session_mode.guest() or persistence(mounts, blocks)['active']:
+            raise ValueError('Guest mode incorrectly loaded persistence')
+        for _, _, path in storage_view.categories(home, state):
+            if path is None:
+                raise ValueError('Guest data location missing')
+            session_mode.require_ram(path, mounts)
     print('ARGOS_C3_RESULT ' + json.dumps({'schema': 'argos-qemu-managed/1',
+        'guest_ram_policy_verified': is_guest,
+        'guest_reboot_reset_verified': False,
         'desktop_started': True, 'network_routes': False, 'dashboard_authenticated': True,
         'model_lab_launcher_available': True,
         'model_lab_launch_command_succeeded': True, 'model_lab_ui_visible': True,

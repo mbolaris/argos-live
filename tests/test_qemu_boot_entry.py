@@ -15,6 +15,15 @@ spec.loader.exec_module(module)
 
 
 class BootEntryTests(unittest.TestCase):
+    def test_guest_entry_refuses_persistence_arguments(self):
+        entry = ('menuentry "Argos guest - resets on reboot, no passphrase" {\n'
+                 ' linux /live/vmlinuz boot=live console=tty0 nopersistence argos.guest=1\n'
+                 ' initrd /live/initrd.img\n}\n')
+        self.assertIn('nopersistence', module.desktop_entry(entry, guest=True)[2])
+        for replacement in ('persistence', 'nopersistence persistence-encryption=luks', ''):
+            with self.assertRaises(ValueError):
+                module.desktop_entry(entry.replace('nopersistence', replacement), guest=True)
+
     def test_managed_record_cannot_claim_physical_or_browser_reply_acceptance(self):
         value = {'schema': 'argos-qemu-managed/1', 'setup_mode': 'managed',
             'desktop_started': True, 'dashboard_authenticated': True, 'automatic_first_boot': True,
@@ -29,6 +38,10 @@ class BootEntryTests(unittest.TestCase):
             'startup_metrics': {'backend': {'mode': 'CPU'}}}
         def wire(item): return 'ARGOS_C3_RESULT ' + json.dumps(item) + '\n'
         self.assertEqual(module.guest_result(wire(value), setup_mode='managed'), value)
+        with self.assertRaisesRegex(ValueError, 'RAM-only'):
+            module.guest_result(wire(value), setup_mode='managed', guest=True)
+        self.assertEqual(module.guest_result(wire(dict(value, guest_ram_policy_verified=True)),
+                         setup_mode='managed', guest=True)['guest_ram_policy_verified'], True)
         self.assertIsNone(module.guest_result(wire(value)[:-1], setup_mode='managed'))
         for changed in (dict(value, physical_acceptance=True), dict(value, browser_chat_reply_verified=True),
                         dict(value, handoff_claimed=False), dict(value, firefox_gateway_connection=False),

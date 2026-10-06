@@ -19,8 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 GUEST_PAYLOAD_CHUNK_SIZE = 240
 
 
-def desktop_entry(text):
-    match = re.search(r'menuentry "Argos desktop"\s*\{([^}]+)\}', text)
+def desktop_entry(text, *, guest=False):
+    name = 'Argos guest - resets on reboot, no passphrase' if guest else 'Argos desktop'
+    match = re.search(r'menuentry "' + re.escape(name) + r'"\s*\{([^}]+)\}', text)
     if not match:
         raise ValueError('Reviewed desktop menu entry is missing')
     kernel = re.search(r'^\s*linux (.+)$', match[1], re.M)
@@ -33,6 +34,9 @@ def desktop_entry(text):
             raise ValueError('Unexpected image boot path')
     if 'boot=live' not in args[1:] or 'console=tty0' not in args[1:]:
         raise ValueError('Desktop entry lacks reviewed boot arguments')
+    if guest and (not {'nopersistence', 'argos.guest=1'}.issubset(args[1:]) or
+                  any(arg == 'persistence' or arg.startswith('persistence-') for arg in args[1:])):
+        raise ValueError('Guest boot must skip persistence and unlocking')
     # Direct-kernel test adds a serial console only in the VM launch, not the ISO.
     return args[0], initrd[1], ' '.join([*args[1:], 'console=ttyS0,115200'])
 
@@ -55,13 +59,15 @@ def screenshot(qmp, path):
                     break
 
 
-def guest_result(serial, *, setup_mode='interactive'):
+def guest_result(serial, *, setup_mode='interactive', guest=False):
     # Serial reads split anywhere, including after a nested JSON object's closing
     # brace. Only a complete newline-terminated record can establish acceptance.
     match = re.search(r'ARGOS_C3_RESULT (\{[^\r\n]+\})\r?\n', serial)
     if not match:
         return None
     result = json.loads(match[1])
+    if guest and result.get('guest_ram_policy_verified') is not True:
+        raise ValueError('Guest did not establish RAM-only workspace')
     if setup_mode == 'managed':
         if not isinstance(result, dict) or result.get('schema') != 'argos-qemu-managed/1':
             raise ValueError('Unexpected managed guest record')
@@ -134,7 +140,9 @@ def guest_commands(source):
     return commands
 
 
-def run(image, output, *, timeout=1800, setup_mode='interactive'):
+def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=False):
+    if guest_mode and setup_mode != 'managed':
+        raise ValueError('Guest acceptance requires managed startup')
     if setup_mode not in ('interactive', 'auto', 'managed'):
         raise ValueError('Unknown disposable setup mode')
     if output.exists() and any(output.iterdir()):
@@ -149,7 +157,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
             digest.update(chunk)
     if digest.hexdigest() != record.split()[0]:
         raise ValueError('Candidate ISO checksum differs')
-    source = (f'ARGOS_QEMU_SETUP_MODE = {setup_mode!r}\n'.encode() +
+    source = (f'ARGOS_QEMU_SETUP_MODE = {setup_mode!r}\nARGOS_QEMU_GUEST_MODE = {guest_mode!r}\n'.encode() +
               (ROOT / 'scripts/qemu-firefox-check.py').read_bytes() + b'\n' +
               (ROOT / 'scripts/qemu-managed-check.py').read_bytes() + b'\n' +
               (ROOT / 'scripts/qemu-guest-check.py').read_bytes())
@@ -160,7 +168,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
             subprocess.run(['xorriso', '-osirrox', 'on', '-indev', str(image), '-extract', source,
                             str(destination)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         extract('/boot/grub/grub.cfg', work / 'grub.cfg')
-        kernel, initrd, append = desktop_entry((work / 'grub.cfg').read_text())
+        kernel, initrd, append = desktop_entry((work / 'grub.cfg').read_text(), guest=guest_mode)
         extract(kernel, work / 'kernel')
         extract(initrd, work / 'initrd')
         qmp = work / 'qmp.sock'
@@ -225,7 +233,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive'):
                         tail = ''
                     if re.search(r'ARGOS_C3_FAIL [A-Za-z]+\r?\n', tail):
                         raise ValueError('Guest acceptance failed; see console artifact')
-                    result = guest_result(tail, setup_mode=setup_mode)
+                    result = guest_result(tail, setup_mode=setup_mode, guest=guest_mode)
                     if result is not None:
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
                                       vm_memory_mib=8192 if setup_mode == 'managed' else 4096,
@@ -261,5 +269,6 @@ if __name__ == '__main__':
     parser.add_argument('iso', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--setup-mode', choices=('interactive', 'auto', 'managed'), default='interactive')
+    parser.add_argument('--guest', action='store_true', help='Test the RAM-only guest boot entry with managed startup')
     args = parser.parse_args()
-    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode)
+    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode, guest_mode=args.guest)

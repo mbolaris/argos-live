@@ -57,6 +57,9 @@ def network_status():
 
 def persistence_status():
     """Only claim encryption when the mounted persistence device is dm-crypt."""
+    from argoslive import session_mode
+    if session_mode.guest():
+        return 'Guest mode — workspace resets on reboot'
     try:
         result = subprocess.run(['findmnt', '-rn', '-o', 'TARGET,SOURCE'],
                                 capture_output=True, text=True, timeout=3, check=True)

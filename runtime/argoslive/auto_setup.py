@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import secrets
 
-from . import starter, storage
+from . import starter, storage, session_mode
 from .pull_jobs import read_json
 
 
@@ -54,6 +54,9 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
               probe_persistence=persistence, progress=None):
     """No prompts, mounts, downloads or daemon startup; retained state is reused."""
     home = storage.safe_local(Path.home() if home is None else Path(home))
+    is_guest = session_mode.guest()
+    if is_guest:
+        session_mode.require_ram(home)
     state_path = storage.safe_local(home / '.config/argos-live/state.json')
     config_path = storage.safe_local(home / '.openclaw/openclaw.json')
     def report(phase):
@@ -76,14 +79,18 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
     # each managed pull checks its own real model budget before downloading.
     selected = planner(1)
     models = storage.safe_local(Path(selected['path']))
+    if is_guest:
+        session_mode.require_ram(models)
     if models.exists() and (not models.is_dir() or any(models.iterdir())):
         raise ValueError('Proposed model directory already contains data; automatic setup will not adopt it')
     observed = probe_persistence()
     if type(observed.get('active')) is not bool:
         raise ValueError('Persistence status unavailable; no automatic configuration written')
+    if is_guest and observed['active']:
+        raise ValueError('Guest mode cannot use live persistence; reboot using the guest entry')
     state = {'storage': str(models), 'storage_id': secrets.token_hex(24),
              'model': starter.TAG, 'model_source': 'bundled', 'permissions': 'conversation-only',
-             'mode': 'persistent' if observed['active'] else 'try',
+             'mode': 'guest' if is_guest else ('persistent' if observed['active'] else 'try'),
              'storage_temporary': selected['kind'] == 'ram', 'storage_encrypted': selected.get('encrypted'),
              'persistence_encrypted': observed.get('encrypted'), 'starter': identity}
     if selected.get('volume_uuid'):

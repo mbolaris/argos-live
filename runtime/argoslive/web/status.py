@@ -80,9 +80,11 @@ def persistence(mounts, blocks):
 def snapshot(home=None, *, run=hw.command, hardware=hw.snapshot, client=None,
              ready=gateway_ready, proc=Path('/proc')):
     started = time.monotonic()
+    from .. import session_mode
     home = Path.home() if home is None else Path(home)
     config_path = home / '.openclaw/openclaw.json'
     result = {'schema': 'argos-dashboard/1', 'dashboard': 'running', 'mode': 'read-only-status',
+              'guest_session': session_mode.guest(),
               'assistant': 'not-configured', 'chat_available': False,
               'ollama': {'reachable': False, 'version': None, 'loaded_models': None, 'ownership_verified': False},
               'network': {'default_route': None, 'internet_verified': False},
