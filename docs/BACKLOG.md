@@ -18,6 +18,15 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### G1 — Fresh guest boot (implementation candidate)
+
+User-requested October 6: new default media plus a no-passphrase guest mode.
+Adds explicit nonpersistent guest and basic-graphics entries; the default is
+guest. Argos uses RAM, refuses disk stores/retention checks, and labels the
+session lifetime. Personal encrypted entries remain available. See
+`GUEST-MODE.md` for fresh-media procedure and acceptance boundaries. Status:
+in progress; ISO, reboot-reset and physical acceptance still required.
+
 These decisions prevent parallel agents from diverging. Change them only through a PR that updates this section.
 
 - **Runtime layout.** New modules live in `runtime/argoslive/` (a package): `hw.py`, `ollama.py`, `bench_speed.py`, `bench_ability.py`, `results.py`, `catalog.py`, `storage.py`, `packs.py`, `web/`. `runtime/argos.py` stays the CLI entry point and imports the package. The image installs the package to `/usr/local/lib/argos-live/argoslive` and the CLI adds that directory to `sys.path`.

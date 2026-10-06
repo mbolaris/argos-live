@@ -6,6 +6,7 @@ import re
 import shutil
 
 from .hw import command, memory_info, read
+from . import session_mode
 
 DISK_FILESYSTEMS = {'ext4', 'xfs', 'btrfs', 'ntfs', 'ntfs3', 'fuseblk', 'exfat', 'vfat'}
 LIVE_MEDIA = {'/run/live/medium', '/lib/live/mount/medium'}
@@ -22,6 +23,8 @@ def safe_local(path):
 
 def validate_configured(configured, *, mounts=None, blocks=None):
     """Keep the existing marker contract; an absent selection never falls back."""
+    if session_mode.guest():
+        session_mode.require_ram(configured.get('storage', ''), mounts)
     try:
         path = safe_local(configured['storage'])
         marker = safe_local(path / '.argos-storage-id')
@@ -197,7 +200,7 @@ def eligible(mounts, blocks, required_bytes, *, ram_available=None, safety_bytes
         if 'ro' in mount['options'] or 'ro' in mount['super_options'] or mount['root'] != '/':
             continue
         block = block_for(mount, blocks)
-        if (boot and mount['fstype'] in DISK_FILESYSTEMS and block and block['uuid'] and
+        if (not session_mode.guest() and boot and mount['fstype'] in DISK_FILESYSTEMS and block and block['uuid'] and
                 not boot.intersection(block['ancestors'])):
             path = mount['target'].rstrip('/') + '/ArgosLive/Models/catalog'
             try:

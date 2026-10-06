@@ -4,11 +4,13 @@ kernel=$(awk '$1=="linux" {print $2;exit}' boot/grub/grub.cfg)
 initrd=$(awk '$1=="initrd" {print $2;exit}' boot/grub/grub.cfg)
 test -n "$kernel" && test -n "$initrd"
 base='boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'
+guest='boot=live components nopersistence argos.guest=1 username=argos hostname=argos-live console=tty0'
 diagnostic='nomodeset module_blacklist=nouveau,nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm systemd.unit=multi-user.target systemd.show_status=1'
-default=1
+default=3
 # Explicitly separate headless serial test media from physical boot media.
 if [ "${ARGOS_TEST_SERIAL_CONSOLE:-0}" = 1 ]; then
   base="$base console=ttyS0,115200"
+  guest="$guest console=ttyS0,115200"
   default=1
 fi
 cat > boot/grub/grub.cfg <<EOF
@@ -27,6 +29,14 @@ menuentry "Argos desktop - basic graphics" {
  linux $kernel $base nomodeset
  initrd $initrd
 }
+menuentry "Argos guest - resets on reboot, no passphrase" {
+ linux $kernel $guest module_blacklist=nouveau
+ initrd $initrd
+}
+menuentry "Argos guest - basic graphics" {
+ linux $kernel $guest nomodeset
+ initrd $initrd
+}
 EOF
 cat > isolinux/live.cfg <<EOF
 label argos-diagnostic
@@ -36,7 +46,6 @@ label argos-diagnostic
  append $base $diagnostic
 label argos-desktop
  menu label Argos desktop
- menu default
  linux /live/vmlinuz
  initrd /live/initrd.img
  append $base module_blacklist=nouveau
@@ -45,4 +54,15 @@ label argos-basic
  linux /live/vmlinuz
  initrd /live/initrd.img
  append $base nomodeset
+label argos-guest
+ menu label Argos guest - resets on reboot, no passphrase
+ menu default
+ linux /live/vmlinuz
+ initrd /live/initrd.img
+ append $guest module_blacklist=nouveau
+label argos-guest-basic
+ menu label Argos guest - basic graphics
+ linux /live/vmlinuz
+ initrd /live/initrd.img
+ append $guest nomodeset
 EOF

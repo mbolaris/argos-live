@@ -16,6 +16,11 @@ on:
           - interactive
           - auto
           - managed
+      guest_mode:
+        description: Test the RAM-only guest entry (requires managed setup)
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
   actions: read
@@ -26,6 +31,7 @@ jobs:
     env:
       BUILD_RUN: ${{ inputs.build_run || '37216494685' }}
       SETUP_MODE: ${{ inputs.setup_mode || 'interactive' }}
+      GUEST_MODE: ${{ inputs.guest_mode || false }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,7 +45,11 @@ jobs:
       - name: Install CPU-only VM tools
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso
       - name: Boot existing ISO offline and check desktop/dashboard/CPU benchmark
-        run: python3 scripts/smoke-qemu-iso.py work/iso-candidate/argos-live-amd64.iso --output work/vm-smoke --setup-mode "$SETUP_MODE"
+        shell: bash
+        run: |
+          args=()
+          if [[ "$GUEST_MODE" == true ]]; then args+=(--guest); fi
+          python3 scripts/smoke-qemu-iso.py work/iso-candidate/argos-live-amd64.iso --output work/vm-smoke --setup-mode "$SETUP_MODE" "${args[@]}"
       - name: Record acceptance
         run: |
           echo '## Offline TCG guest acceptance' >> "$GITHUB_STEP_SUMMARY"

@@ -59,6 +59,12 @@ def persistence_present():
     return any(any(root.glob('*/persistence.conf')) for root in (Path('/run/live/persistence'), Path('/lib/live/mount/persistence')))
 
 def setup(ask=input):
+    from argoslive import session_mode
+    if session_mode.guest():
+        from argoslive.auto_setup import configure
+        configure()
+        print('Guest workspace ready. Conversations, settings and downloads reset on reboot.')
+        return
     if STATE.exists():
         raise ValueError('Setup already exists. Back up state before reconfiguring.')
     if not persistence_present():

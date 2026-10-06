@@ -118,7 +118,7 @@ async function refreshLive() {
       `${storage.path} · ${gib(storage.free_bytes)} free · ${encrypted(storage.encrypted)}` :
       storage.state === 'not-configured' ? 'Choose model storage in the welcome window.' : 'Selected storage needs attention. No fallback location is used.');
     const persistence = live.persistence;
-    card(cards, 'Saved workspace', persistence.active === true ? `${encrypted(persistence.encrypted)} persistence active` :
+    card(cards, 'Saved workspace', live.guest_session === true ? 'Guest mode — conversations, settings, downloads and results reset on reboot' : persistence.active === true ? `${encrypted(persistence.encrypted)} persistence active` :
       persistence.active === false ? 'Temporary session — changes may be lost at reboot' : 'Persistence status unknown');
     card(cards, 'Network', live.network.default_route === true ? 'Network connected · Internet access not verified' :
       live.network.default_route === false ? 'Offline · Local chat does not need internet' : 'Network status unknown');

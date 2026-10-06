@@ -14,7 +14,7 @@ from pathlib import Path
 import secrets
 import shutil
 
-from . import hw, reboot_evidence, storage
+from . import hw, reboot_evidence, storage, session_mode
 from .pull_jobs import write_json
 
 SCHEMA = 'argos-storage-view/1'
@@ -363,6 +363,8 @@ def choose(home, candidate, *, topology=topology, probe=storage.capacity, check=
 
 
 def start_reboot_check(home, *, current=None):
+    if session_mode.guest():
+        raise ValueError('Guest sessions reset on reboot; retention checks require persistent mode')
     configured = read_state(home)
     storage.validate_configured(configured)
     return reboot_evidence.start(home, marker_directories(home, configured), current=current)

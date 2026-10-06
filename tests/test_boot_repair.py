@@ -41,14 +41,24 @@ class BootRepairTests(unittest.TestCase):
             hook=Path(__file__).resolve().parents[1]/'live/config/hooks/live/050-argos-menu.hook.binary'
             subprocess.run(['sh',str(hook)],cwd=root,check=True)
             menu=(root/'boot/grub/grub.cfg').read_text()
-            self.assertEqual(menu.count('initrd /live/initrd-test'),3)
+            self.assertEqual(menu.count('initrd /live/initrd-test'),5)
             self.assertNotIn('ttyS0',menu)
-            self.assertIn('set default=1',menu)
+            self.assertIn('set default=3',menu)
             self.assertIn('set timeout=15',menu)
             desktop=menu.split('menuentry "Argos desktop" {',1)[1].split('}',1)[0]
             self.assertIn('module_blacklist=nouveau',desktop)
             self.assertNotIn('systemd.unit=multi-user.target',desktop)
             bios=(root/'isolinux/live.cfg').read_text()
-            self.assertEqual(bios.count('initrd /live/initrd.img'),3)
+            self.assertEqual(bios.count('initrd /live/initrd.img'),5)
+            guest=menu.split('menuentry "Argos guest - resets on reboot, no passphrase" {',1)[1].split('}',1)[0]
+            self.assertIn('nopersistence',guest)
+            self.assertIn('argos.guest=1',guest)
+            self.assertNotIn('persistence-encryption',guest)
+            self.assertNotIn(' persistence ',guest)
+            self.assertIn('persistence-encryption=luks',desktop)
+            guest_bios=bios.split('label argos-guest\n',1)[1].split('label argos-guest-basic',1)[0]
+            self.assertIn('menu default',guest_bios)
+            self.assertIn('nopersistence',guest_bios)
+            self.assertNotIn('persistence-encryption',guest_bios)
 
 if __name__=='__main__':unittest.main()
