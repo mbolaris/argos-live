@@ -248,13 +248,13 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, OSError):
                 self.reply(409, {'error': 'Model control unavailable'})
             return
-        if self.command == 'POST' and self.server.lab and path in ('/api/lab/start', '/api/lab/cancel'):
+        if self.command == 'POST' and self.server.lab and path in ('/api/lab/start', '/api/lab/start-documents', '/api/lab/cancel'):
             if (self.headers.get('Transfer-Encoding') is not None or
                     self.headers.get_all('Content-Length') not in (None, ['0'])):
                 self.reply(400, {'error': 'Model lab controls require an empty body'})
                 return
             try:
-                self.reply(200, getattr(self.server.lab, path.rsplit('/', 1)[1])())
+                self.reply(200, getattr(self.server.lab, path.rsplit('/', 1)[1].replace('-', '_'))())
             except (ValueError, OSError):
                 self.reply(409, {'error': 'Model lab action unavailable'})
             return

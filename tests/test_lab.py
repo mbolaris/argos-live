@@ -67,6 +67,35 @@ class LabTests(unittest.TestCase):
         self.assertEqual(speed['settings']['prompt_sizes'], ['short'])
         self.assertEqual(len(speed['prompts'][0]['runs']), 3)
         self.assertTrue(self.assistant.chat_claimed)
+    def test_documents_plan_runs_matched_speed_and_document_trial(self):
+        from test_doc_trial import DocBackend
+        from argoslive import doc_trial
+        backend = DocBackend()
+        @contextlib.contextmanager
+        def provide(target, **options):
+            self.assistant.calls.append('backend-start')
+            try:
+                yield backend
+            finally:
+                self.assistant.calls.append('backend-stop')
+        self.assistant.backend = provide
+        self.lab.documents = lambda client, model, **kw: doc_trial.run(client, 'fixture:latest', hardware=lambda: {}, **kw)
+        self.lab.speed = lambda client, model, **kw: bench_speed.run(client, 'fixture:latest', hardware=lambda: {}, **kw)
+        self.lab.start_documents()
+        self.finish()
+        value = self.lab.snapshot()
+        self.assertEqual((value['phase'], value['plan']), ('completed', 'documents'))
+        loaded = [self.store.load(run) for run in value['runs']]
+        self.assertEqual([run['kind'] for run in loaded], ['speed', 'ability'])
+        self.assertEqual(loaded[0]['settings']['prompt_sizes'], ['short', 'medium'])
+        self.assertEqual(loaded[1]['suite_version'], 'documents/short/1.0.0')
+        self.assertTrue(loaded[1]['qualification']['qualified'])
+        self.assertEqual(self.assistant.calls[-2:], ['backend-stop', 'resume'])
+    def test_unknown_plan_is_rejected_before_pausing_chat(self):
+        with self.assertRaisesRegex(ValueError, 'Unknown model lab plan'):
+            self.lab.start('everything')
+        self.assertEqual(self.assistant.calls, [])
+        self.assertFalse(self.assistant.lab_active)
     def test_inactive_assistant_stays_inactive(self):
         self.assistant.active = False
         self.lab.start()
@@ -134,6 +163,8 @@ class LabTests(unittest.TestCase):
                 self.assertEqual(request('/api/lab/start?token=' + server.token), 403)
                 auth = {'X-Argos-Token': server.token}
                 self.assertEqual(request('/api/lab/start', body='{"model":"other"}', headers=auth), 400)
+                self.assertEqual(request('/api/lab/start-documents', body='{"model":"other"}', headers=auth), 400)
+                self.assertEqual(request('/api/lab/start-documents?token=' + server.token), 403)
                 self.assertEqual(request('/api/lab/start', headers=auth), 200)
                 self.finish()
             finally:

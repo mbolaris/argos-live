@@ -30,6 +30,9 @@ class View:
                        ('id', 'created', 'kind', 'suite_version', 'model', 'manifest_digest', 'state', 'coverage')}
                 if run['kind'] == 'ability':
                     row['summary'] = run['summary']
+                    for key in ('qualification', 'document_context'):
+                        if isinstance(run.get(key), dict):
+                            row[key] = run[key]
                 else:
                     from argoslive.bench_speed import numeric, summary
                     row['summary'] = [{'size': prompt['size'], 'skipped': prompt['skipped'],

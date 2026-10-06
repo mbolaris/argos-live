@@ -33,6 +33,20 @@ class DashboardBenchmarkTests(unittest.TestCase):
             incomplete = next(row for row in compared['rows'] if row['id'] == first['id'])
             self.assertIsNone(incomplete['value'])
 
+    def test_document_runs_list_their_qualification_and_context(self):
+        from test_doc_trial import DocBackend
+        from argoslive import doc_trial
+        with tempfile.TemporaryDirectory() as temp:
+            store = Store(temp)
+            run = doc_trial.run(DocBackend(), 'fixture:latest', hardware=lambda: {})
+            store.save(run)
+            plain = ability_result()
+            store.save(plain)
+            rows = {row['id']: row for row in View(store).listing()['runs']}
+            self.assertTrue(rows[run['id']]['qualification']['qualified'])
+            self.assertEqual(rows[run['id']]['document_context']['context'], 4096)
+            self.assertNotIn('qualification', rows[plain['id']])
+
     def test_bounded_read_only_projection_comparison_and_download(self):
         with tempfile.TemporaryDirectory() as temp:
             store = Store(temp)

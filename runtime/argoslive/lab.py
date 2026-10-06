@@ -3,19 +3,26 @@ import copy
 import threading
 import time
 
-from . import bench_ability, bench_speed
+from . import bench_ability, bench_speed, doc_trial
 from .ollama import Cancelled
 from .results import Store
+
+
+# Each plan lists (phase, runner attribute, options). Plans are fixed so a later
+# run of the same plan on another model is a matched, comparable measurement.
+PLANS = {'baseline': (('speed', 'speed', {'sizes': ('short',)}), ('ability', 'ability', {'suite': 'quick'})),
+         'documents': (('speed', 'speed', {'sizes': ('short', 'medium')}), ('documents', 'documents', {}))}
 
 
 class Controller:
     budget_seconds = 900
 
     def __init__(self, startup, *, store=None, clock=time.monotonic,
-                 speed=bench_speed.run, ability=bench_ability.run):
+                 speed=bench_speed.run, ability=bench_ability.run, documents=doc_trial.run):
         self.startup = startup
         self.store = store or Store(startup.home / '.local/share/argos-live/results')
-        self.clock, self.speed, self.ability = clock, speed, ability
+        self.clock, self.speed, self.ability, self.documents = clock, speed, ability, documents
+        self.plan = 'baseline'
         self.lock = threading.RLock()
         self.cancel_event = threading.Event()
         self.worker = None
@@ -34,13 +41,15 @@ class Controller:
             active = self.worker is not None and self.worker.is_alive()
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
-                    'model': self.model, 'progress': copy.deepcopy(self.progress),
+                    'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
                     'runs': list(self.runs), 'resume_requested': self.resume_requested,
                     'elapsed_seconds': max(0, (self.finished if self.finished is not None else self.clock()) - self.started)
                     if self.started is not None else None}
 
-    def start(self):
+    def start(self, plan='baseline'):
         # Share startup's reservation: chat cannot restart into a benchmark.
+        if plan not in PLANS:
+            raise ValueError('Unknown model lab plan')
         with self.startup.lock, self.lock:
             if self.closed:
                 raise ValueError('The model lab is closed')
@@ -50,6 +59,7 @@ class Controller:
             self.resume = status['active']
             self.startup.lab_active = True
             self.startup.stop()
+            self.plan = plan
             self.cancel_event.clear()
             self.phase, self.started = 'pausing', self.clock()
             self.finished = None
@@ -58,6 +68,9 @@ class Controller:
             self.worker = threading.Thread(target=self.run, daemon=True, name='argos-model-lab')
             self.worker.start()
             return self.snapshot()
+
+    def start_documents(self):
+        return self.start('documents')
 
     def cancel(self):
         with self.lock:
@@ -117,9 +130,8 @@ class Controller:
         lease = self.startup.home / '.local/state/argos-live'
         with self.startup.backend(target, lease_store=lease, cancel=self.cancel_event.is_set) as client:
             client.timeout = 120
-            for phase, runner, options in (
-                    ('speed', self.speed, {'sizes': ('short',)}),
-                    ('ability', self.ability, {'suite': 'quick'})):
+            for phase, name, options in PLANS[self.plan]:
+                runner = getattr(self, name)
                 if self.cancel_event.is_set():
                     raise Cancelled('Cancelled between tests')
                 self.report(phase)

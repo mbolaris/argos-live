@@ -273,7 +273,7 @@ let comparedRuns = [];
 let labRefreshing = false;
 const labPhases = {idle: 'Ready to measure your model.', pausing: 'Pausing chat and releasing its resources…',
   'model-service': 'Starting the isolated local test service…', speed: 'Measuring model speed…',
-  ability: 'Testing ability with fixed scored tasks…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
+  ability: 'Testing ability with fixed scored tasks…', documents: 'Reading short documents and answering from them…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
   completed: 'Baseline saved. Compare the results below.', cancelled: 'Test cancelled. Any completed results remain saved.',
   failed: 'Test could not finish. Any completed results remain saved. Check model setup before retrying.'};
 async function refreshLab() {
@@ -285,25 +285,29 @@ async function refreshLab() {
     document.getElementById('lab-unavailable').hidden = value.available;
     if (!value.available) return;
     document.getElementById('lab-start').disabled = value.active || downloadActive || selectionActive;
+    document.getElementById('lab-start-documents').disabled = value.active || downloadActive || selectionActive;
     document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
     let message = labPhases[value.phase] || 'Checking test status…';
     if (value.model) message += ' · ' + value.model;
     if (Number.isFinite(value.elapsed_seconds)) message += ` · ${Math.round(value.elapsed_seconds)} s`;
     const progress = value.progress;
     if (value.phase === 'speed' && progress) message += progress.phase === 'warmup' ? ' · Load / warmup sample' : ` · Measured run ${progress.run}/3`;
-    if (value.phase === 'ability' && progress) message += ` · ${progress.completed}/${progress.total} tasks scored`;
+    if ((value.phase === 'ability' || value.phase === 'documents') && progress) message += ` · ${progress.completed}/${progress.total} tasks scored`;
+    if (value.phase === 'completed' && value.plan === 'documents') message = 'Document trial saved. Compare the results below.' + (value.model ? ' · ' + value.model : '');
     if (value.resume_requested) message += ' · Assistant restart requested; see assistant status above.';
     document.getElementById('lab-status').textContent = message;
   } catch (_) {
     document.getElementById('lab-start').disabled = true;
+    document.getElementById('lab-start-documents').disabled = true;
     document.getElementById('lab-cancel').disabled = true;
     document.getElementById('lab-status').textContent = 'Test status unavailable. Refresh to retry.';
   } finally { labRefreshing = false; }
 }
-for (const action of ['start', 'cancel']) document.getElementById('lab-' + action).addEventListener('click', async () => {
+for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
   document.getElementById('lab-start').disabled = true;
+  document.getElementById('lab-start-documents').disabled = true;
   try {
-    const response = await fetch('/api/lab/' + action, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
+    const response = await fetch('/api/lab/' + route, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
     if (!response.ok) throw new Error('Test unavailable');
     await refreshLab(); await refreshStartup();
   } catch (_) { document.getElementById('lab-status').textContent = 'Test action unavailable. Refresh and retry.'; }
@@ -501,6 +505,16 @@ async function refreshBenchmarks() {
         }).join(' · ');
       }
       const version = document.createElement('p'); version.textContent = `${run.suite_version} · ${run.created}`;
+      if (run.qualification) {
+        const q = run.qualification;
+        const verdict = document.createElement('p');
+        verdict.textContent = (q.qualified ? 'Qualified for short documents. ' : q.complete ? 'Not qualified for short documents. ' : 'Incomplete run: not qualified. ') +
+          q.checks.map(c => `${c.label}: ${c.observed} (${c.name === 'format_errors' ? 'at most' : 'needs'} ${c.required}) ${c.met ? 'met' : 'not met'}`).join(' · ') +
+          ` · Context ${run.document_context?.context ?? 'unknown'}` +
+          (run.document_context?.longest_prompt_tokens_tested ? `, longest prompt ${run.document_context.longest_prompt_tokens_tested} tokens` : '') +
+          '. ' + q.scope;
+        article.append(verdict);
+      }
       const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Download JSON';
       button.addEventListener('click', () => download('/api/benchmarks/run/' + run.id, `argos-${run.id}.json`).catch(() => {
         status.textContent = 'Result download unavailable. Refresh and retry.';

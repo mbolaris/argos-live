@@ -38,7 +38,9 @@
         <h3>Quick baseline for your configured model</h3>
         <p>Chat pauses while this local test runs. It measures short-prompt speed three times and runs the quick ability suite. Your prior assistant startup is requested again afterward; chat may take time to return. No model download is required.</p>
         <button id="lab-start" type="button">Pause chat and test this model</button>
+        <button id="lab-start-documents" type="button">Pause chat and run the document trial</button>
         <button id="lab-cancel" type="button" disabled>Cancel test</button>
+        <p>The document trial gives your model eight short original passages. For each it must answer a question, quote the sentence that supports the answer, and say so when the passage does not contain the answer. It also writes a short summary for you to judge. Scoring is automatic and fixed in advance. It runs speed on short and medium prompts first, and qualifies short-document reading only. It says nothing about longer documents or your own files.</p>
         <p id="lab-status" role="status" aria-live="polite">Ready to measure your model.</p>
         <p>Tests use fixed public prompts with tools disabled. Cancellation can take up to a backend request timeout plus cleanup. Each batch has a 15-minute limit.</p>
       </div>

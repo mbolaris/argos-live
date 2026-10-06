@@ -248,6 +248,7 @@ def command_parser():
     benchmarks = bench.add_subparsers(dest='operation', required=True)
     benchmarks.add_parser('speed', help='Measure Ollama speed', add_help=False).set_defaults(delegate='argoslive.bench_speed')
     benchmarks.add_parser('ability', help='Measure original ability probes', add_help=False).set_defaults(delegate='argoslive.bench_ability')
+    benchmarks.add_parser('documents', help='Run the short-document trial', add_help=False).set_defaults(delegate='argoslive.doc_trial')
     benchmarks.add_parser('results', help='Inspect and compare saved runs', add_help=False).set_defaults(delegate='argoslive.results')
     benchmarks.add_parser('all', help='Run speed and ability sequentially', add_help=False).set_defaults(delegate='argoslive.bench_all')
     pack = commands.add_parser('pack', help='Export, review, apply or roll back personality packs')
