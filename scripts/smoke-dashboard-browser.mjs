@@ -236,9 +236,9 @@ try {
       throw new Error('Automatic chat handoff authorization failed');
     }
     chatHandoffs.push('chat');
-    await route.fulfill({json: {url: 'http://127.0.0.1:18789/chat/main'}});
+    await route.fulfill({json: {url: 'http://127.0.0.1:18789/chat#token=fixture'}});
   });
-  await page.route('http://127.0.0.1:18789/chat/main', route =>
+  await page.route('http://127.0.0.1:18789/chat', route =>
     route.fulfill({contentType: 'text/html', body: '<title>Chat fixture</title><h1>Assistant conversation</h1>'}));
   await page.goto(url + '&view=lab#benchmarks-title');
   await page.getByRole('heading', {name: 'Model lab results'}).waitFor();
@@ -248,7 +248,7 @@ try {
     throw new Error('Model lab view was redirected into chat');
   }
   await page.goto(url);
-  await page.waitForURL('http://127.0.0.1:18789/chat/main');
+  await page.waitForURL('http://127.0.0.1:18789/chat#token=fixture');
   await page.getByRole('heading', {name: 'Assistant conversation'}).waitFor();
   if (chatHandoffs.join(',') !== 'chat') throw new Error('Normal startup lost its chat handoff');
   if (errors.length) throw new Error('Managed browser script failed');
