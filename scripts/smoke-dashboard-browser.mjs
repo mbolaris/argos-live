@@ -224,8 +224,35 @@ try {
   }
   await page.setViewportSize({width: 1200, height: 1000});
   await page.screenshot({path: 'work/dashboard-startup.png', fullPage: true});
+  // The menu launches the dashboard in its model-lab view. A ready managed
+  // assistant must not immediately redirect that page into chat; the ordinary
+  // startup view keeps its existing automatic handoff.
+  startup = {...startup, phase: 'ready', active: false, can_start: false, can_stop: false,
+    auto_open_chat: true, model_reply_verified: true};
+  const chatHandoffs = [];
+  await page.route('**/api/startup/chat', async route => {
+    if (route.request().method() !== 'POST' || route.request().postData() ||
+        route.request().headers()['x-argos-token'] !== new URL(url).searchParams.get('token')) {
+      throw new Error('Automatic chat handoff authorization failed');
+    }
+    chatHandoffs.push('chat');
+    await route.fulfill({json: {url: 'http://127.0.0.1:18789/chat/main'}});
+  });
+  await page.route('http://127.0.0.1:18789/chat/main', route =>
+    route.fulfill({contentType: 'text/html', body: '<title>Chat fixture</title><h1>Assistant conversation</h1>'}));
+  await page.goto(url + '&view=lab#benchmarks-title');
+  await page.getByRole('heading', {name: 'Model lab results'}).waitFor();
+  await page.screenshot({path: 'work/dashboard-model-lab.png', fullPage: true});
+  await page.waitForTimeout(3500);
+  if (chatHandoffs.length || new URL(page.url()).searchParams.get('view') !== 'lab') {
+    throw new Error('Model lab view was redirected into chat');
+  }
+  await page.goto(url);
+  await page.waitForURL('http://127.0.0.1:18789/chat/main');
+  await page.getByRole('heading', {name: 'Assistant conversation'}).waitFor();
+  if (chatHandoffs.join(',') !== 'chat') throw new Error('Normal startup lost its chat handoff');
   if (errors.length) throw new Error('Managed browser script failed');
-  console.log('PASS: live/capability cards, disabled unconfigured chat, refresh, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
+  console.log('PASS: live/capability cards, model lab stays open, normal startup hands off to chat, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
 } finally {
   if (browser) await browser.close();
   const stopped = new Promise(resolveStop => server.once('exit', resolveStop));
