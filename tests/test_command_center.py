@@ -19,6 +19,10 @@ from test_doc_trial import DocBackend
 from test_lab import Assistant
 from argoslive import lab as lab_module
 
+HW = {'cpu': {'model': 'Fixture CPU', 'cores': 8, 'threads': 16}, 'gpus': None, 'ram': {'total_bytes': 16 * 2**30}}
+OTHER_HW = {'cpu': {'model': 'Different CPU', 'cores': 8, 'threads': 16}, 'gpus': None, 'ram': {'total_bytes': 16 * 2**30}}
+DIGESTS = {'a:1b': 'a', 'b:4b': 'b', 'fixture:latest': 'a'}
+
 BOOT = {'confirmed': True, 'configured': {'path': '/data/models'}, 'state': 'available',
         'locations': [{'key': 'models', 'reboot': {'state': 'pending'}, 'backing': {'encrypted': False}}]}
 
@@ -51,17 +55,26 @@ class CommandCenterTests(unittest.TestCase):
         self.minute += 1
         return f'2026-10-06T10:{self.minute:02d}:00+00:00'
 
-    def add_documents(self, tag, digest, mode='reference', rate=1000, created=None):
+    def add_documents(self, tag, digest, mode='reference', rate=1000, created=None, docs_hw=HW, speed_hw=HW, edit=None):
         backend = TaggedBackend(tag, digest, rate=rate, mode=mode)
-        speed = bench_speed.run(backend, tag, hardware=lambda: {}, sizes=('short', 'medium'))
-        docs = doc_trial.run(backend, tag, hardware=lambda: {})
+        speed = bench_speed.run(backend, tag, hardware=lambda: copy.deepcopy(speed_hw), sizes=('short', 'medium'))
+        docs = doc_trial.run(backend, tag, hardware=lambda: copy.deepcopy(docs_hw))
+        if edit:
+            edit(docs)
         for run, offset in ((speed, 0), (docs, 1)):
             run['created'] = f'2026-10-0{created}T10:0{offset}:00+00:00'
             self.store.save(run)
         return docs
 
-    def snap(self, view=BOOT, selected='a:1b', **kw):
+    def snap(self, view=BOOT, selected='a:1b', digest=True, **kw):
+        if isinstance(selected, str):
+            selected = {'model': selected, 'digest': (DIGESTS[selected] * 64) if digest is True else digest}
         return cc.snapshot(self.home, self.store, view=view, selected=selected, clock=self.clock, **kw)
+
+    def accept(self, model='a:1b', digest='a', task='a'):
+        journal.record(self.home, 'task:' + task * 32, 'routine', 'Document answer accepted', 'accepted',
+                       {'verdict': 'accepted', 'model': model, 'manifest_digest': 'sha256:' + digest * 64,
+                        'quote_supported': True})
 
     def keys(self):
         return [e['key'] for e in journal.read(self.home)['entries']]
@@ -151,19 +164,115 @@ class CommandCenterTests(unittest.TestCase):
         self.add_documents('a:1b', 'a', created=1)
         self.snap()
         self.assertFalse(any(k.startswith('brain:commissioned') for k in self.keys()))
-        journal.record(self.home, 'task:' + 'a' * 32, 'routine', 'Document answer accepted', 'accepted',
-                       {'verdict': 'accepted', 'model': 'a:1b', 'quote_supported': True})
+        self.accept()
         value = self.snap()
-        self.assertIn('brain:commissioned:a:1b', self.keys())
+        self.assertIn('brain:commissioned:a:1b:' + 'a' * 12, self.keys())
         self.assertEqual(next(s for s in value['systems'] if s['id'] == 'sensors')['state'], 'commissioned')
         self.assertEqual(self.snap()['next_action']['id'], 'reboot')
 
     def test_rejected_task_never_commissions(self):
         self.add_documents('a:1b', 'a', created=1)
         journal.record(self.home, 'task:' + 'b' * 32, 'routine', 'Document answer rejected', 'rejected',
-                       {'verdict': 'rejected', 'model': 'a:1b', 'quote_supported': False})
+                       {'verdict': 'rejected', 'model': 'a:1b', 'manifest_digest': 'sha256:' + 'a' * 64,
+                        'quote_supported': False})
         self.snap()
         self.assertFalse(any(k.startswith('brain:commissioned') for k in self.keys()))
+
+    # ---- comparisons must be supported ----
+    def test_no_improvement_claim_when_hardware_differs(self):
+        self.add_documents('a:1b', 'a', mode='wrong', created=1)
+        self.add_documents('b:4b', 'b', created=2, docs_hw=OTHER_HW)
+        value = self.snap(selected='b:4b')
+        self.assertFalse(any(k.startswith(('improved:', 'regression:', 'leaner:')) for k in self.keys()))
+        self.assertNotIn('under the same settings', json.dumps(value))
+
+    def test_no_improvement_claim_when_context_or_suite_differ(self):
+        for edit in (lambda r: r['settings'].update(context=8192),
+                     lambda r: r.update(suite_version='documents/short/2.0.0')):
+            self.tmp.cleanup()
+            self.setUp()
+            self.add_documents('a:1b', 'a', mode='wrong', created=1)
+            self.add_documents('b:4b', 'b', created=2, edit=edit)
+            self.snap(selected='b:4b')
+            self.assertFalse(any(k.startswith(('improved:', 'regression:', 'leaner:')) for k in self.keys()), edit)
+
+    def test_no_regression_or_restore_when_the_pair_is_not_comparable(self):
+        self.add_documents('a:1b', 'a', created=1)
+        self.add_documents('b:4b', 'b', mode='wrong', created=2, docs_hw=OTHER_HW)
+        value = self.snap(selected='b:4b')
+        self.assertNotEqual(value['next_action']['id'], 'restore')
+        self.assertFalse(any(k.startswith('regression:') for k in self.keys()))
+
+    def test_leaner_build_needs_matched_speed_runs_not_just_matched_documents(self):
+        self.add_documents('a:1b', 'a', rate=100, created=1)
+        self.add_documents('b:4b', 'b', rate=200, created=2, speed_hw=OTHER_HW)
+        self.snap(selected='b:4b')
+        self.assertFalse(any(k.startswith('leaner:') for k in self.keys()))
+
+    def test_runs_without_hardware_evidence_support_no_comparison(self):
+        self.add_documents('a:1b', 'a', mode='wrong', created=1, docs_hw={})
+        self.add_documents('b:4b', 'b', created=2, docs_hw={})
+        self.snap(selected='b:4b')
+        self.assertFalse(any(k.startswith('improved:') for k in self.keys()))
+
+    # ---- identity is the manifest digest, not the tag ----
+    def test_same_tag_with_changed_weights_inherits_nothing(self):
+        self.add_documents('a:1b', 'a', created=1)
+        self.accept()
+        self.snap()
+        self.assertIn('brain:commissioned:a:1b:' + 'a' * 12, self.keys())
+        value = self.snap(selected={'model': 'a:1b', 'digest': 'c' * 64})
+        brain = next(s for s in value['systems'] if s['id'] == 'brain')
+        sensors = next(s for s in value['systems'] if s['id'] == 'sensors')
+        self.assertEqual(brain['state'], 'unknown')
+        self.assertIn('do not carry over', brain['detail'])
+        self.assertEqual(sensors['state'], 'bench-test')
+        self.assertNotEqual(value['next_action']['id'], 'task')
+        self.assertEqual(value['next_action']['id'], 'documents')
+        old = next(e for e in value['journal'] if e['key'].startswith('brain:commissioned'))
+        self.assertIs(old['applies_to_selected'], False, 'history is kept but not offered as evidence for new weights')
+
+    def test_two_versions_of_one_tag_keep_separate_results(self):
+        self.add_documents('a:1b', 'a', created=1)
+        self.add_documents('a:1b', 'c', mode='wrong', created=2)
+        old = self.snap(selected={'model': 'a:1b', 'digest': 'a' * 64})
+        self.assertEqual(next(s for s in old['systems'] if s['id'] == 'brain')['state'], 'qualified')
+        new = self.snap(selected={'model': 'a:1b', 'digest': 'c' * 64})
+        self.assertEqual(next(s for s in new['systems'] if s['id'] == 'brain')['state'], 'bench-test')
+
+    def test_unidentified_selected_model_matches_nothing(self):
+        self.add_documents('a:1b', 'a', created=1)
+        self.accept()
+        value = self.snap(selected={'model': 'a:1b', 'digest': None})
+        self.assertEqual(next(s for s in value['systems'] if s['id'] == 'brain')['state'], 'unknown')
+        self.assertEqual(next(s for s in value['systems'] if s['id'] == 'sensors')['state'], 'bench-test')
+
+    def test_task_accepted_on_other_weights_never_commissions_a_qualified_run(self):
+        self.add_documents('a:1b', 'a', created=1)
+        self.accept(model='a:1b', digest='c')
+        self.snap()
+        self.assertFalse(any(k.startswith('brain:commissioned') for k in self.keys()))
+
+    def test_accepted_task_without_a_digest_is_not_evidence(self):
+        self.add_documents('a:1b', 'a', created=1)
+        journal.record(self.home, 'task:' + 'd' * 32, 'routine', 'Document answer accepted', 'accepted',
+                       {'verdict': 'accepted', 'model': 'a:1b', 'quote_supported': True})
+        self.snap()
+        self.assertFalse(any(k.startswith('brain:commissioned') for k in self.keys()))
+
+    def test_selected_identity_reads_the_manifest_digest_from_the_store(self):
+        import hashlib
+        models = self.home / 'models'
+        manifest = models / 'manifests/registry.ollama.ai/library/qwen3/0.6b'
+        manifest.parent.mkdir(parents=True)
+        manifest.write_bytes(b'{"schemaVersion": 2, "layers": []}')
+        (self.home / '.config/argos-live/state.json').write_text(json.dumps({'storage': str(models), 'model': 'qwen3:0.6b'}))
+        identity = cc.selected_identity(self.home)
+        self.assertEqual(identity, {'model': 'qwen3:0.6b', 'digest': hashlib.sha256(manifest.read_bytes()).hexdigest()})
+        manifest.write_bytes(b'{"schemaVersion": 2, "layers": [], "x": 1}')
+        self.assertNotEqual(cc.selected_identity(self.home)['digest'], identity['digest'])
+        manifest.unlink()
+        self.assertEqual(cc.selected_identity(self.home)['digest'], None)
 
     def test_journal_rejects_bad_entries_and_is_bounded(self):
         for args in (('BAD KEY', 'routine', 't', 'd'), ('k', 'epic', 't', 'd'), ('k', 'routine', '', 'd'),
@@ -220,6 +329,7 @@ class TaskTests(unittest.TestCase):
         task = value['task']
         self.assertEqual((value['phase'], task['outcome'], task['answer']), ('completed', 'answered', '35 minutes'))
         self.assertTrue(task['quote_supported'])
+        self.assertEqual(task['manifest_digest'], 'sha256:' + 'a' * 64)
         self.assertEqual(self.store.list()['runs'], [], 'a pasted-document answer is not a benchmark result')
         self.assertEqual(self.assistant.calls[0], 'pause')
         self.assertEqual(self.assistant.calls[-1], 'resume')
@@ -253,6 +363,13 @@ class TaskTests(unittest.TestCase):
             self.assertNotIn(private, raw)
         with self.assertRaises(ValueError):
             self.command.verdict('great')
+
+    def test_accepting_needs_an_identified_model(self):
+        self.backend.list = lambda: {'models': []}
+        self.run_task()
+        with self.assertRaisesRegex(ValueError, 'could not be identified'):
+            self.command.verdict('accepted')
+        self.assertTrue(self.command.verdict('rejected')['recorded'])
 
     def test_no_verdict_without_an_answer(self):
         with self.assertRaises(ValueError):

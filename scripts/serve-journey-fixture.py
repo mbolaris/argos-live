@@ -70,7 +70,9 @@ def main():
     view = partial(storage_view.snapshot, topology=topology, boot='11111111-1111-4111-8111-111111111111')
     storage_controller = storage_view.Controller(assistant, home=home, view=view,
                                                  chooser=partial(storage_view.choose, topology=topology))
-    command = command_center.Controller(home, store, lab=lab, storage=storage_controller)
+    # The fixture store holds no real manifest, so its identity is supplied; the backend reports the same digest.
+    command = command_center.Controller(home, store, lab=lab, storage=storage_controller,
+                                        identity=lambda _: {'model': 'fixture:latest', 'digest': 'a' * 64})
     with DashboardServer(port=0, lab=lab, storage=storage_controller, command=command,
                          benchmarks=BenchmarkView(store)) as server:
         print(server.url, flush=True)

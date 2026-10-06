@@ -221,7 +221,12 @@ def ask(client, model, document, question, *, cancel=None):
                             think=False, keep_alive='5m', cancel=cancel)
     final = reply.get('final') if isinstance(reply.get('final'), dict) else {}
     used = final.get('prompt_eval_count')
-    result = {'model': model, 'context': CONTEXT, 'prompt_tokens': used if isinstance(used, int) else None,
+    try:
+        listed = client.list().get('models', [])
+    except (OllamaError, OSError, ValueError, AttributeError):
+        listed = []
+    identity = next((m for m in listed if isinstance(m, dict) and model in (m.get('name'), m.get('model'))), None)
+    result = {'model': model, 'context': CONTEXT, 'manifest_digest': identity.get('digest') if identity else None, 'prompt_tokens': used if isinstance(used, int) else None,
               'elapsed_seconds': reply.get('elapsed_seconds'),
               'time_to_first_token_seconds': reply.get('time_to_first_token_seconds')}
     if isinstance(used, int) and used >= CONTEXT - 32:

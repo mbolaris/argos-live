@@ -741,7 +741,8 @@ async function refreshCommand() {
     if (!value.journal.length) { const empty = document.createElement('li'); empty.textContent = 'No milestones yet. Every robot starts on the bench.'; journalList.append(empty); }
     for (const entry of value.journal) {
       const item = document.createElement('li');
-      item.textContent = `${tierText[entry.tier]} · ${entry.title}. ${entry.detail} (${entry.at.slice(0, 10)})`;
+      item.textContent = `${tierText[entry.tier]} · ${entry.title}. ${entry.detail} (${entry.at.slice(0, 10)})` +
+        (entry.applies_to_selected === false ? ' Earlier model files; not evidence for the files selected now.' : '');
       journalList.append(item);
     }
     const moment = document.getElementById('cc-moment');

@@ -5,9 +5,10 @@ reboot markers, owner verdicts). Unknown stays unknown. Tiers follow the plan:
 routine events get a plain line, qualified results name their scope, and a
 commissioned moment needs demonstrated use. Each moment is journaled once.
 """
+import hashlib
 from pathlib import Path
 
-from . import journal, results, storage_view
+from . import journal, model_verify, results, starter, storage_view
 
 SCHEMA = 'argos-command-center/1'
 LOOK_BACK = 40
@@ -32,8 +33,61 @@ def load_runs(store):
     return runs
 
 
+def digest_of(value):
+    """Bare hex digest, or None when the identity is unknown."""
+    if not isinstance(value, str):
+        return None
+    value = value[7:] if value.startswith('sha256:') else value
+    return value if len(value) == 64 and all(c in '0123456789abcdef' for c in value) else None
+
+
 def same_model(a, b):
-    return a.get('model') == b.get('model') and a.get('manifest_digest') == b.get('manifest_digest')
+    """Same tag AND same manifest digest. A tag alone is never an identity."""
+    da, db = digest_of(a.get('manifest_digest')), digest_of(b.get('manifest_digest'))
+    return a.get('model') == b.get('model') and da is not None and da == db
+
+
+def is_selected(run, selected):
+    """Does this run describe the weights currently selected? Unknown identity never matches."""
+    digest = digest_of((selected or {}).get('digest'))
+    return (digest is not None and run.get('model') == (selected or {}).get('model')
+            and digest_of(run.get('manifest_digest')) == digest)
+
+
+def selected_identity(home):
+    """Tag plus the manifest digest of the selected model, read cheaply from its store."""
+    try:
+        state = storage_view.read_state(Path(home))
+        tag = state.get('model')
+        if not isinstance(tag, str):
+            return {'model': None, 'digest': None}
+    except (OSError, ValueError, TypeError):
+        return {'model': None, 'digest': None}
+    try:
+        root = starter.ROOT if state.get('model_source') == 'bundled' else Path(state['storage'])
+        digest = hashlib.sha256(model_verify.read_manifest(root, tag)).hexdigest()
+    except (OSError, ValueError, TypeError, KeyError):
+        digest = None
+    return {'model': tag, 'digest': digest}
+
+
+def same_hardware(a, b):
+    """Hardware must match for a speed or accuracy comparison to be a claim about the model."""
+    def key(run):
+        h = run.get('hardware')
+        if not isinstance(h, dict) or not h:
+            return None
+        return (repr(h.get('cpu')), repr(h.get('gpus')), (h.get('ram') or {}).get('total_bytes'))
+    return key(a) is not None and key(a) == key(b)
+
+
+def supported_pair(newer, older):
+    """The existing comparison validator plus matching hardware. Anything less is not a comparison."""
+    try:
+        results.compare([newer, older])
+    except ValueError:
+        return False
+    return same_hardware(newer, older)
 
 
 def document_runs(runs):
@@ -69,7 +123,8 @@ def facts(home, store, view):
         if not any(same_model(run, kept) for kept in models):
             models.append(run)
     entries = journal.read(home)['entries']
-    accepted = [e for e in entries if e['key'].startswith('task:') and e['evidence'].get('verdict') == 'accepted']
+    accepted = [e for e in entries if e['key'].startswith('task:') and e['evidence'].get('verdict') == 'accepted'
+                and digest_of(e['evidence'].get('manifest_digest')) is not None]
     return {'runs': runs, 'doc_models': models, 'baseline': [r for r in runs if r['kind'] in ('speed', 'ability')
                                                              and r.get('suite') != 'documents-short'],
             'accepted_tasks': accepted, 'storage': view}
@@ -101,7 +156,8 @@ def record_moments(home, f, clock=stamp):
         q = run['qualification']
         new.append(journal.record(home, 'documents:trial:' + run['id'], 'routine', 'Document trial completed',
                                   f"{run['model']}: trial finished at context {run['settings'].get('context')}.",
-                                  {'run': run['id'], 'model': run['model']}, clock=clock))
+                                  {'run': run['id'], 'model': run['model'], 'manifest_digest': run.get('manifest_digest')},
+                                  clock=clock))
         if q['qualified']:
             correct = sum(c['observed'] for c in q['checks'] if c['name'] != 'format_errors')
             needed = sum(c['required'] for c in q['checks'] if c['name'] != 'format_errors')
@@ -110,9 +166,12 @@ def record_moments(home, f, clock=stamp):
                                       f"{run['model']} met the fixed criteria for short documents ({correct} correct against "
                                       f"{needed} needed) at context {run['settings'].get('context')}. "
                                       'This says nothing about longer documents or other tasks.',
-                                      {'run': run['id'], 'model': run['model'], 'criteria_version': q['criteria_version']},
+                                      {'run': run['id'], 'model': run['model'], 'manifest_digest': run.get('manifest_digest'),
+                                       'criteria_version': q['criteria_version']},
                                       clock=clock))
     for newer, older in zip(models, models[1:]):
+        if not supported_pair(newer, older):
+            continue  # different suite, context, settings or hardware: no comparative claim
         key = newer['id'][:12] + ':' + older['id'][:12]
         nq, oq = newer['qualification'], older['qualification']
         if nq['qualified'] and not oq['qualified']:
@@ -123,9 +182,12 @@ def record_moments(home, f, clock=stamp):
                                       f"{older['model']}, under the same settings. The previous selection stays available to restore.",
                                       {'newer': newer['id'], 'older': older['id']}, clock=clock))
         elif nq['qualified'] and oq['qualified']:
-            a, b = generation_speed(speed_for(f['runs'], newer) or {'prompts': []}), \
-                generation_speed(speed_for(f['runs'], older) or {'prompts': []})
-            if a is not None and b is not None and b > 0 and a >= b * GAIN:
+            fast, slow = speed_for(f['runs'], newer), speed_for(f['runs'], older)
+            a = generation_speed(fast) if fast else None
+            b = generation_speed(slow) if slow else None
+            # The speed claim needs its own matched pair of speed runs, not just matched document runs.
+            if (a is not None and b is not None and b > 0 and a >= b * GAIN
+                    and supported_pair(fast, slow)):
                 new.append(journal.record(home, 'leaner:' + key, 'qualified', 'Leaner build',
                                           f"{newer['model']} answers faster than {older['model']} ({a:.1f} against {b:.1f} "
                                           'tokens per second on the short prompt) with both meeting the same document criteria.',
@@ -136,14 +198,18 @@ def record_moments(home, f, clock=stamp):
                                       f"{newer['model']} missed: {', '.join(missed)}. {older['model']} met them. "
                                       'Results are saved for reference; restoring the previous selection is available.',
                                       {'newer': newer['id'], 'older': older['id']}, clock=clock))
-    if f['accepted_tasks'] and any(m['qualification']['qualified'] for m in models):
-        first = f['accepted_tasks'][0]
-        model = first['evidence'].get('model')
-        if any(m['model'] == model and m['qualification']['qualified'] for m in models):
-            new.append(journal.record(home, 'brain:commissioned:' + model, 'commissioned', 'Brain commissioned for documents',
+    for task in f['accepted_tasks']:
+        match = next((m for m in models if m['qualification']['qualified'] and m['model'] == task['evidence'].get('model')
+                      and digest_of(m.get('manifest_digest')) == digest_of(task['evidence'].get('manifest_digest'))), None)
+        if match:
+            model, digest = match['model'], digest_of(match['manifest_digest'])
+            new.append(journal.record(home, 'brain:commissioned:' + model + ':' + digest[:12], 'commissioned',
+                                      'Brain commissioned for documents',
                                       f"{model} qualified on the short-document trial and you accepted its answer to your own "
-                                      'document. Use it now for the next one.',
-                                      {'model': model, 'task': first['key']}, clock=clock))
+                                      'document, both with the same model files. Use it now for the next one.',
+                                      {'model': model, 'manifest_digest': match['manifest_digest'], 'task': task['key']},
+                                      clock=clock))
+            break
     return [e for e in new if e]
 
 
@@ -152,14 +218,20 @@ def systems(home, f, selected):
     models_row = next((l for l in view.get('locations', []) if l.get('key') == 'models'), {})
     reboot = models_row.get('reboot', {}).get('state')
     docs = f['doc_models']
-    current = next((m for m in docs if m['model'] == selected), None)
+    current = next((m for m in docs if is_selected(m, selected)), None)
+    accepted = [e for e in f['accepted_tasks'] if digest_of(e['evidence'].get('manifest_digest')) == digest_of((selected or {}).get('digest'))
+                and e['evidence'].get('model') == (selected or {}).get('model')]
     brain = ('unknown', 'No trial results yet.')
+    if not current and docs and digest_of((selected or {}).get('digest')) is None:
+        brain = ('unknown', 'The selected model files could not be identified, so earlier results are not applied.')
+    elif not current and docs:
+        brain = ('unknown', 'These model files have no trial result yet. Results for a different version do not carry over.')
     if current:
         qualified = current['qualification']['qualified']
         brain = ('qualified' if qualified else 'bench-test',
                  ('Qualified for short documents.' if qualified else 'Short-document criteria not met.') +
                  ' Other abilities are untested.')
-    elif f['baseline']:
+    elif f['baseline'] and not docs:
         brain = ('bench-test', 'Baseline saved. Documents are untested.')
     state = view.get('state')
     memory = ('unknown', 'Storage not checked.')
@@ -177,8 +249,10 @@ def systems(home, f, selected):
         core = ('bench-test', 'Measured ' + (f'{rate:.1f} output tokens per second.' if rate else 'a speed run.') +
                 ' GPU use is not yet proven.')
     sensors = ('unknown', 'No document read through the model yet.')
-    if f['accepted_tasks']:
+    if accepted:
         sensors = ('commissioned', 'You accepted an answer from your own pasted document.')
+    elif f['accepted_tasks']:
+        sensors = ('bench-test', 'An earlier model version was accepted on your own document. These model files need a new check.')
     elif docs:
         sensors = ('bench-test', 'Short passages tested; no document of your own yet.')
     return [{'id': 'brain', 'label': 'Brain', 'state': brain[0], 'detail': brain[1]},
@@ -194,7 +268,9 @@ def systems(home, f, selected):
 def next_action(f, selected, active):
     view = f['storage'] or {}
     docs = f['doc_models']
-    current = next((m for m in docs if m['model'] == selected), None)
+    current = next((m for m in docs if is_selected(m, selected)), None)
+    accepted = [e for e in f['accepted_tasks'] if digest_of(e['evidence'].get('manifest_digest')) == digest_of((selected or {}).get('digest'))
+                and e['evidence'].get('model') == (selected or {}).get('model')]
     if active:
         return {'id': 'wait', 'title': 'A task is running', 'reason': 'Chat resumes when it finishes.', 'action': None}
     if view.get('state') == 'needs-attention':
@@ -215,7 +291,7 @@ def next_action(f, selected, active):
                 'action': 'documents'}
     newer, older = (docs[0], docs[1]) if len(docs) > 1 else (None, None)
     if newer and older and not newer['qualification']['qualified'] and older['qualification']['qualified'] \
-            and newer['model'] == selected:
+            and is_selected(newer, selected) and supported_pair(newer, older):
         return {'id': 'restore', 'title': 'Restore the previous model',
                 'reason': f"{older['model']} met the document criteria and {newer['model']} did not.",
                 'action': 'restore', 'model': older['model']}
@@ -223,7 +299,7 @@ def next_action(f, selected, active):
         return {'id': 'models', 'title': 'Try a larger model',
                 'reason': 'The current model missed the short-document criteria. Compare a candidate under the same trial.',
                 'action': 'models'}
-    if not f['accepted_tasks']:
+    if not accepted:
         return {'id': 'task', 'title': 'Try a document of your own',
                 'reason': 'The trial used passages we wrote. Paste something real and judge the answer yourself.',
                 'action': 'task'}
@@ -245,7 +321,11 @@ def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp
     moment = None
     if unseen and not data['quiet']:
         moment = max(unseen, key=lambda e: (rank[e['tier']], e['at']))
-    return {'schema': SCHEMA, 'name': 'Argos', 'model': selected, 'quiet': data['quiet'],
+    for entry in entries:
+        digest = digest_of(entry['evidence'].get('manifest_digest')) if isinstance(entry.get('evidence'), dict) else None
+        entry['applies_to_selected'] = None if digest is None else is_selected(
+            {'model': entry['evidence'].get('model'), 'manifest_digest': digest}, selected)
+    return {'schema': SCHEMA, 'name': 'Argos', 'model': (selected or {}).get('model'), 'quiet': data['quiet'],
             'next_action': next_action(f, selected, active), 'systems': systems(home, f, selected),
             'journal': entries[:30], 'moment': moment, 'unseen': len(unseen),
             'scope': 'Systems show only what has been demonstrated. Unknown means not yet tested.'}
@@ -254,15 +334,12 @@ def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp
 class Controller:
     """Server-facing wrapper: snapshot plus the three owner actions."""
 
-    def __init__(self, home, store, *, lab=None, storage=None, startup=None):
+    def __init__(self, home, store, *, lab=None, storage=None, startup=None, identity=selected_identity):
         self.home, self.store, self.lab, self.storage, self.startup = Path(home), store, lab, storage, startup
+        self.identity = identity
 
     def selected_model(self):
-        try:
-            value = storage_view.read_state(self.home).get('model')
-        except (OSError, ValueError, TypeError):
-            return None
-        return value if isinstance(value, str) else None
+        return self.identity(self.home)
 
     def snapshot(self):
         try:
@@ -285,8 +362,11 @@ class Controller:
         task = self.lab.snapshot().get('task') if self.lab else None
         if not task or task.get('outcome') not in ('answered', 'not_stated'):
             raise ValueError('There is no answer to judge')
+        if value == 'accepted' and digest_of(task.get('manifest_digest')) is None:
+            raise ValueError('The model files could not be identified, so this answer cannot count as evidence')
         entry = journal.record(self.home, verdict_key(task['task_id']), 'routine',
                                'Document answer ' + value,
                                f"You {value} {task['model']}'s answer to a document of your own. The document and answer are not saved.",
-                               {'verdict': value, 'model': task['model'], 'quote_supported': task['quote_supported']})
+                               {'verdict': value, 'model': task['model'], 'manifest_digest': task.get('manifest_digest'),
+                                'quote_supported': task['quote_supported']})
         return {'recorded': entry is not None, 'verdict': value}

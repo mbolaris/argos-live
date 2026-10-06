@@ -100,6 +100,78 @@ class GateTests(Base):
         self.assertEqual(self.state_file().read_bytes(), before)
         self.assertFalse((self.data / 'ArgosLive').exists(), 'directories created for the failed choice are removed')
 
+    def target(self):
+        rows = sv.candidates(*self.topology(), probe=self.probe)
+        return next(r for r in rows if r['path'].startswith(str(self.data)))
+
+    def choose(self):
+        row = self.target()
+        return row, lambda: sv.choose(self.home, row['id'], topology=self.topology, probe=self.probe)
+
+    def test_failed_state_write_removes_only_what_the_choice_created(self):
+        self.write_state()
+        before = self.state_file().read_bytes()
+        row, run = self.choose()
+        with mock.patch.object(sv, 'write_json', side_effect=OSError(errno.EIO, 'io error')):
+            with self.assertRaises(OSError):
+                run()
+        self.assertEqual(self.state_file().read_bytes(), before)
+        self.assertFalse((self.data / 'ArgosLive').exists(), 'no unusable destination is left behind')
+
+    def test_preexisting_empty_destination_survives_a_failed_choice_without_our_marker(self):
+        self.write_state()
+        row, run = self.choose()
+        Path(row['path']).mkdir(parents=True)
+        with mock.patch.object(sv, 'write_json', side_effect=OSError(errno.EIO, 'io error')):
+            with self.assertRaises(OSError):
+                run()
+        self.assertTrue(Path(row['path']).is_dir())
+        self.assertEqual(list(Path(row['path']).iterdir()), [], 'our marker is gone, nothing else was touched')
+
+    def test_a_marker_someone_else_created_is_never_deleted(self):
+        self.write_state()
+        row, run = self.choose()
+        def racing(path, raw):
+            Path(path).write_text('belongs to someone else')
+            raise FileExistsError(errno.EEXIST, 'exists', str(path))
+        with mock.patch.object(sv.reboot_evidence, 'write_exclusive', side_effect=racing):
+            with self.assertRaises(FileExistsError):
+                run()
+        self.assertEqual((Path(row['path']) / '.argos-storage-id').read_text(), 'belongs to someone else')
+
+    def test_state_replaced_then_failing_is_restored_before_cleanup(self):
+        state = self.write_state()
+        before = self.state_file().read_bytes()
+        row, run = self.choose()
+        real = sv.write_json
+        calls = []
+        def replace_then_fail(path, value):
+            calls.append(value.get('storage'))
+            real(path, value)
+            if len(calls) == 1:
+                raise OSError(errno.EIO, 'directory sync failed')
+        with mock.patch.object(sv, 'write_json', side_effect=replace_then_fail):
+            with self.assertRaises(OSError):
+                run()
+        self.assertEqual(json.loads(self.state_file().read_text())['storage'], state['storage'])
+        self.assertFalse((self.data / 'ArgosLive').exists())
+
+    def test_destination_in_use_is_kept_when_the_old_state_cannot_be_restored(self):
+        self.write_state()
+        row, run = self.choose()
+        real = sv.write_json
+        calls = []
+        def replace_then_fail_always(path, value):
+            calls.append(1)
+            if len(calls) == 1:
+                real(path, value)
+            raise OSError(errno.EIO, 'io error')
+        with mock.patch.object(sv, 'write_json', side_effect=replace_then_fail_always):
+            with self.assertRaises(OSError):
+                run()
+        self.assertEqual(json.loads(self.state_file().read_text())['storage'], row['path'])
+        self.assertTrue((Path(row['path']) / '.argos-storage-id').is_file(), 'a destination the configuration uses is not deleted')
+
     def test_drive_without_room_is_never_offered(self):
         tiny = lambda path: {'total_bytes': 2 * GIB, 'free_bytes': GIB // 2}
         self.assertEqual([r for r in sv.candidates(*self.topology(), probe=tiny) if r['kind'] == 'disk'], [])

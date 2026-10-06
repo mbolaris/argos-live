@@ -303,10 +303,12 @@ def choose(home, candidate, *, topology=topology, probe=storage.capacity, check=
         raise ValueError('That location already contains data; Argos will not adopt it')
     created = []
     missing = []
+    marker_created = False
     probe_path = target
     while not probe_path.exists():
         missing.append(probe_path)
         probe_path = probe_path.parent
+    updated = identity = None
     try:
         for directory in reversed(missing):
             directory.mkdir(mode=0o700)
@@ -315,24 +317,47 @@ def choose(home, candidate, *, topology=topology, probe=storage.capacity, check=
         receipt = check(target)
         identity = secrets.token_hex(24)
         reboot_evidence.write_exclusive(target / '.argos-storage-id', (identity + '\n').encode())
+        marker_created = True
+        updated = dict(configured)
+        updated.update(storage=str(target), storage_id=identity, storage_temporary=row['kind'] == 'ram',
+                       storage_encrypted=row['encrypted'])
+        if row.get('volume_uuid'):
+            updated['storage_uuid'] = row['volume_uuid']
+        else:
+            updated.pop('storage_uuid', None)
+        updated['storage_confirmed'] = {'path': str(target), 'storage_id': identity, 'at': clock(),
+                                        'write_check': receipt}
+        write_json(state_path(home), updated)
     except BaseException:
-        (target / '.argos-storage-id').unlink(missing_ok=True)
-        for directory in reversed(created):
+        # Undo only what this operation made: its own marker, then directories it created and
+        # that are now empty. A pre-existing empty target, or anything another process put
+        # there, is left alone.
+        keep = False
+        if updated is not None:
+            # The state write may have replaced the file before failing (for example while
+            # syncing the directory). Never delete a destination the configuration points at
+            # unless the previous configuration is back in place.
             try:
-                directory.rmdir()
-            except OSError:
-                pass
+                keep = read_state(home).get('storage_id') == identity
+            except FileNotFoundError:
+                keep = False
+            except (OSError, ValueError, TypeError):
+                keep = True
+            if keep:
+                try:
+                    write_json(state_path(home), configured)
+                    keep = False
+                except Exception:
+                    pass
+        if not keep:
+            if marker_created:
+                (target / '.argos-storage-id').unlink(missing_ok=True)
+            for directory in reversed(created):
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
         raise
-    updated = dict(configured)
-    updated.update(storage=str(target), storage_id=identity, storage_temporary=row['kind'] == 'ram',
-                   storage_encrypted=row['encrypted'])
-    if row.get('volume_uuid'):
-        updated['storage_uuid'] = row['volume_uuid']
-    else:
-        updated.pop('storage_uuid', None)
-    updated['storage_confirmed'] = {'path': str(target), 'storage_id': identity, 'at': clock(),
-                                    'write_check': receipt}
-    write_json(state_path(home), updated)
     return {'path': str(target), 'changed': True, 'write_check': receipt,
             'previous': str(current)}
 
