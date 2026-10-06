@@ -585,3 +585,7 @@ observations; repeated benchmarks alone are not evidence of user value.
 
 The first design proposal should make the baseline-to-upgrade journey visible
 before investing in elaborate animation, artwork or competitive features.
+
+## Capability meter visualization
+
+The owner proposes an illuminated amusement-machine-style AI strength tester with a ten-tier robot reference ladder. See [Capability Meter](CAPABILITY-METER.md) for the visual direction, complete reference list, evidence requirements and follow-up delivery scope. Verified task qualifications remain distinct from fictional AGI/ASI aspirations; the current implementation milestone remains unchanged.
