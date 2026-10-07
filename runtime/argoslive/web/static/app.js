@@ -318,6 +318,7 @@ async function refreshLab() {
 for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
   document.getElementById('lab-start').disabled = true;
   document.getElementById('lab-start-documents').disabled = true;
+  document.getElementById('lab-status').textContent = route === 'cancel' ? 'Requesting cancellation…' : 'Starting trial; pausing chat…';
   try {
     const response = await fetch('/api/lab/' + route, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
     if (!response.ok) throw new Error('Test unavailable');
@@ -665,7 +666,7 @@ async function refreshStorage() {
     }
     if (!view.candidates.length) card(choices, 'No eligible location', 'No writable drive has enough free space. Chat and the bundled starter still work offline.');
     if (view.change_blocked_reason) document.getElementById('storage-choice-help').textContent = view.change_blocked_reason;
-    document.getElementById('reboot-check').disabled = view.state !== 'available' || !view.boot_id_available;
+    document.getElementById('reboot-check').disabled = view.state !== 'available' || !view.boot_id_available || view.configured?.temporary === true;
   } catch (_) {
     status.textContent = 'Storage details unavailable. Refresh to retry.';
   } finally { storageRefreshing = false; }
@@ -740,6 +741,22 @@ async function refreshCommand() {
     section.hidden = value.available === false;
     if (value.available === false) return;
     document.getElementById('cc-name').textContent = value.name + (value.model ? ' · ' + value.model : '');
+    const path = value.build_path;
+    const pathBox = document.getElementById('cc-build-path'); pathBox.hidden = !path;
+    if (path) {
+      document.getElementById('cc-build-summary').textContent = `Your build path · ${path.completed} of ${path.steps.length} checks recorded`;
+      document.getElementById('cc-build-scope').textContent = path.scope;
+      const steps = document.getElementById('cc-build-steps'); steps.replaceChildren();
+      for (const step of path.steps) {
+        const item = document.createElement('li'); item.dataset.state = step.state;
+        if (step.state === 'current') item.setAttribute('aria-current', 'step');
+        const title = document.createElement('strong'); title.textContent = step.title;
+        const state = document.createElement('span');
+        state.textContent = {complete: 'Recorded', current: 'Next', attention: 'Needs work', untested: 'Not yet tested'}[step.state] || 'Unknown';
+        const detail = document.createElement('p'); detail.textContent = step.detail;
+        item.append(title, state, detail); steps.append(item);
+      }
+    }
     const next = value.next_action;
     commandAction = next;
     document.getElementById('cc-next-title').textContent = next.title;

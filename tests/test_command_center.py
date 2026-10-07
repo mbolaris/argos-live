@@ -79,9 +79,12 @@ class CommandCenterTests(unittest.TestCase):
     def keys(self):
         return [e['key'] for e in journal.read(self.home)['entries']]
 
-    def test_nothing_proven_means_unknown_and_storage_first(self):
+    def test_first_trial_does_not_require_a_new_storage_choice(self):
         value = self.snap(view={'state': 'not-configured', 'confirmed': False, 'locations': []})
-        self.assertEqual(value['next_action']['id'], 'storage')
+        self.assertEqual(value['next_action']['id'], 'baseline')
+        self.assertIn('No download or new storage choice needed', value['next_action']['reason'])
+        self.assertEqual(value['build_path']['completed'], 0)
+        self.assertEqual(value['build_path']['steps'][0]['state'], 'current')
         self.assertEqual({s['state'] for s in value['systems']}, {'unknown'})
         self.assertEqual(value['journal'], [])
         self.assertIsNone(value['moment'])
@@ -116,6 +119,31 @@ class CommandCenterTests(unittest.TestCase):
     def test_documents_are_the_next_step_after_a_baseline(self):
         self.store.save(bench_speed.run(Backend(), 'fixture:latest', hardware=lambda: {}))
         self.assertEqual(self.snap(selected='fixture:latest')['next_action']['id'], 'documents')
+
+    def test_build_path_requires_current_task_evidence_and_matched_candidate(self):
+        self.add_documents('a:1b', 'a', created=1)
+        self.accept()
+        value = self.snap()
+        self.assertEqual(value['build_path']['completed'], 3)
+        self.add_documents('b:4b', 'b', created=2, docs_hw=OTHER_HW)
+        self.assertEqual(self.snap()['build_path']['completed'], 3)
+        self.add_documents('b:4b', 'b', created=3)
+        self.assertEqual(self.snap()['build_path']['completed'], 4)
+        self.assertEqual(self.snap(digest=False)['build_path']['completed'], 0)
+
+    def test_missed_criteria_require_storage_only_when_a_candidate_is_needed(self):
+        self.add_documents('a:1b', 'a', mode='wrong', created=1)
+        value = self.snap(view={'state': 'available', 'confirmed': False, 'locations': []})
+        self.assertEqual(value['next_action']['id'], 'storage')
+        reading = next(s for s in value['build_path']['steps'] if s['id'] == 'documents')
+        self.assertEqual(reading['state'], 'attention')
+        self.assertEqual(value['build_path']['completed'], 1)
+
+    def test_temporary_model_storage_does_not_recommend_a_retention_test(self):
+        self.add_documents('a:1b', 'a', created=1)
+        self.accept()
+        view = {**BOOT, 'configured': {'path': '/ram/models', 'temporary': True}}
+        self.assertEqual(self.snap(view=view)['next_action']['id'], 'capabilities')
 
     def test_qualified_trial_is_journaled_once_and_leads_to_a_real_task(self):
         self.add_documents('a:1b', 'a', created=1)
@@ -249,7 +277,8 @@ class CommandCenterTests(unittest.TestCase):
         self.assertIn('do not carry over', brain['detail'])
         self.assertEqual(sensors['state'], 'bench-test')
         self.assertNotEqual(value['next_action']['id'], 'task')
-        self.assertEqual(value['next_action']['id'], 'documents')
+        self.assertEqual(value['next_action']['id'], 'baseline')
+        self.assertEqual(value['build_path']['completed'], 0)
         old = next(e for e in value['journal'] if e['key'].startswith('brain:commissioned'))
         self.assertIs(old['applies_to_selected'], False, 'history is kept but not offered as evidence for new weights')
 

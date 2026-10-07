@@ -54,6 +54,14 @@ dialog::backdrop { background: rgb(15 35 50 / 55%); }
 .cc-readings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
 .cc-readings .card { padding: 14px; background: #e4f0f5; border-color: #b6d2df; }
 .cc-readings h3 { font-size: 14px; margin-bottom: 8px; }
+.cc-build-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0; list-style-position: inside; }
+.cc-build-steps li { padding: 12px; background: #fff; border: 1px solid #cbdde6; border-radius: 8px; font-size: 13px; }
+.cc-build-steps span { display: block; color: #41677d; margin-top: 6px; }
+.cc-build-steps p, #cc-build-scope { font-size: 13px; }
+.cc-build-steps [data-state="complete"] { border-color: #1681aa; background: #e4f0f5; }
+.cc-build-steps [data-state="current"] { border-left: 4px solid #1681aa; }
+.cc-build-steps [data-state="attention"] { border-color: #9a5b00; }
+@media (max-width: 640px) { .cc-build-steps { grid-template-columns: 1fr 1fr; } }
 .cc-readings p { margin-top: 0; }
 @media (max-width: 640px) { .cc-readings { grid-template-columns: 1fr; } }
 .cc-evidence summary { color: #41677d; font-size: 15px; }
