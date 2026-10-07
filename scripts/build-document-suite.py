@@ -161,8 +161,7 @@ def build():
 def main():
     data = build()
     doc_trial.validate(data)
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(json.dumps(data, indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
+    OUTPUT.write_bytes((json.dumps(data, indent=1, ensure_ascii=False) + '\n').encode('utf-8'))
     print(f'Wrote {len(data["items"])} items to {OUTPUT}')
 
 

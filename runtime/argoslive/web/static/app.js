@@ -458,7 +458,15 @@ function applyArenaEvent(ev) {
       if (pl) pl.textContent = `${ev.completed} / ${ev.total} challenges`;
     }
   } else if (ev.type === 'answer-delta') {
-    arenaCurrentAnswer += (ev.delta || '');
+    const delta = ev.delta || '';
+    const MAX_BROWSER_STREAM = 8192;
+    if (arenaCurrentAnswer.length < MAX_BROWSER_STREAM) {
+      const remaining = MAX_BROWSER_STREAM - arenaCurrentAnswer.length;
+      arenaCurrentAnswer += delta.slice(0, remaining);
+      if (arenaCurrentAnswer.length >= MAX_BROWSER_STREAM && !arenaCurrentAnswer.endsWith('\n[truncated]')) {
+        arenaCurrentAnswer += '\n[truncated]';
+      }
+    }
     const stream = document.getElementById('arena-current-stream');
     if (stream) {
       stream.textContent = arenaCurrentAnswer;
@@ -467,9 +475,16 @@ function applyArenaEvent(ev) {
   } else if (ev.type === 'item-scored') {
     if (ev.receipt) {
       arenaReceipts.push(ev.receipt);
+      const MAX_BROWSER_RECEIPTS = 100;
+      if (arenaReceipts.length > MAX_BROWSER_RECEIPTS) {
+        arenaReceipts.shift();
+      }
       const list = document.getElementById('arena-receipts-list');
       if (list) {
         list.appendChild(renderReceiptItem(ev.receipt));
+        while (list.children.length > MAX_BROWSER_RECEIPTS) {
+          list.removeChild(list.firstChild);
+        }
         list.scrollTop = list.scrollHeight;
       }
       const tally = document.getElementById('arena-receipts-tally');
@@ -1358,52 +1373,85 @@ function renderMissionReceipt(report) {
   replayBox.hidden = !hasReplay;
   if (hasReplay) {
     replayList.replaceChildren();
-    for (const item of (rep.passed || [])) {
-      const card = document.createElement('div'); card.className = 'replay-item outcome-pass';
-      const hdr = document.createElement('div'); hdr.className = 'replay-item-header';
-      const cat = document.createElement('span'); cat.className = 'replay-tag'; cat.textContent = item.category_label || item.category;
-      const tag = document.createElement('span'); tag.className = 'badge pass'; tag.textContent = '● Pass';
-      hdr.append(cat, tag);
-      card.append(hdr);
-      if (item.question) {
-        const q = document.createElement('p'); q.className = 'replay-question'; q.textContent = item.question;
-        card.append(q);
-      }
-      if (item.output) {
-        const out = document.createElement('pre'); out.className = 'replay-output'; out.textContent = item.output;
-        card.append(out);
-      }
+    const renderCard = (item) => {
+      const isPass = item.outcome === 'pass';
+      const outcomeClass = isPass ? 'pass' : (item.outcome === 'format_error' ? 'format' : 'wrong');
+      const card = document.createElement('div');
+      card.className = `replay-item outcome-${outcomeClass}`;
+
+      const hdr = document.createElement('div');
+      hdr.className = 'replay-item-header';
+      const titleGroup = document.createElement('div');
+      titleGroup.className = 'replay-title-group';
+      const cat = document.createElement('span');
+      cat.className = 'replay-tag';
+      cat.textContent = item.category_label || item.category;
+      const idSpan = document.createElement('span');
+      idSpan.className = 'replay-id';
+      idSpan.textContent = item.item_id ? ` · ${item.item_id}` : '';
+      titleGroup.append(cat, idSpan);
+
+      const statusGroup = document.createElement('div');
+      statusGroup.className = 'replay-status-group';
       if (Number.isFinite(item.latency_seconds)) {
-        const lat = document.createElement('span'); lat.className = 'replay-latency'; lat.textContent = `${item.latency_seconds.toFixed(2)} s response`;
-        card.append(lat);
+        const lat = document.createElement('span');
+        lat.className = 'replay-latency';
+        lat.textContent = `${item.latency_seconds.toFixed(2)} s`;
+        statusGroup.append(lat);
       }
-      replayList.append(card);
+      const tag = document.createElement('span');
+      tag.className = `badge ${outcomeClass}`;
+      tag.textContent = isPass ? '● Pass' : (item.outcome === 'format_error' ? '▲ Format error' : '✕ Missed');
+      statusGroup.append(tag);
+      hdr.append(titleGroup, statusGroup);
+      card.append(hdr);
+
+      const comp = document.createElement('div');
+      comp.className = 'replay-comparison';
+
+      const colChallenge = document.createElement('div');
+      colChallenge.className = 'replay-col replay-col-challenge';
+      const headingChallenge = document.createElement('span');
+      headingChallenge.className = 'replay-col-heading';
+      headingChallenge.textContent = 'Original Public Challenge';
+      const promptEl = document.createElement('p');
+      promptEl.className = 'replay-prompt-text';
+      promptEl.textContent = item.prompt || item.question || 'Challenge prompt not available';
+      colChallenge.append(headingChallenge, promptEl);
+
+      const colAnswer = document.createElement('div');
+      colAnswer.className = 'replay-col replay-col-answer';
+      const headingAnswer = document.createElement('span');
+      headingAnswer.className = 'replay-col-heading';
+      headingAnswer.textContent = 'Actual Model Answer';
+      const outEl = document.createElement('pre');
+      outEl.className = 'replay-output-text';
+      outEl.textContent = (item.output && item.output.trim()) ? item.output : '(empty response)';
+      colAnswer.append(headingAnswer, outEl);
+
+      comp.append(colChallenge, colAnswer);
+      card.append(comp);
+
+      if (item.reason) {
+        const reasonBox = document.createElement('div');
+        reasonBox.className = `replay-reason-box outcome-${outcomeClass}`;
+        const reasonLabel = document.createElement('strong');
+        reasonLabel.className = 'replay-reason-label';
+        reasonLabel.textContent = isPass ? 'Assessment: ' : 'Why it failed: ';
+        const reasonText = document.createElement('span');
+        reasonText.textContent = item.reason;
+        reasonBox.append(reasonLabel, reasonText);
+        card.append(reasonBox);
+      }
+
+      return card;
+    };
+
+    for (const item of (rep.passed || [])) {
+      replayList.append(renderCard(item));
     }
     for (const item of (rep.failed || [])) {
-      const card = document.createElement('div'); card.className = `replay-item outcome-${item.outcome === 'format_error' ? 'format' : 'wrong'}`;
-      const hdr = document.createElement('div'); hdr.className = 'replay-item-header';
-      const cat = document.createElement('span'); cat.className = 'replay-tag'; cat.textContent = item.category_label || item.category;
-      const tag = document.createElement('span'); tag.className = `badge ${item.outcome === 'format_error' ? 'format' : 'wrong'}`;
-      tag.textContent = item.outcome === 'format_error' ? '▲ Format error' : '✕ Missed';
-      hdr.append(cat, tag);
-      card.append(hdr);
-      if (item.reason) {
-        const r = document.createElement('p'); r.className = 'replay-reason'; r.textContent = item.reason;
-        card.append(r);
-      }
-      if (item.question) {
-        const q = document.createElement('p'); q.className = 'replay-question'; q.textContent = item.question;
-        card.append(q);
-      }
-      if (item.output) {
-        const out = document.createElement('pre'); out.className = 'replay-output'; out.textContent = item.output;
-        card.append(out);
-      }
-      if (Number.isFinite(item.latency_seconds)) {
-        const lat = document.createElement('span'); lat.className = 'replay-latency'; lat.textContent = `${item.latency_seconds.toFixed(2)} s response`;
-        card.append(lat);
-      }
-      replayList.append(card);
+      replayList.append(renderCard(item));
     }
   }
 

@@ -236,6 +236,62 @@ class SkillMapTests(unittest.TestCase):
             finally:
                 server.shutdown()
 
+    def test_tightened_qualification_rejects_arbitrary_settings_or_versions(self):
+        # 1. Arbitrary context (512 instead of 2048) rejected
+        quick_bad_ctx = {
+            'id': '44444444444444444444444444444444',
+            'kind': 'ability',
+            'suite': 'quick',
+            'suite_version': '1.0.0',
+            'settings': {'context': 512, 'temperature': 0},
+            'state': 'completed',
+            'coverage': {'complete': True, 'completed': 20, 'total': 20},
+            'model': 'qwen3:0.6b',
+            'manifest_digest': 'sha256:' + 'a' * 64,
+            'summary': {'correct': 20, 'total': 20, 'format_errors': 0,
+                        'categories': {'instruction': {'correct': 4, 'total': 4, 'format_errors': 0}}},
+            'created': '2026-10-07T12:00:00+00:00',
+        }
+        facts = {'runs': [quick_bad_ctx], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
+        res = skill_map.build_skill_map(facts, self.selected)
+        inst = next(n for n in res['domains'][0]['nodes'] if n['id'] == 'instruction-following')
+        self.assertEqual(inst['state'], 'untested')
+
+        # 2. Unsupported suite version rejected
+        quick_bad_ver = dict(quick_bad_ctx, settings={'context': 2048, 'temperature': 0}, suite_version='0.9.0')
+        facts2 = {'runs': [quick_bad_ver], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
+        res2 = skill_map.build_skill_map(facts2, self.selected)
+        inst2 = next(n for n in res2['domains'][0]['nodes'] if n['id'] == 'instruction-following')
+        self.assertEqual(inst2['state'], 'untested')
+
+        # 3. Incomplete coverage rejected
+        quick_incomplete = dict(quick_bad_ctx, settings={'context': 2048, 'temperature': 0}, suite_version='1.0.0',
+                                coverage={'complete': False, 'completed': 19, 'total': 20})
+        facts3 = {'runs': [quick_incomplete], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
+        res3 = skill_map.build_skill_map(facts3, self.selected)
+        inst3 = next(n for n in res3['domains'][0]['nodes'] if n['id'] == 'instruction-following')
+        self.assertEqual(inst3['state'], 'untested')
+
+    def test_memory_domain_separates_storage_from_recall(self):
+        facts = {'runs': [], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
+        res = skill_map.build_skill_map(facts, self.selected)
+        mem_domain = next(d for d in res['domains'] if d['id'] == 'memory')
+        self.assertEqual(mem_domain['label'], 'Memory & Recall')
+        self.assertIn('separately', mem_domain['summary'])
+
+        node_ids = [n['id'] for n in mem_domain['nodes']]
+        self.assertIn('storage-retention', node_ids)
+        self.assertIn('episodic-memory', node_ids)
+
+        storage_node = next(n for n in mem_domain['nodes'] if n['id'] == 'storage-retention')
+        self.assertIn('Filesystem', storage_node['title'])
+        self.assertIn('host filesystem persistence only', storage_node['scope'])
+
+        recall_node = next(n for n in mem_domain['nodes'] if n['id'] == 'episodic-memory')
+        self.assertEqual(recall_node['title'], 'Conversational Memory & Recall')
+        self.assertEqual(recall_node['state'], 'unavailable')
+        self.assertIn('distinct from host drive filesystem persistence', recall_node['scope'])
+
 
 if __name__ == '__main__':
     unittest.main()

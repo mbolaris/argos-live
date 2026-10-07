@@ -45,9 +45,9 @@ DOMAINS = [
     },
     {
         'id': 'memory',
-        'label': 'Memory',
+        'label': 'Memory & Recall',
         'icon': 'storage',
-        'summary': 'Persistent storage retention and long-term recall across sessions.',
+        'summary': 'AI conversational memory and recall across interactions. Host filesystem retention is evaluated separately.',
     },
     {
         'id': 'perception',
@@ -56,6 +56,50 @@ DOMAINS = [
         'summary': 'Multimodal vision and audio perception pipelines.',
     },
 ]
+
+QUICK_SUITE_VERSIONS = {'1.0.0', 'ability/quick/1.0.0'}
+QUICK_REQUIRED_CONTEXT = 2048
+DOC_SUITE_NAMES = {'documents-short', 'short'}
+DOC_SUITE_VERSIONS = {'1.0.0', 'documents/short/1.0.0'}
+DOC_REQUIRED_CONTEXT = 4096
+
+QUICK_PROBE_CRITERIA = {
+    'instruction': {
+        'total': 4,
+        'min_correct': 4,
+        'max_format_errors': 0,
+        'label': 'Instruction Following',
+        'criteria': 'Fixed quick probe: 4/4 directions followed within word bounds, keywords, and single-line format; 0 format errors; context 2048.',
+    },
+    'numeric': {
+        'total': 4,
+        'min_correct': 4,
+        'max_format_errors': 0,
+        'label': 'Arithmetic & Numbers',
+        'criteria': 'Fixed quick probe: 4/4 exact arithmetic evaluations without rounding; 0 format errors; context 2048.',
+    },
+    'choice': {
+        'total': 4,
+        'min_correct': 4,
+        'max_format_errors': 0,
+        'label': 'Knowledge & Logic',
+        'criteria': 'Fixed quick probe: 4/4 single-letter choice selections (A–D); 0 format errors; context 2048.',
+    },
+    'json': {
+        'total': 4,
+        'min_correct': 4,
+        'max_format_errors': 0,
+        'label': 'Structured JSON Output',
+        'criteria': 'Fixed quick probe: 4/4 closed JSON schemas with exact expected keys; 0 format errors; context 2048.',
+    },
+    'tool-call': {
+        'total': 4,
+        'min_correct': 4,
+        'max_format_errors': 0,
+        'label': 'Tool Call Formatting',
+        'criteria': 'Fixed quick probe: 4/4 inert tool-call schemas with matching function name and parameters; 0 format errors; context 2048.',
+    },
+}
 
 
 def digest_of(value: Any) -> Optional[str]:
@@ -82,20 +126,32 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
     doc_models = facts.get('doc_models', [])
     storage_view = facts.get('storage') or {}
 
-    # Find matching document run for selected model
-    matching_doc_run = next((r for r in doc_models if is_selected(r, selected)), None)
+    # Find matching document run: verify suite version, context, complete coverage, and digest
+    matching_doc_run = None
+    for r in doc_models:
+        if (r.get('state', 'completed') == 'completed'
+                and r.get('coverage', {}).get('complete', False) is True
+                and r.get('suite') in DOC_SUITE_NAMES
+                and (r.get('suite_version') in DOC_SUITE_VERSIONS or r.get('suite_version') is None)
+                and ((r.get('settings') or {}).get('context') in (DOC_REQUIRED_CONTEXT, None))
+                and is_selected(r, selected)):
+            matching_doc_run = r
+            break
 
-    # Find matching complete quick ability run for selected model
+    # Find matching quick ability run: verify suite version, context 2048, seed/temp, complete coverage, and digest
     matching_quick_run = None
     for r in runs:
         if (r.get('kind') == 'ability' and r.get('suite') == 'quick'
                 and r.get('state') == 'completed'
-                and r.get('coverage', {}).get('complete', False)
+                and r.get('coverage', {}).get('complete', False) is True
+                and (r.get('suite_version') in QUICK_SUITE_VERSIONS or r.get('suite_version') is None)
+                and ((r.get('settings') or {}).get('context') in (QUICK_REQUIRED_CONTEXT, None))
+                and ((r.get('settings') or {}).get('temperature') in (0, None))
                 and is_selected(r, selected)):
             matching_quick_run = r
             break
 
-    # Helper to evaluate quick suite category state
+    # Helper to evaluate quick suite category state against fixed quick-probe criteria
     def eval_quick_cat(cat_id: str) -> tuple[str, Optional[Dict[str, Any]]]:
         if not matching_quick_run:
             return 'untested', None
@@ -106,15 +162,26 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
         correct = cat.get('correct', 0)
         total = cat.get('total', 0)
         format_errors = cat.get('format_errors', 0)
+        crit = QUICK_PROBE_CRITERIA.get(cat_id, {'min_correct': total, 'max_format_errors': 0, 'total': total})
+        qualified = correct >= crit['min_correct'] and format_errors <= crit['max_format_errors'] and total == crit['total']
         evidence = {
             'run_id': matching_quick_run['id'],
             'created': matching_quick_run.get('created'),
+            'suite_version': matching_quick_run.get('suite_version', '1.0.0'),
+            'context': (matching_quick_run.get('settings') or {}).get('context', QUICK_REQUIRED_CONTEXT),
             'correct': correct,
             'total': total,
             'format_errors': format_errors,
             'accuracy': correct / total if total else 0.0,
+            'qualified': qualified,
+            'checks': [
+                {'name': 'accuracy', 'label': f'Correct answers ({crit["min_correct"]}/{crit["total"]})',
+                 'required': crit['min_correct'], 'observed': correct, 'met': correct >= crit['min_correct']},
+                {'name': 'format_errors', 'label': f'Format errors (at most {crit["max_format_errors"]})',
+                 'required': crit['max_format_errors'], 'observed': format_errors, 'met': format_errors <= crit['max_format_errors']},
+            ],
         }
-        if correct == total and format_errors == 0:
+        if qualified:
             return 'qualified', evidence
         if correct > 0 and format_errors == 0:
             return 'measured', evidence
@@ -129,6 +196,8 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
         doc_evidence = {
             'run_id': matching_doc_run['id'],
             'created': matching_doc_run.get('created'),
+            'suite_version': matching_doc_run.get('suite_version', '1.0.0'),
+            'context': (matching_doc_run.get('settings') or {}).get('context', DOC_REQUIRED_CONTEXT),
             'qualified': q.get('qualified', False),
             'correct': s.get('correct', 0),
             'total': s.get('total', 0),
@@ -140,7 +209,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
         else:
             doc_state = 'attention'
 
-    # Storage retention state
+    # Storage retention state (physical host filesystem check)
     storage_state = 'untested'
     storage_evidence = None
     locations = storage_view.get('locations', [])
@@ -188,7 +257,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 'suite': 'quick',
                 'action': 'baseline',
                 'action_label': 'Pause chat and test Quick Suite',
-                'criteria': 'Adhere to word count bounds, required keywords, single-line format, and case constraints. 100% pass required.',
+                'criteria': QUICK_PROBE_CRITERIA['instruction']['criteria'],
                 'scope': 'Fixed synthetic prompt constraints at context 2048. Probes rule following only, not multi-turn conversation.',
                 'evidence': inst_ev,
             },
@@ -214,7 +283,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 'suite': 'quick',
                 'action': 'baseline',
                 'action_label': 'Pause chat and test Quick Suite',
-                'criteria': 'Exact decimal evaluation on word arithmetic problems without rounding or format errors.',
+                'criteria': QUICK_PROBE_CRITERIA['numeric']['criteria'],
                 'scope': 'Fixed numeric problems at context 2048. Does not qualify advanced mathematics or symbolic proof.',
                 'evidence': num_ev,
             },
@@ -226,7 +295,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 'suite': 'quick',
                 'action': 'baseline',
                 'action_label': 'Pause chat and test Quick Suite',
-                'criteria': 'Select single correct choice letter (A–D) from curated logic and factual questions.',
+                'criteria': QUICK_PROBE_CRITERIA['choice']['criteria'],
                 'scope': 'Deterministic multiple-choice probes at context 2048. Does not qualify encyclopedic mastery.',
                 'evidence': choice_ev,
             },
@@ -252,7 +321,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 'suite': 'quick',
                 'action': 'baseline',
                 'action_label': 'Pause chat and test Quick Suite',
-                'criteria': 'Produce valid closed JSON schema matching expected types and keys with no wrapper leaks.',
+                'criteria': QUICK_PROBE_CRITERIA['json']['criteria'],
                 'scope': 'Schema syntax conformance at context 2048. Does not qualify autonomous workflows.',
                 'evidence': json_ev,
             },
@@ -278,7 +347,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 'suite': 'quick',
                 'action': 'baseline',
                 'action_label': 'Pause chat and test Quick Suite',
-                'criteria': 'Emit valid tool invocation JSON with correct function name and matching argument schema.',
+                'criteria': QUICK_PROBE_CRITERIA['tool-call']['criteria'],
                 'scope': 'Syntax formatting probe only. Does NOT execute tools, grant host access, or qualify agentic autonomy.',
                 'evidence': tool_ev,
             },
@@ -298,26 +367,26 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
         'memory': [
             {
                 'id': 'storage-retention',
-                'title': 'Model Storage Retention',
+                'title': 'Host Storage Retention (Filesystem)',
                 'state': storage_state,
                 'available': True,
                 'suite': 'storage_view',
                 'action': 'storage',
                 'action_label': 'Configure and verify model storage',
-                'criteria': 'Model store folder retains a random marker across machine reboot.',
-                'scope': 'Directory persistence only. Does not verify encryption, drive speed, or conversation recall.',
+                'criteria': 'Host model store folder retains a random marker across machine reboot.',
+                'scope': 'Physical drive retention on host drive/USB across reboots. This measures host filesystem persistence only — completely separate from the AI companion\'s conversational memory or recall.',
                 'evidence': storage_evidence,
             },
             {
                 'id': 'episodic-memory',
-                'title': 'Episodic Long-Term Memory',
+                'title': 'Conversational Memory & Recall',
                 'state': 'unavailable',
                 'available': False,
                 'suite': None,
                 'action': None,
                 'action_label': 'Not available in this build',
-                'criteria': 'Cross-session memory retrieval and semantic association.',
-                'scope': 'Unavailable in this build.',
+                'criteria': 'Accurate retention and retrieval of user-stated personal facts across dialogue sessions.',
+                'scope': 'Unavailable in this build. AI conversational recall is distinct from host drive filesystem persistence.',
                 'evidence': None,
             },
         ],

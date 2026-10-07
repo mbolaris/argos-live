@@ -223,14 +223,28 @@ class Controller:
                         item_id = value.get('item_id')
                         delta = value.get('delta', '')
                         if isinstance(delta, str) and delta:
-                            delta = delta[:1024]
+                            delta_truncated = False
+                            if len(delta) > 1024:
+                                delta = delta[:1012] + ' [truncated]'
+                                delta_truncated = True
                             if self.arena and self.arena.get('current_item') and self.arena['current_item'].get('item_id') == item_id:
-                                if len(self.arena['current_item']['answer']) < 8192:
-                                    self.arena['current_item']['answer'] += delta
-                            self.add_event('answer-delta', item_id=item_id, delta=delta)
+                                cur_ans = self.arena['current_item'].get('answer', '')
+                                if len(cur_ans) < 8192:
+                                    remaining = 8192 - len(cur_ans)
+                                    self.arena['current_item']['answer'] = cur_ans + delta[:remaining]
+                                    if len(cur_ans) + len(delta) >= 8192 and not self.arena['current_item'].get('truncated'):
+                                        self.arena['current_item']['answer'] += '\n[truncated]'
+                                        self.arena['current_item']['truncated'] = True
+                            self.add_event('answer-delta', item_id=item_id, delta=delta, truncated=delta_truncated)
                     elif vphase == 'scored' and self.plan != 'task':
                         item_id = value.get('item_id')
                         receipt = value.get('receipt', {})
+                        raw_output = receipt.get('output')
+                        output_str = raw_output if isinstance(raw_output, str) else ''
+                        output_trunc = False
+                        if len(output_str) > 500:
+                            output_str = output_str[:485] + '… [truncated]'
+                            output_trunc = True
                         clean_receipt = {
                             'item_id': item_id,
                             'category': value.get('category') or receipt.get('category', ''),
@@ -238,10 +252,13 @@ class Controller:
                             'outcome': receipt.get('outcome', 'unscored'),
                             'format_valid': receipt.get('format_valid'),
                             'latency_seconds': receipt.get('latency_seconds'),
-                            'output': (receipt.get('output') or '')[:500] if isinstance(receipt.get('output'), str) else '',
+                            'output': output_str,
+                            'output_truncated': output_trunc or bool(receipt.get('output_truncated')),
                         }
                         if self.arena:
                             self.arena['receipts'].append(clean_receipt)
+                            if len(self.arena['receipts']) > 100:
+                                self.arena['receipts'].pop(0)
                             self.arena['completed'] = value.get('completed', len(self.arena['receipts']))
                             self.arena['total'] = value.get('total', self.arena['total'])
                             if clean_receipt['score'] == 1:

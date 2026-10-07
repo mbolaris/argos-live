@@ -368,13 +368,16 @@ class ArenaEventsTests(unittest.TestCase):
         events = self.lab.events_after(0)['events']
         deltas = [e for e in events if e['type'] == 'answer-delta']
         self.assertTrue(len(deltas) > 0)
-        # Delta bounded to 1024
+        # Delta bounded to 1024 and explicitly marked truncated
         self.assertLessEqual(len(deltas[0]['delta']), 1024)
+        self.assertTrue(deltas[0].get('truncated'))
 
         scored = [e for e in events if e['type'] == 'item-scored']
         self.assertTrue(len(scored) > 0)
-        # Receipt output bounded to 500
+        # Receipt output bounded to 500 and explicitly marked truncated
         self.assertLessEqual(len(scored[0]['receipt']['output']), 500)
+        self.assertTrue(scored[0]['receipt'].get('output_truncated'))
+        self.assertTrue(scored[0]['receipt']['output'].endswith('[truncated]'))
 
 
 if __name__ == '__main__':

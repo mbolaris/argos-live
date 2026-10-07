@@ -18,26 +18,91 @@ CATEGORY_LABELS = {'choice': 'Pick the right answer', 'instruction': 'Follow dir
 REPLAY_LIMIT = 400
 
 
-def plain_failure_reason(item):
-    outcome = item.get('outcome')
-    cat = item.get('category', '')
-    if outcome == 'format_error':
-        if 'quote' in cat:
-            return 'Quotation was not found in the original passage or exceeded allowed length.'
-        elif 'tool' in cat:
-            return 'Output did not match the closed tool-call JSON schema.'
-        elif 'json' in cat:
-            return 'Output was not valid closed JSON or had extra keys.'
-        elif 'instruction' in cat:
-            return 'Failed word count bounds, keywords, or case constraints.'
-        elif 'choice' in cat:
-            return 'Did not return a single choice letter (A–D).'
-        elif 'numeric' in cat:
-            return 'Output was not a single parseable numeric answer.'
-        return 'Output violated the required schema or formatting rules.'
+def resolve_suite_item(suite, suite_version, item_id):
+    """Resolve an item from the exact tested suite version."""
+    if not isinstance(suite, str) or not isinstance(item_id, str):
+        return None
+    try:
+        if suite in ('quick', 'standard'):
+            from . import ability as ability_mod
+            suite_data = ability_mod.load(suite)
+            expected_ver = suite_data.get('version', '')
+            if suite_version and suite_version not in (expected_ver, f"ability/{suite}/{expected_ver}"):
+                return None
+            return next((it for it in suite_data.get('items', []) if it.get('id') == item_id), None)
+        elif suite in ('documents-short', 'short'):
+            from . import doc_trial as doc_mod
+            suite_data = doc_mod.load('short')
+            expected_ver = suite_data.get('version', '')
+            if suite_version and suite_version not in (expected_ver, f"documents/short/{expected_ver}"):
+                return None
+            return next((it for it in suite_data.get('items', []) if it.get('id') == item_id), None)
+    except Exception:
+        return None
+    return None
+
+
+def explain_outcome(outcome, category, output, rule=None):
+    rule = rule or {}
+    out_str = (output or '').strip()
+    kind = rule.get('kind', category)
+    if outcome == 'pass':
+        if kind == 'numeric':
+            return f"Passed: Output matched expected numeric answer ({rule.get('expected')})."
+        elif kind == 'choice':
+            return f"Passed: Correctly selected choice letter ({rule.get('expected')})."
+        elif kind == 'instruction':
+            kw = ', '.join(rule.get('keywords', []))
+            return f"Passed: Followed directions ({rule.get('min_words')}–{rule.get('max_words')} words, keywords: {kw})."
+        elif kind in ('json', 'tool-call'):
+            return "Passed: Produced valid closed JSON schema matching expected structure."
+        elif kind == 'doc-answer' or category == 'answer':
+            return "Passed: Extracted accurate fact from document passage."
+        elif kind == 'doc-quote' or category == 'quote':
+            return "Passed: Supported answer with exact verbatim passage quotation."
+        elif kind == 'doc-not-stated' or category == 'not_stated':
+            return "Passed: Correctly recognized that the fact was not stated in the document."
+        return "Passed: Verified against fixed benchmark criteria."
+
     elif outcome == 'wrong_answer':
-        return 'Answer did not match the fixed reference solution.'
-    return 'Challenge was not solved.'
+        if kind == 'numeric' and 'expected' in rule:
+            return f"Missed: Output was '{out_str}', but expected '{rule['expected']}'."
+        elif kind == 'choice' and 'expected' in rule:
+            return f"Missed: Output was '{out_str}', but expected choice '{rule['expected']}'."
+        elif kind == 'instruction':
+            kw = ', '.join(rule.get('keywords', []))
+            return f"Missed: Did not satisfy directions (requires {rule.get('min_words', 0)}–{rule.get('max_words', 256)} words and keywords: {kw})."
+        elif kind in ('json', 'tool-call') and 'expected' in rule:
+            return "Missed: JSON structure or arguments did not match expected schema."
+        elif kind == 'doc-answer' or category == 'answer':
+            acc = ', '.join(rule.get('accepted', []))
+            return f"Missed: Answer did not match reference facts ({acc})." if acc else "Missed: Answer did not match document facts."
+        elif kind == 'doc-quote' or category == 'quote':
+            return "Missed: Quotation was either not verbatim from passage or did not support the answer."
+        elif kind == 'doc-not-stated' or category == 'not_stated':
+            return "Missed: Claimed an answer for a fact that was not stated in the passage."
+        return "Missed: Answer did not match the fixed reference solution."
+
+    elif outcome == 'format_error':
+        if kind == 'choice':
+            return "Format error: Did not respond with a single choice letter (A–D)."
+        elif kind == 'numeric':
+            return "Format error: Output could not be parsed as a single numeric value."
+        elif kind == 'instruction':
+            return "Format error: Output violated line, case, or formatting constraints."
+        elif kind in ('json', 'tool-call'):
+            return "Format error: Output was not valid closed JSON or had extra keys."
+        elif kind == 'doc-quote' or category == 'quote':
+            return "Format error: Quotation was missing, not found in passage, or exceeded length."
+        elif kind == 'doc-not-stated' or category == 'not_stated':
+            return "Format error: Expected 'not_stated' JSON status with empty answer."
+        return "Format error: Output violated the required schema or formatting constraints."
+
+    return "Challenge was not completed."
+
+
+def plain_failure_reason(item):
+    return explain_outcome(item.get('outcome'), item.get('category', ''), item.get('output', ''))
 
 
 def summarize(runs):
@@ -64,20 +129,31 @@ def summarize(runs):
                 })
         replay_passed = []
         replay_failed = []
+        suite_name = ability.get('suite')
+        suite_version = ability.get('suite_version')
         for item in ability.get('items', []):
             outcome = item.get('outcome', 'pass' if item.get('score') == 1 else 'wrong_answer')
             cat = item.get('category', '')
             out_str = item.get('output', '')
             if not isinstance(out_str, str):
                 out_str = ''
+
+            # Resolve original public challenge and scorer rule against exact tested suite version
+            suite_item = resolve_suite_item(suite_name, suite_version, item.get('item_id'))
+            rule = suite_item.get('scorer') if suite_item else None
+            prompt_text = (suite_item.get('prompt') if suite_item else None) or item.get('prompt') or item.get('question') or ''
+            question_text = (suite_item.get('question') if suite_item else None) or item.get('question') or prompt_text
+
             rep_item = {
                 'item_id': item.get('item_id'),
                 'category': cat,
                 'category_label': CATEGORY_LABELS.get(cat, cat.replace('_', ' ')),
                 'outcome': outcome,
                 'score': item.get('score', 0),
-                'question': item.get('question'),
+                'prompt': prompt_text,
+                'question': question_text,
                 'output': out_str[:REPLAY_LIMIT],
+                'reason': explain_outcome(outcome, cat, out_str, rule),
                 'latency_seconds': item.get('latency_seconds'),
             }
             if outcome == 'pass':
@@ -85,7 +161,6 @@ def summarize(runs):
                     replay_passed.append(rep_item)
             else:
                 if len(replay_failed) < 3:
-                    rep_item['reason'] = plain_failure_reason(item)
                     replay_failed.append(rep_item)
 
         receipt['ability'] = {
