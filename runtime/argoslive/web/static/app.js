@@ -318,6 +318,7 @@ async function refreshLab() {
 for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
   document.getElementById('lab-start').disabled = true;
   document.getElementById('lab-start-documents').disabled = true;
+  document.getElementById('lab-status').textContent = route === 'cancel' ? 'Requesting cancellation…' : 'Starting trial; pausing chat…';
   try {
     const response = await fetch('/api/lab/' + route, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
     if (!response.ok) throw new Error('Test unavailable');

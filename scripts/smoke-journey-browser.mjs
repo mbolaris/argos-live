@@ -53,9 +53,14 @@ try {
   // 2. Baseline before storage confirmation, twice for comparable runs.
   for (let n = 0; n < 2; n++) {
     await page.waitForFunction(() => !document.getElementById('lab-start').disabled, null, {timeout: 60000});
+    const started = page.waitForResponse(response => response.url().endsWith('/api/lab/start') && response.request().method() === 'POST');
     if (n === 0) await page.locator('#cc-next-go').click();
     else await page.locator('#lab-start').click();
-    await page.waitForFunction(() => document.getElementById('lab-status').textContent.startsWith('Baseline saved'), null, {timeout: 120000});
+    if (!(await started).ok()) fail('Baseline start was refused');
+    // The previous run's completed text is not evidence that this run finished.
+    await page.waitForFunction(count => document.querySelectorAll('#benchmark-runs .card').length >= count &&
+      !document.getElementById('lab-start').disabled && document.getElementById('lab-status').textContent.startsWith('Baseline saved'),
+      2 * (n + 1), {timeout: 120000});
   }
   await waitNext('Test short-document reading');
   if (!(await page.locator('#cc-build-summary').textContent()).includes('1 of 4')) fail('Baseline did not advance its own build stage');
