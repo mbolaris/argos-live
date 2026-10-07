@@ -791,6 +791,28 @@ Depends on: HA1–HA4, model onboarding, capability dashboard and profile persis
 
 ## E10 Guided journey (personal robot experience)
 
+### J1 Live test arena and incremental receipts — `todo`
+- Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.
+- Show real streamed output, completed items/total, growing outcomes and Stop. Reconnect without restarting; distinguish incomplete/cancelled observations from completed qualification. Keep existing workload ownership and deadlines.
+- Accept: real local model/shipped Firefox visibly updates during a long run; slow generation, cancellation, reconnect, bounded buffers and escaped output work; no fabricated progress. Fixture screenshots are insufficient.
+
+### J2 Task-scoped skill map and readable result replay — `todo`
+Depends on: J1.
+- Replace the document-only rail as the main navigation with a large connected skill map, grouped by useful tasks. Measured, qualified, untested and needs-attention use labels/icons as well as color; unavailable future suites stay unavailable. Phone equivalent is a usable grouped list.
+- Each node opens fixed criteria, task/model-digest/configuration scope, current evidence and one Start test action. Results lead with pass/failure reasons and representative answer replay, separate speed metrics and optional opinion. Advanced records are secondary.
+- Accept: absent/partial/stale-model evidence cannot color a node qualified; small probes cannot qualify entire domains; matched comparisons retain current validators. No AGI percentage or tool-execution claims from answer-format tests.
+
+### J3 Guided stronger-model choice with inline storage — `todo`
+Depends on: J2 and existing reviewed storage/model transactions.
+- “Try a different model” carries the selected skill into a short reviewed-catalog choice, fit/download costs, inline “Choose where to keep models”, verified download, explicit switch, matched retest and Keep/Restore.
+- Storage choices show device labels, free space, persistence/encryption and recommended eligible choice with rationale; Review/Use this location confirms the folder and profile/history separation. Explain blocked choices; starter chat remains available. No auto-adopt/format/move.
+- Accept: first-time owner can complete the flow without finding a separate storage section; no-space/missing-drive/cancel/switch failure retain current protections. Real larger-model comparison and phone/shipped Firefox checks reported separately.
+
+### J4 Bounded observable agentic qualification — `todo`
+Depends on: J1, validated pinned tool policy and disposable sandbox isolation.
+- Opt-in actual multi-step original-fixture task with allowlisted tools, observable action trace, code-verified artifact, action/time budgets and recovery evidence. Conversation/formatting suites stay separate.
+- Accept: denied operations remain denied; no host personal files/network/shell widening; actual pinned agent executes allowed tools and produces a verified artifact. Qualify only that workflow, not general autonomy. No hidden chain-of-thought display.
+
 Plan: [PERSONAL-ROBOT-EXPERIENCE.md](PERSONAL-ROBOT-EXPERIENCE.md). Implemented in the order below; each stage keeps its own acceptance and states what was and was not verified.
 
 ### S1-S5 Storage evidence and deliberate choice — `in progress`
