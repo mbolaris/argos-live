@@ -18,6 +18,20 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### U3 — Target the shipped Firefox trial control reliably
+
+Status: in progress (test-only acceptance fix). Navigate through Firefox's location
+bar to the authenticated Lab button fragment, then focus and activate the button
+with ordinary keyboard input. Do not infer success from input delivery: retain
+the active-job, saved speed/ability results and assistant-resumption checks.
+
+Acceptance: wrong-window refusal and modifier cleanup regression checks, followed
+by an actual offline WHPX run of ISO build 37576377593. The trial completed and
+the reviewed shipped Firefox screenshot showed both saved results. Hosted TCG
+run 37580789500 failed earlier with an HTTP error; that remains a separate,
+unresolved result. Browser chat replies, firmware, physical GPU and persistence
+acceptance remain separate. No runtime, ISO contents or deadlines changed.
+
 ### U2 — Start with a trial and show the build path
 
 Status: in progress ([PR #53](https://github.com/mbolaris/argos-live/pull/53)). A fresh configured build should offer its first local

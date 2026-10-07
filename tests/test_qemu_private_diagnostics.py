@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('managed_check', ROOT / 'scripts/qemu-managed-check.py')
@@ -14,6 +14,26 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_trial_keyboard_refuses_wrong_active_window(self):
+        with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
+                patch.object(module.ctypes, 'CDLL') as library:
+            with self.assertRaisesRegex(ValueError, 'active Firefox'):
+                module.click_model_lab_baseline("http://127.0.0.1:49355", "fixture-token")
+            library.assert_not_called()
+
+    def test_trial_keyboard_failure_releases_control_and_closes_display(self):
+        x11, xtst = MagicMock(), MagicMock()
+        x11.XOpenDisplay.return_value = 123
+        x11.XKeysymToKeycode.side_effect = lambda display, symbol: symbol
+        # Control press succeeds; typing the location shortcut fails.
+        xtst.XTestFakeKeyEvent.side_effect = [1, 0, 1]
+        with patch.object(module, 'firefox_model_lab_visible', return_value=True), \
+                patch.object(module.ctypes, 'CDLL', side_effect=[x11, xtst]):
+            with self.assertRaisesRegex(ValueError, 'keyboard input failed'):
+                module.click_model_lab_baseline("http://127.0.0.1:49355", "fixture-token")
+        self.assertEqual(xtst.XTestFakeKeyEvent.call_args.args, (123, 0xffe3, 0, 0))
+        x11.XCloseDisplay.assert_called_once_with(123)
+
     def test_probe_failure_only_emits_fixed_categories_not_private_error_text(self):
         self.assertEqual(module.probe_failure(TimeoutError('private token')), 'timeout')
         self.assertEqual(module.probe_failure(module.URLError(ConnectionRefusedError(
