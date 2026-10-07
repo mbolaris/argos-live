@@ -69,6 +69,26 @@ class MissionReportTests(unittest.TestCase):
             mission_report.debrief(backend, 'fixture:latest', self.runs, cancel=threading.Event())
         self.assertEqual(backend.timeout, 120)
 
+    def test_receipt_replay_resolves_prompts_and_explains_outcomes(self):
+        receipt = mission_report.summarize(self.runs)
+        rep = receipt['ability']['replay']
+        self.assertGreater(len(rep['passed']), 0)
+        first_pass = rep['passed'][0]
+        self.assertIn('prompt', first_pass)
+        self.assertTrue(len(first_pass['prompt']) > 0)
+        self.assertTrue(first_pass['reason'].startswith('Passed:'))
+
+        # Test failure resolution
+        wrong_ability = ability_result('wrong')
+        wrong_receipt = mission_report.summarize([self.speed, wrong_ability])
+        wrong_rep = wrong_receipt['ability']['replay']
+        self.assertGreater(len(wrong_rep['failed']), 0)
+        first_fail = wrong_rep['failed'][0]
+        self.assertIn('prompt', first_fail)
+        self.assertTrue(len(first_fail['prompt']) > 0)
+        self.assertTrue(first_fail['reason'].startswith('Missed:'))
+
 
 if __name__ == '__main__':
     unittest.main()
+
