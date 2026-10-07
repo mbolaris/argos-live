@@ -588,4 +588,20 @@ before investing in elaborate animation, artwork or competitive features.
 
 ## Capability meter visualization
 
+### First-screen interaction refinement
+
+Mission Control remains open after automatic startup. Conversation is an explicit
+"Talk to Argos" action, so readiness no longer removes the owner from the upgrade
+journey. One recommended mission leads the screen; its trial action starts the
+named test and states that chat pauses. Selected-model speed and tested ability
+are visible beside the schematic, with untested evidence shown as such. Routine
+acknowledgments use a compact line rather than displacing the next mission.
+
+Model selection shows the catalog by default and hides idle cancellation.
+Identical complete starter entries may share one card only when their tag and
+manifest digest match. A changed manifest remains visible as a different build.
+Storage completion refreshes the next mission immediately. These changes improve
+the interface's guidance; companion reasoning over live measurements and the
+owner's interests remains a separate implementation step.
+
 The owner proposes an illuminated amusement-machine-style AI strength tester with a ten-tier robot reference ladder. See [Capability Meter](CAPABILITY-METER.md) for the visual direction, complete reference list, evidence requirements and follow-up delivery scope. Verified task qualifications remain distinct from fictional AGI/ASI aspirations; the current implementation milestone remains unchanged.

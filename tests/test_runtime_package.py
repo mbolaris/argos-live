@@ -45,14 +45,19 @@ class RuntimePackageTests(unittest.TestCase):
         hook = (ROOT / 'live/config/hooks/live/010-argos.hook.chroot').read_text()
         self.assertIn('systemctl enable argos-refresh-runtime.service', hook)
 
-    def test_model_lab_menu_uses_non_handoff_desktop_view(self):
+    def test_mission_control_is_default_and_chat_is_an_explicit_action(self):
         menu = ROOT / 'live/config/includes.chroot/usr/share/applications/argos-model-lab.desktop'
         self.assertIn('Exec=argos desktop --model-lab', menu.read_text())
         desktop = (ROOT / 'runtime/argoslive/desktop.py').read_text()
         self.assertIn("view='lab' if args.model_lab else None", desktop)
-        javascript = (ROOT / 'runtime/argoslive/web/static/app.js').read_text()
-        self.assertIn("get('view') === 'lab'", javascript)
-        self.assertIn('value.auto_open_chat && !modelLabView', javascript)
+        self.assertIn('Controller(home, auto_open_chat=False)', desktop)
+        javascript = (ROOT / 'runtime/argoslive/web/static/app.js').read_text(encoding='utf-8')
+        self.assertNotIn('value.auto_open_chat &&', javascript)
+        self.assertIn("document.getElementById('chat').addEventListener('click'", javascript)
+        page = (ROOT / 'runtime/argoslive/web/static/index.html').read_text()
+        self.assertIn('Recommended next mission', page)
+        self.assertIn('id="chat" class="mission-secondary"', page)
+        self.assertIn('id="chat-fallback"', page)
 
     def test_group_and_delegated_help(self):
         for command in (['bench'], ['pack'], ['bench', 'speed'], ['bench', 'ability'], ['bench', 'documents'], ['bench', 'results'], ['bench', 'all'], ['pull'],

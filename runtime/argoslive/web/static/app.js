@@ -1,6 +1,5 @@
 'use strict';
 const token = new URLSearchParams(window.location.search).get('token');
-const modelLabView = new URLSearchParams(window.location.search).get('view') === 'lab';
 const labels = {'local-chat': 'Local chat', 'local-vision': 'Image understanding', memory: 'Memory',
   browser: 'Browser', documents: 'Documents', 'voice-output': 'Speech output', 'voice-input': 'Speech input',
   'image-generation': 'Image generation', 'reviewed-skills': 'Personal skills', 'optional-channel': 'Messaging'};
@@ -18,7 +17,6 @@ const nextSteps = {'local-chat': 'Finish local model setup and test a reply.',
   'optional-channel': 'Optional: connect a messaging account. Local chat does not require one.'};
 let busy = false;
 let managedStartup = false;
-let handoffPending = false;
 let startupRefreshing = false;
 let liveRefreshing = false;
 let downloadAvailable = false;
@@ -58,6 +56,10 @@ async function refreshStartup() {
     if (!managedStartup) return;
     document.getElementById('startup-status').textContent = value.message +
       (Number.isFinite(value.elapsed_seconds) ? ` · ${value.elapsed_seconds.toFixed(1)} s since starting` : '');
+    if (value.phase === 'ready' && value.model_reply_verified) {
+      document.getElementById('assistant-status').textContent = `Argos online · ${value.model || 'local model'} passed its warm-up reply`;
+      document.getElementById('assistant-help').textContent = 'Warm-up confirms one local reply. Run a systems trial below to measure speed and tested ability.';
+    }
     document.getElementById('startup-progress').value = startupSteps[value.phase] ?? 0;
     document.getElementById('start-assistant').disabled = !value.can_start;
     document.getElementById('stop-assistant').disabled = !value.can_stop;
@@ -69,11 +71,6 @@ async function refreshStartup() {
       (Number.isFinite(metrics.generation_tokens_per_second) ? `${metrics.generation_tokens_per_second.toFixed(1)} tokens/s` : 'Generation rate unavailable') +
       (Number.isFinite(metrics.time_to_first_token_seconds) ? ` · First token ${metrics.time_to_first_token_seconds.toFixed(2)} s` : '') :
       'The model check runs locally. Optional capabilities have their own setup and tests.';
-    if (value.auto_open_chat && !modelLabView && !handoffPending) {
-      handoffPending = true;
-      try { openConversation((await startupAction('chat')).url); }
-      catch (_) { handoffPending = false; }
-    }
   } catch (_) {
     if (managedStartup) document.getElementById('startup-status').textContent = 'Startup status unavailable. Retry with the current session link.';
   } finally {
@@ -126,18 +123,22 @@ async function refreshLive() {
     card(cards, 'Model service', ollama.reachable ? `Ollama ${ollama.version || '(version unknown)'} reachable` : 'Ollama is not reachable');
     card(cards, 'Models in use', ollama.loaded_models === null ? 'Loaded model status unknown' : ollama.loaded_models.length ? ollama.loaded_models.map(m =>
       `${m.name} · ${m.backend.mode || 'Placement unknown'}`).join('; ') : 'No loaded models reported');
+    if (!managedStartup) {
     document.getElementById('assistant-status').textContent = live.assistant === 'ready' ? 'Assistant gateway ready' :
       live.assistant === 'not-configured' ? 'Assistant setup needed' : 'Assistant is not ready';
     document.getElementById('assistant-help').textContent = live.chat_available ?
       'Open your existing conversation. A ready gateway does not yet verify a model reply.' :
       managedStartup ? 'Your local assistant is being prepared. Progress and controls appear below.' :
       'Use Start Assistant in the welcome window. This dashboard does not start a second assistant.';
+    }
     chat.disabled = !live.chat_available;
+    document.getElementById('chat-fallback').disabled = !live.chat_available;
     status.textContent = 'Live measurements refreshed. Missing measurements remain unknown.';
   } catch (_) {
     document.getElementById('hardware').replaceChildren();
     document.getElementById('assistant-status').textContent = 'Assistant status unavailable';
     chat.disabled = true;
+    document.getElementById('chat-fallback').disabled = true;
     status.textContent = 'Live status unavailable. Retry using the current session link.';
   } finally {
     liveRefreshing = false;
@@ -172,13 +173,14 @@ async function refreshModels() {
       card(bundled, 'Bundled starter needs attention',
         'Image model files or read-only access could not be confirmed. Startup must verify the source.');
     }
-    for (const model of result.installed || []) {
+    const distinctInstalled = (result.installed || []).filter(model => !sameBundledModel(model, result.bundled));
+    for (const model of distinctInstalled) {
       card(installed, model.tag, `${model.files_present ? 'Model files present' : 'Model files incomplete'} · ` +
         `${model.catalog_manifest_match ? 'Matches catalog manifest' : 'Outside reviewed catalog revision'} · ` +
         'Full artifact checks and current reply test are not performed by this view.');
       if (model.files_present && model.catalog_manifest_match) selectionButton(installed.lastElementChild, model.tag, result.selected_model);
     }
-    if (result.installed !== null && result.installed.length === 0) card(installed, 'No downloaded models yet', 'New model downloads will be stored in your selected location.');
+    if (result.installed !== null && distinctInstalled.length === 0) card(installed, 'No additional models yet', 'Choose a candidate below. Download and verify it, then compare it with your starter on the same trials.');
     for (const job of result.jobs || []) {
       const progress = job.progress;
       const speed = progress.recent_mib_per_second === null ? 'Speed unknown' : `${progress.recent_mib_per_second.toFixed(1)} MiB/s`;
@@ -251,14 +253,16 @@ async function refresh() {
     button.disabled = false;
   }
 }
-document.getElementById('chat').addEventListener('click', async () => {
+async function openChat() {
   try {
     const result = await api('/api/assistant/chat');
     openConversation(result.url);
   } catch (_) {
     document.getElementById('assistant-help').textContent = 'Chat is not ready. Refresh status and retry.';
   }
-});
+}
+document.getElementById('chat').addEventListener('click', openChat);
+document.getElementById('chat-fallback').addEventListener('click', openChat);
 document.getElementById('refresh').addEventListener('click', refresh);
 for (const action of ['start', 'stop']) document.getElementById(action + '-assistant').addEventListener('click', async () => {
   try { await startupAction(action); await refreshStartup(); }
@@ -287,6 +291,9 @@ async function refreshLab() {
     if (!value.available) return;
     document.getElementById('lab-start').disabled = value.active || downloadActive || selectionActive;
     document.getElementById('lab-start-documents').disabled = value.active || downloadActive || selectionActive;
+    if (['baseline', 'documents'].includes(commandAction?.action)) {
+      document.getElementById('cc-next-go').disabled = value.active || downloadActive || selectionActive;
+    }
     document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
     let message = labPhases[value.phase] || 'Checking test status…';
     if (value.model) message += ' · ' + value.model;
@@ -424,8 +431,9 @@ async function refreshSelection() {
     const value = await api('/api/models/selection');
     const changed = value.available !== selectionAvailable || value.phase !== selectionPhase || value.active !== selectionActive;
     selectionAvailable = value.available === true; selectionActive = value.active === true; selectionPhase = value.phase;
-    document.getElementById('selection-controls').hidden = !selectionAvailable;
+    document.getElementById('selection-controls').hidden = !selectionAvailable || value.phase === 'idle';
     document.getElementById('selection-cancel').disabled = !selectionActive || value.phase === 'cancelling';
+    document.getElementById('selection-cancel').hidden = !selectionActive;
     const messages = {idle: 'Choose Review switch on a local model.', pausing: 'Pausing the current assistant…',
       verifying: 'Rechecking all model artifacts…', starting: 'Testing the selected model through OpenClaw…',
       restoring: 'Restoring the previous selection…', 'rolled-back': 'Startup failed. The previous selection was restored.',
@@ -670,7 +678,7 @@ document.getElementById('storage-confirm').addEventListener('click', async () =>
       headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'}, body: JSON.stringify({candidate: storageChoice})});
     if (!response.ok) throw new Error('Storage unavailable');
     document.getElementById('storage-review').close();
-    await refreshStorage(); await refreshModels();
+    await refreshStorage(); await refreshModels(); await refreshCommand();
   } catch (_) {
     document.getElementById('storage-review-details').textContent = 'That location could not be used. Its write check or space check failed, or it changed. Refresh and choose again.';
   }
@@ -680,7 +688,7 @@ document.getElementById('reboot-check').addEventListener('click', async () => {
   try {
     const response = await fetch('/api/storage/reboot-check', {method: 'POST', headers: {'X-Argos-Token': token || ''}});
     if (!response.ok) throw new Error('Reboot check unavailable');
-    await refreshStorage();
+    await refreshStorage(); await refreshCommand();
   } catch (_) { document.getElementById('storage-status').textContent = 'Reboot check could not start. Refresh and retry.'; }
 });
 
@@ -696,11 +704,22 @@ function focusSection(id, control) {
   target.scrollIntoView({behavior: 'smooth', block: 'start'});
   if (control) document.getElementById(control)?.focus({preventScroll: true});
 }
+function sameBundledModel(model, bundled) {
+  return bundled?.state === 'available' && model.files_present === true &&
+    bundled.models.some(starter => model.tag === starter.tag &&
+      typeof model.manifest_digest === 'string' && model.manifest_digest === starter.manifest_digest);
+}
+function startMissionTrial(control) {
+  focusSection('lab-controls', control);
+  const button = document.getElementById(control);
+  if (!button.disabled) button.click();
+}
 const commandActions = {
   storage: () => focusSection('storage-title'),
-  baseline: () => focusSection('benchmarks-title', 'lab-start'),
-  documents: () => focusSection('benchmarks-title', 'lab-start-documents'),
+  baseline: () => startMissionTrial('lab-start'),
+  documents: () => startMissionTrial('lab-start-documents'),
   models: () => focusSection('models-title'),
+  capabilities: () => focusSection('capabilities-title'),
   reboot: () => focusSection('storage-title', 'reboot-check'),
   chat: () => document.getElementById('chat').click(),
   task: () => { const box = document.getElementById('cc-task-box'); box.open = true; focusSection('cc-task-box', 'cc-doc'); },
@@ -726,15 +745,22 @@ async function refreshCommand() {
     document.getElementById('cc-next-title').textContent = next.title;
     document.getElementById('cc-next-reason').textContent = next.reason;
     const go = document.getElementById('cc-next-go');
-    go.hidden = !next.action; go.textContent = {storage: 'Choose storage', baseline: 'Go to baseline', documents: 'Go to document trial',
-      models: 'Explore models', reboot: 'Go to reboot check', chat: 'Open chat', task: 'Try my document', restore: 'Review restore'}[next.action] || 'Go';
+    go.hidden = !next.action; go.textContent = {storage: 'Set up model storage', baseline: 'Pause chat and run the first trial', documents: 'Pause chat and test document reading',
+      models: 'Compare a model candidate', reboot: 'Verify storage after restart', chat: 'Talk to Argos', capabilities: 'Choose a capability',
+      task: 'Test a document you care about', restore: 'Review the previous model'}[next.action] || 'Start this mission';
+    const trialControl = {baseline: 'lab-start', documents: 'lab-start-documents'}[next.action];
+    go.disabled = !!trialControl && document.getElementById(trialControl).disabled;
     const list = document.getElementById('cc-systems'); list.replaceChildren();
+    const readings = document.getElementById('cc-readings'); readings.replaceChildren();
     for (const system of value.systems) {
       const item = document.createElement('li');
       item.textContent = `${system.label}: ${systemState[system.state] || system.state}. ${system.detail}`;
       list.append(item);
       const shape = document.querySelector(`#cc-schematic [data-system="${system.id}"]`);
       if (shape) shape.dataset.state = system.state;
+      if (['brain', 'power-core'].includes(system.id)) {
+        card(readings, system.id === 'brain' ? 'Tested ability' : 'Measured speed', system.detail);
+      }
     }
     document.getElementById('cc-scope').textContent = value.scope;
     const journalList = document.getElementById('cc-journal'); journalList.replaceChildren();
@@ -747,6 +773,7 @@ async function refreshCommand() {
     }
     const moment = document.getElementById('cc-moment');
     moment.hidden = !value.moment;
+    moment.dataset.tier = value.moment?.tier || '';
     if (value.moment) {
       document.getElementById('cc-moment-title').textContent = value.moment.title;
       document.getElementById('cc-moment-tier').textContent = tierText[value.moment.tier];
@@ -764,7 +791,10 @@ async function post(path, body) {
   if (!response.ok) throw new Error('Action unavailable');
   return response.json();
 }
-document.getElementById('cc-next-go').addEventListener('click', () => commandActions[commandAction?.action]?.());
+document.getElementById('cc-next-go').addEventListener('click', () => {
+  if (['baseline', 'documents'].includes(commandAction?.action)) document.getElementById('cc-next-go').disabled = true;
+  commandActions[commandAction?.action]?.();
+});
 document.getElementById('cc-moment-dismiss').addEventListener('click', async () => {
   try { await post('/api/command-center/seen'); } catch (_) {}
   await refreshCommand();

@@ -89,8 +89,29 @@ class CommandCenterTests(unittest.TestCase):
     def test_confirmed_storage_without_a_baseline_asks_for_a_baseline(self):
         value = self.snap()
         self.assertEqual(value['next_action']['id'], 'baseline')
+        self.assertEqual(value['next_action']['title'], 'Measure this model’s starting point')
+        self.assertIn('fair comparison', value['next_action']['reason'])
         self.assertEqual(self.keys(), ['storage:confirmed'])
         self.assertEqual(value['journal'][0]['tier'], 'routine')
+
+    def test_completed_checklist_recommends_choosing_a_capability(self):
+        self.add_documents('a:1b', 'a', created=4)
+        self.accept()
+        retained = {**BOOT, 'locations': [{'key': 'models', 'reboot': {'state': 'retained'},
+                                             'backing': {'encrypted': False}}]}
+        action = self.snap(view=retained)['next_action']
+        self.assertEqual(action['id'], 'capabilities')
+        self.assertEqual(action['title'], 'Choose the next capability you care about')
+
+    def test_front_page_speed_does_not_carry_to_different_model_files(self):
+        self.add_documents('a:1b', 'a', created=4)
+        original = self.snap()
+        core = next(s for s in original['systems'] if s['id'] == 'power-core')
+        self.assertEqual(core['state'], 'bench-test')
+        changed = self.snap(digest='b' * 64)
+        core = next(s for s in changed['systems'] if s['id'] == 'power-core')
+        self.assertEqual(core['state'], 'unknown')
+        self.assertNotIn('Measured', core['detail'])
 
     def test_documents_are_the_next_step_after_a_baseline(self):
         self.store.save(bench_speed.run(Backend(), 'fixture:latest', hardware=lambda: {}))

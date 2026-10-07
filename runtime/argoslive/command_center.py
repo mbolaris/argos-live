@@ -231,7 +231,7 @@ def systems(home, f, selected):
         brain = ('qualified' if qualified else 'bench-test',
                  ('Qualified for short documents.' if qualified else 'Short-document criteria not met.') +
                  ' Other abilities are untested.')
-    elif f['baseline'] and not docs:
+    elif any(is_selected(run, selected) for run in f['baseline']) and not docs:
         brain = ('bench-test', 'Baseline saved. Documents are untested.')
     state = view.get('state')
     memory = ('unknown', 'Storage not checked.')
@@ -242,7 +242,7 @@ def systems(home, f, selected):
                   else ('qualified', 'Storage accepted a write check. Reboot verification pending.'))
     elif state == 'available':
         memory = ('bench-test', 'Storage found but not yet confirmed.')
-    speed = next((r for r in f['runs'] if r['kind'] == 'speed'), None)
+    speed = next((r for r in f['runs'] if r['kind'] == 'speed' and is_selected(r, selected)), None)
     core = ('unknown', 'No speed measurement yet. GPU use is not yet proven.')
     if speed:
         rate = generation_speed(speed)
@@ -274,40 +274,42 @@ def next_action(f, selected, active):
     if active:
         return {'id': 'wait', 'title': 'A task is running', 'reason': 'Chat resumes when it finishes.', 'action': None}
     if view.get('state') == 'needs-attention':
-        return {'id': 'storage', 'title': 'Check your model storage',
-                'reason': 'The chosen location cannot be used right now. Nothing falls back to another drive.',
+        return {'id': 'storage', 'title': 'Restore the model bay',
+                'reason': 'The chosen location needs attention before Argos can save or test downloaded models. Nothing falls back to another drive.',
                 'action': 'storage'}
     if not view.get('confirmed'):
-        return {'id': 'storage', 'title': 'Choose where your robot keeps its models',
-                'reason': 'Downloads wait for a location you have confirmed. The bundled starter works without one.',
+        return {'id': 'storage', 'title': 'Choose a home for future models',
+                'reason': 'Confirm a model location before downloading. Argos can run the bundled starter while you decide.',
                 'action': 'storage'}
     if not f['baseline']:
-        return {'id': 'baseline', 'title': 'Save a baseline',
-                'reason': 'A saved baseline lets you tell later whether a different model is better or just different.',
+        return {'id': 'baseline', 'title': 'Measure this model’s starting point',
+                'reason': 'A short speed and ability trial gives future upgrades a fair comparison. It pauses chat for a few minutes.',
                 'action': 'baseline'}
     if not current:
-        return {'id': 'documents', 'title': 'Run the document trial',
-                'reason': 'Eight short passages, answered with a supporting quotation. Takes a few minutes and pauses chat.',
+        return {'id': 'documents', 'title': 'Test short-document reading',
+                'reason': 'Eight short passages test answers, supporting quotes, and “not stated” responses. This qualifies only short-document reading.',
                 'action': 'documents'}
     newer, older = (docs[0], docs[1]) if len(docs) > 1 else (None, None)
     if newer and older and not newer['qualification']['qualified'] and older['qualification']['qualified'] \
             and is_selected(newer, selected) and supported_pair(newer, older):
-        return {'id': 'restore', 'title': 'Restore the previous model',
-                'reason': f"{older['model']} met the document criteria and {newer['model']} did not.",
+        return {'id': 'restore', 'title': 'Restore the model that met the standard',
+                'reason': f"{older['model']} passed the document criteria; {newer['model']} missed them. The previous model remains available.",
                 'action': 'restore', 'model': older['model']}
     if not current['qualification']['qualified']:
-        return {'id': 'models', 'title': 'Try a larger model',
-                'reason': 'The current model missed the short-document criteria. Compare a candidate under the same trial.',
+        return {'id': 'models', 'title': 'Find a candidate for the missed checks',
+                'reason': 'The current model missed the short-document criteria. Compare a verified candidate under the same trial; a larger model is not automatically better.',
                 'action': 'models'}
     if not accepted:
-        return {'id': 'task', 'title': 'Try a document of your own',
-                'reason': 'The trial used passages we wrote. Paste something real and judge the answer yourself.',
+        return {'id': 'task', 'title': 'Test a document that matters to you',
+                'reason': 'The short trial passed. Now check an answer on your own text and decide whether it is useful. Your text and answer are not saved.',
                 'action': 'task'}
     reboot = next((l for l in view.get('locations', []) if l.get('key') == 'models'), {}).get('reboot', {}).get('state')
     if reboot in ('not-started', 'pending', None) and view.get('confirmed'):
-        return {'id': 'reboot', 'title': 'Verify storage across a restart',
-                'reason': 'Start the reboot check, restart the robot, then reopen this page.', 'action': 'reboot'}
-    return {'id': 'chat', 'title': 'Talk to Argos', 'reason': 'Everything checked so far is in order.', 'action': 'chat'}
+        return {'id': 'reboot', 'title': 'Check model storage after a restart',
+                'reason': 'Write a small test marker, restart Argos, then return here to see whether the chosen folder retained it.', 'action': 'reboot'}
+    return {'id': 'capabilities', 'title': 'Choose the next capability you care about',
+            'reason': 'The current checks are complete. Pick a capability, review what it needs, and test it before calling it ready.',
+            'action': 'capabilities'}
 
 
 def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp):

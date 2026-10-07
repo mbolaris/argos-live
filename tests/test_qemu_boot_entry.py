@@ -27,8 +27,8 @@ class BootEntryTests(unittest.TestCase):
     def test_managed_record_cannot_claim_physical_or_browser_reply_acceptance(self):
         value = {'schema': 'argos-qemu-managed/1', 'setup_mode': 'managed',
             'desktop_started': True, 'dashboard_authenticated': True, 'automatic_first_boot': True,
-            'bundled_read_only_source': True, 'model_reply_verified': True, 'handoff_claimed': True,
-            'firefox_gateway_connection': True, 'firefox_control_page_visible': True,
+            'bundled_read_only_source': True, 'model_reply_verified': True,
+            'mission_control_visible': True, 'chat_destination_available': True,
             'requires_screenshot_review': True, 'model_lab_launcher_available': True,
             'model_lab_launch_command_succeeded': True, 'model_lab_ui_visible': True,
             'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
@@ -44,8 +44,7 @@ class BootEntryTests(unittest.TestCase):
                          setup_mode='managed', guest=True)['guest_ram_policy_verified'], True)
         self.assertIsNone(module.guest_result(wire(value)[:-1], setup_mode='managed'))
         for changed in (dict(value, physical_acceptance=True), dict(value, browser_chat_reply_verified=True),
-                        dict(value, handoff_claimed=False), dict(value, firefox_gateway_connection=False),
-                        dict(value, firefox_control_page_visible=False),
+                        dict(value, mission_control_visible=False), dict(value, chat_destination_available=False),
                         dict(value, model_lab_launch_command_succeeded=False),
                         dict(value, model_lab_ui_visible=False),
                         dict(value, model_lab_button_clicked=False),

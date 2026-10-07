@@ -56,7 +56,9 @@ try {
   if (!(await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
     throw new Error('Bundled source selection was not displayed');
   }
-  await page.locator('details:has(#model-catalog) > summary').click();
+  if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) {
+    throw new Error('Model catalog should be visible on first load');
+  }
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
   await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
   if (await page.locator('#benchmark-runs b').count()) throw new Error('Result label was treated as markup');
@@ -158,7 +160,9 @@ try {
   });
   await page.reload();
   await page.locator('#download-controls').waitFor({state: 'visible'});
-  await page.locator('details:has(#model-catalog) > summary').click();
+  if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) {
+    throw new Error('Reload hid the model catalog');
+  }
   await page.locator('#model-catalog button').first().click();
   await page.locator('#download-review').waitFor({state: 'visible'});
   if (!(await page.locator('#download-confirm').isDisabled())) throw new Error('Download was allowed before storage was confirmed');
@@ -205,6 +209,9 @@ try {
   });
   await page.reload();
   await page.locator('#installed-models button').waitFor();
+  if (await page.locator('#selection-controls').isVisible() || await page.locator('#selection-cancel').isVisible()) {
+    throw new Error('Idle selection displays an operation or cancellation control');
+  }
   await page.locator('#installed-models button').click();
   await page.locator('#selection-review').waitFor({state: 'visible'});
   await page.screenshot({path: 'work/dashboard-selection-review.png'});
@@ -217,6 +224,7 @@ try {
   if (!(await page.locator('#lab-start').isDisabled())) throw new Error('Selection did not exclude benchmark');
   await page.locator('#selection-cancel').click();
   await page.waitForFunction(() => document.getElementById('selection-status').textContent.includes('Switch cancelled'));
+  if (await page.locator('#selection-cancel').isVisible()) throw new Error('Completed cancellation still offers cancel');
   if (selectionCalls.join(',') !== 'select,cancel') throw new Error('Selection controls failed');
   await page.screenshot({path: 'work/dashboard-desktop.png', fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
@@ -259,9 +267,8 @@ try {
   }
   await page.setViewportSize({width: 1200, height: 1000});
   await page.screenshot({path: 'work/dashboard-startup.png', fullPage: true});
-  // The menu launches the dashboard in its model-lab view. A ready managed
-  // assistant must not immediately redirect that page into chat; the ordinary
-  // startup view keeps its existing automatic handoff.
+  // Both menu and ordinary startup keep the workspace visible. Even a stale
+  // auto_open_chat flag must not navigate; conversation requires an owner click.
   startup = {...startup, phase: 'ready', message: 'Your local assistant is ready.', elapsed_seconds: 60,
     active: false, can_start: false, can_stop: false, auto_open_chat: true, model_reply_verified: true};
   const chatHandoffs = [];
@@ -275,6 +282,19 @@ try {
   });
   await page.route('http://127.0.0.1:18789/chat', route =>
     route.fulfill({contentType: 'text/html', body: '<title>Chat fixture</title><h1>Assistant conversation</h1>'}));
+  await page.route('**/api/status', async route => {
+    const response = await route.fetch(); const value = await response.json();
+    await route.fulfill({response, json: {...value, assistant: 'ready', chat_available: true}});
+  });
+  const explicitChats = [];
+  await page.route('**/api/assistant/chat', async route => {
+    if (route.request().method() !== 'GET' ||
+        route.request().headers()['x-argos-token'] !== new URL(url).searchParams.get('token')) {
+      throw new Error('Explicit chat action authorization failed');
+    }
+    explicitChats.push('chat');
+    await route.fulfill({json: {url: 'http://127.0.0.1:18789/chat#token=fixture'}});
+  });
   await page.goto(url + '&view=lab#benchmarks-title');
   await page.getByRole('heading', {name: 'Model lab results'}).waitFor();
   await page.locator('#lab-controls').waitFor({state: 'visible'});
@@ -285,11 +305,17 @@ try {
   }
   await page.screenshot({path: 'work/dashboard-model-lab.png', fullPage: true});
   await page.goto(url);
+  await page.waitForFunction(() => !document.getElementById('chat-fallback').disabled);
+  await page.waitForTimeout(3500);
+  if (chatHandoffs.length || explicitChats.length || page.url() !== url) {
+    throw new Error('Normal startup navigated away from the workspace');
+  }
+  await page.locator('#chat-fallback').click();
   await page.waitForURL('http://127.0.0.1:18789/chat#token=fixture');
   await page.getByRole('heading', {name: 'Assistant conversation'}).waitFor();
-  if (chatHandoffs.join(',') !== 'chat') throw new Error('Normal startup lost its chat handoff');
+  if (chatHandoffs.length || explicitChats.join(',') !== 'chat') throw new Error('Chat did not require exactly one owner action');
   if (errors.length) throw new Error('Managed browser script failed');
-  console.log('PASS: live/capability cards, model lab stays open, normal startup hands off to chat, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
+  console.log('PASS: live/capability cards, catalog visible, idle cancel hidden, workspace stays open until explicit chat action, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
 } finally {
   if (browser) await browser.close();
   const stopped = new Promise(resolveStop => server.once('exit', resolveStop));

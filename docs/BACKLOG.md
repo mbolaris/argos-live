@@ -18,6 +18,23 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### U1 — Mission Control as the primary workspace
+
+Status: in progress ([PR #52](https://github.com/mbolaris/argos-live/pull/52)). Keep the managed dashboard visible after startup; open chat
+only on its named owner action. Lead with one recommended mission, a robot
+schematic, selected-file-bound speed and task evidence. Mission trial buttons
+start the named trial with the chat pause explicit. Make the catalog visible,
+hide idle cancellation controls, and combine identical complete starter entries
+only when tag and manifest digest match. Routine moments remain compact.
+
+Acceptance: backend identity regression tests, browser journey (direct mission
+launch and catalog visibility), native startup checks, and exact-image shipped
+Firefox review. Physical boot and owner usability review remain separate.
+The current local review uses fixture Chromium, not deployed Firefox. Subsequent
+work must give the companion a reviewed read-only evidence report and connect
+recommendations to the owner's chosen useful mission; rule-based UI advice does
+not establish that the conversational agent understands its current capability.
+
 ### G1 — Fresh guest boot (implementation candidate)
 
 User-requested October 6: new default media plus a no-passphrase guest mode.

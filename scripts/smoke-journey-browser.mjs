@@ -29,7 +29,18 @@ try {
     [await page.locator('#cc-moment-tier').textContent(), await page.locator('#cc-moment-title').textContent()] : null;
 
   // 1. Nothing proven: storage first, every system unknown, no ceremony.
-  await waitNext('Choose where your robot keeps its models');
+  await waitNext('Choose a home for future models');
+  if (await page.locator('#cc-next-go').textContent() !== 'Set up model storage') fail('First mission does not name its action');
+  if (!(await page.locator('#cc-title').textContent()).includes('Mission control')) fail('Mission Control did not lead the page');
+  if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) fail('Model choices hidden by default');
+  const deduplication = await page.evaluate(() => {
+    const model = {tag: 'fixture:latest', manifest_digest: 'sha256:' + 'a'.repeat(64), files_present: true};
+    const bundled = {state: 'available', models: [model]};
+    return sameBundledModel(model, bundled) && !sameBundledModel({...model, manifest_digest: 'sha256:' + 'b'.repeat(64)}, bundled) &&
+      !sameBundledModel({...model, files_present: false}, bundled);
+  });
+  if (!deduplication) fail('Starter display deduplication lost file identity or completeness');
+  if (!(await page.locator('#cc-scope').textContent()).includes('demonstrated')) fail('Evidence scope is missing');
   const systems = await page.locator('#cc-systems li').allTextContents();
   if (systems.length !== 7 || systems.some(s => s.includes('Qualified') || s.includes('Commissioned'))) fail('Systems overstated at the start: ' + systems);
   if (await moment()) fail('A moment appeared before any evidence');
@@ -42,7 +53,7 @@ try {
   await page.locator('#storage-review').waitFor({state: 'visible'});
   await page.locator('#storage-confirm').click();
   await page.waitForFunction(() => document.getElementById('storage-status').textContent.includes('Model location confirmed.'), null, {timeout: 30000});
-  await waitNext('Save a baseline');
+  await waitNext('Measure this model’s starting point');
   const first = await moment();
   if (!first || first[0] !== 'Routine') fail('Expected one routine line for storage, got ' + JSON.stringify(first));
   await page.locator('#cc-moment-dismiss').click();
@@ -51,10 +62,11 @@ try {
   // 3. Baseline twice so two comparable runs exist.
   for (let n = 0; n < 2; n++) {
     await page.waitForFunction(() => !document.getElementById('lab-start').disabled, null, {timeout: 60000});
-    await page.locator('#lab-start').click();
+    if (n === 0) await page.locator('#cc-next-go').click();
+    else await page.locator('#lab-start').click();
     await page.waitForFunction(() => document.getElementById('lab-status').textContent.startsWith('Baseline saved'), null, {timeout: 120000});
   }
-  await waitNext('Run the document trial');
+  await waitNext('Test short-document reading');
 
   // 4. Matched comparison renders speed and accuracy separately without script errors.
   await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length >= 4, null, {timeout: 30000});
@@ -80,13 +92,13 @@ try {
   // 5. Document trial, fixed criteria, one qualified moment.
   await page.locator('#lab-start-documents').click();
   await page.waitForFunction(() => document.getElementById('lab-status').textContent.startsWith('Document trial saved'), null, {timeout: 180000});
-  await waitNext('Try a document of your own');
+  await waitNext('Test a document that matters to you');
   const qualified = await moment();
   if (!qualified || qualified[0] !== 'Qualified' || !qualified[1].includes('Short documents')) fail('Expected a Qualified document moment, got ' + JSON.stringify(qualified));
   if (!(await page.locator('#cc-moment-detail').textContent()).includes('says nothing about longer documents')) fail('Qualified moment lost its scope');
   await page.locator('#cc-moment-dismiss').click();
   await page.reload();
-  await waitNext('Try a document of your own');
+  await waitNext('Test a document that matters to you');
   if (await moment()) fail('A dismissed moment came back after reload');
 
   // 6. The owner's own document, quote verified against the pasted text, accepted.
