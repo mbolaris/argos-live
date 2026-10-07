@@ -102,7 +102,8 @@ try {
     }
     labCalls.push(action);
     lab = {...lab, active: action === 'start', phase: action === 'start' ? 'speed' : 'cancelled',
-      model: 'qwen3:0.6b', progress: {phase: 'measured', run: 1}};
+      model: 'qwen3:0.6b', progress: {phase: 'measured', run: 1},
+      arena: {total: 20, completed: 1, correct: 1, format_errors: 0, receipts: [{item_id: 'probe-01', category: 'numeric', outcome: 'pass', score: 1}]}};
     await route.fulfill({json: lab});
   });
   await page.reload();
@@ -110,6 +111,8 @@ try {
   await page.locator('#lab-start').click();
   await page.waitForFunction(() => document.getElementById('lab-start').disabled &&
     document.getElementById('lab-status').textContent.includes('Measured run 1/3'));
+  await page.locator('#arena').waitFor({state: 'visible'});
+  await page.waitForFunction(() => document.getElementById('arena-progress-label').textContent.includes('challenges'));
   await page.locator('#lab-cancel').click();
   await page.waitForFunction(() => !document.getElementById('lab-start').disabled &&
     document.getElementById('lab-status').textContent.includes('Test cancelled'));
@@ -227,9 +230,11 @@ try {
   if (await page.locator('#selection-cancel').isVisible()) throw new Error('Completed cancellation still offers cancel');
   if (selectionCalls.join(',') !== 'select,cancel') throw new Error('Selection controls failed');
   await page.screenshot({path: 'work/dashboard-desktop.png', fullPage: true});
-  await page.setViewportSize({width: 390, height: 844});
-  if (!(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))) {
-    throw new Error('Dashboard overflows narrow viewport');
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({width, height: 844});
+    if (!(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))) {
+      throw new Error(`Dashboard overflows ${width}px viewport`);
+    }
   }
   await page.screenshot({path: 'work/dashboard-narrow.png', fullPage: true});
   // Managed controls use an authored display fixture. Actual native services

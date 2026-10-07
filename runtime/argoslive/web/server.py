@@ -130,6 +130,20 @@ class Handler(BaseHTTPRequestHandler):
                     self.reply(503, {'error': 'Command center unavailable'}, head=head)
         elif path == '/api/lab':
             self.reply(200, self.server.lab.snapshot() if self.server.lab else {'available': False}, head=head)
+        elif path == '/api/lab/events':
+            if not self.server.lab:
+                self.reply(200, {'available': False}, head=head)
+            else:
+                try:
+                    query = parse_qs(urlsplit(self.path).query, max_num_fields=20)
+                    after_str = query.get('after', ['0'])[0]
+                    after = int(after_str) if after_str.isdigit() else 0
+                    run_id = query.get('run', [None])[0]
+                    if run_id is not None and (not isinstance(run_id, str) or len(run_id) > 64 or not run_id.isalnum()):
+                        run_id = None
+                    self.reply(200, self.server.lab.events_after(after, run_id=run_id), head=head)
+                except (ValueError, OSError, TypeError):
+                    self.reply(400, {'error': 'Invalid event parameters'}, head=head)
         elif path == '/api/startup':
             self.reply(200, self.server.startup.snapshot() if self.server.startup else
                        {'schema': 'argos-startup/1', 'managed': False}, head=head)

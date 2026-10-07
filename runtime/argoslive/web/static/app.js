@@ -281,6 +281,281 @@ const labPhases = {idle: 'Ready to measure your model.', pausing: 'Pausing chat 
   debrief: 'Argos is reflecting on the measured results…', task: 'Reading your document…', ability: 'Testing ability with fixed scored tasks…', documents: 'Reading short documents and answering from them…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
   completed: 'Baseline saved. Compare the results below.', cancelled: 'Test cancelled. Any completed results remain saved.',
   failed: 'Test could not finish. Any completed results remain saved. Check model setup before retrying.'};
+let arenaRunId = null;
+let arenaCursor = 0;
+let arenaPolling = false;
+let arenaTimer = null;
+let arenaReceipts = [];
+let arenaCurrentAnswer = '';
+
+const outcomeMeta = {
+  pass: {label: 'Pass', cls: 'outcome-pass', reason: 'Criteria verified'},
+  wrong_answer: {label: 'Wrong Answer', cls: 'outcome-wrong', reason: 'Answer did not match expected criteria'},
+  format_error: {label: 'Format Error', cls: 'outcome-format', reason: 'Did not follow required format or closed JSON schema'},
+  unscored: {label: 'Summary', cls: 'outcome-unscored', reason: 'Summary generated for owner judgment'}
+};
+
+function renderReceiptItem(receipt) {
+  const meta = outcomeMeta[receipt.outcome] || outcomeMeta.unscored;
+  const row = document.createElement('div');
+  row.className = 'arena-receipt-row';
+
+  const head = document.createElement('div');
+  head.className = 'arena-receipt-head';
+
+  const badge = document.createElement('span');
+  badge.className = `arena-badge-outcome ${meta.cls}`;
+  badge.textContent = meta.label;
+
+  const tag = document.createElement('span');
+  tag.className = 'arena-tag';
+  tag.textContent = `${receipt.item_id || 'item'} · ${receipt.category || ''}`;
+
+  const latency = document.createElement('span');
+  latency.className = 'arena-receipt-meta';
+  if (Number.isFinite(receipt.latency_seconds)) {
+    latency.textContent = `${receipt.latency_seconds.toFixed(2)}s`;
+  }
+
+  head.append(badge, tag, latency);
+
+  const reason = document.createElement('div');
+  reason.className = 'arena-receipt-reason';
+  reason.textContent = meta.reason;
+
+  row.append(head, reason);
+
+  if (receipt.output) {
+    const out = document.createElement('div');
+    out.className = 'arena-receipt-output';
+    out.textContent = receipt.output;
+    row.append(out);
+  }
+  return row;
+}
+
+function updateArenaHUD(arena, phase, model, elapsed, active) {
+  const badge = document.getElementById('arena-phase-badge');
+  if (badge) {
+    badge.textContent = labPhases[phase] ? phase.toUpperCase() : 'IDLE';
+    badge.classList.toggle('running', active === true);
+  }
+  const m = document.getElementById('arena-model');
+  if (m) m.textContent = model || 'Configured model';
+  const el = document.getElementById('arena-elapsed');
+  if (el) el.textContent = Number.isFinite(elapsed) ? `${Math.round(elapsed)} s` : '0 s';
+
+  const total = (arena && arena.total) ? arena.total : 20;
+  const completed = (arena && arena.completed) ? arena.completed : 0;
+  const bar = document.getElementById('arena-progress-bar');
+  if (bar) { bar.max = total; bar.value = completed; }
+  const pl = document.getElementById('arena-progress-label');
+  if (pl) pl.textContent = `${completed} / ${total} challenges`;
+
+  const passed = (arena && arena.correct) ? arena.correct : 0;
+  const formatErrors = (arena && arena.format_errors) ? arena.format_errors : 0;
+  const tp = document.getElementById('arena-tally-passed');
+  if (tp) tp.textContent = `${passed} passed`;
+  const tf = document.getElementById('arena-tally-format-errors');
+  if (tf) tf.textContent = `${formatErrors} format errors`;
+}
+
+function updateArenaReceipts(receipts) {
+  const list = document.getElementById('arena-receipts-list');
+  if (!list) return;
+  list.replaceChildren();
+  for (const r of receipts) {
+    list.appendChild(renderReceiptItem(r));
+  }
+  const tally = document.getElementById('arena-receipts-tally');
+  if (tally) tally.textContent = `${receipts.length} scored`;
+}
+
+function renderArenaState(arena, active, phase, model, elapsed) {
+  const arenaEl = document.getElementById('arena');
+  if (!arenaEl) return;
+  arenaEl.hidden = false;
+
+  updateArenaHUD(arena, phase, model, elapsed, active);
+
+  const livePrompt = document.getElementById('arena-current-prompt');
+  const liveStream = document.getElementById('arena-current-stream');
+  const streamInd = document.getElementById('arena-stream-indicator');
+  const liveId = document.getElementById('arena-current-id');
+  const liveCat = document.getElementById('arena-current-category');
+
+  if (phase === 'speed') {
+    if (liveId) liveId.textContent = 'speed-run';
+    if (liveCat) liveCat.textContent = 'throughput';
+    if (livePrompt) livePrompt.textContent = 'Measuring short-prompt generation speed, prompt processing, and first-token latency with fixed prompts.';
+    if (liveStream) liveStream.textContent = 'Running model speed measurements…';
+    if (streamInd) streamInd.hidden = true;
+  } else if (arena && arena.current_item) {
+    if (liveId) liveId.textContent = arena.current_item.item_id || 'active';
+    if (liveCat) liveCat.textContent = arena.current_item.category || '';
+    if (livePrompt) livePrompt.textContent = arena.current_item.prompt || 'Running challenge…';
+    if (arena.current_item.answer) {
+      if (liveStream) liveStream.textContent = arena.current_item.answer;
+      arenaCurrentAnswer = arena.current_item.answer;
+    }
+    if (streamInd) streamInd.hidden = !active;
+  } else {
+    if (streamInd) streamInd.hidden = true;
+  }
+
+  if (arena && Array.isArray(arena.receipts)) {
+    arenaReceipts = arena.receipts;
+    updateArenaReceipts(arenaReceipts);
+  }
+
+  const banner = document.getElementById('arena-summary-banner');
+  const headline = document.getElementById('arena-summary-headline');
+  const detail = document.getElementById('arena-summary-detail');
+
+  if (banner && headline && detail) {
+    if (phase === 'completed') {
+      banner.hidden = false;
+      headline.textContent = 'Trial completed and saved';
+      detail.textContent = `${arena?.correct || 0} of ${arena?.total || 0} passed · ${arena?.format_errors || 0} format errors · Evidence bound to ${model || 'model'} digest. Baseline saved.`;
+    } else if (phase === 'cancelled') {
+      banner.hidden = false;
+      headline.textContent = 'Trial stopped by user';
+      detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.`;
+    } else if (phase === 'failed') {
+      banner.hidden = false;
+      headline.textContent = 'Trial could not finish';
+      detail.textContent = 'Check model setup and compute resources before retrying.';
+    } else {
+      banner.hidden = true;
+    }
+  }
+}
+
+function applyArenaEvent(ev) {
+  if (ev.type === 'phase') {
+    const badge = document.getElementById('arena-phase-badge');
+    if (badge) badge.textContent = ev.phase.toUpperCase();
+    if (Number.isFinite(ev.elapsed_seconds)) {
+      const el = document.getElementById('arena-elapsed');
+      if (el) el.textContent = `${Math.round(ev.elapsed_seconds)} s`;
+    }
+  } else if (ev.type === 'item-start') {
+    const liveId = document.getElementById('arena-current-id');
+    if (liveId) liveId.textContent = ev.item_id || 'active';
+    const liveCat = document.getElementById('arena-current-category');
+    if (liveCat) liveCat.textContent = ev.category || '';
+    const livePrompt = document.getElementById('arena-current-prompt');
+    if (livePrompt) livePrompt.textContent = ev.prompt || 'Evaluating challenge…';
+    arenaCurrentAnswer = '';
+    const liveStream = document.getElementById('arena-current-stream');
+    if (liveStream) liveStream.textContent = 'Generating response…';
+    const streamInd = document.getElementById('arena-stream-indicator');
+    if (streamInd) streamInd.hidden = false;
+    if (Number.isFinite(ev.completed) && Number.isFinite(ev.total)) {
+      const bar = document.getElementById('arena-progress-bar');
+      if (bar) bar.value = ev.completed;
+      const pl = document.getElementById('arena-progress-label');
+      if (pl) pl.textContent = `${ev.completed} / ${ev.total} challenges`;
+    }
+  } else if (ev.type === 'answer-delta') {
+    arenaCurrentAnswer += (ev.delta || '');
+    const stream = document.getElementById('arena-current-stream');
+    if (stream) {
+      stream.textContent = arenaCurrentAnswer;
+      stream.scrollTop = stream.scrollHeight;
+    }
+  } else if (ev.type === 'item-scored') {
+    if (ev.receipt) {
+      arenaReceipts.push(ev.receipt);
+      const list = document.getElementById('arena-receipts-list');
+      if (list) {
+        list.appendChild(renderReceiptItem(ev.receipt));
+        list.scrollTop = list.scrollHeight;
+      }
+      const tally = document.getElementById('arena-receipts-tally');
+      if (tally) tally.textContent = `${arenaReceipts.length} scored`;
+      const passed = arenaReceipts.filter(r => r.score === 1).length;
+      const errors = arenaReceipts.filter(r => r.outcome === 'format_error').length;
+      const tp = document.getElementById('arena-tally-passed');
+      if (tp) tp.textContent = `${passed} passed`;
+      const tf = document.getElementById('arena-tally-format-errors');
+      if (tf) tf.textContent = `${errors} format errors`;
+      if (Number.isFinite(ev.completed) && Number.isFinite(ev.total)) {
+        const bar = document.getElementById('arena-progress-bar');
+        if (bar) bar.value = ev.completed;
+        const pl = document.getElementById('arena-progress-label');
+        if (pl) pl.textContent = `${ev.completed} / ${ev.total} challenges`;
+      }
+    }
+  } else if (ev.type === 'final') {
+    const streamInd = document.getElementById('arena-stream-indicator');
+    if (streamInd) streamInd.hidden = true;
+    const banner = document.getElementById('arena-summary-banner');
+    if (banner) {
+      banner.hidden = false;
+      const headline = document.getElementById('arena-summary-headline');
+      const detail = document.getElementById('arena-summary-detail');
+      if (ev.outcome === 'completed') {
+        if (headline) headline.textContent = 'Trial completed and saved';
+        if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
+      } else if (ev.outcome === 'cancelled') {
+        if (headline) headline.textContent = 'Trial stopped by user';
+        if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.`;
+      } else {
+        if (headline) headline.textContent = 'Trial could not finish';
+        if (detail) detail.textContent = 'Check model setup and compute resources before retrying.';
+      }
+    }
+    stopArenaPolling();
+    refreshBenchmarks();
+  }
+}
+
+async function pollArenaEvents() {
+  if (arenaPolling) return;
+  arenaPolling = true;
+  try {
+    const url = `/api/lab/events?after=${arenaCursor}` + (arenaRunId ? `&run=${encodeURIComponent(arenaRunId)}` : '');
+    const data = await api(url);
+    if (!data) return;
+    if (data.reset || data.gap) {
+      arenaCursor = data.cursor || 0;
+      arenaRunId = data.run_id;
+      if (data.arena) {
+        renderArenaState(data.arena, data.active, data.phase, data.arena.model, data.arena.elapsed_seconds);
+      }
+      return;
+    }
+    arenaCursor = data.cursor || arenaCursor;
+    arenaRunId = data.run_id;
+    if (Array.isArray(data.events)) {
+      for (const ev of data.events) {
+        applyArenaEvent(ev);
+      }
+    }
+    if (!data.active) {
+      stopArenaPolling();
+    }
+  } catch (_) {
+    // transient network error
+  } finally {
+    arenaPolling = false;
+  }
+}
+
+function startArenaPolling() {
+  if (!arenaTimer) {
+    arenaTimer = setInterval(pollArenaEvents, 300);
+  }
+}
+
+function stopArenaPolling() {
+  if (arenaTimer) {
+    clearInterval(arenaTimer);
+    arenaTimer = null;
+  }
+}
+
 async function refreshLab() {
   if (labRefreshing) return;
   labRefreshing = true;
@@ -310,6 +585,22 @@ async function refreshLab() {
     document.querySelector('#cc-schematic [data-system="power-core"]')?.classList.toggle('working', value.active === true);
     if (lastLabPhase && lastLabPhase !== value.phase && !value.active) refreshCommand();
     lastLabPhase = value.phase;
+
+    // Render live arena state and manage polling
+    if (value.arena || value.active) {
+      if (value.run_id && value.run_id !== arenaRunId) {
+        arenaRunId = value.run_id;
+        arenaCursor = value.seq || 0;
+        arenaReceipts = [];
+        arenaCurrentAnswer = '';
+      }
+      renderArenaState(value.arena, value.active, value.phase, value.model, value.elapsed_seconds);
+      if (value.active) {
+        startArenaPolling();
+      } else {
+        stopArenaPolling();
+      }
+    }
   } catch (_) {
     document.getElementById('lab-start').disabled = true;
     document.getElementById('lab-start-documents').disabled = true;
@@ -321,6 +612,10 @@ for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'star
   document.getElementById('lab-start').disabled = true;
   document.getElementById('lab-start-documents').disabled = true;
   document.getElementById('lab-status').textContent = route === 'cancel' ? 'Requesting cancellation…' : 'Starting trial; pausing chat…';
+  if (route === 'cancel') {
+    const badge = document.getElementById('arena-phase-badge');
+    if (badge) badge.textContent = 'STOPPING…';
+  }
   try {
     const response = await fetch('/api/lab/' + route, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
     if (!response.ok) throw new Error('Test unavailable');
