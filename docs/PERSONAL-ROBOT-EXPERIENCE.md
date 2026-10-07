@@ -672,6 +672,72 @@ responsive presentation, with existing loopback/session access unchanged.
 
 ### Identity and personality: Meet your AI
 
+### Product focus: configure, watch, qualify, improve
+
+October 7 owner feedback: the shipped ladder is clearer but still not engaging;
+storage and stronger-model selection remain hard to discover. The next design
+centers **a personal AI proving ground**: choose a useful skill, watch an actual
+test, understand its outcome, change the build and run a matched comparison.
+Changing colors alone is insufficient. This is the primary journey, with system
+administration behind it. The identity editor below is an optional side action.
+
+**Home: skill map.** A large, responsive connected map groups understanding,
+reasoning, planning, tool use, memory and perception. Each node shows its task,
+evidence state and next test. Use both text/icons and color: untested outline,
+measured cyan, qualified teal, failed/needs attention amber. Do not equate a small
+probe with qualifying an entire domain. Initial active nodes correspond only to
+existing scored suites; future tests are visibly unavailable, not fake missions.
+A side panel shows criteria, last result, model digest and configuration scope.
+On phones use a navigable list of the same groups rather than a tiny zoom-only
+diagram. No global AGI percentage or rank inferred from a few tests.
+
+**Test arena: watch it work.** Run a selected fixed suite with one obvious Start
+action, expected workload/time range if measured, and visible Stop. Show current
+challenge, public prompt, actual answer as it streams, elapsed time, completed
+items/total and incremental scored receipts. Keep a growing list of outcomes so
+the owner can inspect mistakes while the next item runs. Distinguish reading,
+generating, checking and restoring chat; do not fabricate completion percentages
+for indeterminate phases. Display answer tokens, not hidden chain-of-thought.
+The aggregate scoreboard and skill-map evidence update only from validated
+completed results. Cancelled partial observations remain visibly incomplete.
+
+**Agentic tests require real actions.** Existing tool-call formatting probes are
+not tool execution. Add a separate opt-in disposable sandbox trial: inspect a
+small original fixture, plan bounded steps, use an allowed tool, produce an
+artifact and verify it with code. Show the observable action/outcome trace and
+permission boundary; no personal files, shell/network escalation or silent tool
+enablement. Deterministic success, action budget, failures and recovery are
+reported independently. Qualify only the exact workflow actually exercised.
+
+**Result: one readable receipt.** Lead with which challenges passed, what failed,
+and a replay of representative answers. Put speed/first-token wait beside, not
+inside, correctness. Explain each failed criterion in plain language. Include
+the optional local-model reflection as opinion, followed by two actions: Practice
+this skill and Try a different model. Keep raw records in an Advanced disclosure.
+
+**Upgrade: guided model choice with storage inline.** Start with the skill the
+owner wants to improve. Present a small set from the reviewed catalog with exact
+identity, download size, RAM/VRAM estimates and advisory fit; bigger is not a
+quality guarantee. If storage is missing, open **Choose where to keep models**
+inside this flow: eligible drive label, capacity/free space, persistence and
+encryption, recommended eligible option with rationale, then Review and Use this
+location. Show the resulting folder and explain that profiles/history stay in
+their protected location. Explain why ineligible drives cannot be selected and
+how to continue with the bundled model. No remembered drive letters, formatting,
+moving existing models or automatically adopting DATA. Finish with verified
+download, explicit switch, run the same tests, then Keep or Restore.
+
+Implement in order: live per-item event stream and arena; task-scoped map/result
+receipt; inline storage/model upgrade; actual sandbox agentic suite. Reuse lab,
+results.compare, selected-manifest binding, storage_view and model switching.
+Progress events must be bounded, sequenced, cancellable, reconnectable and safe
+to render; UI clients never own the workload. Public fixture prompts are safe
+to replay, while owner text/persona/token/configuration remains private and is
+not written into benchmark events. Verify real shipped Firefox, long-run live
+updates, cancel/reconnect, a real local model and narrow phone layouts separately.
+
+### Identity editor placement
+
 The main headline becomes **“How far can your AI go?”** Product branding remains
 Argos Live. A compact identity line shows the selected agent's display name,
 model and an **Edit identity** action. Use its chosen name in its own debrief and
