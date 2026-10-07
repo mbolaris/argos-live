@@ -267,9 +267,8 @@ try {
   }
   await page.setViewportSize({width: 1200, height: 1000});
   await page.screenshot({path: 'work/dashboard-startup.png', fullPage: true});
-  // The menu launches the dashboard in its model-lab view. A ready managed
-  // assistant must not immediately redirect that page into chat; the ordinary
-  // startup view keeps its existing automatic handoff.
+  // Both menu and ordinary startup keep the workspace visible. Even a stale
+  // auto_open_chat flag must not navigate; conversation requires an owner click.
   startup = {...startup, phase: 'ready', message: 'Your local assistant is ready.', elapsed_seconds: 60,
     active: false, can_start: false, can_stop: false, auto_open_chat: true, model_reply_verified: true};
   const chatHandoffs = [];
@@ -283,6 +282,19 @@ try {
   });
   await page.route('http://127.0.0.1:18789/chat', route =>
     route.fulfill({contentType: 'text/html', body: '<title>Chat fixture</title><h1>Assistant conversation</h1>'}));
+  await page.route('**/api/status', async route => {
+    const response = await route.fetch(); const value = await response.json();
+    await route.fulfill({response, json: {...value, assistant: 'ready', chat_available: true}});
+  });
+  const explicitChats = [];
+  await page.route('**/api/assistant/chat', async route => {
+    if (route.request().method() !== 'GET' ||
+        route.request().headers()['x-argos-token'] !== new URL(url).searchParams.get('token')) {
+      throw new Error('Explicit chat action authorization failed');
+    }
+    explicitChats.push('chat');
+    await route.fulfill({json: {url: 'http://127.0.0.1:18789/chat#token=fixture'}});
+  });
   await page.goto(url + '&view=lab#benchmarks-title');
   await page.getByRole('heading', {name: 'Model lab results'}).waitFor();
   await page.locator('#lab-controls').waitFor({state: 'visible'});
@@ -293,11 +305,17 @@ try {
   }
   await page.screenshot({path: 'work/dashboard-model-lab.png', fullPage: true});
   await page.goto(url);
+  await page.waitForFunction(() => !document.getElementById('chat-fallback').disabled);
+  await page.waitForTimeout(3500);
+  if (chatHandoffs.length || explicitChats.length || page.url() !== url) {
+    throw new Error('Normal startup navigated away from the workspace');
+  }
+  await page.locator('#chat-fallback').click();
   await page.waitForURL('http://127.0.0.1:18789/chat#token=fixture');
   await page.getByRole('heading', {name: 'Assistant conversation'}).waitFor();
-  if (chatHandoffs.join(',') !== 'chat') throw new Error('Normal startup lost its chat handoff');
+  if (chatHandoffs.length || explicitChats.join(',') !== 'chat') throw new Error('Chat did not require exactly one owner action');
   if (errors.length) throw new Error('Managed browser script failed');
-  console.log('PASS: live/capability cards, model lab stays open, normal startup hands off to chat, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
+  console.log('PASS: live/capability cards, catalog visible, idle cancel hidden, workspace stays open until explicit chat action, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
 } finally {
   if (browser) await browser.close();
   const stopped = new Promise(resolveStop => server.once('exit', resolveStop));
