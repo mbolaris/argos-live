@@ -20,7 +20,7 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ### U3 — Target the shipped Firefox trial control reliably
 
-Status: in progress (test-only acceptance fix). Navigate through Firefox's location
+Status: in progress ([PR #54](https://github.com/mbolaris/argos-live/pull/54)). Navigate through Firefox's location
 bar to the authenticated Lab button fragment, then focus and activate the button
 with ordinary keyboard input. Do not infer success from input delivery: retain
 the active-job, saved speed/ability results and assistant-resumption checks.
