@@ -20,7 +20,7 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ### U4 — A visible mission ladder and a local-model debrief
 
-Status: in progress. Lead with a selected-file-bound trial receipt: solved
+Status: in progress ([PR #55](https://github.com/mbolaris/argos-live/pull/55)). Lead with a selected-file-bound trial receipt: solved
 exercises, repeated output speed, first-token wait, category bars and a factual
 next practice area. Show the existing four document-build checks as numbered
 rungs. No global intelligence rank, XP, inferred GPU use or score inflation.
