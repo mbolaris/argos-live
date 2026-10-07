@@ -20,7 +20,7 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ### U2 — Start with a trial and show the build path
 
-Status: in progress. A fresh configured build should offer its first local
+Status: in progress ([PR #53](https://github.com/mbolaris/argos-live/pull/53)). A fresh configured build should offer its first local
 baseline before choosing storage for future downloads. The download gate remains
 unchanged. Re-run the baseline when selected model files change. Show the
 short-document path (measure, qualify, owner task, matched candidate) with states
