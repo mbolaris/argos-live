@@ -1,11 +1,14 @@
 :root { color-scheme: light; font-family: system-ui, sans-serif; color: #15334b; background: #eef5f9; }
 body { margin: 0; }
-main { max-width: 1040px; margin: auto; padding: 36px 28px 60px; }
+main { max-width: 1040px; margin: auto; padding: 24px 28px 60px; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { font-size: 25px; font-weight: 750; }
 .badge { border: 1px solid #b6d2df; border-radius: 20px; padding: 6px 14px; font-size: 14px; }
-h1 { font-size: clamp(30px, 5vw, 44px); margin: 28px 0 12px; }
-.intro { font-size: 19px; }
+h1 { font-size: clamp(28px, 4vw, 36px); margin: 20px 0 8px; }
+.intro { font-size: 17px; margin: 0; }
+#command-center { margin-top: 20px; }
+#cc-title { margin-bottom: 8px; }
+#command-center > p { margin-top: 0; }
 p { line-height: 1.55; }
 .notice { margin: 28px 0 36px; padding: 20px 24px; border-left: 4px solid #1681aa; background: #fff; border-radius: 8px; }
 .notice p { margin-bottom: 0; }

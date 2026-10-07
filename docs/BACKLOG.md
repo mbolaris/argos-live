@@ -20,7 +20,7 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ### U1 — Mission Control as the primary workspace
 
-Status: in progress. Keep the managed dashboard visible after startup; open chat
+Status: in progress ([PR #52](https://github.com/mbolaris/argos-live/pull/52)). Keep the managed dashboard visible after startup; open chat
 only on its named owner action. Lead with one recommended mission, a robot
 schematic, selected-file-bound speed and task evidence. Mission trial buttons
 start the named trial with the chat pause explicit. Make the catalog visible,
