@@ -8,7 +8,7 @@ commissioned moment needs demonstrated use. Each moment is journaled once.
 import hashlib
 from pathlib import Path
 
-from . import journal, model_verify, results, starter, storage_view, mission_report
+from . import journal, model_verify, results, starter, storage_view, mission_report, skill_map
 
 SCHEMA = 'argos-command-center/1'
 LOOK_BACK = 40
@@ -359,9 +359,11 @@ def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp
         entry['applies_to_selected'] = None if digest is None else is_selected(
             {'model': entry['evidence'].get('model'), 'manifest_digest': digest}, selected)
     action = next_action(f, selected, active)
+    sm = skill_map.build_skill_map(f, selected)
     return {'schema': SCHEMA, 'name': 'Argos', 'model': (selected or {}).get('model'), 'quiet': data['quiet'],
             'report': mission_report.summarize([r for r in f['runs'] if is_selected(r, selected)]),
             'next_action': action, 'build_path': build_path(f, selected, action['id']), 'systems': systems(home, f, selected),
+            'skill_map': sm,
             'journal': entries[:30], 'moment': moment, 'unseen': len(unseen),
             'scope': 'Systems show only what has been demonstrated. Unknown means not yet tested.'}
 
@@ -383,6 +385,9 @@ class Controller:
             view = None
         active = bool(self.lab and self.lab.snapshot()['active'])
         return snapshot(self.home, self.store, view=view, selected=self.selected_model(), active=active)
+
+    def skill_map(self):
+        return self.snapshot().get('skill_map')
 
     def seen(self):
         return {'changed': journal.mark_seen(self.home)}

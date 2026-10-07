@@ -1040,6 +1040,7 @@ async function refreshCommand() {
     if (value.available === false) return;
     document.getElementById('cc-name').textContent = value.name + (value.model ? ' · ' + value.model : '');
     renderMissionReceipt(value.report);
+    renderSkillMap(value.skill_map);
     const path = value.build_path;
     const pathBox = document.getElementById('cc-build-path'); pathBox.hidden = !path;
     if (path) {
@@ -1172,6 +1173,155 @@ function renderTask(value) {
 refreshCommand();
 setInterval(refreshCommand, 20000);
 
+let currentSkillMapData = null;
+let selectedSkillNode = null;
+
+function formatNodeStateBadge(state) {
+  return {
+    qualified: '● Qualified',
+    measured: '◆ Measured',
+    attention: '▲ Needs work',
+    untested: '○ Untested',
+    unavailable: '🔒 Future'
+  }[state] || 'Unknown';
+}
+
+function openSkillNodeModal(node) {
+  selectedSkillNode = node;
+  const modal = document.getElementById('skill-node-modal');
+  document.getElementById('node-modal-domain').textContent = node.domain_label || node.domain || '';
+  document.getElementById('node-modal-title').textContent = node.title;
+  const badge = document.getElementById('node-modal-state-badge');
+  badge.className = `state-badge ${node.state}`;
+  badge.textContent = formatNodeStateBadge(node.state);
+  document.getElementById('node-modal-criteria').textContent = node.criteria || 'Fixed criteria for this challenge suite.';
+  document.getElementById('node-modal-scope').textContent = node.scope || 'Scoped to fixed challenges at recorded context.';
+  document.getElementById('node-modal-binding').textContent = node.manifest_digest ?
+    `Bound to model "${node.model || 'selected'}" · manifest ${node.manifest_digest.slice(0, 16)}…` :
+    'No verified model digest bound to this node.';
+
+  const evEl = document.getElementById('node-modal-evidence');
+  if (node.evidence) {
+    if (node.id === 'doc-short') {
+      evEl.textContent = `${node.evidence.qualified ? 'Passed threshold' : 'Criteria missed'}: ${node.evidence.correct}/${node.evidence.total} correct, ${node.evidence.format_errors} format errors (${node.evidence.created ? node.evidence.created.slice(0, 10) : ''}).`;
+    } else if (node.id === 'storage-retention') {
+      evEl.textContent = node.evidence.reboot === 'retained' ?
+        `Retained across machine restart (verified: ${node.evidence.verified_at || 'yes'}).` :
+        'Model storage directory confirmed; restart check pending.';
+    } else {
+      evEl.textContent = `Observed ${node.evidence.correct}/${node.evidence.total} correct, ${node.evidence.format_errors} format errors in latest run (${node.evidence.created ? node.evidence.created.slice(0, 10) : ''}).`;
+    }
+  } else {
+    evEl.textContent = 'No trial runs or evidence recorded for this build yet.';
+  }
+
+  const startBtn = document.getElementById('skill-node-start');
+  if (!node.available) {
+    startBtn.disabled = true;
+    startBtn.textContent = 'Future suite: unavailable';
+  } else {
+    const isDoc = node.action === 'documents';
+    const isBase = node.action === 'baseline';
+    const triggerId = isDoc ? 'lab-start-documents' : isBase ? 'lab-start' : null;
+    startBtn.disabled = triggerId ? !!document.getElementById(triggerId)?.disabled : false;
+    startBtn.textContent = node.action_label || 'Start test';
+    startBtn.onclick = () => {
+      modal.close();
+      if (triggerId) startMissionTrial(triggerId);
+      else if (node.action === 'storage') focusSection('storage-title');
+    };
+  }
+
+  const upgBtn = document.getElementById('skill-node-upgrade');
+  upgBtn.onclick = () => {
+    modal.close();
+    focusSection('models-title');
+  };
+
+  const closeBtn = document.getElementById('skill-node-close');
+  closeBtn.onclick = () => modal.close();
+
+  modal.showModal();
+}
+
+function renderSkillMap(mapData) {
+  if (!mapData || !mapData.domains) return;
+  currentSkillMapData = mapData;
+  const graphContainer = document.getElementById('skill-map-graph');
+  const listContainer = document.getElementById('skill-map-list');
+  graphContainer.replaceChildren();
+  listContainer.replaceChildren();
+
+  // Desktop graph: domain clusters
+  for (const domain of mapData.domains) {
+    const cluster = document.createElement('div');
+    cluster.className = 'domain-cluster';
+    cluster.dataset.domain = domain.id;
+
+    const hdr = document.createElement('div');
+    hdr.className = 'domain-cluster-header';
+    const icon = document.createElement('span'); icon.className = `domain-icon icon-${domain.icon}`;
+    const title = document.createElement('h4'); title.textContent = domain.label;
+    hdr.append(icon, title);
+    cluster.append(hdr);
+
+    const nodesGrid = document.createElement('div');
+    nodesGrid.className = 'domain-nodes-grid';
+
+    for (const node of domain.nodes) {
+      node.domain_label = domain.label;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `skill-node-card state-${node.state}`;
+      btn.dataset.nodeId = node.id;
+      btn.setAttribute('aria-label', `${node.title}: ${formatNodeStateBadge(node.state)}`);
+
+      const dot = document.createElement('span'); dot.className = `node-dot ${node.state}`;
+      const name = document.createElement('span'); name.className = 'node-name'; name.textContent = node.title;
+      const tag = document.createElement('span'); tag.className = `node-tag ${node.state}`; tag.textContent = formatNodeStateBadge(node.state);
+
+      btn.append(dot, name, tag);
+      btn.onclick = () => openSkillNodeModal(node);
+      nodesGrid.append(btn);
+    }
+    cluster.append(nodesGrid);
+    graphContainer.append(cluster);
+
+    // Mobile grouped list
+    const details = document.createElement('details');
+    details.className = 'domain-list-group';
+    details.open = true;
+
+    const summary = document.createElement('summary');
+    const qualifiedCount = domain.nodes.filter(n => n.state === 'qualified').length;
+    const activeCount = domain.nodes.filter(n => n.available).length;
+    summary.innerHTML = `<span class="domain-icon icon-${domain.icon}"></span> <strong>${domain.label}</strong> <span class="group-tally">${qualifiedCount}/${activeCount} qualified</span>`;
+    details.append(summary);
+
+    const listBody = document.createElement('div');
+    listBody.className = 'domain-list-body';
+    for (const node of domain.nodes) {
+      const row = document.createElement('div');
+      row.className = `skill-list-row state-${node.state}`;
+      const info = document.createElement('div');
+      const rowName = document.createElement('strong'); rowName.textContent = node.title;
+      const rowTag = document.createElement('span'); rowTag.className = `node-tag ${node.state}`; rowTag.textContent = formatNodeStateBadge(node.state);
+      info.append(rowName, rowTag);
+
+      const inspectBtn = document.createElement('button');
+      inspectBtn.type = 'button';
+      inspectBtn.className = 'btn-inspect';
+      inspectBtn.textContent = 'Details';
+      inspectBtn.onclick = () => openSkillNodeModal(node);
+
+      row.append(info, inspectBtn);
+      listBody.append(row);
+    }
+    details.append(listBody);
+    listContainer.append(details);
+  }
+}
+
 function renderMissionReceipt(report) {
   const scoreboard = document.getElementById('cc-scoreboard'); scoreboard.replaceChildren();
   const bars = document.getElementById('cc-skill-bars'); bars.replaceChildren();
@@ -1199,6 +1349,92 @@ function renderMissionReceipt(report) {
   }
   document.getElementById('cc-receipt-note').textContent = ability ?
     `${ability.format_errors} answers broke the required format. ${ability.scope} ${ability.created.slice(0, 10)} · ${ability.suite}.` : 'One trial gives your next upgrade a fair starting point. No model download needed.';
+
+  // Render representative challenge replay
+  const replayBox = document.getElementById('receipt-replay');
+  const replayList = document.getElementById('receipt-replay-list');
+  const rep = ability?.replay;
+  const hasReplay = (rep?.passed?.length || 0) + (rep?.failed?.length || 0) > 0;
+  replayBox.hidden = !hasReplay;
+  if (hasReplay) {
+    replayList.replaceChildren();
+    for (const item of (rep.passed || [])) {
+      const card = document.createElement('div'); card.className = 'replay-item outcome-pass';
+      const hdr = document.createElement('div'); hdr.className = 'replay-item-header';
+      const cat = document.createElement('span'); cat.className = 'replay-tag'; cat.textContent = item.category_label || item.category;
+      const tag = document.createElement('span'); tag.className = 'badge pass'; tag.textContent = '● Pass';
+      hdr.append(cat, tag);
+      card.append(hdr);
+      if (item.question) {
+        const q = document.createElement('p'); q.className = 'replay-question'; q.textContent = item.question;
+        card.append(q);
+      }
+      if (item.output) {
+        const out = document.createElement('pre'); out.className = 'replay-output'; out.textContent = item.output;
+        card.append(out);
+      }
+      if (Number.isFinite(item.latency_seconds)) {
+        const lat = document.createElement('span'); lat.className = 'replay-latency'; lat.textContent = `${item.latency_seconds.toFixed(2)} s response`;
+        card.append(lat);
+      }
+      replayList.append(card);
+    }
+    for (const item of (rep.failed || [])) {
+      const card = document.createElement('div'); card.className = `replay-item outcome-${item.outcome === 'format_error' ? 'format' : 'wrong'}`;
+      const hdr = document.createElement('div'); hdr.className = 'replay-item-header';
+      const cat = document.createElement('span'); cat.className = 'replay-tag'; cat.textContent = item.category_label || item.category;
+      const tag = document.createElement('span'); tag.className = `badge ${item.outcome === 'format_error' ? 'format' : 'wrong'}`;
+      tag.textContent = item.outcome === 'format_error' ? '▲ Format error' : '✕ Missed';
+      hdr.append(cat, tag);
+      card.append(hdr);
+      if (item.reason) {
+        const r = document.createElement('p'); r.className = 'replay-reason'; r.textContent = item.reason;
+        card.append(r);
+      }
+      if (item.question) {
+        const q = document.createElement('p'); q.className = 'replay-question'; q.textContent = item.question;
+        card.append(q);
+      }
+      if (item.output) {
+        const out = document.createElement('pre'); out.className = 'replay-output'; out.textContent = item.output;
+        card.append(out);
+      }
+      if (Number.isFinite(item.latency_seconds)) {
+        const lat = document.createElement('span'); lat.className = 'replay-latency'; lat.textContent = `${item.latency_seconds.toFixed(2)} s response`;
+        card.append(lat);
+      }
+      replayList.append(card);
+    }
+  }
+
+  // Render qualification checks if present
+  const criteriaBox = document.getElementById('receipt-criteria-box');
+  const criteriaList = document.getElementById('receipt-criteria-list');
+  const checks = ability?.checks || [];
+  criteriaBox.hidden = !checks.length;
+  if (checks.length) {
+    criteriaList.replaceChildren();
+    for (const chk of checks) {
+      const li = document.createElement('li'); li.className = `criteria-row ${chk.met ? 'met' : 'missed'}`;
+      const badge = document.createElement('span'); badge.className = `badge ${chk.met ? 'pass' : 'attention'}`;
+      badge.textContent = chk.met ? '✓ Met' : '✗ Missed';
+      const desc = document.createElement('span');
+      desc.textContent = `${chk.label}: observed ${chk.observed} (required: ${chk.required})`;
+      li.append(badge, desc); criteriaList.append(li);
+    }
+  }
+
+  // Action buttons
+  const actBox = document.getElementById('receipt-actions');
+  actBox.hidden = !ability;
+  const pracBtn = document.getElementById('receipt-practice');
+  const upgBtn = document.getElementById('receipt-upgrade');
+  pracBtn.onclick = () => {
+    if (ability.suite === 'documents-short') commandActions.documents();
+    else commandActions.baseline();
+  };
+  upgBtn.onclick = () => focusSection('models-title');
+
   const debrief = document.getElementById('cc-debrief');
   const ids = [speed?.run, ability?.run];
   const current = lastLabDebrief?.state === 'completed' && lastLabDebrief.runs?.length && lastLabDebrief.runs.every(id => ids.includes(id));

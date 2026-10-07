@@ -15,6 +15,31 @@ CATEGORY_LABELS = {'choice': 'Pick the right answer', 'instruction': 'Follow dir
                    'quote': 'Show the evidence', 'not_stated': 'Know when it is missing'}
 
 
+REPLAY_LIMIT = 400
+
+
+def plain_failure_reason(item):
+    outcome = item.get('outcome')
+    cat = item.get('category', '')
+    if outcome == 'format_error':
+        if 'quote' in cat:
+            return 'Quotation was not found in the original passage or exceeded allowed length.'
+        elif 'tool' in cat:
+            return 'Output did not match the closed tool-call JSON schema.'
+        elif 'json' in cat:
+            return 'Output was not valid closed JSON or had extra keys.'
+        elif 'instruction' in cat:
+            return 'Failed word count bounds, keywords, or case constraints.'
+        elif 'choice' in cat:
+            return 'Did not return a single choice letter (A–D).'
+        elif 'numeric' in cat:
+            return 'Output was not a single parseable numeric answer.'
+        return 'Output violated the required schema or formatting rules.'
+    elif outcome == 'wrong_answer':
+        return 'Answer did not match the fixed reference solution.'
+    return 'Challenge was not solved.'
+
+
 def summarize(runs):
     speed = next((r for r in runs if r['kind'] == 'speed'), None)
     ability = next((r for r in runs if r['kind'] == 'ability'), None)
@@ -27,14 +52,54 @@ def summarize(runs):
                                 'first_token_seconds': results.median_of(prompt, 'time_to_first_token_seconds')['median']}
     if ability:
         summary = ability['summary']
-        receipt['ability'] = {'run': ability['id'], 'suite': ability['suite'], 'created': ability['created'],
-                              'correct': summary['correct'], 'total': summary['total'],
-                              'format_errors': summary['format_errors'],
-                              'categories': [{'id': k, 'label': CATEGORY_LABELS.get(k, k.replace('_', ' ')),
-                                              'correct': v['correct'], 'total': v['total']}
-                                             for k, v in summary['categories'].items()],
-                              'qualified': (ability.get('qualification') or {}).get('qualified'),
-                              'scope': 'These fixed exercises only; not an intelligence score or proof of tool use.'}
+        checks = []
+        if isinstance(ability.get('qualification'), dict):
+            for c in ability['qualification'].get('checks', []):
+                checks.append({
+                    'name': c.get('name'),
+                    'label': c.get('label'),
+                    'required': c.get('required'),
+                    'observed': c.get('observed'),
+                    'met': c.get('met'),
+                })
+        replay_passed = []
+        replay_failed = []
+        for item in ability.get('items', []):
+            outcome = item.get('outcome', 'pass' if item.get('score') == 1 else 'wrong_answer')
+            cat = item.get('category', '')
+            out_str = item.get('output', '')
+            if not isinstance(out_str, str):
+                out_str = ''
+            rep_item = {
+                'item_id': item.get('item_id'),
+                'category': cat,
+                'category_label': CATEGORY_LABELS.get(cat, cat.replace('_', ' ')),
+                'outcome': outcome,
+                'score': item.get('score', 0),
+                'question': item.get('question'),
+                'output': out_str[:REPLAY_LIMIT],
+                'latency_seconds': item.get('latency_seconds'),
+            }
+            if outcome == 'pass':
+                if len(replay_passed) < 2:
+                    replay_passed.append(rep_item)
+            else:
+                if len(replay_failed) < 3:
+                    rep_item['reason'] = plain_failure_reason(item)
+                    replay_failed.append(rep_item)
+
+        receipt['ability'] = {
+            'run': ability['id'], 'suite': ability['suite'], 'created': ability['created'],
+            'correct': summary['correct'], 'total': summary['total'],
+            'format_errors': summary['format_errors'],
+            'categories': [{'id': k, 'label': CATEGORY_LABELS.get(k, k.replace('_', ' ')),
+                            'correct': v['correct'], 'total': v['total']}
+                           for k, v in summary['categories'].items()],
+            'qualified': (ability.get('qualification') or {}).get('qualified'),
+            'checks': checks,
+            'replay': {'passed': replay_passed, 'failed': replay_failed},
+            'scope': 'These fixed exercises only; not an intelligence score or proof of tool use.'
+        }
     return receipt
 
 

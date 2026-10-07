@@ -21,6 +21,60 @@
         <p id="cc-moment-detail"></p>
         <button id="cc-moment-dismiss" type="button">Noted</button>
       </div>
+      <section id="skill-map-bay" class="skill-map-bay" aria-labelledby="skill-map-title">
+        <div class="skill-map-header">
+          <div>
+            <p class="mission-label">AI Proving Ground</p>
+            <h3 id="skill-map-title">Task Skill Map</h3>
+            <p class="skill-map-sub">Choose a skill to inspect fixed criteria, review model-bound evidence, and start an observable test.</p>
+          </div>
+          <div class="skill-map-legend" aria-label="Skill status legend">
+            <span class="legend-item"><span class="badge-dot qualified"></span> Qualified</span>
+            <span class="legend-item"><span class="badge-dot measured"></span> Measured</span>
+            <span class="legend-item"><span class="badge-dot attention"></span> Needs work</span>
+            <span class="legend-item"><span class="badge-dot untested"></span> Untested</span>
+            <span class="legend-item"><span class="badge-dot unavailable"></span> Future</span>
+          </div>
+        </div>
+        <div id="skill-map-container" class="skill-map-container">
+          <div id="skill-map-graph" class="skill-map-graph" role="region" aria-label="Interactive skill map graph"></div>
+          <div id="skill-map-list" class="skill-map-list" role="region" aria-label="Grouped skills list"></div>
+        </div>
+        <dialog id="skill-node-modal" class="skill-node-modal" aria-labelledby="node-modal-title">
+          <div class="modal-card">
+            <div class="modal-header">
+              <div>
+                <span id="node-modal-domain" class="domain-tag"></span>
+                <h3 id="node-modal-title"></h3>
+              </div>
+              <span id="node-modal-state-badge" class="state-badge"></span>
+            </div>
+            <div class="modal-body">
+              <div class="modal-info-block">
+                <strong>Fixed qualification criteria</strong>
+                <p id="node-modal-criteria"></p>
+              </div>
+              <div class="modal-info-block">
+                <strong>Task scope &amp; guardrails</strong>
+                <p id="node-modal-scope"></p>
+              </div>
+              <div class="modal-info-block">
+                <strong>Model binding</strong>
+                <p id="node-modal-binding"></p>
+              </div>
+              <div class="modal-info-block">
+                <strong>Current evidence</strong>
+                <p id="node-modal-evidence"></p>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button id="skill-node-start" type="button" class="mission-primary">Start test</button>
+              <button id="skill-node-upgrade" type="button" class="mission-secondary">Try a different model</button>
+              <button id="skill-node-close" type="button">Close</button>
+            </div>
+          </div>
+        </dialog>
+      </section>
       <div class="cc-grid">
         <div class="ladder-bay"><p class="mission-label">Your document mission ladder</p><h3 id="cc-stage">Prototype · ready to test</h3><ol id="cc-build-steps" class="cc-build-steps"></ol><p id="cc-build-summary"></p><p id="cc-build-scope"></p><figure class="cc-figure">
           <svg id="cc-schematic" viewBox="0 0 220 300" role="img" aria-labelledby="cc-schematic-label" focusable="false">
@@ -38,7 +92,20 @@
         <div class="mission-main">
           <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
             <p class="mission-label">Your latest measured result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
-            <div id="cc-scoreboard" class="scoreboard"></div><p id="cc-takeaway"></p><details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
+            <div id="cc-scoreboard" class="scoreboard"></div><p id="cc-takeaway"></p>
+            <div id="receipt-replay" class="receipt-replay" hidden>
+              <p class="replay-label">Representative challenge replay</p>
+              <div id="receipt-replay-list" class="replay-list"></div>
+            </div>
+            <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
+              <p class="replay-label">Qualification criteria checklist</p>
+              <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
+            </div>
+            <div id="receipt-actions" class="receipt-actions" hidden>
+              <button id="receipt-practice" type="button" class="mission-primary">Practice this skill</button>
+              <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
+            </div>
+            <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
           </article>
           <article class="card" id="cc-next">
             <p class="mission-label">Recommended next mission</p>

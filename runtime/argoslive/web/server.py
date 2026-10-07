@@ -128,6 +128,14 @@ class Handler(BaseHTTPRequestHandler):
                     self.reply(200, self.server.command.snapshot(), head=head)
                 except (OSError, ValueError, TypeError, KeyError, AttributeError):
                     self.reply(503, {'error': 'Command center unavailable'}, head=head)
+        elif path == '/api/skill-map':
+            if not self.server.command:
+                self.reply(200, {'available': False}, head=head)
+            else:
+                try:
+                    self.reply(200, self.server.command.skill_map() or {'available': False}, head=head)
+                except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                    self.reply(503, {'error': 'Skill map unavailable'}, head=head)
         elif path == '/api/lab':
             self.reply(200, self.server.lab.snapshot() if self.server.lab else {'available': False}, head=head)
         elif path == '/api/lab/events':
