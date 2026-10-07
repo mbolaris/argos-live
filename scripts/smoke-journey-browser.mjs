@@ -6,9 +6,9 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 
-const require = createRequire(resolve('work/compatibility-runtime/package.json'));
+const require = createRequire(resolve(process.env.ARGOS_BROWSER_RUNTIME || 'work/compatibility-runtime/package.json'));
 const { chromium } = require('playwright-core');
-const server = spawn('python3', ['-u', 'scripts/serve-journey-fixture.py'], {stdio: ['pipe', 'pipe', 'inherit']});
+const server = spawn(process.env.ARGOS_PYTHON || 'python3', ['-u', 'scripts/serve-journey-fixture.py'], {stdio: ['pipe', 'pipe', 'inherit']});
 let browser;
 const fail = (message) => { throw new Error(message); };
 try {
@@ -25,6 +25,13 @@ try {
   await page.goto(url);
   const next = () => page.locator('#cc-next-title').textContent();
   const waitNext = (text) => page.waitForFunction((t) => document.getElementById('cc-next-title').textContent === t, text, {timeout: 60000});
+  const dismissMoment = async () => {
+    const saved = page.waitForResponse(r => r.url().endsWith('/api/command-center/seen') && r.request().method() === 'POST');
+    await page.locator('#cc-moment-dismiss').click();
+    const response = await saved;
+    if (!response.ok()) fail('Moment acknowledgment did not save');
+    await response.finished();
+  };
   const moment = async () => (await page.locator('#cc-moment').isVisible()) ?
     [await page.locator('#cc-moment-tier').textContent(), await page.locator('#cc-moment-title').textContent()] : null;
 
@@ -65,6 +72,45 @@ try {
   await waitNext('Test short-document reading');
   if (!(await page.locator('#cc-build-summary').textContent()).includes('1 of 4')) fail('Baseline did not advance its own build stage');
 
+  await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('repair brief'), null, {timeout: 15000});
+  if (!(await page.locator('#cc-stage').textContent()).includes('Mapped')) fail('Measured build stage missing');
+  if (await page.locator('#cc-skill-bars meter').count() !== 5) fail('Ability map does not show each tested category');
+  const expectedReceipt = await page.evaluate(() => api('/api/command-center'));
+  const score = expectedReceipt.report.ability;
+  if (!(await page.locator('#cc-scoreboard').textContent()).includes(`${score.correct} / ${score.total}`)) fail('Readable score differs from measured evidence');
+  await page.locator('#command-center').screenshot({path: 'work/journey-ladder-baseline.png'});
+  for (const index of [0, 1, 2]) {
+    await page.locator('#cc-challenges button').nth(index).click();
+    if (!(await page.locator('#cc-doc').inputValue()).length) fail('Mission preview has no brief');
+    if (!(await page.locator('#cc-question').inputValue()).length) fail('Mission preview has no question');
+    if (!(await page.locator('#cc-task-box').evaluate(box => box.open))) fail('Mission preview is hidden');
+    if (await page.locator('#cc-task-result').isVisible()) fail('Preview started inference without asking');
+  }
+  // Model text stays text, even if it contains executable-looking markup.
+  await page.evaluate(() => {
+    lastLabDebrief.text = '<img src=x onerror="window.modelExecuted=true">';
+    refreshCommand();
+  });
+  await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('<img'));
+  if (await page.locator('#cc-debrief-text img').count()) fail('Model opinion rendered as HTML');
+  await page.evaluate(async () => {
+    lastLabDebrief.text = 'The quick exercises exposed limits in my structured answers. I would like to try the repair brief next and show the sentence I used.';
+    await refreshCommand();
+  });
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({width, height: 844});
+    if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) fail(`Layout overflows at ${width}px`);
+    const action = await page.locator('#cc-next-go').boundingBox();
+    if (!action || action.height < 44 || action.x < 0 || action.x + action.width > width) fail(`Mission action is not phone-friendly at ${width}px`);
+    await page.locator('.skill-breakdown summary').click();
+    if (!(await page.locator('#cc-skill-bars meter').first().isVisible())) fail('Skill breakdown cannot be expanded');
+    await page.locator('.skill-breakdown summary').click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({path: `work/journey-phone-${width}.png`});
+    if (width === 390) await page.locator('#command-center').screenshot({path: 'work/journey-ladder-mobile.png'});
+  }
+  await page.setViewportSize({width: 1200, height: 1100});
+
   // 3. Storage remains a separate deliberate choice; no download from testing.
   await page.getByRole('link', {name: 'Choose model storage'}).click();
   await page.getByRole('button', {name: 'Review this location'}).first().click();
@@ -75,7 +121,7 @@ try {
   await waitNext('Test short-document reading');
   const first = await moment();
   if (!first || first[0] !== 'Routine') fail('Expected a routine acknowledgment, got ' + JSON.stringify(first));
-  await page.locator('#cc-moment-dismiss').click();
+  await dismissMoment();
   await page.waitForFunction(() => document.getElementById('cc-moment').hidden);
 
   // 4. Matched comparison renders speed and accuracy separately without script errors.
@@ -106,7 +152,7 @@ try {
   const qualified = await moment();
   if (!qualified || qualified[0] !== 'Qualified' || !qualified[1].includes('Short documents')) fail('Expected a Qualified document moment, got ' + JSON.stringify(qualified));
   if (!(await page.locator('#cc-moment-detail').textContent()).includes('says nothing about longer documents')) fail('Qualified moment lost its scope');
-  await page.locator('#cc-moment-dismiss').click();
+  await dismissMoment();
   await page.reload();
   await waitNext('Test a document that matters to you');
   if (await moment()) fail('A dismissed moment came back after reload');

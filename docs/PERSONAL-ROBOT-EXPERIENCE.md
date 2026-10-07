@@ -614,3 +614,58 @@ the interface's guidance; companion reasoning over live measurements and the
 owner's interests remains a separate implementation step.
 
 The owner proposes an illuminated amusement-machine-style AI strength tester with a ten-tier robot reference ladder. See [Capability Meter](CAPABILITY-METER.md) for the visual direction, complete reference list, evidence requirements and follow-up delivery scope. Verified task qualifications remain distinct from fictional AGI/ASI aspirations; the current implementation milestone remains unchanged.
+
+
+## October 7 refinement: the trial should start a relationship
+
+The owner found the initial trial output unappealing and hard to interpret.
+The next implementation leads with three things: **where this build stands,
+what the trial revealed, and one next mission**. The numbered ladder represents
+short-document readiness: measured prototype, qualified reader, owner-tested
+mission, matched candidate comparison. Each rung keeps its existing evidence
+requirements. A baseline records measurements; it does not qualify intelligence.
+
+A prominent instrument panel shows exercises solved and generation speed
+separately, followed by category bars and a code-derived practice suggestion.
+Detailed records remain available below. Dark mission-deck surfaces, amber
+readings and green evidenced progress provide the game-like presentation without
+invented points, spending rewards, or claims of progress toward proven AGI.
+
+A brief first-person local-model debrief follows scored trials: what it thinks
+went well, one limitation, and an experiment it would like to try next. Label it
+as **opinion**, adjacent to the measured receipt. It cannot award progress, alter
+criteria, execute an action or claim unmeasured improvement. Initial integration
+uses the isolated local model and aggregate public trial metrics; it does not
+load the owner's OpenClaw persona. Full reviewed-personality integration is a
+subsequent step, not a claim of this implementation.
+
+Give users original, previewable missions: guide a robot expedition, identify a
+compatible repair part, and resist inventing the source of an unexplained signal.
+These use the current document-question flow with a human judgment. Previews
+start no inference. The owner can replace either brief or question before asking.
+Demonstration answers and model opinions are not scored benchmark evidence.
+Use “a document you chose” for owner-tested tasks: sample text is also a valid
+choice, but acceptance does not prove personal-file access or arbitrary tasks.
+
+Debriefs remain in memory and disappear on a new trial/session. Completed measured
+results remain saved. Changing selected model files hides earlier-model progress
+and opinions. Companion recommendations should eventually connect to the owner's
+interests and reviewed personality, with useful real-world missions expanding
+beyond document reading as those capabilities receive end-to-end tests.
+
+
+### Visual refinement and phone layout
+
+Use one restrained dark instrument theme throughout the workspace: neutral
+surfaces, thin borders, cyan for the current action and large numeric readings.
+Avoid stacking bordered cards inside bordered cards. The ladder is a compact
+rail, with qualification details available on expansion. Category scores and
+technical scope remain under an explicit Skill breakdown disclosure.
+
+On narrow screens prioritize the recommended mission before the measured
+receipt, use a single column and full-width primary/chat actions, and retain
+44px action targets. Collapse routine acknowledgment details (available in the
+journal), omit the decorative schematic, and keep section navigation scrollable
+rather than wrapping into a tall toolbar. Test 320px, 390px and 768px viewport
+widths; inspect real captures and reject horizontal page overflow. This concerns
+responsive presentation, with existing loopback/session access unchanged.

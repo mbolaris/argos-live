@@ -4,6 +4,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
 from argoslive import lab, startup, bench_speed
@@ -101,6 +102,27 @@ class LabTests(unittest.TestCase):
         self.lab.start()
         self.finish()
         self.assertNotIn('resume', self.assistant.calls)
+    def test_debrief_failure_preserves_scores_and_resumes_owned_assistant(self):
+        with patch.object(lab.mission_report, 'debrief', return_value={'state': 'unavailable'}):
+            self.lab.start()
+            self.finish()
+        value = self.lab.snapshot()
+        self.assertEqual(value['phase'], 'completed')
+        self.assertEqual(len(value['runs']), 2)
+        self.assertEqual(value['debrief'], {'state': 'unavailable'})
+        self.assertTrue(value['resume_requested'])
+    def test_cancel_in_debrief_retains_scores_and_cleans_up_before_resume(self):
+        def cancel(*args, **kwargs):
+            self.lab.cancel_event.set()
+            raise Cancelled('private cancellation detail')
+        with patch.object(lab.mission_report, 'debrief', side_effect=cancel):
+            self.lab.start()
+            self.finish()
+        value = self.lab.snapshot()
+        self.assertEqual(value['phase'], 'cancelled')
+        self.assertEqual(len(value['runs']), 2)
+        self.assertNotIn('private', str(value))
+        self.assertEqual(self.assistant.calls[-2:], ['backend-stop', 'resume'])
     def test_cancel_and_duplicate_start_during_stream_then_cleanup(self):
         entered = threading.Event()
         def speed(*args, cancel, **kw):

@@ -7,14 +7,14 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { createInterface } from 'node:readline';
 
-const require = createRequire(resolve('work/compatibility-runtime/package.json'));
+const require = createRequire(resolve(process.env.ARGOS_BROWSER_RUNTIME || 'work/compatibility-runtime/package.json'));
 const { chromium } = require('playwright-core');
 const home = await mkdtemp(join(tmpdir(), 'argos-dashboard-browser-'));
-const seed = spawnSync('python3', ['-c',
+const seed = spawnSync(process.env.ARGOS_PYTHON || 'python3', ['-c',
   "import sys; sys.path[:0]=['runtime','tests']; from test_results import ability_result; from argoslive.results import Store; s=Store(); a=ability_result(); b=ability_result('wrong'); b['model']='<b>Fixture label</b>'; s.save(a); s.save(b)"],
   {env: {...process.env, HOME: home, USERPROFILE: home}, encoding: 'utf8'});
 if (seed.status !== 0) throw new Error('Public benchmark browser fixtures failed');
-const server = spawn('python3', ['-u', 'web/server.py', '--port', '0'], {
+const server = spawn(process.env.ARGOS_PYTHON || 'python3', ['-u', 'web/server.py', '--port', '0'], {
   env: {...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('OPENCLAW_'))),
     HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: join(home, 'config')},
   stdio: ['ignore', 'pipe', 'pipe']
@@ -296,7 +296,7 @@ try {
     await route.fulfill({json: {url: 'http://127.0.0.1:18789/chat#token=fixture'}});
   });
   await page.goto(url + '&view=lab#benchmarks-title');
-  await page.getByRole('heading', {name: 'Model lab results'}).waitFor();
+  await page.getByRole('heading', {name: 'Detailed test records'}).waitFor();
   await page.locator('#lab-controls').waitFor({state: 'visible'});
   await page.getByText('Live measurements refreshed. Missing measurements remain unknown.', {exact: true}).waitFor();
   await page.waitForTimeout(3500);

@@ -10,19 +10,19 @@
 </head>
 <body>
   <main>
-    <header><span class="brand">Argos Live</span><span class="badge">Local workspace</span></header>
-    <h1>Build your Argos</h1>
-    <p class="intro">A working prototype is the first component. Run a local trial, see what it can do, then choose the next capability that matters to you.</p>
+    <header><span class="brand">Argos Live</span><span class="badge">Private AI workspace</span></header>
+    <h1>How far can your Argos go?</h1>
+    <p class="intro">Build a private AI worth relying on. Discover its strengths, take on a mission, and see what your next upgrade really changes.</p>
     <section id="command-center" aria-labelledby="cc-title" hidden>
       <h2 id="cc-title">Mission control</h2>
-      <p>Every robot starts on the bench. Test this build, inspect its strengths, then improve something useful to you.</p>
+      <p>Measure your build. Find its strengths. Choose the next mission.</p>
       <div id="cc-moment" class="notice moment" role="status" hidden>
         <strong id="cc-moment-title"></strong> <span id="cc-moment-tier" class="state"></span>
         <p id="cc-moment-detail"></p>
         <button id="cc-moment-dismiss" type="button">Noted</button>
       </div>
       <div class="cc-grid">
-        <figure class="cc-figure">
+        <div class="ladder-bay"><p class="mission-label">Your document mission ladder</p><h3 id="cc-stage">Prototype · ready to test</h3><ol id="cc-build-steps" class="cc-build-steps"></ol><p id="cc-build-summary"></p><p id="cc-build-scope"></p><figure class="cc-figure">
           <svg id="cc-schematic" viewBox="0 0 220 300" role="img" aria-labelledby="cc-schematic-label" focusable="false">
             <title id="cc-schematic-label">Robot blueprint. Outlined sections are not yet demonstrated; solid sections are.</title>
             <g data-system="brain"><rect x="70" y="14" width="80" height="56" rx="10"/><title>Brain</title></g>
@@ -34,15 +34,20 @@
             <g data-system="stability"><path d="M84 230v52h-18v8h40v-8h-4v-52M136 230v52h18v8h-40v-8h4v-52"/><title>Stability</title></g>
           </svg>
           <figcaption id="cc-name">Argos</figcaption>
-        </figure>
-        <div>
+        </figure></div>
+        <div class="mission-main">
+          <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
+            <p class="mission-label">Your latest measured result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
+            <div id="cc-scoreboard" class="scoreboard"></div><p id="cc-takeaway"></p><details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
+          </article>
           <article class="card" id="cc-next">
             <p class="mission-label">Recommended next mission</p>
             <h3 id="cc-next-title">Checking your systems…</h3>
             <p id="cc-next-reason"></p>
             <button id="cc-next-go" class="mission-primary" type="button" hidden>Start this mission</button>
-            <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button>
+            <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button><p id="cc-live-trial" role="status" aria-live="polite"></p>
           </article>
+          <article id="cc-debrief" class="agent-debrief" hidden aria-live="polite"><p class="mission-label">At the workbench · Argos’s take</p><blockquote id="cc-debrief-text"></blockquote><p id="cc-debrief-note"></p></article>
           <div id="cc-readings" class="cc-readings" aria-label="Measured strengths"></div>
           <details class="cc-evidence"><summary>See what has been tested</summary>
             <ul id="cc-systems" class="cc-systems"></ul>
@@ -50,17 +55,18 @@
           </details>
         </div>
       </div>
-      <details id="cc-build-path" class="cc-evidence" open>
-        <summary id="cc-build-summary">Your build path</summary>
-        <ol id="cc-build-steps" class="cc-build-steps"></ol>
-        <p id="cc-build-scope"></p>
-      </details>
+      <div id="cc-build-path" hidden></div>
+      <section class="challenge-deck" aria-labelledby="cc-challenges-title">
+        <p class="mission-label">Take it for a spin</p><h3 id="cc-challenges-title">Choose your next challenge</h3>
+        <p>Choose a fictional scenario, see the brief, then ask Argos. Judge the answer yourself. These are demonstrations, not scored qualifications.</p>
+        <div id="cc-challenges" class="cards"></div>
+      </section>
       <details class="cc-evidence"><summary>Progress journal</summary>
         <ol id="cc-journal" class="cc-journal"></ol>
       </details>
       <label><input id="cc-quiet" type="checkbox"> Quiet acknowledgments. Progress is still recorded.</label>
-      <details id="cc-task-box"><summary>Try a document of your own</summary>
-        <p>Paste something real and ask one question. Chat pauses while the model reads it. The text and the answer stay on screen only; they are not saved. The answer must quote a sentence from your text, and Argos checks that the quote is really there.</p>
+      <details id="cc-task-box"><summary>Your mission brief</summary>
+        <p>Choose a sample above or paste something real and ask one question. Chat pauses while the model reads it. The text and the answer stay on screen only; they are not saved. The answer must quote a sentence from your text, and Argos checks that the quote is really there.</p>
         <label for="cc-doc">Document (up to 6000 characters)</label>
         <textarea id="cc-doc" rows="8" maxlength="6000"></textarea>
         <label for="cc-question">Question</label>
@@ -87,7 +93,7 @@
     </section>
     <nav class="lab-nav" aria-label="Workspace sections"><a href="#cc-title">Mission Control</a><a href="#benchmarks-title">Test performance</a><a href="#storage-title">Choose model storage</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Add a capability</a><a href="#hardware-title">Hardware details</a></nav>
     <section aria-labelledby="benchmarks-title">
-      <h2 id="benchmarks-title">Model lab results</h2>
+      <h2 id="benchmarks-title">Detailed test records</h2>
       <p>How fast does it answer? Which tasks does it get right? Build a baseline you can compare after each model upgrade.</p>
       <div class="cards">
         <article class="card"><h3>Responsiveness</h3><p>Output tokens/s measures generation speed. First-token latency measures the wait before an answer starts. Prompt tokens/s measures how quickly it reads input.</p></article>
