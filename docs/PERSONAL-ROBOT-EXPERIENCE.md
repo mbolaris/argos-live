@@ -669,3 +669,50 @@ journal), omit the decorative schematic, and keep section navigation scrollable
 rather than wrapping into a tall toolbar. Test 320px, 390px and 768px viewport
 widths; inspect real captures and reject horizontal page overflow. This concerns
 responsive presentation, with existing loopback/session access unchanged.
+
+### Identity and personality: Meet your AI
+
+The main headline becomes **“How far can your AI go?”** Product branding remains
+Argos Live. A compact identity line shows the selected agent's display name,
+model and an **Edit identity** action. Use its chosen name in its own debrief and
+chat identity; use “your AI” in generic guidance. A name is a display setting,
+not an internal agent ID or a reason to migrate paths or conversation history.
+
+Offer **Meet your AI** once as a quiet, dismissible invitation after first chat
+is available. Keep the recommended mission as the primary action. The invitation
+and settings entry open the same editor; returning users can edit anytime.
+On a phone, use a single-column sheet/page with a visible back/cancel action and
+Save action, large controls and no competing setup wizard.
+
+The editor presents name first, then a few original starting styles (for example
+Clear and practical, Curious collaborator, Candid coach) and optional owner
+instructions. These are editable starting points, not capability classes.
+Explain that style changes how it responds, while the model and permitted tools
+determine what it can do. Avoid claims that a preset installs expertise.
+
+Show a **Try this personality** preview using the same short public conversation
+for both current and proposed versions. The candidate stays unapplied until
+Save. Explicitly label preview as a local model response, with no tools and no
+personal history; stop/cancel must work. Let the owner edit, retry, keep the old
+version or save. Failed saves preserve the prior profile. Offer Restore previous
+personality and Reset to defaults as separate reviewed actions, with their scope
+shown before applying. Do not erase conversations, credentials or capabilities.
+
+After Save, a plain status line confirms the name/style and provides **Talk to
+your AI**. This is Routine, with no rank gain or commissioning ceremony. Later
+mission debriefs should reflect the selected reviewed personality only when an
+isolated, bounded integration has been verified. Current generic model debriefs
+must continue to disclose that they load no personal profile until then.
+
+Keep private persona instructions in the profile's protected storage, never in
+model DATA, public telemetry or repository fixtures. In guest mode say “For this
+session; resets on reboot.” With encrypted persistence, distinguish configured
+storage from verified recovery on a subsequent boot. Name/personality edits need
+no new USB image; implementing the editor initially still requires shipping the
+new application. Conversation recovery remains a separate physical check.
+
+Implementation is split into P8a (editor, preview and reviewed save/restore) and
+P8b (isolated persona-aware debrief and recovery evidence) in BACKLOG.md. Validate
+the pinned upstream identity/persona schema and extend existing profile machinery
+instead of inventing a parallel profile store. Changing a persona never changes
+benchmark settings, measured scores, model identity or permissions.

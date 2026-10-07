@@ -537,6 +537,20 @@ Depends on: P1 (format); installing on first boot also needs P4 and O1.
 Depends on: P2, P4, MD4, physical hardware. Private; evidence stays out of this repository except a pass/fail summary in STATUS.md.
 - Export Argos, Nyx and Proteus with P2 on Toronado's source install, transfer per PROFILE-SYNC.md, import and preview with P3, resolve and download their models from Live, apply with P4, then verify each agent's identity, model, tool policy, conversation and independent state, and recall after a reboot.
 
+### P8a Meet your AI: name and reviewed personality editor — `todo`
+Depends on: P4, current Mission Control. Design: [Identity and personality](PERSONAL-ROBOT-EXPERIENCE.md#identity-and-personality-meet-your-ai).
+- Use “your AI” in generic journey copy, including “How far can your AI go?” Keep Argos Live as the product name; use the selected agent's display name for its own card and voice. Never rename internal agent IDs, paths or conversation keys when editing a display name.
+- Add a quiet “Meet your AI” entry beside the active agent identity and in settings, with a dismissible first-session invitation. Do not interrupt the recommended mission or require setup before chat/testing.
+- Edit display name, optional original style presets and bounded owner instructions. Show the current identity and a plain-language summary; preview a fixed public conversation before explicit Save. Preserve unsaved drafts and show cancel/restore paths.
+- Reuse reviewed profile staging/validation/rollback patterns; check pinned OpenClaw's supported identity/persona fields first. Apply only the selected agent's reviewed files, preserve unrelated owner edits and history, refuse stale previews, and coordinate with owned startup/workload reservations. Do not grant tools, change providers/models or import skills as a personality side effect.
+- Accept: native pinned OpenClaw chat reflects the saved identity/persona; invalid, cancelled and failed saves leave prior files unchanged; rollback preserves intervening edits or refuses safely. Test names containing markup, bounds, concurrent edits and guest/persistent mode messaging. Fixture UI alone is not effective-persona acceptance. No USB rewrite needed for supported profile edits.
+
+### P8b Personality-aware debrief and profile recovery evidence — `todo`
+Depends on: P8a, mission_report and a reviewed isolated persona-preview path.
+- Use the selected reviewed persona in optional trial debriefs only through an explicitly tool-disabled, bounded local path; do not silently load credentials, history, tools or arbitrary workspace files. Record which persona revision produced an opinion and hide stale opinions after identity changes.
+- Keep code-scored trials persona-independent and comparable. Label opinion separately; personality cannot qualify a model, alter criteria or claim learning. If persona isolation cannot be verified, retain the generic debrief and state that limitation.
+- Accept: same fixed public preview before/after; actual local-model debrief demonstrates the reviewed style without changing scores or permissions. Verify guest reset on a second boot and encrypted profile recovery separately from conversation recovery; report each independently.
+
 ## E6 Build, CI and release
 
 ### C1 Tests in CI — covered by F1.
