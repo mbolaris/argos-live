@@ -56,7 +56,9 @@ try {
   if (!(await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
     throw new Error('Bundled source selection was not displayed');
   }
-  await page.locator('details:has(#model-catalog) > summary').click();
+  if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) {
+    throw new Error('Model catalog should be visible on first load');
+  }
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
   await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
   if (await page.locator('#benchmark-runs b').count()) throw new Error('Result label was treated as markup');
@@ -158,7 +160,9 @@ try {
   });
   await page.reload();
   await page.locator('#download-controls').waitFor({state: 'visible'});
-  await page.locator('details:has(#model-catalog) > summary').click();
+  if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) {
+    throw new Error('Reload hid the model catalog');
+  }
   await page.locator('#model-catalog button').first().click();
   await page.locator('#download-review').waitFor({state: 'visible'});
   if (!(await page.locator('#download-confirm').isDisabled())) throw new Error('Download was allowed before storage was confirmed');
@@ -205,6 +209,9 @@ try {
   });
   await page.reload();
   await page.locator('#installed-models button').waitFor();
+  if (await page.locator('#selection-controls').isVisible() || await page.locator('#selection-cancel').isVisible()) {
+    throw new Error('Idle selection displays an operation or cancellation control');
+  }
   await page.locator('#installed-models button').click();
   await page.locator('#selection-review').waitFor({state: 'visible'});
   await page.screenshot({path: 'work/dashboard-selection-review.png'});
@@ -217,6 +224,7 @@ try {
   if (!(await page.locator('#lab-start').isDisabled())) throw new Error('Selection did not exclude benchmark');
   await page.locator('#selection-cancel').click();
   await page.waitForFunction(() => document.getElementById('selection-status').textContent.includes('Switch cancelled'));
+  if (await page.locator('#selection-cancel').isVisible()) throw new Error('Completed cancellation still offers cancel');
   if (selectionCalls.join(',') !== 'select,cancel') throw new Error('Selection controls failed');
   await page.screenshot({path: 'work/dashboard-desktop.png', fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
