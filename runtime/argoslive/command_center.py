@@ -8,7 +8,7 @@ commissioned moment needs demonstrated use. Each moment is journaled once.
 import hashlib
 from pathlib import Path
 
-from . import journal, model_verify, results, starter, storage_view
+from . import journal, model_verify, results, starter, storage_view, mission_report
 
 SCHEMA = 'argos-command-center/1'
 LOOK_BACK = 40
@@ -250,11 +250,11 @@ def systems(home, f, selected):
                 ' GPU use is not yet proven.')
     sensors = ('unknown', 'No document read through the model yet.')
     if accepted:
-        sensors = ('commissioned', 'You accepted an answer from your own pasted document.')
+        sensors = ('commissioned', 'You accepted an answer from your chosen pasted document.')
     elif f['accepted_tasks']:
         sensors = ('bench-test', 'An earlier model version was accepted on your own document. These model files need a new check.')
     elif docs:
-        sensors = ('bench-test', 'Short passages tested; no document of your own yet.')
+        sensors = ('bench-test', 'Short passages tested; no document you chose yet.')
     return [{'id': 'brain', 'label': 'Brain', 'state': brain[0], 'detail': brain[1]},
             {'id': 'power-core', 'label': 'Power core', 'state': core[0], 'detail': core[1]},
             {'id': 'memory-banks', 'label': 'Memory banks', 'state': memory[0], 'detail': memory[1]},
@@ -299,7 +299,7 @@ def next_action(f, selected, active):
                 'action': 'models'}
     if not accepted:
         return {'id': 'task', 'title': 'Test a document that matters to you',
-                'reason': 'The short trial passed. Now check an answer on your own text and decide whether it is useful. Your text and answer are not saved.',
+                'reason': 'The short trial passed. Now check an answer on text you chose and decide whether it is useful. Your text and answer are not saved.',
                 'action': 'task'}
     if not view.get('confirmed'):
         return storage_action()
@@ -360,6 +360,7 @@ def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp
             {'model': entry['evidence'].get('model'), 'manifest_digest': digest}, selected)
     action = next_action(f, selected, active)
     return {'schema': SCHEMA, 'name': 'Argos', 'model': (selected or {}).get('model'), 'quiet': data['quiet'],
+            'report': mission_report.summarize([r for r in f['runs'] if is_selected(r, selected)]),
             'next_action': action, 'build_path': build_path(f, selected, action['id']), 'systems': systems(home, f, selected),
             'journal': entries[:30], 'moment': moment, 'unseen': len(unseen),
             'scope': 'Systems show only what has been demonstrated. Unknown means not yet tested.'}
@@ -400,7 +401,7 @@ class Controller:
             raise ValueError('The model files could not be identified, so this answer cannot count as evidence')
         entry = journal.record(self.home, verdict_key(task['task_id']), 'routine',
                                'Document answer ' + value,
-                               f"You {value} {task['model']}'s answer to a document of your own. The document and answer are not saved.",
+                               f"You {value} {task['model']}'s answer to a document you chose. The document and answer are not saved.",
                                {'verdict': value, 'model': task['model'], 'manifest_digest': task.get('manifest_digest'),
                                 'quote_supported': task['quote_supported']})
         return {'recorded': entry is not None, 'verdict': value}

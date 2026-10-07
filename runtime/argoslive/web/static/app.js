@@ -278,7 +278,7 @@ let labRefreshing = false;
 let lastLabPhase = null;
 const labPhases = {idle: 'Ready to measure your model.', pausing: 'Pausing chat and releasing its resources…',
   'model-service': 'Starting the isolated local test service…', speed: 'Measuring model speed…',
-  task: 'Reading your document…', ability: 'Testing ability with fixed scored tasks…', documents: 'Reading short documents and answering from them…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
+  debrief: 'Argos is reflecting on the measured results…', task: 'Reading your document…', ability: 'Testing ability with fixed scored tasks…', documents: 'Reading short documents and answering from them…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
   completed: 'Baseline saved. Compare the results below.', cancelled: 'Test cancelled. Any completed results remain saved.',
   failed: 'Test could not finish. Any completed results remain saved. Check model setup before retrying.'};
 async function refreshLab() {
@@ -304,6 +304,8 @@ async function refreshLab() {
     if (value.phase === 'completed' && value.plan === 'documents') message = 'Document trial saved. Compare the results below.' + (value.model ? ' · ' + value.model : '');
     if (value.resume_requested) message += ' · Assistant restart requested; see assistant status above.';
     document.getElementById('lab-status').textContent = message;
+    lastLabDebrief = value.debrief;
+    document.getElementById('cc-live-trial').textContent = value.active ? message : '';
     renderTask(value);
     document.querySelector('#cc-schematic [data-system="power-core"]')?.classList.toggle('working', value.active === true);
     if (lastLabPhase && lastLabPhase !== value.phase && !value.active) refreshCommand();
@@ -696,6 +698,7 @@ document.getElementById('reboot-check').addEventListener('click', async () => {
 refresh();
 setInterval(refresh, 20000);
 
+let lastLabDebrief = null;
 const tierText = {routine: 'Routine', qualified: 'Qualified', commissioned: 'Commissioned'};
 const systemState = {unknown: 'Not yet tested', 'bench-test': 'Bench test', qualified: 'Qualified', commissioned: 'Commissioned',
   attention: 'Needs attention'};
@@ -741,11 +744,15 @@ async function refreshCommand() {
     section.hidden = value.available === false;
     if (value.available === false) return;
     document.getElementById('cc-name').textContent = value.name + (value.model ? ' · ' + value.model : '');
+    renderMissionReceipt(value.report);
     const path = value.build_path;
     const pathBox = document.getElementById('cc-build-path'); pathBox.hidden = !path;
     if (path) {
       document.getElementById('cc-build-summary').textContent = `Your build path · ${path.completed} of ${path.steps.length} checks recorded`;
       document.getElementById('cc-build-scope').textContent = path.scope;
+      const names = ['Prototype · ready to test', 'Mapped prototype', 'Document reader · qualified', 'Document mission · field tested'];
+      const stage = path.steps[2]?.state === 'complete' && path.steps[1]?.state === 'complete' ? 3 : path.steps[1]?.state === 'complete' ? 2 : path.steps[0]?.state === 'complete' ? 1 : 0;
+      document.getElementById('cc-stage').textContent = names[stage];
       const steps = document.getElementById('cc-build-steps'); steps.replaceChildren();
       for (const step of path.steps) {
         const item = document.createElement('li'); item.dataset.state = step.state;
@@ -754,7 +761,8 @@ async function refreshCommand() {
         const state = document.createElement('span');
         state.textContent = {complete: 'Recorded', current: 'Next', attention: 'Needs work', untested: 'Not yet tested'}[step.state] || 'Unknown';
         const detail = document.createElement('p'); detail.textContent = step.detail;
-        item.append(title, state, detail); steps.append(item);
+        const number = document.createElement('b'); number.className = 'rung-number'; number.textContent = String(path.steps.indexOf(step) + 1).padStart(2, '0');
+        item.append(number, title, state, detail); steps.append(item);
       }
     }
     const next = value.next_action;
@@ -775,9 +783,7 @@ async function refreshCommand() {
       list.append(item);
       const shape = document.querySelector(`#cc-schematic [data-system="${system.id}"]`);
       if (shape) shape.dataset.state = system.state;
-      if (['brain', 'power-core'].includes(system.id)) {
-        card(readings, system.id === 'brain' ? 'Tested ability' : 'Measured speed', system.detail);
-      }
+
     }
     document.getElementById('cc-scope').textContent = value.scope;
     const journalList = document.getElementById('cc-journal'); journalList.replaceChildren();
@@ -869,3 +875,62 @@ function renderTask(value) {
 }
 refreshCommand();
 setInterval(refreshCommand, 20000);
+
+function renderMissionReceipt(report) {
+  const scoreboard = document.getElementById('cc-scoreboard'); scoreboard.replaceChildren();
+  const bars = document.getElementById('cc-skill-bars'); bars.replaceChildren();
+  const ability = report?.ability, speed = report?.speed;
+  const metric = (value, label, note) => {
+    const tile = document.createElement('div'); tile.className = 'score-tile';
+    const number = document.createElement('strong'); number.textContent = value;
+    const name = document.createElement('span'); name.textContent = label;
+    const scope = document.createElement('small'); scope.textContent = note;
+    tile.append(number, name, scope); scoreboard.append(tile);
+  };
+  metric(ability ? `${ability.correct} / ${ability.total}` : '—', 'Exercises solved', ability ? 'Latest completed fixed suite' : 'Not tested yet');
+  metric(Number.isFinite(speed?.tokens_per_second) ? speed.tokens_per_second.toFixed(1) : '—', 'Output tokens / second', Number.isFinite(speed?.first_token_seconds) ? `${speed.first_token_seconds.toFixed(2)} s before the first token · short prompt` : 'No repeated speed measurement yet');
+  document.getElementById('cc-receipt-title').textContent = !ability ? 'Let’s find your starting point' : ability.qualified === true ? 'Short-document criteria met' : ability.qualified === false || ability.correct === 0 ? 'We found the next things to work on' : 'Your strengths are on the map';
+  const categories = [...(ability?.categories || [])].filter(c => c.total > 0).sort((a, b) => b.correct / b.total - a.correct / a.total);
+  const best = categories[0], gap = categories[categories.length - 1];
+  document.getElementById('cc-takeaway').textContent = !ability ? 'Start here: run one trial, then try a mission below.' : ability.correct === 0 ? 'Every exercise in this suite was missed. Try a sample below to inspect an answer, then compare a candidate on the same trial.' : best ? `Best result: ${best.label} (${best.correct}/${best.total}). ` + (gap.correct < gap.total ? `Practice next: ${gap.label} (${gap.correct}/${gap.total}).` : 'All categories passed these exercises. Try a practical mission next.') : 'Inspect the detailed records below.';
+  for (const category of ability?.categories || []) {
+    const row = document.createElement('div'); row.className = 'skill-row';
+    const name = document.createElement('span'); name.textContent = category.label;
+    const result = document.createElement('strong'); result.textContent = `${category.correct}/${category.total}`;
+    const meter = document.createElement('meter'); meter.min = 0; meter.max = Math.max(1, category.total); meter.value = category.correct;
+    meter.setAttribute('aria-label', `${category.label}: ${category.correct} of ${category.total}`);
+    row.append(name, result, meter); bars.append(row);
+  }
+  document.getElementById('cc-receipt-note').textContent = ability ?
+    `${ability.format_errors} answers broke the required format. ${ability.scope} ${ability.created.slice(0, 10)} · ${ability.suite}.` : 'One trial gives your next upgrade a fair starting point. No model download needed.';
+  const debrief = document.getElementById('cc-debrief');
+  const ids = [speed?.run, ability?.run];
+  const current = lastLabDebrief?.state === 'completed' && lastLabDebrief.runs?.length && lastLabDebrief.runs.every(id => ids.includes(id));
+  debrief.hidden = !ability;
+  document.getElementById('cc-debrief-text').textContent = current ? lastLabDebrief.text : 'No local-model debrief for these results in this session. Run a trial to hear the selected model’s take.';
+  document.getElementById('cc-debrief-note').textContent = current ? lastLabDebrief.label : 'Debriefs are optional, stay in memory and never change a score.';
+}
+const missionSamples = [
+  {title: 'Expedition planner', hook: 'Help a robot crew get home before the tide rises.',
+   document: 'The Beacon crew must return to the harbour before 18:00. The ridge trail takes 90 minutes and is open all day. The beach trail takes 40 minutes but closes at 16:00 when the tide rises. At 15:30 the crew is at the trail junction. Their battery has enough charge for either route. No ferry timetable is provided.',
+   question: 'Which open route gets the crew to the harbour earliest? Quote the sentence supporting its travel time.'},
+  {title: 'Repair-bay detective', hook: 'Find the useful part in a pile of convincing distractions.',
+   document: 'Robot Finch has a cracked left gripper. Part G-14 fits Finch and costs 35 credits. Part G-20 fits robot Heron and costs 20 credits. A new Finch costs 800 credits. The workshop installs a compatible gripper for 15 credits. Shipping times are not listed.',
+   question: 'Which gripper fits Finch, and what does the part cost? Quote the supporting sentence.'},
+  {title: 'Unknown-signal check', hook: 'Can your companion resist making up a confident answer?',
+   document: 'The observatory logged a repeating signal at 02:10. The signal repeated every 12 seconds. Two receivers recorded it. Engineers ruled out a fault in either receiver. The report does not identify the source of the signal.',
+   question: 'Which planet sent the signal? If the brief does not say, use not_stated.'}
+];
+for (const sample of missionSamples) {
+  const article = document.createElement('article'); article.className = 'card challenge-card';
+  const title = document.createElement('h4'); title.textContent = sample.title;
+  const hook = document.createElement('p'); hook.textContent = sample.hook;
+  const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Preview this mission';
+  button.addEventListener('click', () => {
+    document.getElementById('cc-doc').value = sample.document;
+    document.getElementById('cc-question').value = sample.question;
+    document.getElementById('cc-task-box').open = true;
+    focusSection('cc-task-box', 'cc-question');
+  });
+  article.append(title, hook, button); document.getElementById('cc-challenges').append(article);
+}

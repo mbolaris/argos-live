@@ -32,6 +32,8 @@ class Fixture(DocBackend):
     """Answers suite items from references and any pasted document with a supported quotation."""
     def generate(self, model, prompt, **kwargs):
         result = super().generate(model, prompt, **kwargs)
+        if prompt and 'MEASURED RECEIPT:' in prompt:
+            result['text'] = 'The quick exercises exposed limits in my structured answers. I would like to try the repair brief next and show the sentence I used.'
         if prompt and 'DOCUMENT:' in prompt:
             result['text'] = json.dumps(PASSAGE_ANSWER)
         return result

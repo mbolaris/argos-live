@@ -4,7 +4,7 @@ import secrets
 import threading
 import time
 
-from . import bench_ability, bench_speed, doc_trial
+from . import bench_ability, bench_speed, doc_trial, mission_report
 from .ollama import Cancelled
 from .results import Store
 
@@ -28,6 +28,7 @@ class Controller:
         self.plan = 'baseline'
         self.task_input = None
         self.task_result = None
+        self.debrief = None
         self.lock = threading.RLock()
         self.cancel_event = threading.Event()
         self.worker = None
@@ -47,7 +48,7 @@ class Controller:
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
                     'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
-                    'runs': list(self.runs), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
+                    'runs': list(self.runs), 'debrief': copy.deepcopy(self.debrief), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
                     'elapsed_seconds': max(0, (self.finished if self.finished is not None else self.clock()) - self.started)
                     if self.started is not None else None}
 
@@ -69,6 +70,7 @@ class Controller:
             self.phase, self.started = 'pausing', self.clock()
             self.finished = None
             self.progress, self.runs, self.model = None, [], None
+            self.debrief = None
             self.resume_requested = False
             self.worker = threading.Thread(target=self.run, daemon=True, name='argos-model-lab')
             self.worker.start()
@@ -162,6 +164,7 @@ class Controller:
         lease = self.startup.home / '.local/state/argos-live'
         with self.startup.backend(target, lease_store=lease, cancel=self.cancel_event.is_set) as client:
             client.timeout = 120
+            measured = []
             for phase, name, options in PLANS[self.plan]:
                 runner = getattr(self, name)
                 if self.cancel_event.is_set():
@@ -171,8 +174,14 @@ class Controller:
                                 progress=lambda value, phase=phase: self.report(phase, value), **options)
                 if name != 'task':
                     self.store.save(result)
+                    measured.append(result)
                     with self.lock:
                         self.runs.append(result['id'])
+            if self.plan != 'task' and not self.cancel_event.is_set():
+                self.report('debrief')
+                opinion = mission_report.debrief(client, model, measured, cancel=self.cancel_event)
+                with self.lock:
+                    self.debrief = opinion
         return 'cancelled' if self.cancel_event.is_set() else 'completed'
 
     def settle_unstarted(self):

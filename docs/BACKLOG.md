@@ -18,6 +18,31 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### U4 — A visible mission ladder and a local-model debrief
+
+Status: in progress. Lead with a selected-file-bound trial receipt: solved
+exercises, repeated output speed, first-token wait, category bars and a factual
+next practice area. Show the existing four document-build checks as numbered
+rungs. No global intelligence rank, XP, inferred GPU use or score inflation.
+Offer previewable original expedition, repair and missing-information briefs.
+These demonstrations use the existing pasted-document runner and owner verdict;
+they are not new scored suites or proof of tool use.
+
+After baseline/document scoring, ask the selected local model for a brief opinion
+under the existing owned Lab lease, cancellation and total workload budget. Only
+aggregate public measurements enter the prompt; no personal documents, profile,
+paths or tool permissions. Keep this opinion in memory, identify its exact trial
+runs/model files, render as text, and never use it as qualification evidence.
+An unavailable opinion does not invalidate completed scores. The opinion request
+uses at most 180 output tokens and a 45-second read timeout. Personal OpenClaw
+profile integration and model-chosen executable next actions remain future work.
+
+Acceptance: selected identity regressions, median/count receipt correctness,
+private-input exclusion, opinion failure/cancellation/timeout cleanup, actual
+Chromium journey with readable scores, safe opinion rendering, previews and
+390px layout. Linux checks required before promotion. Shipped Firefox, a real
+model debrief, ISO and physical USB experience remain separate acceptance.
+
 ### U3 — Target the shipped Firefox trial control reliably
 
 Status: in progress ([PR #54](https://github.com/mbolaris/argos-live/pull/54)). Navigate through Firefox's location

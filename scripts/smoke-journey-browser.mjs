@@ -6,9 +6,9 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 
-const require = createRequire(resolve('work/compatibility-runtime/package.json'));
+const require = createRequire(resolve(process.env.ARGOS_BROWSER_RUNTIME || 'work/compatibility-runtime/package.json'));
 const { chromium } = require('playwright-core');
-const server = spawn('python3', ['-u', 'scripts/serve-journey-fixture.py'], {stdio: ['pipe', 'pipe', 'inherit']});
+const server = spawn(process.env.ARGOS_PYTHON || 'python3', ['-u', 'scripts/serve-journey-fixture.py'], {stdio: ['pipe', 'pipe', 'inherit']});
 let browser;
 const fail = (message) => { throw new Error(message); };
 try {
@@ -64,6 +64,32 @@ try {
   }
   await waitNext('Test short-document reading');
   if (!(await page.locator('#cc-build-summary').textContent()).includes('1 of 4')) fail('Baseline did not advance its own build stage');
+
+  await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('repair brief'), null, {timeout: 15000});
+  if (!(await page.locator('#cc-stage').textContent()).includes('Mapped')) fail('Measured build stage missing');
+  if (await page.locator('#cc-skill-bars meter').count() !== 5) fail('Ability map does not show each tested category');
+  const expectedReceipt = await page.evaluate(() => api('/api/command-center'));
+  const score = expectedReceipt.report.ability;
+  if (!(await page.locator('#cc-scoreboard').textContent()).includes(`${score.correct} / ${score.total}`)) fail('Readable score differs from measured evidence');
+  await page.locator('#command-center').screenshot({path: 'work/journey-ladder-baseline.png'});
+  for (const index of [0, 1, 2]) {
+    await page.locator('#cc-challenges button').nth(index).click();
+    if (!(await page.locator('#cc-doc').inputValue()).length) fail('Mission preview has no brief');
+    if (!(await page.locator('#cc-question').inputValue()).length) fail('Mission preview has no question');
+    if (!(await page.locator('#cc-task-box').evaluate(box => box.open))) fail('Mission preview is hidden');
+    if (await page.locator('#cc-task-result').isVisible()) fail('Preview started inference without asking');
+  }
+  // Model text stays text, even if it contains executable-looking markup.
+  await page.evaluate(() => {
+    lastLabDebrief.text = '<img src=x onerror="window.modelExecuted=true">';
+    refreshCommand();
+  });
+  await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('<img'));
+  if (await page.locator('#cc-debrief-text img').count()) fail('Model opinion rendered as HTML');
+  await page.setViewportSize({width: 390, height: 844});
+  await page.locator('#command-center').screenshot({path: 'work/journey-ladder-mobile.png'});
+  if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) fail('Mobile layout overflows');
+  await page.setViewportSize({width: 1200, height: 1100});
 
   // 3. Storage remains a separate deliberate choice; no download from testing.
   await page.getByRole('link', {name: 'Choose model storage'}).click();
