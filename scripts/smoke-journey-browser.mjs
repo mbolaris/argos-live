@@ -25,6 +25,13 @@ try {
   await page.goto(url);
   const next = () => page.locator('#cc-next-title').textContent();
   const waitNext = (text) => page.waitForFunction((t) => document.getElementById('cc-next-title').textContent === t, text, {timeout: 60000});
+  const dismissMoment = async () => {
+    const saved = page.waitForResponse(r => r.url().endsWith('/api/command-center/seen') && r.request().method() === 'POST');
+    await page.locator('#cc-moment-dismiss').click();
+    const response = await saved;
+    if (!response.ok()) fail('Moment acknowledgment did not save');
+    await response.finished();
+  };
   const moment = async () => (await page.locator('#cc-moment').isVisible()) ?
     [await page.locator('#cc-moment-tier').textContent(), await page.locator('#cc-moment-title').textContent()] : null;
 
@@ -86,9 +93,22 @@ try {
   });
   await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('<img'));
   if (await page.locator('#cc-debrief-text img').count()) fail('Model opinion rendered as HTML');
-  await page.setViewportSize({width: 390, height: 844});
-  await page.locator('#command-center').screenshot({path: 'work/journey-ladder-mobile.png'});
-  if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) fail('Mobile layout overflows');
+  await page.evaluate(async () => {
+    lastLabDebrief.text = 'The quick exercises exposed limits in my structured answers. I would like to try the repair brief next and show the sentence I used.';
+    await refreshCommand();
+  });
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({width, height: 844});
+    if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) fail(`Layout overflows at ${width}px`);
+    const action = await page.locator('#cc-next-go').boundingBox();
+    if (!action || action.height < 44 || action.x < 0 || action.x + action.width > width) fail(`Mission action is not phone-friendly at ${width}px`);
+    await page.locator('.skill-breakdown summary').click();
+    if (!(await page.locator('#cc-skill-bars meter').first().isVisible())) fail('Skill breakdown cannot be expanded');
+    await page.locator('.skill-breakdown summary').click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({path: `work/journey-phone-${width}.png`});
+    if (width === 390) await page.locator('#command-center').screenshot({path: 'work/journey-ladder-mobile.png'});
+  }
   await page.setViewportSize({width: 1200, height: 1100});
 
   // 3. Storage remains a separate deliberate choice; no download from testing.
@@ -101,7 +121,7 @@ try {
   await waitNext('Test short-document reading');
   const first = await moment();
   if (!first || first[0] !== 'Routine') fail('Expected a routine acknowledgment, got ' + JSON.stringify(first));
-  await page.locator('#cc-moment-dismiss').click();
+  await dismissMoment();
   await page.waitForFunction(() => document.getElementById('cc-moment').hidden);
 
   // 4. Matched comparison renders speed and accuracy separately without script errors.
@@ -132,7 +152,7 @@ try {
   const qualified = await moment();
   if (!qualified || qualified[0] !== 'Qualified' || !qualified[1].includes('Short documents')) fail('Expected a Qualified document moment, got ' + JSON.stringify(qualified));
   if (!(await page.locator('#cc-moment-detail').textContent()).includes('says nothing about longer documents')) fail('Qualified moment lost its scope');
-  await page.locator('#cc-moment-dismiss').click();
+  await dismissMoment();
   await page.reload();
   await waitNext('Test a document that matters to you');
   if (await moment()) fail('A dismissed moment came back after reload');

@@ -762,7 +762,8 @@ async function refreshCommand() {
         state.textContent = {complete: 'Recorded', current: 'Next', attention: 'Needs work', untested: 'Not yet tested'}[step.state] || 'Unknown';
         const detail = document.createElement('p'); detail.textContent = step.detail;
         const number = document.createElement('b'); number.className = 'rung-number'; number.textContent = String(path.steps.indexOf(step) + 1).padStart(2, '0');
-        item.append(number, title, state, detail); steps.append(item);
+        const notes = document.createElement('details'); const summary = document.createElement('summary'); summary.textContent = 'What counts'; notes.append(summary, detail);
+        item.append(number, title, state, notes); steps.append(item);
       }
     }
     const next = value.next_action;

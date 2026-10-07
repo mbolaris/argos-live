@@ -652,3 +652,20 @@ results remain saved. Changing selected model files hides earlier-model progress
 and opinions. Companion recommendations should eventually connect to the owner's
 interests and reviewed personality, with useful real-world missions expanding
 beyond document reading as those capabilities receive end-to-end tests.
+
+
+### Visual refinement and phone layout
+
+Use one restrained dark instrument theme throughout the workspace: neutral
+surfaces, thin borders, cyan for the current action and large numeric readings.
+Avoid stacking bordered cards inside bordered cards. The ladder is a compact
+rail, with qualification details available on expansion. Category scores and
+technical scope remain under an explicit Skill breakdown disclosure.
+
+On narrow screens prioritize the recommended mission before the measured
+receipt, use a single column and full-width primary/chat actions, and retain
+44px action targets. Collapse routine acknowledgment details (available in the
+journal), omit the decorative schematic, and keep section navigation scrollable
+rather than wrapping into a tall toolbar. Test 320px, 390px and 768px viewport
+widths; inspect real captures and reject horizontal page overflow. This concerns
+responsive presentation, with existing loopback/session access unchanged.
