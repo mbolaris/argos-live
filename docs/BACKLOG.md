@@ -791,10 +791,11 @@ Depends on: HA1–HA4, model onboarding, capability dashboard and profile persis
 
 ## E10 Guided journey (personal robot experience)
 
-### J1 Live test arena and incremental receipts — `todo`
+### J1 Live test arena and incremental receipts — `in progress`
 - Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.
 - Show real streamed output, completed items/total, growing outcomes and Stop. Reconnect without restarting; distinguish incomplete/cancelled observations from completed qualification. Keep existing workload ownership and deadlines.
 - Accept: real local model/shipped Firefox visibly updates during a long run; slow generation, cancellation, reconnect, bounded buffers and escaped output work; no fabricated progress. Fixture screenshots are insufficient.
+- Verification: Bounded sequenced event journal (`MAX_EVENTS = 1200`) in `runtime/argoslive/lab.py`, streaming answer deltas and scored receipts in `runtime/argoslive/bench_ability.py`, authenticated `/api/lab/events` route with sequence cursor and gap detection in `runtime/argoslive/web/server.py`. Live Proving Ground arena deck in web UI (`index.html`, `app.js`, `style.css`) with telemetry HUD, active challenge prompt, live streamed output, growing verified receipts list, Stop control, and seamless reconnect from snapshot. Verified by unit tests (`test_arena_events.py`, `test_lab.py`, `test_bench_ability.py`, `test_doc_trial.py`, `test_dashboard*.py`), syntax checks, and browser smoke assertions including 320px/390px/768px viewports. Shipped Firefox ESR, ISO build, real inference on Toronado, and physical USB deployment remain separate acceptance.
 
 ### J2 Task-scoped skill map and readable result replay — `todo`
 Depends on: J1.

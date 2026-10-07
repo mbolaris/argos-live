@@ -11,7 +11,7 @@
 <body>
   <main>
     <header><span class="brand">Argos Live</span><span class="badge">Private AI workspace</span></header>
-    <h1>How far can your Argos go?</h1>
+    <h1>How far can your AI go?</h1>
     <p class="intro">Build a private AI worth relying on. Discover its strengths, take on a mission, and see what your next upgrade really changes.</p>
     <section id="command-center" aria-labelledby="cc-title" hidden>
       <h2 id="cc-title">Mission control</h2>
@@ -101,14 +101,68 @@
         <article class="card"><h3>Your upgrade loop</h3><p>1. Test this model. 2. Choose an upgrade for a useful task. 3. Repeat the same suite. 4. Compare gains and regressions. Keep speed and quality separate.</p></article>
       </div>
       <div id="lab-controls" class="notice" hidden>
-        <h3>Quick baseline for your configured model</h3>
-        <p>Chat pauses while this local test runs. It measures short-prompt speed three times and runs the quick ability suite. Your prior assistant startup is requested again afterward; chat may take time to return. No model download is required.</p>
-        <button id="lab-start" type="button">Pause chat and test this model</button>
-        <button id="lab-start-documents" type="button">Pause chat and run the document trial</button>
-        <button id="lab-cancel" type="button" disabled>Cancel test</button>
+        <h3>Live proving ground</h3>
+        <p>Chat pauses while this local test runs. Watch your AI answer fixed, observable challenges with real-time streamed responses and scored receipts.</p>
+        <div class="lab-actions">
+          <button id="lab-start" type="button">Pause chat and test this model</button>
+          <button id="lab-start-documents" type="button">Pause chat and run the document trial</button>
+          <button id="lab-cancel" type="button" disabled>Cancel test</button>
+        </div>
         <p>The document trial gives your model eight short original passages. For each it must answer a question, quote the sentence that supports the answer, and say so when the passage does not contain the answer. It also writes a short summary for you to judge. Scoring is automatic and fixed in advance. It runs speed on short and medium prompts first, and qualifies short-document reading only. It says nothing about longer documents or your own files.</p>
         <p id="lab-status" role="status" aria-live="polite">Ready to measure your model.</p>
-        <p>Tests use fixed public prompts with tools disabled. Cancellation can take up to a backend request timeout plus cleanup. Each batch has a 15-minute limit.</p>
+        <div id="arena" class="arena-deck" hidden aria-live="polite">
+          <div class="arena-hud">
+            <div class="arena-hud-item">
+              <span class="arena-hud-label">Phase</span>
+              <span id="arena-phase-badge" class="arena-badge">Idle</span>
+            </div>
+            <div class="arena-hud-item">
+              <span class="arena-hud-label">Model</span>
+              <span id="arena-model" class="arena-val">Current model</span>
+            </div>
+            <div class="arena-hud-item arena-hud-progress">
+              <div class="arena-progress-header">
+                <span id="arena-progress-label">0 / 20 challenges</span>
+                <span id="arena-elapsed">0 s</span>
+              </div>
+              <progress id="arena-progress-bar" max="20" value="0" aria-label="Trial progress"></progress>
+            </div>
+            <div class="arena-hud-item arena-hud-tally">
+              <span id="arena-tally-passed" class="arena-stat passed">0 passed</span>
+              <span id="arena-tally-format-errors" class="arena-stat format-errors">0 format errors</span>
+            </div>
+          </div>
+          <div id="arena-live-card" class="arena-card live-card">
+            <div class="arena-card-header">
+              <span class="arena-card-title">Current Challenge</span>
+              <span id="arena-current-id" class="arena-tag">Waiting…</span>
+              <span id="arena-current-category" class="arena-cat-tag"></span>
+            </div>
+            <div class="arena-prompt-box">
+              <span class="arena-sublabel">Fixed challenge prompt:</span>
+              <div id="arena-current-prompt" class="arena-prompt-text">Trial ready to begin.</div>
+            </div>
+            <div class="arena-stream-box">
+              <div class="arena-stream-header">
+                <span class="arena-sublabel">Observable streamed response:</span>
+                <span id="arena-stream-indicator" class="arena-indicator" hidden>Streaming…</span>
+              </div>
+              <pre id="arena-current-stream" class="arena-stream-content" tabindex="0">Awaiting model response…</pre>
+            </div>
+          </div>
+          <div id="arena-receipts-card" class="arena-card receipts-card">
+            <div class="arena-card-header">
+              <span class="arena-card-title">Verified Scored Receipts</span>
+              <span id="arena-receipts-tally" class="arena-tag">0 scored</span>
+            </div>
+            <div id="arena-receipts-list" class="arena-receipts-list"></div>
+          </div>
+          <div id="arena-summary-banner" class="arena-summary-banner" hidden>
+            <strong id="arena-summary-headline">Trial complete</strong>
+            <p id="arena-summary-detail"></p>
+          </div>
+        </div>
+        <p class="lab-footnote">Tests use fixed public prompts with tools disabled. Cancellation can take up to a backend request timeout plus cleanup. Each batch has a 15-minute limit.</p>
       </div>
       <p id="lab-unavailable">Open Argos Setup and Assistant to run guided tests in the managed workspace.</p>
       <p id="benchmarks-status" role="status">Checking saved benchmarks…</p>

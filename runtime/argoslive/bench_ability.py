@@ -1,5 +1,6 @@
 """Measured, deterministic original ability probes; no generated code executes."""
 import argparse
+import copy
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -82,13 +83,15 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
     total = len(data['items'])
     scored_total = sum(1 for item in data['items'] if item.get('scored', True))
     done = 0
-    def report(phase, item_id=None):
+    def report(phase, item_id=None, **extra_fields):
         if progress:
             completed = done
             elapsed = max(0, clock() - started)
-            progress({'phase': phase, 'item_id': item_id, 'completed': completed, 'total': total,
-                      'elapsed_seconds': elapsed,
-                      'eta_seconds': elapsed / completed * (total - completed) if completed else None})
+            payload = {'phase': phase, 'item_id': item_id, 'completed': completed, 'total': total,
+                       'elapsed_seconds': elapsed,
+                       'eta_seconds': elapsed / completed * (total - completed) if completed else None}
+            payload.update(extra_fields)
+            progress(payload)
     try:
         if previous_model:
             client.unload(previous_model)
@@ -96,10 +99,19 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
         for item in data['items']:
             if cancel is not None and cancel.is_set():
                 raise Cancelled('Ability benchmark cancelled')
-            report('generating', item['id'])
+            item_prompt = item.get('prompt', '')
+            item_cat = category(item)
+            report('generating', item['id'], prompt=item_prompt, category=item_cat)
             item_started = clock()
+            def on_token(event):
+                if not isinstance(event, dict):
+                    return
+                message = event.get('message', {})
+                content = event.get('response', message.get('content', '') if isinstance(message, dict) else '')
+                if isinstance(content, str) and content:
+                    report('answer-delta', item['id'], delta=content, prompt=item_prompt, category=item_cat)
             reply = client.generate(model, item['prompt'], options=dict(options), think=think,
-                                    keep_alive='5m', cancel=cancel)
+                                    keep_alive='5m', callback=on_token, cancel=cancel)
             text = reply.get('text', '')
             scored = score(item, text)
             # Bound saved raw output too; the scorer classifies oversized output as format_error.
@@ -108,17 +120,20 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
             measured = measurement(reply, client.ps().get('models', []), model)
             notes = annotate(item) if annotate else {}
             if scored is None:
-                result.setdefault('unscored', []).append({
+                record = {
                     **notes, 'item_id': item['id'], 'category': category(item), 'output': output,
                     'output_truncated': len(encoded) > OUTPUT_LIMIT,
-                    'latency_seconds': max(0, clock() - item_started), 'measurement': measured})
+                    'latency_seconds': max(0, clock() - item_started), 'measurement': measured}
+                result.setdefault('unscored', []).append(record)
+                receipt = copy.deepcopy(record)
             else:
                 scored.update(notes, category=category(item), output=output,
                               output_truncated=len(encoded) > OUTPUT_LIMIT,
                               latency_seconds=max(0, clock() - item_started), measurement=measured)
                 result['items'].append(scored)
+                receipt = copy.deepcopy(scored)
             done += 1
-            report('scored', item['id'])
+            report('scored', item['id'], receipt=receipt, category=category(item))
         result['state'] = 'completed'
     except (Cancelled, KeyboardInterrupt):
         result['state'] = 'cancelled'
