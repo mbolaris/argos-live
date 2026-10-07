@@ -18,6 +18,22 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### U2 — Start with a trial and show the build path
+
+Status: in progress. A fresh configured build should offer its first local
+baseline before choosing storage for future downloads. The download gate remains
+unchanged. Re-run the baseline when selected model files change. Show the
+short-document path (measure, qualify, owner task, matched candidate) with states
+derived from selected-file-bound evidence. Failed criteria mean needs work;
+comparison availability never means an improvement or an intelligence rank.
+Temporary model stores do not recommend a reboot-retention check.
+
+Acceptance: first baseline before storage confirmation in the real dashboard
+browser journey, deliberate storage/download gate still tested, unknown/different
+model identities inherit no progress, mismatched candidate trials inherit no
+comparison stage, and temporary-store guidance. Shipped Firefox, image and
+physical experience acceptance remain separate.
+
 ### U1 — Mission Control as the primary workspace
 
 Status: in progress ([PR #52](https://github.com/mbolaris/argos-live/pull/52)). Keep the managed dashboard visible after startup; open chat

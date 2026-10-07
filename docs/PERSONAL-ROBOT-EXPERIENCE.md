@@ -590,6 +590,15 @@ before investing in elaborate animation, artwork or competitive features.
 
 ### First-screen interaction refinement
 
+The first recommended mission is a local baseline using the already configured
+model. Choosing storage becomes relevant when a candidate download is needed;
+it is not a prerequisite for evaluating the starter. Repairing an invalid
+configured store still takes priority. The build path makes four scoped stages
+visible: measure, qualify short-document reading, judge an owner task, and make
+matched candidate trials available. Progress is derived from the current model
+tag and manifest digest. Switching files starts a fresh baseline. Temporary
+model storage is not sent through reboot-retention verification.
+
 Mission Control remains open after automatic startup. Conversation is an explicit
 "Talk to Argos" action, so readiness no longer removes the owner from the upgrade
 journey. One recommended mission leads the screen; its trial action starts the

@@ -277,13 +277,9 @@ def next_action(f, selected, active):
         return {'id': 'storage', 'title': 'Restore the model bay',
                 'reason': 'The chosen location needs attention before Argos can save or test downloaded models. Nothing falls back to another drive.',
                 'action': 'storage'}
-    if not view.get('confirmed'):
-        return {'id': 'storage', 'title': 'Choose a home for future models',
-                'reason': 'Confirm a model location before downloading. Argos can run the bundled starter while you decide.',
-                'action': 'storage'}
-    if not f['baseline']:
+    if not any(is_selected(run, selected) for run in f['baseline']):
         return {'id': 'baseline', 'title': 'Measure this model’s starting point',
-                'reason': 'A short speed and ability trial gives future upgrades a fair comparison. It pauses chat for a few minutes.',
+                'reason': 'Use the model already here. No download or new storage choice needed. A speed and ability trial gives future upgrades a fair comparison; chat pauses while it runs.',
                 'action': 'baseline'}
     if not current:
         return {'id': 'documents', 'title': 'Test short-document reading',
@@ -296,6 +292,8 @@ def next_action(f, selected, active):
                 'reason': f"{older['model']} passed the document criteria; {newer['model']} missed them. The previous model remains available.",
                 'action': 'restore', 'model': older['model']}
     if not current['qualification']['qualified']:
+        if not view.get('confirmed'):
+            return storage_action()
         return {'id': 'models', 'title': 'Find a candidate for the missed checks',
                 'reason': 'The current model missed the short-document criteria. Compare a verified candidate under the same trial; a larger model is not automatically better.',
                 'action': 'models'}
@@ -303,13 +301,46 @@ def next_action(f, selected, active):
         return {'id': 'task', 'title': 'Test a document that matters to you',
                 'reason': 'The short trial passed. Now check an answer on your own text and decide whether it is useful. Your text and answer are not saved.',
                 'action': 'task'}
+    if not view.get('confirmed'):
+        return storage_action()
     reboot = next((l for l in view.get('locations', []) if l.get('key') == 'models'), {}).get('reboot', {}).get('state')
-    if reboot in ('not-started', 'pending', None) and view.get('confirmed'):
+    if (not (view.get('configured') or {}).get('temporary') and
+            reboot in ('not-started', 'pending', None) and view.get('confirmed')):
         return {'id': 'reboot', 'title': 'Check model storage after a restart',
                 'reason': 'Write a small test marker, restart Argos, then return here to see whether the chosen folder retained it.', 'action': 'reboot'}
     return {'id': 'capabilities', 'title': 'Choose the next capability you care about',
             'reason': 'The current checks are complete. Pick a capability, review what it needs, and test it before calling it ready.',
             'action': 'capabilities'}
+
+
+def storage_action():
+    return {'id': 'storage', 'title': 'Choose a home for future models',
+            'reason': 'You have tested the current build. Choose where future model downloads will live; the bundled starter stays available.',
+            'action': 'storage'}
+
+
+def build_path(f, selected, next_step):
+    """Task-specific progress, never a global intelligence rank or hardware score."""
+    baseline = any(is_selected(run, selected) for run in f['baseline'])
+    current = next((run for run in f['doc_models'] if is_selected(run, selected)), None)
+    qualified = bool(current and current['qualification']['qualified'])
+    accepted = any(is_selected(entry['evidence'], selected) for entry in f['accepted_tasks'])
+    compared = bool(current and any(not same_model(current, other) and supported_pair(current, other)
+                                   for other in f['doc_models']))
+    steps = []
+    for key, title, complete, detail in (
+        ('baseline', 'Measure this build', baseline, 'Save generation speed, first-token wait and quick ability results.'),
+        ('documents', 'Qualify document reading', qualified, 'Meet fixed answer, quotation and missing-information criteria.'),
+        ('task', 'Try something useful', accepted, 'Judge an answer on a document you care about.'),
+        ('models', 'Compare a candidate', compared, 'Compare matching document trials on the same hardware and settings.'),
+    ):
+        state = 'complete' if complete else 'current' if next_step == key else 'untested'
+        if key == 'documents' and current and not qualified:
+            state = 'attention'
+            detail = 'The current model missed the fixed criteria. Inspect the misses before choosing a candidate.'
+        steps.append({'id': key, 'title': title, 'state': state, 'detail': detail})
+    return {'steps': steps, 'completed': sum(step['state'] == 'complete' for step in steps),
+            'scope': 'Short-document build path. Evidence applies to the selected model files; comparison is not proof of improvement.'}
 
 
 def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp):
@@ -327,8 +358,9 @@ def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp
         digest = digest_of(entry['evidence'].get('manifest_digest')) if isinstance(entry.get('evidence'), dict) else None
         entry['applies_to_selected'] = None if digest is None else is_selected(
             {'model': entry['evidence'].get('model'), 'manifest_digest': digest}, selected)
+    action = next_action(f, selected, active)
     return {'schema': SCHEMA, 'name': 'Argos', 'model': (selected or {}).get('model'), 'quiet': data['quiet'],
-            'next_action': next_action(f, selected, active), 'systems': systems(home, f, selected),
+            'next_action': action, 'build_path': build_path(f, selected, action['id']), 'systems': systems(home, f, selected),
             'journal': entries[:30], 'moment': moment, 'unseen': len(unseen),
             'scope': 'Systems show only what has been demonstrated. Unknown means not yet tested.'}
 

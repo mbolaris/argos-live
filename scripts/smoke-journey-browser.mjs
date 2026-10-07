@@ -28,9 +28,11 @@ try {
   const moment = async () => (await page.locator('#cc-moment').isVisible()) ?
     [await page.locator('#cc-moment-tier').textContent(), await page.locator('#cc-moment-title').textContent()] : null;
 
-  // 1. Nothing proven: storage first, every system unknown, no ceremony.
-  await waitNext('Choose a home for future models');
-  if (await page.locator('#cc-next-go').textContent() !== 'Set up model storage') fail('First mission does not name its action');
+  // 1. Nothing proven: try the existing model before choosing future storage.
+  await waitNext('Measure this model’s starting point');
+  if (await page.locator('#cc-next-go').textContent() !== 'Pause chat and run the first trial') fail('First mission does not name its action');
+  if (!(await page.locator('#cc-build-summary').textContent()).includes('0 of 4')) fail('Build path claims untested progress');
+  if (await page.locator('#cc-build-steps [aria-current="step"]').count() !== 1) fail('Build path does not identify the next step');
   if (!(await page.locator('#cc-title').textContent()).includes('Mission control')) fail('Mission Control did not lead the page');
   if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) fail('Model choices hidden by default');
   const deduplication = await page.evaluate(() => {
@@ -46,20 +48,9 @@ try {
   if (await moment()) fail('A moment appeared before any evidence');
   if (await page.locator('#cc-schematic [data-state="qualified"]').count()) fail('Schematic lit a section without evidence');
   if (!(await page.locator('#download-controls').isHidden())) { /* download controls need a managed workspace */ }
+  await page.screenshot({path: 'work/journey-first-trial.png'});
 
-  // 2. Real storage choice with a real write check.
-  await page.locator('#cc-next-go').click();
-  await page.getByRole('button', {name: 'Review this location'}).first().click();
-  await page.locator('#storage-review').waitFor({state: 'visible'});
-  await page.locator('#storage-confirm').click();
-  await page.waitForFunction(() => document.getElementById('storage-status').textContent.includes('Model location confirmed.'), null, {timeout: 30000});
-  await waitNext('Measure this model’s starting point');
-  const first = await moment();
-  if (!first || first[0] !== 'Routine') fail('Expected one routine line for storage, got ' + JSON.stringify(first));
-  await page.locator('#cc-moment-dismiss').click();
-  await page.waitForFunction(() => document.getElementById('cc-moment').hidden);
-
-  // 3. Baseline twice so two comparable runs exist.
+  // 2. Baseline before storage confirmation, twice for comparable runs.
   for (let n = 0; n < 2; n++) {
     await page.waitForFunction(() => !document.getElementById('lab-start').disabled, null, {timeout: 60000});
     if (n === 0) await page.locator('#cc-next-go').click();
@@ -67,6 +58,20 @@ try {
     await page.waitForFunction(() => document.getElementById('lab-status').textContent.startsWith('Baseline saved'), null, {timeout: 120000});
   }
   await waitNext('Test short-document reading');
+  if (!(await page.locator('#cc-build-summary').textContent()).includes('1 of 4')) fail('Baseline did not advance its own build stage');
+
+  // 3. Storage remains a separate deliberate choice; no download from testing.
+  await page.getByRole('link', {name: 'Choose model storage'}).click();
+  await page.getByRole('button', {name: 'Review this location'}).first().click();
+  await page.locator('#storage-review').waitFor({state: 'visible'});
+  await page.locator('#storage-confirm').click();
+  await page.waitForFunction(() => document.getElementById('storage-status').textContent.includes('Model location confirmed.'), null, {timeout: 30000});
+  await page.waitForFunction(() => document.getElementById('cc-journal').textContent.includes('Memory banks configured'));
+  await waitNext('Test short-document reading');
+  const first = await moment();
+  if (!first || first[0] !== 'Routine') fail('Expected a routine acknowledgment, got ' + JSON.stringify(first));
+  await page.locator('#cc-moment-dismiss').click();
+  await page.waitForFunction(() => document.getElementById('cc-moment').hidden);
 
   // 4. Matched comparison renders speed and accuracy separately without script errors.
   await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length >= 4, null, {timeout: 30000});
