@@ -129,11 +129,13 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
     # Find matching document run: verify suite version, context, complete coverage, and digest
     matching_doc_run = None
     for r in doc_models:
+        settings = r.get('settings')
         if (r.get('state', 'completed') == 'completed'
                 and r.get('coverage', {}).get('complete', False) is True
                 and r.get('suite') in DOC_SUITE_NAMES
-                and (r.get('suite_version') in DOC_SUITE_VERSIONS or r.get('suite_version') is None)
-                and ((r.get('settings') or {}).get('context') in (DOC_REQUIRED_CONTEXT, None))
+                and r.get('suite_version') in DOC_SUITE_VERSIONS
+                and isinstance(settings, dict)
+                and settings.get('context') == DOC_REQUIRED_CONTEXT
                 and is_selected(r, selected)):
             matching_doc_run = r
             break
@@ -141,12 +143,14 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
     # Find matching quick ability run: verify suite version, context 2048, seed/temp, complete coverage, and digest
     matching_quick_run = None
     for r in runs:
+        settings = r.get('settings')
         if (r.get('kind') == 'ability' and r.get('suite') == 'quick'
                 and r.get('state') == 'completed'
                 and r.get('coverage', {}).get('complete', False) is True
-                and (r.get('suite_version') in QUICK_SUITE_VERSIONS or r.get('suite_version') is None)
-                and ((r.get('settings') or {}).get('context') in (QUICK_REQUIRED_CONTEXT, None))
-                and ((r.get('settings') or {}).get('temperature') in (0, None))
+                and r.get('suite_version') in QUICK_SUITE_VERSIONS
+                and isinstance(settings, dict)
+                and settings.get('context') == QUICK_REQUIRED_CONTEXT
+                and settings.get('temperature') == 0
                 and is_selected(r, selected)):
             matching_quick_run = r
             break
@@ -167,8 +171,8 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
         evidence = {
             'run_id': matching_quick_run['id'],
             'created': matching_quick_run.get('created'),
-            'suite_version': matching_quick_run.get('suite_version', '1.0.0'),
-            'context': (matching_quick_run.get('settings') or {}).get('context', QUICK_REQUIRED_CONTEXT),
+            'suite_version': matching_quick_run['suite_version'],
+            'context': matching_quick_run['settings']['context'],
             'correct': correct,
             'total': total,
             'format_errors': format_errors,
@@ -196,8 +200,8 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
         doc_evidence = {
             'run_id': matching_doc_run['id'],
             'created': matching_doc_run.get('created'),
-            'suite_version': matching_doc_run.get('suite_version', '1.0.0'),
-            'context': (matching_doc_run.get('settings') or {}).get('context', DOC_REQUIRED_CONTEXT),
+            'suite_version': matching_doc_run['suite_version'],
+            'context': matching_doc_run['settings']['context'],
             'qualified': q.get('qualified', False),
             'correct': s.get('correct', 0),
             'total': s.get('total', 0),

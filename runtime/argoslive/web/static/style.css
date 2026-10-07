@@ -494,12 +494,15 @@ caption { text-align: left; font-weight: 700; padding: 12px 0; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .replay-title-group {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 .replay-id {
   font-size: 11px;

@@ -61,6 +61,8 @@ class SkillMapTests(unittest.TestCase):
             'id': '11111111111111111111111111111111',
             'kind': 'ability',
             'suite': 'documents-short',
+            'suite_version': 'documents/short/1.0.0',
+            'settings': {'context': 4096, 'temperature': 0, 'seed': 1},
             'state': 'completed',
             'coverage': {'complete': True},
             'model': 'qwen3:0.6b',
@@ -85,6 +87,8 @@ class SkillMapTests(unittest.TestCase):
             'id': '11111111111111111111111111111111',
             'kind': 'ability',
             'suite': 'documents-short',
+            'suite_version': 'documents/short/1.0.0',
+            'settings': {'context': 4096, 'temperature': 0, 'seed': 1},
             'state': 'completed',
             'coverage': {'complete': True},
             'model': 'qwen3:0.6b',
@@ -104,6 +108,8 @@ class SkillMapTests(unittest.TestCase):
             'id': '11111111111111111111111111111111',
             'kind': 'ability',
             'suite': 'documents-short',
+            'suite_version': 'documents/short/1.0.0',
+            'settings': {'context': 4096, 'temperature': 0, 'seed': 1},
             'state': 'completed',
             'coverage': {'complete': True},
             'model': 'other:model',
@@ -131,6 +137,8 @@ class SkillMapTests(unittest.TestCase):
             'id': '22222222222222222222222222222222',
             'kind': 'ability',
             'suite': 'quick',
+            'suite_version': 'ability/quick/1.0.0',
+            'settings': {'context': 2048, 'temperature': 0, 'seed': 1},
             'state': 'cancelled',
             'coverage': {'complete': False, 'completed': 5, 'total': 20},
             'model': 'qwen3:0.6b',
@@ -150,6 +158,8 @@ class SkillMapTests(unittest.TestCase):
             'id': '33333333333333333333333333333333',
             'kind': 'ability',
             'suite': 'quick',
+            'suite_version': 'ability/quick/1.0.0',
+            'settings': {'context': 2048, 'temperature': 0, 'seed': 1},
             'state': 'completed',
             'coverage': {'complete': True, 'completed': 20, 'total': 20},
             'model': 'qwen3:0.6b',
@@ -237,13 +247,12 @@ class SkillMapTests(unittest.TestCase):
                 server.shutdown()
 
     def test_tightened_qualification_rejects_arbitrary_settings_or_versions(self):
-        # 1. Arbitrary context (512 instead of 2048) rejected
-        quick_bad_ctx = {
+        base_quick = {
             'id': '44444444444444444444444444444444',
             'kind': 'ability',
             'suite': 'quick',
             'suite_version': '1.0.0',
-            'settings': {'context': 512, 'temperature': 0},
+            'settings': {'context': 2048, 'temperature': 0},
             'state': 'completed',
             'coverage': {'complete': True, 'completed': 20, 'total': 20},
             'model': 'qwen3:0.6b',
@@ -252,25 +261,72 @@ class SkillMapTests(unittest.TestCase):
                         'categories': {'instruction': {'correct': 4, 'total': 4, 'format_errors': 0}}},
             'created': '2026-10-07T12:00:00+00:00',
         }
-        facts = {'runs': [quick_bad_ctx], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
-        res = skill_map.build_skill_map(facts, self.selected)
-        inst = next(n for n in res['domains'][0]['nodes'] if n['id'] == 'instruction-following')
-        self.assertEqual(inst['state'], 'untested')
+
+        base_doc = {
+            'id': '55555555555555555555555555555555',
+            'kind': 'ability',
+            'suite': 'documents-short',
+            'suite_version': 'documents/short/1.0.0',
+            'settings': {'context': 4096, 'temperature': 0},
+            'state': 'completed',
+            'coverage': {'complete': True},
+            'model': 'qwen3:0.6b',
+            'manifest_digest': 'sha256:' + 'a' * 64,
+            'qualification': {'qualified': True, 'checks': [{'name': 'answer', 'met': True}]},
+            'summary': {'correct': 8, 'total': 8, 'format_errors': 0},
+            'created': '2026-10-07T12:00:00+00:00',
+        }
+
+        # 1. Arbitrary context (512 instead of 2048) rejected
+        quick_bad_ctx = dict(base_quick, settings={'context': 512, 'temperature': 0})
+        res = skill_map.build_skill_map({'runs': [quick_bad_ctx]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][1]['state'], 'untested')
 
         # 2. Unsupported suite version rejected
-        quick_bad_ver = dict(quick_bad_ctx, settings={'context': 2048, 'temperature': 0}, suite_version='0.9.0')
-        facts2 = {'runs': [quick_bad_ver], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
-        res2 = skill_map.build_skill_map(facts2, self.selected)
-        inst2 = next(n for n in res2['domains'][0]['nodes'] if n['id'] == 'instruction-following')
-        self.assertEqual(inst2['state'], 'untested')
+        quick_bad_ver = dict(base_quick, suite_version='0.9.0')
+        res = skill_map.build_skill_map({'runs': [quick_bad_ver]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][1]['state'], 'untested')
 
         # 3. Incomplete coverage rejected
-        quick_incomplete = dict(quick_bad_ctx, settings={'context': 2048, 'temperature': 0}, suite_version='1.0.0',
-                                coverage={'complete': False, 'completed': 19, 'total': 20})
-        facts3 = {'runs': [quick_incomplete], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
-        res3 = skill_map.build_skill_map(facts3, self.selected)
-        inst3 = next(n for n in res3['domains'][0]['nodes'] if n['id'] == 'instruction-following')
-        self.assertEqual(inst3['state'], 'untested')
+        quick_incomplete = dict(base_quick, coverage={'complete': False, 'completed': 19, 'total': 20})
+        res = skill_map.build_skill_map({'runs': [quick_incomplete]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][1]['state'], 'untested')
+
+        # 4. Missing suite_version (None or omitted) prevents qualification
+        quick_no_ver = dict(base_quick, suite_version=None)
+        res = skill_map.build_skill_map({'runs': [quick_no_ver]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][1]['state'], 'untested')
+
+        doc_no_ver = dict(base_doc, suite_version=None)
+        res = skill_map.build_skill_map({'doc_models': [doc_no_ver]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][0]['state'], 'untested')
+
+        # 5. Missing settings (None or omitted) prevents qualification
+        quick_no_settings = dict(base_quick, settings=None)
+        res = skill_map.build_skill_map({'runs': [quick_no_settings]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][1]['state'], 'untested')
+
+        doc_no_settings = dict(base_doc, settings=None)
+        res = skill_map.build_skill_map({'doc_models': [doc_no_settings]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][0]['state'], 'untested')
+
+        # 6. Missing context (None or omitted) prevents qualification
+        quick_no_ctx = dict(base_quick, settings={'temperature': 0})
+        res = skill_map.build_skill_map({'runs': [quick_no_ctx]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][1]['state'], 'untested')
+
+        doc_no_ctx = dict(base_doc, settings={'context': None})
+        res = skill_map.build_skill_map({'doc_models': [doc_no_ctx]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][0]['state'], 'untested')
+
+        # 7. Missing or non-zero temperature prevents qualification
+        quick_no_temp = dict(base_quick, settings={'context': 2048})
+        res = skill_map.build_skill_map({'runs': [quick_no_temp]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][1]['state'], 'untested')
+
+        quick_bad_temp = dict(base_quick, settings={'context': 2048, 'temperature': 0.7})
+        res = skill_map.build_skill_map({'runs': [quick_bad_temp]}, self.selected)
+        self.assertEqual(res['domains'][0]['nodes'][1]['state'], 'untested')
 
     def test_memory_domain_separates_storage_from_recall(self):
         facts = {'runs': [], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
