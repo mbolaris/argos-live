@@ -11,7 +11,7 @@ import subprocess
 import time
 from urllib.request import Request, ProxyHandler, build_opener
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlencode
 
 
 def log_flags(raw):
@@ -296,36 +296,58 @@ def fullscreen_capture():
     time.sleep(5)
 
 
-def click_model_lab_baseline():
-    """Click the visible Lab action through X11, as a desktop user would."""
+def click_model_lab_baseline(origin, token):
+    """Navigate to the button's fragment, then use normal keyboard activation.
+
+    Fragment navigation establishes the browser's sequential focus starting
+    point. Tab then Shift-Tab focuses that control without assuming Firefox's
+    Find result received focus. Space preserves normal disabled/click behavior.
+    The caller still requires an active Lab job and saved results.
+    """
+    if not firefox_model_lab_visible():
+        raise ValueError('Model Lab is not the active Firefox page')
+    destination = origin + '/?' + urlencode({'token': token, 'view': 'lab'}) + '#lab-start'
     x11 = ctypes.CDLL('libX11.so.6')
     xtst = ctypes.CDLL('libXtst.so.6')
     x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
-    x11.XDisplayWidth.argtypes, x11.XDisplayWidth.restype = [ctypes.c_void_p, ctypes.c_int], ctypes.c_int
-    x11.XDisplayHeight.argtypes, x11.XDisplayHeight.restype = [ctypes.c_void_p, ctypes.c_int], ctypes.c_int
-    x11.XFlush.argtypes, x11.XCloseDisplay.argtypes = [ctypes.c_void_p], [ctypes.c_void_p]
-    xtst.XTestFakeMotionEvent.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
-                                          ctypes.c_int, ctypes.c_ulong]
-    xtst.XTestFakeMotionEvent.restype = ctypes.c_int
-    xtst.XTestFakeButtonEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int,
-                                          ctypes.c_ulong]
-    xtst.XTestFakeButtonEvent.restype = ctypes.c_int
+    x11.XKeysymToKeycode.argtypes, x11.XKeysymToKeycode.restype = [ctypes.c_void_p, ctypes.c_ulong], ctypes.c_ubyte
+    x11.XkbKeycodeToKeysym.argtypes, x11.XkbKeycodeToKeysym.restype = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_int, ctypes.c_int], ctypes.c_ulong
+    x11.XFlush.argtypes = x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
     display = x11.XOpenDisplay(b':0')
     if not display:
         raise ValueError('Model Lab input display is unavailable')
+    def key(symbol, pressed):
+        code = x11.XKeysymToKeycode(display, symbol)
+        if not code or not xtst.XTestFakeKeyEvent(display, code, pressed, 0):
+            raise ValueError('Model Lab keyboard input failed')
+        x11.XFlush(display)
+    def tap(symbol):
+        key(symbol, 1)
+        key(symbol, 0)
+        time.sleep(.03)
+    def modified(modifier, symbol):
+        key(modifier, 1)
+        try:
+            tap(symbol)
+        finally:
+            key(modifier, 0)
     try:
-        # At the verified 1280x800 acceptance resolution, this targets the
-        # visible "Pause chat and test this model" button in the Lab card.
-        x = int(x11.XDisplayWidth(display, 0) * .23)
-        y = int(x11.XDisplayHeight(display, 0) * .63)
-        if (not xtst.XTestFakeMotionEvent(display, 0, x, y, 0) or
-                not xtst.XTestFakeButtonEvent(display, 1, 1, 0)):
-            raise ValueError('Model Lab button click could not be sent')
-        x11.XFlush(display)
-        time.sleep(.15)
-        if not xtst.XTestFakeButtonEvent(display, 1, 0, 0):
-            raise ValueError('Model Lab button release could not be sent')
-        x11.XFlush(display)
+        modified(0xffe3, ord('l'))  # Control-L selects the location bar.
+        for character in destination:
+            symbol = ord(character)
+            code = x11.XKeysymToKeycode(display, symbol)
+            if not code:
+                raise ValueError('Model Lab navigation key unavailable')
+            if x11.XkbKeycodeToKeysym(display, code, 0, 0) != symbol:
+                modified(0xffe1, symbol)  # Shift for URL punctuation/case.
+            else:
+                tap(symbol)
+        tap(0xff0d)  # Return navigates through the ordinary Firefox UI.
+        time.sleep(5)
+        tap(0xff09)  # Tab from the fragment's focus starting point.
+        modified(0xffe1, 0xff09)  # Shift-Tab returns to the baseline button.
+        tap(0x20)
     finally:
         x11.XCloseDisplay(display)
 
@@ -482,7 +504,7 @@ def managed_check(started, desktop_seconds):
     # then exercise the actual visible button rather than calling its API.
     time.sleep(5)
     print('ARGOS_C3_STAGE model-lab-button-click', flush=True)
-    click_model_lab_baseline()
+    click_model_lab_baseline(origin, token)
 
     def dashboard_json(path):
         request = Request(origin + path, headers={'X-Argos-Token': token})
