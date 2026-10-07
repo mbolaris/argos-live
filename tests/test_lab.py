@@ -112,7 +112,10 @@ class LabTests(unittest.TestCase):
         self.assertEqual(value['debrief'], {'state': 'unavailable'})
         self.assertTrue(value['resume_requested'])
     def test_cancel_in_debrief_retains_scores_and_cleans_up_before_resume(self):
-        with patch.object(lab.mission_report, 'debrief', side_effect=Cancelled('private cancellation detail')):
+        def cancel(*args, **kwargs):
+            self.lab.cancel_event.set()
+            raise Cancelled('private cancellation detail')
+        with patch.object(lab.mission_report, 'debrief', side_effect=cancel):
             self.lab.start()
             self.finish()
         value = self.lab.snapshot()

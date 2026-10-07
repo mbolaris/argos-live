@@ -81,4 +81,3 @@ def debrief(client, model, runs, *, cancel=None):
         return {'state': 'unavailable'}
     finally:
         client.timeout = old_timeout
-
