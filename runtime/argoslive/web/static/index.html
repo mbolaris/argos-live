@@ -11,10 +11,11 @@
 <body>
   <main>
     <header><span class="brand">Argos Live</span><span class="badge">Local workspace</span></header>
-    <h1>Grow your personal AI</h1>
-    <p class="intro">Start with a conversation. Measure what your model can do, then choose your next upgrade.</p>
+    <h1>Build your Argos</h1>
+    <p class="intro">A working prototype is the first component. Run a local trial, see what it can do, then choose the next capability that matters to you.</p>
     <section id="command-center" aria-labelledby="cc-title" hidden>
-      <h2 id="cc-title">Command center</h2>
+      <h2 id="cc-title">Mission control</h2>
+      <p>Every robot starts on the bench. Test this build, inspect its strengths, then improve something useful to you.</p>
       <div id="cc-moment" class="notice moment" role="status" hidden>
         <strong id="cc-moment-title"></strong> <span id="cc-moment-tier" class="state"></span>
         <p id="cc-moment-detail"></p>
@@ -36,16 +37,22 @@
         </figure>
         <div>
           <article class="card" id="cc-next">
-            <h3 id="cc-next-title">Checking your robot…</h3>
+            <p class="mission-label">Recommended next mission</p>
+            <h3 id="cc-next-title">Checking your systems…</h3>
             <p id="cc-next-reason"></p>
-            <button id="cc-next-go" type="button" hidden>Go</button>
+            <button id="cc-next-go" class="mission-primary" type="button" hidden>Start this mission</button>
+            <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button>
           </article>
-          <ul id="cc-systems" class="cc-systems"></ul>
-          <p id="cc-scope"></p>
+          <div id="cc-readings" class="cc-readings" aria-label="Measured strengths"></div>
+          <details class="cc-evidence"><summary>See what has been tested</summary>
+            <ul id="cc-systems" class="cc-systems"></ul>
+            <p id="cc-scope"></p>
+          </details>
         </div>
       </div>
-      <h3>Progress journal</h3>
-      <ol id="cc-journal" class="cc-journal"></ol>
+      <details class="cc-evidence"><summary>Progress journal</summary>
+        <ol id="cc-journal" class="cc-journal"></ol>
+      </details>
       <label><input id="cc-quiet" type="checkbox"> Quiet acknowledgments. Progress is still recorded.</label>
       <details id="cc-task-box"><summary>Try a document of your own</summary>
         <p>Paste something real and ask one question. Chat pauses while the model reads it. The text and the answer stay on screen only; they are not saved. The answer must quote a sentence from your text, and Argos checks that the quote is really there.</p>
@@ -61,11 +68,9 @@
         <p id="cc-task-status" role="status"></p>
       </details>
     </section>
-    <nav class="lab-nav" aria-label="Workspace sections"><a href="#benchmarks-title">Test your model</a><a href="#storage-title">Where your data lives</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Expand capabilities</a><a href="#hardware-title">Hardware and storage</a></nav>
     <section class="notice" aria-label="Assistant status">
       <strong id="assistant-status">Checking your workspace…</strong>
       <p id="assistant-help">This page observes your workspace. It does not start or change services.</p>
-      <button id="chat" type="button" disabled>Open chat</button>
       <div id="startup-controls" hidden>
         <p id="startup-status" role="status" aria-live="polite">Preparing your assistant…</p>
         <progress id="startup-progress" max="5" value="0" aria-label="Assistant setup progress"></progress>
@@ -73,7 +78,9 @@
         <button id="start-assistant" type="button">Start Assistant</button>
         <button id="stop-assistant" type="button" disabled>Stop Assistant</button>
       </div>
+      <button id="chat-fallback" type="button" disabled>Talk to Argos</button>
     </section>
+    <nav class="lab-nav" aria-label="Workspace sections"><a href="#benchmarks-title">Test performance</a><a href="#storage-title">Choose model storage</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Add a capability</a><a href="#hardware-title">Hardware details</a></nav>
     <section aria-labelledby="benchmarks-title">
       <h2 id="benchmarks-title">Model lab results</h2>
       <p>How fast does it answer? Which tasks does it get right? Build a baseline you can compare after each model upgrade.</p>
@@ -156,7 +163,7 @@
       <div id="installed-models" class="cards"></div>
       <h3>Downloads in progress</h3>
       <div id="model-jobs" class="cards"></div>
-      <details><summary>Explore the model catalog</summary>
+      <details id="catalog-panel" open><summary>Choose a candidate to test</summary>
         <p>Fit is an estimate at the full listed context size. It does not prove performance or a successful reply.</p>
         <div id="model-catalog" class="cards"></div>
       </details>

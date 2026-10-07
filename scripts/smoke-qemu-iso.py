@@ -72,8 +72,8 @@ def guest_result(serial, *, setup_mode='interactive', guest=False):
         if not isinstance(result, dict) or result.get('schema') != 'argos-qemu-managed/1':
             raise ValueError('Unexpected managed guest record')
         for field in ('desktop_started', 'dashboard_authenticated', 'automatic_first_boot',
-                      'bundled_read_only_source', 'model_reply_verified', 'handoff_claimed',
-                      'firefox_gateway_connection', 'firefox_control_page_visible', 'requires_screenshot_review',
+                      'bundled_read_only_source', 'model_reply_verified',
+                      'mission_control_visible', 'chat_destination_available', 'requires_screenshot_review',
                       'model_lab_launcher_available', 'model_lab_launch_command_succeeded',
                       'model_lab_ui_visible', 'model_lab_button_clicked',
                       'model_lab_baseline_completed', 'model_lab_speed_result_saved',

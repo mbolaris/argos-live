@@ -169,7 +169,9 @@ def main(argv=None):
     stop = threading.Event()
     prior = {sig: signal.signal(sig, lambda *args: stop.set()) for sig in (signal.SIGTERM, signal.SIGINT)}
     try:
-        controller = Controller(home, auto_open_chat=not args.model_lab)
+        # Mission Control is the default destination. The owner chooses when to
+        # open the conversation using its explicit Talk to Argos action.
+        controller = Controller(home, auto_open_chat=False)
         serve(home, root, port=args.port, no_browser=args.no_browser, stop=stop,
               controller=controller, view='lab' if args.model_lab else None)
     except Exception:

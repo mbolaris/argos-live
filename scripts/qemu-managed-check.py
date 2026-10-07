@@ -11,6 +11,7 @@ import subprocess
 import time
 from urllib.request import Request, ProxyHandler, build_opener
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 
 
 def log_flags(raw):
@@ -430,20 +431,18 @@ def managed_check(started, desktop_seconds):
                 print('ARGOS_C3_BACKEND ' + json.dumps(observed), flush=True)
                 last_backend = observed
         if phase == 'ready':
-            config = json.loads((home / '.openclaw/openclaw.json').read_text())
-            # Public first-boot configuration uses OpenClaw's default port.
-            # Resolve it through the same validator as the shipped launcher.
-            port = int(gateway(config).rsplit(':', 1)[1])
             metrics = report.get('metrics')
             if not report['model_reply_verified'] or metrics['backend']['mode'] != 'CPU':
                 raise ValueError('Automatic startup did not establish a measured CPU reply')
-            if (report['auto_open_chat'] is False and firefox_connected(port)
-                    and firefox_control_page_visible()):
+            chat_request = Request(origin + '/api/assistant/chat', headers={'X-Argos-Token': token})
+            with opener.open(chat_request, timeout=10) as response:
+                chat_target = urlsplit(json.load(response).get('url', ''))
+            chat_available = (chat_target.scheme == 'http' and chat_target.hostname == '127.0.0.1'
+                              and chat_target.path == '/chat' and chat_target.fragment.startswith('token='))
+            if (report['auto_open_chat'] is False and chat_available and firefox_model_lab_visible()):
                 stable_since = stable_since or time.monotonic()
-                # The pinned Control page paints a loading skeleton before its
-                # JavaScript initializes in TCG. Keep observing the same active
-                # page/connection before capture, within the existing deadline.
-                # Visual review remains mandatory; this is not reply acceptance.
+                # Mission Control remains open after warm-up. The URL check only
+                # confirms chat can be opened; it is not a browser reply test.
                 if time.monotonic() - stable_since >= 120:
                     break
             else:
@@ -567,8 +566,8 @@ def managed_check(started, desktop_seconds):
         'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
         'model_lab_assistant_resumed': True,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
-        'model_reply_verified': True, 'startup_metrics': metrics, 'handoff_claimed': True,
-        'firefox_gateway_connection': True, 'firefox_control_page_visible': True,
+        'model_reply_verified': True, 'startup_metrics': metrics,
+        'mission_control_visible': True, 'chat_destination_available': True,
         'desktop_wait_seconds': desktop_seconds,
         'managed_elapsed_seconds': report['elapsed_seconds'],
         'ready_seconds': time.monotonic() - started, 'physical_acceptance': False,
