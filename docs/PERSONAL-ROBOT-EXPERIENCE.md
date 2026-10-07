@@ -670,8 +670,6 @@ rather than wrapping into a tall toolbar. Test 320px, 390px and 768px viewport
 widths; inspect real captures and reject horizontal page overflow. This concerns
 responsive presentation, with existing loopback/session access unchanged.
 
-### Identity and personality: Meet your AI
-
 ### Product focus: configure, watch, qualify, improve
 
 October 7 owner feedback: the shipped ladder is clearer but still not engaging;
@@ -736,7 +734,7 @@ to replay, while owner text/persona/token/configuration remains private and is
 not written into benchmark events. Verify real shipped Firefox, long-run live
 updates, cancel/reconnect, a real local model and narrow phone layouts separately.
 
-### Identity editor placement
+### Identity and personality: Meet your AI
 
 The main headline becomes **“How far can your AI go?”** Product branding remains
 Argos Live. A compact identity line shows the selected agent's display name,
