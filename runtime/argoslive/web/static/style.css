@@ -320,6 +320,9 @@ caption { text-align: left; font-weight: 700; padding: 12px 0; }
 .arena-summary-banner { margin-top: 18px; padding: 16px; border-radius: 10px; background: #162a38; border: 1px solid #3c5e75; }
 .arena-summary-banner strong { display: block; font-size: 14px; color: var(--accent); margin-bottom: 4px; }
 .arena-summary-banner p { margin: 0; font-size: 13px; color: var(--text); }
+.arena-summary-btn { margin-top: 12px; }
+.debrief-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.opinion-tag { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding: 3px 8px; border-radius: 6px; background: #182836; color: var(--blue); border: 1px solid #2e4966; }
 
 /* Skill Map Deck & Result Replay */
 .skill-map-bay {
@@ -812,6 +815,19 @@ caption { text-align: left; font-weight: 700; padding: 12px 0; }
   .receipt-actions button {
     width: 100%;
   }
+  .arena-hud { flex-direction: column; align-items: stretch; gap: 10px; }
+  .arena-hud-tally { justify-content: space-between; }
+  .arena-stream-content { max-height: 180px; font-size: 12px; }
+  .arena-card { padding: 14px; }
+  .replay-comparison { flex-direction: column; }
+  .replay-col { width: 100%; }
+}
+@media (max-width: 360px) {
+  main { padding: 16px 10px 60px; }
+  .arena-deck { padding: 12px 8px; }
+  .card { padding: 14px 10px; }
+  .skill-map-bay { padding: 14px 10px; }
+  .score-tile strong { font-size: 28px; }
 }
 
 /* Recipe Experiment Controls & Indicators (J6b) */
