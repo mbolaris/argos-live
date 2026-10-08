@@ -15,11 +15,83 @@
     <p class="intro">Build a private AI worth relying on. Discover its strengths, take on a mission, and see what your next upgrade really changes.</p>
     <section id="command-center" aria-labelledby="cc-title" hidden>
       <h2 id="cc-title">Mission control</h2>
-      <p>Measure your build. Find its strengths. Choose the next mission.</p>
+      <p class="cc-subtitle">Measure your build. Find its strengths. Choose the next mission.</p>
       <div id="cc-moment" class="notice moment" role="status" hidden>
         <strong id="cc-moment-title"></strong> <span id="cc-moment-tier" class="state"></span>
         <p id="cc-moment-detail"></p>
         <button id="cc-moment-dismiss" type="button">Noted</button>
+      </div>
+      <article class="card cc-mission-hero" id="cc-next">
+        <div class="cc-hero-meta">
+          <p class="mission-label">Recommended next mission</p>
+          <div class="cc-hero-status-strip" aria-label="Build identity and tested evidence">
+            <span class="cc-status-item">AI: <strong id="cc-hero-ai">your AI</strong></span>
+            <span class="cc-status-sep">·</span>
+            <span class="cc-status-item">Model: <strong id="cc-hero-model">Current model</strong></span>
+            <span class="cc-status-sep">·</span>
+            <span class="cc-status-item">Last result: <strong id="cc-hero-result">Not yet tested</strong></span>
+          </div>
+        </div>
+        <h3 id="cc-next-title">Checking your systems…</h3>
+        <p id="cc-next-reason"></p>
+        <p class="cc-pause-notice">Chat pauses for the test and resumes afterward.</p>
+        <div class="cc-hero-actions">
+          <button id="cc-next-go" class="mission-primary" type="button" hidden>Start: Read this brief</button>
+          <button id="cc-start-documents-quick" class="mission-secondary" type="button" hidden>Start: Read this brief</button>
+          <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button>
+        </div>
+        <p id="cc-live-trial" role="status" aria-live="polite"></p>
+      </article>
+      <div class="cc-grid">
+        <div class="ladder-bay"><p class="mission-label">Your document mission ladder</p><h3 id="cc-stage">Prototype · ready to test</h3><ol id="cc-build-steps" class="cc-build-steps"></ol><p id="cc-build-summary"></p><p id="cc-build-scope"></p><figure class="cc-figure">
+          <svg id="cc-schematic" viewBox="0 0 220 300" role="img" aria-labelledby="cc-schematic-label" focusable="false">
+            <title id="cc-schematic-label">Robot blueprint. Outlined sections are not yet demonstrated; solid sections are.</title>
+            <g data-system="brain"><rect x="70" y="14" width="80" height="56" rx="10"/><title>Brain</title></g>
+            <g data-system="sensors"><circle cx="93" cy="42" r="8"/><circle cx="127" cy="42" r="8"/><title>Sensors</title></g>
+            <g data-system="power-core"><rect x="80" y="90" width="60" height="58" rx="8"/><circle cx="110" cy="119" r="13"/><title>Power core</title></g>
+            <g data-system="cooling"><path d="M86 154h48M86 162h48M86 170h48"/><title>Cooling</title></g>
+            <g data-system="memory-banks"><rect x="76" y="182" width="68" height="40" rx="6"/><path d="M92 190v24M110 190v24M128 190v24"/><title>Memory banks</title></g>
+            <g data-system="hands"><rect x="28" y="96" width="34" height="76" rx="8"/><rect x="158" y="96" width="34" height="76" rx="8"/><title>Hands</title></g>
+            <g data-system="stability"><path d="M84 230v52h-18v8h40v-8h-4v-52M136 230v52h18v8h-40v-8h4v-52"/><title>Stability</title></g>
+          </svg>
+          <figcaption id="cc-name">Argos</figcaption>
+        </figure></div>
+        <div class="mission-main">
+          <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
+            <p class="mission-label">Your latest measured result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
+            <div id="cc-scoreboard" class="scoreboard"></div><p id="cc-takeaway"></p>
+            <div id="receipt-replay" class="receipt-replay" hidden>
+              <p class="replay-label">Representative challenge replay</p>
+              <div id="receipt-replay-list" class="replay-list"></div>
+            </div>
+            <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
+              <p class="replay-label">Qualification criteria checklist</p>
+              <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
+            </div>
+            <div id="receipt-actions" class="receipt-actions" hidden>
+              <button id="receipt-practice" type="button" class="mission-primary">Retest unchanged</button>
+              <button id="receipt-change" type="button" class="mission-secondary" disabled title="Instruction recipes arrive in J6b">Try one change</button>
+              <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
+            </div>
+            <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
+          </article>
+          <article id="cc-debrief" class="agent-debrief" hidden aria-live="polite"><p class="mission-label">At the workbench · Argos’s take</p><blockquote id="cc-debrief-text"></blockquote><p id="cc-debrief-note"></p></article>
+          <div id="cc-readings" class="cc-readings" aria-label="Measured strengths"></div>
+          <div id="skill-map-compact" class="skill-map-compact" aria-label="Task Skill Map summary">
+            <div class="compact-map-header">
+              <div>
+                <span class="mission-label">Task Skill Map</span>
+                <span id="compact-map-tally" class="compact-map-tally">0 / 18 tasks qualified</span>
+              </div>
+              <a href="#skill-map-bay" class="btn-jump-map">Inspect full task map ↓</a>
+            </div>
+            <div id="compact-map-domains" class="compact-map-domains"></div>
+          </div>
+          <details class="cc-evidence"><summary>See what has been tested</summary>
+            <ul id="cc-systems" class="cc-systems"></ul>
+            <p id="cc-scope"></p>
+          </details>
+        </div>
       </div>
       <section id="skill-map-bay" class="skill-map-bay" aria-labelledby="skill-map-title">
         <div class="skill-map-header">
@@ -75,53 +147,6 @@
           </div>
         </dialog>
       </section>
-      <div class="cc-grid">
-        <div class="ladder-bay"><p class="mission-label">Your document mission ladder</p><h3 id="cc-stage">Prototype · ready to test</h3><ol id="cc-build-steps" class="cc-build-steps"></ol><p id="cc-build-summary"></p><p id="cc-build-scope"></p><figure class="cc-figure">
-          <svg id="cc-schematic" viewBox="0 0 220 300" role="img" aria-labelledby="cc-schematic-label" focusable="false">
-            <title id="cc-schematic-label">Robot blueprint. Outlined sections are not yet demonstrated; solid sections are.</title>
-            <g data-system="brain"><rect x="70" y="14" width="80" height="56" rx="10"/><title>Brain</title></g>
-            <g data-system="sensors"><circle cx="93" cy="42" r="8"/><circle cx="127" cy="42" r="8"/><title>Sensors</title></g>
-            <g data-system="power-core"><rect x="80" y="90" width="60" height="58" rx="8"/><circle cx="110" cy="119" r="13"/><title>Power core</title></g>
-            <g data-system="cooling"><path d="M86 154h48M86 162h48M86 170h48"/><title>Cooling</title></g>
-            <g data-system="memory-banks"><rect x="76" y="182" width="68" height="40" rx="6"/><path d="M92 190v24M110 190v24M128 190v24"/><title>Memory banks</title></g>
-            <g data-system="hands"><rect x="28" y="96" width="34" height="76" rx="8"/><rect x="158" y="96" width="34" height="76" rx="8"/><title>Hands</title></g>
-            <g data-system="stability"><path d="M84 230v52h-18v8h40v-8h-4v-52M136 230v52h18v8h-40v-8h4v-52"/><title>Stability</title></g>
-          </svg>
-          <figcaption id="cc-name">Argos</figcaption>
-        </figure></div>
-        <div class="mission-main">
-          <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
-            <p class="mission-label">Your latest measured result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
-            <div id="cc-scoreboard" class="scoreboard"></div><p id="cc-takeaway"></p>
-            <div id="receipt-replay" class="receipt-replay" hidden>
-              <p class="replay-label">Representative challenge replay</p>
-              <div id="receipt-replay-list" class="replay-list"></div>
-            </div>
-            <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
-              <p class="replay-label">Qualification criteria checklist</p>
-              <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
-            </div>
-            <div id="receipt-actions" class="receipt-actions" hidden>
-              <button id="receipt-practice" type="button" class="mission-primary">Practice this skill</button>
-              <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
-            </div>
-            <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
-          </article>
-          <article class="card" id="cc-next">
-            <p class="mission-label">Recommended next mission</p>
-            <h3 id="cc-next-title">Checking your systems…</h3>
-            <p id="cc-next-reason"></p>
-            <button id="cc-next-go" class="mission-primary" type="button" hidden>Start this mission</button>
-            <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button><p id="cc-live-trial" role="status" aria-live="polite"></p>
-          </article>
-          <article id="cc-debrief" class="agent-debrief" hidden aria-live="polite"><p class="mission-label">At the workbench · Argos’s take</p><blockquote id="cc-debrief-text"></blockquote><p id="cc-debrief-note"></p></article>
-          <div id="cc-readings" class="cc-readings" aria-label="Measured strengths"></div>
-          <details class="cc-evidence"><summary>See what has been tested</summary>
-            <ul id="cc-systems" class="cc-systems"></ul>
-            <p id="cc-scope"></p>
-          </details>
-        </div>
-      </div>
       <div id="cc-build-path" hidden></div>
       <section class="challenge-deck" aria-labelledby="cc-challenges-title">
         <p class="mission-label">Take it for a spin</p><h3 id="cc-challenges-title">Choose your next challenge</h3>

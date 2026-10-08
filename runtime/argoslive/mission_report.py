@@ -85,18 +85,18 @@ def explain_outcome(outcome, category, output, rule=None):
 
     elif outcome == 'format_error':
         if kind == 'choice':
-            return "Format error: Did not respond with a single choice letter (A–D)."
+            return "Response contract failure: Did not respond with a single choice letter (A–D)."
         elif kind == 'numeric':
-            return "Format error: Output could not be parsed as a single numeric value."
+            return "Response contract failure: Output could not be parsed as the required single numeric value (format error)."
         elif kind == 'instruction':
-            return "Format error: Output violated line, case, or formatting constraints."
+            return "Response contract failure: Output violated line, case, or formatting constraints."
         elif kind in ('json', 'tool-call'):
-            return "Format error: Output was not valid closed JSON or had extra keys."
+            return "Response contract failure: Output was not valid closed JSON or had extra unrequested keys."
         elif kind == 'doc-quote' or category == 'quote':
-            return "Format error: Quotation was missing, not found in passage, or exceeded length."
+            return "Response contract failure: Quotation was missing, not verbatim from passage, or exceeded length."
         elif kind == 'doc-not-stated' or category == 'not_stated':
-            return "Format error: Expected 'not_stated' JSON status with empty answer."
-        return "Format error: Output violated the required schema or formatting constraints."
+            return "Response contract failure: Expected 'not_stated' JSON status with empty answer."
+        return "Response contract failure: Output violated the required schema or formatting constraints."
 
     return "Challenge was not completed."
 
@@ -112,9 +112,11 @@ def summarize(runs):
     if speed:
         prompt = next((p for p in speed['prompts'] if p['size'] == 'short' and not p['skipped']), None)
         if prompt:
+            prompt_tps = results.median_of(prompt, 'prompt_tokens_per_second')['median']
             receipt['speed'] = {'run': speed['id'],
                                 'tokens_per_second': results.median_of(prompt, 'generation_tokens_per_second')['median'],
-                                'first_token_seconds': results.median_of(prompt, 'time_to_first_token_seconds')['median']}
+                                'first_token_seconds': results.median_of(prompt, 'time_to_first_token_seconds')['median'],
+                                'prompt_tokens_per_second': prompt_tps}
     if ability:
         summary = ability['summary']
         checks = []
@@ -163,10 +165,22 @@ def summarize(runs):
                 if len(replay_failed) < 3:
                     replay_failed.append(rep_item)
 
+        correct = summary['correct']
+        total = summary['total']
+        format_errors = summary['format_errors']
+        wrong_answers = total - correct - format_errors
+        lead_sentence = (
+            f"{correct} of {total} challenges passed. "
+            f"{format_errors} response contract (format) failures, "
+            f"{wrong_answers} wrong answers."
+        )
+
         receipt['ability'] = {
             'run': ability['id'], 'suite': ability['suite'], 'created': ability['created'],
-            'correct': summary['correct'], 'total': summary['total'],
-            'format_errors': summary['format_errors'],
+            'correct': correct, 'total': total,
+            'format_errors': format_errors,
+            'wrong_answers': wrong_answers,
+            'lead_sentence': lead_sentence,
             'categories': [{'id': k, 'label': CATEGORY_LABELS.get(k, k.replace('_', ' ')),
                             'correct': v['correct'], 'total': v['total']}
                            for k, v in summary['categories'].items()],

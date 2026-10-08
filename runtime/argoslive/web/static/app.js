@@ -337,7 +337,16 @@ function renderReceiptItem(receipt) {
 function updateArenaHUD(arena, phase, model, elapsed, active) {
   const badge = document.getElementById('arena-phase-badge');
   if (badge) {
-    badge.textContent = labPhases[phase] ? phase.toUpperCase() : 'IDLE';
+    if (phase === 'cancelled') {
+      badge.textContent = 'STOPPED · INCOMPLETE';
+      badge.className = 'arena-badge phase-cancelled incomplete';
+    } else if (phase === 'failed') {
+      badge.textContent = 'FAILED · INCOMPLETE';
+      badge.className = 'arena-badge phase-failed incomplete';
+    } else {
+      badge.textContent = labPhases[phase] ? phase.toUpperCase() : 'IDLE';
+      badge.className = `arena-badge phase-${phase}`;
+    }
     badge.classList.toggle('running', active === true);
   }
   const m = document.getElementById('arena-model');
@@ -403,6 +412,21 @@ function renderArenaState(arena, active, phase, model, elapsed) {
     if (streamInd) streamInd.hidden = true;
   }
 
+  // Clear working/generating indicators when cancelled, failed or inactive
+  if (!active && (phase === 'cancelled' || phase === 'failed')) {
+    if (streamInd) streamInd.hidden = true;
+    if (liveStream) {
+      if (!liveStream.textContent || liveStream.textContent === 'Generating response…' || liveStream.textContent === 'Awaiting model response…') {
+        liveStream.textContent = phase === 'cancelled' ?
+          '(Trial stopped before response was generated)' :
+          '(Trial failed before response was generated)';
+      } else if (phase === 'cancelled' && !liveStream.textContent.includes('[Stopped · incomplete]')) {
+        liveStream.textContent += '\n[Stopped · incomplete]';
+      }
+    }
+    document.querySelector('#cc-schematic [data-system="power-core"]')?.classList.remove('working');
+  }
+
   if (arena && Array.isArray(arena.receipts)) {
     arenaReceipts = arena.receipts;
     updateArenaReceipts(arenaReceipts);
@@ -419,12 +443,12 @@ function renderArenaState(arena, active, phase, model, elapsed) {
       detail.textContent = `${arena?.correct || 0} of ${arena?.total || 0} passed · ${arena?.format_errors || 0} format errors · Evidence bound to ${model || 'model'} digest. Baseline saved.`;
     } else if (phase === 'cancelled') {
       banner.hidden = false;
-      headline.textContent = 'Trial stopped by user';
-      detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.`;
+      headline.textContent = 'Stopped · incomplete';
+      detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify. Assistant resumption ready.`;
     } else if (phase === 'failed') {
       banner.hidden = false;
-      headline.textContent = 'Trial could not finish';
-      detail.textContent = 'Check model setup and compute resources before retrying.';
+      headline.textContent = 'Trial failed · incomplete';
+      detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
     } else {
       banner.hidden = true;
     }
@@ -434,7 +458,18 @@ function renderArenaState(arena, active, phase, model, elapsed) {
 function applyArenaEvent(ev) {
   if (ev.type === 'phase') {
     const badge = document.getElementById('arena-phase-badge');
-    if (badge) badge.textContent = ev.phase.toUpperCase();
+    if (badge) {
+      if (ev.phase === 'cancelled') {
+        badge.textContent = 'STOPPED · INCOMPLETE';
+        badge.className = 'arena-badge phase-cancelled incomplete';
+      } else if (ev.phase === 'failed') {
+        badge.textContent = 'FAILED · INCOMPLETE';
+        badge.className = 'arena-badge phase-failed incomplete';
+      } else {
+        badge.textContent = ev.phase.toUpperCase();
+        badge.className = `arena-badge phase-${ev.phase}`;
+      }
+    }
     if (Number.isFinite(ev.elapsed_seconds)) {
       const el = document.getElementById('arena-elapsed');
       if (el) el.textContent = `${Math.round(ev.elapsed_seconds)} s`;
@@ -505,6 +540,29 @@ function applyArenaEvent(ev) {
   } else if (ev.type === 'final') {
     const streamInd = document.getElementById('arena-stream-indicator');
     if (streamInd) streamInd.hidden = true;
+    const liveStream = document.getElementById('arena-current-stream');
+    if (liveStream) {
+      if (!liveStream.textContent || liveStream.textContent === 'Generating response…' || liveStream.textContent === 'Awaiting model response…') {
+        liveStream.textContent = ev.outcome === 'cancelled' ?
+          '(Trial stopped before response was generated)' :
+          ev.outcome === 'failed' ?
+          '(Trial failed before response was generated)' :
+          liveStream.textContent;
+      } else if (ev.outcome === 'cancelled' && !liveStream.textContent.includes('[Stopped · incomplete]')) {
+        liveStream.textContent += '\n[Stopped · incomplete]';
+      }
+    }
+    const badge = document.getElementById('arena-phase-badge');
+    if (badge) {
+      if (ev.outcome === 'cancelled') {
+        badge.textContent = 'STOPPED · INCOMPLETE';
+        badge.className = 'arena-badge phase-cancelled incomplete';
+      } else if (ev.outcome === 'failed') {
+        badge.textContent = 'FAILED · INCOMPLETE';
+        badge.className = 'arena-badge phase-failed incomplete';
+      }
+      badge.classList.remove('running');
+    }
     const banner = document.getElementById('arena-summary-banner');
     if (banner) {
       banner.hidden = false;
@@ -514,13 +572,14 @@ function applyArenaEvent(ev) {
         if (headline) headline.textContent = 'Trial completed and saved';
         if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
       } else if (ev.outcome === 'cancelled') {
-        if (headline) headline.textContent = 'Trial stopped by user';
-        if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.`;
+        if (headline) headline.textContent = 'Stopped · incomplete';
+        if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify. Assistant resumption ready.`;
       } else {
-        if (headline) headline.textContent = 'Trial could not finish';
-        if (detail) detail.textContent = 'Check model setup and compute resources before retrying.';
+        if (headline) headline.textContent = 'Trial failed · incomplete';
+        if (detail) detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
       }
     }
+    document.querySelector('#cc-schematic [data-system="power-core"]')?.classList.remove('working');
     stopArenaPolling();
     refreshBenchmarks();
   }
@@ -583,6 +642,10 @@ async function refreshLab() {
     document.getElementById('lab-start-documents').disabled = value.active || downloadActive || selectionActive;
     if (['baseline', 'documents'].includes(commandAction?.action)) {
       document.getElementById('cc-next-go').disabled = value.active || downloadActive || selectionActive;
+    }
+    const quickDoc = document.getElementById('cc-start-documents-quick');
+    if (quickDoc) {
+      quickDoc.disabled = value.active || downloadActive || selectionActive || document.getElementById('lab-start-documents').disabled;
     }
     document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
     let message = labPhases[value.phase] || 'Checking test status…';
@@ -1054,6 +1117,15 @@ async function refreshCommand() {
     section.hidden = value.available === false;
     if (value.available === false) return;
     document.getElementById('cc-name').textContent = value.name + (value.model ? ' · ' + value.model : '');
+    const heroAi = document.getElementById('cc-hero-ai');
+    if (heroAi) heroAi.textContent = value.name || 'your AI';
+    const heroModel = document.getElementById('cc-hero-model');
+    if (heroModel) heroModel.textContent = value.model || 'Current model';
+    const heroResult = document.getElementById('cc-hero-result');
+    if (heroResult) {
+      const ab = value.report?.ability;
+      heroResult.textContent = ab ? `${ab.correct}/${ab.total} (${ab.qualified ? 'Qualified' : 'Missed'})` : 'Not yet tested';
+    }
     renderMissionReceipt(value.report);
     renderSkillMap(value.skill_map);
     const path = value.build_path;
@@ -1082,11 +1154,16 @@ async function refreshCommand() {
     document.getElementById('cc-next-title').textContent = next.title;
     document.getElementById('cc-next-reason').textContent = next.reason;
     const go = document.getElementById('cc-next-go');
-    go.hidden = !next.action; go.textContent = {storage: 'Set up model storage', baseline: 'Pause chat and run the first trial', documents: 'Pause chat and test document reading',
+    go.hidden = !next.action; go.textContent = {storage: 'Set up model storage', baseline: 'Pause chat and run the first trial', documents: 'Start: Read this brief',
       models: 'Compare a model candidate', reboot: 'Verify storage after restart', chat: 'Talk to Argos', capabilities: 'Choose a capability',
       task: 'Test a document you care about', restore: 'Review the previous model'}[next.action] || 'Start this mission';
     const trialControl = {baseline: 'lab-start', documents: 'lab-start-documents'}[next.action];
     go.disabled = !!trialControl && document.getElementById(trialControl).disabled;
+    const quickDoc = document.getElementById('cc-start-documents-quick');
+    if (quickDoc) {
+      quickDoc.hidden = next.action === 'documents';
+      quickDoc.disabled = !!document.getElementById('lab-start-documents')?.disabled;
+    }
     const list = document.getElementById('cc-systems'); list.replaceChildren();
     const readings = document.getElementById('cc-readings'); readings.replaceChildren();
     for (const system of value.systems) {
@@ -1129,6 +1206,10 @@ async function post(path, body) {
 document.getElementById('cc-next-go').addEventListener('click', () => {
   if (['baseline', 'documents'].includes(commandAction?.action)) document.getElementById('cc-next-go').disabled = true;
   commandActions[commandAction?.action]?.();
+});
+document.getElementById('cc-start-documents-quick')?.addEventListener('click', () => {
+  document.getElementById('cc-start-documents-quick').disabled = true;
+  commandActions.documents?.();
 });
 document.getElementById('cc-moment-dismiss').addEventListener('click', async () => {
   try { await post('/api/command-center/seen'); } catch (_) {}
@@ -1262,6 +1343,26 @@ function openSkillNodeModal(node) {
 function renderSkillMap(mapData) {
   if (!mapData || !mapData.domains) return;
   currentSkillMapData = mapData;
+
+  // Compact map overview
+  const compactTally = document.getElementById('compact-map-tally');
+  if (compactTally && mapData.tally) {
+    compactTally.textContent = `${mapData.tally.qualified} / ${mapData.tally.active_nodes || mapData.tally.total_nodes} tasks qualified`;
+  }
+  const compactDomains = document.getElementById('compact-map-domains');
+  if (compactDomains) {
+    compactDomains.replaceChildren();
+    for (const domain of mapData.domains) {
+      const qCount = domain.nodes.filter(n => n.state === 'qualified').length;
+      const activeCount = domain.nodes.filter(n => n.available).length;
+      const pill = document.createElement('a');
+      pill.href = '#skill-map-bay';
+      pill.className = `compact-domain-pill ${qCount > 0 ? 'has-qualified' : ''}`;
+      pill.innerHTML = `<span class="domain-icon icon-${domain.icon}"></span> <span class="pill-label">${domain.label}</span> <span class="pill-count">${qCount}/${activeCount}</span>`;
+      compactDomains.append(pill);
+    }
+  }
+
   const graphContainer = document.getElementById('skill-map-graph');
   const listContainer = document.getElementById('skill-map-list');
   graphContainer.replaceChildren();
@@ -1350,10 +1451,20 @@ function renderMissionReceipt(report) {
   };
   metric(ability ? `${ability.correct} / ${ability.total}` : '—', 'Exercises solved', ability ? 'Latest completed fixed suite' : 'Not tested yet');
   metric(Number.isFinite(speed?.tokens_per_second) ? speed.tokens_per_second.toFixed(1) : '—', 'Output tokens / second', Number.isFinite(speed?.first_token_seconds) ? `${speed.first_token_seconds.toFixed(2)} s before the first token · short prompt` : 'No repeated speed measurement yet');
+  if (Number.isFinite(speed?.prompt_tokens_per_second)) {
+    metric(speed.prompt_tokens_per_second.toFixed(1), 'Prompt tokens / second', 'Prompt processing rate');
+  }
   document.getElementById('cc-receipt-title').textContent = !ability ? 'Let’s find your starting point' : ability.qualified === true ? 'Short-document criteria met' : ability.qualified === false || ability.correct === 0 ? 'We found the next things to work on' : 'Your strengths are on the map';
   const categories = [...(ability?.categories || [])].filter(c => c.total > 0).sort((a, b) => b.correct / b.total - a.correct / a.total);
   const best = categories[0], gap = categories[categories.length - 1];
-  document.getElementById('cc-takeaway').textContent = !ability ? 'Start here: run one trial, then try a mission below.' : ability.correct === 0 ? 'Every exercise in this suite was missed. Try a sample below to inspect an answer, then compare a candidate on the same trial.' : best ? `Best result: ${best.label} (${best.correct}/${best.total}). ` + (gap.correct < gap.total ? `Practice next: ${gap.label} (${gap.correct}/${gap.total}).` : 'All categories passed these exercises. Try a practical mission next.') : 'Inspect the detailed records below.';
+  const leadVerdict = ability?.lead_sentence || '';
+  const takeawayEl = document.getElementById('cc-takeaway');
+  if (!ability) {
+    takeawayEl.textContent = 'Start here: run one trial, then try a mission below.';
+  } else {
+    const categoryAdvice = ability.correct === 0 ? 'Every exercise in this suite was missed. Try a sample below to inspect an answer, then compare a candidate on the same trial.' : best ? `Best result: ${best.label} (${best.correct}/${best.total}). ` + (gap.correct < gap.total ? `Practice next: ${gap.label} (${gap.correct}/${gap.total}).` : 'All categories passed these exercises. Try a practical mission next.') : 'Inspect the detailed records below.';
+    takeawayEl.textContent = leadVerdict ? `${leadVerdict} ${categoryAdvice}` : categoryAdvice;
+  }
   for (const category of ability?.categories || []) {
     const row = document.createElement('div'); row.className = 'skill-row';
     const name = document.createElement('span'); name.textContent = category.label;
@@ -1363,9 +1474,9 @@ function renderMissionReceipt(report) {
     row.append(name, result, meter); bars.append(row);
   }
   document.getElementById('cc-receipt-note').textContent = ability ?
-    `${ability.format_errors} answers broke the required format. ${ability.scope} ${ability.created.slice(0, 10)} · ${ability.suite}.` : 'One trial gives your next upgrade a fair starting point. No model download needed.';
+    `${ability.format_errors} response contract failures · ${ability.wrong_answers ?? Math.max(0, ability.total - ability.correct - ability.format_errors)} wrong answers. ${ability.scope} ${ability.created ? ability.created.slice(0, 10) : ''} · ${ability.suite}.` : 'One trial gives your next upgrade a fair starting point. No model download needed.';
 
-  // Render representative challenge replay
+  // Render representative challenge replay (failed items first)
   const replayBox = document.getElementById('receipt-replay');
   const replayList = document.getElementById('receipt-replay-list');
   const rep = ability?.replay;
@@ -1401,7 +1512,7 @@ function renderMissionReceipt(report) {
       }
       const tag = document.createElement('span');
       tag.className = `badge ${outcomeClass}`;
-      tag.textContent = isPass ? '● Pass' : (item.outcome === 'format_error' ? '▲ Format error' : '✕ Missed');
+      tag.textContent = isPass ? '● Pass' : (item.outcome === 'format_error' ? '▲ Contract failure' : '✕ Wrong answer');
       statusGroup.append(tag);
       hdr.append(titleGroup, statusGroup);
       card.append(hdr);
@@ -1437,7 +1548,7 @@ function renderMissionReceipt(report) {
         reasonBox.className = `replay-reason-box outcome-${outcomeClass}`;
         const reasonLabel = document.createElement('strong');
         reasonLabel.className = 'replay-reason-label';
-        reasonLabel.textContent = isPass ? 'Assessment: ' : 'Why it failed: ';
+        reasonLabel.textContent = isPass ? 'Assessment: ' : (item.outcome === 'format_error' ? 'Contract failure: ' : 'Why it failed: ');
         const reasonText = document.createElement('span');
         reasonText.textContent = item.reason;
         reasonBox.append(reasonLabel, reasonText);
@@ -1447,10 +1558,10 @@ function renderMissionReceipt(report) {
       return card;
     };
 
-    for (const item of (rep.passed || [])) {
+    for (const item of (rep.failed || [])) {
       replayList.append(renderCard(item));
     }
-    for (const item of (rep.failed || [])) {
+    for (const item of (rep.passed || [])) {
       replayList.append(renderCard(item));
     }
   }
@@ -1477,6 +1588,7 @@ function renderMissionReceipt(report) {
   actBox.hidden = !ability;
   const pracBtn = document.getElementById('receipt-practice');
   const upgBtn = document.getElementById('receipt-upgrade');
+  pracBtn.textContent = 'Retest unchanged';
   pracBtn.onclick = () => {
     if (ability.suite === 'documents-short') commandActions.documents();
     else commandActions.baseline();

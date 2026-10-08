@@ -314,6 +314,11 @@ class Controller:
                 if self.arena:
                     self.arena['phase'] = outcome
                     self.arena['elapsed_seconds'] = elapsed
+                    if outcome in ('cancelled', 'failed') and self.arena.get('current_item'):
+                        if not self.arena['current_item'].get('answer'):
+                            self.arena['current_item']['answer'] = '(Stopped before response generated)'
+                        elif outcome == 'cancelled' and not self.arena['current_item']['answer'].endswith('[Stopped · incomplete]'):
+                            self.arena['current_item']['answer'] += '\n[Stopped · incomplete]'
                     self.add_event('final', outcome=outcome, plan=self.plan, model=self.model,
                                    completed=self.arena.get('completed', 0),
                                    total=self.arena.get('total', 0),

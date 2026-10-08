@@ -795,8 +795,8 @@ October 8 implementation direction: [Mission 1: Read this brief](PROVING-GROUND-
 J1/J2 implementations are already merged; extend them. Current order is
 J5 → J6a → J6b → J7 → J3 → J8. J6c and J4 follow their own prerequisites.
 
-### J5 Mission-first home and truthful terminal states — `todo`
-- Start the existing short-document mission above the fold at390×844 and desktop;
+### J5 Mission-first home and truthful terminal states — `done`
+- Start the existing short-document mission above the fold at 390×844 and desktop;
   one tap when ready, one workload, no starter storage/download prerequisite.
 - Move the full map and inventory below the primary action; retain accessible
   navigation and name the current unavailable/startup phase.
@@ -806,6 +806,7 @@ J5 → J6a → J6b → J7 → J3 → J8. J6c and J4 follow their own prerequisit
 - Accept: meaningful browser checks for ready/start/busy/reload/cancel/failed states,
   phone/desktop screenshots and keyboard controls. No implementation of training,
   recipe experiments or new suite in this slice.
+- Verification: Recommended next mission hero card (`#cc-next`) moved above the fold on desktop and phone with build identity/model status strip, pause notice, primary Start action (`#cc-next-go`), and 1-tap document quick start (`#cc-start-documents-quick`). Compact skill map header with domain pills and anchor jump to full bay below the mission grid. Truthful terminal states and cleared working indicators in `lab.py` and `app.js` (`STOPPED · INCOMPLETE`, retained partials without qualification, cleanup status, removed `.working` indicators). Clarified outcome verdicts in `mission_report.py` and replay cards separating response contract failures from wrong answers, reporting prompt processing rate, and leading replay with failed items. Unchanged Practice action renamed to "Retest unchanged". Verified by unit tests (`test_mission_report.py`, `test_arena_events.py`, `test_skill_map.py`, `test_command_center.py`, `test_lab.py`, `test_bench_ability.py`, `test_doc_trial.py`), browser smokes (`smoke-dashboard-browser.mjs`, `smoke-journey-browser.mjs` passing at 320px/390px/768px/1200px viewports), and live arena demonstration (`demonstrate-arena.mjs`). Real model requests, shipped Firefox ESR, and physical ISO deployment remain separate acceptance.
 
 ### J6a Versioned instruction recipe and backend execution — `todo`
 Depends on: J5.
