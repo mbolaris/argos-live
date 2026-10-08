@@ -43,7 +43,7 @@ class BootRepairTests(unittest.TestCase):
             menu=(root/'boot/grub/grub.cfg').read_text()
             self.assertEqual(menu.count('initrd /live/initrd-test'),5)
             self.assertNotIn('ttyS0',menu)
-            self.assertIn('set default=3',menu)
+            self.assertIn('set default=1',menu)
             self.assertIn('set timeout=15',menu)
             desktop=menu.split('menuentry "Argos desktop" {',1)[1].split('}',1)[0]
             self.assertIn('module_blacklist=nouveau',desktop)
@@ -57,7 +57,12 @@ class BootRepairTests(unittest.TestCase):
             self.assertNotIn(' persistence ',guest)
             self.assertIn('persistence-encryption=luks',desktop)
             guest_bios=bios.split('label argos-guest\n',1)[1].split('label argos-guest-basic',1)[0]
-            self.assertIn('menu default',guest_bios)
+            self.assertNotIn('menu default',guest_bios)
+            desktop_bios=bios.split('label argos-desktop\n',1)[1].split('label argos-basic',1)[0]
+            self.assertIn('menu default',desktop_bios)
+            self.assertIn('persistence-encryption=luks',desktop_bios)
+            self.assertNotIn('argos.guest=1',desktop_bios)
+            self.assertEqual(bios.count('menu default'),1)
             self.assertIn('nopersistence',guest_bios)
             self.assertNotIn('persistence-encryption',guest_bios)
 

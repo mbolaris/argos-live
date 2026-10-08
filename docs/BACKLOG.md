@@ -912,12 +912,15 @@ Depends on: J7.
 - Accept: unsupported/over-budget settings refused with a reason; exact request,
   comparison and task-evidence binding checked. No blind timeout or context increase.
 
-### G2 Persistent desktop default on next USB rebuild — `todo`
+### G2 Persistent desktop default on next USB rebuild — `in progress`
 - Owner requested October8: next personal USB rebuild should default to Argos
   desktop with encrypted persistence. Keep explicit no-passphrase guest/reset and
   basic graphics entries. This supersedes G1's default choice for that rebuild.
 - Accept: boot-menu tests/docs updated; actual default selection verified and guest
-  isolation remains tested. Missing/locked persistence handled honestly. No firmware
+  entry isolation retained. GRUB selects desktop index1 and BIOS selects only the
+  desktop label by default. Shell fixture checks both menu outputs; actual ISO
+  menu inspection and physical default boot remain separate acceptance.
+  Missing/locked persistence handled honestly. No firmware
   changes or mutation of a running USB; physical preservation remains local deployment.
 
 ### J1 Live test arena and incremental receipts — `in progress`

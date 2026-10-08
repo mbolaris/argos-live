@@ -1,6 +1,8 @@
 # Fresh media and guest sessions
 
-The default boot entry is **Argos guest - resets on reboot, no passphrase**.
+The default boot entry is **Argos desktop**, which restores encrypted persistence
+when present and asks for its passphrase. To start fresh without unlocking saved
+data, explicitly select **Argos guest - resets on reboot, no passphrase**.
 It uses Debian Live `nopersistence` and `argos.guest=1`, without encrypted
 persistence boot arguments. An existing encrypted partition is not unlocked
 or loaded by this entry. A basic-graphics guest entry is also available.

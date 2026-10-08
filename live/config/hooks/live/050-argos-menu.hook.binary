@@ -6,7 +6,7 @@ test -n "$kernel" && test -n "$initrd"
 base='boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'
 guest='boot=live components nopersistence argos.guest=1 username=argos hostname=argos-live console=tty0'
 diagnostic='nomodeset module_blacklist=nouveau,nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm systemd.unit=multi-user.target systemd.show_status=1'
-default=3
+default=1
 # Explicitly separate headless serial test media from physical boot media.
 if [ "${ARGOS_TEST_SERIAL_CONSOLE:-0}" = 1 ]; then
   base="$base console=ttyS0,115200"
@@ -46,6 +46,7 @@ label argos-diagnostic
  append $base $diagnostic
 label argos-desktop
  menu label Argos desktop
+ menu default
  linux /live/vmlinuz
  initrd /live/initrd.img
  append $base module_blacklist=nouveau
@@ -56,7 +57,6 @@ label argos-basic
  append $base nomodeset
 label argos-guest
  menu label Argos guest - resets on reboot, no passphrase
- menu default
  linux /live/vmlinuz
  initrd /live/initrd.img
  append $guest module_blacklist=nouveau
