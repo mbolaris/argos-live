@@ -277,13 +277,9 @@ def next_action(f, selected, active):
         return {'id': 'storage', 'title': 'Restore the model bay',
                 'reason': 'The chosen location needs attention before Argos can save or test downloaded models. Nothing falls back to another drive.',
                 'action': 'storage'}
-    if not any(is_selected(run, selected) for run in f['baseline']):
-        return {'id': 'baseline', 'title': 'Measure this model’s starting point',
-                'reason': 'Use the model already here. No download or new storage choice needed. A speed and ability trial gives future upgrades a fair comparison; chat pauses while it runs.',
-                'action': 'baseline'}
     if not current:
-        return {'id': 'documents', 'title': 'Test short-document reading',
-                'reason': 'Eight short passages test answers, supporting quotes, and “not stated” responses. This qualifies only short-document reading.',
+        return {'id': 'documents', 'title': 'Read this brief',
+                'reason': 'Eight short passages test answers, supporting quotes, and “not stated” responses. This qualifies short-document reading. Chat pauses for the test and resumes afterward.',
                 'action': 'documents'}
     newer, older = (docs[0], docs[1]) if len(docs) > 1 else (None, None)
     if newer and older and not newer['qualification']['qualified'] and older['qualification']['qualified'] \
@@ -329,9 +325,9 @@ def build_path(f, selected, next_step):
                                    for other in f['doc_models']))
     steps = []
     for key, title, complete, detail in (
-        ('baseline', 'Measure this build', baseline, 'Save generation speed, first-token wait and quick ability results.'),
-        ('documents', 'Qualify document reading', qualified, 'Meet fixed answer, quotation and missing-information criteria.'),
+        ('documents', 'Read this brief', qualified, 'Meet fixed answer, quotation and missing-information criteria.'),
         ('task', 'Try something useful', accepted, 'Judge an answer on a document you care about.'),
+        ('baseline', 'Measure this build', baseline, 'Save generation speed, first-token wait and quick ability results.'),
         ('models', 'Compare a candidate', compared, 'Compare matching document trials on the same hardware and settings.'),
     ):
         state = 'complete' if complete else 'current' if next_step == key else 'untested'

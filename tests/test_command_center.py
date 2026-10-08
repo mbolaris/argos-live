@@ -81,19 +81,20 @@ class CommandCenterTests(unittest.TestCase):
 
     def test_first_trial_does_not_require_a_new_storage_choice(self):
         value = self.snap(view={'state': 'not-configured', 'confirmed': False, 'locations': []})
-        self.assertEqual(value['next_action']['id'], 'baseline')
-        self.assertIn('No download or new storage choice needed', value['next_action']['reason'])
+        self.assertEqual(value['next_action']['id'], 'documents')
+        self.assertEqual(value['next_action']['title'], 'Read this brief')
+        self.assertIn('qualifies short-document reading', value['next_action']['reason'])
         self.assertEqual(value['build_path']['completed'], 0)
         self.assertEqual(value['build_path']['steps'][0]['state'], 'current')
         self.assertEqual({s['state'] for s in value['systems']}, {'unknown'})
         self.assertEqual(value['journal'], [])
         self.assertIsNone(value['moment'])
 
-    def test_confirmed_storage_without_a_baseline_asks_for_a_baseline(self):
+    def test_confirmed_storage_without_a_baseline_asks_for_documents(self):
         value = self.snap()
-        self.assertEqual(value['next_action']['id'], 'baseline')
-        self.assertEqual(value['next_action']['title'], 'Measure this model’s starting point')
-        self.assertIn('fair comparison', value['next_action']['reason'])
+        self.assertEqual(value['next_action']['id'], 'documents')
+        self.assertEqual(value['next_action']['title'], 'Read this brief')
+        self.assertIn('Eight short passages', value['next_action']['reason'])
         self.assertEqual(self.keys(), ['storage:confirmed'])
         self.assertEqual(value['journal'][0]['tier'], 'routine')
 
@@ -277,7 +278,7 @@ class CommandCenterTests(unittest.TestCase):
         self.assertIn('do not carry over', brain['detail'])
         self.assertEqual(sensors['state'], 'bench-test')
         self.assertNotEqual(value['next_action']['id'], 'task')
-        self.assertEqual(value['next_action']['id'], 'baseline')
+        self.assertEqual(value['next_action']['id'], 'documents')
         self.assertEqual(value['build_path']['completed'], 0)
         old = next(e for e in value['journal'] if e['key'].startswith('brain:commissioned'))
         self.assertIs(old['applies_to_selected'], False, 'history is kept but not offered as evidence for new weights')

@@ -844,8 +844,8 @@ October 8 implementation direction: [Mission 1: Read this brief](PROVING-GROUND-
 J1/J2 implementations are already merged; extend them. Current order is
 J5 → J6a → J6b → J7 → J3 → J8. J6c and J4 follow their own prerequisites.
 
-### J5 Mission-first home and truthful terminal states — `todo`
-- Start the existing short-document mission above the fold at390×844 and desktop;
+### J5 Mission-first home and truthful terminal states — `done`
+- Start the existing short-document mission above the fold at 390×844 and desktop;
   one tap when ready, one workload, no starter storage/download prerequisite.
 - Move the full map and inventory below the primary action; retain accessible
   navigation and name the current unavailable/startup phase.
@@ -855,6 +855,7 @@ J5 → J6a → J6b → J7 → J3 → J8. J6c and J4 follow their own prerequisit
 - Accept: meaningful browser checks for ready/start/busy/reload/cancel/failed states,
   phone/desktop screenshots and keyboard controls. No implementation of training,
   recipe experiments or new suite in this slice.
+- Verification: "Start: Read this brief" (`#cc-next-go`) is the single primary action above the fold on desktop and phone (measured at 390×844: y=605.4, bottom=650.4, fully visible without scrolling) for ready first-time users, initiating the document mission without baseline or download prerequisites. Baseline testing remains available in `#lab-controls` ("Pause chat and run baseline trial") and via the skill map. Duplicate `#cc-start-documents-quick` button removed. Consistent lock ordering (`startup.lock` before `lab.lock` via `_order_locks`) across `snapshot()`, `start()`, `cancel()`, `clear_task()`, `close()`, and `run()` cleanup eliminates lock-order deadlocks, verified by bounded multi-threaded regression test `test_concurrent_polling_and_cleanup_no_deadlock`. Truthful terminal states and recovery status in `lab.py` and `app.js`: unconditional "Assistant resumption ready" claim removed; reports actual recovery state (`recovering`, `failed`, `ready`, `not-running`). `formatRecoveryStatus()` normalizes startup `{phase, active}` and lab `{state, message}`, updating the cancellation banner on live transitions and preventing stale initial arena values from downgrading newer terminal recovery status. Qualification handled as three states in `#cc-hero-result` (`Qualified`, `Criteria not met`, `Not assessed`), preventing baseline trials from displaying "Missed". Python regression suite in `tests/test_mission_first_home.py` (6 tests including concurrency regression). Browser smoke in `scripts/smoke-mission-first.mjs` verifies rendered DOM behavior: fold visibility at 390×844, single workload dispatch and busy-disabled state, mid-trial cancellation with retained partial receipts, rendered `#arena-summary-detail` recovering → ready/failed transitions, stale arena downgrade protection, and `#cc-hero-result` qualification tri-state via real `refreshStartup()` and `refreshCommand()` execution. Added to `.github/workflows/openclaw-compatibility.yml` with path triggers and portable Python defaults. Also verified by `tests/test_command_center.py`, `tests/test_lab.py`, `tests/test_mission_report.py`, and `scripts/smoke-journey-browser.mjs`. Real model requests, shipped Firefox ESR, and physical ISO deployment remain separate acceptance.
 
 ### J6a Versioned instruction recipe and backend execution — `todo`
 Depends on: J5.

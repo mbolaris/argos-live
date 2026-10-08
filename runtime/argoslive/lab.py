@@ -1,4 +1,5 @@
 """Desktop-owned quick baseline: pause chat, test fixed prompts, save, resume."""
+import contextlib
 import copy
 import secrets
 import threading
@@ -61,9 +62,11 @@ class Controller:
             return event
 
     def events_after(self, after_seq=0, run_id=None):
-        with self.lock:
+        with self._order_locks():
             active = self.worker is not None and self.worker.is_alive()
             phase = 'cancelling' if active and self.cancel_event.is_set() else self.phase
+            if self.arena and self.phase in ('cancelled', 'failed'):
+                self.arena['recovery'] = self.recovery_status()
             if run_id is not None and run_id != self.run_id:
                 return {
                     'run_id': self.run_id,
@@ -92,13 +95,52 @@ class Controller:
                 'arena': copy.deepcopy(self.arena),
             }
 
+    def recovery_status(self):
+        """Inspect actual assistant recovery state from startup."""
+        if not getattr(self, 'resume', False) and not getattr(self, 'resume_requested', False):
+            return {'state': 'not-running', 'message': 'Assistant was not running.'}
+        if not hasattr(self, 'startup') or self.startup is None:
+            return {'state': 'unknown', 'message': 'Assistant state unavailable.'}
+        try:
+            status = self.startup.snapshot()
+        except Exception:
+            return {'state': 'unknown', 'message': 'Assistant state unavailable.'}
+        phase = status.get('phase')
+        if phase == 'ready':
+            return {'state': 'ready', 'message': 'Assistant ready.'}
+        if phase == 'failed':
+            return {'state': 'failed', 'message': 'Assistant recovery failed.'}
+        if status.get('active') or phase in ('setup', 'verify-starter', 'select-storage',
+                                            'write-configuration', 'verify-model', 'model-service',
+                                            'first-reply', 'gateway', 'reconnecting', 'stopping'):
+            return {'state': 'recovering', 'message': 'Assistant recovery in progress.'}
+        if phase == 'stopped':
+            return {'state': 'stopped', 'message': 'Assistant stopped.'}
+        if status.get('active'):
+            return {'state': 'recovering', 'message': 'Assistant recovery in progress.'}
+        return {'state': phase or 'unknown', 'message': f'Assistant {phase}.' if phase else 'Assistant state unknown.'}
+
+    @contextlib.contextmanager
+    def _order_locks(self):
+        startup_lock = getattr(self.startup, 'lock', None) if hasattr(self, 'startup') and self.startup is not None else None
+        if startup_lock is not None:
+            with startup_lock, self.lock:
+                yield
+        else:
+            with self.lock:
+                yield
+
     def snapshot(self):
-        with self.lock:
+        with self._order_locks():
             active = self.worker is not None and self.worker.is_alive()
+            recovery = self.recovery_status()
+            if self.arena and self.phase in ('cancelled', 'failed'):
+                self.arena['recovery'] = recovery
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
                     'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
                     'runs': list(self.runs), 'debrief': copy.deepcopy(self.debrief), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
+                    'recovery': recovery,
                     'run_id': self.run_id,
                     'seq': self.next_seq - 1,
                     'arena': copy.deepcopy(self.arena),
@@ -109,10 +151,11 @@ class Controller:
         # Share startup's reservation: chat cannot restart into a benchmark.
         if plan not in PLANS:
             raise ValueError('Unknown model lab plan')
-        with self.startup.lock, self.lock:
+        with self._order_locks():
             if self.closed:
                 raise ValueError('The model lab is closed')
-            if self.snapshot()['active'] or self.startup.lab_active:
+            active = self.worker is not None and self.worker.is_alive()
+            if active or getattr(self.startup, 'lab_active', False):
                 raise ValueError('Another desktop workload is already active')
             status = self.startup.snapshot()
             self.resume = status['active']
@@ -141,6 +184,7 @@ class Controller:
                 'correct': 0,
                 'format_errors': 0,
                 'elapsed_seconds': 0,
+                'recovery': None,
             }
             self.add_event('phase', phase='pausing', plan=plan, model=None, elapsed_seconds=0)
             self.worker = threading.Thread(target=self.run, daemon=True, name='argos-model-lab')
@@ -173,13 +217,15 @@ class Controller:
         return answer
 
     def clear_task(self):
-        with self.lock:
-            if not self.snapshot()['active']:
+        with self._order_locks():
+            active = self.worker is not None and self.worker.is_alive()
+            if not active:
                 self.task_input = self.task_result = None
 
     def cancel(self):
-        with self.lock:
-            if self.snapshot()['active']:
+        with self._order_locks():
+            active = self.worker is not None and self.worker.is_alive()
+            if active:
                 self.cancel_event.set()
                 self.phase = 'cancelling'
                 elapsed = max(0, (self.clock() - self.started)) if self.started is not None else 0
@@ -297,29 +343,36 @@ class Controller:
                 pass
         finally:
             timer.cancel()
-            with self.startup.lock, self.lock:
-                self.startup.lab_active = False
-                if self.resume:
-                    try:
-                        self.startup.start()
-                        # Keep the lab visible; the owner can choose Open chat.
-                        self.startup.chat_claimed = True
-                        self.resume_requested = True
-                    except (ValueError, OSError):
-                        outcome = 'failed'
-            with self.lock:
+            with self._order_locks():
+                if hasattr(self, 'startup') and self.startup is not None:
+                    self.startup.lab_active = False
+                    if self.resume:
+                        try:
+                            self.startup.start()
+                            # Keep the lab visible; the owner can choose Open chat.
+                            self.startup.chat_claimed = True
+                            self.resume_requested = True
+                        except (ValueError, OSError):
+                            outcome = 'failed'
                 self.phase = outcome
                 self.finished = self.clock()
                 elapsed = max(0, self.finished - self.started) if self.started is not None else 0
                 if self.arena:
                     self.arena['phase'] = outcome
                     self.arena['elapsed_seconds'] = elapsed
+                    self.arena['recovery'] = self.recovery_status()
+                    if outcome in ('cancelled', 'failed') and self.arena.get('current_item'):
+                        if not self.arena['current_item'].get('answer'):
+                            self.arena['current_item']['answer'] = '(Stopped before response generated)'
+                        elif outcome == 'cancelled' and not self.arena['current_item']['answer'].endswith('[Stopped · incomplete]'):
+                            self.arena['current_item']['answer'] += '\n[Stopped · incomplete]'
                     self.add_event('final', outcome=outcome, plan=self.plan, model=self.model,
                                    completed=self.arena.get('completed', 0),
                                    total=self.arena.get('total', 0),
                                    correct=self.arena.get('correct', 0),
                                    format_errors=self.arena.get('format_errors', 0),
-                                   elapsed_seconds=elapsed, runs=list(self.runs))
+                                   elapsed_seconds=elapsed, runs=list(self.runs),
+                                   recovery=self.arena['recovery'])
 
     def execute(self):
         target, model = self.startup.resolve_source(self.startup.home)
@@ -359,7 +412,7 @@ class Controller:
         return 'cancelled' if self.cancel_event.is_set() else 'failed'
 
     def close(self):
-        with self.lock:
+        with self._order_locks():
             self.closed = True
             self.resume = False
             self.cancel()

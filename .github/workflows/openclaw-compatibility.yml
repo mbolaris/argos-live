@@ -9,6 +9,9 @@ on:
       - runtime/argoslive/owned_ollama.py
       - scripts/smoke-addon-inventory.py
       - scripts/smoke-dashboard-browser.mjs
+      - scripts/smoke-journey-browser.mjs
+      - scripts/smoke-mission-first.mjs
+      - scripts/serve-journey-fixture.py
       - runtime/argoslive/web/**
       - scripts/update-addons.py
       - runtime/argoslive/addons.py
@@ -30,6 +33,9 @@ on:
       - runtime/argoslive/owned_ollama.py
       - scripts/smoke-addon-inventory.py
       - scripts/smoke-dashboard-browser.mjs
+      - scripts/smoke-journey-browser.mjs
+      - scripts/smoke-mission-first.mjs
+      - scripts/serve-journey-fixture.py
       - runtime/argoslive/web/**
       - scripts/update-addons.py
       - runtime/argoslive/addons.py
@@ -76,6 +82,7 @@ jobs:
           node work/compatibility-runtime/node_modules/playwright-core/cli.js install --with-deps chromium
           scripts/ci-annotate-failure.sh 'Dashboard browser smoke' node scripts/smoke-dashboard-browser.mjs
           scripts/ci-annotate-failure.sh 'Journey browser smoke' node scripts/smoke-journey-browser.mjs
+          scripts/ci-annotate-failure.sh 'Mission-first browser smoke' node scripts/smoke-mission-first.mjs
       - name: Validate schema and native recovery in disposable state
         shell: bash
         run: |

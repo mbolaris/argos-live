@@ -13,6 +13,7 @@ from pathlib import Path
 import sys
 import tempfile
 import threading
+import time
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,10 @@ PASSAGE_ANSWER = {'status': 'answered', 'answer': '35 minutes', 'quote': 'Crossi
 class Fixture(DocBackend):
     """Answers suite items from references and any pasted document with a supported quotation."""
     def generate(self, model, prompt, **kwargs):
+        callback = kwargs.get('callback')
+        if callback:
+            callback({'response': 'Examining passage… '})
+        time.sleep(0.04)
         result = super().generate(model, prompt, **kwargs)
         if prompt and 'MEASURED RECEIPT:' in prompt:
             result['text'] = 'The quick exercises exposed limits in my structured answers. I would like to try the repair brief next and show the sentence I used.'
