@@ -76,13 +76,15 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
               'metadata': {'details': metadata.get('details'), 'model_info': info,
                            'capabilities': metadata.get('capabilities')},
               'ollama_version': client.version(), 'argos_version': __version__, 'hardware': hardware(),
-              'settings': {'context': context, 'seed': 1, 'temperature': 0, 'think': think,
-                           'generation_limit': LIMIT},
+              'settings': {'context': resolved_recipe['context'], 'seed': resolved_recipe['seed'],
+                           'temperature': resolved_recipe['temperature'], 'think': think,
+                           'generation_limit': resolved_recipe['output_cap']},
               'omitted_categories': data['omitted_categories'], 'state': 'running', 'items': [],
               'restoration': {'previous_model': previous_model, 'succeeded': False}}
     if extra:
         result.update(extra)
-    options = {'num_ctx': context, 'num_predict': LIMIT, 'temperature': 0, 'seed': 1}
+    options = {'num_ctx': resolved_recipe['context'], 'num_predict': resolved_recipe['output_cap'],
+               'temperature': int(resolved_recipe['temperature']), 'seed': resolved_recipe['seed']}
     total = len(data['items'])
     scored_total = sum(1 for item in data['items'] if item.get('scored', True))
     done = 0

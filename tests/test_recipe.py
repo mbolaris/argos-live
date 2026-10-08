@@ -1,6 +1,7 @@
 import contextlib
 import copy
 import hashlib
+import http.client
 import json
 from pathlib import Path
 import sys
@@ -9,12 +10,14 @@ import threading
 import time
 import unittest
 from unittest.mock import MagicMock, patch
+import urllib.request
+import urllib.error
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 sys.path.insert(0, str(ROOT / 'tests'))
 
-from argoslive import bench_ability, bench_speed, doc_trial, hw, lab, ollama, recipe, results
+from argoslive import bench_ability, bench_speed, command_center, doc_trial, hw, lab, ollama, recipe, results, skill_map
 from argoslive.results import Store
 from test_bench_speed import Backend
 from test_doc_trial import DocBackend
@@ -60,60 +63,60 @@ class RecipeSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unknown recipe preset'):
             recipe.canonical('creative-writer')
 
-    def test_standard_with_custom_instructions_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'Standard calibration cannot carry custom instructions'):
+    def test_preset_allowlist_enforced_no_custom_instructions(self):
+        # Arbitrary custom instructions are rejected
+        with self.assertRaisesRegex(ValueError, 'Custom instructions are not supported; choose a reviewed preset'):
             recipe.canonical('standard', instructions='Be creative')
 
-    def test_instructions_validation_and_bounds(self):
-        # Empty string rejected
-        with self.assertRaisesRegex(ValueError, 'Instructions must be 1 to 1024 characters'):
-            recipe.canonical('concise', instructions='')
+        with self.assertRaisesRegex(ValueError, 'Custom instructions are not supported; choose a reviewed preset'):
+            recipe.canonical('concise', instructions='Custom instructions')
 
-        # Too long rejected
-        with self.assertRaisesRegex(ValueError, 'Instructions must be 1 to 1024 characters'):
-            recipe.canonical('concise', instructions='a' * 1025)
+        # Supplying arbitrary instructions to validate is rejected even with matching hash
+        arbitrary = 'Arbitrary custom instructions'
+        tampered_recipe = recipe.canonical('concise')
+        tampered_recipe['instructions'] = arbitrary
+        tampered_recipe['instruction_hash'] = hashlib.sha256(arbitrary.encode('utf-8')).hexdigest()
+        with self.assertRaisesRegex(ValueError, 'Recipe instructions must match the reviewed preset exactly'):
+            recipe.validate(tampered_recipe)
 
-        # Control characters rejected
-        with self.assertRaisesRegex(ValueError, 'Instructions contain invalid control characters'):
-            recipe.canonical('concise', instructions='Hello\x00World')
-        with self.assertRaisesRegex(ValueError, 'Instructions contain invalid control characters'):
-            recipe.canonical('concise', instructions='Hello\x1bWorld')
+    def test_unknown_and_missing_fields_rejected(self):
+        r = recipe.canonical('concise')
 
-        # Valid custom instruction within bounds
-        custom = recipe.canonical('concise', instructions='Answer strictly in JSON.')
-        self.assertEqual(custom['instructions'], 'Answer strictly in JSON.')
-        self.assertEqual(custom['instruction_hash'], hashlib.sha256(b'Answer strictly in JSON.').hexdigest())
+        # Extra unknown field rejected
+        with_extra = dict(r, extra_param='not-allowed')
+        with self.assertRaisesRegex(ValueError, 'Recipe contains unexpected or missing fields'):
+            recipe.validate(with_extra)
 
-    def test_numeric_and_enum_bounds(self):
-        # Context bounds: 256 to 131072
-        with self.assertRaisesRegex(ValueError, 'Context must be an integer between 256 and 131072'):
-            recipe.canonical('standard', context=100)
-        with self.assertRaisesRegex(ValueError, 'Context must be an integer between 256 and 131072'):
-            recipe.canonical('standard', context=200000)
+        # Missing required field rejected
+        missing_seed = dict(r)
+        del missing_seed['seed']
+        with self.assertRaisesRegex(ValueError, 'Recipe contains unexpected or missing fields'):
+            recipe.validate(missing_seed)
 
-        # Output cap bounds: 1 to 131072
-        with self.assertRaisesRegex(ValueError, 'Output cap must be an integer'):
-            recipe.canonical('standard', output_cap=0)
-        with self.assertRaisesRegex(ValueError, 'Output cap must be an integer'):
-            recipe.canonical('standard', output_cap=200000)
+    def test_unsupported_deviations_rejected_in_instruction_only_slice(self):
+        # Temperature deviation
+        with self.assertRaisesRegex(ValueError, 'Unsupported recipe deviation: temperature must be 0.0'):
+            recipe.canonical('standard', temperature=0.7)
 
-        # Temperature bounds: 0.0 to 2.0
-        with self.assertRaisesRegex(ValueError, 'Temperature must be a number between 0 and 2.0'):
-            recipe.canonical('standard', temperature=-0.1)
-        with self.assertRaisesRegex(ValueError, 'Temperature must be a number between 0 and 2.0'):
-            recipe.canonical('standard', temperature=2.5)
+        # Seed deviation
+        with self.assertRaisesRegex(ValueError, 'Unsupported recipe deviation: seed must be 1'):
+            recipe.canonical('standard', seed=42)
 
-        # Seed: non-negative integer
-        with self.assertRaisesRegex(ValueError, 'Seed must be a non-negative integer'):
-            recipe.canonical('standard', seed=-1)
+        # Thinking deviation (deferred to J6c)
+        with self.assertRaisesRegex(ValueError, 'thinking experiments are deferred to J6c'):
+            recipe.canonical('standard', thinking=True)
 
-        # Thinking: True, False, None
-        with self.assertRaisesRegex(ValueError, 'Thinking mode must be True, False, or None'):
-            recipe.canonical('standard', thinking='yes')
+        # Request format deviation
+        with self.assertRaisesRegex(ValueError, "request format must be 'generate'"):
+            recipe.canonical('standard', request_format='chat')
 
-        # Request format: 'generate' or 'chat'
-        with self.assertRaisesRegex(ValueError, "Request format must be 'generate' or 'chat'"):
-            recipe.canonical('standard', request_format='completion')
+        # Output cap deviation
+        with self.assertRaisesRegex(ValueError, 'output cap must be 128'):
+            recipe.canonical('standard', output_cap=256)
+
+        # Context deviation: must be supported suite context (2048 or 4096)
+        with self.assertRaisesRegex(ValueError, 'context must be in'):
+            recipe.canonical('standard', context=8192)
 
     def test_validate_tampered_hash_rejected(self):
         r = recipe.canonical('concise')
@@ -138,14 +141,27 @@ class RecipeSchemaTests(unittest.TestCase):
         self.assertEqual(res_str['preset'], 'concise')
 
         # Recipe dict is validated and copied
-        custom = recipe.canonical('concise', instructions='Be brief.')
+        custom = recipe.canonical('concise')
         res_dict = recipe.resolve(custom)
         self.assertEqual(res_dict, custom)
         self.assertIsNot(res_dict, custom)
 
+        # Context mismatch between recipe dict and runner context is rejected
+        doc_recipe = recipe.canonical('concise', context=4096)
+        with self.assertRaisesRegex(ValueError, 'does not match runner context'):
+            recipe.resolve(doc_recipe, context=2048)
+
         # Invalid type rejected
         with self.assertRaisesRegex(ValueError, 'Recipe specification must be a preset name'):
             recipe.resolve(12345)
+
+    def test_is_standard_helper(self):
+        self.assertTrue(recipe.is_standard(None))
+        self.assertTrue(recipe.is_standard(recipe.canonical('standard')))
+        self.assertTrue(recipe.is_standard({'recipe': recipe.canonical('standard')}))
+        self.assertTrue(recipe.is_standard({'schema': 'argos-bench/1'}))  # legacy run without recipe
+        self.assertFalse(recipe.is_standard(recipe.canonical('concise')))
+        self.assertFalse(recipe.is_standard({'recipe': recipe.canonical('concise')}))
 
 
 class BackendExecutionTests(unittest.TestCase):
@@ -174,7 +190,7 @@ class BackendExecutionTests(unittest.TestCase):
 
     def test_doc_trial_with_concise_recipe_executes_with_instructions(self):
         backend = DocBackend()
-        concise_recipe = recipe.canonical('concise')
+        concise_recipe = recipe.canonical('concise', context=4096)
         result = doc_trial.run(backend, 'fixture:latest', hardware=lambda: {}, recipe=concise_recipe)
         self.assertIn('recipe', result)
         self.assertEqual(result['recipe']['preset'], 'concise')
@@ -200,6 +216,49 @@ class BackendExecutionTests(unittest.TestCase):
             self.assertIsNone(call[3].get('system'))
 
 
+class ChatRequestContractTests(unittest.TestCase):
+    def test_chat_prepends_system_role_message(self):
+        client = ollama.Client('http://127.0.0.1:11434')
+        with patch.object(client, '_stream') as mock_stream:
+            mock_stream.return_value = {'message': {'content': 'hello'}}
+            caller_messages = [{'role': 'user', 'content': 'What is 2+2?'}]
+            instruction_text = 'Follow the requested output format; omit extra prose.'
+            client.chat('qwen2.5:1.5b', caller_messages, system=instruction_text)
+            self.assertEqual(mock_stream.call_count, 1)
+            endpoint, payload, callback, cancel = mock_stream.call_args[0]
+            self.assertEqual(endpoint, '/api/chat')
+            # /api/chat must NOT contain top-level system field
+            self.assertNotIn('system', payload)
+            # /api/chat contract uses a system-role message at index 0
+            self.assertEqual(len(payload['messages']), 2)
+            self.assertEqual(payload['messages'][0], {'role': 'system', 'content': instruction_text})
+            self.assertEqual(payload['messages'][1], {'role': 'user', 'content': 'What is 2+2?'})
+
+    def test_chat_preserves_caller_messages_list(self):
+        client = ollama.Client('http://127.0.0.1:11434')
+        with patch.object(client, '_stream') as mock_stream:
+            mock_stream.return_value = {'message': {'content': 'hello'}}
+            caller_messages = [{'role': 'user', 'content': 'Hello'}]
+            caller_copy = list(caller_messages)
+            client.chat('qwen2.5:1.5b', caller_messages, system='System instruction')
+            # Caller messages list must not be mutated
+            self.assertEqual(caller_messages, caller_copy)
+            self.assertEqual(len(caller_messages), 1)
+
+    def test_chat_omits_system_message_when_none(self):
+        client = ollama.Client('http://127.0.0.1:11434')
+        with patch.object(client, '_stream') as mock_stream:
+            mock_stream.return_value = {'message': {'content': 'hello'}}
+            caller_messages = [{'role': 'user', 'content': 'Hello'}]
+            client.chat('qwen2.5:1.5b', caller_messages, system=None)
+            self.assertEqual(mock_stream.call_count, 1)
+            endpoint, payload, callback, cancel = mock_stream.call_args[0]
+            self.assertEqual(endpoint, '/api/chat')
+            self.assertNotIn('system', payload)
+            self.assertEqual(len(payload['messages']), 1)
+            self.assertEqual(payload['messages'][0], {'role': 'user', 'content': 'Hello'})
+
+
 class ResultsRecipeComparisonTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -217,7 +276,7 @@ class ResultsRecipeComparisonTests(unittest.TestCase):
     def test_comparison_matches_same_recipe(self):
         backend1 = DocBackend()
         backend2 = DocBackend('wrong')
-        rec = recipe.canonical('concise')
+        rec = recipe.canonical('concise', context=4096)
         res1 = doc_trial.run(backend1, 'fixture:latest', hardware=lambda: {}, recipe=rec)
         res2 = doc_trial.run(backend2, 'fixture:latest', hardware=lambda: {}, recipe=rec)
 
@@ -244,6 +303,69 @@ class ResultsRecipeComparisonTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, 'Comparison requires matching recipes'):
             results.compare([res_legacy, res_concise])
+
+
+class PrematureQualificationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.home = Path(self.temp.name)
+        (self.home / '.config' / 'argos-live').mkdir(parents=True, exist_ok=True)
+        self.store = Store(self.home / 'results')
+
+    def test_experiment_result_does_not_qualify_unchanged_build_or_commission_skills(self):
+        backend = DocBackend()
+        # Run with concise experiment recipe; yields qualified scores
+        run = doc_trial.run(backend, 'fixture:latest', hardware=lambda: {}, recipe='concise')
+        self.assertTrue(run['qualification']['qualified'])
+        self.store.save(run)
+
+        # 1. command_center.facts() filters document_runs to standard only
+        f = command_center.facts(self.home, self.store, view=None)
+        self.assertEqual(len(f['doc_models']), 0, 'Experiment run must not appear in doc_models')
+
+        # 2. record_moments() must NOT record documents:qualified or commission brain
+        moments = command_center.record_moments(self.home, f)
+        qual_moments = [m for m in moments if m['key'].startswith('documents:qualified')]
+        self.assertEqual(len(qual_moments), 0, 'Must not qualify unchanged build from experiment run')
+        comm_moments = [m for m in moments if m['key'].startswith('brain:commissioned')]
+        self.assertEqual(len(comm_moments), 0, 'Must not commission skills from experiment run')
+
+        # 3. systems() evaluates brain as untested / unknown, NOT qualified
+        selected = {'model': 'fixture:latest', 'digest': 'sha256:' + 'a' * 64}
+        sys_list = command_center.systems(self.home, f, selected)
+        brain = next(s for s in sys_list if s['id'] == 'brain')
+        self.assertNotEqual(brain['state'], 'qualified', 'Brain must not be marked qualified from experiment run')
+
+        # 4. skill_map does NOT match experiment run for task-level qualification
+        m = skill_map.build_skill_map(f, selected)
+        under = next(d for d in m['domains'] if d['id'] == 'understanding')
+        doc_node = next(n for n in under['nodes'] if n['id'] == 'doc-short')
+        self.assertEqual(doc_node['state'], 'untested', 'doc-short skill must remain untested from experiment run')
+
+    def test_standard_result_qualifies_and_commissions(self):
+        backend = DocBackend()
+        # Standard calibration run
+        run = doc_trial.run(backend, 'fixture:latest', hardware=lambda: {}, recipe='standard')
+        self.assertTrue(run['qualification']['qualified'])
+        self.store.save(run)
+
+        f = command_center.facts(self.home, self.store, view=None)
+        self.assertEqual(len(f['doc_models']), 1, 'Standard run must be included in doc_models')
+
+        moments = command_center.record_moments(self.home, f)
+        qual_moments = [m for m in moments if m['key'].startswith('documents:qualified')]
+        self.assertEqual(len(qual_moments), 1, 'Standard run must record qualification')
+
+        selected = {'model': 'fixture:latest', 'digest': 'sha256:' + 'a' * 64}
+        sys_list = command_center.systems(self.home, f, selected)
+        brain = next(s for s in sys_list if s['id'] == 'brain')
+        self.assertEqual(brain['state'], 'qualified')
+
+        m = skill_map.build_skill_map(f, selected)
+        under = next(d for d in m['domains'] if d['id'] == 'understanding')
+        doc_node = next(n for n in under['nodes'] if n['id'] == 'doc-short')
+        self.assertEqual(doc_node['state'], 'qualified')
 
 
 class LabRecipeControllerTests(unittest.TestCase):
@@ -294,6 +416,7 @@ class LabRecipeControllerTests(unittest.TestCase):
         snap = self.lab.start_documents(recipe='concise')
         self.assertIsNotNone(snap['recipe'])
         self.assertEqual(snap['recipe']['preset'], 'concise')
+        self.assertEqual(snap['recipe']['context'], 4096)
         self.assertIn('arena', snap)
         self.assertEqual(snap['arena']['recipe']['preset'], 'concise')
 
@@ -346,7 +469,6 @@ class ServerRecipeEndpointTests(unittest.TestCase):
         self.addCleanup(stop_server)
 
     def request(self, method, path, body=None, headers=None):
-        import http.client
         conn = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
         hdrs = {'X-Argos-Token': self.server.token}
         if headers:
@@ -389,3 +511,53 @@ class ServerRecipeEndpointTests(unittest.TestCase):
         status, data = self.request('POST', '/api/lab/cancel', body=payload,
                                     headers={'Content-Length': str(len(payload))})
         self.assertEqual(status, 400)
+
+
+class RealBackendInstructionTests(unittest.TestCase):
+    """Scope: Tests that pinned Ollama backend execution actually honors system-level
+    instruction parameters when an active Ollama instance with a lightweight test model
+    is available at http://127.0.0.1:11434. Verifies /api/generate with top-level system
+    parameter and /api/chat with prepended system-role message. Offline or environments
+    without a lightweight test model (< 2GB) skip cleanly; full verification with
+    pinned Ollama and qwen3:0.6b runs in CI via scripts/smoke-model-onboarding.py.
+    """
+
+    def probe_backend(self):
+        req = urllib.request.Request('http://127.0.0.1:11434/api/tags', method='GET')
+        try:
+            with urllib.request.urlopen(req, timeout=1.5) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                models = [m.get('name') or m.get('model') for m in data.get('models', [])
+                          if 0 < m.get('size', 0) <= 2 * 1024**3]
+                return models
+        except Exception:
+            return None
+
+    def test_real_backend_honors_instructions_if_reachable(self):
+        models = self.probe_backend()
+        if not models:
+            self.skipTest('No lightweight test model (< 2GB) available at http://127.0.0.1:11434; CI coverage in scripts/smoke-model-onboarding.py')
+
+        model = models[0]
+        client = ollama.Client('http://127.0.0.1:11434', timeout=5.0)
+        concise = recipe.canonical('concise')
+
+        # Test /api/generate with system parameter
+        gen_reply = client.generate(
+            model,
+            'What is 2+2? Output only the single digit.',
+            options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
+            system=concise['instructions'],
+        )
+        self.assertTrue(gen_reply.get('final', {}).get('done', False))
+        self.assertTrue(len(gen_reply.get('text', '').strip()) > 0)
+
+        # Test /api/chat with system role message contract
+        chat_reply = client.chat(
+            model,
+            [{'role': 'user', 'content': 'What is 3+3? Output only the single digit.'}],
+            options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
+            system=concise['instructions'],
+        )
+        self.assertTrue(chat_reply.get('final', {}).get('done', False))
+        self.assertTrue(len(chat_reply.get('text', '').strip()) > 0)

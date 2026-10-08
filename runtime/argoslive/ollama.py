@@ -169,9 +169,10 @@ class Client:
 
     def chat(self, model, messages, *, options=None, system=None, think=None, keep_alive=None,
              callback=None, cancel=None):
-        payload = {'model': model, 'messages': messages, 'stream': True, 'options': options or {}}
+        payload_messages = list(messages)
         if system is not None:
-            payload['system'] = system
+            payload_messages.insert(0, {'role': 'system', 'content': system})
+        payload = {'model': model, 'messages': payload_messages, 'stream': True, 'options': options or {}}
         if think is not None:
             payload['think'] = think
         if keep_alive is not None:

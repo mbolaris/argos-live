@@ -8,6 +8,8 @@ on:
       - 'runtime/argoslive/model_onboarding.py'
       - 'runtime/argoslive/model_controls.py'
       - 'runtime/argoslive/lab.py'
+      - 'runtime/argoslive/recipe.py'
+      - 'runtime/argoslive/ollama.py'
       - 'runtime/argoslive/storage_view.py'
       - 'runtime/argoslive/storage.py'
       - 'runtime/argoslive/doc_trial.py'

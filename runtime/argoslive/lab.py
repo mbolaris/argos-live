@@ -154,7 +154,8 @@ class Controller:
         if plan not in PLANS:
             raise ValueError('Unknown model lab plan')
         from . import recipe as recipe_mod
-        resolved_recipe = recipe_mod.resolve(recipe) if recipe is not None else None
+        target_context = 4096 if plan == 'documents' else 2048
+        resolved_recipe = recipe_mod.resolve(recipe, context=target_context) if recipe is not None else None
         with self._order_locks():
             if self.closed:
                 raise ValueError('The model lab is closed')

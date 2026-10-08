@@ -91,8 +91,10 @@ def supported_pair(newer, older):
 
 
 def document_runs(runs):
+    from . import recipe as recipe_mod
     return [r for r in runs if r['kind'] == 'ability' and r.get('suite') == 'documents-short'
-            and r['coverage']['complete'] and isinstance(r.get('qualification'), dict)]
+            and r['coverage']['complete'] and isinstance(r.get('qualification'), dict)
+            and recipe_mod.is_standard(r)]
 
 
 def speed_for(runs, document):
@@ -125,8 +127,10 @@ def facts(home, store, view):
     entries = journal.read(home)['entries']
     accepted = [e for e in entries if e['key'].startswith('task:') and e['evidence'].get('verdict') == 'accepted'
                 and digest_of(e['evidence'].get('manifest_digest')) is not None]
+    from . import recipe as recipe_mod
     return {'runs': runs, 'doc_models': models, 'baseline': [r for r in runs if r['kind'] in ('speed', 'ability')
-                                                             and r.get('suite') != 'documents-short'],
+                                                             and r.get('suite') != 'documents-short'
+                                                             and recipe_mod.is_standard(r)],
             'accepted_tasks': accepted, 'storage': view}
 
 
