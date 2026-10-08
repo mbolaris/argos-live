@@ -134,14 +134,14 @@ try {
   if (receiptCount < 1) fail('Partial receipts were lost on cancellation');
   console.log(`[PASS] Partial results preserved on cancellation (${receiptCount} receipts retained)`);
 
-  // 5. Test rendered assistant recovery transitions in #arena-summary-detail
+  // 5. Test rendered assistant recovery transitions: ready -> new trial -> recovering -> ready/failed, including reload
   // Initial cancellation state shows in-progress recovery
   if (!detail.endsWith('Assistant recovery in progress.')) {
     fail(`Cancellation detail did not end with 'Assistant recovery in progress.': "${detail}"`);
   }
   console.log(`[PASS] Initial cancellation banner rendered in-progress recovery: "${detail}"`);
 
-  // Test recovering -> ready transition via real refreshStartup()
+  // Step 5a: Transition recovering -> ready via real refreshStartup()
   await page.route('**/api/startup', route => {
     route.fulfill({
       status: 200,
@@ -163,7 +163,52 @@ try {
   }
   console.log(`[PASS] Rendered recovering -> ready transition: "${readyDetail}"`);
 
-  // Test transition to failed via real refreshStartup()
+  // Step 5b: Start a NEW trial (ready -> new trial)
+  await page.unroute('**/api/startup');
+  const newTrialStarted = page.waitForResponse(r => r.url().endsWith('/api/lab/start-documents') && r.request().method() === 'POST');
+  await page.locator('#lab-start-documents').click();
+  await newTrialStarted;
+
+  // Wait for new trial to evaluate at least one item
+  await page.waitForFunction(() => {
+    const rows = document.querySelectorAll('#arena-receipts-list .arena-receipt-row');
+    return rows.length >= 1;
+  }, null, {timeout: 30000});
+
+  // Step 5c: Cancel the new trial (new trial -> recovering)
+  await page.route('**/api/startup', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schema: 'argos-startup/1',
+        managed: true,
+        phase: 'setup',
+        message: 'Setting up storage and environment',
+        active: true,
+      }),
+    });
+  });
+  const cancelResp2 = page.waitForResponse(r => r.url().endsWith('/api/lab/cancel') && r.request().method() === 'POST');
+  await page.locator('#lab-cancel').click();
+  await cancelResp2;
+
+  await page.waitForFunction(() => {
+    const badge = document.getElementById('arena-phase-badge');
+    return badge && badge.textContent.includes('STOPPED');
+  }, null, {timeout: 30000});
+
+  // Verify new trial cancellation rendered 'recovering', NOT the previous 'Assistant ready.'
+  const newDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (newDetail.includes('Assistant ready.')) {
+    fail(`New trial cancellation incorrectly reused previous sticky 'Assistant ready.': "${newDetail}"`);
+  }
+  if (!newDetail.endsWith('Assistant recovery in progress.')) {
+    fail(`New trial cancellation did not render 'Assistant recovery in progress.': "${newDetail}"`);
+  }
+  console.log(`[PASS] New trial cancellation correctly transitioned to recovering: "${newDetail}"`);
+
+  // Step 5d: Transition recovering -> failed on the new trial
   await page.route('**/api/startup', route => {
     route.fulfill({
       status: 200,
@@ -178,24 +223,47 @@ try {
     });
   });
   await page.evaluate(async () => { await refreshStartup(); });
-  const failedDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
-  if (!failedDetail.endsWith('Assistant recovery failed.')) {
-    fail(`Rendered detail did not update to 'Assistant recovery failed.': "${failedDetail}"`);
+  const newFailedDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (!newFailedDetail.endsWith('Assistant recovery failed.')) {
+    fail(`Rendered detail did not update to 'Assistant recovery failed.': "${newFailedDetail}"`);
   }
-  console.log(`[PASS] Rendered transition to failed: "${failedDetail}"`);
+  console.log(`[PASS] New trial recovery transitioned to failed: "${newFailedDetail}"`);
 
-  // Verify initial recovery value in arena cannot overwrite newer terminal status
-  await page.evaluate(() => {
-    renderArenaState({
-      completed: 2, total: 8,
-      recovery: {state: 'recovering', message: 'Assistant recovery in progress.'}
-    }, false, 'cancelled', 'fixture:latest', 12);
-  });
-  const protectedDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
-  if (!protectedDetail.endsWith('Assistant recovery failed.')) {
-    fail(`Initial arena recovery unexpectedly downgraded terminal status: "${protectedDetail}"`);
+  // Step 5e: Test reload retains current run recovery and updates on reload
+  await page.reload();
+  await page.waitForFunction(() => {
+    const detailEl = document.getElementById('arena-summary-detail');
+    return detailEl && detailEl.textContent.includes('challenges evaluated');
+  }, null, {timeout: 30000});
+
+  await page.evaluate(async () => { await refreshStartup(); });
+  const reloadedFailed = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (!reloadedFailed.endsWith('Assistant recovery failed.')) {
+    fail(`After reload, expected 'Assistant recovery failed.', got: "${reloadedFailed}"`);
   }
-  console.log('[PASS] Stale arena recovery cannot overwrite newer recovery status');
+  console.log(`[PASS] Recovery status preserved across page reload: "${reloadedFailed}"`);
+
+  // Transition to ready after reload
+  await page.route('**/api/startup', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schema: 'argos-startup/1',
+        managed: true,
+        phase: 'ready',
+        message: 'Ready for conversation',
+        active: false,
+        model_reply_verified: true,
+      }),
+    });
+  });
+  await page.evaluate(async () => { await refreshStartup(); });
+  const reloadedReady = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (!reloadedReady.endsWith('Assistant ready.')) {
+    fail(`After reload, transition to ready failed: "${reloadedReady}"`);
+  }
+  console.log(`[PASS] Transition to ready succeeded after page reload: "${reloadedReady}"`);
   await page.unroute('**/api/startup');
 
   // 6. Test rendered hero result qualification tri-state in #cc-hero-result

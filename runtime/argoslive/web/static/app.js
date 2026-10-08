@@ -20,45 +20,41 @@ let managedStartup = false;
 let startupRefreshing = false;
 let lastStartupStatus = null;
 let lastLabRecovery = null;
-let lastTerminalRecovery = null;
 
 function formatRecoveryStatus(recovery) {
-  if (!recovery) {
-    recovery = lastStartupStatus;
+  // Respect explicit not-running state
+  const rawState = recovery?.state || recovery?.phase;
+  if (rawState === 'not-running') return 'Assistant was not running.';
+
+  // Prefer current startup evidence whenever available
+  if (lastStartupStatus) {
+    const sPhase = lastStartupStatus.phase;
+    if (sPhase === 'ready') return 'Assistant ready.';
+    if (sPhase === 'failed') return 'Assistant recovery failed.';
+    if (sPhase === 'not-running' || sPhase === 'stopped') return 'Assistant was not running.';
+    if (lastStartupStatus.active ||
+        ['setup', 'verify-starter', 'select-storage', 'write-configuration',
+         'verify-model', 'model-service', 'first-reply', 'gateway',
+         'reconnecting', 'stopping', 'recovering'].includes(sPhase)) {
+      return 'Assistant recovery in progress.';
+    }
   }
-  if (!recovery) return lastTerminalRecovery || '';
+
+  // Fallback to supplied recovery object when startup status is not yet available
+  if (!recovery) return '';
   if (typeof recovery === 'string') return recovery;
-
-  const rawState = recovery.state || recovery.phase;
-  // If we already reached a terminal state (ready or failed), initial arena recovery (e.g. 'recovering')
-  // must not overwrite the newer status.
-  if ((rawState === 'recovering' || recovery.active) && (lastTerminalRecovery || (lastStartupStatus && ['ready', 'failed'].includes(lastStartupStatus.phase)))) {
-    return lastTerminalRecovery || (lastStartupStatus.phase === 'ready' ? 'Assistant ready.' : 'Assistant recovery failed.');
-  }
-
   const phase = recovery.state || recovery.phase;
-  let formatted = '';
-  if (phase === 'ready') {
-    formatted = 'Assistant ready.';
-  } else if (phase === 'failed') {
-    formatted = 'Assistant recovery failed.';
-  } else if (phase === 'not-running' || phase === 'stopped') {
-    formatted = 'Assistant was not running.';
-  } else if (phase === 'recovering' || recovery.active ||
+  if (phase === 'ready') return 'Assistant ready.';
+  if (phase === 'failed') return 'Assistant recovery failed.';
+  if (phase === 'not-running' || phase === 'stopped') return 'Assistant was not running.';
+  if (phase === 'recovering' || recovery.active ||
       ['setup', 'verify-starter', 'select-storage', 'write-configuration',
        'verify-model', 'model-service', 'first-reply', 'gateway',
        'reconnecting', 'stopping'].includes(phase)) {
-    formatted = 'Assistant recovery in progress.';
-  } else if (recovery.message && !recovery.phase) {
-    formatted = recovery.message;
-  } else {
-    formatted = phase ? `Assistant ${phase}.` : '';
+    return 'Assistant recovery in progress.';
   }
-
-  if (formatted === 'Assistant ready.' || formatted === 'Assistant recovery failed.') {
-    lastTerminalRecovery = formatted;
-  }
-  return formatted;
+  if (recovery.message && !recovery.phase) return recovery.message;
+  return phase ? `Assistant ${phase}.` : '';
 }
 
 let liveRefreshing = false;
@@ -728,7 +724,6 @@ async function refreshLab() {
         arenaCursor = value.seq || 0;
         arenaReceipts = [];
         arenaCurrentAnswer = '';
-        lastTerminalRecovery = null;
       }
       renderArenaState(value.arena, value.active, value.phase, value.model, value.elapsed_seconds);
       if (value.active) {
@@ -745,7 +740,6 @@ async function refreshLab() {
   } finally { labRefreshing = false; }
 }
 for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
-  if (route !== 'cancel') lastTerminalRecovery = null;
   document.getElementById('lab-start').disabled = true;
   document.getElementById('lab-start-documents').disabled = true;
   document.getElementById('lab-status').textContent = route === 'cancel' ? 'Requesting cancellation…' : 'Starting trial; pausing chat…';

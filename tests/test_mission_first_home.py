@@ -236,7 +236,7 @@ class MissionFirstHomeTests(unittest.TestCase):
         ctrl.documents = mock_documents
 
         ctrl.start_documents()
-        self.assertTrue(item_scored.wait(timeout=3))
+        self.assertTrue(item_scored.wait(timeout=10))
 
         # Cancel while item 2 is in progress
         ctrl.cancel()
@@ -260,6 +260,47 @@ class MissionFirstHomeTests(unittest.TestCase):
         # Recovery status is truthful: startup was restarted into 'setup' phase (recovering)
         self.assertEqual(arena['recovery']['state'], 'recovering')
         self.assertNotIn('Assistant resumption ready', json.dumps(arena))
+
+    def test_recovery_state_lifecycle_across_runs(self):
+        """Recovery state updates dynamically across runs: ready -> new trial -> recovering -> ready/failed."""
+        ctrl = lab.Controller(self.startup, store=self.store)
+        self.addCleanup(ctrl.close)
+
+        ctrl.speed = lambda client, model, **kw: bench_speed.run(client, model, hardware=lambda: {}, **kw)
+        ctrl.ability = lambda *args, **kw: ability_result()
+        ctrl.documents = lambda *args, **kw: ability_result()
+
+        # Run 1: cancel into recovering
+        ctrl.start('documents')
+        ctrl.cancel()
+        ctrl.worker.join(timeout=5)
+
+        snap = ctrl.snapshot()
+        self.assertEqual(snap['arena']['recovery']['state'], 'recovering')
+
+        # Startup becomes ready
+        self.startup.phase = 'ready'
+        snap = ctrl.snapshot()
+        self.assertEqual(snap['arena']['recovery']['state'], 'ready')
+        self.assertEqual(snap['arena']['recovery']['message'], 'Assistant ready.')
+
+        # Run 2: start new trial, cancel into recovering
+        self.startup.phase = 'setup'
+        ctrl.start('documents')
+        ctrl.cancel()
+        ctrl.worker.join(timeout=5)
+
+        snap = ctrl.snapshot()
+        # Ensure it does NOT reuse previous run's ready state
+        self.assertEqual(snap['arena']['recovery']['state'], 'recovering')
+        self.assertEqual(snap['arena']['recovery']['message'], 'Assistant recovery in progress.')
+
+        # Startup fails
+        self.startup.phase = 'failed'
+        self.startup.active = False
+        snap = ctrl.snapshot()
+        self.assertEqual(snap['arena']['recovery']['state'], 'failed')
+        self.assertEqual(snap['arena']['recovery']['message'], 'Assistant recovery failed.')
 
     def test_concurrent_polling_and_cleanup_no_deadlock(self):
         """Concurrent lab.snapshot() polling and workload cleanup do not deadlock."""

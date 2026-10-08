@@ -62,9 +62,11 @@ class Controller:
             return event
 
     def events_after(self, after_seq=0, run_id=None):
-        with self.lock:
+        with self._order_locks():
             active = self.worker is not None and self.worker.is_alive()
             phase = 'cancelling' if active and self.cancel_event.is_set() else self.phase
+            if self.arena and self.phase in ('cancelled', 'failed'):
+                self.arena['recovery'] = self.recovery_status()
             if run_id is not None and run_id != self.run_id:
                 return {
                     'run_id': self.run_id,
@@ -131,11 +133,14 @@ class Controller:
     def snapshot(self):
         with self._order_locks():
             active = self.worker is not None and self.worker.is_alive()
+            recovery = self.recovery_status()
+            if self.arena and self.phase in ('cancelled', 'failed'):
+                self.arena['recovery'] = recovery
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
                     'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
                     'runs': list(self.runs), 'debrief': copy.deepcopy(self.debrief), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
-                    'recovery': self.recovery_status(),
+                    'recovery': recovery,
                     'run_id': self.run_id,
                     'seq': self.next_seq - 1,
                     'arena': copy.deepcopy(self.arena),
