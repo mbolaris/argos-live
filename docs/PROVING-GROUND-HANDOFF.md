@@ -1,5 +1,11 @@
 # Implementation handoff: your private AI proving ground
 
+> October 8 update: J1/J2 implementations merged in PR58/59. Do not start them
+> again from the historical instructions below. The current work order and
+> first mission are specified in [Mission 1 implementation](PROVING-GROUND-MISSION-1.md):
+> J5 → J6a/J6b → J7 → J3 → J8, with thinking/context later and J4 separately.
+> Read that specification and the current backlog before implementing.
+
 Owner intent and engineering guidance, October 7, 2026. This document is sufficient
 for an implementation agent that has only this repository. Private Yugo outputs,
 SSH credentials, raw USB backups and the owner's personas are intentionally absent.

@@ -791,6 +791,84 @@ Depends on: HA1–HA4, model onboarding, capability dashboard and profile persis
 
 ## E10 Guided journey (personal robot experience)
 
+October 8 implementation direction: [Mission 1: Read this brief](PROVING-GROUND-MISSION-1.md).
+J1/J2 implementations are already merged; extend them. Current order is
+J5 → J6a → J6b → J7 → J3 → J8. J6c and J4 follow their own prerequisites.
+
+### J5 Mission-first home and truthful terminal states — `todo`
+- Start the existing short-document mission above the fold at390×844 and desktop;
+  one tap when ready, one workload, no starter storage/download prerequisite.
+- Move the full map and inventory below the primary action; retain accessible
+  navigation and name the current unavailable/startup phase.
+- Clear working indicators on complete/cancel/failure; show retained partial
+  evidence, actual cleanup state and concise wrong/format/unassessed explanations.
+  Rename unchanged Practice to Retest. Preserve fixed scoring and existing budgets.
+- Accept: meaningful browser checks for ready/start/busy/reload/cancel/failed states,
+  phone/desktop screenshots and keyboard controls. No implementation of training,
+  recipe experiments or new suite in this slice.
+
+### J6a Versioned instruction recipe and backend execution — `todo`
+Depends on: J5.
+- Separate standard calibration from instructed Lab experiments. Record canonical
+  instruction preset/hash and actual context/thinking/seed/temperature/output cap,
+  request format, suite, manifest digest, hardware and runtime identity.
+- Pass one bounded public instruction preset to the pinned backend after verifying
+  its request interface. Keep standard requests and fixed item prompts/scorers unchanged.
+- Accept: real request fixture proves instructions reach backend, standard behavior
+  stays identical, invalid/unknown recipes are refused, legacy records cannot match
+  experiment evidence. Preserve workload/cancel/privacy bounds; no profile changes.
+
+### J6b Previewable fast Lab experiment and recipe restore — `todo`
+Depends on: J6a.
+- Preview/select a reviewed public response-instruction preset, run the existing
+  document suite and select/restore a Lab recipe. Guest selection is session-only.
+- Clearly label that this changes Lab configuration, not the OpenClaw personality
+  or model weights. Defer private custom persona import/editing to reviewed work.
+- Accept: visible preview/start/cancel/restore paths, bounded authenticated input,
+  selected recipe roundtrip and protected assistant/profile/history; no leaked
+  instruction/private text and no silent promotion into the actual agent.
+
+### J7 Controlled comparison and recipe-bound task evidence — `todo`
+Depends on: J6a, J6b.
+- Retain strict `results.compare`. Add an explicit baseline/candidate experiment
+  validator allowing exactly one declared intervention, matching all other recipe,
+  suite/version/coverage/hardware/runtime fields and required identities/restoration.
+- Bind selected qualification/map evidence to tested recipe plus model digest;
+  stale/partial/unknown recipe evidence is history only. Speed gain needs its own
+  compatible speed pair. Observed +1 is not confirmed general improvement; do not
+  claim within-noise without measured repeats. Use held-out items before broader claims.
+- Accept: mutation-sensitive tests reject undeclared/multiple changes, mismatched
+  hardware/runtime/suite, missing recipe identity, partial/stale evidence and failed
+  restoration. Fixed task qualification bars remain fixed; no comparator bypass.
+
+### J8 Focused watch/debrief and useful validation missions — `todo`
+Depends on: J5, J7; integrate the J3 flow when available.
+- Keep current challenge/real answer/latest receipt/progress/Stop visible on phone
+  and desktop. Debrief leads with a measured outcome, representative reason, separate
+  speed/wait and optional opinion; one next intervention is previewable.
+- Expand original useful exercises and held-out validation with versioned criteria.
+  No scope inflation from JSON/tool formatting or filesystem retention. Public
+  fixtures only; owner document tasks retain their memory-only boundaries.
+- Accept: actual browser rendering/keyboard/reconnect/cancel, fixture-versus-real
+  model scope reported, versioned scoring/held-out coverage and useful next action.
+
+### J6c Thinking/context experiments — `todo`
+Depends on: J7.
+- Offer only pinned-backend/model-supported modes, one variable at a time, within
+  existing budgets. Record actual values and qualify only the explicit tested scope.
+  Report thinking-inclusive time separately from first visible answer; no hidden
+  reasoning stream. Quantization belongs to catalog/model transactions.
+- Accept: unsupported/over-budget settings refused with a reason; exact request,
+  comparison and task-evidence binding checked. No blind timeout or context increase.
+
+### G2 Persistent desktop default on next USB rebuild — `todo`
+- Owner requested October8: next personal USB rebuild should default to Argos
+  desktop with encrypted persistence. Keep explicit no-passphrase guest/reset and
+  basic graphics entries. This supersedes G1's default choice for that rebuild.
+- Accept: boot-menu tests/docs updated; actual default selection verified and guest
+  isolation remains tested. Missing/locked persistence handled honestly. No firmware
+  changes or mutation of a running USB; physical preservation remains local deployment.
+
 ### J1 Live test arena and incremental receipts — `in progress`
 - Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.
 - Show real streamed output, completed items/total, growing outcomes and Stop. Reconnect without restarting; distinguish incomplete/cancelled observations from completed qualification. Keep existing workload ownership and deadlines.
