@@ -332,7 +332,37 @@ try {
   console.log(`[PASS] Rendered criteria not met in #cc-hero-result: "${notMetHero}"`);
   await page.unroute('**/api/command-center');
 
-  console.log('All Mission First J5 corrections passed successfully!');
+  // J6b: Recipe experiment modal, selection, and restoration
+  await page.locator('#receipt-change').click();
+  const modalOpen = await page.locator('#recipe-modal').evaluate(el => el.open);
+  if (!modalOpen) fail('#receipt-change did not open #recipe-modal');
+  const quoteText = await page.locator('.recipe-instruction-quote').textContent();
+  if (!quoteText.includes('Follow the requested output format')) fail('Recipe modal missing concise instruction text');
+  const protectionText = await page.locator('.recipe-protection-notice').textContent();
+  if (!protectionText.includes('Lab test recipe only')) fail('Recipe modal missing assistant protection notice');
+  console.log('[PASS] Recipe experiment modal opened with concise instruction preview and assistant protection notice');
+
+  await page.locator('#recipe-select-only').click();
+  await page.waitForTimeout(200);
+  const activeRecipeText = (await page.locator('#lab-active-recipe').textContent()).trim();
+  if (!activeRecipeText.includes('concise') && !activeRecipeText.includes('Strict format')) {
+    fail(`Active Lab recipe was not updated after selection: "${activeRecipeText}"`);
+  }
+  const restoreBtnHidden = await page.locator('#lab-recipe-restore').evaluate(el => el.hidden);
+  if (restoreBtnHidden) fail('Restore button should be visible when non-standard recipe is active');
+  console.log(`[PASS] Concise recipe selected as active Lab recipe: "${activeRecipeText}"`);
+
+  await page.locator('#lab-recipe-restore').click();
+  await page.waitForTimeout(200);
+  const restoredRecipeText = (await page.locator('#lab-active-recipe').textContent()).trim();
+  if (!restoredRecipeText.includes('Standard calibration')) {
+    fail(`Active Lab recipe was not restored to standard: "${restoredRecipeText}"`);
+  }
+  const restoreBtnHiddenAfter = await page.locator('#lab-recipe-restore').evaluate(el => el.hidden);
+  if (!restoreBtnHiddenAfter) fail('Restore button should be hidden after restoring standard recipe');
+  console.log(`[PASS] Standard recipe restored successfully: "${restoredRecipeText}"`);
+
+  console.log('All Mission First J5 and J6b checks passed successfully!');
 } finally {
   if (browser) await browser.close();
   server.kill();

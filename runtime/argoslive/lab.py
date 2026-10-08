@@ -30,6 +30,7 @@ class Controller:
         self.clock, self.speed, self.ability, self.documents = clock, speed, ability, documents
         self.plan = 'baseline'
         self.recipe = None
+        self.selected_recipe = None
         self.task_input = None
         self.task_result = None
         self.debrief = None
@@ -141,6 +142,7 @@ class Controller:
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
                     'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
                     'recipe': copy.deepcopy(self.recipe),
+                    'selected_recipe': copy.deepcopy(self.selected_recipe),
                     'runs': list(self.runs), 'debrief': copy.deepcopy(self.debrief), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
                     'recovery': recovery,
                     'run_id': self.run_id,
@@ -149,12 +151,34 @@ class Controller:
                     'elapsed_seconds': max(0, (self.finished if self.finished is not None else self.clock()) - self.started)
                     if self.started is not None else None}
 
+    def select_recipe(self, preset_or_spec):
+        """Select a reviewed Lab instruction preset for this session (session-only)."""
+        from . import recipe as recipe_mod
+        with self.lock:
+            if self.worker is not None and self.worker.is_alive():
+                raise ValueError('Cannot change recipe while a trial is active')
+            if preset_or_spec is None or preset_or_spec == 'standard':
+                self.selected_recipe = None
+            else:
+                self.selected_recipe = recipe_mod.resolve(preset_or_spec)
+        return self.snapshot()
+
+    def restore_recipe(self):
+        """Restore Lab recipe to default standard calibration."""
+        with self.lock:
+            if self.worker is not None and self.worker.is_alive():
+                raise ValueError('Cannot restore recipe while a trial is active')
+            self.selected_recipe = None
+        return self.snapshot()
+
     def start(self, plan='baseline', recipe=None):
         # Share startup's reservation: chat cannot restart into a benchmark.
         if plan not in PLANS:
             raise ValueError('Unknown model lab plan')
         from . import recipe as recipe_mod
         target_context = 4096 if plan == 'documents' else 2048
+        if recipe is None and self.selected_recipe is not None:
+            recipe = self.selected_recipe.get('preset') if isinstance(self.selected_recipe, dict) else self.selected_recipe
         resolved_recipe = recipe_mod.resolve(recipe, context=target_context) if recipe is not None else None
         with self._order_locks():
             if self.closed:

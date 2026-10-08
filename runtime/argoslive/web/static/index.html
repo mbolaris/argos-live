@@ -67,9 +67,14 @@
               <p class="replay-label">Qualification criteria checklist</p>
               <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
             </div>
+            <div id="receipt-recipe-bar" class="receipt-recipe-bar" hidden>
+              <span>Tested with recipe: <strong id="receipt-tested-recipe"></strong></span>
+              <span class="recipe-protect-tag">Lab only</span>
+              <button id="receipt-restore-recipe" type="button" class="btn-text-action">Restore standard</button>
+            </div>
             <div id="receipt-actions" class="receipt-actions" hidden>
               <button id="receipt-practice" type="button" class="mission-primary">Retest unchanged</button>
-              <button id="receipt-change" type="button" class="mission-secondary" disabled title="Instruction recipes arrive in J6b">Try one change</button>
+              <button id="receipt-change" type="button" class="mission-secondary">Try one change</button>
               <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
             </div>
             <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
@@ -143,6 +148,38 @@
               <button id="skill-node-upgrade" type="button" class="mission-secondary">Try a different model</button>
               <button id="skill-node-close" type="button">Close</button>
             </div>
+        </dialog>
+        <dialog id="recipe-modal" class="recipe-modal" aria-labelledby="recipe-modal-title">
+          <div class="modal-card">
+            <div class="modal-header">
+              <div>
+                <span class="domain-tag">Lab Experiment · One variable</span>
+                <h3 id="recipe-modal-title">Test concise response instructions</h3>
+              </div>
+              <span class="state-badge measured">Lab only</span>
+            </div>
+            <div class="modal-body">
+              <div class="modal-info-block">
+                <strong>What changes</strong>
+                <p>Preset: <strong>Strict format instructions (concise)</strong></p>
+                <blockquote class="recipe-instruction-quote">“Follow the requested output format; omit extra prose.”</blockquote>
+                <p class="recipe-explanation">Instructs the model to follow requested output format without extra conversational preamble or trailing explanation.</p>
+              </div>
+              <div class="modal-info-block recipe-protection-notice">
+                <strong>Assistant protection (No personality or weight change)</strong>
+                <p>This experiment modifies the <em>Lab test recipe only</em>. It does <strong>not</strong> alter your assistant's OpenClaw personality, model weights, or conversational system prompts. Selecting a Lab recipe does not claim to change the assistant.</p>
+              </div>
+              <div class="modal-info-block">
+                <strong>Workload preview</strong>
+                <p>Runs the 8-passage short document trial under the owned Lab lease (context 4096, seed 1, temperature 0.0, output cap 128). Chat pauses during testing and resumes afterward.</p>
+              </div>
+              <div id="recipe-status-note" class="recipe-status-note" role="status" aria-live="polite"></div>
+            </div>
+            <div class="modal-actions">
+              <button id="recipe-run" type="button" class="mission-primary">Run document trial with concise recipe</button>
+              <button id="recipe-select-only" type="button" class="mission-secondary">Set as active Lab recipe</button>
+              <button id="recipe-close" type="button">Keep standard</button>
+            </div>
           </div>
         </dialog>
       </section>
@@ -200,6 +237,10 @@
           <button id="lab-cancel" type="button" disabled>Cancel test</button>
         </div>
         <p>The document trial gives your model eight short original passages. For each it must answer a question, quote the sentence that supports the answer, and say so when the passage does not contain the answer. It also writes a short summary for you to judge. Scoring is automatic and fixed in advance. It runs speed on short and medium prompts first, and qualifies short-document reading only. It says nothing about longer documents or your own files.</p>
+        <div id="lab-recipe-bar" class="lab-recipe-bar">
+          <span>Active Lab recipe: <strong id="lab-active-recipe">Standard calibration</strong></span>
+          <button id="lab-recipe-restore" type="button" class="btn-text-action" hidden>Restore standard</button>
+        </div>
         <p id="lab-status" role="status" aria-live="polite">Ready to measure your model.</p>
         <div id="arena" class="arena-deck" hidden aria-live="polite">
           <div class="arena-hud">
@@ -210,6 +251,10 @@
             <div class="arena-hud-item">
               <span class="arena-hud-label">Model</span>
               <span id="arena-model" class="arena-val">Current model</span>
+            </div>
+            <div class="arena-hud-item">
+              <span class="arena-hud-label">Recipe</span>
+              <span id="arena-recipe" class="arena-val">Standard</span>
             </div>
             <div class="arena-hud-item arena-hud-progress">
               <div class="arena-progress-header">

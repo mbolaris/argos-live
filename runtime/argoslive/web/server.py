@@ -138,6 +138,13 @@ class Handler(BaseHTTPRequestHandler):
                     self.reply(503, {'error': 'Skill map unavailable'}, head=head)
         elif path == '/api/lab':
             self.reply(200, self.server.lab.snapshot() if self.server.lab else {'available': False}, head=head)
+        elif path == '/api/lab/recipes':
+            from argoslive import recipe as recipe_mod
+            selected = self.server.lab.snapshot().get('selected_recipe') if self.server.lab else None
+            self.reply(200, {
+                'presets': recipe_mod.list_presets(),
+                'selected': selected,
+            }, head=head)
         elif path == '/api/lab/events':
             if not self.server.lab:
                 self.reply(200, {'available': False}, head=head)
@@ -311,6 +318,37 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, self.server.downloads.cancel(path.rsplit('/', 1)[1]))
             except (ValueError, OSError):
                 self.reply(409, {'error': 'Model control unavailable'})
+            return
+        if self.command == 'POST' and self.server.lab and path in ('/api/lab/recipe/select', '/api/lab/recipe/restore'):
+            lengths = self.headers.get_all('Content-Length')
+            if path == '/api/lab/recipe/restore':
+                if (self.headers.get('Transfer-Encoding') is not None or
+                        lengths not in (None, ['0'])):
+                    self.reply(400, {'error': 'Restore requires an empty body'})
+                    return
+                try:
+                    self.reply(200, self.server.lab.restore_recipe())
+                except (ValueError, OSError):
+                    self.reply(409, {'error': 'Cannot restore recipe while trial is active'})
+                return
+            if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                    or len(lengths[0]) > 3 or not lengths[0].isdigit() or not 1 <= int(lengths[0]) <= 512
+                    or self.headers.get('Content-Type') != 'application/json'):
+                self.reply(400, {'error': 'A bounded JSON recipe choice is required'})
+                return
+            try:
+                self.connection.settimeout(3)
+                body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                if not isinstance(body, dict) or set(body) not in ({'preset'}, {'recipe'}):
+                    raise ValueError('Unknown recipe fields')
+                preset = body.get('preset') or body.get('recipe')
+            except (ValueError, OSError, UnicodeError, TypeError):
+                self.reply(400, {'error': 'Invalid recipe request'})
+                return
+            try:
+                self.reply(200, self.server.lab.select_recipe(preset))
+            except (ValueError, OSError):
+                self.reply(409, {'error': 'Recipe choice unavailable or invalid preset'})
             return
         if self.command == 'POST' and self.server.lab and path in ('/api/lab/start', '/api/lab/start-documents', '/api/lab/cancel'):
             lengths = self.headers.get_all('Content-Length')

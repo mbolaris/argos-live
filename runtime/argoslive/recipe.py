@@ -194,3 +194,17 @@ def is_standard(value):
     if rec is None:
         return True
     return rec.get('preset') == 'standard' and rec.get('instructions') is None
+
+
+def list_presets():
+    """Return a list of public reviewed instruction presets."""
+    return [
+        {
+            'id': p['id'],
+            'title': p['title'],
+            'description': p['description'],
+            'instructions': p['instructions'],
+            'instruction_hash': p['instruction_hash'],
+        }
+        for p in PRESETS.values()
+    ]
