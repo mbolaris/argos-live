@@ -13,7 +13,9 @@ import { createInterface } from 'node:readline';
 const require = createRequire(resolve(process.env.ARGOS_BROWSER_RUNTIME || 'work/compatibility-runtime/package.json'));
 const { chromium } = require('playwright-core');
 
-const server = spawn(process.env.ARGOS_PYTHON || 'py', ['-u', 'scripts/serve-journey-fixture.py'], {stdio: ['pipe', 'pipe', 'inherit']});
+const defaultPython = process.platform === 'win32' ? 'py' : 'python3';
+const pythonCmd = process.env.ARGOS_PYTHON || defaultPython;
+const server = spawn(pythonCmd, ['-u', 'scripts/serve-journey-fixture.py'], {stdio: ['pipe', 'pipe', 'inherit']});
 let browser;
 const fail = (message) => { throw new Error(message); };
 
@@ -132,53 +134,120 @@ try {
   if (receiptCount < 1) fail('Partial receipts were lost on cancellation');
   console.log(`[PASS] Partial results preserved on cancellation (${receiptCount} receipts retained)`);
 
-  // 5. Test delayed and failed assistant recovery reporting
-  // Test delayed recovery (in progress)
-  const delayedText = await page.evaluate(() => {
-    return formatRecoveryStatus({state: 'recovering', message: 'Assistant recovery in progress.'});
-  });
-  if (delayedText !== 'Assistant recovery in progress.') fail(`Delayed recovery text unexpected: "${delayedText}"`);
+  // 5. Test rendered assistant recovery transitions in #arena-summary-detail
+  // Initial cancellation state shows in-progress recovery
+  if (!detail.endsWith('Assistant recovery in progress.')) {
+    fail(`Cancellation detail did not end with 'Assistant recovery in progress.': "${detail}"`);
+  }
+  console.log(`[PASS] Initial cancellation banner rendered in-progress recovery: "${detail}"`);
 
-  // Test failed recovery
-  const failedText = await page.evaluate(() => {
-    return formatRecoveryStatus({state: 'failed', message: 'Assistant recovery failed.'});
+  // Test recovering -> ready transition via real refreshStartup()
+  await page.route('**/api/startup', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schema: 'argos-startup/1',
+        managed: true,
+        phase: 'ready',
+        message: 'Ready for conversation',
+        active: false,
+        model_reply_verified: true,
+      }),
+    });
   });
-  if (failedText !== 'Assistant recovery failed.') fail(`Failed recovery text unexpected: "${failedText}"`);
+  await page.evaluate(async () => { await refreshStartup(); });
+  const readyDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (!readyDetail.endsWith('Assistant ready.')) {
+    fail(`Rendered detail did not update to 'Assistant ready.': "${readyDetail}"`);
+  }
+  console.log(`[PASS] Rendered recovering -> ready transition: "${readyDetail}"`);
 
-  // Test ready recovery
-  const readyText = await page.evaluate(() => {
-    return formatRecoveryStatus({state: 'ready', message: 'Assistant ready.'});
+  // Test transition to failed via real refreshStartup()
+  await page.route('**/api/startup', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schema: 'argos-startup/1',
+        managed: true,
+        phase: 'failed',
+        message: 'Startup failed',
+        active: false,
+      }),
+    });
   });
-  if (readyText !== 'Assistant ready.') fail(`Ready recovery text unexpected: "${readyText}"`);
-  console.log('[PASS] Assistant recovery states tested: recovering, failed, ready');
+  await page.evaluate(async () => { await refreshStartup(); });
+  const failedDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (!failedDetail.endsWith('Assistant recovery failed.')) {
+    fail(`Rendered detail did not update to 'Assistant recovery failed.': "${failedDetail}"`);
+  }
+  console.log(`[PASS] Rendered transition to failed: "${failedDetail}"`);
 
-  // 6. Test heroResult 3-state qualification:
+  // Verify initial recovery value in arena cannot overwrite newer terminal status
+  await page.evaluate(() => {
+    renderArenaState({
+      completed: 2, total: 8,
+      recovery: {state: 'recovering', message: 'Assistant recovery in progress.'}
+    }, false, 'cancelled', 'fixture:latest', 12);
+  });
+  const protectedDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (!protectedDetail.endsWith('Assistant recovery failed.')) {
+    fail(`Initial arena recovery unexpectedly downgraded terminal status: "${protectedDetail}"`);
+  }
+  console.log('[PASS] Stale arena recovery cannot overwrite newer recovery status');
+  await page.unroute('**/api/startup');
+
+  // 6. Test rendered hero result qualification tri-state in #cc-hero-result
+  const baseCommandData = await page.evaluate(async () => {
+    const res = await fetch('/api/command-center', {headers: {'X-Argos-Token': token || ''}});
+    return res.json();
+  });
+
   // a) Baseline report (no qualification): "Not assessed", NOT "Missed"
-  const baselineQual = await page.evaluate(() => {
-    const ab = {correct: 8, total: 8, qualified: null};
-    const qualState = ab ? (ab.qualified === true ? 'Qualified' : (ab.qualified === false ? 'Criteria not met' : 'Not assessed')) : '';
-    return ab ? `${ab.correct}/${ab.total} (${qualState})` : 'Not yet tested';
+  await page.route('**/api/command-center', route => {
+    const data = JSON.parse(JSON.stringify(baseCommandData));
+    data.report = {
+      plan: 'baseline',
+      ability: {correct: 8, total: 8, qualified: null},
+    };
+    route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(data)});
   });
-  if (baselineQual !== '8/8 (Not assessed)') fail(`Baseline expected '8/8 (Not assessed)', got '${baselineQual}'`);
-  if (baselineQual.includes('Missed')) fail('Baseline qualification displayed Missed instead of Not assessed');
+  await page.evaluate(async () => { await refreshCommand(); });
+  const baselineHero = (await page.locator('#cc-hero-result').textContent()).trim();
+  if (baselineHero !== '8/8 (Not assessed)') fail(`Baseline expected '8/8 (Not assessed)', got '${baselineHero}'`);
+  if (baselineHero.includes('Missed')) fail(`Baseline qualification displayed Missed instead of Not assessed: "${baselineHero}"`);
+  console.log(`[PASS] Rendered baseline qualification in #cc-hero-result: "${baselineHero}"`);
 
   // b) Document trial met criteria: "Qualified"
-  const metQual = await page.evaluate(() => {
-    const ab = {correct: 8, total: 8, qualified: true};
-    const qualState = ab ? (ab.qualified === true ? 'Qualified' : (ab.qualified === false ? 'Criteria not met' : 'Not assessed')) : '';
-    return ab ? `${ab.correct}/${ab.total} (${qualState})` : 'Not yet tested';
+  await page.route('**/api/command-center', route => {
+    const data = JSON.parse(JSON.stringify(baseCommandData));
+    data.report = {
+      plan: 'documents',
+      ability: {correct: 8, total: 8, qualified: true},
+    };
+    route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(data)});
   });
-  if (metQual !== '8/8 (Qualified)') fail(`Met qualification expected '8/8 (Qualified)', got '${metQual}'`);
+  await page.evaluate(async () => { await refreshCommand(); });
+  const metHero = (await page.locator('#cc-hero-result').textContent()).trim();
+  if (metHero !== '8/8 (Qualified)') fail(`Met qualification expected '8/8 (Qualified)', got '${metHero}'`);
+  console.log(`[PASS] Rendered qualified document trial in #cc-hero-result: "${metHero}"`);
 
   // c) Document trial failed criteria: "Criteria not met"
-  const notMetQual = await page.evaluate(() => {
-    const ab = {correct: 5, total: 8, qualified: false};
-    const qualState = ab ? (ab.qualified === true ? 'Qualified' : (ab.qualified === false ? 'Criteria not met' : 'Not assessed')) : '';
-    return ab ? `${ab.correct}/${ab.total} (${qualState})` : 'Not yet tested';
+  await page.route('**/api/command-center', route => {
+    const data = JSON.parse(JSON.stringify(baseCommandData));
+    data.report = {
+      plan: 'documents',
+      ability: {correct: 5, total: 8, qualified: false},
+    };
+    route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(data)});
   });
-  if (notMetQual !== '5/8 (Criteria not met)') fail(`Failed qualification expected '5/8 (Criteria not met)', got '${notMetQual}'`);
+  await page.evaluate(async () => { await refreshCommand(); });
+  const notMetHero = (await page.locator('#cc-hero-result').textContent()).trim();
+  if (notMetHero !== '5/8 (Criteria not met)') fail(`Failed qualification expected '5/8 (Criteria not met)', got '${notMetHero}'`);
+  console.log(`[PASS] Rendered criteria not met in #cc-hero-result: "${notMetHero}"`);
+  await page.unroute('**/api/command-center');
 
-  console.log('[PASS] Hero result qualification tri-state verified (Qualified, Criteria not met, Not assessed)');
   console.log('All Mission First J5 corrections passed successfully!');
 } finally {
   if (browser) await browser.close();

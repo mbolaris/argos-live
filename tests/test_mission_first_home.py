@@ -261,6 +261,58 @@ class MissionFirstHomeTests(unittest.TestCase):
         self.assertEqual(arena['recovery']['state'], 'recovering')
         self.assertNotIn('Assistant resumption ready', json.dumps(arena))
 
+    def test_concurrent_polling_and_cleanup_no_deadlock(self):
+        """Concurrent lab.snapshot() polling and workload cleanup do not deadlock."""
+        ctrl = lab.Controller(self.startup, store=self.store)
+        self.addCleanup(ctrl.close)
+
+        ctrl.speed = lambda client, model, **kw: bench_speed.run(client, model, hardware=lambda: {}, **kw)
+        ctrl.ability = lambda *args, **kw: ability_result()
+        ctrl.documents = lambda *args, **kw: ability_result()
+
+        stop_event = threading.Event()
+        errors = []
+
+        def poller():
+            while not stop_event.is_set():
+                try:
+                    s = ctrl.snapshot()
+                    _ = s.get('recovery')
+                    _ = ctrl.events_after(0)
+                    _ = ctrl.recovery_status()
+                except Exception as e:
+                    errors.append(e)
+
+        def runner():
+            for _ in range(8):
+                if stop_event.is_set():
+                    break
+                try:
+                    ctrl.start('documents')
+                    time.sleep(0.01)
+                    ctrl.cancel()
+                    if ctrl.worker:
+                        ctrl.worker.join(timeout=2.0)
+                except Exception as e:
+                    errors.append(e)
+
+        poll_threads = [threading.Thread(target=poller, daemon=True, name=f'poller-{i}') for i in range(4)]
+        run_thread = threading.Thread(target=runner, daemon=True, name='workload-runner')
+
+        for t in poll_threads:
+            t.start()
+        run_thread.start()
+
+        run_thread.join(timeout=5.0)
+        self.assertFalse(run_thread.is_alive(), "Workload runner deadlocked during concurrent execution")
+        stop_event.set()
+
+        for t in poll_threads:
+            t.join(timeout=2.0)
+            self.assertFalse(t.is_alive(), f"Poller thread {t.name} deadlocked")
+
+        self.assertEqual(errors, [])
+
 
 if __name__ == '__main__':
     unittest.main()

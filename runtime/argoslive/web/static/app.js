@@ -20,23 +20,45 @@ let managedStartup = false;
 let startupRefreshing = false;
 let lastStartupStatus = null;
 let lastLabRecovery = null;
+let lastTerminalRecovery = null;
 
 function formatRecoveryStatus(recovery) {
   if (!recovery) {
-    if (lastStartupStatus) {
-      if (lastStartupStatus.phase === 'ready') return 'Assistant ready.';
-      if (lastStartupStatus.phase === 'failed') return 'Assistant recovery failed.';
-      if (lastStartupStatus.active) return 'Assistant recovery in progress.';
-    }
-    return '';
+    recovery = lastStartupStatus;
   }
+  if (!recovery) return lastTerminalRecovery || '';
   if (typeof recovery === 'string') return recovery;
-  if (recovery.message) return recovery.message;
-  if (recovery.state === 'ready') return 'Assistant ready.';
-  if (recovery.state === 'failed') return 'Assistant recovery failed.';
-  if (recovery.state === 'recovering') return 'Assistant recovery in progress.';
-  if (recovery.state === 'not-running') return 'Assistant was not running.';
-  return recovery.state ? `Assistant ${recovery.state}.` : '';
+
+  const rawState = recovery.state || recovery.phase;
+  // If we already reached a terminal state (ready or failed), initial arena recovery (e.g. 'recovering')
+  // must not overwrite the newer status.
+  if ((rawState === 'recovering' || recovery.active) && (lastTerminalRecovery || (lastStartupStatus && ['ready', 'failed'].includes(lastStartupStatus.phase)))) {
+    return lastTerminalRecovery || (lastStartupStatus.phase === 'ready' ? 'Assistant ready.' : 'Assistant recovery failed.');
+  }
+
+  const phase = recovery.state || recovery.phase;
+  let formatted = '';
+  if (phase === 'ready') {
+    formatted = 'Assistant ready.';
+  } else if (phase === 'failed') {
+    formatted = 'Assistant recovery failed.';
+  } else if (phase === 'not-running' || phase === 'stopped') {
+    formatted = 'Assistant was not running.';
+  } else if (phase === 'recovering' || recovery.active ||
+      ['setup', 'verify-starter', 'select-storage', 'write-configuration',
+       'verify-model', 'model-service', 'first-reply', 'gateway',
+       'reconnecting', 'stopping'].includes(phase)) {
+    formatted = 'Assistant recovery in progress.';
+  } else if (recovery.message && !recovery.phase) {
+    formatted = recovery.message;
+  } else {
+    formatted = phase ? `Assistant ${phase}.` : '';
+  }
+
+  if (formatted === 'Assistant ready.' || formatted === 'Assistant recovery failed.') {
+    lastTerminalRecovery = formatted;
+  }
+  return formatted;
 }
 
 let liveRefreshing = false;
@@ -79,8 +101,8 @@ async function refreshStartup() {
     if (arenaBanner && !arenaBanner.hidden && arenaHeadline?.textContent === 'Stopped · incomplete' && arenaDetail) {
       const rec = formatRecoveryStatus(lastStartupStatus);
       if (rec) {
-        const prefix = arenaDetail.textContent.replace(/(?:Assistant [^.]+\.)$/, '').trim();
-        arenaDetail.textContent = `${prefix} ${rec}`;
+        const prefix = arenaDetail.textContent.replace(/\s*(?:Assistant [^.]+\.)?$/, '').trim();
+        arenaDetail.textContent = prefix ? `${prefix} ${rec}` : rec;
       }
     }
     managedStartup = value.managed === true;
@@ -706,6 +728,7 @@ async function refreshLab() {
         arenaCursor = value.seq || 0;
         arenaReceipts = [];
         arenaCurrentAnswer = '';
+        lastTerminalRecovery = null;
       }
       renderArenaState(value.arena, value.active, value.phase, value.model, value.elapsed_seconds);
       if (value.active) {
@@ -722,6 +745,7 @@ async function refreshLab() {
   } finally { labRefreshing = false; }
 }
 for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
+  if (route !== 'cancel') lastTerminalRecovery = null;
   document.getElementById('lab-start').disabled = true;
   document.getElementById('lab-start-documents').disabled = true;
   document.getElementById('lab-status').textContent = route === 'cancel' ? 'Requesting cancellation…' : 'Starting trial; pausing chat…';

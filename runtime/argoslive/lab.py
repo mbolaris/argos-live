@@ -1,4 +1,5 @@
 """Desktop-owned quick baseline: pause chat, test fixed prompts, save, resume."""
+import contextlib
 import copy
 import secrets
 import threading
@@ -117,8 +118,18 @@ class Controller:
             return {'state': 'recovering', 'message': 'Assistant recovery in progress.'}
         return {'state': phase or 'unknown', 'message': f'Assistant {phase}.' if phase else 'Assistant state unknown.'}
 
+    @contextlib.contextmanager
+    def _order_locks(self):
+        startup_lock = getattr(self.startup, 'lock', None) if hasattr(self, 'startup') and self.startup is not None else None
+        if startup_lock is not None:
+            with startup_lock, self.lock:
+                yield
+        else:
+            with self.lock:
+                yield
+
     def snapshot(self):
-        with self.lock:
+        with self._order_locks():
             active = self.worker is not None and self.worker.is_alive()
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
@@ -135,10 +146,11 @@ class Controller:
         # Share startup's reservation: chat cannot restart into a benchmark.
         if plan not in PLANS:
             raise ValueError('Unknown model lab plan')
-        with self.startup.lock, self.lock:
+        with self._order_locks():
             if self.closed:
                 raise ValueError('The model lab is closed')
-            if self.snapshot()['active'] or self.startup.lab_active:
+            active = self.worker is not None and self.worker.is_alive()
+            if active or getattr(self.startup, 'lab_active', False):
                 raise ValueError('Another desktop workload is already active')
             status = self.startup.snapshot()
             self.resume = status['active']
@@ -200,13 +212,15 @@ class Controller:
         return answer
 
     def clear_task(self):
-        with self.lock:
-            if not self.snapshot()['active']:
+        with self._order_locks():
+            active = self.worker is not None and self.worker.is_alive()
+            if not active:
                 self.task_input = self.task_result = None
 
     def cancel(self):
-        with self.lock:
-            if self.snapshot()['active']:
+        with self._order_locks():
+            active = self.worker is not None and self.worker.is_alive()
+            if active:
                 self.cancel_event.set()
                 self.phase = 'cancelling'
                 elapsed = max(0, (self.clock() - self.started)) if self.started is not None else 0
@@ -324,17 +338,17 @@ class Controller:
                 pass
         finally:
             timer.cancel()
-            with self.startup.lock, self.lock:
-                self.startup.lab_active = False
-                if self.resume:
-                    try:
-                        self.startup.start()
-                        # Keep the lab visible; the owner can choose Open chat.
-                        self.startup.chat_claimed = True
-                        self.resume_requested = True
-                    except (ValueError, OSError):
-                        outcome = 'failed'
-            with self.lock:
+            with self._order_locks():
+                if hasattr(self, 'startup') and self.startup is not None:
+                    self.startup.lab_active = False
+                    if self.resume:
+                        try:
+                            self.startup.start()
+                            # Keep the lab visible; the owner can choose Open chat.
+                            self.startup.chat_claimed = True
+                            self.resume_requested = True
+                        except (ValueError, OSError):
+                            outcome = 'failed'
                 self.phase = outcome
                 self.finished = self.clock()
                 elapsed = max(0, self.finished - self.started) if self.started is not None else 0
@@ -393,7 +407,7 @@ class Controller:
         return 'cancelled' if self.cancel_event.is_set() else 'failed'
 
     def close(self):
-        with self.lock:
+        with self._order_locks():
             self.closed = True
             self.resume = False
             self.cancel()
