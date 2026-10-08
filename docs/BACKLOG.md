@@ -18,6 +18,55 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### U5 — Shared foundations before specialization
+
+Agreed October 8, 2026. [Shared foundations](FOUNDATION-CURRICULUM.md) defines the
+common early ladder: following directions, reading, numbers, reasoning/planning,
+actual sandboxed tools and integrated useful missions. "K–12" is a progression
+metaphor, not a grade equivalence, intelligence score or AGI claim. Do not ask new
+owners to select a profession or design a curriculum. Lead with one recommended
+mission and one Start action; specialization follows demonstrated foundations.
+
+The goal is owner-controlled system improvement: the AI interprets evidence,
+proposes a concrete experiment, executes only the approved bounded plan, and
+reports tradeoffs for Keep/Restore. Fixed scoring, independent validation,
+permission boundaries and reversible staging remain mandatory. The current
+debrief is an opinion, not an executable plan. J5/J6a/J6b/J7 remain the immediate
+document-loop implementation sequence; J3/J4/P8 keep their existing scope.
+
+### SI1 — Evidence-grounded improvement proposal — `todo`
+
+Depends on J6a, J6b and J7. Turn the optional debrief into one recommended
+experiment using a fixed schema and an allowlist of implemented interventions.
+Show hypothesis, evidence references, candidate recipe, matched tests, cost,
+limits and rollback before approval. Validate independently of the model; reject
+unknown interventions, answer references, permissions, private inputs and
+unsupported claims. Opinion failure leaves scores and manual actions usable.
+Accept: valid/invalid proposal fixtures, evidence/model/recipe binding, safe
+rendering, no execution without approval and an obvious default next action.
+
+### SI2 — Execute an approved bounded experiment plan — `todo`
+
+Depends on SI1 and J7. Owner approval binds exact candidates, trial conditions and
+resource limits; execution occurs under existing workload ownership in reversible
+Lab staging. No approval bypass, duplicate runs or permission expansion. Retain
+live progress, cancellation and reload, and report observed deltas separately
+from confirmed improvement. Keep/Restore remains Lab-only unless separate agent
+promotion is implemented and accepted. Accept: approval mismatch/expiry,
+budget/cancellation/failure cleanup, evidence retention and selected-recipe restore.
+
+### SI3 — Independent validation for a shared foundation rung — `todo`
+
+Depends on J7; integrate SI2 when available. Start with document reading rather
+than building all rungs at once. Define versioned original held-out tasks and
+fixed criteria, with answers and detailed validation feedback inaccessible to
+the proposing/tuning model. Record repeated-measurement uncertainty and an owner
+useful-task verdict separately. Accept: inaccessible validation inputs, tuning
+vs validation separation, no qualification from partial runs or mismatched
+recipes, and no broader claims from a small unconfirmed score difference.
+Later tool rungs depend on J4; specialization remains future work after shared
+foundations, not a first-run question.
+
 ### U4 — A visible mission ladder and a local-model debrief
 
 Status: in progress ([PR #55](https://github.com/mbolaris/argos-live/pull/55)). Lead with a selected-file-bound trial receipt: solved

@@ -9,8 +9,16 @@ the old instruction to start by building J1 again.
 
 Make improving a private AI a satisfying activity:
 
-**Choose a useful mission → watch → understand → change one thing → retest
+**Follow the recommended mission → watch → understand → change one thing → retest
 → keep or restore → use it on real material.**
+
+The shared foundation curriculum is now the product direction:
+[Shared foundations](FOUNDATION-CURRICULUM.md). New owners follow the same early
+ladder with one recommended next action, rather than choosing a profession or
+designing their own tests. Specialization comes after demonstrated foundations.
+Future AI-generated proposals must become validated, owner-approved experiment
+plans; the current bounded model debrief is only an opinion. This clarification
+does not expand J6a's implementation scope or replace its acceptance criteria.
 
 The first mission is **Read this brief**. Reuse the existing short-document suite:
 eight original passages, 24 code-scored answer/quotation/not-stated questions,
