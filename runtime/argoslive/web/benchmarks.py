@@ -56,5 +56,18 @@ class View:
             raise ValueError('Select two to eight distinct runs')
         return compare([self.load(run_id) for run_id in ids])
 
+    def experiment_comparison(self, baseline_id, candidate_id, *, allowed_intervention=None):
+        baseline = self.load(baseline_id)
+        candidate = self.load(candidate_id)
+        from argoslive import recipe as recipe_mod
+        b_std = recipe_mod.is_standard(baseline)
+        c_std = recipe_mod.is_standard(candidate)
+        if not b_std and c_std:
+            baseline, candidate = candidate, baseline
+        elif b_std == c_std and baseline.get('created', '') > candidate.get('created', ''):
+            baseline, candidate = candidate, baseline
+        from argoslive.results import compare_experiment
+        return compare_experiment(baseline, candidate, allowed_intervention=allowed_intervention)
+
     def csv(self, ids):
         return export_csv(self.comparison(ids))

@@ -285,6 +285,240 @@ def matched_details(values):
     return result
 
 
+def same_hardware(a, b):
+    def key(run):
+        h = run.get('hardware')
+        if not isinstance(h, dict) or not h:
+            return None
+        return (repr(h.get('cpu')), repr(h.get('gpus')), (h.get('ram') or {}).get('total_bytes'))
+    return key(a) is not None and key(a) == key(b)
+
+
+def digest_of(value):
+    if not isinstance(value, str):
+        return None
+    value = value[7:] if value.startswith('sha256:') else value
+    return value if len(value) == 64 and all(c in '0123456789abcdef' for c in value) else None
+
+
+def same_model(a, b):
+    da, db = digest_of(a.get('manifest_digest')), digest_of(b.get('manifest_digest'))
+    return a.get('model') == b.get('model') and da is not None and da == db
+
+
+def compare_experiment(baseline, candidate, *, allowed_intervention=None):
+    """Controlled one-variable experiment comparator.
+
+    Validates that baseline and candidate differ in EXACTLY ONE declared
+    intervention variable ('recipe' or 'model'), while matching all other
+    fields: kind, suite, suite_version, settings, hardware, complete coverage,
+    and successful restoration.
+    """
+    validate(baseline)
+    validate(candidate)
+    if baseline['id'] == candidate['id']:
+        raise ValueError('Choose distinct runs for experiment comparison')
+
+    # Successful cleanup/restoration is mandatory
+    if not baseline.get('restoration', {}).get('succeeded') or not candidate.get('restoration', {}).get('succeeded'):
+        raise ValueError('Experiment comparison requires successful cleanup/restoration for both runs')
+
+    # Both runs must be completed (no partial/cancelled runs)
+    if baseline.get('state', 'completed') != 'completed' or candidate.get('state', 'completed') != 'completed':
+        raise ValueError('Cannot compare partial or cancelled runs')
+
+    # Kind and suite version must match
+    if (baseline['kind'], baseline['suite_version']) != (candidate['kind'], candidate['suite_version']):
+        raise ValueError('Experiment comparison requires matching benchmark kind and suite version')
+
+    # Coverage must be complete and identical
+    if baseline['kind'] == 'ability':
+        if not baseline.get('coverage', {}).get('complete') or not candidate.get('coverage', {}).get('complete'):
+            raise ValueError('Experiment comparison requires complete coverage for both runs')
+        if ([(i['item_id'], i['category']) for i in baseline['items']] !=
+                [(i['item_id'], i['category']) for i in candidate['items']]):
+            raise ValueError('Runs must cover the exact same test items in identical order')
+        if baseline.get('omitted_categories') != candidate.get('omitted_categories'):
+            raise ValueError('Runs must have identical category coverage')
+    else:
+        if ([(p['size'], p.get('context_tokens'), p['skipped']) for p in baseline['prompts']] !=
+                [(p['size'], p.get('context_tokens'), p['skipped']) for p in candidate['prompts']]):
+            raise ValueError('Speed prompt coverage differs between runs')
+
+    # Hardware must match
+    if not same_hardware(baseline, candidate):
+        raise ValueError('Experiment comparison requires identical hardware environment (CPU, GPU, RAM)')
+
+    # Verified identities: incomplete identities are rejected
+    da = digest_of(baseline.get('manifest_digest'))
+    db = digest_of(candidate.get('manifest_digest'))
+    if da is None or db is None:
+        raise ValueError('Experiment comparison requires verified manifest digests for both runs')
+
+    # Resolve recipes
+    from . import recipe as recipe_mod
+    ctx_b = baseline.get('settings', {}).get('context', 2048)
+    ctx_c = candidate.get('settings', {}).get('context', 2048)
+    b_rec = recipe_mod.resolve(baseline.get('recipe'), context=ctx_b)
+    c_rec = recipe_mod.resolve(candidate.get('recipe'), context=ctx_c)
+
+    # Check recipe preset difference
+    recipe_preset_differs = (b_rec['preset'] != c_rec['preset'])
+
+    # Check other recipe fields: they MUST NOT differ
+    recipe_other_differs = (
+        b_rec['context'] != c_rec['context'] or
+        b_rec['output_cap'] != c_rec['output_cap'] or
+        b_rec['temperature'] != c_rec['temperature'] or
+        b_rec['seed'] != c_rec['seed'] or
+        b_rec['thinking'] != c_rec['thinking'] or
+        b_rec['request_format'] != c_rec['request_format']
+    )
+    if recipe_other_differs:
+        raise ValueError('Experiment comparison allows at most one recipe variable; multiple recipe settings differed')
+
+    # Check non-recipe settings: must match
+    b_settings_no_rec = {k: v for k, v in baseline.get('settings', {}).items() if k != 'recipe'}
+    c_settings_no_rec = {k: v for k, v in candidate.get('settings', {}).items() if k != 'recipe'}
+    if b_settings_no_rec != c_settings_no_rec:
+        raise ValueError('Experiment comparison requires identical non-recipe settings')
+
+    # Model difference
+    model_differs = (baseline['model'] != candidate['model'] or da != db)
+
+    # Validate that EXACTLY ONE intervention occurred
+    if recipe_preset_differs and model_differs:
+        raise ValueError('Controlled experiment allows exactly one declared intervention; both model and recipe differed')
+    if not recipe_preset_differs and not model_differs:
+        raise ValueError('Baseline and candidate configurations are identical; repeated practice is not an independent experiment')
+
+    detected = 'model' if model_differs else 'recipe'
+    if allowed_intervention is not None and allowed_intervention != detected:
+        raise ValueError(f"Declared intervention '{allowed_intervention}' does not match detected change '{detected}'")
+
+    # Build delta
+    if baseline['kind'] == 'ability':
+        b_sum = baseline['summary']
+        c_sum = candidate['summary']
+        acc_delta = round(c_sum['accuracy'] - b_sum['accuracy'], 4)
+        corr_delta = c_sum['correct'] - b_sum['correct']
+        fmt_delta = c_sum['format_errors'] - b_sum['format_errors']
+
+        cat_deltas = {}
+        for cat_name, b_cat in b_sum.get('categories', {}).items():
+            c_cat = c_sum.get('categories', {}).get(cat_name, {})
+            cat_deltas[cat_name] = {
+                'baseline_correct': b_cat.get('correct', 0),
+                'candidate_correct': c_cat.get('correct', 0),
+                'total': b_cat.get('total', 0),
+                'delta_correct': c_cat.get('correct', 0) - b_cat.get('correct', 0),
+                'delta_format_errors': c_cat.get('format_errors', 0) - b_cat.get('format_errors', 0),
+            }
+
+        label = c_rec['preset'] if detected == 'recipe' else candidate['model']
+        if corr_delta > 0:
+            verdict = 'observed_gain'
+            summary_text = f"Observed gain (+{corr_delta} tasks) under {label}. Single-suite observed gain; repeated practice or single-exercise delta is not confirmed general improvement."
+        elif corr_delta < 0:
+            verdict = 'regression'
+            summary_text = f"Observed regression ({corr_delta} tasks) under {label}."
+        else:
+            if fmt_delta < 0:
+                verdict = 'observed_gain'
+                summary_text = f"Identical accuracy with fewer format errors ({fmt_delta}) under {label}."
+            elif fmt_delta > 0:
+                verdict = 'regression'
+                summary_text = f"Identical accuracy with additional format errors (+{fmt_delta}) under {label}."
+            else:
+                verdict = 'no_change'
+                summary_text = f"No change in task outcomes ({c_sum['correct']}/{c_sum['total']} tasks)."
+
+        # Per item side-by-side
+        items_map = {it['item_id']: it for it in candidate['items']}
+        item_rows = []
+        for b_it in baseline['items']:
+            item_id = b_it['item_id']
+            c_it = items_map.get(item_id, {})
+            item_rows.append({
+                'item_id': item_id,
+                'category': b_it['category'],
+                'passage_id': b_it.get('passage_id'),
+                'question': b_it.get('question'),
+                'baseline_outcome': b_it['outcome'],
+                'candidate_outcome': c_it.get('outcome'),
+                'baseline_output': b_it.get('output', '')[:ITEM_OUTPUT_LIMIT] if isinstance(b_it.get('output'), str) else None,
+                'candidate_output': c_it.get('output', '')[:ITEM_OUTPUT_LIMIT] if isinstance(c_it.get('output'), str) else None,
+                'changed': (b_it['outcome'] != c_it.get('outcome') or b_it.get('output') != c_it.get('output')),
+            })
+
+        delta = {
+            'accuracy_delta': acc_delta,
+            'correct_delta': corr_delta,
+            'format_error_delta': fmt_delta,
+            'category_deltas': cat_deltas,
+            'verdict': verdict,
+            'summary': summary_text,
+        }
+    else:
+        from .bench_speed import numeric, summary
+        prompts_delta = []
+        for b_p in baseline['prompts']:
+            size = b_p['size']
+            c_p = next((p for p in candidate['prompts'] if p['size'] == size), None)
+            if c_p:
+                b_gen = summary([numeric(r.get('generation_tokens_per_second')) for r in b_p['runs']])['median'] if not b_p['skipped'] and len(b_p['runs']) == 3 else None
+                c_gen = summary([numeric(r.get('generation_tokens_per_second')) for r in c_p['runs']])['median'] if not c_p['skipped'] and len(c_p['runs']) == 3 else None
+                b_ttft = summary([numeric(r.get('time_to_first_token_seconds')) for r in b_p['runs']])['median'] if not b_p['skipped'] and len(b_p['runs']) == 3 else None
+                c_ttft = summary([numeric(r.get('time_to_first_token_seconds')) for r in c_p['runs']])['median'] if not c_p['skipped'] and len(c_p['runs']) == 3 else None
+                prompts_delta.append({
+                    'size': size,
+                    'baseline_generation_tok_s': b_gen,
+                    'candidate_generation_tok_s': c_gen,
+                    'delta_generation_tok_s': round(c_gen - b_gen, 2) if b_gen is not None and c_gen is not None else None,
+                    'baseline_ttft_s': b_ttft,
+                    'candidate_ttft_s': c_ttft,
+                    'delta_ttft_s': round(c_ttft - b_ttft, 3) if b_ttft is not None and c_ttft is not None else None,
+                })
+        item_rows = []
+        delta = {
+            'prompts': prompts_delta,
+            'verdict': 'speed_evaluated',
+            'summary': 'Speed evaluated across paired 3-run prompt measurements. Differences < 20% remain within measurement noise.',
+        }
+
+    return {
+        'schema': 'argos-experiment/1',
+        'intervention': detected,
+        'kind': baseline['kind'],
+        'suite_version': baseline['suite_version'],
+        'baseline': {
+            'id': baseline['id'],
+            'model': baseline['model'],
+            'manifest_digest': baseline.get('manifest_digest'),
+            'recipe': b_rec,
+            'created': baseline['created'],
+            'accuracy': baseline.get('summary', {}).get('accuracy'),
+            'correct': baseline.get('summary', {}).get('correct'),
+            'total': baseline.get('summary', {}).get('total'),
+            'format_errors': baseline.get('summary', {}).get('format_errors'),
+        },
+        'candidate': {
+            'id': candidate['id'],
+            'model': candidate['model'],
+            'manifest_digest': candidate.get('manifest_digest'),
+            'recipe': c_rec,
+            'created': candidate['created'],
+            'accuracy': candidate.get('summary', {}).get('accuracy'),
+            'correct': candidate.get('summary', {}).get('correct'),
+            'total': candidate.get('summary', {}).get('total'),
+            'format_errors': candidate.get('summary', {}).get('format_errors'),
+        },
+        'delta': delta,
+        'items': item_rows,
+        'limitations': 'Controlled one-variable experiment comparison. Observed differences reflect this specific suite under identical hardware and settings. Observed +1 is not confirmed general improvement without independent validation.',
+    }
+
+
 def export_csv(comparison):
     output = io.StringIO(newline='')
     fields = ['id', 'model', 'manifest_digest', 'created', 'metric', 'value', 'format_errors']

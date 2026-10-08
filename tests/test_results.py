@@ -11,6 +11,7 @@ from contextlib import redirect_stdout
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
+sys.path.insert(0, str(ROOT / 'tests'))
 from argoslive import bench_ability, bench_speed, results
 from test_bench_ability import AbilityBackend
 from test_bench_speed import Backend

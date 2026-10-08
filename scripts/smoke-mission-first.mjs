@@ -360,9 +360,15 @@ try {
   }
   const restoreBtnHiddenAfter = await page.locator('#lab-recipe-restore').evaluate(el => el.hidden);
   if (!restoreBtnHiddenAfter) fail('Restore button should be hidden after restoring standard recipe');
-  console.log(`[PASS] Standard recipe restored successfully: "${restoredRecipeText}"`);
+  // J7: Controlled experiment button check
+  const expBtn = page.locator('#compare-experiment');
+  const expCount = await expBtn.count();
+  if (expCount !== 1) fail('Expected #compare-experiment button in DOM');
+  const expDisabled = await expBtn.evaluate(el => el.disabled);
+  if (!expDisabled) fail('#compare-experiment should be disabled initially');
+  console.log('[PASS] Controlled experiment button #compare-experiment exists and is disabled initially');
 
-  console.log('All Mission First J5 and J6b checks passed successfully!');
+  console.log('All Mission First J5, J6b, and J7 checks passed successfully!');
 } finally {
   if (browser) await browser.close();
   server.kill();

@@ -886,3 +886,54 @@ caption { text-align: left; font-weight: 700; padding: 12px 0; }
   background: #1f364d;
   border-color: var(--blue);
 }
+.experiment-card {
+  padding: 22px;
+  border: 1px solid #36606d;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #10212e, #0e1823);
+  margin-top: 16px;
+  grid-column: 1 / -1;
+}
+.experiment-badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-right: 12px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.badge-observed_gain {
+  color: #082627;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+}
+.badge-regression {
+  color: #ff9999;
+  background: #3a1c1c;
+  border: 1px solid #7a3a3a;
+}
+.badge-no_change {
+  color: var(--muted);
+  background: #1c2733;
+  border: 1px solid var(--line);
+}
+.experiment-summary {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 550;
+  margin: 10px 0 6px;
+}
+.experiment-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+.experiment-limits {
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 16px;
+}

@@ -117,17 +117,27 @@ def is_selected(run: Dict[str, Any], selected: Optional[Dict[str, Any]]) -> bool
             and digest_of(run.get('manifest_digest')) == digest)
 
 
-def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]],
+                    selected_recipe: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Derive task-scoped skill map from validated facts and active model selection."""
     selected_model = (selected or {}).get('model')
     selected_digest = digest_of((selected or {}).get('digest'))
+    active_recipe = selected_recipe or facts.get('selected_recipe')
 
     runs = facts.get('runs', [])
     doc_models = facts.get('doc_models', [])
     storage_view = facts.get('storage') or {}
 
-    # Find matching document run: verify suite version, context, complete coverage, digest, and standard recipe
     from . import recipe as recipe_mod
+
+    def matches_recipe(r):
+        if active_recipe is None or recipe_mod.is_standard(active_recipe):
+            return recipe_mod.is_standard(r)
+        sel_preset = active_recipe.get('preset') if isinstance(active_recipe, dict) else active_recipe
+        r_rec = r.get('recipe')
+        return isinstance(r_rec, dict) and r_rec.get('preset') == sel_preset
+
+    # Find matching document run: verify suite version, context, complete coverage, digest, and matching recipe
     matching_doc_run = None
     for r in doc_models:
         settings = r.get('settings')
@@ -138,11 +148,11 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 and isinstance(settings, dict)
                 and settings.get('context') == DOC_REQUIRED_CONTEXT
                 and is_selected(r, selected)
-                and recipe_mod.is_standard(r)):
+                and matches_recipe(r)):
             matching_doc_run = r
             break
 
-    # Find matching quick ability run: verify suite version, context 2048, seed/temp, complete coverage, digest, and standard recipe
+    # Find matching quick ability run: verify suite version, context 2048, seed/temp, complete coverage, digest, and matching recipe
     matching_quick_run = None
     for r in runs:
         settings = r.get('settings')
@@ -154,7 +164,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 and settings.get('context') == QUICK_REQUIRED_CONTEXT
                 and settings.get('temperature') == 0
                 and is_selected(r, selected)
-                and recipe_mod.is_standard(r)):
+                and matches_recipe(r)):
             matching_quick_run = r
             break
 
@@ -175,6 +185,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
             'run_id': matching_quick_run['id'],
             'created': matching_quick_run.get('created'),
             'suite_version': matching_quick_run['suite_version'],
+            'recipe': matching_quick_run.get('recipe'),
             'context': matching_quick_run['settings']['context'],
             'correct': correct,
             'total': total,
@@ -204,6 +215,7 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
             'run_id': matching_doc_run['id'],
             'created': matching_doc_run.get('created'),
             'suite_version': matching_doc_run['suite_version'],
+            'recipe': matching_doc_run.get('recipe'),
             'context': matching_doc_run['settings']['context'],
             'qualified': q.get('qualified', False),
             'correct': s.get('correct', 0),
