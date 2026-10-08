@@ -201,3 +201,23 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(self.select()['mountpoint'], '/mnt/small')
         with self.assertRaisesRegex(ValueError, 'Ambiguous stacked'):
             storage.covering('/mnt/big disk/models', self.mounts)
+
+    def test_automount_trigger_and_direct_child_keep_disk_eligible(self):
+        volume = self.mounts[2]
+        volume['parent_id'] = 900
+        trigger = dict(volume, mount_id=900, parent_id=1, fstype='autofs',
+                       device='0:90', source='systemd-1')
+        self.mounts.append(trigger)
+        self.assertIs(storage.covering('/mnt/big disk/models', self.mounts), volume)
+        self.assertEqual(self.select()['volume_uuid'], 'fixture-big')
+        volume['options'] = ['ro']
+        self.assertEqual(self.select()['mountpoint'], '/mnt/small')
+
+    def test_automount_without_proven_child_stays_ambiguous(self):
+        volume = self.mounts[2]
+        trigger = dict(volume, mount_id=900, parent_id=1, fstype='autofs',
+                       device='0:90', source='systemd-1')
+        self.mounts.append(trigger)
+        with self.assertRaisesRegex(ValueError, 'Ambiguous stacked'):
+            storage.covering('/mnt/big disk/models', self.mounts)
+        self.assertEqual(self.select()['mountpoint'], '/mnt/small')

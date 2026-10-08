@@ -18,6 +18,16 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### S6 — Model storage on systemd automounts — `in progress`
+
+- Resolve a mounted filesystem above its direct autofs parent using mountinfo
+  identities. Keep unrelated or multiple filesystem stacks blocked, and retain
+  UUID, boot-device, read-only, capacity and explicit write-check protections.
+- Unit coverage checks the normal automount pair, read-only child and unrelated
+  stacks. Physical DATA selection and write-check acceptance remain separate.
+- The guided storage/model upgrade journey and clearer explanations remain J3;
+  this fix restores eligibility without mounting, formatting or adopting data.
+
 ### U5 — Shared foundations before specialization
 
 Agreed October 8, 2026. [Shared foundations](FOUNDATION-CURRICULUM.md) defines the
