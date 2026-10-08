@@ -1,5 +1,9 @@
 # Implementation handoff: your private AI proving ground
 
+> Current entry point: [WORKER-PLAY-SESSION.md](WORKER-PLAY-SESSION.md).
+> It supersedes the historical J1 work order and image status below.
+> [CURATED-MODEL-JOURNEY.md](CURATED-MODEL-JOURNEY.md) defines the smaller shortlist.
+>
 > October 8 update: J1/J2 implementations merged in PR58/59. Do not start them
 > again from the historical instructions below. The current work order and
 > first mission are specified in [Mission 1 implementation](PROVING-GROUND-MISSION-1.md):

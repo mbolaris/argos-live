@@ -1,5 +1,10 @@
 # Proposed starter model catalog
 
+> Next implementation target: [CURATED-MODEL-JOURNEY.md](CURATED-MODEL-JOURNEY.md).
+> The nine-entry table below records existing metadata, not the future recommended
+> shortlist. Preserve legacy identities for installed models and restoration.
+> Audit the 4B alias/architecture mismatch before refreshing metadata.
+
 This is the MD1 list for owner review under D4. The catalog is public metadata, not an agent assignment or automatic download. It adds no software backend or private personality. `argos catalog [--json]` works offline and lists the accepted metadata; choosing/downloading/testing a model remains a separate step.
 
 | Exact Ollama tag | Download GiB (artifact bytes) | Intended use |
