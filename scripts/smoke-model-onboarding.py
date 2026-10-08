@@ -124,6 +124,7 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
             'What is 2+2? Respond with only the single number.',
             options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
             system=concise['instructions'],
+            think=concise['thinking'],
         )
         gen_text = gen_reply.get('text', '').strip()
         if not gen_text:
@@ -134,6 +135,7 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
             caller_msgs,
             options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
             system=concise['instructions'],
+            think=concise['thinking'],
         )
         if len(caller_msgs) != 1 or caller_msgs[0]['role'] != 'user':
             raise SystemExit('client.chat mutated caller messages')

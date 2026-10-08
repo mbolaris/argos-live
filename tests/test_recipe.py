@@ -548,6 +548,7 @@ class RealBackendInstructionTests(unittest.TestCase):
             'What is 2+2? Output only the single digit.',
             options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
             system=concise['instructions'],
+            think=concise['thinking'],
         )
         self.assertTrue(gen_reply.get('final', {}).get('done', False))
         self.assertTrue(len(gen_reply.get('text', '').strip()) > 0)
@@ -558,6 +559,7 @@ class RealBackendInstructionTests(unittest.TestCase):
             [{'role': 'user', 'content': 'What is 3+3? Output only the single digit.'}],
             options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
             system=concise['instructions'],
+            think=concise['thinking'],
         )
         self.assertTrue(chat_reply.get('final', {}).get('done', False))
         self.assertTrue(len(chat_reply.get('text', '').strip()) > 0)
