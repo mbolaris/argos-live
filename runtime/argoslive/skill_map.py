@@ -126,7 +126,8 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
     doc_models = facts.get('doc_models', [])
     storage_view = facts.get('storage') or {}
 
-    # Find matching document run: verify suite version, context, complete coverage, and digest
+    # Find matching document run: verify suite version, context, complete coverage, digest, and standard recipe
+    from . import recipe as recipe_mod
     matching_doc_run = None
     for r in doc_models:
         settings = r.get('settings')
@@ -136,11 +137,12 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 and r.get('suite_version') in DOC_SUITE_VERSIONS
                 and isinstance(settings, dict)
                 and settings.get('context') == DOC_REQUIRED_CONTEXT
-                and is_selected(r, selected)):
+                and is_selected(r, selected)
+                and recipe_mod.is_standard(r)):
             matching_doc_run = r
             break
 
-    # Find matching quick ability run: verify suite version, context 2048, seed/temp, complete coverage, and digest
+    # Find matching quick ability run: verify suite version, context 2048, seed/temp, complete coverage, digest, and standard recipe
     matching_quick_run = None
     for r in runs:
         settings = r.get('settings')
@@ -151,7 +153,8 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]]) -
                 and isinstance(settings, dict)
                 and settings.get('context') == QUICK_REQUIRED_CONTEXT
                 and settings.get('temperature') == 0
-                and is_selected(r, selected)):
+                and is_selected(r, selected)
+                and recipe_mod.is_standard(r)):
             matching_quick_run = r
             break
 

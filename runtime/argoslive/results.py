@@ -40,6 +40,9 @@ def validate(value):
         raise ValueError('Unsupported benchmark schema')
     identifier(value.get('id'))
     finite_tree(value)
+    if 'recipe' in value:
+        from . import recipe as recipe_mod
+        recipe_mod.validate(value['recipe'])
     if (value.get('kind') not in ('speed', 'ability')
             or not isinstance(value.get('suite_version'), str) or not value['suite_version']
             or not isinstance(value.get('model'), str) or not 1 <= len(value['model']) <= 256
@@ -169,6 +172,8 @@ def compare(values):
         if (value['kind'], value['suite_version'], value['settings']) != (
                 first['kind'], first['suite_version'], first['settings']):
             raise ValueError('Comparison requires the same benchmark kind, suite version and settings')
+        if value.get('recipe') != first.get('recipe'):
+            raise ValueError('Comparison requires matching recipes')
         if not value['restoration']['succeeded']:
             raise ValueError('Cannot rank a run with failed cleanup/restoration')
         if value['kind'] == 'ability' and not value['coverage']['complete']:

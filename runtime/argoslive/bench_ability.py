@@ -34,20 +34,22 @@ def summaries(items):
 
 
 def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monotonic,
-        cancel=None, progress=None):
+        cancel=None, progress=None, recipe=None):
     data = ability.load(suite)
     return execute(client, model, data, suite=suite, suite_version='ability/' + suite + '/' + data['version'],
                    context=CONTEXT, score=ability.score, category=lambda item: item['scorer']['kind'],
-                   hardware=hardware, clock=clock, cancel=cancel, progress=progress)
+                   hardware=hardware, clock=clock, cancel=cancel, progress=progress, recipe=recipe)
 
 
 def execute(client, model, data, *, suite, suite_version, context, score, category, hardware=hw.snapshot,
-            clock=time.monotonic, cancel=None, progress=None, extra=None, annotate=None):
+            clock=time.monotonic, cancel=None, progress=None, extra=None, annotate=None, recipe=None):
     """Shared deterministic run loop.
 
     An item whose scorer returns None is recorded as unscored output (for example
     a summary the owner judges) and never counts toward coverage or accuracy.
     """
+    from . import recipe as recipe_mod
+    resolved_recipe = recipe_mod.resolve(recipe, context=context, output_cap=LIMIT, thinking=False)
     started = clock()
     identity = next((m for m in client.list().get('models', [])
                      if m.get('name') == model or m.get('model') == model), None)
@@ -70,16 +72,19 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
               'created': datetime.now(timezone.utc).isoformat(), 'kind': 'ability',
               'suite': suite, 'suite_version': suite_version,
               'model': model, 'manifest_digest': identity.get('digest'),
+              'recipe': resolved_recipe,
               'metadata': {'details': metadata.get('details'), 'model_info': info,
                            'capabilities': metadata.get('capabilities')},
               'ollama_version': client.version(), 'argos_version': __version__, 'hardware': hardware(),
-              'settings': {'context': context, 'seed': 1, 'temperature': 0, 'think': think,
-                           'generation_limit': LIMIT},
+              'settings': {'context': resolved_recipe['context'], 'seed': resolved_recipe['seed'],
+                           'temperature': resolved_recipe['temperature'], 'think': think,
+                           'generation_limit': resolved_recipe['output_cap']},
               'omitted_categories': data['omitted_categories'], 'state': 'running', 'items': [],
               'restoration': {'previous_model': previous_model, 'succeeded': False}}
     if extra:
         result.update(extra)
-    options = {'num_ctx': context, 'num_predict': LIMIT, 'temperature': 0, 'seed': 1}
+    options = {'num_ctx': resolved_recipe['context'], 'num_predict': resolved_recipe['output_cap'],
+               'temperature': int(resolved_recipe['temperature']), 'seed': resolved_recipe['seed']}
     total = len(data['items'])
     scored_total = sum(1 for item in data['items'] if item.get('scored', True))
     done = 0
@@ -110,7 +115,8 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
                 content = event.get('response', message.get('content', '') if isinstance(message, dict) else '')
                 if isinstance(content, str) and content:
                     report('answer-delta', item['id'], delta=content, prompt=item_prompt, category=item_cat)
-            reply = client.generate(model, item['prompt'], options=dict(options), think=think,
+            reply = client.generate(model, item['prompt'], options=dict(options),
+                                    system=resolved_recipe.get('instructions'), think=think,
                                     keep_alive='5m', callback=on_token, cancel=cancel)
             text = reply.get('text', '')
             scored = score(item, text)

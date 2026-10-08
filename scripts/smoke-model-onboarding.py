@@ -116,8 +116,38 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
             raise SystemExit('Real quick ability suite did not complete')
         if client.ps()['models']:
             raise SystemExit('Ability benchmark left a model loaded')
+        # Bounded real-backend instruction check: verify pinned Ollama honors instructions in /api/generate and /api/chat
+        from argoslive import recipe as recipe_mod
+        concise = recipe_mod.canonical('concise')
+        gen_reply = client.generate(
+            result['tag'],
+            'What is 2+2? Respond with only the single number.',
+            options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
+            system=concise['instructions'],
+            think=concise['thinking'],
+        )
+        gen_text = gen_reply.get('text', '').strip()
+        if not gen_text:
+            raise SystemExit('Pinned Ollama failed to return text under generate instructions')
+        caller_msgs = [{'role': 'user', 'content': 'What is 3+3? Respond with only the single number.'}]
+        chat_reply = client.chat(
+            result['tag'],
+            caller_msgs,
+            options={'num_ctx': 2048, 'num_predict': 16, 'temperature': 0, 'seed': 1},
+            system=concise['instructions'],
+            think=concise['thinking'],
+        )
+        if len(caller_msgs) != 1 or caller_msgs[0]['role'] != 'user':
+            raise SystemExit('client.chat mutated caller messages')
+        chat_text = chat_reply.get('text', '').strip()
+        if not chat_text:
+            raise SystemExit('Pinned Ollama failed to return text under chat instructions')
+        client.unload(result['tag'])
+        if client.ps()['models']:
+            raise SystemExit('Instruction check left a model loaded')
         print(json.dumps({'ability_seconds': ability['elapsed_seconds'],
-                          'ability_summary': ability['summary']}), flush=True)
+                          'ability_summary': ability['summary'],
+                          'real_backend_instructions': {'generate_ok': True, 'chat_ok': True}}), flush=True)
     write_json(root / 'ability.json', ability)
     store = Store(root / 'results')
     for measured in (speed, full_speed, ability):
