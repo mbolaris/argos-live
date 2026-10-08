@@ -19,15 +19,24 @@ let busy = false;
 let managedStartup = false;
 let startupRefreshing = false;
 let lastStartupStatus = null;
+let lastStartupStatusTime = 0;
+let lastStartupReqId = 0;
 let lastLabRecovery = null;
+let labRecoveryTime = 0;
 
 function formatRecoveryStatus(recovery) {
   // Respect explicit not-running state
   const rawState = recovery?.state || recovery?.phase;
   if (rawState === 'not-running') return 'Assistant was not running.';
 
-  // Prefer current startup evidence whenever available
-  if (lastStartupStatus) {
+  const labEvidence = recovery || lastLabRecovery;
+  const hasLabEvidence = Boolean(labEvidence && (labEvidence.state || labEvidence.phase || labEvidence.message));
+
+  // If startup evidence is newer than current Lab recovery evidence (or no Lab evidence exists),
+  // prefer current startup evidence. Older startup responses must not override newer Lab recovery.
+  const startupIsNewer = Boolean(lastStartupStatus && (!hasLabEvidence || lastStartupStatusTime >= labRecoveryTime));
+
+  if (startupIsNewer) {
     const sPhase = lastStartupStatus.phase;
     if (sPhase === 'ready') return 'Assistant ready.';
     if (sPhase === 'failed') return 'Assistant recovery failed.';
@@ -40,20 +49,21 @@ function formatRecoveryStatus(recovery) {
     }
   }
 
-  // Fallback to supplied recovery object when startup status is not yet available
-  if (!recovery) return '';
-  if (typeof recovery === 'string') return recovery;
-  const phase = recovery.state || recovery.phase;
+  // Fallback to supplied Lab recovery evidence
+  const target = labEvidence || recovery;
+  if (!target) return '';
+  if (typeof target === 'string') return target;
+  const phase = target.state || target.phase;
   if (phase === 'ready') return 'Assistant ready.';
   if (phase === 'failed') return 'Assistant recovery failed.';
   if (phase === 'not-running' || phase === 'stopped') return 'Assistant was not running.';
-  if (phase === 'recovering' || recovery.active ||
+  if (phase === 'recovering' || target.active ||
       ['setup', 'verify-starter', 'select-storage', 'write-configuration',
        'verify-model', 'model-service', 'first-reply', 'gateway',
        'reconnecting', 'stopping'].includes(phase)) {
     return 'Assistant recovery in progress.';
   }
-  if (recovery.message && !recovery.phase) return recovery.message;
+  if (target.message && !target.phase) return target.message;
   return phase ? `Assistant ${phase}.` : '';
 }
 
@@ -88,9 +98,20 @@ async function startupAction(action) {
 async function refreshStartup() {
   if (startupRefreshing) return;
   startupRefreshing = true;
+  const reqTime = Date.now();
+  const reqId = ++lastStartupReqId;
   try {
     const value = await api('/api/startup');
+    if (reqId < lastStartupReqId) return;
+
+    // An older /api/startup response initiated before current Lab recovery evidence must NOT override it
+    const isOlderThanLabRecovery = Boolean(labRecoveryTime && reqTime < labRecoveryTime);
+    if (isOlderThanLabRecovery) {
+      return;
+    }
+
     lastStartupStatus = value;
+    lastStartupStatusTime = Date.now();
     const arenaBanner = document.getElementById('arena-summary-banner');
     const arenaHeadline = document.getElementById('arena-summary-headline');
     const arenaDetail = document.getElementById('arena-summary-detail');
@@ -494,6 +515,10 @@ function renderArenaState(arena, active, phase, model, elapsed) {
     } else if (phase === 'cancelled') {
       banner.hidden = false;
       headline.textContent = 'Stopped · incomplete';
+      if (arena?.recovery) {
+        lastLabRecovery = arena.recovery;
+        labRecoveryTime = Math.max(labRecoveryTime, Date.now());
+      }
       const recoveryText = formatRecoveryStatus(arena?.recovery || lastLabRecovery);
       const recoverySuffix = recoveryText ? ` ${recoveryText}` : '';
       detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
@@ -625,6 +650,10 @@ function applyArenaEvent(ev) {
         if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
       } else if (ev.outcome === 'cancelled') {
         if (headline) headline.textContent = 'Stopped · incomplete';
+        if (ev.recovery) {
+          lastLabRecovery = ev.recovery;
+          labRecoveryTime = Math.max(labRecoveryTime, Date.now());
+        }
         const recoveryText = formatRecoveryStatus(ev.recovery || lastLabRecovery);
         const recoverySuffix = recoveryText ? ` ${recoveryText}` : '';
         if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
@@ -692,6 +721,9 @@ async function refreshLab() {
   try {
     const value = await api('/api/lab');
     lastLabRecovery = value.recovery;
+    if (!value.active && (value.phase === 'cancelled' || value.phase === 'failed') && value.recovery) {
+      labRecoveryTime = Math.max(labRecoveryTime, Date.now());
+    }
     document.getElementById('lab-controls').hidden = !value.available;
     document.getElementById('lab-unavailable').hidden = value.available;
     if (!value.available) return;
@@ -740,6 +772,13 @@ async function refreshLab() {
   } finally { labRefreshing = false; }
 }
 for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
+  if (route !== 'cancel') {
+    labRecoveryTime = 0;
+    lastLabRecovery = null;
+    lastStartupStatusTime = 0;
+  } else {
+    labRecoveryTime = Math.max(labRecoveryTime, Date.now());
+  }
   document.getElementById('lab-start').disabled = true;
   document.getElementById('lab-start-documents').disabled = true;
   document.getElementById('lab-status').textContent = route === 'cancel' ? 'Requesting cancellation…' : 'Starting trial; pausing chat…';

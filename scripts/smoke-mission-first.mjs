@@ -175,17 +175,22 @@ try {
     return rows.length >= 1;
   }, null, {timeout: 30000});
 
-  // Step 5c: Cancel the new trial (new trial -> recovering)
-  await page.route('**/api/startup', route => {
+  // Step 5c: Cancel the new trial with a delayed startup response (new trial -> recovering)
+  // An older / delayed /api/startup response must NOT override newer recovery evidence from the current Lab run.
+  let deliverDelayedStartup;
+  const startupGate = new Promise(r => { deliverDelayedStartup = r; });
+  await page.route('**/api/startup', async route => {
+    await startupGate;
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         schema: 'argos-startup/1',
         managed: true,
-        phase: 'setup',
-        message: 'Setting up storage and environment',
-        active: true,
+        phase: 'ready', // Older startup response claiming ready
+        message: 'Ready for conversation',
+        active: false,
+        model_reply_verified: true,
       }),
     });
   });
@@ -198,15 +203,26 @@ try {
     return badge && badge.textContent.includes('STOPPED');
   }, null, {timeout: 30000});
 
-  // Verify new trial cancellation rendered 'recovering', NOT the previous 'Assistant ready.'
-  const newDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
-  if (newDetail.includes('Assistant ready.')) {
-    fail(`New trial cancellation incorrectly reused previous sticky 'Assistant ready.': "${newDetail}"`);
+  // Check the cancellation banner BEFORE that startup response arrives!
+  const earlyDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (earlyDetail.includes('Assistant ready.')) {
+    fail(`Older startup response leaked into cancellation banner before startup response arrived: "${earlyDetail}"`);
   }
-  if (!newDetail.endsWith('Assistant recovery in progress.')) {
-    fail(`New trial cancellation did not render 'Assistant recovery in progress.': "${newDetail}"`);
+  if (!earlyDetail.endsWith('Assistant recovery in progress.')) {
+    fail(`Before delayed startup response arrived, cancellation banner did not show in-progress recovery: "${earlyDetail}"`);
   }
-  console.log(`[PASS] New trial cancellation correctly transitioned to recovering: "${newDetail}"`);
+  console.log(`[PASS] Cancellation banner correctly shows in-progress recovery before delayed startup response arrives: "${earlyDetail}"`);
+
+  // Deliver the delayed older startup response
+  deliverDelayedStartup();
+  await page.waitForTimeout(100);
+
+  // Assert that the older /api/startup response did NOT override newer recovery evidence from the current Lab run
+  const afterOlderDetail = (await page.locator('#arena-summary-detail').textContent()).trim();
+  if (!afterOlderDetail.endsWith('Assistant recovery in progress.')) {
+    fail(`Older /api/startup response overrode newer recovery evidence from current Lab run: "${afterOlderDetail}"`);
+  }
+  console.log('[PASS] Older /api/startup response did not override newer recovery evidence from current Lab run');
 
   // Step 5d: Transition recovering -> failed on the new trial
   await page.route('**/api/startup', route => {
