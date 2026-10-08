@@ -7,6 +7,11 @@ the old instruction to start by building J1 again.
 
 ## Outcome and first mission
 
+[One complete AI build session](PLAY-SESSION.md) defines the integrated experience
+acceptance. J5 and J6a supply a start action and backend recipes; they do not yet
+complete the experiment/comparison/storage journey. Keep that distinction clear
+when describing a release or judging whether this is enjoyable to use.
+
 Make improving a private AI a satisfying activity:
 
 **Follow the recommended mission → watch → understand → change one thing → retest
