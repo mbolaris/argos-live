@@ -58,9 +58,11 @@ def mount_table(text):
         fields = line.split()
         try:
             split = fields.index('-')
-            if split < 6 or len(fields) != split + 4 or not re.fullmatch(r'\d+:\d+', fields[2]):
+            if (split < 6 or len(fields) != split + 4 or not re.fullmatch(r'\d+:\d+', fields[2])
+                    or not fields[0].isdigit() or not fields[1].isdigit()):
                 raise ValueError('Malformed mountinfo')
-            result.append({'device': fields[2], 'root': unescape(fields[3]),
+            result.append({'mount_id': int(fields[0]), 'parent_id': int(fields[1]),
+                           'device': fields[2], 'root': unescape(fields[3]),
                            'target': unescape(fields[4]), 'options': fields[5].split(','),
                            'fstype': fields[split + 1], 'source': unescape(fields[split + 2]),
                            'super_options': fields[split + 3].split(',')})
@@ -118,6 +120,14 @@ def covering(path, mounts):
         return None
     longest = max(len(Path(m['target']).parts) for m in candidates)
     deepest = [m for m in candidates if len(Path(m['target']).parts) == longest]
+    # systemd automounts retain an autofs trigger underneath the mounted volume.
+    # Resolve only a proven direct parent/child pair, never arbitrary stacks.
+    if len(deepest) == 2:
+        triggers = [m for m in deepest if m['fstype'] == 'autofs']
+        volumes = [m for m in deepest if m['fstype'] != 'autofs']
+        if (len(triggers) == len(volumes) == 1 and triggers[0].get('mount_id') is not None
+                and volumes[0].get('parent_id') == triggers[0]['mount_id']):
+            return volumes[0]
     if len(deepest) != 1:
         raise ValueError('Ambiguous stacked mount identity; no storage selected')
     return deepest[0]
