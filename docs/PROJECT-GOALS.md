@@ -1,8 +1,20 @@
 # Project goals
 
-Updated October 4, 2026. The implementation backlog is [BACKLOG.md](BACKLOG.md); this document says what we are building and why.
+Product direction updated October 8, 2026. The implementation backlog is [BACKLOG.md](BACKLOG.md); this document says what we are building and why. The dated implementation snapshot below remains historical evidence.
 
 Argos Live is a bootable Debian live distribution for playing with local agents and models. Someone should be able to boot it, chat with a local model, try other models, and get trustworthy speed and ability numbers within minutes. The owner can also bring their own agent personalities (Argos, Nyx, Proteus) to a fresh install without cloning a whole machine's configuration.
+
+Its long-term purpose is a private personal AI that evaluates its demonstrated
+performance, proposes useful improvements and executes approved, bounded
+experiments to serve its owner better. Improve the whole assistant system:
+models, task instructions, inference configuration, hardware use, tools and
+reviewed skills. This is not a claim of weight training or achieved AGI.
+
+Start everyone on a shared foundation curriculum with one obvious next mission;
+do not burden new owners with model menus, professions or curriculum choices.
+The "K–12" metaphor describes foundational progression, not school-grade or
+intelligence equivalence. Specialization comes later, when evidence and owner
+interests can guide it. See [Shared foundations](FOUNDATION-CURRICULUM.md).
 
 ## Two product outcomes
 
@@ -57,10 +69,12 @@ skills and software upgrades, with verified useful milestones and its own voice.
 
 1. **Delight first, safely.** Remove questions, not protections. Loopback-only services, gateway tokens and the conversation-only default permission stay; widening permissions is an explicit, visible choice.
 2. **Measure, don't guess.** Speeds come from backend-reported timings, never character counts. Benchmarks are fixed, versioned and deterministic (temperature 0, fixed seed, thinking disabled unless the benchmark says otherwise). Unknown means "unavailable", not an estimate.
-3. **Separate image, personality and model lifecycles.** The image holds software plus a small licensed starter model. Personalities and conversations live in encrypted persistence when present. Large models go on the largest suitable writable disk, with encryption status visible. Changing a model or personality never requires rewriting the USB.
+3. **Separate image, personality and model lifecycles.** The image holds software plus a small licensed starter model. Personalities and conversations live in encrypted persistence when present. Large models use deliberately confirmed suitable storage, with encryption and reboot-retention evidence visible; a mounted drive is not automatically the model store. Changing a model or personality never requires rewriting the USB.
 4. **Current, pinned, tested.** Track stable Debian, OpenClaw, Ollama and Node; pin exact versions and hashes per image; promote only after CI and acceptance pass. Exception: the NVIDIA driver is not pinned to a specific version; it follows Debian's packaged driver for the build snapshot, recorded in the package manifest, with CPU fallback when it does not support the GPU. See [RELEASE-PROCESS.md](RELEASE-PROCESS.md).
 5. **Buildable by anyone.** The ISO builds in CI from this repository; contributors and agents should not need the owner's machines for anything except physical hardware acceptance.
 6. **Stdlib-first runtime.** Runtime Python uses the standard library only, so the image needs no pip installs and tests run on any Linux or Windows checkout.
+7. **Shared foundations, then specialization.** Lead with a common mission ladder and one recommended action. Progress comes from scoped demonstrated skills, not repetition, spending or model size. Begin with the existing short-document mission; actual tool skills need sandbox execution evidence.
+8. **AI proposes; owner controls.** A validated, reversible experiment plan states its intervention, tests and budgets. Execute only approved scope, leave independent scoring immutable, and require held-out/useful-task evidence for broader gains. Lab recipe improvement does not automatically promote a personal agent or expand permissions.
 
 ## Milestones
 
