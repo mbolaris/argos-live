@@ -39,6 +39,17 @@ class RecipeSchemaTests(unittest.TestCase):
         validated = recipe.validate(r)
         self.assertEqual(validated, r)
 
+    def test_list_presets(self):
+        presets = recipe.list_presets()
+        ids = [p['id'] for p in presets]
+        self.assertIn('standard', ids)
+        self.assertIn('concise', ids)
+        for p in presets:
+            self.assertIn('title', p)
+            self.assertIn('description', p)
+            self.assertIn('instructions', p)
+            self.assertIn('instruction_hash', p)
+
     def test_canonical_concise_preset_and_aliases(self):
         r = recipe.canonical('concise')
         self.assertEqual(r['schema'], 'argos-recipe/1')
@@ -446,6 +457,45 @@ class LabRecipeControllerTests(unittest.TestCase):
         # Profile directory must still not exist or be altered
         self.assertFalse(config_dir.exists())
 
+    def test_select_and_restore_recipe(self):
+        # Default is None (standard)
+        snap = self.lab.snapshot()
+        self.assertIsNone(snap['selected_recipe'])
+
+        # Select concise
+        snap = self.lab.select_recipe('concise')
+        self.assertIsNotNone(snap['selected_recipe'])
+        self.assertEqual(snap['selected_recipe']['preset'], 'concise')
+
+        # Run documents with selected recipe automatically picked up
+        snap = self.lab.start_documents()
+        self.assertIsNotNone(snap['recipe'])
+        self.assertEqual(snap['recipe']['preset'], 'concise')
+        if self.lab.worker:
+            self.lab.worker.join(timeout=8)
+
+        # Restore recipe to standard
+        snap = self.lab.restore_recipe()
+        self.assertIsNone(snap['selected_recipe'])
+
+        # Subsequent run is standard
+        snap = self.lab.start_documents()
+        self.assertIsNone(snap['recipe'])
+        if self.lab.worker:
+            self.lab.worker.join(timeout=8)
+
+    def test_select_recipe_during_active_workload_rejected(self):
+        self.lab.start_documents()
+        try:
+            with self.assertRaisesRegex(ValueError, 'Cannot change recipe while a trial is active'):
+                self.lab.select_recipe('concise')
+            with self.assertRaisesRegex(ValueError, 'Cannot restore recipe while a trial is active'):
+                self.lab.restore_recipe()
+        finally:
+            if self.lab.worker:
+                self.lab.worker.join(timeout=8)
+
+
 
 class ServerRecipeEndpointTests(unittest.TestCase):
     def setUp(self):
@@ -511,6 +561,56 @@ class ServerRecipeEndpointTests(unittest.TestCase):
         status, data = self.request('POST', '/api/lab/cancel', body=payload,
                                     headers={'Content-Length': str(len(payload))})
         self.assertEqual(status, 400)
+
+    def test_get_recipes_endpoint(self):
+        status, data = self.request('GET', '/api/lab/recipes')
+        self.assertEqual(status, 200)
+        parsed = json.loads(data.decode('utf-8'))
+        self.assertIn('presets', parsed)
+        preset_ids = [p['id'] for p in parsed['presets']]
+        self.assertEqual(preset_ids, ['standard', 'concise'])
+        self.assertIsNone(parsed['selected'])
+
+    def test_select_and_restore_recipe_endpoints(self):
+        # Select concise
+        payload = json.dumps({'preset': 'concise'}).encode('utf-8')
+        status, data = self.request('POST', '/api/lab/recipe/select', body=payload,
+                                    headers={'Content-Type': 'application/json', 'Content-Length': str(len(payload))})
+        self.assertEqual(status, 200)
+        parsed = json.loads(data.decode('utf-8'))
+        self.assertIsNotNone(parsed['selected_recipe'])
+        self.assertEqual(parsed['selected_recipe']['preset'], 'concise')
+
+        # Check GET /api/lab/recipes reflects the selected recipe
+        status, data = self.request('GET', '/api/lab/recipes')
+        self.assertEqual(status, 200)
+        parsed = json.loads(data.decode('utf-8'))
+        self.assertIsNotNone(parsed['selected'])
+        self.assertEqual(parsed['selected']['preset'], 'concise')
+
+        # Reject invalid preset
+        payload_bad = json.dumps({'preset': 'invalid-preset'}).encode('utf-8')
+        status, _ = self.request('POST', '/api/lab/recipe/select', body=payload_bad,
+                                 headers={'Content-Type': 'application/json', 'Content-Length': str(len(payload_bad))})
+        self.assertEqual(status, 409)
+
+        # Reject unexpected fields
+        payload_extra = json.dumps({'preset': 'concise', 'extra': 1}).encode('utf-8')
+        status, _ = self.request('POST', '/api/lab/recipe/select', body=payload_extra,
+                                  headers={'Content-Type': 'application/json', 'Content-Length': str(len(payload_extra))})
+        self.assertEqual(status, 400)
+
+        # Restore recipe
+        status, data = self.request('POST', '/api/lab/recipe/restore')
+        self.assertEqual(status, 200)
+        parsed = json.loads(data.decode('utf-8'))
+        self.assertIsNone(parsed['selected_recipe'])
+
+        # Reject restore with body
+        status, _ = self.request('POST', '/api/lab/recipe/restore', body=b'non-empty',
+                                 headers={'Content-Length': '9'})
+        self.assertEqual(status, 400)
+
 
 
 class RealBackendInstructionTests(unittest.TestCase):

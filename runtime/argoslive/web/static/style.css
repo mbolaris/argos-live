@@ -813,3 +813,76 @@ caption { text-align: left; font-weight: 700; padding: 12px 0; }
     width: 100%;
   }
 }
+
+/* Recipe Experiment Controls & Indicators (J6b) */
+.recipe-modal {
+  border: 1px solid var(--blue);
+  background: #101b27;
+  color: var(--text);
+  border-radius: 16px;
+  padding: 0;
+  max-width: 580px;
+  width: 92vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+}
+.recipe-modal::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+}
+.recipe-instruction-quote {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: #0d1722;
+  border-left: 3px solid var(--blue);
+  color: #93c5fd;
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  border-radius: 0 6px 6px 0;
+}
+.recipe-protection-notice {
+  background: #1a1e28;
+  border-color: #3b3a50;
+}
+.recipe-protection-notice strong {
+  color: #a5b4fc;
+}
+.recipe-status-note {
+  font-size: 12px;
+  color: var(--amber);
+}
+.lab-recipe-bar, .receipt-recipe-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #132233;
+  border: 1px solid #203b55;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: 10px 0;
+}
+.recipe-protect-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: #1c2b3d;
+  color: var(--blue);
+  border: 1px solid #2e4966;
+}
+.btn-text-action {
+  background: transparent;
+  border: 1px solid #334d66;
+  color: var(--blue);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-text-action:hover {
+  background: #1f364d;
+  border-color: var(--blue);
+}

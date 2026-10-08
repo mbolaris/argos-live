@@ -438,6 +438,15 @@ function updateArenaHUD(arena, phase, model, elapsed, active) {
   if (tp) tp.textContent = `${passed} passed`;
   const tf = document.getElementById('arena-tally-format-errors');
   if (tf) tf.textContent = `${formatErrors} format errors`;
+  const recEl = document.getElementById('arena-recipe');
+  if (recEl) {
+    const curRec = arena?.recipe;
+    if (curRec && curRec.preset !== 'standard') {
+      recEl.textContent = curRec.preset === 'concise' ? 'Strict format (concise)' : curRec.preset;
+    } else {
+      recEl.textContent = 'Standard';
+    }
+  }
 }
 
 function updateArenaReceipts(receipts) {
@@ -742,6 +751,18 @@ async function refreshLab() {
     if (value.phase === 'completed' && value.plan === 'documents') message = 'Document trial saved. Compare the results below.' + (value.model ? ' · ' + value.model : '');
     if (value.resume_requested) message += ' · Assistant restart requested; see assistant status above.';
     document.getElementById('lab-status').textContent = message;
+    const activeRec = value.selected_recipe;
+    const labActiveRecipeEl = document.getElementById('lab-active-recipe');
+    const labRecipeRestoreBtn = document.getElementById('lab-recipe-restore');
+    if (labActiveRecipeEl) {
+      if (activeRec && activeRec.preset !== 'standard') {
+        labActiveRecipeEl.textContent = activeRec.preset === 'concise' ? 'Strict format instructions (concise)' : activeRec.preset;
+        if (labRecipeRestoreBtn) labRecipeRestoreBtn.hidden = false;
+      } else {
+        labActiveRecipeEl.textContent = 'Standard calibration';
+        if (labRecipeRestoreBtn) labRecipeRestoreBtn.hidden = true;
+      }
+    }
     lastLabDebrief = value.debrief;
     document.getElementById('cc-live-trial').textContent = value.active ? message : '';
     renderTask(value);
@@ -1670,17 +1691,41 @@ function renderMissionReceipt(report) {
     }
   }
 
+  // Render recipe indicator if present
+  const recipeBar = document.getElementById('receipt-recipe-bar');
+  if (recipeBar) {
+    if (ability?.recipe && ability.recipe.preset !== 'standard') {
+      recipeBar.hidden = false;
+      const recTitle = ability.recipe.preset === 'concise' ? 'Strict format instructions (concise)' : ability.recipe.preset;
+      document.getElementById('receipt-tested-recipe').textContent = recTitle;
+    } else {
+      recipeBar.hidden = true;
+    }
+  }
+
   // Action buttons
   const actBox = document.getElementById('receipt-actions');
   actBox.hidden = !ability;
   const pracBtn = document.getElementById('receipt-practice');
   const upgBtn = document.getElementById('receipt-upgrade');
+  const changeBtn = document.getElementById('receipt-change');
   pracBtn.textContent = 'Retest unchanged';
   pracBtn.onclick = () => {
     if (ability.suite === 'documents-short') commandActions.documents();
     else commandActions.baseline();
   };
   upgBtn.onclick = () => focusSection('models-title');
+  if (changeBtn) {
+    changeBtn.disabled = !ability;
+    changeBtn.onclick = () => {
+      const modal = document.getElementById('recipe-modal');
+      if (modal) {
+        const note = document.getElementById('recipe-status-note');
+        if (note) note.textContent = '';
+        modal.showModal();
+      }
+    };
+  }
 
   const debrief = document.getElementById('cc-debrief');
   const ids = [speed?.run, ability?.run];
@@ -1713,3 +1758,55 @@ for (const sample of missionSamples) {
   });
   article.append(title, hook, button); document.getElementById('cc-challenges').append(article);
 }
+
+// Recipe Experiment (J6b) Modal and Restore Controls
+document.getElementById('recipe-close')?.addEventListener('click', () => {
+  document.getElementById('recipe-modal')?.close();
+});
+document.getElementById('recipe-run')?.addEventListener('click', async () => {
+  document.getElementById('recipe-modal')?.close();
+  document.getElementById('lab-start').disabled = true;
+  document.getElementById('lab-start-documents').disabled = true;
+  document.getElementById('lab-status').textContent = 'Starting document trial with concise recipe…';
+  try {
+    await fetch('/api/lab/start-documents', {
+      method: 'POST',
+      headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+      body: JSON.stringify({recipe: 'concise'}),
+      cache: 'no-store'
+    });
+    await refreshLab();
+  } catch (_) {
+    document.getElementById('lab-status').textContent = 'Could not start recipe trial.';
+  }
+});
+document.getElementById('recipe-select-only')?.addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/lab/recipe/select', {
+      method: 'POST',
+      headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+      body: JSON.stringify({preset: 'concise'}),
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      document.getElementById('recipe-modal')?.close();
+      await refreshLab();
+    }
+  } catch (_) {
+    const note = document.getElementById('recipe-status-note');
+    if (note) note.textContent = 'Could not select recipe.';
+  }
+});
+async function restoreLabRecipe() {
+  try {
+    await fetch('/api/lab/recipe/restore', {
+      method: 'POST',
+      headers: {'X-Argos-Token': token || ''},
+      cache: 'no-store'
+    });
+    await refreshLab();
+  } catch (_) {}
+}
+document.getElementById('lab-recipe-restore')?.addEventListener('click', restoreLabRecipe);
+document.getElementById('receipt-restore-recipe')?.addEventListener('click', restoreLabRecipe);
+
