@@ -156,18 +156,22 @@ class Client:
         return self._stream('/api/pull', {'model': model, 'stream': True},
                             callback, cancel, pull=True)
 
-    def generate(self, model, prompt, *, options=None, think=None, keep_alive=None,
+    def generate(self, model, prompt, *, options=None, system=None, think=None, keep_alive=None,
                  callback=None, cancel=None):
         payload = {'model': model, 'prompt': prompt, 'stream': True, 'options': options or {}}
+        if system is not None:
+            payload['system'] = system
         if think is not None:
             payload['think'] = think
         if keep_alive is not None:
             payload['keep_alive'] = keep_alive
         return self._stream('/api/generate', payload, callback, cancel)
 
-    def chat(self, model, messages, *, options=None, think=None, keep_alive=None,
+    def chat(self, model, messages, *, options=None, system=None, think=None, keep_alive=None,
              callback=None, cancel=None):
         payload = {'model': model, 'messages': messages, 'stream': True, 'options': options or {}}
+        if system is not None:
+            payload['system'] = system
         if think is not None:
             payload['think'] = think
         if keep_alive is not None:

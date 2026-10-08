@@ -242,14 +242,17 @@ def ask(client, model, document, question, *, cancel=None):
                 answer=value['answer'][:600], quote=value['quote'][:MAX_QUOTE], quote_supported=supported_quote)
 
 
-def run(client, model, *, hardware=None, clock=None, cancel=None, progress=None, **options):
+def run(client, model, *, hardware=None, clock=None, cancel=None, progress=None, recipe=None, **options):
     data = load()
     args = {key: value for key, value in (('hardware', hardware), ('clock', clock)) if value is not None}
+    from . import recipe as recipe_mod
+    resolved_recipe = recipe_mod.resolve(recipe, context=CONTEXT, output_cap=bench_ability.LIMIT, thinking=False)
     result = bench_ability.execute(
         client, model, data, suite='documents-short', suite_version='documents/short/' + data['version'],
         context=CONTEXT, score=score, category=lambda item: item['category'], cancel=cancel, progress=progress,
         annotate=lambda item: {'passage_id': item['passage_id'], 'question': item['question']},
-        extra={'document_suite': {'criteria': data['criteria'], 'scope': SCOPE, 'passages': passages(data)}}, **args)
+        extra={'document_suite': {'criteria': data['criteria'], 'scope': SCOPE, 'passages': passages(data)}},
+        recipe=resolved_recipe, **args)
     prompt_tokens = [i['measurement']['raw'].get('prompt_eval_count') for i in result['items']
                      if isinstance(i.get('measurement'), dict) and isinstance(i['measurement'].get('raw'), dict)]
     prompt_tokens = [t for t in prompt_tokens if isinstance(t, (int, float)) and t > 0]

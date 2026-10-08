@@ -313,12 +313,41 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(409, {'error': 'Model control unavailable'})
             return
         if self.command == 'POST' and self.server.lab and path in ('/api/lab/start', '/api/lab/start-documents', '/api/lab/cancel'):
-            if (self.headers.get('Transfer-Encoding') is not None or
-                    self.headers.get_all('Content-Length') not in (None, ['0'])):
-                self.reply(400, {'error': 'Model lab controls require an empty body'})
+            lengths = self.headers.get_all('Content-Length')
+            if path == '/api/lab/cancel':
+                if (self.headers.get('Transfer-Encoding') is not None or
+                        lengths not in (None, ['0'])):
+                    self.reply(400, {'error': 'Cancel requires an empty body'})
+                    return
+                try:
+                    self.reply(200, self.server.lab.cancel())
+                except (ValueError, OSError):
+                    self.reply(409, {'error': 'Model lab cancel unavailable'})
                 return
+
+            recipe = None
+            if self.headers.get('Transfer-Encoding') is not None:
+                self.reply(400, {'error': 'Chunked encoding is not supported'})
+                return
+            if lengths not in (None, ['0']):
+                if (len(lengths) != 1 or len(lengths[0]) > 4 or not lengths[0].isdigit()
+                        or not 1 <= int(lengths[0]) <= 2048
+                        or self.headers.get('Content-Type') != 'application/json'):
+                    self.reply(400, {'error': 'A bounded JSON request is required'})
+                    return
+                try:
+                    self.connection.settimeout(3)
+                    body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    if not isinstance(body, dict) or set(body) - {'recipe'}:
+                        raise ValueError('Unexpected fields')
+                    recipe = body.get('recipe')
+                except (ValueError, OSError, UnicodeError, TypeError):
+                    self.reply(400, {'error': 'Invalid JSON request'})
+                    return
+
             try:
-                self.reply(200, getattr(self.server.lab, path.rsplit('/', 1)[1].replace('-', '_'))())
+                method = getattr(self.server.lab, path.rsplit('/', 1)[1].replace('-', '_'))
+                self.reply(200, method(recipe=recipe) if recipe is not None else method())
             except (ValueError, OSError):
                 self.reply(409, {'error': 'Model lab action unavailable'})
             return

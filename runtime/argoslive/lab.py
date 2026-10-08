@@ -29,6 +29,7 @@ class Controller:
         self.store = store or Store(startup.home / '.local/share/argos-live/results')
         self.clock, self.speed, self.ability, self.documents = clock, speed, ability, documents
         self.plan = 'baseline'
+        self.recipe = None
         self.task_input = None
         self.task_result = None
         self.debrief = None
@@ -139,6 +140,7 @@ class Controller:
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
                     'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
+                    'recipe': copy.deepcopy(self.recipe),
                     'runs': list(self.runs), 'debrief': copy.deepcopy(self.debrief), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
                     'recovery': recovery,
                     'run_id': self.run_id,
@@ -147,10 +149,12 @@ class Controller:
                     'elapsed_seconds': max(0, (self.finished if self.finished is not None else self.clock()) - self.started)
                     if self.started is not None else None}
 
-    def start(self, plan='baseline'):
+    def start(self, plan='baseline', recipe=None):
         # Share startup's reservation: chat cannot restart into a benchmark.
         if plan not in PLANS:
             raise ValueError('Unknown model lab plan')
+        from . import recipe as recipe_mod
+        resolved_recipe = recipe_mod.resolve(recipe) if recipe is not None else None
         with self._order_locks():
             if self.closed:
                 raise ValueError('The model lab is closed')
@@ -162,6 +166,7 @@ class Controller:
             self.startup.lab_active = True
             self.startup.stop()
             self.plan = plan
+            self.recipe = resolved_recipe
             self.cancel_event.clear()
             self.phase, self.started = 'pausing', self.clock()
             self.finished = None
@@ -175,6 +180,7 @@ class Controller:
             self.arena = {
                 'run_id': self.run_id,
                 'plan': plan,
+                'recipe': copy.deepcopy(resolved_recipe),
                 'model': None,
                 'phase': 'pausing',
                 'current_item': None,
@@ -186,13 +192,13 @@ class Controller:
                 'elapsed_seconds': 0,
                 'recovery': None,
             }
-            self.add_event('phase', phase='pausing', plan=plan, model=None, elapsed_seconds=0)
+            self.add_event('phase', phase='pausing', plan=plan, model=None, recipe=copy.deepcopy(resolved_recipe), elapsed_seconds=0)
             self.worker = threading.Thread(target=self.run, daemon=True, name='argos-model-lab')
             self.worker.start()
             return self.snapshot()
 
-    def start_documents(self):
-        return self.start('documents')
+    def start_documents(self, recipe=None):
+        return self.start('documents', recipe=recipe)
 
     def start_task(self, document, question):
         if (not isinstance(document, str) or not document.strip() or len(document) > doc_trial.TASK_DOCUMENT_LIMIT
@@ -367,6 +373,7 @@ class Controller:
                         elif outcome == 'cancelled' and not self.arena['current_item']['answer'].endswith('[Stopped · incomplete]'):
                             self.arena['current_item']['answer'] += '\n[Stopped · incomplete]'
                     self.add_event('final', outcome=outcome, plan=self.plan, model=self.model,
+                                   recipe=copy.deepcopy(self.recipe),
                                    completed=self.arena.get('completed', 0),
                                    total=self.arena.get('total', 0),
                                    correct=self.arena.get('correct', 0),
@@ -390,8 +397,11 @@ class Controller:
                 if self.cancel_event.is_set():
                     raise Cancelled('Cancelled between tests')
                 self.report(phase)
+                call_options = dict(options)
+                if self.recipe is not None and name in ('ability', 'documents'):
+                    call_options['recipe'] = self.recipe
                 result = runner(client, model, cancel=self.cancel_event,
-                                progress=lambda value, phase=phase: self.report(phase, value), **options)
+                                progress=lambda value, phase=phase: self.report(phase, value), **call_options)
                 if name != 'task':
                     self.store.save(result)
                     measured.append(result)
