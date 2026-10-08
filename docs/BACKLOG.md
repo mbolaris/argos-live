@@ -18,6 +18,16 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### U6 — One complete play session before another image
+
+Agreed October 8, 2026. [PLAY-SESSION.md](PLAY-SESSION.md) is the experience release
+target: Challenge → Watch → Debrief → Try one change → Retest → Keep/Restore →
+Validate → Use. J6b/J7/J8 complete the inexpensive Lab loop; J3 adds the guided
+storage/model route. SI1/SI2 remain later validated-agent-proposal work. Keep one
+recommended next action, one skill map, and task-scoped evidence. No prototype
+scores or simulated qualification may enter the released app. A benchmark pass
+does not establish that a new user understands how to play; record that review.
+
 ### S6 — Model storage on systemd automounts — `in progress` ([PR #65](https://github.com/mbolaris/argos-live/pull/65))
 
 - Resolve a mounted filesystem above its direct autofs parent using mountinfo
