@@ -18,6 +18,27 @@ const nextSteps = {'local-chat': 'Finish local model setup and test a reply.',
 let busy = false;
 let managedStartup = false;
 let startupRefreshing = false;
+let lastStartupStatus = null;
+let lastLabRecovery = null;
+
+function formatRecoveryStatus(recovery) {
+  if (!recovery) {
+    if (lastStartupStatus) {
+      if (lastStartupStatus.phase === 'ready') return 'Assistant ready.';
+      if (lastStartupStatus.phase === 'failed') return 'Assistant recovery failed.';
+      if (lastStartupStatus.active) return 'Assistant recovery in progress.';
+    }
+    return '';
+  }
+  if (typeof recovery === 'string') return recovery;
+  if (recovery.message) return recovery.message;
+  if (recovery.state === 'ready') return 'Assistant ready.';
+  if (recovery.state === 'failed') return 'Assistant recovery failed.';
+  if (recovery.state === 'recovering') return 'Assistant recovery in progress.';
+  if (recovery.state === 'not-running') return 'Assistant was not running.';
+  return recovery.state ? `Assistant ${recovery.state}.` : '';
+}
+
 let liveRefreshing = false;
 let downloadAvailable = false;
 let downloadActive = false;
@@ -51,6 +72,17 @@ async function refreshStartup() {
   startupRefreshing = true;
   try {
     const value = await api('/api/startup');
+    lastStartupStatus = value;
+    const arenaBanner = document.getElementById('arena-summary-banner');
+    const arenaHeadline = document.getElementById('arena-summary-headline');
+    const arenaDetail = document.getElementById('arena-summary-detail');
+    if (arenaBanner && !arenaBanner.hidden && arenaHeadline?.textContent === 'Stopped · incomplete' && arenaDetail) {
+      const rec = formatRecoveryStatus(lastStartupStatus);
+      if (rec) {
+        const prefix = arenaDetail.textContent.replace(/(?:Assistant [^.]+\.)$/, '').trim();
+        arenaDetail.textContent = `${prefix} ${rec}`;
+      }
+    }
     managedStartup = value.managed === true;
     document.getElementById('startup-controls').hidden = !managedStartup;
     if (!managedStartup) return;
@@ -444,7 +476,9 @@ function renderArenaState(arena, active, phase, model, elapsed) {
     } else if (phase === 'cancelled') {
       banner.hidden = false;
       headline.textContent = 'Stopped · incomplete';
-      detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify. Assistant resumption ready.`;
+      const recoveryText = formatRecoveryStatus(arena?.recovery || lastLabRecovery);
+      const recoverySuffix = recoveryText ? ` ${recoveryText}` : '';
+      detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
     } else if (phase === 'failed') {
       banner.hidden = false;
       headline.textContent = 'Trial failed · incomplete';
@@ -573,7 +607,9 @@ function applyArenaEvent(ev) {
         if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
       } else if (ev.outcome === 'cancelled') {
         if (headline) headline.textContent = 'Stopped · incomplete';
-        if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify. Assistant resumption ready.`;
+        const recoveryText = formatRecoveryStatus(ev.recovery || lastLabRecovery);
+        const recoverySuffix = recoveryText ? ` ${recoveryText}` : '';
+        if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
       } else {
         if (headline) headline.textContent = 'Trial failed · incomplete';
         if (detail) detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
@@ -582,6 +618,8 @@ function applyArenaEvent(ev) {
     document.querySelector('#cc-schematic [data-system="power-core"]')?.classList.remove('working');
     stopArenaPolling();
     refreshBenchmarks();
+    refreshStartup();
+    refreshCommand();
   }
 }
 
@@ -635,6 +673,7 @@ async function refreshLab() {
   labRefreshing = true;
   try {
     const value = await api('/api/lab');
+    lastLabRecovery = value.recovery;
     document.getElementById('lab-controls').hidden = !value.available;
     document.getElementById('lab-unavailable').hidden = value.available;
     if (!value.available) return;
@@ -642,10 +681,6 @@ async function refreshLab() {
     document.getElementById('lab-start-documents').disabled = value.active || downloadActive || selectionActive;
     if (['baseline', 'documents'].includes(commandAction?.action)) {
       document.getElementById('cc-next-go').disabled = value.active || downloadActive || selectionActive;
-    }
-    const quickDoc = document.getElementById('cc-start-documents-quick');
-    if (quickDoc) {
-      quickDoc.disabled = value.active || downloadActive || selectionActive || document.getElementById('lab-start-documents').disabled;
     }
     document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
     let message = labPhases[value.phase] || 'Checking test status…';
@@ -1124,7 +1159,8 @@ async function refreshCommand() {
     const heroResult = document.getElementById('cc-hero-result');
     if (heroResult) {
       const ab = value.report?.ability;
-      heroResult.textContent = ab ? `${ab.correct}/${ab.total} (${ab.qualified ? 'Qualified' : 'Missed'})` : 'Not yet tested';
+      const qualState = ab ? (ab.qualified === true ? 'Qualified' : (ab.qualified === false ? 'Criteria not met' : 'Not assessed')) : '';
+      heroResult.textContent = ab ? `${ab.correct}/${ab.total} (${qualState})` : 'Not yet tested';
     }
     renderMissionReceipt(value.report);
     renderSkillMap(value.skill_map);
@@ -1134,7 +1170,10 @@ async function refreshCommand() {
       document.getElementById('cc-build-summary').textContent = `Your build path · ${path.completed} of ${path.steps.length} checks recorded`;
       document.getElementById('cc-build-scope').textContent = path.scope;
       const names = ['Prototype · ready to test', 'Mapped prototype', 'Document reader · qualified', 'Document mission · field tested'];
-      const stage = path.steps[2]?.state === 'complete' && path.steps[1]?.state === 'complete' ? 3 : path.steps[1]?.state === 'complete' ? 2 : path.steps[0]?.state === 'complete' ? 1 : 0;
+      const stepState = Object.fromEntries(path.steps.map(s => [s.id, s.state]));
+      const stage = stepState.task === 'complete' && stepState.documents === 'complete' ? 3 :
+                    stepState.documents === 'complete' ? 2 :
+                    stepState.baseline === 'complete' ? 1 : 0;
       document.getElementById('cc-stage').textContent = names[stage];
       const steps = document.getElementById('cc-build-steps'); steps.replaceChildren();
       for (const step of path.steps) {
@@ -1159,11 +1198,6 @@ async function refreshCommand() {
       task: 'Test a document you care about', restore: 'Review the previous model'}[next.action] || 'Start this mission';
     const trialControl = {baseline: 'lab-start', documents: 'lab-start-documents'}[next.action];
     go.disabled = !!trialControl && document.getElementById(trialControl).disabled;
-    const quickDoc = document.getElementById('cc-start-documents-quick');
-    if (quickDoc) {
-      quickDoc.hidden = next.action === 'documents';
-      quickDoc.disabled = !!document.getElementById('lab-start-documents')?.disabled;
-    }
     const list = document.getElementById('cc-systems'); list.replaceChildren();
     const readings = document.getElementById('cc-readings'); readings.replaceChildren();
     for (const system of value.systems) {
@@ -1206,10 +1240,6 @@ async function post(path, body) {
 document.getElementById('cc-next-go').addEventListener('click', () => {
   if (['baseline', 'documents'].includes(commandAction?.action)) document.getElementById('cc-next-go').disabled = true;
   commandActions[commandAction?.action]?.();
-});
-document.getElementById('cc-start-documents-quick')?.addEventListener('click', () => {
-  document.getElementById('cc-start-documents-quick').disabled = true;
-  commandActions.documents?.();
 });
 document.getElementById('cc-moment-dismiss').addEventListener('click', async () => {
   try { await post('/api/command-center/seen'); } catch (_) {}

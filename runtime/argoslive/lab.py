@@ -92,6 +92,31 @@ class Controller:
                 'arena': copy.deepcopy(self.arena),
             }
 
+    def recovery_status(self):
+        """Inspect actual assistant recovery state from startup."""
+        if not getattr(self, 'resume', False) and not getattr(self, 'resume_requested', False):
+            return {'state': 'not-running', 'message': 'Assistant was not running.'}
+        if not hasattr(self, 'startup') or self.startup is None:
+            return {'state': 'unknown', 'message': 'Assistant state unavailable.'}
+        try:
+            status = self.startup.snapshot()
+        except Exception:
+            return {'state': 'unknown', 'message': 'Assistant state unavailable.'}
+        phase = status.get('phase')
+        if phase == 'ready':
+            return {'state': 'ready', 'message': 'Assistant ready.'}
+        if phase == 'failed':
+            return {'state': 'failed', 'message': 'Assistant recovery failed.'}
+        if status.get('active') or phase in ('setup', 'verify-starter', 'select-storage',
+                                            'write-configuration', 'verify-model', 'model-service',
+                                            'first-reply', 'gateway', 'reconnecting', 'stopping'):
+            return {'state': 'recovering', 'message': 'Assistant recovery in progress.'}
+        if phase == 'stopped':
+            return {'state': 'stopped', 'message': 'Assistant stopped.'}
+        if status.get('active'):
+            return {'state': 'recovering', 'message': 'Assistant recovery in progress.'}
+        return {'state': phase or 'unknown', 'message': f'Assistant {phase}.' if phase else 'Assistant state unknown.'}
+
     def snapshot(self):
         with self.lock:
             active = self.worker is not None and self.worker.is_alive()
@@ -99,6 +124,7 @@ class Controller:
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
                     'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
                     'runs': list(self.runs), 'debrief': copy.deepcopy(self.debrief), 'task': copy.deepcopy(self.task_result), 'resume_requested': self.resume_requested,
+                    'recovery': self.recovery_status(),
                     'run_id': self.run_id,
                     'seq': self.next_seq - 1,
                     'arena': copy.deepcopy(self.arena),
@@ -141,6 +167,7 @@ class Controller:
                 'correct': 0,
                 'format_errors': 0,
                 'elapsed_seconds': 0,
+                'recovery': None,
             }
             self.add_event('phase', phase='pausing', plan=plan, model=None, elapsed_seconds=0)
             self.worker = threading.Thread(target=self.run, daemon=True, name='argos-model-lab')
@@ -314,6 +341,7 @@ class Controller:
                 if self.arena:
                     self.arena['phase'] = outcome
                     self.arena['elapsed_seconds'] = elapsed
+                    self.arena['recovery'] = self.recovery_status()
                     if outcome in ('cancelled', 'failed') and self.arena.get('current_item'):
                         if not self.arena['current_item'].get('answer'):
                             self.arena['current_item']['answer'] = '(Stopped before response generated)'
@@ -324,7 +352,8 @@ class Controller:
                                    total=self.arena.get('total', 0),
                                    correct=self.arena.get('correct', 0),
                                    format_errors=self.arena.get('format_errors', 0),
-                                   elapsed_seconds=elapsed, runs=list(self.runs))
+                                   elapsed_seconds=elapsed, runs=list(self.runs),
+                                   recovery=self.arena['recovery'])
 
     def execute(self):
         target, model = self.startup.resolve_source(self.startup.home)

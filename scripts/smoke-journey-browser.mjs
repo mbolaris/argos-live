@@ -35,9 +35,9 @@ try {
   const moment = async () => (await page.locator('#cc-moment').isVisible()) ?
     [await page.locator('#cc-moment-tier').textContent(), await page.locator('#cc-moment-title').textContent()] : null;
 
-  // 1. Nothing proven: try the existing model before choosing future storage.
-  await waitNext('Measure this model’s starting point');
-  if (await page.locator('#cc-next-go').textContent() !== 'Pause chat and run the first trial') fail('First mission does not name its action');
+  // 1. Nothing proven: first-time user is guided to "Read this brief".
+  await waitNext('Read this brief');
+  if (await page.locator('#cc-next-go').textContent() !== 'Start: Read this brief') fail('First mission does not name its action');
   if (!(await page.locator('#cc-build-summary').textContent()).includes('0 of 4')) fail('Build path claims untested progress');
   if (await page.locator('#cc-build-steps [aria-current="step"]').count() !== 1) fail('Build path does not identify the next step');
   if (!(await page.locator('#cc-title').textContent()).includes('Mission control')) fail('Mission Control did not lead the page');
@@ -61,15 +61,14 @@ try {
   for (let n = 0; n < 2; n++) {
     await page.waitForFunction(() => !document.getElementById('lab-start').disabled, null, {timeout: 60000});
     const started = page.waitForResponse(response => response.url().endsWith('/api/lab/start') && response.request().method() === 'POST');
-    if (n === 0) await page.locator('#cc-next-go').click();
-    else await page.locator('#lab-start').click();
+    await page.locator('#lab-start').click();
     if (!(await started).ok()) fail('Baseline start was refused');
     // The previous run's completed text is not evidence that this run finished.
     await page.waitForFunction(count => document.querySelectorAll('#benchmark-runs .card').length >= count &&
       !document.getElementById('lab-start').disabled && document.getElementById('lab-status').textContent.startsWith('Baseline saved'),
       2 * (n + 1), {timeout: 120000});
   }
-  await waitNext('Test short-document reading');
+  await waitNext('Read this brief');
   if (!(await page.locator('#cc-build-summary').textContent()).includes('1 of 4')) fail('Baseline did not advance its own build stage');
 
   await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('repair brief'), null, {timeout: 15000});
@@ -118,7 +117,7 @@ try {
   await page.locator('#storage-confirm').click();
   await page.waitForFunction(() => document.getElementById('storage-status').textContent.includes('Model location confirmed.'), null, {timeout: 30000});
   await page.waitForFunction(() => document.getElementById('cc-journal').textContent.includes('Memory banks configured'));
-  await waitNext('Test short-document reading');
+  await waitNext('Read this brief');
   const first = await moment();
   if (!first || first[0] !== 'Routine') fail('Expected a routine acknowledgment, got ' + JSON.stringify(first));
   await dismissMoment();
