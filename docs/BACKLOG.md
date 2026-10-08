@@ -18,7 +18,7 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
-### S6 — Model storage on systemd automounts — `in progress`
+### S6 — Model storage on systemd automounts — `in progress` ([PR #65](https://github.com/mbolaris/argos-live/pull/65))
 
 - Resolve a mounted filesystem above its direct autofs parent using mountinfo
   identities. Keep unrelated or multiple filesystem stacks blocked, and retain
