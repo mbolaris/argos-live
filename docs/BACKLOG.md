@@ -920,7 +920,7 @@ Depends on: J7.
   entry isolation retained. GRUB selects desktop index1 and BIOS selects only the
   desktop label by default. Shell fixture checks both menu outputs; actual ISO
   menu inspection and physical default boot remain separate acceptance.
-  isolation remains tested. Missing/locked persistence handled honestly. No firmware
+  Missing/locked persistence handled honestly. No firmware
   changes or mutation of a running USB; physical preservation remains local deployment.
 
 ### J1 Live test arena and incremental receipts — `in progress`
