@@ -90,11 +90,19 @@ def supported_pair(newer, older):
     return same_hardware(newer, older)
 
 
-def document_runs(runs):
+def document_runs(runs, selected_recipe=None):
     from . import recipe as recipe_mod
+
+    def matches_rec(r):
+        if selected_recipe is None or recipe_mod.is_standard(selected_recipe):
+            return recipe_mod.is_standard(r)
+        sel_preset = selected_recipe.get('preset') if isinstance(selected_recipe, dict) else selected_recipe
+        r_rec = r.get('recipe')
+        return isinstance(r_rec, dict) and r_rec.get('preset') == sel_preset
+
     return [r for r in runs if r['kind'] == 'ability' and r.get('suite') == 'documents-short'
             and r['coverage']['complete'] and isinstance(r.get('qualification'), dict)
-            and recipe_mod.is_standard(r)]
+            and matches_rec(r)]
 
 
 def speed_for(runs, document):
@@ -117,9 +125,9 @@ def verdict_key(task_id):
     return 'task:' + task_id
 
 
-def facts(home, store, view):
+def facts(home, store, view, selected_recipe=None):
     runs = load_runs(store)
-    docs = document_runs(runs)
+    docs = document_runs(runs, selected_recipe=selected_recipe)
     models = []
     for run in docs:  # newest first; keep the newest document run per distinct model
         if not any(same_model(run, kept) for kept in models):
@@ -128,10 +136,18 @@ def facts(home, store, view):
     accepted = [e for e in entries if e['key'].startswith('task:') and e['evidence'].get('verdict') == 'accepted'
                 and digest_of(e['evidence'].get('manifest_digest')) is not None]
     from . import recipe as recipe_mod
+
+    def matches_rec(r):
+        if selected_recipe is None or recipe_mod.is_standard(selected_recipe):
+            return recipe_mod.is_standard(r)
+        sel_preset = selected_recipe.get('preset') if isinstance(selected_recipe, dict) else selected_recipe
+        r_rec = r.get('recipe')
+        return isinstance(r_rec, dict) and r_rec.get('preset') == sel_preset
+
     return {'runs': runs, 'doc_models': models, 'baseline': [r for r in runs if r['kind'] in ('speed', 'ability')
                                                              and r.get('suite') != 'documents-short'
-                                                             and recipe_mod.is_standard(r)],
-            'accepted_tasks': accepted, 'storage': view}
+                                                             and matches_rec(r)],
+            'accepted_tasks': accepted, 'storage': view, 'selected_recipe': selected_recipe}
 
 
 def record_moments(home, f, clock=stamp):
@@ -343,9 +359,9 @@ def build_path(f, selected, next_step):
             'scope': 'Short-document build path. Evidence applies to the selected model files; comparison is not proof of improvement.'}
 
 
-def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp):
+def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp, selected_recipe=None):
     home = Path(home)
-    f = facts(home, store, view)
+    f = facts(home, store, view, selected_recipe=selected_recipe)
     new = record_moments(home, f, clock=clock)
     data = journal.read(home)
     entries = sorted(data['entries'], key=lambda e: e['at'], reverse=True)
@@ -359,11 +375,12 @@ def snapshot(home, store, *, view=None, selected=None, active=False, clock=stamp
         entry['applies_to_selected'] = None if digest is None else is_selected(
             {'model': entry['evidence'].get('model'), 'manifest_digest': digest}, selected)
     action = next_action(f, selected, active)
-    sm = skill_map.build_skill_map(f, selected)
+    sm = skill_map.build_skill_map(f, selected, selected_recipe=selected_recipe)
     return {'schema': SCHEMA, 'name': 'Argos', 'model': (selected or {}).get('model'), 'quiet': data['quiet'],
             'report': mission_report.summarize([r for r in f['runs'] if is_selected(r, selected)]),
             'next_action': action, 'build_path': build_path(f, selected, action['id']), 'systems': systems(home, f, selected),
             'skill_map': sm,
+            'selected_recipe': selected_recipe,
             'journal': entries[:30], 'moment': moment, 'unseen': len(unseen),
             'scope': 'Systems show only what has been demonstrated. Unknown means not yet tested.'}
 
@@ -383,8 +400,10 @@ class Controller:
             view = self.storage.snapshot() if self.storage else None
         except (OSError, ValueError, TypeError, KeyError):
             view = None
-        active = bool(self.lab and self.lab.snapshot()['active'])
-        return snapshot(self.home, self.store, view=view, selected=self.selected_model(), active=active)
+        lab_snap = self.lab.snapshot() if self.lab else {}
+        active = bool(lab_snap.get('active'))
+        selected_recipe = lab_snap.get('selected_recipe')
+        return snapshot(self.home, self.store, view=view, selected=self.selected_model(), active=active, selected_recipe=selected_recipe)
 
     def skill_map(self):
         return self.snapshot().get('skill_map')

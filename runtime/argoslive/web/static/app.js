@@ -164,7 +164,14 @@ const byteSize = bytes => !Number.isFinite(bytes) ? 'Unknown' : bytes >= 2 ** 30
 const encrypted = value => value === true ? 'Encrypted' : value === false ? 'Unencrypted' : 'Encryption unknown';
 async function api(path) {
   const response = await fetch(path, {headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
-  if (!response.ok) throw new Error('Status unavailable');
+  if (!response.ok) {
+    let msg = 'Status unavailable';
+    try {
+      const err = await response.json();
+      if (err?.error) msg = err.error;
+    } catch (_) {}
+    throw new Error(msg);
+  }
   return response.json();
 }
 async function refreshLive() {
@@ -982,6 +989,8 @@ async function refreshBenchmarks() {
       input.addEventListener('change', () => {
         if (input.checked) selectedRuns.add(run.id); else selectedRuns.delete(run.id);
         document.getElementById('compare-runs').disabled = selectedRuns.size < 2 || selectedRuns.size > 8;
+        const expBtn = document.getElementById('compare-experiment');
+        if (expBtn) expBtn.disabled = selectedRuns.size !== 2;
         document.getElementById('download-comparison').disabled = true;
         comparedRuns = [];
       });
@@ -1024,11 +1033,15 @@ async function refreshBenchmarks() {
       article.append(label, summary, version, button); cards.append(article);
     }
     document.getElementById('compare-runs').disabled = selectedRuns.size < 2 || selectedRuns.size > 8;
+    const expBtn = document.getElementById('compare-experiment');
+    if (expBtn) expBtn.disabled = selectedRuns.size !== 2;
     status.textContent = result.runs.length ? `${result.runs.length} saved benchmark runs.` : 'No saved benchmarks yet.';
     if (result.invalid_count || result.truncated) status.textContent += ' Some results need review or were omitted by display limits.';
   } catch (_) {
     cards.replaceChildren(); selectedRuns.clear(); comparedRuns = [];
     document.getElementById('compare-runs').disabled = true;
+    const expBtn = document.getElementById('compare-experiment');
+    if (expBtn) expBtn.disabled = true;
     document.getElementById('download-comparison').disabled = true;
     status.textContent = 'Saved results unavailable. Refresh to retry.';
   }
@@ -1092,6 +1105,100 @@ document.getElementById('compare-runs').addEventListener('click', async () => {
     comparedRuns = ids; document.getElementById('download-comparison').disabled = false;
   } catch (_) {
     document.getElementById('benchmarks-status').textContent = 'Select two to eight complete runs with matching suites and settings.';
+  }
+});
+function renderExperiment(output, result) {
+  output.replaceChildren();
+  const card = document.createElement('article');
+  card.className = 'experiment-card';
+
+  const badge = document.createElement('span');
+  badge.className = `experiment-badge badge-${result.delta?.verdict || 'no_change'}`;
+  badge.textContent = result.delta?.verdict === 'observed_gain' ? 'Observed gain' :
+                      result.delta?.verdict === 'regression' ? 'Observed regression' :
+                      result.delta?.verdict === 'no_change' ? 'No change' : 'Evaluated';
+
+  const title = document.createElement('h3');
+  title.textContent = `Experiment: ${result.intervention === 'recipe' ? 'Instruction Recipe' : 'Model Upgrade'} Intervention`;
+  title.prepend(badge);
+
+  const summary = document.createElement('p');
+  summary.className = 'experiment-summary';
+  summary.textContent = result.delta?.summary || '';
+
+  const meta = document.createElement('p');
+  meta.className = 'experiment-meta';
+  meta.textContent = `Baseline (${result.baseline.recipe?.preset || 'standard'} · ${result.baseline.model}) vs Candidate (${result.candidate.recipe?.preset || 'standard'} · ${result.candidate.model})`;
+
+  card.append(title, summary, meta);
+
+  if (result.kind === 'ability') {
+    const heads = ['Metric', `Baseline (${result.baseline.recipe?.preset || 'standard'})`, `Candidate (${result.candidate.recipe?.preset || 'standard'})`, 'Delta'];
+    const bAcc = pct(result.baseline.accuracy);
+    const cAcc = pct(result.candidate.accuracy);
+    const dAcc = (result.delta.accuracy_delta >= 0 ? '+' : '') + (result.delta.accuracy_delta * 100).toFixed(1) + '%';
+    const bCorr = `${result.baseline.correct}/${result.baseline.total}`;
+    const cCorr = `${result.candidate.correct}/${result.candidate.total}`;
+    const dCorr = (result.delta.correct_delta >= 0 ? '+' : '') + result.delta.correct_delta;
+    const bFmt = String(result.baseline.format_errors ?? 0);
+    const cFmt = String(result.candidate.format_errors ?? 0);
+    const dFmt = (result.delta.format_error_delta >= 0 ? '+' : '') + result.delta.format_error_delta;
+    table(card, 'Controlled task outcomes', heads, [
+      ['Correct tasks', bCorr, cCorr, dCorr],
+      ['Accuracy', bAcc, cAcc, dAcc],
+      ['Format errors', bFmt, cFmt, dFmt],
+    ]);
+
+    const changedItems = (result.items || []).filter(it => it.changed);
+    if (changedItems.length) {
+      const hChanged = document.createElement('h4');
+      hChanged.textContent = `Changed task answers (${changedItems.length} items differ)`;
+      card.append(hChanged);
+      for (const it of changedItems) {
+        const box = document.createElement('details');
+        const sum = document.createElement('summary');
+        sum.textContent = `${it.category.replace('_', ' ')}: ${it.question || it.item_id} [${it.baseline_outcome} → ${it.candidate_outcome}]`;
+        box.append(sum);
+        const pBase = document.createElement('p');
+        pBase.textContent = `Baseline (${it.baseline_outcome}): ${it.baseline_output || 'no output kept'}`;
+        const pCand = document.createElement('p');
+        pCand.textContent = `Candidate (${it.candidate_outcome}): ${it.candidate_output || 'no output kept'}`;
+        box.append(pBase, pCand);
+        card.append(box);
+      }
+    }
+  } else if (result.kind === 'speed') {
+    const heads = ['Prompt size', 'Baseline tok/s', 'Candidate tok/s', 'Delta tok/s', 'Baseline first token', 'Candidate first token', 'Delta first token'];
+    const rows = (result.delta.prompts || []).map(p => [
+      p.size,
+      p.baseline_generation_tok_s !== null ? p.baseline_generation_tok_s.toFixed(2) : 'n/a',
+      p.candidate_generation_tok_s !== null ? p.candidate_generation_tok_s.toFixed(2) : 'n/a',
+      p.delta_generation_tok_s !== null ? (p.delta_generation_tok_s >= 0 ? '+' : '') + p.delta_generation_tok_s.toFixed(2) : 'n/a',
+      p.baseline_ttft_s !== null ? p.baseline_ttft_s.toFixed(2) + ' s' : 'n/a',
+      p.candidate_ttft_s !== null ? p.candidate_ttft_s.toFixed(2) + ' s' : 'n/a',
+      p.delta_ttft_s !== null ? (p.delta_ttft_s >= 0 ? '+' : '') + p.delta_ttft_s.toFixed(3) + ' s' : 'n/a',
+    ]);
+    table(card, 'Paired prompt speed comparison (3-run medians)', heads, rows);
+  }
+
+  const limits = document.createElement('p');
+  limits.className = 'experiment-limits';
+  limits.textContent = result.limitations;
+  card.append(limits);
+
+  output.append(card);
+}
+document.getElementById('compare-experiment')?.addEventListener('click', async () => {
+  const output = document.getElementById('experiment-comparison');
+  if (output) output.replaceChildren();
+  if (selectedRuns.size !== 2) return;
+  const ids = [...selectedRuns];
+  try {
+    const result = await api(`/api/benchmarks/experiment?baseline=${encodeURIComponent(ids[0])}&candidate=${encodeURIComponent(ids[1])}`);
+    renderExperiment(output, result);
+    document.getElementById('benchmarks-status').textContent = result.limitations || 'Controlled experiment comparison.';
+  } catch (err) {
+    document.getElementById('benchmarks-status').textContent = err.message || 'Experiment comparison failed. Verify runs differ by exactly one intervention with matching hardware.';
   }
 });
 document.getElementById('download-comparison').addEventListener('click', () => {

@@ -72,10 +72,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
         self.send_header('Connection', 'close')
-        self.end_headers()
-        self.close_connection = True
-        if not head and self.command != 'HEAD':
-            self.wfile.write(body)
+        try:
+            self.end_headers()
+            self.close_connection = True
+            if not head and self.command != 'HEAD':
+                self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
 
     def authorized(self, *, mutation=False):
         expected_host = f'127.0.0.1:{self.server.server_port}'
@@ -173,13 +176,25 @@ class Handler(BaseHTTPRequestHandler):
                                    'text/csv; charset=utf-8', head=head, download='argos-comparison.csv')
                     else:
                         self.reply(200, self.server.benchmarks.comparison(ids), head=head)
+                elif path == '/api/benchmarks/experiment':
+                    query = parse_qs(urlsplit(self.path).query, max_num_fields=20)
+                    b_id = query.get('baseline', [None])[0]
+                    c_id = query.get('candidate', [None])[0]
+                    intervention = query.get('intervention', [None])[0]
+                    if not b_id or not c_id:
+                        self.reply(400, {'error': 'Baseline and candidate run IDs required'}, head=head)
+                    else:
+                        self.reply(200, self.server.benchmarks.experiment_comparison(
+                            b_id, c_id, allowed_intervention=intervention), head=head)
                 elif path.startswith('/api/benchmarks/run/'):
                     run_id = path.removeprefix('/api/benchmarks/run/')
                     value = self.server.benchmarks.load(run_id)
                     self.reply(200, value, head=head, download='argos-' + value['id'] + '.json')
                 else:
                     self.reply(404, {'error': 'Unknown benchmark route'}, head=head)
-            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            except ValueError as exc:
+                self.reply(409, {'error': str(exc)}, head=head)
+            except (OSError, TypeError, KeyError, AttributeError):
                 self.reply(409, {'error': 'Runs unavailable or not comparable. Select complete runs with matching suites and settings.'}, head=head)
         elif path == '/api/status':
             try:

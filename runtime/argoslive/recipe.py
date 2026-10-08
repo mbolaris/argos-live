@@ -182,9 +182,12 @@ def resolve(spec, *, context=2048, output_cap=128, thinking=False):
 
 
 def is_standard(value):
-    """Return True if value (recipe dict, benchmark run, or None) represents standard calibration."""
+    """Return True if value (recipe dict, benchmark run, preset string, or None) represents standard calibration."""
     if value is None:
         return True
+    if isinstance(value, str):
+        key = ALIASES.get(value, value)
+        return key == 'standard'
     if isinstance(value, dict) and 'recipe' in value:
         rec = value['recipe']
     elif isinstance(value, dict) and value.get('schema') == SCHEMA:
