@@ -73,13 +73,21 @@
               <button id="receipt-restore-recipe" type="button" class="btn-text-action">Restore standard</button>
             </div>
             <div id="receipt-actions" class="receipt-actions" hidden>
-              <button id="receipt-practice" type="button" class="mission-primary">Retest unchanged</button>
-              <button id="receipt-change" type="button" class="mission-secondary">Try one change</button>
+              <button id="receipt-use" type="button" class="mission-primary" hidden>Use this build in Mission Brief ↓</button>
+              <button id="receipt-change" type="button" class="mission-primary">Try one change: concise instructions</button>
+              <button id="receipt-practice" type="button" class="mission-secondary">Retest unchanged</button>
               <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
             </div>
             <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
           </article>
-          <article id="cc-debrief" class="agent-debrief" hidden aria-live="polite"><p class="mission-label">At the workbench · Argos’s take</p><blockquote id="cc-debrief-text"></blockquote><p id="cc-debrief-note"></p></article>
+          <article id="cc-debrief" class="agent-debrief" hidden aria-live="polite">
+            <div class="debrief-header">
+              <p class="mission-label">At the workbench · Argos’s take</p>
+              <span class="opinion-tag">Model opinion · memory only · not scored evidence</span>
+            </div>
+            <blockquote id="cc-debrief-text"></blockquote>
+            <p id="cc-debrief-note"></p>
+          </article>
           <div id="cc-readings" class="cc-readings" aria-label="Measured strengths"></div>
           <div id="skill-map-compact" class="skill-map-compact" aria-label="Task Skill Map summary">
             <div class="compact-map-header">
@@ -105,11 +113,11 @@
             <p class="skill-map-sub">Choose a skill to inspect fixed criteria, review model-bound evidence, and start an observable test.</p>
           </div>
           <div class="skill-map-legend" aria-label="Skill status legend">
-            <span class="legend-item"><span class="badge-dot qualified"></span> Qualified</span>
-            <span class="legend-item"><span class="badge-dot measured"></span> Measured</span>
-            <span class="legend-item"><span class="badge-dot attention"></span> Needs work</span>
-            <span class="legend-item"><span class="badge-dot untested"></span> Untested</span>
-            <span class="legend-item"><span class="badge-dot unavailable"></span> Future</span>
+            <span class="legend-item"><span class="badge-dot qualified"></span> &#x25cf; Qualified</span>
+            <span class="legend-item"><span class="badge-dot measured"></span> &#x25d0; Tested &middot; validation pending</span>
+            <span class="legend-item"><span class="badge-dot attention"></span> &#x25b2; Needs work</span>
+            <span class="legend-item"><span class="badge-dot untested"></span> &#x25cb; Untested</span>
+            <span class="legend-item"><span class="badge-dot unavailable"></span> &#x25c7; Future</span>
           </div>
         </div>
         <div id="skill-map-container" class="skill-map-container">
@@ -296,6 +304,7 @@
           <div id="arena-summary-banner" class="arena-summary-banner" hidden>
             <strong id="arena-summary-headline">Trial complete</strong>
             <p id="arena-summary-detail"></p>
+            <button id="arena-next-action" type="button" class="mission-primary arena-summary-btn">Review result &amp; debrief ↑</button>
           </div>
         </div>
         <p class="lab-footnote">Tests use fixed public prompts with tools disabled. Cancellation can take up to a backend request timeout plus cleanup. Each batch has a 15-minute limit.</p>

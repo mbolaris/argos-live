@@ -368,7 +368,22 @@ try {
   if (!expDisabled) fail('#compare-experiment should be disabled initially');
   console.log('[PASS] Controlled experiment button #compare-experiment exists and is disabled initially');
 
-  console.log('All Mission First J5, J6b, and J7 checks passed successfully!');
+  // J8: Integrated watch / debrief / skill-map and receipt use checks
+  const opinionTag = await page.locator('.opinion-tag').textContent();
+  if (!opinionTag.includes('Model opinion') || !opinionTag.includes('not scored evidence')) {
+    fail(`Expected opinion disclaimer tag, got: "${opinionTag}"`);
+  }
+  const legendText = await page.locator('.skill-map-legend').textContent();
+  if (!legendText.includes('Qualified') || !legendText.includes('Tested') || !legendText.includes('Needs work')) {
+    fail(`Expected 3-state legend marks in skill map, got: "${legendText}"`);
+  }
+  const arenaNextBtn = page.locator('#arena-next-action');
+  if (await arenaNextBtn.count() !== 1) fail('Expected #arena-next-action button in DOM');
+  const receiptUseBtn = page.locator('#receipt-use');
+  if (await receiptUseBtn.count() !== 1) fail('Expected #receipt-use button in DOM');
+  console.log('[PASS] J8 debrief opinion disclaimer, 3-state legend, and next-action controls verified');
+
+  console.log('All Mission First J5, J6b, J7, and J8 checks passed successfully!');
 } finally {
   if (browser) await browser.close();
   server.kill();

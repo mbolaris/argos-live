@@ -399,7 +399,13 @@ function renderReceiptItem(receipt) {
 
   const reason = document.createElement('div');
   reason.className = 'arena-receipt-reason';
-  reason.textContent = meta.reason;
+  if (receipt.outcome === 'wrong_answer') {
+    reason.textContent = 'Miss: answer did not match expected criteria.';
+  } else if (receipt.outcome === 'format_error') {
+    reason.textContent = 'Miss: response failed format contract or closed JSON schema.';
+  } else {
+    reason.textContent = meta.reason;
+  }
 
   row.append(head, reason);
 
@@ -428,7 +434,10 @@ function updateArenaHUD(arena, phase, model, elapsed, active) {
     badge.classList.toggle('running', active === true);
   }
   const m = document.getElementById('arena-model');
-  if (m) m.textContent = model || 'Configured model';
+  if (m) {
+    const isFixture = (model || '').startsWith('fixture:');
+    m.textContent = (model || 'Configured model') + (isFixture ? ' (simulated fixture)' : '');
+  }
   const el = document.getElementById('arena-elapsed');
   if (el) el.textContent = Number.isFinite(elapsed) ? `${Math.round(elapsed)} s` : '0 s';
 
@@ -522,14 +531,20 @@ function renderArenaState(arena, active, phase, model, elapsed) {
   const banner = document.getElementById('arena-summary-banner');
   const headline = document.getElementById('arena-summary-headline');
   const detail = document.getElementById('arena-summary-detail');
+  const nextActionBtn = document.getElementById('arena-next-action');
 
   if (banner && headline && detail) {
     if (phase === 'completed') {
       banner.hidden = false;
+      if (nextActionBtn) {
+        nextActionBtn.hidden = false;
+        nextActionBtn.onclick = () => focusSection('cc-receipt');
+      }
       headline.textContent = 'Trial completed and saved';
       detail.textContent = `${arena?.correct || 0} of ${arena?.total || 0} passed · ${arena?.format_errors || 0} format errors · Evidence bound to ${model || 'model'} digest. Baseline saved.`;
     } else if (phase === 'cancelled') {
       banner.hidden = false;
+      if (nextActionBtn) nextActionBtn.hidden = true;
       headline.textContent = 'Stopped · incomplete';
       if (arena?.recovery) {
         lastLabRecovery = arena.recovery;
@@ -540,10 +555,12 @@ function renderArenaState(arena, active, phase, model, elapsed) {
       detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
     } else if (phase === 'failed') {
       banner.hidden = false;
+      if (nextActionBtn) nextActionBtn.hidden = true;
       headline.textContent = 'Trial failed · incomplete';
       detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
     } else {
       banner.hidden = true;
+      if (nextActionBtn) nextActionBtn.hidden = true;
     }
   }
 }
@@ -661,10 +678,16 @@ function applyArenaEvent(ev) {
       banner.hidden = false;
       const headline = document.getElementById('arena-summary-headline');
       const detail = document.getElementById('arena-summary-detail');
+      const nextActionBtn = document.getElementById('arena-next-action');
       if (ev.outcome === 'completed') {
+        if (nextActionBtn) {
+          nextActionBtn.hidden = false;
+          nextActionBtn.onclick = () => focusSection('cc-receipt');
+        }
         if (headline) headline.textContent = 'Trial completed and saved';
         if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
       } else if (ev.outcome === 'cancelled') {
+        if (nextActionBtn) nextActionBtn.hidden = true;
         if (headline) headline.textContent = 'Stopped · incomplete';
         if (ev.recovery) {
           lastLabRecovery = ev.recovery;
@@ -674,6 +697,7 @@ function applyArenaEvent(ev) {
         const recoverySuffix = recoveryText ? ` ${recoveryText}` : '';
         if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
       } else {
+        if (nextActionBtn) nextActionBtn.hidden = true;
         if (headline) headline.textContent = 'Trial failed · incomplete';
         if (detail) detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
       }
@@ -1340,7 +1364,10 @@ async function refreshCommand() {
     const heroAi = document.getElementById('cc-hero-ai');
     if (heroAi) heroAi.textContent = value.name || 'your AI';
     const heroModel = document.getElementById('cc-hero-model');
-    if (heroModel) heroModel.textContent = value.model || 'Current model';
+    if (heroModel) {
+      const isFixture = (value.model || '').startsWith('fixture:');
+      heroModel.textContent = (value.model || 'Current model') + (isFixture ? ' (simulated fixture)' : '');
+    }
     const heroResult = document.getElementById('cc-hero-result');
     if (heroResult) {
       const ab = value.report?.ability;
@@ -1490,10 +1517,10 @@ let selectedSkillNode = null;
 function formatNodeStateBadge(state) {
   return {
     qualified: '● Qualified',
-    measured: '◆ Measured',
+    measured: '◐ Tested · validation pending',
     attention: '▲ Needs work',
     untested: '○ Untested',
-    unavailable: '🔒 Future'
+    unavailable: '◇ Future'
   }[state] || 'Unknown';
 }
 
@@ -1813,6 +1840,19 @@ function renderMissionReceipt(report) {
   // Action buttons
   const actBox = document.getElementById('receipt-actions');
   actBox.hidden = !ability;
+  const useBtn = document.getElementById('receipt-use');
+  if (useBtn) {
+    if (ability && ability.qualified === true) {
+      useBtn.hidden = false;
+      useBtn.onclick = () => {
+        const box = document.getElementById('cc-task-box');
+        if (box) box.open = true;
+        focusSection('cc-task-box', 'cc-question');
+      };
+    } else {
+      useBtn.hidden = true;
+    }
+  }
   const pracBtn = document.getElementById('receipt-practice');
   const upgBtn = document.getElementById('receipt-upgrade');
   const changeBtn = document.getElementById('receipt-change');
@@ -1838,8 +1878,9 @@ function renderMissionReceipt(report) {
   const ids = [speed?.run, ability?.run];
   const current = lastLabDebrief?.state === 'completed' && lastLabDebrief.runs?.length && lastLabDebrief.runs.every(id => ids.includes(id));
   debrief.hidden = !ability;
+  const debriefModelTag = (current && lastLabDebrief.model) ? ` [from ${lastLabDebrief.model}]` : '';
   document.getElementById('cc-debrief-text').textContent = current ? lastLabDebrief.text : 'No local-model debrief for these results in this session. Run a trial to hear the selected model’s take.';
-  document.getElementById('cc-debrief-note').textContent = current ? lastLabDebrief.label : 'Debriefs are optional, stay in memory and never change a score.';
+  document.getElementById('cc-debrief-note').textContent = current ? (lastLabDebrief.label + debriefModelTag) : 'Debriefs are optional, stay in memory and never change a score.';
 }
 const missionSamples = [
   {title: 'Expedition planner', hook: 'Help a robot crew get home before the tide rises.',

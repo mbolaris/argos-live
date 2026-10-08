@@ -54,7 +54,7 @@ class RuntimePackageTests(unittest.TestCase):
         javascript = (ROOT / 'runtime/argoslive/web/static/app.js').read_text(encoding='utf-8')
         self.assertNotIn('value.auto_open_chat &&', javascript)
         self.assertIn("document.getElementById('chat').addEventListener('click'", javascript)
-        page = (ROOT / 'runtime/argoslive/web/static/index.html').read_text()
+        page = (ROOT / 'runtime/argoslive/web/static/index.html').read_text(encoding='utf-8')
         self.assertIn('Recommended next mission', page)
         self.assertIn('id="chat" class="mission-secondary"', page)
         self.assertIn('id="chat-fallback"', page)
