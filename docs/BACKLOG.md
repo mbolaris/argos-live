@@ -28,7 +28,7 @@ recommended next action, one skill map, and task-scoped evidence. No prototype
 scores or simulated qualification may enter the released app. A benchmark pass
 does not establish that a new user understands how to play; record that review.
 
-### S6 — Model storage on systemd automounts — `in progress` ([PR #65](https://github.com/mbolaris/argos-live/pull/65))
+### S6 — Model storage on systemd automounts — `done` ([PR #65](https://github.com/mbolaris/argos-live/pull/65))
 
 - Resolve a mounted filesystem above its direct autofs parent using mountinfo
   identities. Keep unrelated or multiple filesystem stacks blocked, and retain
@@ -957,6 +957,14 @@ Depends on: J1.
 - Verification: Task-scoped skill map engine in `runtime/argoslive/skill_map.py` binding evidence strictly to selected model manifest digest across 6 task domains (Understanding, Reasoning, Planning, Tool use, Memory, Perception). Authenticated `/api/skill-map` endpoint and integration into `/api/command-center`. Web UI Proving Ground skill map deck (`index.html`, `app.js`, `style.css`) with desktop cluster graph and mobile navigable grouped list, interactive node inspection modal with fixed criteria, task scope/guardrails, bound model digest, current evidence, and direct Start actions. Readable Result Replay in `mission_report.py` and UI displaying representative passed and failed challenge outputs with plain-language failure reasons, qualification criteria checklist, side-by-side responsiveness metrics, local-model debrief opinion, and Practice/Upgrade actions. Verified by 13 unit tests (`test_skill_map.py`, `test_mission_report.py`), command center tests (`test_command_center.py`), arena events tests (`test_arena_events.py`), and syntax validation. Real Toronado GPU runs, shipped Firefox ESR review, and physical ISO deployment remain separate acceptance.
 
 ### J3 Guided stronger-model choice with inline storage — `todo`
+Implementation specification: [CURATED-MODEL-JOURNEY.md](CURATED-MODEL-JOURNEY.md).
+Worker sequence and delivery: [WORKER-PLAY-SESSION.md](WORKER-PLAY-SESSION.md).
+- Curate at most three downloadable general choices plus the bundled fallback;
+  qualify usefulness locally, preserve legacy installed/rollback identities and
+  audit the 4B alias/architecture mismatch. Replace the historical eight-entry
+  minimum without weakening artifact/license verification.
+- Make post-success Keep/Restore a real model transaction with owner-edit and
+  recovery protection, distinct from selecting a Lab instruction recipe.
 Depends on: J2 and existing reviewed storage/model transactions.
 - “Try a different model” carries the selected skill into a short reviewed-catalog choice, fit/download costs, inline “Choose where to keep models”, verified download, explicit switch, matched retest and Keep/Restore.
 - Storage choices show device labels, free space, persistence/encryption and recommended eligible choice with rationale; Review/Use this location confirms the folder and profile/history separation. Explain blocked choices; starter chat remains available. No auto-adopt/format/move.
