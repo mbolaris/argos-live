@@ -953,3 +953,51 @@ caption { text-align: left; font-weight: 700; padding: 12px 0; }
   padding-top: 12px;
   margin-top: 16px;
 }
+
+/* Curated Models & Model Transactions (J3) */
+.receipt-model-rollback-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #1e2638;
+  border: 1px solid #3c4b6e;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: 10px 0;
+}
+.model-protect-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: #28334f;
+  color: #a5b4fc;
+  border: 1px solid #43547f;
+}
+.inline-storage-section {
+  margin-top: 14px;
+  padding: 12px;
+  background: #0f1c29;
+  border: 1px solid #233b52;
+  border-radius: 8px;
+}
+.role-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+.role-badge.starter { background: #163328; color: #34d399; border: 1px solid #059669; }
+.role-badge.compact { background: #1e293b; color: #38bdf8; border: 1px solid #0284c7; }
+.role-badge.balanced { background: #262335; color: #a78bfa; border: 1px solid #7c3aed; }
+.role-badge.capacity { background: #3b2a1a; color: #fbbf24; border: 1px solid #d97706; }
+.role-badge.legacy { background: #23272e; color: #94a3b8; border: 1px solid #475569; }
+.section-sub { font-size: 13px; color: var(--muted); margin: -4px 0 12px; }

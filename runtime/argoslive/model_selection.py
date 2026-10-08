@@ -43,6 +43,41 @@ def finish_journal(path):
             os.close(descriptor)
 
 
+def rollback_path(home):
+    return storage.safe_local(home / '.config/argos-live/model-rollback.json')
+
+
+def can_restore_previous(home):
+    """Can the previous model selection be restored safely?"""
+    rb = rollback_path(home)
+    if not rb.exists():
+        return False, None
+    try:
+        data = read_json(rb)
+        if data.get('schema') != 'argos-model-rollback/1':
+            return False, None
+        state_path, config_path, _ = paths(home)
+        # Verify no external owner edits have modified current files
+        if (state_path.read_bytes() != data['raw_current']['state'].encode() or
+                config_path.read_bytes() != data['raw_current']['config'].encode()):
+            return False, None
+        return True, data.get('previous_tag')
+    except (OSError, ValueError, TypeError, KeyError):
+        return False, None
+
+
+def keep_current(home):
+    """Confirm current model selection and discard the rollback journal."""
+    rb = rollback_path(home)
+    if rb.exists():
+        try:
+            rb.unlink()
+            return True
+        except OSError:
+            pass
+    return False
+
+
 def restore(home):
     """A pending switch is rolled back on next desktop launch, never replayed."""
     state, config, journal = paths(home)
@@ -153,6 +188,18 @@ class Controller(Workload):
             if read_json(state_path) != after['state'] or read_json(config_path) != after['config']:
                 raise ValueError('Configuration changed during startup')
             finish_journal(journal)
+            if self.previous and self.previous != self.tag:
+                try:
+                    write_json(rollback_path(self.startup.home), {
+                        'schema': 'argos-model-rollback/1',
+                        'previous_tag': self.previous,
+                        'current_tag': self.tag,
+                        'raw_previous': raw,
+                        'raw_current': candidate,
+                        'timestamp': time.time(),
+                    })
+                except Exception:
+                    pass
             self.resume = False
             return 'completed'
         except Exception:
@@ -166,6 +213,24 @@ class Controller(Workload):
                 self.recovery_blocked = True
                 raise
             return 'cancelled' if self.cancel_event.is_set() else 'rolled-back'
+
+    def restore_previous(self):
+        """Restore the previous model using the saved rollback transaction."""
+        allowed, prev_tag = can_restore_previous(self.startup.home)
+        if not allowed or not prev_tag:
+            raise ValueError('Previous model selection is not available for restoration or files were edited')
+        return self.start(tag=prev_tag)
+
+    def keep_current(self):
+        """Acknowledge and keep the current model, removing rollback record."""
+        return keep_current(self.startup.home)
+
+    def snapshot(self):
+        snap = super().snapshot()
+        allowed, prev_tag = can_restore_previous(self.startup.home)
+        snap['rollback_available'] = allowed
+        snap['previous_model'] = prev_tag
+        return snap
 
     def failure_outcome(self):
         return 'recovery-blocked' if self.recovery_blocked else super().failure_outcome()

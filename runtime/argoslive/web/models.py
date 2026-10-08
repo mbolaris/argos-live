@@ -144,20 +144,39 @@ def snapshot(home=None, *, data=None, hardware=hw.snapshot, validate=storage.val
                   and g['vram_total_bytes'] >= g['vram_used_bytes']]
     vram = max(capacities) if capacities else None  # Never sum separate GPUs.
     for entry in data['models']:
-        result['catalog'].append({key: entry[key] for key in ('tag', 'description', 'parameter_label',
-            'quantization', 'context_tokens', 'total_download_bytes', 'weight_bytes', 'license', 'capabilities')})
-        result['catalog'][-1].update(cpu_fit=catalog.fit(entry, ram, device='cpu', context_tokens=32768),
-                                    gpu_fit=catalog.fit(entry, vram, device='gpu', context_tokens=32768))
+        curated_meta = catalog.curated_info(entry['tag'])
+        model_info = {key: entry[key] for key in ('tag', 'description', 'parameter_label',
+            'quantization', 'context_tokens', 'total_download_bytes', 'weight_bytes', 'license', 'capabilities')}
+        model_info['curated'] = bool(curated_meta)
+        model_info['role'] = curated_meta['role'] if curated_meta else 'legacy'
+        model_info['curated_label'] = curated_meta['short_label'] if curated_meta else None
+        model_info['rationale'] = curated_meta['rationale'] if curated_meta else None
+        model_info['downloadable'] = curated_meta['downloadable'] if curated_meta else True
+        model_info.update(cpu_fit=catalog.fit(entry, ram, device='cpu', context_tokens=32768),
+                          gpu_fit=catalog.fit(entry, vram, device='gpu', context_tokens=32768))
+        result['catalog'].append(model_info)
+    result['curated_models'] = [m for m in result['catalog'] if m.get('curated')]
+    result['legacy_models'] = [m for m in result['catalog'] if not m.get('curated')]
     current = next((e for e in data['models'] if e['tag'] == result.get('selected_model')), None)
-    # Conservative next-size suggestion; memory fit is not a quality score.
-    candidates = [e for e in result['catalog'] if current and e['weight_bytes'] > current['weight_bytes']
-                  and '/' not in e['tag'] and 'text' in e['capabilities']
-                  and e['context_tokens'] >= 32768
-                  and (e['gpu_fit']['status'] == 'fits' or e['cpu_fit']['status'] == 'fits')]
-    next_model = min(candidates, key=lambda e: e['weight_bytes'], default=None)
+    # Conservative next-size suggestion; prioritize reviewed curated lineup
+    curated_candidates = [e for e in result['curated_models'] if current and e['weight_bytes'] > current['weight_bytes']
+                          and e.get('downloadable')
+                          and (e['gpu_fit']['status'] == 'fits' or e['cpu_fit']['status'] == 'fits')]
+    if curated_candidates:
+        next_model = min(curated_candidates, key=lambda e: e['weight_bytes'])
+    else:
+        candidates = [e for e in result['catalog'] if current and e['weight_bytes'] > current['weight_bytes']
+                      and '/' not in e['tag'] and 'text' in e['capabilities']
+                      and e['context_tokens'] >= 32768
+                      and (e['gpu_fit']['status'] == 'fits' or e['cpu_fit']['status'] == 'fits')]
+        next_model = min(candidates, key=lambda e: e['weight_bytes'], default=None)
+    rec_meta = catalog.curated_info(next_model['tag']) if next_model else None
+    role_desc = f" ({rec_meta['role']}: {rec_meta['rationale']})" if rec_meta else ""
     result['guidance'] = {'next_model': next_model['tag'] if next_model else None,
+        'role': rec_meta['role'] if rec_meta else None,
+        'rationale': rec_meta['rationale'] if rec_meta else None,
         'available_ram_bytes': ram, 'available_gpu_bytes': vram,
-        'message': ('Try ' + next_model['tag'] + ' next: a larger reviewed model with estimated memory headroom. Save a baseline, then compare the same speed and ability tests.'
+        'message': ('Try ' + next_model['tag'] + role_desc + ' next: a curated upgrade with estimated memory headroom. Save a baseline, then compare the same speed and ability tests.'
                     if next_model else 'Save a baseline for your current model. No larger standard model has measured comfortable memory headroom; inspect hardware and catalog estimates before upgrading.'),
         'estimate': True, 'quality_improvement_verified': False}
     return result

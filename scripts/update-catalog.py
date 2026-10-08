@@ -55,8 +55,8 @@ def checked_blob(repository, item, get):
 
 def build(spec, get=fetch):
     if (not isinstance(spec, dict) or spec.get('schema') != 'argos-catalog-spec/1' or
-            not isinstance(spec.get('models'), list) or not 8 <= len(spec['models']) <= 12):
-        raise ValueError('Expected a reviewed eight-to-twelve-model catalog specification')
+            not isinstance(spec.get('models'), list) or not 1 <= len(spec['models']) <= 24):
+        raise ValueError('Expected a reviewed catalog specification with between 1 and 24 models')
     entries, license_texts = [], {}
     for choice in spec['models']:
         tag = choice['tag']

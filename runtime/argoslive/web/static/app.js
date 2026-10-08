@@ -227,8 +227,13 @@ async function refreshModels() {
   const installed = document.getElementById('installed-models');
   const bundled = document.getElementById('bundled-models');
   const jobs = document.getElementById('model-jobs');
+  const curatedEl = document.getElementById('model-curated') || document.getElementById('model-catalog');
+  const legacyEl = document.getElementById('model-legacy');
   const catalog = document.getElementById('model-catalog');
-  installed.replaceChildren(); bundled.replaceChildren(); jobs.replaceChildren(); catalog.replaceChildren();
+  installed.replaceChildren(); bundled.replaceChildren(); jobs.replaceChildren();
+  if (curatedEl) curatedEl.replaceChildren();
+  if (legacyEl) legacyEl.replaceChildren();
+  if (catalog && catalog !== curatedEl) catalog.replaceChildren();
   try {
     const result = await api('/api/models');
     catalogPreview = new Map(result.catalog.map(model => [model.tag, model]));
@@ -274,15 +279,19 @@ async function refreshModels() {
     }
     if (result.jobs !== null && result.jobs.length === 0) card(jobs, 'No download jobs', 'Existing verified-download jobs will appear here as they progress.');
     for (const model of result.catalog) {
-      card(catalog, model.tag, `${model.description} · ${model.parameter_label} · ${model.quantization} · ` +
+      const isCurated = model.curated === true;
+      const targetDeck = isCurated ? (curatedEl || legacyEl) : (legacyEl || curatedEl);
+      if (!targetDeck) continue;
+      card(targetDeck, model.tag + (isCurated ? ` (${model.curated_label || model.role})` : ''),
+        `${model.rationale || model.description} · ${model.parameter_label} · ${model.quantization} · ` +
         `${gib(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · ` +
         `${model.context_tokens.toLocaleString()} context · CPU: ${model.cpu_fit.status} · GPU: ${model.gpu_fit.status} (estimates)`);
-      if (downloadAvailable) {
+      if (downloadAvailable && model.downloadable !== false) {
         const button = document.createElement('button'); button.type = 'button';
-        button.textContent = 'Review download';
-        button.disabled = downloadActive || selectionActive || result.storage_state !== 'available';
+        button.textContent = result.storage_state === 'available' ? 'Review download' : 'Choose storage & download';
+        button.disabled = downloadActive || selectionActive;
         button.addEventListener('click', () => reviewDownload({tag: model.tag}, model.tag));
-        catalog.lastElementChild.append(button);
+        targetDeck.lastElementChild.append(button);
       }
     }
   } catch (_) {
@@ -847,16 +856,71 @@ for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'star
 setInterval(async () => { await refreshLab(); }, 3000);
 const metricLabels = {accuracy: 'Test accuracy', short_generation_tokens_per_second: 'Short-prompt output tokens/s',
   medium_generation_tokens_per_second: 'Medium-prompt output tokens/s', long_generation_tokens_per_second: 'Long-prompt output tokens/s'};
-function reviewDownload(choice, tag) {
+async function reviewDownload(choice, tag) {
   downloadChoice = choice;
   const model = catalogPreview.get(tag);
-  document.getElementById('download-review-details').textContent = model ?
-    `${tag} · ${byteSize(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · Estimated GPU fit: ${model.gpu_fit.status}. ` +
-    `Destination: ${modelDestination || 'your configured model store'} · ${encrypted(modelEncryption)}.` :
-    `${tag} · Retry against the current catalog and the same identity-checked store.`;
-  document.getElementById('download-confirm').disabled = !storageConfirmed;
-  if (!storageConfirmed) document.getElementById('download-review-details').textContent +=
-    ' Choose where models are stored (Where your data lives) before downloading.';
+  const inlineSec = document.getElementById('inline-storage-section');
+  const inlineChoices = document.getElementById('inline-storage-choices');
+  if (!storageConfirmed) {
+    if (inlineSec && inlineChoices) {
+      inlineSec.hidden = false;
+      inlineChoices.replaceChildren();
+      try {
+        const view = await api('/api/storage');
+        if (view && view.candidates) {
+          for (const item of view.candidates) {
+            const art = document.createElement('article');
+            art.className = 'card';
+            const h4 = document.createElement('h4');
+            h4.textContent = `${item.volume_label || item.mountpoint} (${item.kind === 'ram' ? 'Memory' : 'Disk'})`;
+            const p = document.createElement('p');
+            p.textContent = `${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
+              (item.temporary ? ' · Temporary (lost at reboot)' : '') +
+              (item.contains_data ? ' · Blocked: folder has existing files' : '');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = 'Use this location';
+            btn.disabled = item.contains_data || (!item.current && !view.can_change);
+            btn.addEventListener('click', async () => {
+              btn.disabled = true;
+              btn.textContent = 'Checking…';
+              try {
+                const resp = await fetch('/api/storage/choose', {
+                  method: 'POST',
+                  headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+                  body: JSON.stringify({candidate: item.id})
+                });
+                if (!resp.ok) throw new Error('Write check failed');
+                await refreshStorage();
+                await refreshModels();
+                inlineSec.hidden = true;
+                document.getElementById('download-confirm').disabled = false;
+                document.getElementById('download-review-details').textContent =
+                  `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Confirmed destination: ${item.path}.`;
+              } catch (_) {
+                p.textContent += ' · Write check failed on this location.';
+                btn.disabled = false;
+                btn.textContent = 'Use this location';
+              }
+            });
+            art.append(h4, p, btn);
+            inlineChoices.append(art);
+          }
+        }
+      } catch (_) {}
+    }
+    document.getElementById('download-confirm').disabled = true;
+    document.getElementById('download-review-details').textContent = model ?
+      `${tag} · ${byteSize(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license}. Choose where models are stored below to run the write check:` :
+      `${tag} · Choose where models are stored below:`;
+  } else {
+    if (inlineSec) inlineSec.hidden = true;
+    document.getElementById('download-confirm').disabled = false;
+    document.getElementById('download-review-details').textContent = model ?
+      `${tag} · ${byteSize(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · Estimated GPU fit: ${model.gpu_fit.status}. ` +
+      `Destination: ${modelDestination || 'your configured model store'} · ${encrypted(modelEncryption)}.` :
+      `${tag} · Retry against the current catalog and the same identity-checked store.`;
+  }
   document.getElementById('download-review').showModal();
 }
 async function refreshModelControls() {
@@ -944,6 +1008,9 @@ function selectionButton(parent, tag, selected) {
 }
 let selectionPhase = null;
 let selectionRefreshing = false;
+let selectionRollbackAvailable = false;
+let selectionPreviousModel = null;
+let currentModelName = null;
 async function refreshSelection() {
   if (selectionRefreshing) return;
   selectionRefreshing = true;
@@ -951,6 +1018,9 @@ async function refreshSelection() {
     const value = await api('/api/models/selection');
     const changed = value.available !== selectionAvailable || value.phase !== selectionPhase || value.active !== selectionActive;
     selectionAvailable = value.available === true; selectionActive = value.active === true; selectionPhase = value.phase;
+    selectionRollbackAvailable = value.rollback_available === true;
+    selectionPreviousModel = value.previous_model || null;
+    currentModelName = value.model || null;
     document.getElementById('selection-controls').hidden = !selectionAvailable || value.phase === 'idle';
     document.getElementById('selection-cancel').disabled = !selectionActive || value.phase === 'cancelling';
     document.getElementById('selection-cancel').hidden = !selectionActive;
@@ -963,7 +1033,10 @@ async function refreshSelection() {
     messages['recovery-blocked'] = 'Owner edits prevent automatic rollback. Assistant is stopped; private recovery record retained for review.';
     document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
     if (selectionActive) document.getElementById('lab-start').disabled = true;
-    if (changed) await refreshModels();
+    if (changed) {
+      await refreshModels();
+      if (value.phase === 'completed') await refreshCommand();
+    }
   } catch (_) { document.getElementById('selection-status').textContent = 'Selection status unavailable. Refresh before switching.'; }
   finally { selectionRefreshing = false; }
 }
@@ -1834,6 +1907,54 @@ function renderMissionReceipt(report) {
       document.getElementById('receipt-tested-recipe').textContent = recTitle;
     } else {
       recipeBar.hidden = true;
+    }
+  }
+
+  // Model transaction rollback bar (J3)
+  const rollbackBar = document.getElementById('receipt-model-rollback-bar');
+  if (rollbackBar) {
+    if (selectionRollbackAvailable && selectionPreviousModel) {
+      rollbackBar.hidden = false;
+      const curEl = document.getElementById('receipt-current-model');
+      if (curEl) curEl.textContent = currentModelName || 'Current model';
+      const prevEl = document.getElementById('receipt-previous-model');
+      if (prevEl) prevEl.textContent = selectionPreviousModel;
+      const resBtn = document.getElementById('receipt-restore-model');
+      if (resBtn) {
+        resBtn.onclick = async () => {
+          resBtn.disabled = true;
+          try {
+            const resp = await fetch('/api/models/restore', {
+              method: 'POST',
+              headers: {'X-Argos-Token': token || ''}
+            });
+            if (!resp.ok) throw new Error('Restore unavailable');
+            await refreshSelection();
+            await refreshCommand();
+            await refreshModels();
+          } catch (_) {
+            resBtn.disabled = false;
+          }
+        };
+      }
+      const keepBtn = document.getElementById('receipt-keep-model');
+      if (keepBtn) {
+        keepBtn.onclick = async () => {
+          keepBtn.disabled = true;
+          try {
+            await fetch('/api/models/keep', {
+              method: 'POST',
+              headers: {'X-Argos-Token': token || ''}
+            });
+            selectionRollbackAvailable = false;
+            rollbackBar.hidden = true;
+          } catch (_) {
+            keepBtn.disabled = false;
+          }
+        };
+      }
+    } else {
+      rollbackBar.hidden = true;
     }
   }
 
