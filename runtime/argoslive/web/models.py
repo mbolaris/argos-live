@@ -158,14 +158,14 @@ def snapshot(home=None, *, data=None, hardware=hw.snapshot, validate=storage.val
     result['curated_models'] = [m for m in result['catalog'] if m.get('curated')]
     result['legacy_models'] = [m for m in result['catalog'] if not m.get('curated')]
     current = next((e for e in data['models'] if e['tag'] == result.get('selected_model')), None)
-    # Conservative next-size suggestion; prioritize reviewed curated lineup
-    curated_candidates = [e for e in result['curated_models'] if current and e['weight_bytes'] > current['weight_bytes']
+    # Conservative next-size suggestion; prioritize reviewed curated lineup with confirmed headroom
+    curated_candidates = [e for e in result['curated_models'] if (not current or e['weight_bytes'] > current['weight_bytes'])
                           and e.get('downloadable')
                           and (e['gpu_fit']['status'] == 'fits' or e['cpu_fit']['status'] == 'fits')]
     if curated_candidates:
         next_model = min(curated_candidates, key=lambda e: e['weight_bytes'])
     else:
-        candidates = [e for e in result['catalog'] if current and e['weight_bytes'] > current['weight_bytes']
+        candidates = [e for e in result['catalog'] if (not current or e['weight_bytes'] > current['weight_bytes'])
                       and '/' not in e['tag'] and 'text' in e['capabilities']
                       and e['context_tokens'] >= 32768
                       and (e['gpu_fit']['status'] == 'fits' or e['cpu_fit']['status'] == 'fits')]

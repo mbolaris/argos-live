@@ -22,7 +22,7 @@ class CatalogTests(unittest.TestCase):
         self.model = self.data['models'][0]
 
     def test_bundled_catalog_and_licenses_are_valid_and_exact_preferences_only(self):
-        self.assertEqual(len(self.data['models']), 9)
+        self.assertEqual(len(self.data['models']), 10)
         inventory = catalog.inventory(self.data)
         result = pack_import.model_resolution({'name': 'ollama/' + self.model['tag']}, inventory)
         self.assertEqual(result['status'], 'in catalog')
@@ -98,9 +98,10 @@ class CatalogTests(unittest.TestCase):
 
         # Curated lineup distinguishes storefront from legacy compatibility inventory
         self.assertTrue(catalog.is_curated('qwen3:0.6b'))
-        self.assertTrue(catalog.is_curated('qwen3:4b'))
+        self.assertTrue(catalog.is_curated('qwen3:4b-instruct-2507-q4_K_M'))
         self.assertTrue(catalog.is_curated('qwen3:8b'))
         self.assertTrue(catalog.is_curated('qwen3:14b'))
+        self.assertFalse(catalog.is_curated('qwen3:4b'))
         self.assertFalse(catalog.is_curated('qwen3:1.7b'))
         self.assertFalse(catalog.is_curated('qwen3:30b'))
         self.assertFalse(catalog.is_curated('qwen3-vl:4b'))
@@ -109,7 +110,11 @@ class CatalogTests(unittest.TestCase):
     def fake_sources(self):
         choices = json.loads((catalog.DEFAULT.parent / 'catalog-spec.json').read_text())
         responses = {}
-        for choice, model in zip(choices['models'], self.data['models']):
+        models_by_tag = {m['tag']: m for m in self.data['models']}
+        for choice in choices['models']:
+            model = models_by_tag.get(choice['tag'])
+            if not model:
+                raise ValueError(f"Catalog spec entry {choice['tag']} missing in catalog.json")
             name, tag = choice['tag'].rsplit(':', 1)
             name = name if '/' in name else 'library/' + name
             base = 'https://registry.ollama.ai/v2/' + name
@@ -142,7 +147,7 @@ class CatalogTests(unittest.TestCase):
             calls.append(url)
             return responses[url]
         data, licenses = refresh.build(choices, get)
-        self.assertEqual(len(data['models']), 9)
+        self.assertEqual(len(data['models']), 10)
         self.assertTrue(licenses)
         self.assertFalse(any(url.endswith('sha256:' + 'a' * 64) for url in calls))
         self.assertEqual(len(data['models'][0]['license_digests']), 1)

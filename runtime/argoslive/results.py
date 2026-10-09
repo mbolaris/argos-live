@@ -285,13 +285,41 @@ def matched_details(values):
     return result
 
 
+def stable_gpu_identity(g):
+    if not isinstance(g, dict):
+        return None
+    # Compare stable device identity, bus, and total VRAM capacity.
+    # Transient runtime fields (vram_used_bytes, temperature, power, clock) are excluded.
+    return (
+        g.get('vendor'),
+        g.get('name'),
+        g.get('bus'),
+        g.get('vram_total_bytes'),
+        g.get('driver'),
+    )
+
+
 def same_hardware(a, b):
     def key(run):
         h = run.get('hardware')
         if not isinstance(h, dict) or not h:
             return None
-        return (repr(h.get('cpu')), repr(h.get('gpus')), (h.get('ram') or {}).get('total_bytes'))
-    return key(a) is not None and key(a) == key(b)
+        cpu = h.get('cpu')
+        if not isinstance(cpu, dict) or not cpu.get('model'):
+            return None
+        cpu_key = (cpu.get('model'), cpu.get('cores'), cpu.get('threads'))
+        gpus = h.get('gpus')
+        if not isinstance(gpus, list):
+            return None
+        gpu_key = tuple(stable_gpu_identity(g) for g in gpus)
+        if any(g is None for g in gpu_key):
+            return None
+        ram = h.get('ram')
+        if not isinstance(ram, dict) or not isinstance(ram.get('total_bytes'), int) or ram['total_bytes'] <= 0:
+            return None
+        return (cpu_key, gpu_key, ram['total_bytes'])
+    ka, kb = key(a), key(b)
+    return ka is not None and ka == kb
 
 
 def digest_of(value):
@@ -312,7 +340,7 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
     Validates that baseline and candidate differ in EXACTLY ONE declared
     intervention variable ('recipe' or 'model'), while matching all other
     fields: kind, suite, suite_version, settings, hardware, complete coverage,
-    and successful restoration.
+    matching runtime versions, and successful restoration.
     """
     validate(baseline)
     validate(candidate)
@@ -345,9 +373,23 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
                 [(p['size'], p.get('context_tokens'), p['skipped']) for p in candidate['prompts']]):
             raise ValueError('Speed prompt coverage differs between runs')
 
-    # Hardware must match
+    # Hardware must match and have complete evidence
     if not same_hardware(baseline, candidate):
-        raise ValueError('Experiment comparison requires identical hardware environment (CPU, GPU, RAM)')
+        raise ValueError('Experiment comparison requires complete, matching hardware evidence (CPU, GPU, RAM)')
+
+    # Recorded runtime versions must match and have complete evidence
+    ov_b = baseline.get('ollama_version')
+    ov_c = candidate.get('ollama_version')
+    av_b = baseline.get('argos_version')
+    av_c = candidate.get('argos_version')
+    if not isinstance(ov_b, str) or not ov_b or not isinstance(ov_c, str) or not ov_c:
+        raise ValueError('Experiment comparison requires recorded Ollama version evidence')
+    if ov_b != ov_c:
+        raise ValueError(f"Experiment comparison requires identical Ollama version (found {ov_b} vs {ov_c})")
+    if not isinstance(av_b, str) or not av_b or not isinstance(av_c, str) or not av_c:
+        raise ValueError('Experiment comparison requires recorded Argos version evidence')
+    if av_b != av_c:
+        raise ValueError(f"Experiment comparison requires identical Argos version (found {av_b} vs {av_c})")
 
     # Verified identities: incomplete identities are rejected
     da = digest_of(baseline.get('manifest_digest'))
@@ -483,7 +525,7 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
         delta = {
             'prompts': prompts_delta,
             'verdict': 'speed_evaluated',
-            'summary': 'Speed evaluated across paired 3-run prompt measurements. Differences < 20% remain within measurement noise.',
+            'summary': 'Speed evaluated across paired 3-run prompt measurements; inspect median token rates and latency deltas directly.',
         }
 
     return {

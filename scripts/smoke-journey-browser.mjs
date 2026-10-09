@@ -41,7 +41,7 @@ try {
   if (!(await page.locator('#cc-build-summary').textContent()).includes('0 of 4')) fail('Build path claims untested progress');
   if (await page.locator('#cc-build-steps [aria-current="step"]').count() !== 1) fail('Build path does not identify the next step');
   if (!(await page.locator('#cc-title').textContent()).includes('Mission control')) fail('Mission Control did not lead the page');
-  if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) fail('Model choices hidden by default');
+  if (await page.locator('#catalog-panel').evaluate(panel => panel.open)) fail('Legacy model inventory should be collapsed by default');
   const deduplication = await page.evaluate(() => {
     const model = {tag: 'fixture:latest', manifest_digest: 'sha256:' + 'a'.repeat(64), files_present: true};
     const bundled = {state: 'available', models: [model]};

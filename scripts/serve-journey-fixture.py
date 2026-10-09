@@ -64,6 +64,37 @@ def main():
                   mock.patch.object(storage, 'read', lambda p, *a, **k: mountinfo if str(p) == '/proc/self/mountinfo' else real_read(p, *a, **k)),
                   mock.patch.object(storage, 'command', lambda c, *a, **k: lsblk if c == storage.LSBLK else real_command(c, *a, **k))):
         patch.start()
+    fixture_hw = {
+        'schema': 'argos-hw/1',
+        'cpu': {'model': 'AMD Ryzen 7 7800X3D (fixture)', 'cores': 8, 'threads': 16},
+        'ram': {'total_bytes': 32 * 1024**3, 'available_bytes': 24 * 1024**3},
+        'gpus': [{
+            'bus': '0000:01:00.0',
+            'name': 'NVIDIA GeForce RTX 4080 (fixture)',
+            'vendor': 'NVIDIA',
+            'vram_total_bytes': 16 * 1024**3,
+            'vram_used_bytes': 2 * 1024**3,
+            'driver': '550.54.14',
+        }],
+        'disks': [],
+        'model_directories': [{'path': str(initial), 'total_bytes': 500 * 1024**3, 'free_bytes': 200 * 1024**3}],
+        'kernel': '6.6.0-argos',
+        'secure_boot': True,
+    }
+    from argoslive import bench_ability, bench_speed, doc_trial, hw
+    from argoslive.web import models, status as live_status
+    hw.snapshot = lambda *a, **kw: fixture_hw
+    for mod in (bench_ability, bench_speed, doc_trial):
+        if hasattr(mod, 'hw'):
+            mod.hw.snapshot = lambda *a, **kw: fixture_hw
+        for fn_name in ('run', 'execute'):
+            fn = getattr(mod, fn_name, None)
+            if fn and getattr(fn, '__kwdefaults__', None) and 'hardware' in fn.__kwdefaults__:
+                fn.__kwdefaults__['hardware'] = lambda *a, **kw: fixture_hw
+    for fn in (models.snapshot, live_status.snapshot):
+        if getattr(fn, '__kwdefaults__', None) and 'hardware' in fn.__kwdefaults__:
+            fn.__kwdefaults__['hardware'] = lambda *a, **kw: fixture_hw
+    mock.patch.object(hw, 'snapshot', lambda *a, **kw: fixture_hw).start()
     topology = lambda: (storage.mount_table(mountinfo), storage.block_table(lsblk), 8 * 1024**3)
     assistant = Assistant(home)
     backend = Fixture()
@@ -81,7 +112,9 @@ def main():
     command = command_center.Controller(home, store, lab=lab, storage=storage_controller,
                                         identity=lambda _: {'model': 'fixture:latest', 'digest': 'a' * 64})
     with DashboardServer(port=0, lab=lab, storage=storage_controller, command=command,
-                         benchmarks=BenchmarkView(store)) as server:
+                         benchmarks=BenchmarkView(store),
+                         models_provider=partial(models.snapshot, home=home, hardware=lambda *a, **kw: fixture_hw),
+                         status_provider=partial(live_status.snapshot, home=home, hardware=lambda *a, **kw: fixture_hw)) as server:
         print(server.url, flush=True)
         threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .05}, daemon=True).start()
         sys.stdin.read()

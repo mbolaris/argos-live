@@ -77,7 +77,19 @@ def same_hardware(a, b):
         h = run.get('hardware')
         if not isinstance(h, dict) or not h:
             return None
-        return (repr(h.get('cpu')), repr(h.get('gpus')), (h.get('ram') or {}).get('total_bytes'))
+        cpu = h.get('cpu')
+        cpu_key = (cpu.get('model'), cpu.get('cores'), cpu.get('threads')) if isinstance(cpu, dict) else repr(cpu)
+        gpus = h.get('gpus')
+        if isinstance(gpus, list):
+            gpu_key = tuple(
+                (g.get('vendor'), g.get('name'), g.get('bus'), g.get('vram_total_bytes'), g.get('driver'))
+                if isinstance(g, dict) else repr(g)
+                for g in gpus
+            )
+        else:
+            gpu_key = repr(gpus)
+        ram_key = (h.get('ram') or {}).get('total_bytes')
+        return (cpu_key, gpu_key, ram_key)
     return key(a) is not None and key(a) == key(b)
 
 

@@ -88,7 +88,53 @@ class ExperimentComparisonTests(unittest.TestCase):
         b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
         c = make_ability_run(recipe_spec='concise', run_id='2' * 32)
         c['hardware']['ram']['total_bytes'] = 17179869184
-        with self.assertRaisesRegex(ValueError, 'requires identical hardware environment'):
+        with self.assertRaisesRegex(ValueError, 'requires complete, matching hardware evidence'):
+            results.compare_experiment(b, c)
+
+    def test_rejection_of_missing_cpu_evidence(self):
+        b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
+        c = make_ability_run(recipe_spec='concise', run_id='2' * 32)
+        b['hardware']['cpu']['model'] = None
+        c['hardware']['cpu']['model'] = None
+        with self.assertRaisesRegex(ValueError, 'requires complete, matching hardware evidence'):
+            results.compare_experiment(b, c)
+
+    def test_rejection_of_missing_gpu_evidence(self):
+        b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
+        c = make_ability_run(recipe_spec='concise', run_id='2' * 32)
+        b['hardware']['gpus'] = None
+        c['hardware']['gpus'] = None
+        with self.assertRaisesRegex(ValueError, 'requires complete, matching hardware evidence'):
+            results.compare_experiment(b, c)
+
+    def test_rejection_of_missing_ram_evidence(self):
+        b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
+        c = make_ability_run(recipe_spec='concise', run_id='2' * 32)
+        b['hardware']['ram']['total_bytes'] = 0
+        c['hardware']['ram']['total_bytes'] = 0
+        with self.assertRaisesRegex(ValueError, 'requires complete, matching hardware evidence'):
+            results.compare_experiment(b, c)
+
+    def test_rejection_of_missing_or_mismatched_ollama_version(self):
+        b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
+        c = make_ability_run(recipe_spec='concise', run_id='2' * 32)
+        b['ollama_version'] = None
+        with self.assertRaisesRegex(ValueError, 'requires recorded Ollama version evidence'):
+            results.compare_experiment(b, c)
+        b['ollama_version'] = '0.5.1'
+        c['ollama_version'] = '0.5.2'
+        with self.assertRaisesRegex(ValueError, 'requires identical Ollama version'):
+            results.compare_experiment(b, c)
+
+    def test_rejection_of_missing_or_mismatched_argos_version(self):
+        b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
+        c = make_ability_run(recipe_spec='concise', run_id='2' * 32)
+        b['argos_version'] = None
+        with self.assertRaisesRegex(ValueError, 'requires recorded Argos version evidence'):
+            results.compare_experiment(b, c)
+        b['argos_version'] = '0.1.0'
+        c['argos_version'] = '0.2.0'
+        with self.assertRaisesRegex(ValueError, 'requires identical Argos version'):
             results.compare_experiment(b, c)
 
     def test_rejection_of_failed_restoration(self):
@@ -146,7 +192,7 @@ class ExperimentComparisonTests(unittest.TestCase):
         self.assertEqual(exp['kind'], 'speed')
         self.assertEqual(exp['delta']['verdict'], 'speed_evaluated')
         self.assertTrue(len(exp['delta']['prompts']) > 0)
-        self.assertIn('measurement noise', exp['delta']['summary'])
+        self.assertIn('inspect median token rates', exp['delta']['summary'])
 
     def test_skill_map_recipe_binding_rejects_mismatched_preset(self):
         std_run = make_ability_run(model='fixture:latest', digest=VALID_DIGEST_A, recipe_spec='standard', run_id='1' * 32)
@@ -196,6 +242,53 @@ class ExperimentComparisonTests(unittest.TestCase):
             self.assertEqual(exp['candidate']['id'], c['id'])
             self.assertEqual(exp['delta']['verdict'], 'regression')
 
+    def test_acceptance_when_only_transient_gpu_usage_or_temperature_differs(self):
+        b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
+        c = make_ability_run(recipe_spec='concise', run_id='2' * 32)
+        b['hardware']['gpus'] = [{
+            'bus': '0000:01:00.0',
+            'name': 'NVIDIA GeForce RTX 4090',
+            'vendor': 'NVIDIA',
+            'vram_total_bytes': 24 * 1024**3,
+            'vram_used_bytes': 2 * 1024**3,
+            'driver': '550.54.14',
+            'temperature_c': 45,
+        }]
+        c['hardware']['gpus'] = [{
+            'bus': '0000:01:00.0',
+            'name': 'NVIDIA GeForce RTX 4090',
+            'vendor': 'NVIDIA',
+            'vram_total_bytes': 24 * 1024**3,
+            'vram_used_bytes': 8 * 1024**3,
+            'driver': '550.54.14',
+            'temperature_c': 65,
+        }]
+        res = results.compare_experiment(b, c)
+        self.assertEqual(res['intervention'], 'recipe')
+
+    def test_rejection_when_gpu_capacity_or_device_differs(self):
+        b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
+        c = make_ability_run(recipe_spec='concise', run_id='2' * 32)
+        b['hardware']['gpus'] = [{
+            'bus': '0000:01:00.0',
+            'name': 'NVIDIA GeForce RTX 4090',
+            'vendor': 'NVIDIA',
+            'vram_total_bytes': 24 * 1024**3,
+            'vram_used_bytes': 2 * 1024**3,
+            'driver': '550.54.14',
+        }]
+        c['hardware']['gpus'] = [{
+            'bus': '0000:01:00.0',
+            'name': 'NVIDIA GeForce RTX 4090',
+            'vendor': 'NVIDIA',
+            'vram_total_bytes': 16 * 1024**3,
+            'vram_used_bytes': 2 * 1024**3,
+            'driver': '550.54.14',
+        }]
+        with self.assertRaisesRegex(ValueError, 'requires complete, matching hardware evidence'):
+            results.compare_experiment(b, c)
+
 
 if __name__ == '__main__':
     unittest.main()
+
