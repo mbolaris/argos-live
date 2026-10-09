@@ -67,6 +67,45 @@ class CatalogTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             catalog.validate(data)
 
+    def test_bounded_catalog_policy_and_curated_lineup(self):
+        # Curated small lineup (4 models) is valid
+        curated_data = copy.deepcopy(self.data)
+        curated_data['models'] = [m for m in self.data['models'] if catalog.is_curated(m['tag'])]
+        self.assertEqual(len(curated_data['models']), 4)
+        self.assertEqual(catalog.validate(curated_data), curated_data)
+
+        # Single-model catalog is valid
+        single_data = copy.deepcopy(self.data)
+        single_data['models'] = [self.model]
+        self.assertEqual(catalog.validate(single_data), single_data)
+
+        # Empty catalog is rejected
+        empty_data = copy.deepcopy(self.data)
+        empty_data['models'] = []
+        with self.assertRaisesRegex(ValueError, 'between 1 and 24 entries'):
+            catalog.validate(empty_data)
+
+        # Oversized catalog (> 24 models) is rejected
+        oversized_data = copy.deepcopy(self.data)
+        oversized_models = []
+        for i in range(25):
+            m = copy.deepcopy(self.model)
+            m['tag'] = f'qwen3:test-{i}'
+            oversized_models.append(m)
+        oversized_data['models'] = oversized_models
+        with self.assertRaisesRegex(ValueError, 'between 1 and 24 entries'):
+            catalog.validate(oversized_data)
+
+        # Curated lineup distinguishes storefront from legacy compatibility inventory
+        self.assertTrue(catalog.is_curated('qwen3:0.6b'))
+        self.assertTrue(catalog.is_curated('qwen3:4b'))
+        self.assertTrue(catalog.is_curated('qwen3:8b'))
+        self.assertTrue(catalog.is_curated('qwen3:14b'))
+        self.assertFalse(catalog.is_curated('qwen3:1.7b'))
+        self.assertFalse(catalog.is_curated('qwen3:30b'))
+        self.assertFalse(catalog.is_curated('qwen3-vl:4b'))
+        self.assertFalse(catalog.is_curated('qwen2.5-coder:7b'))
+
     def fake_sources(self):
         choices = json.loads((catalog.DEFAULT.parent / 'catalog-spec.json').read_text())
         responses = {}

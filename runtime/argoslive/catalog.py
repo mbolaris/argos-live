@@ -12,14 +12,54 @@ LICENSE_DIGESTS = {'sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69
                    'sha256:832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e'}
 
 
+MIN_CATALOG_MODELS = 1
+MAX_CATALOG_MODELS = 24
+
+CURATED_LINEUP = {
+    'qwen3:0.6b': {
+        'role': 'Bundled fallback',
+        'short_label': 'Starter',
+        'rationale': 'Start offline and recover without downloading',
+        'downloadable': False,
+    },
+    'qwen3:4b': {
+        'role': 'Compact',
+        'short_label': 'Compact upgrade',
+        'rationale': 'Compact instruction-following upgrade',
+        'downloadable': True,
+    },
+    'qwen3:8b': {
+        'role': 'Balanced',
+        'short_label': 'Balanced',
+        'rationale': 'Useful accuracy and balanced latency on midrange machines',
+        'downloadable': True,
+    },
+    'qwen3:14b': {
+        'role': 'More capacity',
+        'short_label': 'More capacity',
+        'rationale': 'Higher accuracy when memory and latency allow',
+        'downloadable': True,
+    },
+}
+
+
+def is_curated(tag):
+    return tag in CURATED_LINEUP
+
+
+def curated_info(tag):
+    return CURATED_LINEUP.get(tag)
+
+
 def positive(value):
     return type(value) is int and value > 0
 
 
 def validate(data):
     if (not isinstance(data, dict) or data.get('schema') != 'argos-catalog/1'
-            or not isinstance(data.get('models'), list) or not 8 <= len(data['models']) <= 12):
-        raise ValueError('Expected an argos-catalog/1 with eight to twelve entries')
+            or not isinstance(data.get('models'), list)
+            or not MIN_CATALOG_MODELS <= len(data['models']) <= MAX_CATALOG_MODELS):
+        raise ValueError(f'Expected an argos-catalog/1 with between {MIN_CATALOG_MODELS} and {MAX_CATALOG_MODELS} entries')
     tags = set()
     for entry in data['models']:
         if not isinstance(entry, dict):

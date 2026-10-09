@@ -383,7 +383,20 @@ try {
   if (await receiptUseBtn.count() !== 1) fail('Expected #receipt-use button in DOM');
   console.log('[PASS] J8 debrief opinion disclaimer, 3-state legend, and next-action controls verified');
 
-  console.log('All Mission First J5, J6b, J7, and J8 checks passed successfully!');
+  // J3: Curated models storefront, inline storage, and model rollback transaction checks
+  const curatedDeck = page.locator('#model-curated');
+  if (await curatedDeck.count() !== 1) fail('Expected #model-curated storefront deck in DOM');
+  const inlineStorageSec = page.locator('#inline-storage-section');
+  if (await inlineStorageSec.count() !== 1) fail('Expected #inline-storage-section in DOM');
+  const rollbackBar = page.locator('#receipt-model-rollback-bar');
+  if (await rollbackBar.count() !== 1) fail('Expected #receipt-model-rollback-bar in DOM');
+  const restoreModelBtn = page.locator('#receipt-restore-model');
+  if (await restoreModelBtn.count() !== 1) fail('Expected #receipt-restore-model button in DOM');
+  const keepModelBtn = page.locator('#receipt-keep-model');
+  if (await keepModelBtn.count() !== 1) fail('Expected #receipt-keep-model button in DOM');
+  console.log('[PASS] J3 curated storefront, inline storage, and model rollback controls verified');
+
+  console.log('All Mission First J5, J6b, J7, J8, and J3 checks passed successfully!');
 } finally {
   if (browser) await browser.close();
   server.kill();

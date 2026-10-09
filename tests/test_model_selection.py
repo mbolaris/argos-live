@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from argoslive import auto_setup, catalog, model_selection
 from argoslive.pull_jobs import read_json, write_json
 from test_lab import Assistant
@@ -73,6 +74,40 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(len(checks), 1)
         self.assertFalse(self.journal.exists())
         self.assertTrue(startup.active)
+        # Post-success rollback transaction is recorded
+        snap = control.snapshot()
+        self.assertTrue(snap['rollback_available'])
+        self.assertEqual(snap['previous_model'], 'qwen3:0.6b')
+        self.assertTrue(model_selection.rollback_path(self.home).exists())
+
+    def test_post_success_rollback_keep_and_owner_edit_protection(self):
+        startup, control, _ = self.controller()
+        control.start(tag=self.tag); self.finish(control)
+        self.assertTrue(control.snapshot()['rollback_available'])
+        self.assertEqual(control.snapshot()['previous_model'], 'qwen3:0.6b')
+
+        # Owner edit blocks post-success rollback
+        config_data = read_json(self.config)
+        config_data['owner_customization'] = 'manual-edit'
+        write_json(self.config, config_data)
+        can_res, _ = model_selection.can_restore_previous(self.home)
+        self.assertFalse(can_res)
+        with self.assertRaisesRegex(ValueError, 'not available for restoration or files were edited'):
+            control.restore_previous()
+
+        # Reverting owner edit re-enables restore
+        del config_data['owner_customization']
+        write_json(self.config, config_data)
+        # Fix formatting to match candidate
+        self.config.write_bytes(read_json(model_selection.rollback_path(self.home))['raw_current']['config'].encode())
+        can_res, prev = model_selection.can_restore_previous(self.home)
+        self.assertTrue(can_res)
+        self.assertEqual(prev, 'qwen3:0.6b')
+
+        # Keep current confirms selection and unlinks rollback journal
+        self.assertTrue(control.keep_current())
+        self.assertFalse(model_selection.rollback_path(self.home).exists())
+        self.assertFalse(control.snapshot()['rollback_available'])
     def test_failed_start_restores_exact_bytes(self):
         startup, control, _ = self.controller(fail=True)
         control.start(tag=self.tag); self.finish(control)

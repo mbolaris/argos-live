@@ -72,6 +72,12 @@
               <span class="recipe-protect-tag">Lab only</span>
               <button id="receipt-restore-recipe" type="button" class="btn-text-action">Restore standard</button>
             </div>
+            <div id="receipt-model-rollback-bar" class="receipt-model-rollback-bar" hidden>
+              <span>Assistant model: <strong id="receipt-current-model"></strong> (switched from <span id="receipt-previous-model"></span>)</span>
+              <span class="model-protect-tag">Assistant transaction</span>
+              <button id="receipt-restore-model" type="button" class="btn-text-action">Restore previous model</button>
+              <button id="receipt-keep-model" type="button" class="btn-text-action">Keep this model</button>
+            </div>
             <div id="receipt-actions" class="receipt-actions" hidden>
               <button id="receipt-use" type="button" class="mission-primary" hidden>Use this build in Mission Brief ↓</button>
               <button id="receipt-change" type="button" class="mission-primary">Try one change: concise instructions</button>
@@ -354,6 +360,11 @@
       <dialog id="download-review" aria-labelledby="download-review-title">
         <h3 id="download-review-title">Review model download</h3>
         <p id="download-review-details"></p>
+        <div id="inline-storage-section" class="inline-storage-section" hidden>
+          <h4>Choose where to store models</h4>
+          <p id="inline-storage-help">Downloading this model requires choosing a storage location. Select an eligible drive below; Argos will run a short write check.</p>
+          <div id="inline-storage-choices" class="cards"></div>
+        </div>
         <p>Uses your selected model store and internet connection. Chat will pause while download, full artifact checks and a short local reply test run. No change to your active model or permissions.</p>
         <button id="download-confirm" type="button">Pause chat, download and verify</button>
         <button id="download-dismiss" type="button">Keep current setup</button>
@@ -371,12 +382,15 @@
         <button id="selection-dismiss" type="button">Keep current model</button>
       </dialog>
       <div id="bundled-models" class="cards"></div>
+      <h3>Curated upgrade candidates</h3>
+      <p class="section-sub">At most three reviewed downloadable options with distinct roles, evaluated for local usefulness at acceptable cost.</p>
+      <div id="model-curated" class="cards"></div>
       <h3>Downloaded models</h3>
       <div id="installed-models" class="cards"></div>
       <h3>Downloads in progress</h3>
       <div id="model-jobs" class="cards"></div>
       <details id="catalog-panel" open><summary>Choose a candidate to test</summary>
-        <p>Fit is an estimate at the full listed context size. It does not prove performance or a successful reply.</p>
+        <p>Fit is an estimate at the full listed context size. It does not prove performance or a successful reply. Specialist and compatibility models remain available for testing and rollback.</p>
         <div id="model-catalog" class="cards"></div>
       </details>
       <p>Fit estimates are advisory. Start with a model suited to a useful task, then measure its actual performance. Model activation is a separate reviewed step.</p>

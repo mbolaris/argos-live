@@ -324,6 +324,18 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.reply(200, self.server.selection.cancel())
             return
+        if self.command == 'POST' and self.server.selection and path in ('/api/models/restore', '/api/models/keep'):
+            if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                self.reply(400, {'error': 'An empty request is required'})
+                return
+            try:
+                if path == '/api/models/restore':
+                    self.reply(200, self.server.selection.restore_previous())
+                else:
+                    self.reply(200, {'kept': self.server.selection.keep_current()})
+            except (ValueError, OSError) as exc:
+                self.reply(409, {'error': str(exc) or 'Model restoration action unavailable'})
+            return
         if self.command == 'POST' and self.server.downloads and path in ('/api/models/pause', '/api/models/cancel'):
             if (self.headers.get('Transfer-Encoding') is not None or
                     self.headers.get_all('Content-Length') not in (None, ['0'])):
