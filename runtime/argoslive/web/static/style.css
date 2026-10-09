@@ -980,6 +980,25 @@ caption { text-align: left; font-weight: 700; padding: 12px 0; }
   border-color: #f59e0b;
   background: linear-gradient(135deg, rgba(69, 39, 16, 0.9), rgba(45, 25, 10, 0.7));
 }
+.experiment-recommendation-box.verdict-tradeoff {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(55, 35, 12, 0.9), rgba(28, 18, 8, 0.8));
+}
+.experiment-refusal-card {
+  border-color: #7a3a3a;
+  background: linear-gradient(135deg, rgba(58, 28, 28, 0.9), rgba(28, 14, 14, 0.9));
+}
+.badge-refusal {
+  color: #ff9999;
+  background: #4a1e1e;
+  border: 1px solid #993333;
+}
+.experiment-refusal-message {
+  font-size: 14px;
+  color: #fca5a5;
+  margin: 10px 0;
+  line-height: 1.5;
+}
 .recommendation-badge {
   font-size: 10px;
   text-transform: uppercase;
@@ -1015,6 +1034,9 @@ caption { text-align: left; font-weight: 700; padding: 12px 0; }
   margin-top: 10px;
   color: var(--accent);
   font-weight: 500;
+}
+.recommendation-status.status-error {
+  color: #fca5a5;
 }
 
 /* Curated Models & Model Transactions (J3) */

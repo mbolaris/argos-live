@@ -138,8 +138,14 @@ def main():
                          models_provider=partial(models.snapshot, home=home, hardware=lambda *a, **kw: fixture_hw),
                          status_provider=partial(live_status.snapshot, home=home, hardware=lambda *a, **kw: fixture_hw)) as server:
         print(server.url, flush=True)
-        threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .05}, daemon=True).start()
+        t = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .05}, daemon=True)
+        t.start()
         sys.stdin.read()
+        try:
+            server.shutdown()
+        except Exception:
+            pass
+        t.join(timeout=1)
     lab.close()
     try:
         temp.cleanup()

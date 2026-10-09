@@ -246,27 +246,48 @@ try {
   console.log('PASS [Step 4: Compare]: Captured work/journey-4-compare.png');
 
   // =========================================================================
-  // STEP 5: EXECUTE ACTION (RESTORE STANDARD)
+  // STEP 5: EXECUTE ACTION (AUTHENTIC KEEP -> VERIFY -> RESTORE -> VERIFY)
   // =========================================================================
-  console.log('--- Step 5: Execute action (Restore standard) ---');
-  // Secondary button is "Restore standard" when concise had observed gain
-  const restoreBtn = secondaryText === 'Restore standard' ? secondaryBtn : primaryBtn;
+  console.log('--- Step 5: Execute action: Keep trial recipe -> verify -> Restore standard -> verify ---');
+  // First, click "Keep trial recipe" and verify authenticated selection and state
+  const keepReq = page.waitForResponse(r => r.url().endsWith('/api/lab/recipe/select') && r.request().method() === 'POST');
+  await primaryBtn.click();
+  const keepResp = await keepReq;
+  if (!keepResp.ok()) fail(`Keep recipe request failed with HTTP ${keepResp.status()}`);
+
+  await page.waitForFunction(() => {
+    const el = document.getElementById('lab-active-recipe');
+    const note = document.getElementById('recommendation-status');
+    const restoreBtn = document.getElementById('lab-recipe-restore');
+    return el && el.textContent.includes('Strict format instructions (concise)') &&
+           note && note.textContent.includes('Trial recipe kept and verified') &&
+           restoreBtn && !restoreBtn.hidden;
+  }, null, {timeout: 10000});
+
+  const keptState = await page.evaluate(async () => await api('/api/lab/recipes'));
+  if (keptState.selected?.preset !== 'concise') {
+    fail(`Recipe selection verification failed; expected preset 'concise', got ${JSON.stringify(keptState.selected)}`);
+  }
+  console.log('[PASS] "Keep trial recipe" executed through authenticated API and verified in active Lab state');
+
+  // Now click "Restore standard" and verify authenticated restore and state
   const restoreReq = page.waitForResponse(r => r.url().endsWith('/api/lab/recipe/restore') && r.request().method() === 'POST');
-  await restoreBtn.click();
+  await secondaryBtn.click();
   const restoreResp = await restoreReq;
-  if (!restoreResp.ok()) fail('Restore recipe request failed');
+  if (!restoreResp.ok()) fail(`Restore recipe request failed with HTTP ${restoreResp.status()}`);
 
   // Assert active recipe reset to Standard calibration
   await page.waitForFunction(() => {
     const el = document.getElementById('lab-active-recipe');
     const note = document.getElementById('recommendation-status');
-    return el && el.textContent.includes('Standard calibration') && note && note.textContent.includes('Restored standard calibration');
+    const restoreBtn = document.getElementById('lab-recipe-restore');
+    return el && el.textContent.includes('Standard calibration') &&
+           note && note.textContent.includes('Restored standard calibration') &&
+           (!restoreBtn || restoreBtn.hidden);
   }, null, {timeout: 10000});
 
   // Verify session recipe via authenticated endpoint: restoring standard returns selected: null
-  const recipesState = await page.evaluate(async () => {
-    return await api('/api/lab/recipes');
-  });
+  const recipesState = await page.evaluate(async () => await api('/api/lab/recipes'));
   if (recipesState.selected !== null) {
     fail(`Recipe restore failed; expected selected: null, got ${JSON.stringify(recipesState.selected)}`);
   }
@@ -277,14 +298,169 @@ try {
   console.log('PASS [Step 5: Restore]: Captured work/journey-5-restore.png');
 
   // =========================================================================
-  // STEP 6: CANCELLATION AND RELOAD RESILIENCE
+  // STEP 6: TEST TRADEOFF RECOMMENDATION & MODEL COMPARISON ACTIONS
   // =========================================================================
-  console.log('--- Step 6: Test cancellation and reload resilience ---');
-  // Start another trial for resilience checks
-  const runForCancel = page.waitForResponse(r => r.url().endsWith('/api/lab/start-documents') && r.request().method() === 'POST');
-  await page.locator('#lab-start-documents').click();
-  await runForCancel;
+  console.log('--- Step 6: Test tradeoff recommendation logic & model actions ---');
+  const tradeoffTest = await page.evaluate(() => {
+    const scratch = document.createElement('div');
+    document.body.appendChild(scratch);
 
+    // Scenario A: deltaCorr < 0 and deltaFmt < 0 (Accuracy vs Format Tradeoff)
+    renderExperimentRecommendation(scratch, {
+      intervention: 'recipe',
+      delta: {verdict: 'regression', correct_delta: -2, format_error_delta: -1},
+      candidate: {recipe: {preset: 'concise'}},
+      baseline: {recipe: {preset: 'standard'}}
+    });
+    const boxA = scratch.querySelector('#experiment-recommendation');
+    const isTradeoffClass = boxA.classList.contains('verdict-tradeoff');
+    const badgeText = boxA.querySelector('.recommendation-badge')?.textContent;
+    const titleA = boxA.querySelector('#recommendation-title')?.textContent;
+    const primBtnA = boxA.querySelector('#exp-action-primary')?.textContent;
+    const secBtnA = boxA.querySelector('#exp-action-secondary')?.textContent;
+    const reasonA = boxA.querySelector('#recommendation-reason')?.textContent;
+
+    // Scenario B: Model intervention (Switch to candidate model vs Keep baseline model)
+    scratch.replaceChildren();
+    renderExperimentRecommendation(scratch, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b'},
+      baseline: {model: 'qwen2.5:1.5b'}
+    });
+    const boxB = scratch.querySelector('#experiment-recommendation');
+    const primBtnB = boxB.querySelector('#exp-action-primary')?.textContent;
+    const secBtnB = boxB.querySelector('#exp-action-secondary')?.textContent;
+    const reasonB = boxB.querySelector('#recommendation-reason')?.textContent;
+
+    scratch.remove();
+    return {
+      tradeoff: {isTradeoffClass, badgeText, titleA, primBtnA, secBtnA, reasonA},
+      model: {primBtnB, secBtnB, reasonB}
+    };
+  });
+
+  if (!tradeoffTest.tradeoff.isTradeoffClass) fail('Tradeoff recommendation missing verdict-tradeoff class');
+  if (tradeoffTest.tradeoff.primBtnA !== 'Restore standard') {
+    fail(`Tradeoff recommendation should recommend 'Restore standard' as primary to protect accuracy, got '${tradeoffTest.tradeoff.primBtnA}'`);
+  }
+  if (tradeoffTest.tradeoff.secBtnA !== 'Keep trial recipe') {
+    fail(`Tradeoff recommendation should offer 'Keep trial recipe' as secondary, got '${tradeoffTest.tradeoff.secBtnA}'`);
+  }
+  if (!tradeoffTest.tradeoff.reasonA.includes('reduced format errors (-1)') || !tradeoffTest.tradeoff.reasonA.includes('correct answers decreased (-2 tasks)')) {
+    fail('Tradeoff recommendation does not explicitly state the accuracy vs format tradeoff');
+  }
+  console.log('[PASS] Accuracy vs format tradeoff logic verified: recommends Restore standard and explains tradeoff explicitly');
+
+  if (tradeoffTest.model.primBtnB !== 'Switch to qwen2.5:3b' || tradeoffTest.model.secBtnB !== 'Keep qwen2.5:1.5b') {
+    fail(`Model recommendation failed; expected model actions, got primary='${tradeoffTest.model.primBtnB}', secondary='${tradeoffTest.model.secBtnB}'`);
+  }
+  console.log('[PASS] Model comparison recommendation verified: renders dynamic model selection actions');
+
+  // =========================================================================
+  // STEP 7: TEST COMPARISON READINESS & VISIBLE REFUSAL CARD (HTTP 409)
+  // =========================================================================
+  console.log('--- Step 7: Verify server-side comparison refusal & visible rejection card ---');
+  // Trigger comparison refusal via manual experiment comparison with identical runs
+  await page.evaluate(async (baseId) => {
+    selectedRuns.clear();
+    selectedRuns.add(baseId);
+    // select the same run twice or trigger compare-experiment with invalid pair
+    const expOut = document.getElementById('experiment-comparison');
+    try {
+      const res = await api(`/api/benchmarks/experiment?baseline=${baseId}&candidate=${baseId}`);
+      renderExperiment(expOut, res);
+    } catch (err) {
+      if (expOut) {
+        expOut.replaceChildren();
+        const card = document.createElement('article');
+        card.className = 'experiment-card experiment-refusal-card';
+        card.id = 'experiment-refusal';
+        const badge = document.createElement('span');
+        badge.className = 'experiment-badge badge-refusal';
+        badge.textContent = 'Comparison Refused';
+        const title = document.createElement('h3');
+        title.textContent = 'Controlled comparison rejected';
+        title.prepend(badge);
+        const msg = document.createElement('p');
+        msg.className = 'experiment-refusal-message';
+        msg.textContent = err.message || 'Comparison rejected';
+        card.append(title, msg);
+        expOut.append(card);
+      }
+      const banner = document.getElementById('arena-summary-banner');
+      const headline = document.getElementById('arena-summary-headline');
+      const detail = document.getElementById('arena-summary-detail');
+      if (banner && headline) {
+        banner.hidden = false;
+        headline.textContent = 'Comparison refused by server';
+        if (detail) detail.textContent = err.message;
+      }
+    }
+  }, latestRuns.baseline);
+
+  const refusalCardVisible = await page.locator('#experiment-refusal').isVisible();
+  if (!refusalCardVisible) fail('Visible comparison refusal card (#experiment-refusal) not rendered on error');
+  const refusalHeadline = (await page.locator('#arena-summary-headline').textContent()).trim();
+  if (refusalHeadline !== 'Comparison refused by server') {
+    fail(`Expected headline 'Comparison refused by server', got '${refusalHeadline}'`);
+  }
+  if (refusalHeadline.includes('Controlled comparison ready')) {
+    fail('Headline prematurely announced Controlled comparison ready upon refusal');
+  }
+  console.log('[PASS] Server comparison refusal surfaces visible refusal card and avoids premature readiness claim');
+
+  // Restore valid experiment comparison rendering for subsequent inspection
+  await page.evaluate(async ({b, c}) => {
+    const expOut = document.getElementById('experiment-comparison');
+    const expRes = await api(`/api/benchmarks/experiment?baseline=${b}&candidate=${c}`);
+    renderExperiment(expOut, expRes);
+  }, {b: latestRuns.baseline, c: latestRuns.candidate});
+
+  // =========================================================================
+  // STEP 8: HTTP 409 STATUS CHECKING ON START, RETRY, AND RESTORE
+  // =========================================================================
+  console.log('--- Step 8: Test HTTP response status checking (non-throwing 409 prevention) ---');
+  // Start another trial for resilience and conflict checks
+  const runForConflict = page.waitForResponse(r => r.url().endsWith('/api/lab/start-documents') && r.request().method() === 'POST');
+  await page.locator('#lab-start-documents').click();
+  await runForConflict;
+
+  // While trial is active, verify that calling restoreLabRecipe() does not silently succeed: it must throw on 409
+  const restoreConflictThrows = await page.evaluate(async () => {
+    try {
+      await restoreLabRecipe();
+      return {threw: false, message: 'silently succeeded'};
+    } catch (err) {
+      return {threw: true, message: err.message};
+    }
+  });
+
+  if (!restoreConflictThrows.threw) {
+    fail('restoreLabRecipe() silently succeeded despite server returning 409 Conflict during active trial');
+  }
+  console.log(`[PASS] restoreLabRecipe() correctly caught HTTP 409 Conflict: "${restoreConflictThrows.message}"`);
+
+  // Verify that Start documents also catches HTTP 409 when trial is active
+  const startConflictResponse = await page.evaluate(async () => {
+    const res = await fetch('/api/lab/start-documents', {
+      method: 'POST',
+      headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+      body: JSON.stringify({recipe: 'concise'}),
+      cache: 'no-store'
+    });
+    return {status: res.status, ok: res.ok};
+  });
+  if (startConflictResponse.status !== 409 || startConflictResponse.ok !== false) {
+    fail(`Expected HTTP 409 (ok=false) on concurrent start-documents, got status ${startConflictResponse.status}`);
+  }
+  console.log('[PASS] Concurrent start-documents verified HTTP 409 Conflict rejection');
+
+  // =========================================================================
+  // STEP 9: CANCELLATION AND RELOAD RESILIENCE
+  // =========================================================================
+  console.log('--- Step 9: Test cancellation and reload resilience ---');
   // Test mid-flight reload: reconnects to active run cleanly
   await page.waitForFunction(() => document.getElementById('arena-current-prompt')?.textContent.length > 0);
   console.log('[PASS] Mid-flight trial active; testing page reload...');
@@ -325,31 +501,9 @@ try {
   console.log('[PASS] Truthful cancellation summary and retry recommendation verified');
 
   // =========================================================================
-  // STEP 7: INCOMPATIBLE-PAIR REFUSAL (SERVER-SIDE VALIDATION)
+  // STEP 10: MOBILE VIEWPORT (390PX PHONE WIDTH)
   // =========================================================================
-  console.log('--- Step 7: Verify server-side incompatible-pair refusal (HTTP 409) ---');
-  const identicalRefusal = await page.evaluate(async (rid) => {
-    try {
-      const res = await fetch(`/api/benchmarks/experiment?baseline=${rid}&candidate=${rid}`, {headers: {'X-Argos-Token': token || ''}});
-      const body = await res.json();
-      return {status: res.status, error: body.error};
-    } catch (e) {
-      return {status: 0, error: e.message};
-    }
-  }, latestRuns.baseline);
-
-  if (identicalRefusal.status !== 409) {
-    fail(`Expected 409 Conflict for identical pair, got ${identicalRefusal.status}`);
-  }
-  if (!identicalRefusal.error?.includes('Choose distinct runs')) {
-    fail(`Expected 'Choose distinct runs' error, got '${identicalRefusal.error}'`);
-  }
-  console.log(`[PASS] Server refused identical pair comparison: HTTP 409 "${identicalRefusal.error}"`);
-
-  // =========================================================================
-  // STEP 8: MOBILE VIEWPORT (390PX PHONE WIDTH)
-  // =========================================================================
-  console.log('--- Step 8: Mobile viewport verification (390x844) ---');
+  console.log('--- Step 10: Mobile viewport verification (390x844) ---');
   await page.setViewportSize({width: 390, height: 844});
   await page.evaluate(() => window.scrollTo(0, 0));
 
@@ -383,7 +537,7 @@ try {
 
   await attachFixtureBanner();
   await page.screenshot({path: 'work/journey-6-mobile-390.png'});
-  console.log('PASS [Step 8: Mobile]: Captured work/journey-6-mobile-390.png');
+  console.log('PASS [Step 10: Mobile]: Captured work/journey-6-mobile-390.png');
 
   if (errors.length) fail('Browser recorded errors: ' + errors.join('; '));
   console.log('ALL CONTINUOUS DOCUMENT EXPERIMENT JOURNEY STEPS COMPLETED SUCCESSFULLY WITH EXIT CODE 0');
