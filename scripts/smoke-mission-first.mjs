@@ -396,7 +396,38 @@ try {
   if (await keepModelBtn.count() !== 1) fail('Expected #receipt-keep-model button in DOM');
   console.log('[PASS] J3 curated storefront, inline storage, and model rollback controls verified');
 
-  console.log('All Mission First J5, J6b, J7, J8, and J3 checks passed successfully!');
+  // Playable Loop Redesign regressions:
+  // 1. Single Curriculum Map with 6 K-12 foundation rungs
+  const curriculumMap = page.locator('#curriculum-map');
+  if (await curriculumMap.count() !== 1) fail('Expected #curriculum-map in DOM');
+  const rungsCount = await page.locator('#curriculum-map .curriculum-rung').count();
+  if (rungsCount !== 6) fail(`Expected 6 curriculum rungs, found ${rungsCount}`);
+  const activeRungText = await page.locator('#curriculum-map .curriculum-rung.active').textContent();
+  if (!activeRungText.includes('Short Document Comprehension')) {
+    fail(`Active rung expected 'Short Document Comprehension', got: "${activeRungText}"`);
+  }
+  console.log('[PASS] K-12 foundation curriculum progression map verified (6 rungs, Short Document Comprehension active)');
+
+  // 2. Hardware diagnostic schematic moved to secondary details container
+  const schematicBay = page.locator('.secondary-details-bay #cc-schematic');
+  if (await schematicBay.count() !== 1) fail('Expected #cc-schematic inside .secondary-details-bay');
+  console.log('[PASS] Hardware diagnostic schematic preserved in secondary details bay');
+
+  // 3. Storage modal fixed layout with sticky header/footer and destination grouping
+  const stickyHeader = page.locator('#download-review .modal-sticky-header');
+  const stickyFooter = page.locator('#download-review .modal-sticky-footer');
+  if (await stickyHeader.count() !== 1 || await stickyFooter.count() !== 1) {
+    fail('Expected sticky header and footer in #download-review');
+  }
+  console.log('[PASS] Storage modal fixed layout with sticky header and footer verified');
+
+  // 4. Mobile responsiveness check at 320px
+  await page.setViewportSize({width: 320, height: 844});
+  const overflow320 = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  if (overflow320) fail('Layout overflows at 320px viewport width');
+  console.log('[PASS] Mobile responsiveness verified at 320px without layout overflow');
+
+  console.log('All Mission First, Playable Loop, and Storage Acquisition checks passed successfully!');
 } finally {
   if (browser) await browser.close();
   server.kill();

@@ -1033,50 +1033,163 @@ async function reviewDownload(choice, tag) {
   const inlineSec = document.getElementById('inline-storage-section');
   const inlineChoices = document.getElementById('inline-storage-choices');
   if (!storageConfirmed) {
+    document.getElementById('download-confirm').disabled = true;
     if (inlineSec && inlineChoices) {
       inlineSec.hidden = false;
       inlineChoices.replaceChildren();
       try {
         const view = await api('/api/storage');
         if (view && view.candidates) {
-          for (const item of view.candidates) {
-            const art = document.createElement('article');
-            art.className = 'card';
-            const h4 = document.createElement('h4');
-            h4.textContent = `${item.volume_label || item.mountpoint} (${item.kind === 'ram' ? 'Memory' : 'Disk'})`;
-            const p = document.createElement('p');
-            p.textContent = `${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
-              (item.temporary ? ' · Temporary (lost at reboot)' : '') +
-              (item.contains_data ? ' · Blocked: folder has existing files' : '');
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.textContent = 'Use this location';
-            btn.disabled = item.contains_data || (!item.current && !view.can_change);
-            btn.addEventListener('click', async () => {
-              btn.disabled = true;
-              btn.textContent = 'Checking…';
-              try {
-                const resp = await fetch('/api/storage/choose', {
-                  method: 'POST',
-                  headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
-                  body: JSON.stringify({candidate: item.id})
-                });
-                if (!resp.ok) throw new Error('Write check failed');
-                await refreshStorage();
-                await refreshModels();
-                inlineSec.hidden = true;
-                document.getElementById('download-confirm').disabled = false;
-                document.getElementById('download-review-details').textContent =
-                  `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Confirmed destination: ${item.path}.`;
-              } catch (_) {
-                p.textContent += ' · Write check failed on this location.';
-                btn.disabled = false;
-                btn.textContent = 'Use this location';
-              }
-            });
-            art.append(h4, p, btn);
-            inlineChoices.append(art);
+          const disks = view.candidates.filter(c => c.kind === 'disk');
+          const rams = view.candidates.filter(c => c.kind === 'ram');
+
+          // 1. Recommended Persistent Destination
+          if (disks.length > 0) {
+            const diskGroup = document.createElement('div');
+            diskGroup.className = 'storage-group-persistent';
+            const grpTitle = document.createElement('div');
+            grpTitle.className = 'storage-group-title';
+            grpTitle.textContent = 'Recommended Persistent Drive';
+            diskGroup.append(grpTitle);
+
+            for (const item of disks) {
+              const art = document.createElement('article');
+              art.className = 'destination-card recommended';
+
+              const hdr = document.createElement('div');
+              hdr.className = 'dest-header';
+              const name = document.createElement('div');
+              name.className = 'dest-name';
+              name.textContent = `${item.volume_label || item.mountpoint} (${item.mountpoint})`;
+              const badge = document.createElement('span');
+              badge.className = 'dest-badge-rec';
+              badge.textContent = 'Recommended · Retained on reboot';
+              hdr.append(name, badge);
+
+              const path = document.createElement('div');
+              path.className = 'dest-path';
+              path.textContent = item.path;
+
+              const grid = document.createElement('div');
+              grid.className = 'dest-meta-grid';
+              grid.innerHTML = `
+                <div class="meta-field"><div class="field-lbl">Free Space</div><div class="field-val">${gib(item.free_bytes)} free</div></div>
+                <div class="meta-field"><div class="field-lbl">Persistence</div><div class="field-val">Persistent Disk</div></div>
+                <div class="meta-field"><div class="field-lbl">Encryption</div><div class="field-val">${encrypted(item.encrypted)}</div></div>
+              `;
+
+              const p = document.createElement('p');
+              p.className = 'dest-desc';
+              p.textContent = (item.contains_data ? 'Blocked: folder has existing files. Argos requires an empty store.' : 'Persistent storage across reboots. Full SHA-256 hash checks and identity marker will be verified.');
+
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'mission-primary';
+              btn.textContent = 'Use this location (Recommended)';
+              btn.disabled = item.contains_data || (!item.current && !view.can_change);
+              btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.textContent = 'Checking write access…';
+                try {
+                  const resp = await fetch('/api/storage/choose', {
+                    method: 'POST',
+                    headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+                    body: JSON.stringify({candidate: item.id})
+                  });
+                  if (!resp.ok) throw new Error('Write check failed');
+                  await refreshStorage();
+                  await refreshModels();
+                  inlineSec.hidden = true;
+                  document.getElementById('download-confirm').disabled = false;
+                  document.getElementById('download-review-details').textContent =
+                    `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Confirmed destination: ${item.path} (Persistent disk).`;
+                } catch (_) {
+                  p.textContent += ' · Write check failed on this location.';
+                  btn.disabled = false;
+                  btn.textContent = 'Use this location (Recommended)';
+                }
+              });
+
+              art.append(hdr, path, grid, p, btn);
+              diskGroup.append(art);
+            }
+            inlineChoices.append(diskGroup);
+          } else {
+            const noDisk = document.createElement('div');
+            noDisk.className = 'notice';
+            noDisk.innerHTML = '<strong>No persistent disk eligible</strong><p>No mounted disk has sufficient free space and an empty folder. Models can only be downloaded to temporary session RAM below.</p>';
+            inlineChoices.append(noDisk);
           }
+
+          // 2. Group Temporary RAM Candidates Secondarily
+          if (rams.length > 0) {
+            const ramBox = document.createElement('div');
+            ramBox.className = 'temporary-ram-box';
+            const ramHdr = document.createElement('div');
+            ramHdr.className = 'temp-ram-header';
+            ramHdr.textContent = 'Temporary Memory Alternatives (Session only)';
+            const ramDesc = document.createElement('div');
+            ramDesc.className = 'temp-ram-desc';
+            ramDesc.textContent = '⚠️ Memory storage (tmpfs) disappears at reboot. Models downloaded to RAM will be lost when you restart or power off.';
+            ramBox.append(ramHdr, ramDesc);
+
+            for (const item of rams) {
+              const row = document.createElement('div');
+              row.className = 'blocked-drive-item';
+              const nameRow = document.createElement('div');
+              nameRow.className = 'blocked-name';
+              nameRow.textContent = `RAM: ${item.mountpoint} (${gib(item.free_bytes)} free memory)`;
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'mission-secondary';
+              btn.textContent = 'Use temporary RAM';
+              btn.disabled = item.contains_data || (!item.current && !view.can_change);
+              btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.textContent = 'Checking…';
+                try {
+                  const resp = await fetch('/api/storage/choose', {
+                    method: 'POST',
+                    headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+                    body: JSON.stringify({candidate: item.id})
+                  });
+                  if (!resp.ok) throw new Error('Write check failed');
+                  await refreshStorage();
+                  await refreshModels();
+                  inlineSec.hidden = true;
+                  document.getElementById('download-confirm').disabled = false;
+                  document.getElementById('download-review-details').textContent =
+                    `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Destination: ${item.path} (Temporary memory · lost at reboot).`;
+                } catch (_) {
+                  btn.disabled = false;
+                  btn.textContent = 'Use temporary RAM';
+                }
+              });
+              row.append(nameRow, btn);
+              ramBox.append(row);
+            }
+            inlineChoices.append(ramBox);
+          }
+
+          // 3. Excluded Destinations & Restrictions Explanation
+          const excludedBox = document.createElement('div');
+          excludedBox.className = 'storage-group-excluded';
+          excludedBox.innerHTML = `
+            <div class="storage-group-title title-muted">Excluded Destinations & Policy Guardrails</div>
+            <div class="blocked-drive-item">
+              <div class="blocked-name"><span>Live USB Boot & Persistence Media</span><span class="badge badge-excluded">Excluded</span></div>
+              <div class="blocked-reason">The live USB drive is reserved for your AI's profile, settings, and conversations to protect against storage exhaustion from multi-gigabyte models.</div>
+            </div>
+            <div class="blocked-drive-item">
+              <div class="blocked-name"><span>Folders with Existing Files</span><span class="badge badge-excluded">Blocked</span></div>
+              <div class="blocked-reason">Argos requires a dedicated empty folder and never moves, adopts, or alters pre-existing files on your system.</div>
+            </div>
+            <div class="blocked-drive-item">
+              <div class="blocked-name"><span>Read-only Host Operating System</span><span class="badge badge-protected">Protected</span></div>
+              <div class="blocked-reason">Host OS and recovery volumes are mounted read-only and protected from write operations.</div>
+            </div>
+          `;
+          inlineChoices.append(excludedBox);
         }
       } catch (_) {}
     }
