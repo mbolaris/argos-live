@@ -22,7 +22,7 @@ CURATED_LINEUP = {
         'rationale': 'Start offline and recover without downloading',
         'downloadable': False,
     },
-    'qwen3:4b': {
+    'qwen3:4b-instruct-2507-q4_K_M': {
         'role': 'Compact',
         'short_label': 'Compact upgrade',
         'rationale': 'Compact instruction-following upgrade',
@@ -37,7 +37,7 @@ CURATED_LINEUP = {
     'qwen3:14b': {
         'role': 'More capacity',
         'short_label': 'More capacity',
-        'rationale': 'Higher accuracy when memory and latency allow',
+        'rationale': 'Larger candidate to evaluate when memory and latency allow; compare quality and speed locally',
         'downloadable': True,
     },
 }

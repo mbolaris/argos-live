@@ -36,7 +36,19 @@
         "text",
         "tools"
       ],
-      "description": "Compact general assistant.",
+      "description": "Compact general assistant (thinking variant).",
+      "publisher_url": "https://ollama.com/library/qwen3"
+    },
+    {
+      "tag": "qwen3:4b-instruct-2507-q4_K_M",
+      "family": "qwen3",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools"
+      ],
+      "description": "Compact general instruction assistant.",
       "publisher_url": "https://ollama.com/library/qwen3"
     },
     {

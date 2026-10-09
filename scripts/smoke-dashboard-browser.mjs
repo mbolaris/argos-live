@@ -56,8 +56,8 @@ try {
   if (!(await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
     throw new Error('Bundled source selection was not displayed');
   }
-  if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) {
-    throw new Error('Model catalog should be visible on first load');
+  if (await page.locator('#catalog-panel').evaluate(panel => panel.open)) {
+    throw new Error('Model catalog should be collapsed by default on first load');
   }
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
   await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
@@ -163,9 +163,10 @@ try {
   });
   await page.reload();
   await page.locator('#download-controls').waitFor({state: 'visible'});
-  if (!(await page.locator('#catalog-panel').evaluate(panel => panel.open))) {
-    throw new Error('Reload hid the model catalog');
+  if (await page.locator('#catalog-panel').evaluate(panel => panel.open)) {
+    throw new Error('Reload should keep model catalog collapsed');
   }
+  await page.locator('#catalog-panel > summary').click();
   await page.locator('#model-catalog button').first().click();
   await page.locator('#download-review').waitFor({state: 'visible'});
   if (!(await page.locator('#download-confirm').isDisabled())) throw new Error('Download was allowed before storage was confirmed');

@@ -110,6 +110,7 @@ class Controller(Workload):
         self.verify = verify
         self.tag = None
         self.previous = None
+        self.is_restoring = False
         self.recovery_blocked = False
 
     def start(self, *, tag):
@@ -119,6 +120,20 @@ class Controller(Workload):
             if self.closed or self.startup.lab_active:
                 raise ValueError('Another desktop workload is active')
             self.tag = tag
+            self.is_restoring = False
+            self.recovery_blocked = False
+            return super().start()
+
+    def start_restore(self):
+        home = getattr(self.startup, 'home', None)
+        allowed, prev_tag = can_restore_previous(home)
+        if not allowed or not prev_tag:
+            raise ValueError('Previous model selection is not available for restoration or files were edited')
+        with self.startup.lock, self.lock:
+            if self.closed or self.startup.lab_active:
+                raise ValueError('Another desktop workload is active')
+            self.tag = prev_tag
+            self.is_restoring = True
             self.recovery_blocked = False
             return super().start()
 
@@ -139,7 +154,78 @@ class Controller(Workload):
                 raise ValueError('Selected assistant did not become ready')
             time.sleep(.1)
 
+    def execute_restore(self):
+        home = getattr(self.startup, 'home', None)
+        if not home:
+            raise ValueError('Startup home is required for restoration')
+        rb = rollback_path(home)
+        if not rb or not rb.exists():
+            raise ValueError('No rollback transaction found')
+        data = read_json(rb)
+        if data.get('schema') != 'argos-model-rollback/1':
+            raise ValueError('Invalid rollback transaction schema')
+        state_path, config_path, journal = paths(home)
+        if journal.exists():
+            raise ValueError('An unfinished selection requires recovery')
+
+        raw_current = data['raw_current']
+        raw_prev = data['raw_previous']
+        if (state_path.read_bytes() != raw_current['state'].encode('utf-8') or
+                config_path.read_bytes() != raw_current['config'].encode('utf-8')):
+            raise ValueError('Owner edits prevent automatic model restoration')
+
+        # Write crash journal before modifying files
+        write_json(journal, {
+            'schema': 'argos-model-selection/1',
+            'before': {'state': read_json(state_path), 'config': read_json(config_path)},
+            'after': {'state': json.loads(raw_prev['state']), 'config': json.loads(raw_prev['config'])},
+            'raw': {'state': raw_current['state'], 'config': raw_current['config']},
+            'candidate': {'state': raw_prev['state'], 'config': raw_prev['config']},
+        })
+        try:
+            self.report('stopping')
+            self.startup.stop()
+            self.wait_stopped()
+
+            if (state_path.read_bytes() != raw_current['state'].encode('utf-8') or
+                    config_path.read_bytes() != raw_current['config'].encode('utf-8')):
+                raise ValueError('Configuration changed during shutdown')
+
+            replace_raw(config_path, raw_prev['config'].encode('utf-8'))
+            replace_raw(state_path, raw_prev['state'].encode('utf-8'))
+
+            self.report('starting')
+            with self.startup.lock:
+                self.startup.start(_reserved=True)
+                self.startup.chat_claimed = True
+            self.wait_ready()
+
+            if (state_path.read_bytes() != raw_prev['state'].encode('utf-8') or
+                    config_path.read_bytes() != raw_prev['config'].encode('utf-8')):
+                raise ValueError('Configuration changed during startup')
+
+            finish_journal(journal)
+            try:
+                rb.unlink(missing_ok=True)
+            except OSError:
+                pass
+            self.resume = False
+            return 'completed'
+        except Exception:
+            self.report('restoring')
+            try:
+                self.startup.stop()
+                self.wait_stopped()
+                restore(home)
+            except Exception:
+                self.resume = False
+                self.recovery_blocked = True
+                raise
+            return 'cancelled' if self.cancel_event.is_set() else 'rolled-back'
+
     def execute(self):
+        if self.is_restoring:
+            return self.execute_restore()
         # Validates the existing conversation policy before any configuration edit.
         self.startup.resolve_source(self.startup.home)
         state_path, config_path, journal = paths(self.startup.home)
@@ -193,10 +279,10 @@ class Controller(Workload):
             # Do not commit across concurrent external edits.
             if read_json(state_path) != after['state'] or read_json(config_path) != after['config']:
                 raise ValueError('Configuration changed during startup')
-            finish_journal(journal)
             if self.previous and self.previous != self.tag:
-                try:
-                    write_json(rollback_path(self.startup.home), {
+                home = getattr(self.startup, 'home', None)
+                if home:
+                    write_json(rollback_path(home), {
                         'schema': 'argos-model-rollback/1',
                         'previous_tag': self.previous,
                         'current_tag': self.tag,
@@ -204,8 +290,7 @@ class Controller(Workload):
                         'raw_current': candidate,
                         'timestamp': time.time(),
                     })
-                except Exception:
-                    pass
+            finish_journal(journal)
             self.resume = False
             return 'completed'
         except Exception:
@@ -222,11 +307,7 @@ class Controller(Workload):
 
     def restore_previous(self):
         """Restore the previous model using the saved rollback transaction."""
-        home = getattr(self.startup, 'home', None)
-        allowed, prev_tag = can_restore_previous(home)
-        if not allowed or not prev_tag:
-            raise ValueError('Previous model selection is not available for restoration or files were edited')
-        return self.start(tag=prev_tag)
+        return self.start_restore()
 
     def keep_current(self):
         """Acknowledge and keep the current model, removing rollback record."""

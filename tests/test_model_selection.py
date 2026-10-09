@@ -108,6 +108,35 @@ class SelectionTests(unittest.TestCase):
         self.assertTrue(control.keep_current())
         self.assertFalse(model_selection.rollback_path(self.home).exists())
         self.assertFalse(control.snapshot()['rollback_available'])
+
+    def test_restore_previous_restores_exact_saved_bytes(self):
+        startup, control, _ = self.controller()
+        control.start(tag=self.tag); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        self.assertNotEqual((self.state.read_bytes(), self.config.read_bytes()), self.original)
+        self.assertTrue(model_selection.rollback_path(self.home).exists())
+
+        # Exact restore
+        control.restore_previous(); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        self.assertEqual((self.state.read_bytes(), self.config.read_bytes()), self.original)
+        self.assertFalse(model_selection.rollback_path(self.home).exists())
+        self.assertFalse(self.journal.exists())
+        self.assertFalse(control.snapshot()['rollback_available'])
+
+    def test_rollback_write_failure_aborts_switch_and_restores_previous(self):
+        startup, control, _ = self.controller()
+        real_write = model_selection.write_json
+        def fail_rollback(path, data):
+            if 'model-rollback.json' in str(path):
+                raise OSError('Disk quota exceeded')
+            return real_write(path, data)
+        with patch('argoslive.model_selection.write_json', side_effect=fail_rollback):
+            control.start(tag=self.tag); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'rolled-back')
+        self.assertEqual((self.state.read_bytes(), self.config.read_bytes()), self.original)
+        self.assertFalse(self.journal.exists())
+
     def test_failed_start_restores_exact_bytes(self):
         startup, control, _ = self.controller(fail=True)
         control.start(tag=self.tag); self.finish(control)
@@ -168,6 +197,72 @@ class SelectionTests(unittest.TestCase):
             finally:
                 server.shutdown(); thread.join(3)
 
+    def test_restore_interrupted_recovers_exact_bytes_without_starting(self):
+        startup, control, _ = self.controller()
+        control.start(tag=self.tag); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        rb_data = read_json(model_selection.rollback_path(self.home))
+        # Simulate an interrupted restore crash after journal creation and state replacement
+        write_json(self.journal, {
+            'schema': 'argos-model-selection/1',
+            'before': {'state': read_json(self.state), 'config': read_json(self.config)},
+            'after': {'state': json.loads(rb_data['raw_previous']['state']), 'config': json.loads(rb_data['raw_previous']['config'])},
+            'raw': {'state': rb_data['raw_current']['state'], 'config': rb_data['raw_current']['config']},
+            'candidate': {'state': rb_data['raw_previous']['state'], 'config': rb_data['raw_previous']['config']},
+        })
+        self.state.write_bytes(rb_data['raw_previous']['state'].encode())
+        self.assertTrue(model_selection.restore(self.home))
+        self.assertFalse(self.journal.exists())
+        self.assertEqual(self.state.read_bytes(), rb_data['raw_current']['state'].encode())
+
+    def test_restore_failed_startup_rolls_back(self):
+        startup, control, _ = self.controller()
+        control.start(tag=self.tag); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        switched_bytes = (self.state.read_bytes(), self.config.read_bytes())
+        # Fail startup during restore
+        startup.fail = True
+        startup.entered.clear()
+        control.restore_previous(); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'rolled-back')
+        self.assertFalse(self.journal.exists())
+        self.assertEqual((self.state.read_bytes(), self.config.read_bytes()), switched_bytes)
+
+    def test_restore_cancellation_rolls_back_cleanly(self):
+        startup, control, _ = self.controller()
+        control.start(tag=self.tag); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        switched_bytes = (self.state.read_bytes(), self.config.read_bytes())
+        # Hold startup during restore to allow cancellation
+        startup.hold = True
+        startup.entered.clear()
+        control.restore_previous()
+        self.assertTrue(startup.entered.wait(3))
+        control.cancel(); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'cancelled')
+        self.assertFalse(self.journal.exists())
+        self.assertEqual((self.state.read_bytes(), self.config.read_bytes()), switched_bytes)
+
+    def test_restore_concurrent_owner_edit_blocks_recovery_and_preserves_edits(self):
+        startup, control, _ = self.controller()
+        control.start(tag=self.tag); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        # Hold startup during restore
+        startup.hold = True
+        startup.entered.clear()
+        control.restore_previous()
+        self.assertTrue(startup.entered.wait(3))
+        # External owner modifies config during restore startup
+        changed = read_json(self.config)
+        changed['owner_override'] = 'concurrent edit during restore'
+        write_json(self.config, changed)
+        control.cancel(); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'recovery-blocked')
+        self.assertTrue(self.journal.exists())
+        self.assertEqual(read_json(self.config)['owner_override'], 'concurrent edit during restore')
+        self.assertFalse(startup.active)
+
 
 if __name__ == '__main__':
     unittest.main()
+
