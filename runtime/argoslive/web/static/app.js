@@ -1462,6 +1462,90 @@ document.getElementById('compare-runs').addEventListener('click', async () => {
     document.getElementById('benchmarks-status').textContent = 'Select two to eight complete runs with matching suites and settings.';
   }
 });
+const normalizeDigest = (d) => {
+  if (!d || typeof d !== 'string') return '';
+  return d.startsWith('sha256:') ? d.slice(7).toLowerCase() : d.toLowerCase();
+};
+
+async function waitSelectionTerminal(statusNote, actionLabel) {
+  const timeoutMs = 60000;
+  const start = Date.now();
+  const pollInterval = 100;
+
+  const messages = {
+    verifying: 'Rechecking all model artifacts…',
+    stopping: 'Pausing the current assistant…',
+    starting: 'Testing the selected model through OpenClaw…',
+    restoring: 'Restoring the previous selection…',
+    cancelling: 'Cancelling switch and releasing resources…'
+  };
+
+  while (Date.now() - start < timeoutMs) {
+    let snap;
+    try {
+      snap = await api('/api/models/selection');
+    } catch (_) {
+      await new Promise(r => setTimeout(r, pollInterval));
+      continue;
+    }
+    if (!snap || snap.available === false) {
+      throw new Error('Model selection controller unavailable');
+    }
+
+    if (snap.active) {
+      if (statusNote) {
+        statusNote.textContent = messages[snap.phase] || (actionLabel === 'switch-candidate' ? 'Switching model…' : 'Restoring model…');
+      }
+      await new Promise(r => setTimeout(r, pollInterval));
+      continue;
+    }
+
+    // Terminal completion reached: snap.active is false
+    const phase = snap.phase;
+    if (phase === 'completed') {
+      return snap;
+    } else if (phase === 'rolled-back') {
+      throw new Error('Startup failed. The previous selection was restored (rolled back).');
+    } else if (phase === 'cancelled') {
+      throw new Error('Switch cancelled. The previous selection was retained or restored.');
+    } else if (phase === 'recovery-blocked') {
+      throw new Error('Owner edits prevent automatic rollback. Assistant is stopped; recovery blocked.');
+    } else if (phase === 'failed') {
+      throw new Error('Model switch failed. Inspect private diagnostics; owner edits are preserved.');
+    } else if (phase === 'idle') {
+      return snap;
+    }
+    await new Promise(r => setTimeout(r, pollInterval));
+  }
+  throw new Error('Model selection timed out');
+}
+
+async function verifyModelSelectionIdentity(expectedTag, expectedDigest) {
+  const modelsData = await api('/api/models');
+  if (modelsData.selected_model !== expectedTag) {
+    throw new Error(`Selected model mismatch: expected '${expectedTag}', got '${modelsData.selected_model || 'none'}'`);
+  }
+  if (expectedDigest) {
+    const allModels = [
+      ...(modelsData.installed || []),
+      ...((modelsData.bundled && modelsData.bundled.models) || [])
+    ];
+    const match = allModels.find(m => m.tag === expectedTag);
+    let actualDigest = match?.manifest_digest;
+    if (!actualDigest) {
+      try {
+        const cc = await api('/api/command-center');
+        actualDigest = cc.skill_map?.manifest_digest || cc.model?.digest;
+      } catch (_) {}
+    }
+    const expNorm = normalizeDigest(expectedDigest);
+    const actNorm = normalizeDigest(actualDigest);
+    if (!actNorm || expNorm !== actNorm) {
+      throw new Error(`Manifest digest mismatch: expected '${expectedDigest}', got '${actualDigest || 'unidentified'}'`);
+    }
+  }
+}
+
 function renderExperimentRecommendation(card, result) {
   const box = document.createElement('div');
   box.id = 'experiment-recommendation';
@@ -1679,7 +1763,8 @@ function renderExperimentRecommendation(card, result) {
         if (restoreBtn) restoreBtn.hidden = false;
       } else if (actionType === 'switch-candidate') {
         const candModel = result.candidate?.model;
-        statusNote.textContent = `Switching to candidate model (${candModel})…`;
+        const candDigest = result.candidate?.manifest_digest;
+        statusNote.textContent = `Initiating switch to candidate model (${candModel})…`;
         const res = await fetch('/api/models/select', {
           method: 'POST',
           headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
@@ -1691,26 +1776,53 @@ function renderExperimentRecommendation(card, result) {
           try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
           throw new Error(msg);
         }
-        await refreshSelection();
+        await waitSelectionTerminal(statusNote, 'switch-candidate');
         await refreshModels();
-        statusNote.textContent = `Switched to candidate model ${candModel}. Model switch verified.`;
+        await refreshSelection();
+        await verifyModelSelectionIdentity(candModel, candDigest);
+        statusNote.textContent = `Switched to candidate model ${candModel}. Model switch verified with matching manifest digest.`;
       } else if (actionType === 'keep-baseline') {
         const baseModel = result.baseline?.model;
-        statusNote.textContent = `Retaining baseline model (${baseModel})…`;
-        const res = await fetch('/api/models/select', {
-          method: 'POST',
-          headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
-          body: JSON.stringify({tag: baseModel}),
-          cache: 'no-store'
-        });
-        if (!res.ok) {
-          let msg = `Model selection failed (HTTP ${res.status})`;
-          try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
-          throw new Error(msg);
+        const baseDigest = result.baseline?.manifest_digest;
+        let usedRestore = false;
+        try {
+          const selSnap = await api('/api/models/selection');
+          if (selSnap && selSnap.rollback_available === true && selSnap.previous_model === baseModel) {
+            usedRestore = true;
+          }
+        } catch (_) {}
+
+        if (usedRestore) {
+          statusNote.textContent = `Restoring previous baseline model transaction (${baseModel})…`;
+          const res = await fetch('/api/models/restore', {
+            method: 'POST',
+            headers: {'X-Argos-Token': token || '', 'Content-Length': '0'},
+            cache: 'no-store'
+          });
+          if (!res.ok) {
+            let msg = `Model restoration failed (HTTP ${res.status})`;
+            try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+            throw new Error(msg);
+          }
+        } else {
+          statusNote.textContent = `Retaining baseline model (${baseModel})…`;
+          const res = await fetch('/api/models/select', {
+            method: 'POST',
+            headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+            body: JSON.stringify({tag: baseModel}),
+            cache: 'no-store'
+          });
+          if (!res.ok) {
+            let msg = `Model selection failed (HTTP ${res.status})`;
+            try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+            throw new Error(msg);
+          }
         }
-        await refreshSelection();
+        await waitSelectionTerminal(statusNote, 'keep-baseline');
         await refreshModels();
-        statusNote.textContent = `Baseline model ${baseModel} retained.`;
+        await refreshSelection();
+        await verifyModelSelectionIdentity(baseModel, baseDigest);
+        statusNote.textContent = `Baseline model ${baseModel} retained. Model switch verified with matching manifest digest.`;
       } else if (actionType === 'retry') {
         statusNote.textContent = 'Restarting candidate trial…';
         const res = await fetch('/api/lab/start-documents', {
@@ -1731,7 +1843,9 @@ function renderExperimentRecommendation(card, result) {
       statusNote.classList.add('status-error');
       statusNote.textContent = (actionType === 'restore' ? 'Failed to restore standard recipe: ' :
         actionType === 'keep' ? 'Failed to keep trial recipe: ' :
-        actionType === 'retry' ? 'Retry failed: ' : 'Action failed: ') + err.message;
+        actionType === 'retry' ? 'Retry failed: ' :
+        actionType === 'switch-candidate' ? 'Failed to switch model: ' :
+        actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Action failed: ') + err.message;
     } finally {
       btnPrimary.disabled = false;
       btnSecondary.disabled = false;

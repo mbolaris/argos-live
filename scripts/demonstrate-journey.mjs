@@ -358,6 +358,277 @@ try {
   }
   console.log('[PASS] Model comparison recommendation verified: renders dynamic model selection actions');
 
+  // --- Browser Regressions: Model Selection Lifecycle & Terminal States ---
+  console.log('--- Testing browser regressions: delayed success, rollback, cancel, recovery-blocked, digest check ---');
+
+  await page.evaluate(() => {
+    const testContainer = document.createElement('div');
+    testContainer.id = 'model-test-container';
+    document.body.appendChild(testContainer);
+  });
+
+  // 1. Delayed success
+  let selectCalls = [];
+  let restoreCalls = [];
+  let selectionStep = 0;
+
+  await page.route('**/api/models/select', async route => {
+    selectCalls.push(await route.request().postDataJSON());
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({status: 'started'})});
+  });
+
+  await page.route('**/api/models/restore', async route => {
+    restoreCalls.push(true);
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({status: 'restoring'})});
+  });
+
+  await page.route('**/api/models/selection', async route => {
+    selectionStep++;
+    if (selectionStep === 1) {
+      // In-flight: verifying
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: true, phase: 'verifying'
+      })});
+    } else if (selectionStep === 2) {
+      // In-flight: starting
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: true, phase: 'starting'
+      })});
+    } else {
+      // Terminal: completed
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: false, phase: 'completed'
+      })});
+    }
+  });
+
+  await page.route('**/api/models', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      selected_model: 'qwen2.5:3b',
+      installed: [{tag: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'}],
+      bundled: {models: []}
+    })});
+  });
+
+  // Render recommendation into test container
+  await page.evaluate(() => {
+    const el = document.getElementById('model-test-container');
+    el.replaceChildren();
+    renderExperimentRecommendation(el, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  // Click primary button: Switch to candidate model
+  const switchBtn = page.locator('#model-test-container #exp-action-primary');
+  await switchBtn.click();
+
+  // Wait for completed terminal verification
+  await page.waitForFunction(() => {
+    const statusEl = document.querySelector('#model-test-container #recommendation-status');
+    return statusEl && statusEl.textContent.includes('Model switch verified with matching manifest digest');
+  }, null, {timeout: 10000});
+
+  const verifiedStatus = await page.locator('#model-test-container #recommendation-status').textContent();
+  if (!verifiedStatus.includes('Switched to candidate model qwen2.5:3b. Model switch verified with matching manifest digest.')) {
+    fail(`Unexpected success status: ${verifiedStatus}`);
+  }
+  console.log('[PASS] Delayed model switch success verified: stayed pending during active phases, verified tag and digest upon terminal completion');
+
+  // 2. Failed startup & rollback
+  await page.unroute('**/api/models/selection');
+  let rollbackStep = 0;
+  await page.route('**/api/models/selection', async route => {
+    rollbackStep++;
+    if (rollbackStep === 1) {
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: true, phase: 'starting'
+      })});
+    } else {
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: false, phase: 'rolled-back'
+      })});
+    }
+  });
+
+  await page.evaluate(() => {
+    const el = document.getElementById('model-test-container');
+    el.replaceChildren();
+    renderExperimentRecommendation(el, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  await page.locator('#model-test-container #exp-action-primary').click();
+  await page.waitForFunction(() => {
+    const statusEl = document.querySelector('#model-test-container #recommendation-status');
+    return statusEl && statusEl.classList.contains('status-error') && statusEl.textContent.includes('rolled back');
+  }, null, {timeout: 10000});
+
+  const rollbackText = await page.locator('#model-test-container #recommendation-status').textContent();
+  if (!rollbackText.includes('Startup failed. The previous selection was restored (rolled back).')) {
+    fail(`Unexpected rollback text: ${rollbackText}`);
+  }
+  console.log('[PASS] Failed startup & rollback verified: reported rolled-back terminal outcome with visible error and no premature success');
+
+  // 3. Cancelled switch
+  await page.unroute('**/api/models/selection');
+  await page.route('**/api/models/selection', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      available: true, active: false, phase: 'cancelled'
+    })});
+  });
+
+  await page.evaluate(() => {
+    const el = document.getElementById('model-test-container');
+    el.replaceChildren();
+    renderExperimentRecommendation(el, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  await page.locator('#model-test-container #exp-action-primary').click();
+  await page.waitForFunction(() => {
+    const statusEl = document.querySelector('#model-test-container #recommendation-status');
+    return statusEl && statusEl.classList.contains('status-error') && statusEl.textContent.includes('Switch cancelled');
+  }, null, {timeout: 10000});
+  console.log('[PASS] Cancelled switch verified: accurately reports cancelled outcome');
+
+  // 4. Recovery-blocked
+  await page.unroute('**/api/models/selection');
+  await page.route('**/api/models/selection', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      available: true, active: false, phase: 'recovery-blocked'
+    })});
+  });
+
+  await page.evaluate(() => {
+    const el = document.getElementById('model-test-container');
+    el.replaceChildren();
+    renderExperimentRecommendation(el, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  await page.locator('#model-test-container #exp-action-primary').click();
+  await page.waitForFunction(() => {
+    const statusEl = document.querySelector('#model-test-container #recommendation-status');
+    return statusEl && statusEl.classList.contains('status-error') && statusEl.textContent.includes('recovery blocked');
+  }, null, {timeout: 10000});
+  console.log('[PASS] Recovery-blocked outcome verified: accurately reports blocked recovery');
+
+  // 5. Manifest digest mismatch
+  await page.unroute('**/api/models/selection');
+  await page.unroute('**/api/models');
+  await page.route('**/api/models/selection', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      available: true, active: false, phase: 'completed'
+    })});
+  });
+  await page.route('**/api/models', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      selected_model: 'qwen2.5:3b',
+      installed: [{tag: 'qwen2.5:3b', manifest_digest: 'sha256:WRONG_DIGEST'}],
+      bundled: {models: []}
+    })});
+  });
+
+  await page.evaluate(() => {
+    const el = document.getElementById('model-test-container');
+    el.replaceChildren();
+    renderExperimentRecommendation(el, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  await page.locator('#model-test-container #exp-action-primary').click();
+  await page.waitForFunction(() => {
+    const statusEl = document.querySelector('#model-test-container #recommendation-status');
+    return statusEl && statusEl.classList.contains('status-error') && statusEl.textContent.includes('Manifest digest mismatch');
+  }, null, {timeout: 10000});
+  console.log('[PASS] Manifest digest mismatch verified: refuses to claim success when manifest digest does not match candidate');
+
+  // 6. Keep baseline with exact transaction restoration
+  await page.unroute('**/api/models/selection');
+  await page.unroute('**/api/models');
+  restoreCalls = [];
+  let baselineSelectionStep = 0;
+  await page.route('**/api/models/selection', async route => {
+    baselineSelectionStep++;
+    if (baselineSelectionStep === 1) {
+      // First check before restore: rollback available for qwen2.5:1.5b
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: false, phase: 'idle', rollback_available: true, previous_model: 'qwen2.5:1.5b'
+      })});
+    } else {
+      // Terminal: completed
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: false, phase: 'completed'
+      })});
+    }
+  });
+
+  await page.route('**/api/models', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      selected_model: 'qwen2.5:1.5b',
+      installed: [{tag: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}],
+      bundled: {models: []}
+    })});
+  });
+
+  await page.evaluate(() => {
+    const el = document.getElementById('model-test-container');
+    el.replaceChildren();
+    renderExperimentRecommendation(el, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  // Click secondary button: Keep baseline model
+  await page.locator('#model-test-container #exp-action-secondary').click();
+  await page.waitForFunction(() => {
+    const statusEl = document.querySelector('#model-test-container #recommendation-status');
+    return statusEl && statusEl.textContent.includes('Baseline model qwen2.5:1.5b retained');
+  }, null, {timeout: 10000});
+
+  if (restoreCalls.length === 0) {
+    fail('Keep baseline did not invoke exact transaction restoration (POST /api/models/restore)');
+  }
+  console.log('[PASS] Exact transaction restoration verified: Keep baseline invoked /api/models/restore and verified identity');
+
+  // Clean up routes and test container
+  await page.unroute('**/api/models/select');
+  await page.unroute('**/api/models/restore');
+  await page.unroute('**/api/models/selection');
+  await page.unroute('**/api/models');
+  await page.evaluate(() => {
+    document.getElementById('model-test-container')?.remove();
+  });
+
   // =========================================================================
   // STEP 7: TEST COMPARISON READINESS & VISIBLE REFUSAL CARD (HTTP 409)
   // =========================================================================
