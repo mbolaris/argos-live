@@ -227,13 +227,11 @@ async function refreshModels() {
   const installed = document.getElementById('installed-models');
   const bundled = document.getElementById('bundled-models');
   const jobs = document.getElementById('model-jobs');
-  const curatedEl = document.getElementById('model-curated') || document.getElementById('model-catalog');
-  const legacyEl = document.getElementById('model-legacy');
+  const curatedEl = document.getElementById('model-curated');
   const catalog = document.getElementById('model-catalog');
   installed.replaceChildren(); bundled.replaceChildren(); jobs.replaceChildren();
   if (curatedEl) curatedEl.replaceChildren();
-  if (legacyEl) legacyEl.replaceChildren();
-  if (catalog && catalog !== curatedEl) catalog.replaceChildren();
+  if (catalog) catalog.replaceChildren();
   try {
     const result = await api('/api/models');
     catalogPreview = new Map(result.catalog.map(model => [model.tag, model]));
@@ -280,18 +278,31 @@ async function refreshModels() {
     if (result.jobs !== null && result.jobs.length === 0) card(jobs, 'No download jobs', 'Existing verified-download jobs will appear here as they progress.');
     for (const model of result.catalog) {
       const isCurated = model.curated === true;
-      const targetDeck = isCurated ? (curatedEl || legacyEl) : (legacyEl || curatedEl);
-      if (!targetDeck) continue;
-      card(targetDeck, model.tag + (isCurated ? ` (${model.curated_label || model.role})` : ''),
-        `${model.rationale || model.description} · ${model.parameter_label} · ${model.quantization} · ` +
-        `${gib(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · ` +
-        `${model.context_tokens.toLocaleString()} context · CPU: ${model.cpu_fit.status} · GPU: ${model.gpu_fit.status} (estimates)`);
-      if (downloadAvailable && model.downloadable !== false) {
-        const button = document.createElement('button'); button.type = 'button';
-        button.textContent = result.storage_state === 'available' ? 'Review download' : 'Choose storage & download';
-        button.disabled = downloadActive || selectionActive;
-        button.addEventListener('click', () => reviewDownload({tag: model.tag}, model.tag));
-        targetDeck.lastElementChild.append(button);
+      if (catalog) {
+        card(catalog, model.tag + (isCurated ? ` (${model.curated_label || model.role})` : ''),
+          `${model.rationale || model.description} · ${model.parameter_label} · ${model.quantization} · ` +
+          `${gib(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · ` +
+          `${model.context_tokens.toLocaleString()} context · CPU: ${model.cpu_fit.status} · GPU: ${model.gpu_fit.status} (estimates)`);
+        if (downloadAvailable && model.downloadable !== false) {
+          const button = document.createElement('button'); button.type = 'button';
+          button.textContent = result.storage_state === 'available' ? 'Review download' : 'Choose storage & download';
+          button.disabled = downloadActive || selectionActive;
+          button.addEventListener('click', () => reviewDownload({tag: model.tag}, model.tag));
+          catalog.lastElementChild.append(button);
+        }
+      }
+      if (curatedEl && isCurated && model.downloadable !== false) {
+        card(curatedEl, `${model.curated_label || model.role}: ${model.tag}`,
+          `${model.rationale || model.description} · ${model.parameter_label} · ${model.quantization} · ` +
+          `${gib(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · ` +
+          `${model.context_tokens.toLocaleString()} context · CPU: ${model.cpu_fit.status} · GPU: ${model.gpu_fit.status} (estimates)`);
+        if (downloadAvailable) {
+          const button = document.createElement('button'); button.type = 'button';
+          button.textContent = result.storage_state === 'available' ? 'Review download' : 'Choose storage & download';
+          button.disabled = downloadActive || selectionActive;
+          button.addEventListener('click', () => reviewDownload({tag: model.tag}, model.tag));
+          curatedEl.lastElementChild.append(button);
+        }
       }
     }
   } catch (_) {

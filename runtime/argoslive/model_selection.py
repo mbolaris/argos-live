@@ -44,13 +44,17 @@ def finish_journal(path):
 
 
 def rollback_path(home):
+    if not home:
+        return None
     return storage.safe_local(home / '.config/argos-live/model-rollback.json')
 
 
 def can_restore_previous(home):
     """Can the previous model selection be restored safely?"""
+    if not home:
+        return False, None
     rb = rollback_path(home)
-    if not rb.exists():
+    if not rb or not rb.exists():
         return False, None
     try:
         data = read_json(rb)
@@ -68,8 +72,10 @@ def can_restore_previous(home):
 
 def keep_current(home):
     """Confirm current model selection and discard the rollback journal."""
+    if not home:
+        return False
     rb = rollback_path(home)
-    if rb.exists():
+    if rb and rb.exists():
         try:
             rb.unlink()
             return True
@@ -216,18 +222,21 @@ class Controller(Workload):
 
     def restore_previous(self):
         """Restore the previous model using the saved rollback transaction."""
-        allowed, prev_tag = can_restore_previous(self.startup.home)
+        home = getattr(self.startup, 'home', None)
+        allowed, prev_tag = can_restore_previous(home)
         if not allowed or not prev_tag:
             raise ValueError('Previous model selection is not available for restoration or files were edited')
         return self.start(tag=prev_tag)
 
     def keep_current(self):
         """Acknowledge and keep the current model, removing rollback record."""
-        return keep_current(self.startup.home)
+        home = getattr(self.startup, 'home', None)
+        return keep_current(home)
 
     def snapshot(self):
         snap = super().snapshot()
-        allowed, prev_tag = can_restore_previous(self.startup.home)
+        home = getattr(self.startup, 'home', None)
+        allowed, prev_tag = can_restore_previous(home)
         snap['rollback_available'] = allowed
         snap['previous_model'] = prev_tag
         return snap
