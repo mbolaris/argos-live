@@ -388,6 +388,8 @@ let arenaPolling = false;
 let arenaTimer = null;
 let arenaReceipts = [];
 let arenaCurrentAnswer = '';
+let retainedBaselineDocRunId = sessionStorage.getItem('argos_baseline_doc_run_id') || null;
+let autoComparedCandidateId = null;
 
 const outcomeMeta = {
   pass: {label: 'Pass', cls: 'outcome-pass', reason: 'Criteria verified'},
@@ -557,17 +559,63 @@ function renderArenaState(arena, active, phase, model, elapsed) {
   const nextActionBtn = document.getElementById('arena-next-action');
 
   if (banner && headline && detail) {
+    const secActionBtn = document.getElementById('arena-secondary-action');
     if (phase === 'completed') {
+      banner.hidden = false;
+      if (secActionBtn) secActionBtn.hidden = true;
+      const arenaDocRunId = (arena && Array.isArray(arena.runs) && arena.runs.length) ? arena.runs[arena.runs.length - 1] : null;
+      if (arenaDocRunId && arenaDocRunId === autoComparedCandidateId) {
+        headline.textContent = 'Candidate trial complete · Controlled comparison ready';
+        if (detail) detail.textContent = `Paired with retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware. One action recommended below.`;
+        if (nextActionBtn) {
+          nextActionBtn.hidden = false;
+          nextActionBtn.textContent = 'Review comparison & recommendation ↓';
+          nextActionBtn.onclick = () => focusSection('experiment-comparison');
+        }
+      } else if (retainedBaselineDocRunId && arenaDocRunId && arenaDocRunId !== retainedBaselineDocRunId) {
+        headline.textContent = 'Candidate trial complete · Validating controlled comparison…';
+        if (detail) detail.textContent = `Evaluating candidate against retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware…`;
+        if (nextActionBtn) nextActionBtn.hidden = true;
+      } else {
+        if (!retainedBaselineDocRunId && arenaDocRunId && (!arena.recipe || arena.recipe.preset === 'standard')) {
+          retainedBaselineDocRunId = arenaDocRunId;
+          try { sessionStorage.setItem('argos_baseline_doc_run_id', arenaDocRunId); } catch (_) {}
+        }
+        if (nextActionBtn) {
+          nextActionBtn.hidden = false;
+          nextActionBtn.textContent = 'Review result & debrief ↑';
+          nextActionBtn.onclick = () => focusSection('cc-receipt');
+        }
+        headline.textContent = 'Trial completed and saved';
+        detail.textContent = `${arena?.correct || 0} of ${arena?.total || 0} passed · ${arena?.format_errors || 0} format errors · Evidence bound to ${model || 'model'} digest. Baseline saved.`;
+      }
+    } else if (phase === 'cancelled') {
       banner.hidden = false;
       if (nextActionBtn) {
         nextActionBtn.hidden = false;
-        nextActionBtn.onclick = () => focusSection('cc-receipt');
+        nextActionBtn.textContent = 'Retry failed trial';
+        nextActionBtn.onclick = async () => {
+          try {
+            await post('/api/lab/start-documents', {recipe: 'concise'});
+            await refreshLab();
+          } catch (err) {
+            headline.textContent = 'Retry rejected';
+            detail.textContent = err.message || 'Trial action rejected.';
+          }
+        };
       }
-      headline.textContent = 'Trial completed and saved';
-      detail.textContent = `${arena?.correct || 0} of ${arena?.total || 0} passed · ${arena?.format_errors || 0} format errors · Evidence bound to ${model || 'model'} digest. Baseline saved.`;
-    } else if (phase === 'cancelled') {
-      banner.hidden = false;
-      if (nextActionBtn) nextActionBtn.hidden = true;
+      if (secActionBtn) {
+        secActionBtn.hidden = false;
+        secActionBtn.textContent = 'Restore standard';
+        secActionBtn.onclick = async () => {
+          try {
+            await restoreLabRecipe();
+          } catch (err) {
+            headline.textContent = 'Restore rejected';
+            detail.textContent = err.message || 'Restore rejected.';
+          }
+        };
+      }
       headline.textContent = 'Stopped · incomplete';
       if (arena?.recovery) {
         lastLabRecovery = arena.recovery;
@@ -578,12 +626,37 @@ function renderArenaState(arena, active, phase, model, elapsed) {
       detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
     } else if (phase === 'failed') {
       banner.hidden = false;
-      if (nextActionBtn) nextActionBtn.hidden = true;
+      if (nextActionBtn) {
+        nextActionBtn.hidden = false;
+        nextActionBtn.textContent = 'Retry failed trial';
+        nextActionBtn.onclick = async () => {
+          try {
+            await post('/api/lab/start-documents', {recipe: 'concise'});
+            await refreshLab();
+          } catch (err) {
+            headline.textContent = 'Retry rejected';
+            detail.textContent = err.message || 'Trial action rejected.';
+          }
+        };
+      }
+      if (secActionBtn) {
+        secActionBtn.hidden = false;
+        secActionBtn.textContent = 'Restore standard';
+        secActionBtn.onclick = async () => {
+          try {
+            await restoreLabRecipe();
+          } catch (err) {
+            headline.textContent = 'Restore rejected';
+            detail.textContent = err.message || 'Restore rejected.';
+          }
+        };
+      }
       headline.textContent = 'Trial failed · incomplete';
       detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
     } else {
       banner.hidden = true;
       if (nextActionBtn) nextActionBtn.hidden = true;
+      if (secActionBtn) secActionBtn.hidden = true;
     }
   }
 }
@@ -595,9 +668,13 @@ function applyArenaEvent(ev) {
       if (ev.phase === 'cancelled') {
         badge.textContent = 'STOPPED · INCOMPLETE';
         badge.className = 'arena-badge phase-cancelled incomplete';
+        const headline = document.getElementById('arena-summary-headline');
+        if (headline) headline.textContent = 'Stopped · incomplete';
       } else if (ev.phase === 'failed') {
         badge.textContent = 'FAILED · INCOMPLETE';
         badge.className = 'arena-badge phase-failed incomplete';
+        const headline = document.getElementById('arena-summary-headline');
+        if (headline) headline.textContent = 'Trial failed · incomplete';
       } else {
         badge.textContent = ev.phase.toUpperCase();
         badge.className = `arena-badge phase-${ev.phase}`;
@@ -702,15 +779,61 @@ function applyArenaEvent(ev) {
       const headline = document.getElementById('arena-summary-headline');
       const detail = document.getElementById('arena-summary-detail');
       const nextActionBtn = document.getElementById('arena-next-action');
+      const secActionBtn = document.getElementById('arena-secondary-action');
       if (ev.outcome === 'completed') {
+        if (secActionBtn) secActionBtn.hidden = true;
+        const savedDocRunId = (Array.isArray(ev.runs) && ev.runs.length) ? ev.runs[ev.runs.length - 1] : null;
+        if (savedDocRunId && savedDocRunId === autoComparedCandidateId) {
+          if (headline) headline.textContent = 'Candidate trial complete · Controlled comparison ready';
+          if (detail) detail.textContent = `Paired with retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware. One action recommended below.`;
+          if (nextActionBtn) {
+            nextActionBtn.hidden = false;
+            nextActionBtn.textContent = 'Review comparison & recommendation ↓';
+            nextActionBtn.onclick = () => focusSection('experiment-comparison');
+          }
+        } else if (retainedBaselineDocRunId && savedDocRunId && savedDocRunId !== retainedBaselineDocRunId) {
+          if (headline) headline.textContent = 'Candidate trial complete · Validating controlled comparison…';
+          if (detail) detail.textContent = `Evaluating candidate against retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware…`;
+          if (nextActionBtn) nextActionBtn.hidden = true;
+        } else {
+          if (!retainedBaselineDocRunId && savedDocRunId && (!ev.recipe || ev.recipe.preset === 'standard')) {
+            retainedBaselineDocRunId = savedDocRunId;
+            try { sessionStorage.setItem('argos_baseline_doc_run_id', savedDocRunId); } catch (_) {}
+          }
+          if (nextActionBtn) {
+            nextActionBtn.hidden = false;
+            nextActionBtn.textContent = 'Review result & debrief ↑';
+            nextActionBtn.onclick = () => focusSection('cc-receipt');
+          }
+          if (headline) headline.textContent = 'Trial completed and saved';
+          if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
+        }
+      } else if (ev.outcome === 'cancelled') {
         if (nextActionBtn) {
           nextActionBtn.hidden = false;
-          nextActionBtn.onclick = () => focusSection('cc-receipt');
+          nextActionBtn.textContent = 'Retry failed trial';
+          nextActionBtn.onclick = async () => {
+            try {
+              await post('/api/lab/start-documents', {recipe: 'concise'});
+              await refreshLab();
+            } catch (err) {
+              if (headline) headline.textContent = 'Retry rejected';
+              if (detail) detail.textContent = err.message || 'Trial action rejected.';
+            }
+          };
         }
-        if (headline) headline.textContent = 'Trial completed and saved';
-        if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
-      } else if (ev.outcome === 'cancelled') {
-        if (nextActionBtn) nextActionBtn.hidden = true;
+        if (secActionBtn) {
+          secActionBtn.hidden = false;
+          secActionBtn.textContent = 'Restore standard';
+          secActionBtn.onclick = async () => {
+            try {
+              await restoreLabRecipe();
+            } catch (err) {
+              if (headline) headline.textContent = 'Restore rejected';
+              if (detail) detail.textContent = err.message || 'Restore rejected.';
+            }
+          };
+        }
         if (headline) headline.textContent = 'Stopped · incomplete';
         if (ev.recovery) {
           lastLabRecovery = ev.recovery;
@@ -720,7 +843,31 @@ function applyArenaEvent(ev) {
         const recoverySuffix = recoveryText ? ` ${recoveryText}` : '';
         if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
       } else {
-        if (nextActionBtn) nextActionBtn.hidden = true;
+        if (nextActionBtn) {
+          nextActionBtn.hidden = false;
+          nextActionBtn.textContent = 'Retry failed trial';
+          nextActionBtn.onclick = async () => {
+            try {
+              await post('/api/lab/start-documents', {recipe: 'concise'});
+              await refreshLab();
+            } catch (err) {
+              if (headline) headline.textContent = 'Retry rejected';
+              if (detail) detail.textContent = err.message || 'Trial action rejected.';
+            }
+          };
+        }
+        if (secActionBtn) {
+          secActionBtn.hidden = false;
+          secActionBtn.textContent = 'Restore standard';
+          secActionBtn.onclick = async () => {
+            try {
+              await restoreLabRecipe();
+            } catch (err) {
+              if (headline) headline.textContent = 'Restore rejected';
+              if (detail) detail.textContent = err.message || 'Restore rejected.';
+            }
+          };
+        }
         if (headline) headline.textContent = 'Trial failed · incomplete';
         if (detail) detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
       }
@@ -730,6 +877,12 @@ function applyArenaEvent(ev) {
     refreshBenchmarks();
     refreshStartup();
     refreshCommand();
+    setTimeout(async () => {
+      try {
+        await refreshLab();
+        await refreshCommand();
+      } catch (_) {}
+    }, 400);
   }
 }
 
@@ -863,9 +1016,13 @@ for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'star
   }
   try {
     const response = await fetch('/api/lab/' + route, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
-    if (!response.ok) throw new Error('Test unavailable');
+    if (!response.ok) {
+      let msg = `Test action unavailable (HTTP ${response.status})`;
+      try { const err = await response.json(); if (err?.error) msg = err.error; } catch (_) {}
+      throw new Error(msg);
+    }
     await refreshLab(); await refreshStartup();
-  } catch (_) { document.getElementById('lab-status').textContent = 'Test action unavailable. Refresh and retry.'; }
+  } catch (err) { document.getElementById('lab-status').textContent = err.message || 'Test action unavailable. Refresh and retry.'; }
 });
 setInterval(async () => { await refreshLab(); }, 3000);
 const metricLabels = {accuracy: 'Test accuracy', short_generation_tokens_per_second: 'Short-prompt output tokens/s',
@@ -1025,6 +1182,7 @@ let selectionRefreshing = false;
 let selectionRollbackAvailable = false;
 let selectionPreviousModel = null;
 let currentModelName = null;
+let activeModelMonitoring = null;
 async function refreshSelection() {
   if (selectionRefreshing) return;
   selectionRefreshing = true;
@@ -1035,7 +1193,8 @@ async function refreshSelection() {
     selectionRollbackAvailable = value.rollback_available === true;
     selectionPreviousModel = value.previous_model || null;
     currentModelName = value.model || null;
-    document.getElementById('selection-controls').hidden = !selectionAvailable || value.phase === 'idle';
+    const pending = getPendingModelAction();
+    document.getElementById('selection-controls').hidden = (!selectionAvailable || value.phase === 'idle') && !pending;
     document.getElementById('selection-cancel').disabled = !selectionActive || value.phase === 'cancelling';
     document.getElementById('selection-cancel').hidden = !selectionActive;
     const messages = {idle: 'Choose Review switch on a local model.', pausing: 'Pausing the current assistant…',
@@ -1045,13 +1204,38 @@ async function refreshSelection() {
       cancelled: 'Switch cancelled. The previous selection was retained or restored.',
       cancelling: 'Cancelling switch and releasing resources…', failed: 'Switch needs attention. Inspect private diagnostics; owner edits are preserved.'};
     messages['recovery-blocked'] = 'Owner edits prevent automatic rollback. Assistant is stopped; private recovery record retained for review.';
-    document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+    if (pending) {
+      const elapsedMs = Date.now() - (pending.startedAt || 0);
+      if (elapsedMs >= 60000 && value.active) {
+        document.getElementById('selection-status').textContent = 'Switch still running—reconnecting';
+      } else if (!value.active) {
+        if (value.phase !== 'completed') {
+          document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+        }
+      } else {
+        document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+      }
+      if (!activeModelMonitoring && value.active) {
+        resumePendingModelMonitoring();
+      }
+    } else {
+      document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+    }
     if (selectionActive) document.getElementById('lab-start').disabled = true;
     if (changed) {
       await refreshModels();
       if (value.phase === 'completed') await refreshCommand();
     }
-  } catch (_) { document.getElementById('selection-status').textContent = 'Selection status unavailable. Refresh before switching.'; }
+  } catch (_) {
+    const pending = getPendingModelAction();
+    if (pending) {
+      const selControls = document.getElementById('selection-controls');
+      if (selControls) selControls.hidden = false;
+      document.getElementById('selection-status').textContent = 'Switch still running—reconnecting';
+    } else {
+      document.getElementById('selection-status').textContent = 'Selection status unavailable. Refresh before switching.';
+    }
+  }
   finally { selectionRefreshing = false; }
 }
 document.getElementById('selection-dismiss').addEventListener('click', () => document.getElementById('selection-review').close());
@@ -1070,6 +1254,7 @@ document.getElementById('selection-cancel').addEventListener('click', async () =
 });
 refreshSelection();
 setInterval(refreshSelection, 3000);
+resumePendingModelMonitoring();
 async function download(path, filename) {
   const response = await fetch(path, {headers: {'X-Argos-Token': token}, cache: 'no-store'});
   if (!response.ok) throw new Error('Download unavailable');
@@ -1148,6 +1333,93 @@ async function refreshBenchmarks() {
     if (expBtn) expBtn.disabled = selectedRuns.size !== 2;
     status.textContent = result.runs.length ? `${result.runs.length} saved benchmark runs.` : 'No saved benchmarks yet.';
     if (result.invalid_count || result.truncated) status.textContent += ' Some results need review or were omitted by display limits.';
+
+    // Continuous experiment journey: automatic baseline retention and candidate pairing
+    try {
+      const docRuns = result.runs.filter(r => r.kind === 'ability' && (r.suite_version || '').startsWith('documents/'));
+      if (retainedBaselineDocRunId && !docRuns.some(r => r.id === retainedBaselineDocRunId)) {
+        retainedBaselineDocRunId = null;
+        try { sessionStorage.removeItem('argos_baseline_doc_run_id'); } catch (_) {}
+      }
+      if (!retainedBaselineDocRunId) {
+        for (const r of docRuns) {
+          if (r.state === 'completed') {
+            const full = await api('/api/benchmarks/run/' + r.id);
+            if (!full.recipe || full.recipe.preset === 'standard') {
+              retainedBaselineDocRunId = r.id;
+              sessionStorage.setItem('argos_baseline_doc_run_id', r.id);
+              break;
+            }
+          }
+        }
+      }
+      if (retainedBaselineDocRunId && docRuns.length >= 2) {
+        const latestDoc = docRuns.find(r => r.id !== retainedBaselineDocRunId && r.state === 'completed');
+        if (latestDoc && latestDoc.id !== autoComparedCandidateId) {
+          const fullCand = await api('/api/benchmarks/run/' + latestDoc.id);
+          const candPreset = fullCand.recipe?.preset || 'standard';
+          if (candPreset !== 'standard') {
+            const expOut = document.getElementById('experiment-comparison');
+            try {
+              const expRes = await api(`/api/benchmarks/experiment?baseline=${encodeURIComponent(retainedBaselineDocRunId)}&candidate=${encodeURIComponent(latestDoc.id)}`);
+              autoComparedCandidateId = latestDoc.id;
+              if (expOut) renderExperiment(expOut, expRes);
+              status.textContent = 'Controlled experiment comparison ready. Evaluated on identical hardware with exactly one recipe intervention.';
+              const arenaBanner = document.getElementById('arena-summary-banner');
+              const arenaHeadline = document.getElementById('arena-summary-headline');
+              const arenaDetail = document.getElementById('arena-summary-detail');
+              const arenaNext = document.getElementById('arena-next-action');
+              if (arenaBanner && arenaHeadline) {
+                arenaBanner.hidden = false;
+                arenaHeadline.textContent = 'Candidate trial complete · Controlled comparison ready';
+                if (arenaDetail) arenaDetail.textContent = `Paired with retained baseline (${retainedBaselineDocRunId.slice(0, 8)}…) on identical hardware. One action recommended below.`;
+                if (arenaNext) {
+                  arenaNext.hidden = false;
+                  arenaNext.textContent = 'Review comparison & recommendation ↓';
+                  arenaNext.onclick = () => focusSection('experiment-comparison');
+                }
+              }
+            } catch (cmpErr) {
+              autoComparedCandidateId = null;
+              status.textContent = 'Controlled comparison refused: ' + cmpErr.message;
+              const arenaBanner = document.getElementById('arena-summary-banner');
+              const arenaHeadline = document.getElementById('arena-summary-headline');
+              const arenaDetail = document.getElementById('arena-summary-detail');
+              const arenaNext = document.getElementById('arena-next-action');
+              if (arenaBanner && arenaHeadline) {
+                arenaBanner.hidden = false;
+                arenaHeadline.textContent = 'Comparison refused by server';
+                if (arenaDetail) arenaDetail.textContent = cmpErr.message || 'The server rejected this comparison pair. Runs must be completed on identical hardware with exactly one controlled intervention.';
+                if (arenaNext) {
+                  arenaNext.hidden = false;
+                  arenaNext.textContent = 'Review refusal details ↓';
+                  arenaNext.onclick = () => focusSection('experiment-comparison');
+                }
+              }
+              if (expOut) {
+                expOut.replaceChildren();
+                const card = document.createElement('article');
+                card.className = 'experiment-card experiment-refusal-card';
+                card.id = 'experiment-refusal';
+                const badge = document.createElement('span');
+                badge.className = 'experiment-badge badge-refusal';
+                badge.textContent = 'Comparison Refused';
+                const title = document.createElement('h3');
+                title.textContent = 'Controlled comparison rejected';
+                title.prepend(badge);
+                const msg = document.createElement('p');
+                msg.className = 'experiment-refusal-message';
+                msg.textContent = cmpErr.message || 'The server rejected this comparison pair. Runs must be completed on identical hardware with exactly one controlled intervention.';
+                card.append(title, msg);
+                expOut.append(card);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Auto-pairing experiment error:', err);
+    }
   } catch (_) {
     cards.replaceChildren(); selectedRuns.clear(); comparedRuns = [];
     document.getElementById('compare-runs').disabled = true;
@@ -1218,6 +1490,569 @@ document.getElementById('compare-runs').addEventListener('click', async () => {
     document.getElementById('benchmarks-status').textContent = 'Select two to eight complete runs with matching suites and settings.';
   }
 });
+const normalizeDigest = (d) => {
+  if (!d || typeof d !== 'string') return '';
+  return d.startsWith('sha256:') ? d.slice(7).toLowerCase() : d.toLowerCase();
+};
+
+function getPendingModelAction() {
+  try {
+    const raw = sessionStorage.getItem('argos_pending_model_action');
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function updateModelActionStatus(text, isError = false, statusNote = null) {
+  const selStatus = document.getElementById('selection-status');
+  const selControls = document.getElementById('selection-controls');
+  if (selStatus) {
+    selStatus.textContent = text;
+    selStatus.classList.toggle('status-error', isError);
+    if (selControls && !isError) selControls.hidden = false;
+  }
+  if (statusNote) {
+    statusNote.textContent = text;
+    statusNote.classList.toggle('status-error', isError);
+  }
+  document.querySelectorAll('#recommendation-status, .recommendation-status').forEach(el => {
+    el.textContent = text;
+    el.classList.toggle('status-error', isError);
+  });
+}
+
+// Both normal polling and lost-response recovery use the same evidence rules.
+function selectionOutcome(snap) {
+  if (!snap || snap.available === false) throw new Error('Model selection controller unavailable');
+  if (snap.active) return 'pending';
+  if (snap.phase === 'completed') return 'completed';
+  const errors = {
+    'rolled-back': 'Startup failed. The previous selection was restored (rolled back).',
+    cancelled: 'Switch cancelled. The previous selection was retained or restored.',
+    'recovery-blocked': 'Owner edits prevent automatic rollback. Assistant is stopped; recovery blocked.',
+    failed: 'Model switch failed. Inspect private diagnostics; owner edits are preserved.',
+    idle: 'No model operation confirmed. Controls restored; review the current selection before retrying.'
+  };
+  if (errors[snap.phase]) throw new Error(errors[snap.phase]);
+  return 'pending';
+}
+
+async function waitSelectionTerminal(statusNote, actionLabel, startedAt) {
+  const maxBudgetMs = 1500000;
+  const observationStart = startedAt || Date.now();
+  const pollInterval = 100;
+  let consecutiveErrors = 0;
+
+  const messages = {
+    verifying: 'Rechecking all model artifacts…',
+    stopping: 'Pausing the current assistant…',
+    starting: 'Testing the selected model through OpenClaw…',
+    restoring: 'Restoring the previous selection…',
+    cancelling: 'Cancelling switch and releasing resources…'
+  };
+
+  while (Date.now() - observationStart < maxBudgetMs) {
+    let snap;
+    try {
+      snap = await api('/api/models/selection');
+      consecutiveErrors = 0;
+    } catch (_) {
+      consecutiveErrors++;
+      updateModelActionStatus('Switch still running—reconnecting', false, statusNote);
+      await new Promise(r => setTimeout(r, pollInterval));
+      continue;
+    }
+
+    const outcome = selectionOutcome(snap);
+
+    const elapsedMs = Date.now() - observationStart;
+    const observationTimedOut = elapsedMs >= 60000;
+
+    if (snap.active) {
+      if (observationTimedOut || consecutiveErrors > 0) {
+        updateModelActionStatus('Switch still running—reconnecting', false, statusNote);
+      } else {
+        const msg = messages[snap.phase] || (actionLabel === 'switch-candidate' ? 'Switching model…' : 'Restoring model…');
+        updateModelActionStatus(msg, false, statusNote);
+      }
+      await new Promise(r => setTimeout(r, pollInterval));
+      continue;
+    }
+
+    if (outcome === 'completed') return snap;
+    await new Promise(r => setTimeout(r, pollInterval));
+  }
+  throw new Error('Model selection timed out');
+}
+
+async function verifyModelSelectionIdentity(expectedTag, expectedDigest) {
+  const modelsData = await api('/api/models');
+  if (modelsData.selected_model !== expectedTag) {
+    throw new Error(`Selected model mismatch: expected '${expectedTag}', got '${modelsData.selected_model || 'none'}'`);
+  }
+  if (expectedDigest) {
+    const allModels = [
+      ...(modelsData.installed || []),
+      ...((modelsData.bundled && modelsData.bundled.models) || [])
+    ];
+    const match = allModels.find(m => m.tag === expectedTag);
+    let actualDigest = match?.manifest_digest;
+    if (!actualDigest) {
+      try {
+        const cc = await api('/api/command-center');
+        actualDigest = cc.skill_map?.manifest_digest || cc.model?.digest;
+      } catch (_) {}
+    }
+    const expNorm = normalizeDigest(expectedDigest);
+    const actNorm = normalizeDigest(actualDigest);
+    if (!actNorm || expNorm !== actNorm) {
+      throw new Error(`Manifest digest mismatch: expected '${expectedDigest}', got '${actualDigest || 'unidentified'}'`);
+    }
+  }
+}
+
+async function monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction, observedSnapshot = null) {
+  const { actionType, targetModel, targetDigest, startedAt } = pendingAction;
+  if (btnPrimary) btnPrimary.disabled = true;
+  if (btnSecondary) btnSecondary.disabled = true;
+  const initialMsg = Date.now() - (startedAt || 0) >= 60000
+    ? 'Switch still running—reconnecting'
+    : 'Testing the selected model through OpenClaw…';
+  updateModelActionStatus(initialMsg, false, statusNote);
+
+  try {
+    const observedOutcome = observedSnapshot ? selectionOutcome(observedSnapshot) : 'pending';
+    if (observedOutcome !== 'completed') await waitSelectionTerminal(statusNote, actionType, startedAt);
+    await refreshModels();
+    await refreshSelection();
+    await verifyModelSelectionIdentity(targetModel, targetDigest);
+    try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+    const successMsg = actionType === 'switch-candidate'
+      ? `Switched to candidate model ${targetModel}. Model switch verified with matching manifest digest.`
+      : `Baseline model ${targetModel} retained. Model switch verified with matching manifest digest.`;
+    updateModelActionStatus(successMsg, false, statusNote);
+  } catch (err) {
+    try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+    const errMsg = (actionType === 'switch-candidate' ? 'Failed to switch model: ' :
+      actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Action failed: ') + err.message;
+    updateModelActionStatus(errMsg, true, statusNote);
+  } finally {
+    if (btnPrimary) btnPrimary.disabled = false;
+    if (btnSecondary) btnSecondary.disabled = false;
+    const bp = document.getElementById('exp-action-primary');
+    const bs = document.getElementById('exp-action-secondary');
+    if (bp) bp.disabled = false;
+    if (bs) bs.disabled = false;
+  }
+}
+
+function resumePendingModelMonitoring() {
+  const pending = getPendingModelAction();
+  if (!pending) return;
+  const selControls = document.getElementById('selection-controls');
+  if (selControls) selControls.hidden = false;
+  const elapsed = Date.now() - (pending.startedAt || 0);
+  const initialMsg = elapsed >= 60000 ? 'Switch still running—reconnecting' : 'Testing the selected model through OpenClaw…';
+  updateModelActionStatus(initialMsg, false, null);
+
+  if (!activeModelMonitoring) {
+    const recStatus = document.getElementById('recommendation-status');
+    const btnPrimary = document.getElementById('exp-action-primary');
+    const btnSecondary = document.getElementById('exp-action-secondary');
+    activeModelMonitoring = monitorModelAction(recStatus, btnPrimary, btnSecondary, pending)
+      .finally(() => { activeModelMonitoring = null; });
+  }
+}
+
+async function reconcileModelActionWithController(pending, statusNote, btnPrimary, btnSecondary) {
+  updateModelActionStatus('Reconciling switch status with controller…', false, statusNote);
+  let snap;
+  try {
+    snap = await api('/api/models/selection');
+  } catch (_) {
+    updateModelActionStatus('Switch still running—reconnecting', false, statusNote);
+    activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending)
+      .finally(() => { activeModelMonitoring = null; });
+    return activeModelMonitoring;
+  }
+
+  // A lost POST can already have failed or rolled back. Retain that outcome.
+  activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending, snap)
+    .finally(() => { activeModelMonitoring = null; });
+  return activeModelMonitoring;
+}
+
+function renderExperimentRecommendation(card, result) {
+  const box = document.createElement('div');
+  box.id = 'experiment-recommendation';
+  box.className = 'experiment-recommendation-box';
+
+  const intervention = result.intervention || 'recipe';
+  const verdict = result.delta?.verdict || 'no_change';
+  const deltaCorr = result.delta?.correct_delta ?? 0;
+  const deltaFmt = result.delta?.format_error_delta ?? 0;
+
+  let badgeText = 'Evidence-Based Recommendation';
+  let recTitle = '';
+  let recReason = '';
+  let primaryBtnText = '';
+  let secondaryBtnText = '';
+  let primaryActionType = '';
+  let secondaryActionType = '';
+
+  if (intervention === 'model') {
+    const candModel = result.candidate?.model || 'candidate model';
+    const baseModel = result.baseline?.model || 'baseline model';
+    if (result.kind === 'speed') {
+      const prompts = result.delta?.prompts || [];
+      const hasSpeedGain = prompts.some(p => (p.delta_generation_tok_s ?? 0) > 0);
+      if (hasSpeedGain) {
+        box.classList.add('verdict-keep');
+        recTitle = `Switch to candidate model (${candModel})`;
+        recReason = `Evidence shows generation speed advantage with ${candModel} on identical hardware. Switch to the candidate model, or keep ${baseModel}.`;
+        primaryBtnText = `Switch to ${candModel}`;
+        secondaryBtnText = `Keep ${baseModel}`;
+        primaryActionType = 'switch-candidate';
+        secondaryActionType = 'keep-baseline';
+      } else {
+        box.classList.add('verdict-restore');
+        recTitle = `Keep baseline model (${baseModel})`;
+        recReason = `Evidence shows no speed advantage with ${candModel} compared to ${baseModel}. Keep baseline model to avoid unnecessary changes.`;
+        primaryBtnText = `Keep ${baseModel}`;
+        secondaryBtnText = `Switch to ${candModel}`;
+        primaryActionType = 'keep-baseline';
+        secondaryActionType = 'switch-candidate';
+      }
+    } else {
+      if (verdict === 'observed_gain' || deltaCorr > 0) {
+        box.classList.add('verdict-keep');
+        recTitle = `Switch to candidate model (${candModel})`;
+        recReason = `Evidence shows observed performance gain (+${deltaCorr} tasks) with ${candModel} on identical hardware. Switch to the candidate model, or keep ${baseModel}.`;
+        primaryBtnText = `Switch to ${candModel}`;
+        secondaryBtnText = `Keep ${baseModel}`;
+        primaryActionType = 'switch-candidate';
+        secondaryActionType = 'keep-baseline';
+      } else if (verdict === 'regression' || deltaCorr < 0) {
+        box.classList.add('verdict-restore');
+        recTitle = `Keep baseline model (${baseModel})`;
+        recReason = `Evidence shows performance regression (${deltaCorr} tasks) with ${candModel} compared to ${baseModel}. Keep ${baseModel} to preserve task accuracy.`;
+        primaryBtnText = `Keep ${baseModel}`;
+        secondaryBtnText = `Switch to ${candModel}`;
+        primaryActionType = 'keep-baseline';
+        secondaryActionType = 'switch-candidate';
+      } else {
+        box.classList.add('verdict-restore');
+        recTitle = `Keep baseline model (${baseModel})`;
+        recReason = `No measurable performance difference observed between ${candModel} and ${baseModel}. Keep ${baseModel} to maintain stability.`;
+        primaryBtnText = `Keep ${baseModel}`;
+        secondaryBtnText = `Switch to ${candModel}`;
+        primaryActionType = 'keep-baseline';
+        secondaryActionType = 'switch-candidate';
+      }
+    }
+  } else {
+    const candPreset = result.candidate?.recipe?.preset || 'concise';
+    const candLabel = candPreset === 'concise' ? 'Strict format instructions (concise)' : candPreset;
+
+    if (deltaCorr < 0 && deltaFmt < 0) {
+      box.classList.add('verdict-tradeoff');
+      badgeText = 'Accuracy vs Format Tradeoff';
+      recTitle = 'Restore standard (preserve accuracy)';
+      recReason = `Explicit tradeoff observed: trial recipe reduced format errors (${deltaFmt}), but correct answers decreased (${deltaCorr} tasks). Standard calibration is recommended to preserve task accuracy. You may keep the trial recipe if strict format compliance is preferred.`;
+      primaryBtnText = 'Restore standard';
+      secondaryBtnText = 'Keep trial recipe';
+      primaryActionType = 'restore';
+      secondaryActionType = 'keep';
+    } else if (deltaCorr < 0 && deltaFmt >= 0) {
+      box.classList.add('verdict-restore');
+      recTitle = 'Restore standard';
+      const regr = [`${deltaCorr} tasks correct`];
+      if (deltaFmt > 0) regr.push(`+${deltaFmt} format errors`);
+      recReason = `Evidence shows regression (${regr.join(', ')}) under trial recipe compared to standard calibration. Restore standard instructions to maintain baseline quality.`;
+      primaryBtnText = 'Restore standard';
+      secondaryBtnText = 'Keep trial recipe';
+      primaryActionType = 'restore';
+      secondaryActionType = 'keep';
+    } else if (deltaCorr > 0 && deltaFmt > 0) {
+      box.classList.add('verdict-tradeoff');
+      badgeText = 'Accuracy vs Format Tradeoff';
+      recTitle = 'Keep trial recipe (higher accuracy)';
+      recReason = `Explicit tradeoff observed: correct answers improved (+${deltaCorr} tasks), but format errors increased (+${deltaFmt}). Keep trial recipe if higher task accuracy is preferred, or restore standard calibration.`;
+      primaryBtnText = 'Keep trial recipe';
+      secondaryBtnText = 'Restore standard';
+      primaryActionType = 'keep';
+      secondaryActionType = 'restore';
+    } else if (deltaCorr > 0 && deltaFmt <= 0) {
+      box.classList.add('verdict-keep');
+      recTitle = 'Keep trial recipe';
+      const imp = [`+${deltaCorr} tasks correct`];
+      if (deltaFmt < 0) imp.push(`${deltaFmt} format errors`);
+      recReason = `Evidence shows observed performance gain (${imp.join(', ')}) under strict format instructions on identical hardware. Keep this recipe for future lab trials, or restore standard calibration.`;
+      primaryBtnText = 'Keep trial recipe';
+      secondaryBtnText = 'Restore standard';
+      primaryActionType = 'keep';
+      secondaryActionType = 'restore';
+    } else if (deltaCorr === 0 && deltaFmt < 0) {
+      box.classList.add('verdict-keep');
+      recTitle = 'Keep trial recipe';
+      recReason = `Evidence shows identical task accuracy with fewer format errors (${deltaFmt}) under strict format instructions on identical hardware. Keep this recipe for future lab trials, or restore standard calibration.`;
+      primaryBtnText = 'Keep trial recipe';
+      secondaryBtnText = 'Restore standard';
+      primaryActionType = 'keep';
+      secondaryActionType = 'restore';
+    } else if (deltaCorr === 0 && deltaFmt > 0) {
+      box.classList.add('verdict-restore');
+      recTitle = 'Restore standard';
+      recReason = `Evidence shows identical task accuracy with increased format errors (+${deltaFmt}) under trial recipe. Restore standard calibration to maintain baseline quality.`;
+      primaryBtnText = 'Restore standard';
+      secondaryBtnText = 'Keep trial recipe';
+      primaryActionType = 'restore';
+      secondaryActionType = 'keep';
+    } else {
+      box.classList.add('verdict-restore');
+      recTitle = 'Restore standard';
+      recReason = 'Evidence shows no measurable difference in task accuracy or format compliance. Restore standard calibration to keep the baseline environment unchanged, or keep trial recipe if preferred.';
+      primaryBtnText = 'Restore standard';
+      secondaryBtnText = 'Keep trial recipe';
+      primaryActionType = 'restore';
+      secondaryActionType = 'keep';
+    }
+  }
+
+  const hdr = document.createElement('div');
+  hdr.className = 'recommendation-header';
+  const badge = document.createElement('span');
+  badge.className = 'recommendation-badge';
+  badge.textContent = badgeText;
+  const title = document.createElement('h4');
+  title.id = 'recommendation-title';
+  title.textContent = `Recommended next action: ${recTitle}`;
+  hdr.append(badge, title);
+
+  const reason = document.createElement('p');
+  reason.id = 'recommendation-reason';
+  reason.className = 'recommendation-reason';
+  reason.textContent = recReason;
+
+  const actions = document.createElement('div');
+  actions.className = 'recommendation-actions';
+
+  const btnPrimary = document.createElement('button');
+  btnPrimary.id = 'exp-action-primary';
+  btnPrimary.type = 'button';
+  btnPrimary.className = 'mission-primary';
+  btnPrimary.textContent = primaryBtnText;
+
+  const btnSecondary = document.createElement('button');
+  btnSecondary.id = 'exp-action-secondary';
+  btnSecondary.type = 'button';
+  btnSecondary.className = 'mission-secondary';
+  btnSecondary.textContent = secondaryBtnText;
+
+  const statusNote = document.createElement('p');
+  statusNote.id = 'recommendation-status';
+  statusNote.className = 'recommendation-status';
+  statusNote.setAttribute('role', 'status');
+
+  // Resume monitoring after reload if a model action was pending
+  const pendingAction = getPendingModelAction();
+  if (pendingAction && intervention === 'model') {
+    btnPrimary.disabled = true;
+    btnSecondary.disabled = true;
+    const elapsed = Date.now() - (pendingAction.startedAt || 0);
+    statusNote.textContent = elapsed >= 60000 ? 'Switch still running—reconnecting' : 'Testing the selected model through OpenClaw…';
+    if (!activeModelMonitoring) {
+      activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction)
+        .finally(() => { activeModelMonitoring = null; });
+    }
+  }
+
+  const executeAction = async (actionType) => {
+    if (sessionStorage.getItem('argos_pending_model_action')) {
+      return; // prevent duplicate submissions
+    }
+    btnPrimary.disabled = true;
+    btnSecondary.disabled = true;
+    statusNote.classList.remove('status-error');
+
+    try {
+      if (actionType === 'restore') {
+        statusNote.textContent = 'Restoring standard calibration…';
+        await restoreLabRecipe();
+        const recipes = await api('/api/lab/recipes');
+        if (recipes.selected !== null && recipes.selected?.preset !== 'standard') {
+          throw new Error(`Recipe restore verification failed: expected standard (null), got '${recipes.selected?.preset}'`);
+        }
+        statusNote.textContent = 'Restored standard calibration. Active Lab recipe reset to Standard calibration.';
+        const activeRecEl = document.getElementById('lab-active-recipe');
+        if (activeRecEl) activeRecEl.textContent = 'Standard calibration';
+        const restoreBtn = document.getElementById('lab-recipe-restore');
+        if (restoreBtn) restoreBtn.hidden = true;
+      } else if (actionType === 'keep') {
+        const candPreset = result.candidate?.recipe?.preset || 'concise';
+        const candLabel = candPreset === 'concise' ? 'Strict format instructions (concise)' : candPreset;
+        statusNote.textContent = `Selecting tested recipe (${candPreset})…`;
+        const res = await fetch('/api/lab/recipe/select', {
+          method: 'POST',
+          headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+          body: JSON.stringify({preset: candPreset}),
+          cache: 'no-store'
+        });
+        if (!res.ok) {
+          let msg = `Recipe selection failed (HTTP ${res.status})`;
+          try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+          throw new Error(msg);
+        }
+        await refreshLab();
+        const recipes = await api('/api/lab/recipes');
+        if (recipes.selected?.preset !== candPreset) {
+          throw new Error(`Recipe selection verification failed: expected '${candPreset}', got '${recipes.selected?.preset}'`);
+        }
+        statusNote.textContent = `Trial recipe kept and verified (${candLabel}). Active Lab recipe updated.`;
+        const activeRecEl = document.getElementById('lab-active-recipe');
+        if (activeRecEl) activeRecEl.textContent = candLabel;
+        const restoreBtn = document.getElementById('lab-recipe-restore');
+        if (restoreBtn) restoreBtn.hidden = false;
+      } else if (actionType === 'switch-candidate') {
+        const candModel = result.candidate?.model;
+        const candDigest = result.candidate?.manifest_digest;
+        const pending = {
+          actionType,
+          targetModel: candModel,
+          targetDigest: candDigest,
+          startedAt: Date.now()
+        };
+        try { sessionStorage.setItem('argos_pending_model_action', JSON.stringify(pending)); } catch (_) {}
+        statusNote.textContent = `Initiating switch to candidate model (${candModel})…`;
+
+        let res;
+        try {
+          res = await fetch('/api/models/select', {
+            method: 'POST',
+            headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+            body: JSON.stringify({tag: candModel}),
+            cache: 'no-store'
+          });
+        } catch (netErr) {
+          await reconcileModelActionWithController(pending, statusNote, btnPrimary, btnSecondary);
+          return;
+        }
+
+        if (!res.ok) {
+          try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+          let msg = `Model switch rejected (HTTP ${res.status})`;
+          try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+          statusNote.classList.add('status-error');
+          statusNote.textContent = 'Failed to switch model: ' + msg;
+          btnPrimary.disabled = false;
+          btnSecondary.disabled = false;
+          return;
+        }
+
+        activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending)
+          .finally(() => { activeModelMonitoring = null; });
+        await activeModelMonitoring;
+      } else if (actionType === 'keep-baseline') {
+        const baseModel = result.baseline?.model;
+        const baseDigest = result.baseline?.manifest_digest;
+        let usedRestore = false;
+        try {
+          const selSnap = await api('/api/models/selection');
+          if (selSnap && selSnap.rollback_available === true && selSnap.previous_model === baseModel) {
+            usedRestore = true;
+          }
+        } catch (_) {}
+
+        const pending = {
+          actionType,
+          targetModel: baseModel,
+          targetDigest: baseDigest,
+          startedAt: Date.now()
+        };
+        try { sessionStorage.setItem('argos_pending_model_action', JSON.stringify(pending)); } catch (_) {}
+
+        let res;
+        try {
+          if (usedRestore) {
+            statusNote.textContent = `Restoring previous baseline model transaction (${baseModel})…`;
+            res = await fetch('/api/models/restore', {
+              method: 'POST',
+              headers: {'X-Argos-Token': token || '', 'Content-Length': '0'},
+              cache: 'no-store'
+            });
+          } else {
+            statusNote.textContent = `Retaining baseline model (${baseModel})…`;
+            res = await fetch('/api/models/select', {
+              method: 'POST',
+              headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+              body: JSON.stringify({tag: baseModel}),
+              cache: 'no-store'
+            });
+          }
+        } catch (netErr) {
+          await reconcileModelActionWithController(pending, statusNote, btnPrimary, btnSecondary);
+          return;
+        }
+
+        if (!res.ok) {
+          try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+          let msg = (usedRestore ? 'Model restoration rejected' : 'Model selection rejected') + ` (HTTP ${res.status})`;
+          try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+          statusNote.classList.add('status-error');
+          statusNote.textContent = (actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Failed to switch model: ') + msg;
+          btnPrimary.disabled = false;
+          btnSecondary.disabled = false;
+          return;
+        }
+
+        activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending)
+          .finally(() => { activeModelMonitoring = null; });
+        await activeModelMonitoring;
+      } else if (actionType === 'retry') {
+        statusNote.textContent = 'Restarting candidate trial…';
+        const res = await fetch('/api/lab/start-documents', {
+          method: 'POST',
+          headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+          body: JSON.stringify({recipe: 'concise'}),
+          cache: 'no-store'
+        });
+        if (!res.ok) {
+          let msg = `Retry failed (HTTP ${res.status})`;
+          try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+          throw new Error(msg);
+        }
+        await refreshLab();
+        statusNote.textContent = 'Candidate trial started.';
+      }
+    } catch (err) {
+      statusNote.classList.add('status-error');
+      statusNote.textContent = (actionType === 'restore' ? 'Failed to restore standard recipe: ' :
+        actionType === 'keep' ? 'Failed to keep trial recipe: ' :
+        actionType === 'retry' ? 'Retry failed: ' :
+        actionType === 'switch-candidate' ? 'Failed to switch model: ' :
+        actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Action failed: ') + err.message;
+    } finally {
+      if (!sessionStorage.getItem('argos_pending_model_action')) {
+        btnPrimary.disabled = false;
+        btnSecondary.disabled = false;
+      }
+    }
+  };
+
+  btnPrimary.addEventListener('click', () => {
+    if (btnPrimary.disabled || sessionStorage.getItem('argos_pending_model_action')) return;
+    executeAction(primaryActionType);
+  });
+  btnSecondary.addEventListener('click', () => {
+    if (btnSecondary.disabled || sessionStorage.getItem('argos_pending_model_action')) return;
+    executeAction(secondaryActionType);
+  });
+
+  actions.append(btnPrimary, btnSecondary);
+  box.append(hdr, reason, actions, statusNote);
+  card.append(box);
+}
 function renderExperiment(output, result) {
   output.replaceChildren();
   const card = document.createElement('article');
@@ -1292,6 +2127,9 @@ function renderExperiment(output, result) {
     table(card, 'Paired prompt speed comparison (3-run medians)', heads, rows);
   }
 
+  // Evidence-based action recommendation
+  renderExperimentRecommendation(card, result);
+
   const limits = document.createElement('p');
   limits.className = 'experiment-limits';
   limits.textContent = result.limitations;
@@ -1309,6 +2147,23 @@ document.getElementById('compare-experiment')?.addEventListener('click', async (
     renderExperiment(output, result);
     document.getElementById('benchmarks-status').textContent = result.limitations || 'Controlled experiment comparison.';
   } catch (err) {
+    if (output) {
+      output.replaceChildren();
+      const card = document.createElement('article');
+      card.className = 'experiment-card experiment-refusal-card';
+      card.id = 'experiment-refusal';
+      const badge = document.createElement('span');
+      badge.className = 'experiment-badge badge-refusal';
+      badge.textContent = 'Comparison Refused';
+      const title = document.createElement('h3');
+      title.textContent = 'Controlled comparison rejected';
+      title.prepend(badge);
+      const msg = document.createElement('p');
+      msg.className = 'experiment-refusal-message';
+      msg.textContent = err.message || 'Comparison rejected: verify runs differ by exactly one intervention with matching hardware.';
+      card.append(title, msg);
+      output.append(card);
+    }
     document.getElementById('benchmarks-status').textContent = err.message || 'Experiment comparison failed. Verify runs differ by exactly one intervention with matching hardware.';
   }
 });
@@ -1533,7 +2388,16 @@ async function post(path, body) {
   const headers = {'X-Argos-Token': token || ''};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const response = await fetch(path, {method: 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store'});
-  if (!response.ok) throw new Error('Action unavailable');
+  if (!response.ok) {
+    let msg = `Action unavailable (HTTP ${response.status})`;
+    try {
+      const err = await response.json();
+      if (err?.error) msg = err.error;
+    } catch (_) {}
+    const error = new Error(msg);
+    error.status = response.status;
+    throw error;
+  }
   return response.json();
 }
 document.getElementById('cc-next-go').addEventListener('click', () => {
@@ -2052,15 +2916,20 @@ document.getElementById('recipe-run')?.addEventListener('click', async () => {
   document.getElementById('lab-start-documents').disabled = true;
   document.getElementById('lab-status').textContent = 'Starting document trial with concise recipe…';
   try {
-    await fetch('/api/lab/start-documents', {
+    const res = await fetch('/api/lab/start-documents', {
       method: 'POST',
       headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
       body: JSON.stringify({recipe: 'concise'}),
       cache: 'no-store'
     });
+    if (!res.ok) {
+      let msg = `Could not start recipe trial (HTTP ${res.status})`;
+      try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+      throw new Error(msg);
+    }
     await refreshLab();
-  } catch (_) {
-    document.getElementById('lab-status').textContent = 'Could not start recipe trial.';
+  } catch (err) {
+    document.getElementById('lab-status').textContent = err.message || 'Could not start recipe trial.';
   }
 });
 document.getElementById('recipe-select-only')?.addEventListener('click', async () => {
@@ -2071,25 +2940,38 @@ document.getElementById('recipe-select-only')?.addEventListener('click', async (
       body: JSON.stringify({preset: 'concise'}),
       cache: 'no-store'
     });
-    if (res.ok) {
-      document.getElementById('recipe-modal')?.close();
-      await refreshLab();
+    if (!res.ok) {
+      let msg = `Could not select recipe (HTTP ${res.status})`;
+      try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+      throw new Error(msg);
     }
-  } catch (_) {
+    document.getElementById('recipe-modal')?.close();
+    await refreshLab();
+  } catch (err) {
     const note = document.getElementById('recipe-status-note');
-    if (note) note.textContent = 'Could not select recipe.';
+    if (note) note.textContent = err.message || 'Could not select recipe.';
   }
 });
 async function restoreLabRecipe() {
-  try {
-    await fetch('/api/lab/recipe/restore', {
-      method: 'POST',
-      headers: {'X-Argos-Token': token || ''},
-      cache: 'no-store'
-    });
-    await refreshLab();
-  } catch (_) {}
+  const res = await fetch('/api/lab/recipe/restore', {
+    method: 'POST',
+    headers: {'X-Argos-Token': token || ''},
+    cache: 'no-store'
+  });
+  if (!res.ok) {
+    let msg = `Recipe restore unavailable (HTTP ${res.status})`;
+    try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+    throw new Error(msg);
+  }
+  await refreshLab();
 }
-document.getElementById('lab-recipe-restore')?.addEventListener('click', restoreLabRecipe);
-document.getElementById('receipt-restore-recipe')?.addEventListener('click', restoreLabRecipe);
-
+const handleRestoreRecipeClick = async () => {
+  try {
+    await restoreLabRecipe();
+  } catch (err) {
+    const status = document.getElementById('lab-status');
+    if (status) status.textContent = 'Could not restore recipe: ' + err.message;
+  }
+};
+document.getElementById('lab-recipe-restore')?.addEventListener('click', handleRestoreRecipeClick);
+document.getElementById('receipt-restore-recipe')?.addEventListener('click', handleRestoreRecipeClick);

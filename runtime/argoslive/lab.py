@@ -216,6 +216,7 @@ class Controller:
                 'format_errors': 0,
                 'elapsed_seconds': 0,
                 'recovery': None,
+                'runs': [],
             }
             self.add_event('phase', phase='pausing', plan=plan, model=None, recipe=copy.deepcopy(resolved_recipe), elapsed_seconds=0)
             self.worker = threading.Thread(target=self.run, daemon=True, name='argos-model-lab')
@@ -432,6 +433,8 @@ class Controller:
                     measured.append(result)
                     with self.lock:
                         self.runs.append(result['id'])
+                        if self.arena:
+                            self.arena['runs'] = list(self.runs)
             if self.plan != 'task' and not self.cancel_event.is_set():
                 self.report('debrief')
                 opinion = mission_report.debrief(client, model, measured, cancel=self.cancel_event)

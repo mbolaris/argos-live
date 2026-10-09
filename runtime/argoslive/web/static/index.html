@@ -310,7 +310,10 @@
           <div id="arena-summary-banner" class="arena-summary-banner" hidden>
             <strong id="arena-summary-headline">Trial complete</strong>
             <p id="arena-summary-detail"></p>
-            <button id="arena-next-action" type="button" class="mission-primary arena-summary-btn">Review result &amp; debrief ↑</button>
+            <div class="arena-summary-actions">
+              <button id="arena-next-action" type="button" class="mission-primary arena-summary-btn">Review result &amp; debrief ↑</button>
+              <button id="arena-secondary-action" type="button" class="mission-secondary arena-summary-btn" hidden>Restore standard</button>
+            </div>
           </div>
         </div>
         <p class="lab-footnote">Tests use fixed public prompts with tools disabled. Cancellation can take up to a backend request timeout plus cleanup. Each batch has a 15-minute limit.</p>
