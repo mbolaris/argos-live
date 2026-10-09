@@ -629,6 +629,157 @@ try {
     document.getElementById('model-test-container')?.remove();
   });
 
+  // 7. Regression: Switch lasting over 60s with fake clock, connectivity drop, & reload resumption
+  console.log('--- Testing browser regression: switch lasting >60s with fake clock & reconnecting status ---');
+  const clockPage = await browser.newPage({viewport: {width: 1200, height: 1100}});
+  await clockPage.clock.install();
+
+  let over60SelectCount = 0;
+  let over60Complete = false;
+  let connectivityDrop = false;
+
+  await clockPage.route('**/api/models/select', async route => {
+    over60SelectCount++;
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({status: 'started'})});
+  });
+
+  await clockPage.route('**/api/models/selection', async route => {
+    if (connectivityDrop) {
+      await route.abort('failed');
+      return;
+    }
+    if (!over60Complete) {
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: true, phase: 'starting'
+      })});
+    } else {
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: false, phase: 'completed'
+      })});
+    }
+  });
+
+  await clockPage.route('**/api/models', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      selected_model: 'qwen2.5:3b',
+      installed: [{tag: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'}],
+      bundled: {models: []}
+    })});
+  });
+
+  await clockPage.goto(url);
+
+  // Render model recommendation
+  await clockPage.evaluate(() => {
+    const testContainer = document.createElement('div');
+    testContainer.id = 'model-clock-container';
+    document.body.appendChild(testContainer);
+    renderExperimentRecommendation(testContainer, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  // Click primary button: Switch to candidate model
+  const clockSwitchBtn = clockPage.locator('#model-clock-container #exp-action-primary');
+  const selectPromise = clockPage.waitForResponse('**/api/models/select');
+  const initialSelectionPromise = clockPage.waitForResponse('**/api/models/selection');
+  await clockSwitchBtn.click();
+  await selectPromise;
+  await initialSelectionPromise;
+
+  // In-flight phase 'starting' displayed
+  let statusText = await clockPage.locator('#model-clock-container #recommendation-status').textContent();
+  if (!statusText.includes('Testing the selected model through OpenClaw')) {
+    fail(`Expected in-flight starting message, got: ${statusText}`);
+  }
+
+  // Verify pending action in sessionStorage
+  let pendingSession = await clockPage.evaluate(() => sessionStorage.getItem('argos_pending_model_action'));
+  if (!pendingSession) fail('Pending model action was not preserved in sessionStorage');
+
+  // Advance fake clock past 60s (run for 65,000ms more = total > 65s)
+  const timeoutSelectionPromise = clockPage.waitForResponse('**/api/models/selection');
+  await clockPage.clock.runFor(65000);
+  await timeoutSelectionPromise;
+
+  // Now observation timed out (>60s) while switch is still active: shows "Switch still running—reconnecting"
+  statusText = await clockPage.locator('#model-clock-container #recommendation-status').textContent();
+  if (!statusText.includes('Switch still running—reconnecting')) {
+    fail(`Expected 'Switch still running—reconnecting' after >60s, got: ${statusText}`);
+  }
+  console.log('[PASS] Switch lasting >60s displayed "Switch still running—reconnecting" and preserved pending state');
+
+  // Simulate connectivity drop
+  connectivityDrop = true;
+  await clockPage.clock.runFor(1000);
+  statusText = await clockPage.locator('#model-clock-container #recommendation-status').textContent();
+  if (!statusText.includes('Switch still running—reconnecting')) {
+    fail(`Expected 'Switch still running—reconnecting' during connectivity drop, got: ${statusText}`);
+  }
+  console.log('[PASS] Connectivity drop displayed "Switch still running—reconnecting" without premature failure');
+  connectivityDrop = false;
+
+  // Verify buttons remain disabled and duplicate submission is prevented
+  const isPrimaryDisabled = await clockSwitchBtn.isDisabled();
+  if (!isPrimaryDisabled) fail('Primary action button was prematurely re-enabled during long-running switch');
+
+  // Attempt duplicate submission click:
+  await clockSwitchBtn.click({force: true});
+  if (over60SelectCount !== 1) {
+    fail(`Duplicate submission was not prevented: expected 1 select request, got ${over60SelectCount}`);
+  }
+  console.log('[PASS] Duplicate submission prevented while switch is running');
+
+  // Test reload resumption:
+  // Re-render experiment recommendation (simulating reload resumption with preserved sessionStorage)
+  await clockPage.evaluate(() => {
+    const testContainer = document.getElementById('model-clock-container');
+    testContainer.replaceChildren();
+    renderExperimentRecommendation(testContainer, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  // Verify monitoring resumed immediately after re-render/reload
+  statusText = await clockPage.locator('#model-clock-container #recommendation-status').textContent();
+  if (!statusText.includes('Switch still running—reconnecting')) {
+    fail(`Expected resumed monitoring status after reload, got: ${statusText}`);
+  }
+  const isResumedDisabled = await clockPage.locator('#model-clock-container #exp-action-primary').isDisabled();
+  if (!isResumedDisabled) fail('Action buttons should be disabled when monitoring resumes after reload');
+  console.log('[PASS] Resumed monitoring after reload verified');
+
+  // Now terminal completion arrives!
+  over60Complete = true;
+  const terminalSelectionPromise = clockPage.waitForResponse('**/api/models/selection');
+  await clockPage.clock.runFor(1000);
+  await terminalSelectionPromise;
+
+  await clockPage.locator('#model-clock-container #recommendation-status')
+    .filter({hasText: 'Model switch verified with matching manifest digest'})
+    .waitFor({timeout: 10000});
+
+  // Success reported only after terminal completion and tag/digest verification
+  statusText = await clockPage.locator('#model-clock-container #recommendation-status').textContent();
+  if (!statusText.includes('Switched to candidate model qwen2.5:3b. Model switch verified with matching manifest digest.')) {
+    fail(`Expected verified success after terminal completion, got: ${statusText}`);
+  }
+  console.log('[PASS] Success reported after terminal completion and tag/digest verification');
+
+  // Pending action cleared from sessionStorage
+  pendingSession = await clockPage.evaluate(() => sessionStorage.getItem('argos_pending_model_action'));
+  if (pendingSession !== null) fail('Pending model action was not cleared from sessionStorage after success');
+
+  await clockPage.close();
+
   // =========================================================================
   // STEP 7: TEST COMPARISON READINESS & VISIBLE REFUSAL CARD (HTTP 409)
   // =========================================================================

@@ -1467,10 +1467,11 @@ const normalizeDigest = (d) => {
   return d.startsWith('sha256:') ? d.slice(7).toLowerCase() : d.toLowerCase();
 };
 
-async function waitSelectionTerminal(statusNote, actionLabel) {
-  const timeoutMs = 60000;
-  const start = Date.now();
+async function waitSelectionTerminal(statusNote, actionLabel, startedAt) {
+  const maxBudgetMs = 1500000;
+  const observationStart = startedAt || Date.now();
   const pollInterval = 100;
+  let consecutiveErrors = 0;
 
   const messages = {
     verifying: 'Rechecking all model artifacts…',
@@ -1480,21 +1481,34 @@ async function waitSelectionTerminal(statusNote, actionLabel) {
     cancelling: 'Cancelling switch and releasing resources…'
   };
 
-  while (Date.now() - start < timeoutMs) {
+  while (Date.now() - observationStart < maxBudgetMs) {
     let snap;
     try {
       snap = await api('/api/models/selection');
+      consecutiveErrors = 0;
     } catch (_) {
+      consecutiveErrors++;
+      if (statusNote) {
+        statusNote.textContent = 'Switch still running—reconnecting';
+      }
       await new Promise(r => setTimeout(r, pollInterval));
       continue;
     }
+
     if (!snap || snap.available === false) {
       throw new Error('Model selection controller unavailable');
     }
 
+    const elapsedMs = Date.now() - observationStart;
+    const observationTimedOut = elapsedMs >= 60000;
+
     if (snap.active) {
       if (statusNote) {
-        statusNote.textContent = messages[snap.phase] || (actionLabel === 'switch-candidate' ? 'Switching model…' : 'Restoring model…');
+        if (observationTimedOut || consecutiveErrors > 0) {
+          statusNote.textContent = 'Switch still running—reconnecting';
+        } else {
+          statusNote.textContent = messages[snap.phase] || (actionLabel === 'switch-candidate' ? 'Switching model…' : 'Restoring model…');
+        }
       }
       await new Promise(r => setTimeout(r, pollInterval));
       continue;
@@ -1543,6 +1557,32 @@ async function verifyModelSelectionIdentity(expectedTag, expectedDigest) {
     if (!actNorm || expNorm !== actNorm) {
       throw new Error(`Manifest digest mismatch: expected '${expectedDigest}', got '${actualDigest || 'unidentified'}'`);
     }
+  }
+}
+
+async function monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction) {
+  const { actionType, targetModel, targetDigest, startedAt } = pendingAction;
+  btnPrimary.disabled = true;
+  btnSecondary.disabled = true;
+  statusNote.classList.remove('status-error');
+
+  try {
+    await waitSelectionTerminal(statusNote, actionType, startedAt);
+    await refreshModels();
+    await refreshSelection();
+    await verifyModelSelectionIdentity(targetModel, targetDigest);
+    try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+    statusNote.textContent = actionType === 'switch-candidate'
+      ? `Switched to candidate model ${targetModel}. Model switch verified with matching manifest digest.`
+      : `Baseline model ${targetModel} retained. Model switch verified with matching manifest digest.`;
+  } catch (err) {
+    try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+    statusNote.classList.add('status-error');
+    statusNote.textContent = (actionType === 'switch-candidate' ? 'Failed to switch model: ' :
+      actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Action failed: ') + err.message;
+  } finally {
+    btnPrimary.disabled = false;
+    btnSecondary.disabled = false;
   }
 }
 
@@ -1718,7 +1758,24 @@ function renderExperimentRecommendation(card, result) {
   statusNote.className = 'recommendation-status';
   statusNote.setAttribute('role', 'status');
 
+  // Resume monitoring after reload if a model action was pending
+  let pendingAction = null;
+  try {
+    const raw = sessionStorage.getItem('argos_pending_model_action');
+    if (raw) pendingAction = JSON.parse(raw);
+  } catch (_) {}
+
+  if (pendingAction && intervention === 'model') {
+    btnPrimary.disabled = true;
+    btnSecondary.disabled = true;
+    statusNote.textContent = 'Switch still running—reconnecting';
+    monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction);
+  }
+
   const executeAction = async (actionType) => {
+    if (sessionStorage.getItem('argos_pending_model_action')) {
+      return; // prevent duplicate submissions
+    }
     btnPrimary.disabled = true;
     btnSecondary.disabled = true;
     statusNote.classList.remove('status-error');
@@ -1764,6 +1821,13 @@ function renderExperimentRecommendation(card, result) {
       } else if (actionType === 'switch-candidate') {
         const candModel = result.candidate?.model;
         const candDigest = result.candidate?.manifest_digest;
+        const pending = {
+          actionType,
+          targetModel: candModel,
+          targetDigest: candDigest,
+          startedAt: Date.now()
+        };
+        try { sessionStorage.setItem('argos_pending_model_action', JSON.stringify(pending)); } catch (_) {}
         statusNote.textContent = `Initiating switch to candidate model (${candModel})…`;
         const res = await fetch('/api/models/select', {
           method: 'POST',
@@ -1772,15 +1836,12 @@ function renderExperimentRecommendation(card, result) {
           cache: 'no-store'
         });
         if (!res.ok) {
+          try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
           let msg = `Model switch failed (HTTP ${res.status})`;
           try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
           throw new Error(msg);
         }
-        await waitSelectionTerminal(statusNote, 'switch-candidate');
-        await refreshModels();
-        await refreshSelection();
-        await verifyModelSelectionIdentity(candModel, candDigest);
-        statusNote.textContent = `Switched to candidate model ${candModel}. Model switch verified with matching manifest digest.`;
+        await monitorModelAction(statusNote, btnPrimary, btnSecondary, pending);
       } else if (actionType === 'keep-baseline') {
         const baseModel = result.baseline?.model;
         const baseDigest = result.baseline?.manifest_digest;
@@ -1792,6 +1853,14 @@ function renderExperimentRecommendation(card, result) {
           }
         } catch (_) {}
 
+        const pending = {
+          actionType,
+          targetModel: baseModel,
+          targetDigest: baseDigest,
+          startedAt: Date.now()
+        };
+        try { sessionStorage.setItem('argos_pending_model_action', JSON.stringify(pending)); } catch (_) {}
+
         if (usedRestore) {
           statusNote.textContent = `Restoring previous baseline model transaction (${baseModel})…`;
           const res = await fetch('/api/models/restore', {
@@ -1800,6 +1869,7 @@ function renderExperimentRecommendation(card, result) {
             cache: 'no-store'
           });
           if (!res.ok) {
+            try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
             let msg = `Model restoration failed (HTTP ${res.status})`;
             try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
             throw new Error(msg);
@@ -1813,16 +1883,13 @@ function renderExperimentRecommendation(card, result) {
             cache: 'no-store'
           });
           if (!res.ok) {
+            try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
             let msg = `Model selection failed (HTTP ${res.status})`;
             try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
             throw new Error(msg);
           }
         }
-        await waitSelectionTerminal(statusNote, 'keep-baseline');
-        await refreshModels();
-        await refreshSelection();
-        await verifyModelSelectionIdentity(baseModel, baseDigest);
-        statusNote.textContent = `Baseline model ${baseModel} retained. Model switch verified with matching manifest digest.`;
+        await monitorModelAction(statusNote, btnPrimary, btnSecondary, pending);
       } else if (actionType === 'retry') {
         statusNote.textContent = 'Restarting candidate trial…';
         const res = await fetch('/api/lab/start-documents', {
@@ -1847,13 +1914,21 @@ function renderExperimentRecommendation(card, result) {
         actionType === 'switch-candidate' ? 'Failed to switch model: ' :
         actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Action failed: ') + err.message;
     } finally {
-      btnPrimary.disabled = false;
-      btnSecondary.disabled = false;
+      if (actionType !== 'switch-candidate' && actionType !== 'keep-baseline') {
+        btnPrimary.disabled = false;
+        btnSecondary.disabled = false;
+      }
     }
   };
 
-  btnPrimary.addEventListener('click', () => executeAction(primaryActionType));
-  btnSecondary.addEventListener('click', () => executeAction(secondaryActionType));
+  btnPrimary.addEventListener('click', () => {
+    if (btnPrimary.disabled || sessionStorage.getItem('argos_pending_model_action')) return;
+    executeAction(primaryActionType);
+  });
+  btnSecondary.addEventListener('click', () => {
+    if (btnSecondary.disabled || sessionStorage.getItem('argos_pending_model_action')) return;
+    executeAction(secondaryActionType);
+  });
 
   actions.append(btnPrimary, btnSecondary);
   box.append(hdr, reason, actions, statusNote);
