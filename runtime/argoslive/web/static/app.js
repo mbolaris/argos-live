@@ -388,6 +388,8 @@ let arenaPolling = false;
 let arenaTimer = null;
 let arenaReceipts = [];
 let arenaCurrentAnswer = '';
+let retainedBaselineDocRunId = sessionStorage.getItem('argos_baseline_doc_run_id') || null;
+let autoComparedCandidateId = null;
 
 const outcomeMeta = {
   pass: {label: 'Pass', cls: 'outcome-pass', reason: 'Criteria verified'},
@@ -557,17 +559,46 @@ function renderArenaState(arena, active, phase, model, elapsed) {
   const nextActionBtn = document.getElementById('arena-next-action');
 
   if (banner && headline && detail) {
+    const secActionBtn = document.getElementById('arena-secondary-action');
     if (phase === 'completed') {
+      banner.hidden = false;
+      if (secActionBtn) secActionBtn.hidden = true;
+      const arenaDocRunId = (arena && Array.isArray(arena.runs) && arena.runs.length) ? arena.runs[arena.runs.length - 1] : null;
+      if (autoComparedCandidateId || (retainedBaselineDocRunId && arenaDocRunId && arenaDocRunId !== retainedBaselineDocRunId)) {
+        headline.textContent = 'Candidate trial complete · Controlled comparison ready';
+        if (detail) detail.textContent = `Paired with retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware. One action recommended below.`;
+        if (nextActionBtn) {
+          nextActionBtn.hidden = false;
+          nextActionBtn.textContent = 'Review comparison & recommendation ↓';
+          nextActionBtn.onclick = () => focusSection('experiment-comparison');
+        }
+      } else {
+        if (!retainedBaselineDocRunId && arenaDocRunId && (!arena.recipe || arena.recipe.preset === 'standard')) {
+          retainedBaselineDocRunId = arenaDocRunId;
+          try { sessionStorage.setItem('argos_baseline_doc_run_id', arenaDocRunId); } catch (_) {}
+        }
+        if (nextActionBtn) {
+          nextActionBtn.hidden = false;
+          nextActionBtn.textContent = 'Review result & debrief ↑';
+          nextActionBtn.onclick = () => focusSection('cc-receipt');
+        }
+        headline.textContent = 'Trial completed and saved';
+        detail.textContent = `${arena?.correct || 0} of ${arena?.total || 0} passed · ${arena?.format_errors || 0} format errors · Evidence bound to ${model || 'model'} digest. Baseline saved.`;
+      }
+    } else if (phase === 'cancelled') {
       banner.hidden = false;
       if (nextActionBtn) {
         nextActionBtn.hidden = false;
-        nextActionBtn.onclick = () => focusSection('cc-receipt');
+        nextActionBtn.textContent = 'Retry failed trial';
+        nextActionBtn.onclick = () => {
+          post('/api/lab/start-documents', {recipe: 'concise'}).catch(() => commandActions.documents());
+        };
       }
-      headline.textContent = 'Trial completed and saved';
-      detail.textContent = `${arena?.correct || 0} of ${arena?.total || 0} passed · ${arena?.format_errors || 0} format errors · Evidence bound to ${model || 'model'} digest. Baseline saved.`;
-    } else if (phase === 'cancelled') {
-      banner.hidden = false;
-      if (nextActionBtn) nextActionBtn.hidden = true;
+      if (secActionBtn) {
+        secActionBtn.hidden = false;
+        secActionBtn.textContent = 'Restore standard';
+        secActionBtn.onclick = restoreLabRecipe;
+      }
       headline.textContent = 'Stopped · incomplete';
       if (arena?.recovery) {
         lastLabRecovery = arena.recovery;
@@ -578,12 +609,24 @@ function renderArenaState(arena, active, phase, model, elapsed) {
       detail.textContent = `${arena?.completed || 0} of ${arena?.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
     } else if (phase === 'failed') {
       banner.hidden = false;
-      if (nextActionBtn) nextActionBtn.hidden = true;
+      if (nextActionBtn) {
+        nextActionBtn.hidden = false;
+        nextActionBtn.textContent = 'Retry failed trial';
+        nextActionBtn.onclick = () => {
+          post('/api/lab/start-documents', {recipe: 'concise'}).catch(() => commandActions.documents());
+        };
+      }
+      if (secActionBtn) {
+        secActionBtn.hidden = false;
+        secActionBtn.textContent = 'Restore standard';
+        secActionBtn.onclick = restoreLabRecipe;
+      }
       headline.textContent = 'Trial failed · incomplete';
       detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
     } else {
       banner.hidden = true;
       if (nextActionBtn) nextActionBtn.hidden = true;
+      if (secActionBtn) secActionBtn.hidden = true;
     }
   }
 }
@@ -595,9 +638,13 @@ function applyArenaEvent(ev) {
       if (ev.phase === 'cancelled') {
         badge.textContent = 'STOPPED · INCOMPLETE';
         badge.className = 'arena-badge phase-cancelled incomplete';
+        const headline = document.getElementById('arena-summary-headline');
+        if (headline) headline.textContent = 'Stopped · incomplete';
       } else if (ev.phase === 'failed') {
         badge.textContent = 'FAILED · INCOMPLETE';
         badge.className = 'arena-badge phase-failed incomplete';
+        const headline = document.getElementById('arena-summary-headline');
+        if (headline) headline.textContent = 'Trial failed · incomplete';
       } else {
         badge.textContent = ev.phase.toUpperCase();
         badge.className = `arena-badge phase-${ev.phase}`;
@@ -702,15 +749,44 @@ function applyArenaEvent(ev) {
       const headline = document.getElementById('arena-summary-headline');
       const detail = document.getElementById('arena-summary-detail');
       const nextActionBtn = document.getElementById('arena-next-action');
+      const secActionBtn = document.getElementById('arena-secondary-action');
       if (ev.outcome === 'completed') {
+        if (secActionBtn) secActionBtn.hidden = true;
+        const savedDocRunId = (Array.isArray(ev.runs) && ev.runs.length) ? ev.runs[ev.runs.length - 1] : null;
+        if (autoComparedCandidateId || (retainedBaselineDocRunId && savedDocRunId && savedDocRunId !== retainedBaselineDocRunId)) {
+          if (headline) headline.textContent = 'Candidate trial complete · Controlled comparison ready';
+          if (detail) detail.textContent = `Paired with retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware. One action recommended below.`;
+          if (nextActionBtn) {
+            nextActionBtn.hidden = false;
+            nextActionBtn.textContent = 'Review comparison & recommendation ↓';
+            nextActionBtn.onclick = () => focusSection('experiment-comparison');
+          }
+        } else {
+          if (!retainedBaselineDocRunId && savedDocRunId && (!ev.recipe || ev.recipe.preset === 'standard')) {
+            retainedBaselineDocRunId = savedDocRunId;
+            try { sessionStorage.setItem('argos_baseline_doc_run_id', savedDocRunId); } catch (_) {}
+          }
+          if (nextActionBtn) {
+            nextActionBtn.hidden = false;
+            nextActionBtn.textContent = 'Review result & debrief ↑';
+            nextActionBtn.onclick = () => focusSection('cc-receipt');
+          }
+          if (headline) headline.textContent = 'Trial completed and saved';
+          if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
+        }
+      } else if (ev.outcome === 'cancelled') {
         if (nextActionBtn) {
           nextActionBtn.hidden = false;
-          nextActionBtn.onclick = () => focusSection('cc-receipt');
+          nextActionBtn.textContent = 'Retry failed trial';
+          nextActionBtn.onclick = () => {
+            post('/api/lab/start-documents', {recipe: 'concise'}).catch(() => commandActions.documents());
+          };
         }
-        if (headline) headline.textContent = 'Trial completed and saved';
-        if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
-      } else if (ev.outcome === 'cancelled') {
-        if (nextActionBtn) nextActionBtn.hidden = true;
+        if (secActionBtn) {
+          secActionBtn.hidden = false;
+          secActionBtn.textContent = 'Restore standard';
+          secActionBtn.onclick = restoreLabRecipe;
+        }
         if (headline) headline.textContent = 'Stopped · incomplete';
         if (ev.recovery) {
           lastLabRecovery = ev.recovery;
@@ -720,7 +796,18 @@ function applyArenaEvent(ev) {
         const recoverySuffix = recoveryText ? ` ${recoveryText}` : '';
         if (detail) detail.textContent = `${ev.completed || 0} of ${ev.total || 0} challenges evaluated (incomplete). Partial results are preserved but do not qualify.${recoverySuffix}`;
       } else {
-        if (nextActionBtn) nextActionBtn.hidden = true;
+        if (nextActionBtn) {
+          nextActionBtn.hidden = false;
+          nextActionBtn.textContent = 'Retry failed trial';
+          nextActionBtn.onclick = () => {
+            post('/api/lab/start-documents', {recipe: 'concise'}).catch(() => commandActions.documents());
+          };
+        }
+        if (secActionBtn) {
+          secActionBtn.hidden = false;
+          secActionBtn.textContent = 'Restore standard';
+          secActionBtn.onclick = restoreLabRecipe;
+        }
         if (headline) headline.textContent = 'Trial failed · incomplete';
         if (detail) detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
       }
@@ -730,6 +817,12 @@ function applyArenaEvent(ev) {
     refreshBenchmarks();
     refreshStartup();
     refreshCommand();
+    setTimeout(async () => {
+      try {
+        await refreshLab();
+        await refreshCommand();
+      } catch (_) {}
+    }, 400);
   }
 }
 
@@ -1148,6 +1241,59 @@ async function refreshBenchmarks() {
     if (expBtn) expBtn.disabled = selectedRuns.size !== 2;
     status.textContent = result.runs.length ? `${result.runs.length} saved benchmark runs.` : 'No saved benchmarks yet.';
     if (result.invalid_count || result.truncated) status.textContent += ' Some results need review or were omitted by display limits.';
+
+    // Continuous experiment journey: automatic baseline retention and candidate pairing
+    try {
+      const docRuns = result.runs.filter(r => r.kind === 'ability' && (r.suite_version || '').startsWith('documents/'));
+      if (retainedBaselineDocRunId && !docRuns.some(r => r.id === retainedBaselineDocRunId)) {
+        retainedBaselineDocRunId = null;
+        try { sessionStorage.removeItem('argos_baseline_doc_run_id'); } catch (_) {}
+      }
+      if (!retainedBaselineDocRunId) {
+        for (const r of docRuns) {
+          if (r.state === 'completed') {
+            const full = await api('/api/benchmarks/run/' + r.id);
+            if (!full.recipe || full.recipe.preset === 'standard') {
+              retainedBaselineDocRunId = r.id;
+              sessionStorage.setItem('argos_baseline_doc_run_id', r.id);
+              break;
+            }
+          }
+        }
+      }
+      if (retainedBaselineDocRunId && docRuns.length >= 2) {
+        const latestDoc = docRuns.find(r => r.id !== retainedBaselineDocRunId && r.state === 'completed');
+        if (latestDoc && latestDoc.id !== autoComparedCandidateId) {
+          const fullCand = await api('/api/benchmarks/run/' + latestDoc.id);
+          const candPreset = fullCand.recipe?.preset || 'standard';
+          if (candPreset !== 'standard') {
+            autoComparedCandidateId = latestDoc.id;
+            const expOut = document.getElementById('experiment-comparison');
+            if (expOut) {
+              const expRes = await api(`/api/benchmarks/experiment?baseline=${encodeURIComponent(retainedBaselineDocRunId)}&candidate=${encodeURIComponent(latestDoc.id)}`);
+              renderExperiment(expOut, expRes);
+              status.textContent = 'Controlled experiment comparison ready. Evaluated on identical hardware with exactly one recipe intervention.';
+              const arenaBanner = document.getElementById('arena-summary-banner');
+              const arenaHeadline = document.getElementById('arena-summary-headline');
+              const arenaDetail = document.getElementById('arena-summary-detail');
+              const arenaNext = document.getElementById('arena-next-action');
+              if (arenaBanner && arenaHeadline) {
+                arenaBanner.hidden = false;
+                arenaHeadline.textContent = 'Candidate trial complete · Controlled comparison ready';
+                if (arenaDetail) arenaDetail.textContent = `Paired with retained baseline (${retainedBaselineDocRunId.slice(0, 8)}…) on identical hardware. One action recommended below.`;
+                if (arenaNext) {
+                  arenaNext.hidden = false;
+                  arenaNext.textContent = 'Review comparison & recommendation ↓';
+                  arenaNext.onclick = () => focusSection('experiment-comparison');
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Auto-pairing experiment error:', err);
+    }
   } catch (_) {
     cards.replaceChildren(); selectedRuns.clear(); comparedRuns = [];
     document.getElementById('compare-runs').disabled = true;
@@ -1218,6 +1364,135 @@ document.getElementById('compare-runs').addEventListener('click', async () => {
     document.getElementById('benchmarks-status').textContent = 'Select two to eight complete runs with matching suites and settings.';
   }
 });
+function renderExperimentRecommendation(card, result) {
+  const box = document.createElement('div');
+  box.id = 'experiment-recommendation';
+  box.className = 'experiment-recommendation-box';
+
+  const verdict = result.delta?.verdict || 'no_change';
+  const deltaCorr = result.delta?.correct_delta ?? 0;
+  const deltaFmt = result.delta?.format_error_delta ?? 0;
+
+  let recTitle = '';
+  let recReason = '';
+  let primaryBtnText = '';
+  let secondaryBtnText = '';
+  let primaryActionType = '';
+  let secondaryActionType = '';
+
+  if (verdict === 'observed_gain' || deltaCorr > 0 || deltaFmt < 0) {
+    box.classList.add('verdict-keep');
+    recTitle = 'Keep trial recipe';
+    const improvements = [];
+    if (deltaCorr > 0) improvements.push(`+${deltaCorr} tasks correct`);
+    if (deltaFmt < 0) improvements.push(`${deltaFmt} format errors`);
+    const impStr = improvements.length ? ` (${improvements.join(', ')})` : '';
+    recReason = `Evidence shows observed performance gain${impStr} under strict format instructions on identical hardware. Keep this recipe for future lab trials, or restore standard calibration.`;
+    primaryBtnText = 'Keep trial recipe';
+    secondaryBtnText = 'Restore standard';
+    primaryActionType = 'keep';
+    secondaryActionType = 'restore';
+  } else if (verdict === 'regression' || deltaCorr < 0 || deltaFmt > 0) {
+    box.classList.add('verdict-restore');
+    recTitle = 'Restore standard';
+    const regr = [];
+    if (deltaCorr < 0) regr.push(`${deltaCorr} tasks correct`);
+    if (deltaFmt > 0) regr.push(`+${deltaFmt} format errors`);
+    const regStr = regr.length ? ` (${regr.join(', ')})` : '';
+    recReason = `Evidence shows regression${regStr} under trial recipe compared to standard calibration. Restore standard instructions to maintain baseline quality.`;
+    primaryBtnText = 'Restore standard';
+    secondaryBtnText = 'Keep trial recipe';
+    primaryActionType = 'restore';
+    secondaryActionType = 'keep';
+  } else {
+    box.classList.add('verdict-restore');
+    recTitle = 'Restore standard';
+    recReason = 'Evidence shows no measurable difference in task accuracy or format compliance. Restore standard calibration to keep the baseline environment unchanged, or keep trial recipe if preferred.';
+    primaryBtnText = 'Restore standard';
+    secondaryBtnText = 'Keep trial recipe';
+    primaryActionType = 'restore';
+    secondaryActionType = 'keep';
+  }
+
+  const hdr = document.createElement('div');
+  hdr.className = 'recommendation-header';
+  const badge = document.createElement('span');
+  badge.className = 'recommendation-badge';
+  badge.textContent = 'Evidence-Based Recommendation';
+  const title = document.createElement('h4');
+  title.id = 'recommendation-title';
+  title.textContent = `Recommended next action: ${recTitle}`;
+  hdr.append(badge, title);
+
+  const reason = document.createElement('p');
+  reason.id = 'recommendation-reason';
+  reason.className = 'recommendation-reason';
+  reason.textContent = recReason;
+
+  const actions = document.createElement('div');
+  actions.className = 'recommendation-actions';
+
+  const btnPrimary = document.createElement('button');
+  btnPrimary.id = 'exp-action-primary';
+  btnPrimary.type = 'button';
+  btnPrimary.className = 'mission-primary';
+  btnPrimary.textContent = primaryBtnText;
+
+  const btnSecondary = document.createElement('button');
+  btnSecondary.id = 'exp-action-secondary';
+  btnSecondary.type = 'button';
+  btnSecondary.className = 'mission-secondary';
+  btnSecondary.textContent = secondaryBtnText;
+
+  const statusNote = document.createElement('p');
+  statusNote.id = 'recommendation-status';
+  statusNote.className = 'recommendation-status';
+  statusNote.setAttribute('role', 'status');
+
+  const executeAction = async (actionType) => {
+    btnPrimary.disabled = true;
+    btnSecondary.disabled = true;
+    if (actionType === 'restore') {
+      statusNote.textContent = 'Restoring standard calibration…';
+      try {
+        await restoreLabRecipe();
+        statusNote.textContent = 'Restored standard calibration. Active Lab recipe reset to Standard calibration.';
+        const activeRecEl = document.getElementById('lab-active-recipe');
+        if (activeRecEl) activeRecEl.textContent = 'Standard calibration';
+        const restoreBtn = document.getElementById('lab-recipe-restore');
+        if (restoreBtn) restoreBtn.hidden = true;
+      } catch (err) {
+        statusNote.textContent = 'Failed to restore standard recipe: ' + err.message;
+        btnPrimary.disabled = false;
+        btnSecondary.disabled = false;
+      }
+    } else if (actionType === 'keep') {
+      statusNote.textContent = 'Trial recipe kept. All future lab trials will use Strict format instructions (concise). You can restore standard calibration anytime.';
+    } else if (actionType === 'retry') {
+      statusNote.textContent = 'Restarting candidate trial…';
+      try {
+        await fetch('/api/lab/start-documents', {
+          method: 'POST',
+          headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+          body: JSON.stringify({recipe: 'concise'}),
+          cache: 'no-store'
+        });
+        await refreshLab();
+      } catch (err) {
+        statusNote.textContent = 'Retry failed: ' + err.message;
+        btnPrimary.disabled = false;
+        btnSecondary.disabled = false;
+      }
+    }
+  };
+
+  btnPrimary.addEventListener('click', () => executeAction(primaryActionType));
+  btnSecondary.addEventListener('click', () => executeAction(secondaryActionType));
+
+  actions.append(btnPrimary, btnSecondary);
+  box.append(hdr, reason, actions, statusNote);
+  card.append(box);
+}
 function renderExperiment(output, result) {
   output.replaceChildren();
   const card = document.createElement('article');
@@ -1291,6 +1566,9 @@ function renderExperiment(output, result) {
     ]);
     table(card, 'Paired prompt speed comparison (3-run medians)', heads, rows);
   }
+
+  // Evidence-based action recommendation
+  renderExperimentRecommendation(card, result);
 
   const limits = document.createElement('p');
   limits.className = 'experiment-limits';

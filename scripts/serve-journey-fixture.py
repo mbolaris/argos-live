@@ -33,14 +33,36 @@ class Fixture(DocBackend):
     """Answers suite items from references and any pasted document with a supported quotation."""
     def generate(self, model, prompt, **kwargs):
         callback = kwargs.get('callback')
-        if callback:
-            callback({'response': 'Examining passage… '})
-        time.sleep(0.04)
+        cancel = kwargs.get('cancel')
+        system = kwargs.get('system')
         result = super().generate(model, prompt, **kwargs)
         if prompt and 'MEASURED RECEIPT:' in prompt:
             result['text'] = 'The quick exercises exposed limits in my structured answers. I would like to try the repair brief next and show the sentence I used.'
-        if prompt and 'DOCUMENT:' in prompt:
+        elif prompt and 'DOCUMENT:' in prompt:
             result['text'] = json.dumps(PASSAGE_ANSWER)
+        elif prompt in self.answers:
+            item = self.answers[prompt]
+            if not item.get('scored'):
+                result['text'] = 'A short summary.'
+            else:
+                # If concise system instructions are present, answer reference format (0 format errors)
+                # If uninstructed standard calibration, simulate 1 format error to demonstrate recipe intervention
+                if not system and item.get('id') == 'answer-01':
+                    result['text'] = item.get('malformed', 'I could not find it.')
+                else:
+                    result['text'] = item['reference']
+
+        text = result.get('text', '')
+        if callback and text:
+            chunk_size = 5
+            for i in range(0, len(text), chunk_size):
+                if cancel is not None and cancel.is_set():
+                    break
+                chunk = text[i:i + chunk_size]
+                callback({'response': chunk})
+                time.sleep(0.012)
+        else:
+            time.sleep(0.02)
         return result
 
 
@@ -119,7 +141,10 @@ def main():
         threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .05}, daemon=True).start()
         sys.stdin.read()
     lab.close()
-    temp.cleanup()
+    try:
+        temp.cleanup()
+    except Exception:
+        pass
 
 
 if __name__ == '__main__':
