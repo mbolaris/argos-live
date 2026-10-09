@@ -1007,3 +1007,13 @@ Plan: [PERSONAL-ROBOT-EXPERIENCE.md](PERSONAL-ROBOT-EXPERIENCE.md). Implemented 
 
 ### Failure paths — `tested`
 Unavailable or swapped storage, missing or corrupt state, full drive (during the write check and during a storage choice, with rollback), a failed configuration write after the destination and marker were created (only this operation's marker and directories are removed; a destination the configuration already points at is kept unless the previous configuration is restored), a real read-only store (run as an unprivileged user), failed download, a model backend that fails to start, and cancellation all stop before any job or restore chat. See `tests/test_journey_failures.py`. One onboarding-smoke step failed once on a push that changed nothing it uses and passed on rerun of the same code; the cause was not identified.
+
+### PR73 acceptance correction — model-selection outcomes
+
+Normal polling and lost-response reconciliation now share controller outcome
+handling. Idle does not prove completion; rollback, cancellation, failure and
+owner-edit recovery blocks retain their specific outcomes. Twelve Node behavioral
+regressions execute the production functions and run in CI. The complete Chromium
+fixture journey passes, including real page reload and a switch lasting over 60
+seconds. Shipped Firefox, real model upgrades and physical USB acceptance remain
+separate; no backend budgets or permission boundaries were changed.

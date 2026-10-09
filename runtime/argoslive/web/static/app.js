@@ -1522,6 +1522,22 @@ function updateModelActionStatus(text, isError = false, statusNote = null) {
   });
 }
 
+// Both normal polling and lost-response recovery use the same evidence rules.
+function selectionOutcome(snap) {
+  if (!snap || snap.available === false) throw new Error('Model selection controller unavailable');
+  if (snap.active) return 'pending';
+  if (snap.phase === 'completed') return 'completed';
+  const errors = {
+    'rolled-back': 'Startup failed. The previous selection was restored (rolled back).',
+    cancelled: 'Switch cancelled. The previous selection was retained or restored.',
+    'recovery-blocked': 'Owner edits prevent automatic rollback. Assistant is stopped; recovery blocked.',
+    failed: 'Model switch failed. Inspect private diagnostics; owner edits are preserved.',
+    idle: 'No model operation confirmed. Controls restored; review the current selection before retrying.'
+  };
+  if (errors[snap.phase]) throw new Error(errors[snap.phase]);
+  return 'pending';
+}
+
 async function waitSelectionTerminal(statusNote, actionLabel, startedAt) {
   const maxBudgetMs = 1500000;
   const observationStart = startedAt || Date.now();
@@ -1548,9 +1564,7 @@ async function waitSelectionTerminal(statusNote, actionLabel, startedAt) {
       continue;
     }
 
-    if (!snap || snap.available === false) {
-      throw new Error('Model selection controller unavailable');
-    }
+    const outcome = selectionOutcome(snap);
 
     const elapsedMs = Date.now() - observationStart;
     const observationTimedOut = elapsedMs >= 60000;
@@ -1566,21 +1580,7 @@ async function waitSelectionTerminal(statusNote, actionLabel, startedAt) {
       continue;
     }
 
-    // Terminal completion reached: snap.active is false
-    const phase = snap.phase;
-    if (phase === 'completed') {
-      return snap;
-    } else if (phase === 'rolled-back') {
-      throw new Error('Startup failed. The previous selection was restored (rolled back).');
-    } else if (phase === 'cancelled') {
-      throw new Error('Switch cancelled. The previous selection was retained or restored.');
-    } else if (phase === 'recovery-blocked') {
-      throw new Error('Owner edits prevent automatic rollback. Assistant is stopped; recovery blocked.');
-    } else if (phase === 'failed') {
-      throw new Error('Model switch failed. Inspect private diagnostics; owner edits are preserved.');
-    } else if (phase === 'idle') {
-      return snap;
-    }
+    if (outcome === 'completed') return snap;
     await new Promise(r => setTimeout(r, pollInterval));
   }
   throw new Error('Model selection timed out');
@@ -1612,7 +1612,7 @@ async function verifyModelSelectionIdentity(expectedTag, expectedDigest) {
   }
 }
 
-async function monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction) {
+async function monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction, observedSnapshot = null) {
   const { actionType, targetModel, targetDigest, startedAt } = pendingAction;
   if (btnPrimary) btnPrimary.disabled = true;
   if (btnSecondary) btnSecondary.disabled = true;
@@ -1622,7 +1622,8 @@ async function monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingA
   updateModelActionStatus(initialMsg, false, statusNote);
 
   try {
-    await waitSelectionTerminal(statusNote, actionType, startedAt);
+    const observedOutcome = observedSnapshot ? selectionOutcome(observedSnapshot) : 'pending';
+    if (observedOutcome !== 'completed') await waitSelectionTerminal(statusNote, actionType, startedAt);
     await refreshModels();
     await refreshSelection();
     await verifyModelSelectionIdentity(targetModel, targetDigest);
@@ -1676,35 +1677,10 @@ async function reconcileModelActionWithController(pending, statusNote, btnPrimar
     return activeModelMonitoring;
   }
 
-  if (snap && snap.active) {
-    activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending)
-      .finally(() => { activeModelMonitoring = null; });
-    return activeModelMonitoring;
-  }
-
-  if (snap && snap.phase === 'completed') {
-    try {
-      await verifyModelSelectionIdentity(pending.targetModel, pending.targetDigest);
-      try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
-      const successMsg = pending.actionType === 'switch-candidate'
-        ? `Switched to candidate model ${pending.targetModel}. Model switch verified with matching manifest digest.`
-        : `Baseline model ${pending.targetModel} retained. Model switch verified with matching manifest digest.`;
-      updateModelActionStatus(successMsg, false, statusNote);
-      if (btnPrimary) btnPrimary.disabled = false;
-      if (btnSecondary) btnSecondary.disabled = false;
-      return;
-    } catch (_) {}
-  }
-
-  try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
-  const msg = 'Request interrupted; model switch was not started by server. Controls restored.';
-  updateModelActionStatus(msg, true, statusNote);
-  if (btnPrimary) btnPrimary.disabled = false;
-  if (btnSecondary) btnSecondary.disabled = false;
-  const bp = document.getElementById('exp-action-primary');
-  const bs = document.getElementById('exp-action-secondary');
-  if (bp) bp.disabled = false;
-  if (bs) bs.disabled = false;
+  // A lost POST can already have failed or rolled back. Retain that outcome.
+  activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending, snap)
+    .finally(() => { activeModelMonitoring = null; });
+  return activeModelMonitoring;
 }
 
 function renderExperimentRecommendation(card, result) {
@@ -2999,4 +2975,3 @@ const handleRestoreRecipeClick = async () => {
 };
 document.getElementById('lab-recipe-restore')?.addEventListener('click', handleRestoreRecipeClick);
 document.getElementById('receipt-restore-recipe')?.addEventListener('click', handleRestoreRecipeClick);
-
