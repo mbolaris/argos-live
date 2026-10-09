@@ -1182,6 +1182,7 @@ let selectionRefreshing = false;
 let selectionRollbackAvailable = false;
 let selectionPreviousModel = null;
 let currentModelName = null;
+let activeModelMonitoring = null;
 async function refreshSelection() {
   if (selectionRefreshing) return;
   selectionRefreshing = true;
@@ -1192,7 +1193,8 @@ async function refreshSelection() {
     selectionRollbackAvailable = value.rollback_available === true;
     selectionPreviousModel = value.previous_model || null;
     currentModelName = value.model || null;
-    document.getElementById('selection-controls').hidden = !selectionAvailable || value.phase === 'idle';
+    const pending = getPendingModelAction();
+    document.getElementById('selection-controls').hidden = (!selectionAvailable || value.phase === 'idle') && !pending;
     document.getElementById('selection-cancel').disabled = !selectionActive || value.phase === 'cancelling';
     document.getElementById('selection-cancel').hidden = !selectionActive;
     const messages = {idle: 'Choose Review switch on a local model.', pausing: 'Pausing the current assistant…',
@@ -1202,13 +1204,38 @@ async function refreshSelection() {
       cancelled: 'Switch cancelled. The previous selection was retained or restored.',
       cancelling: 'Cancelling switch and releasing resources…', failed: 'Switch needs attention. Inspect private diagnostics; owner edits are preserved.'};
     messages['recovery-blocked'] = 'Owner edits prevent automatic rollback. Assistant is stopped; private recovery record retained for review.';
-    document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+    if (pending) {
+      const elapsedMs = Date.now() - (pending.startedAt || 0);
+      if (elapsedMs >= 60000 && value.active) {
+        document.getElementById('selection-status').textContent = 'Switch still running—reconnecting';
+      } else if (!value.active) {
+        if (value.phase !== 'completed') {
+          document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+        }
+      } else {
+        document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+      }
+      if (!activeModelMonitoring && value.active) {
+        resumePendingModelMonitoring();
+      }
+    } else {
+      document.getElementById('selection-status').textContent = messages[value.phase] || 'Checking selection…';
+    }
     if (selectionActive) document.getElementById('lab-start').disabled = true;
     if (changed) {
       await refreshModels();
       if (value.phase === 'completed') await refreshCommand();
     }
-  } catch (_) { document.getElementById('selection-status').textContent = 'Selection status unavailable. Refresh before switching.'; }
+  } catch (_) {
+    const pending = getPendingModelAction();
+    if (pending) {
+      const selControls = document.getElementById('selection-controls');
+      if (selControls) selControls.hidden = false;
+      document.getElementById('selection-status').textContent = 'Switch still running—reconnecting';
+    } else {
+      document.getElementById('selection-status').textContent = 'Selection status unavailable. Refresh before switching.';
+    }
+  }
   finally { selectionRefreshing = false; }
 }
 document.getElementById('selection-dismiss').addEventListener('click', () => document.getElementById('selection-review').close());
@@ -1227,6 +1254,7 @@ document.getElementById('selection-cancel').addEventListener('click', async () =
 });
 refreshSelection();
 setInterval(refreshSelection, 3000);
+resumePendingModelMonitoring();
 async function download(path, filename) {
   const response = await fetch(path, {headers: {'X-Argos-Token': token}, cache: 'no-store'});
   if (!response.ok) throw new Error('Download unavailable');
@@ -1467,6 +1495,33 @@ const normalizeDigest = (d) => {
   return d.startsWith('sha256:') ? d.slice(7).toLowerCase() : d.toLowerCase();
 };
 
+function getPendingModelAction() {
+  try {
+    const raw = sessionStorage.getItem('argos_pending_model_action');
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function updateModelActionStatus(text, isError = false, statusNote = null) {
+  const selStatus = document.getElementById('selection-status');
+  const selControls = document.getElementById('selection-controls');
+  if (selStatus) {
+    selStatus.textContent = text;
+    selStatus.classList.toggle('status-error', isError);
+    if (selControls && !isError) selControls.hidden = false;
+  }
+  if (statusNote) {
+    statusNote.textContent = text;
+    statusNote.classList.toggle('status-error', isError);
+  }
+  document.querySelectorAll('#recommendation-status, .recommendation-status').forEach(el => {
+    el.textContent = text;
+    el.classList.toggle('status-error', isError);
+  });
+}
+
 async function waitSelectionTerminal(statusNote, actionLabel, startedAt) {
   const maxBudgetMs = 1500000;
   const observationStart = startedAt || Date.now();
@@ -1488,9 +1543,7 @@ async function waitSelectionTerminal(statusNote, actionLabel, startedAt) {
       consecutiveErrors = 0;
     } catch (_) {
       consecutiveErrors++;
-      if (statusNote) {
-        statusNote.textContent = 'Switch still running—reconnecting';
-      }
+      updateModelActionStatus('Switch still running—reconnecting', false, statusNote);
       await new Promise(r => setTimeout(r, pollInterval));
       continue;
     }
@@ -1503,12 +1556,11 @@ async function waitSelectionTerminal(statusNote, actionLabel, startedAt) {
     const observationTimedOut = elapsedMs >= 60000;
 
     if (snap.active) {
-      if (statusNote) {
-        if (observationTimedOut || consecutiveErrors > 0) {
-          statusNote.textContent = 'Switch still running—reconnecting';
-        } else {
-          statusNote.textContent = messages[snap.phase] || (actionLabel === 'switch-candidate' ? 'Switching model…' : 'Restoring model…');
-        }
+      if (observationTimedOut || consecutiveErrors > 0) {
+        updateModelActionStatus('Switch still running—reconnecting', false, statusNote);
+      } else {
+        const msg = messages[snap.phase] || (actionLabel === 'switch-candidate' ? 'Switching model…' : 'Restoring model…');
+        updateModelActionStatus(msg, false, statusNote);
       }
       await new Promise(r => setTimeout(r, pollInterval));
       continue;
@@ -1562,9 +1614,12 @@ async function verifyModelSelectionIdentity(expectedTag, expectedDigest) {
 
 async function monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction) {
   const { actionType, targetModel, targetDigest, startedAt } = pendingAction;
-  btnPrimary.disabled = true;
-  btnSecondary.disabled = true;
-  statusNote.classList.remove('status-error');
+  if (btnPrimary) btnPrimary.disabled = true;
+  if (btnSecondary) btnSecondary.disabled = true;
+  const initialMsg = Date.now() - (startedAt || 0) >= 60000
+    ? 'Switch still running—reconnecting'
+    : 'Testing the selected model through OpenClaw…';
+  updateModelActionStatus(initialMsg, false, statusNote);
 
   try {
     await waitSelectionTerminal(statusNote, actionType, startedAt);
@@ -1572,18 +1627,84 @@ async function monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingA
     await refreshSelection();
     await verifyModelSelectionIdentity(targetModel, targetDigest);
     try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
-    statusNote.textContent = actionType === 'switch-candidate'
+    const successMsg = actionType === 'switch-candidate'
       ? `Switched to candidate model ${targetModel}. Model switch verified with matching manifest digest.`
       : `Baseline model ${targetModel} retained. Model switch verified with matching manifest digest.`;
+    updateModelActionStatus(successMsg, false, statusNote);
   } catch (err) {
     try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
-    statusNote.classList.add('status-error');
-    statusNote.textContent = (actionType === 'switch-candidate' ? 'Failed to switch model: ' :
+    const errMsg = (actionType === 'switch-candidate' ? 'Failed to switch model: ' :
       actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Action failed: ') + err.message;
+    updateModelActionStatus(errMsg, true, statusNote);
   } finally {
-    btnPrimary.disabled = false;
-    btnSecondary.disabled = false;
+    if (btnPrimary) btnPrimary.disabled = false;
+    if (btnSecondary) btnSecondary.disabled = false;
+    const bp = document.getElementById('exp-action-primary');
+    const bs = document.getElementById('exp-action-secondary');
+    if (bp) bp.disabled = false;
+    if (bs) bs.disabled = false;
   }
+}
+
+function resumePendingModelMonitoring() {
+  const pending = getPendingModelAction();
+  if (!pending) return;
+  const selControls = document.getElementById('selection-controls');
+  if (selControls) selControls.hidden = false;
+  const elapsed = Date.now() - (pending.startedAt || 0);
+  const initialMsg = elapsed >= 60000 ? 'Switch still running—reconnecting' : 'Testing the selected model through OpenClaw…';
+  updateModelActionStatus(initialMsg, false, null);
+
+  if (!activeModelMonitoring) {
+    const recStatus = document.getElementById('recommendation-status');
+    const btnPrimary = document.getElementById('exp-action-primary');
+    const btnSecondary = document.getElementById('exp-action-secondary');
+    activeModelMonitoring = monitorModelAction(recStatus, btnPrimary, btnSecondary, pending)
+      .finally(() => { activeModelMonitoring = null; });
+  }
+}
+
+async function reconcileModelActionWithController(pending, statusNote, btnPrimary, btnSecondary) {
+  updateModelActionStatus('Reconciling switch status with controller…', false, statusNote);
+  let snap;
+  try {
+    snap = await api('/api/models/selection');
+  } catch (_) {
+    updateModelActionStatus('Switch still running—reconnecting', false, statusNote);
+    activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending)
+      .finally(() => { activeModelMonitoring = null; });
+    return activeModelMonitoring;
+  }
+
+  if (snap && snap.active) {
+    activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending)
+      .finally(() => { activeModelMonitoring = null; });
+    return activeModelMonitoring;
+  }
+
+  if (snap && snap.phase === 'completed') {
+    try {
+      await verifyModelSelectionIdentity(pending.targetModel, pending.targetDigest);
+      try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+      const successMsg = pending.actionType === 'switch-candidate'
+        ? `Switched to candidate model ${pending.targetModel}. Model switch verified with matching manifest digest.`
+        : `Baseline model ${pending.targetModel} retained. Model switch verified with matching manifest digest.`;
+      updateModelActionStatus(successMsg, false, statusNote);
+      if (btnPrimary) btnPrimary.disabled = false;
+      if (btnSecondary) btnSecondary.disabled = false;
+      return;
+    } catch (_) {}
+  }
+
+  try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+  const msg = 'Request interrupted; model switch was not started by server. Controls restored.';
+  updateModelActionStatus(msg, true, statusNote);
+  if (btnPrimary) btnPrimary.disabled = false;
+  if (btnSecondary) btnSecondary.disabled = false;
+  const bp = document.getElementById('exp-action-primary');
+  const bs = document.getElementById('exp-action-secondary');
+  if (bp) bp.disabled = false;
+  if (bs) bs.disabled = false;
 }
 
 function renderExperimentRecommendation(card, result) {
@@ -1759,17 +1880,16 @@ function renderExperimentRecommendation(card, result) {
   statusNote.setAttribute('role', 'status');
 
   // Resume monitoring after reload if a model action was pending
-  let pendingAction = null;
-  try {
-    const raw = sessionStorage.getItem('argos_pending_model_action');
-    if (raw) pendingAction = JSON.parse(raw);
-  } catch (_) {}
-
+  const pendingAction = getPendingModelAction();
   if (pendingAction && intervention === 'model') {
     btnPrimary.disabled = true;
     btnSecondary.disabled = true;
-    statusNote.textContent = 'Switch still running—reconnecting';
-    monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction);
+    const elapsed = Date.now() - (pendingAction.startedAt || 0);
+    statusNote.textContent = elapsed >= 60000 ? 'Switch still running—reconnecting' : 'Testing the selected model through OpenClaw…';
+    if (!activeModelMonitoring) {
+      activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pendingAction)
+        .finally(() => { activeModelMonitoring = null; });
+    }
   }
 
   const executeAction = async (actionType) => {
@@ -1829,19 +1949,34 @@ function renderExperimentRecommendation(card, result) {
         };
         try { sessionStorage.setItem('argos_pending_model_action', JSON.stringify(pending)); } catch (_) {}
         statusNote.textContent = `Initiating switch to candidate model (${candModel})…`;
-        const res = await fetch('/api/models/select', {
-          method: 'POST',
-          headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
-          body: JSON.stringify({tag: candModel}),
-          cache: 'no-store'
-        });
+
+        let res;
+        try {
+          res = await fetch('/api/models/select', {
+            method: 'POST',
+            headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+            body: JSON.stringify({tag: candModel}),
+            cache: 'no-store'
+          });
+        } catch (netErr) {
+          await reconcileModelActionWithController(pending, statusNote, btnPrimary, btnSecondary);
+          return;
+        }
+
         if (!res.ok) {
           try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
-          let msg = `Model switch failed (HTTP ${res.status})`;
+          let msg = `Model switch rejected (HTTP ${res.status})`;
           try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
-          throw new Error(msg);
+          statusNote.classList.add('status-error');
+          statusNote.textContent = 'Failed to switch model: ' + msg;
+          btnPrimary.disabled = false;
+          btnSecondary.disabled = false;
+          return;
         }
-        await monitorModelAction(statusNote, btnPrimary, btnSecondary, pending);
+
+        activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending)
+          .finally(() => { activeModelMonitoring = null; });
+        await activeModelMonitoring;
       } else if (actionType === 'keep-baseline') {
         const baseModel = result.baseline?.model;
         const baseDigest = result.baseline?.manifest_digest;
@@ -1861,35 +1996,43 @@ function renderExperimentRecommendation(card, result) {
         };
         try { sessionStorage.setItem('argos_pending_model_action', JSON.stringify(pending)); } catch (_) {}
 
-        if (usedRestore) {
-          statusNote.textContent = `Restoring previous baseline model transaction (${baseModel})…`;
-          const res = await fetch('/api/models/restore', {
-            method: 'POST',
-            headers: {'X-Argos-Token': token || '', 'Content-Length': '0'},
-            cache: 'no-store'
-          });
-          if (!res.ok) {
-            try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
-            let msg = `Model restoration failed (HTTP ${res.status})`;
-            try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
-            throw new Error(msg);
+        let res;
+        try {
+          if (usedRestore) {
+            statusNote.textContent = `Restoring previous baseline model transaction (${baseModel})…`;
+            res = await fetch('/api/models/restore', {
+              method: 'POST',
+              headers: {'X-Argos-Token': token || '', 'Content-Length': '0'},
+              cache: 'no-store'
+            });
+          } else {
+            statusNote.textContent = `Retaining baseline model (${baseModel})…`;
+            res = await fetch('/api/models/select', {
+              method: 'POST',
+              headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+              body: JSON.stringify({tag: baseModel}),
+              cache: 'no-store'
+            });
           }
-        } else {
-          statusNote.textContent = `Retaining baseline model (${baseModel})…`;
-          const res = await fetch('/api/models/select', {
-            method: 'POST',
-            headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
-            body: JSON.stringify({tag: baseModel}),
-            cache: 'no-store'
-          });
-          if (!res.ok) {
-            try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
-            let msg = `Model selection failed (HTTP ${res.status})`;
-            try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
-            throw new Error(msg);
-          }
+        } catch (netErr) {
+          await reconcileModelActionWithController(pending, statusNote, btnPrimary, btnSecondary);
+          return;
         }
-        await monitorModelAction(statusNote, btnPrimary, btnSecondary, pending);
+
+        if (!res.ok) {
+          try { sessionStorage.removeItem('argos_pending_model_action'); } catch (_) {}
+          let msg = (usedRestore ? 'Model restoration rejected' : 'Model selection rejected') + ` (HTTP ${res.status})`;
+          try { const err = await res.json(); if (err?.error) msg = err.error; } catch (_) {}
+          statusNote.classList.add('status-error');
+          statusNote.textContent = (actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Failed to switch model: ') + msg;
+          btnPrimary.disabled = false;
+          btnSecondary.disabled = false;
+          return;
+        }
+
+        activeModelMonitoring = monitorModelAction(statusNote, btnPrimary, btnSecondary, pending)
+          .finally(() => { activeModelMonitoring = null; });
+        await activeModelMonitoring;
       } else if (actionType === 'retry') {
         statusNote.textContent = 'Restarting candidate trial…';
         const res = await fetch('/api/lab/start-documents', {
@@ -1914,7 +2057,7 @@ function renderExperimentRecommendation(card, result) {
         actionType === 'switch-candidate' ? 'Failed to switch model: ' :
         actionType === 'keep-baseline' ? 'Failed to retain baseline model: ' : 'Action failed: ') + err.message;
     } finally {
-      if (actionType !== 'switch-candidate' && actionType !== 'keep-baseline') {
+      if (!sessionStorage.getItem('argos_pending_model_action')) {
         btnPrimary.disabled = false;
         btnSecondary.disabled = false;
       }

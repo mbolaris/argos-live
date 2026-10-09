@@ -632,6 +632,8 @@ try {
   // 7. Regression: Switch lasting over 60s with fake clock, connectivity drop, & reload resumption
   console.log('--- Testing browser regression: switch lasting >60s with fake clock & reconnecting status ---');
   const clockPage = await browser.newPage({viewport: {width: 1200, height: 1100}});
+  clockPage.on('pageerror', err => console.log('[CLOCK PAGE ERROR]:', err));
+  clockPage.on('console', msg => console.log('[CLOCK CONSOLE]:', msg.text()));
   await clockPage.clock.install();
 
   let over60SelectCount = 0;
@@ -734,11 +736,65 @@ try {
   }
   console.log('[PASS] Duplicate submission prevented while switch is running');
 
-  // Test reload resumption:
-  // Re-render experiment recommendation (simulating reload resumption with preserved sessionStorage)
-  await clockPage.evaluate(() => {
-    const testContainer = document.getElementById('model-clock-container');
-    testContainer.replaceChildren();
+  // Test reload resumption from normal page initialization (actual page.reload(), without injecting recommendation):
+  await clockPage.reload();
+
+  // Verify monitoring resumed from normal page initialization:
+  // #selection-controls is unhidden and #selection-status displays reconnecting status
+  const selectionControlsVisible = await clockPage.locator('#selection-controls').isVisible();
+  if (!selectionControlsVisible) fail('Selection controls not visible after actual page.reload() with pending action');
+
+  let reloadStatus = await clockPage.locator('#selection-status').textContent();
+  if (!reloadStatus.includes('Switch still running—reconnecting')) {
+    fail(`Expected reconnecting status on #selection-status after reload, got: ${reloadStatus}`);
+  }
+  console.log('[PASS] Resumed monitoring from normal page initialization after actual page.reload() verified');
+
+  // Now terminal completion arrives!
+  over60Complete = true;
+
+  // Advance fake clock until terminal completion and identity verification finish
+  let currentStatus = '';
+  for (let i = 0; i < 15; i++) {
+    await clockPage.clock.runFor(1000);
+    currentStatus = (await clockPage.locator('#selection-status').textContent()) || '';
+    if (currentStatus.includes('Model switch verified with matching manifest digest')) {
+      break;
+    }
+  }
+
+  console.log('Current selection status after terminal completion:', currentStatus);
+
+  if (!currentStatus.includes('Switched to candidate model qwen2.5:3b. Model switch verified with matching manifest digest.')) {
+    fail(`Expected verified success on #selection-status after terminal completion, got: ${currentStatus}`);
+  }
+  console.log('[PASS] Success reported on page reload after terminal completion and tag/digest verification');
+
+  // Pending action cleared from sessionStorage
+  pendingSession = await clockPage.evaluate(() => sessionStorage.getItem('argos_pending_model_action'));
+  if (pendingSession !== null) fail('Pending model action was not cleared from sessionStorage after success');
+
+  await clockPage.close();
+
+  // 8. Regression: Confirmed POST rejection restores controls and allows resubmission
+  console.log('--- Testing browser regression: confirmed POST rejection restores controls ---');
+  const rejectPage = await browser.newPage({viewport: {width: 1200, height: 1100}});
+  await rejectPage.goto(url);
+
+  let rejectSelectCalls = 0;
+  await rejectPage.route('**/api/models/select', async route => {
+    rejectSelectCalls++;
+    if (rejectSelectCalls === 1) {
+      await route.fulfill({status: 409, contentType: 'application/json', body: JSON.stringify({error: 'Conflicting model activation in progress'})});
+    } else {
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({status: 'started'})});
+    }
+  });
+
+  await rejectPage.evaluate(() => {
+    const testContainer = document.createElement('div');
+    testContainer.id = 'model-reject-container';
+    document.body.appendChild(testContainer);
     renderExperimentRecommendation(testContainer, {
       intervention: 'model',
       kind: 'ability',
@@ -748,37 +804,124 @@ try {
     });
   });
 
-  // Verify monitoring resumed immediately after re-render/reload
-  statusText = await clockPage.locator('#model-clock-container #recommendation-status').textContent();
-  if (!statusText.includes('Switch still running—reconnecting')) {
-    fail(`Expected resumed monitoring status after reload, got: ${statusText}`);
+  const rejectBtn = rejectPage.locator('#model-reject-container #exp-action-primary');
+  const rejectSecondaryBtn = rejectPage.locator('#model-reject-container #exp-action-secondary');
+  await rejectBtn.click();
+
+  // Wait for rejection error to be displayed
+  await rejectPage.waitForFunction(() => {
+    const el = document.querySelector('#model-reject-container #recommendation-status');
+    return el && el.classList.contains('status-error') && el.textContent.includes('Conflicting model activation in progress');
+  }, null, {timeout: 5000});
+
+  // Verify controls restored: both buttons enabled!
+  let btnDisabled = await rejectBtn.isDisabled();
+  let secDisabled = await rejectSecondaryBtn.isDisabled();
+  if (btnDisabled || secDisabled) {
+    fail('Controls were not restored after confirmed POST rejection');
   }
-  const isResumedDisabled = await clockPage.locator('#model-clock-container #exp-action-primary').isDisabled();
-  if (!isResumedDisabled) fail('Action buttons should be disabled when monitoring resumes after reload');
-  console.log('[PASS] Resumed monitoring after reload verified');
 
-  // Now terminal completion arrives!
-  over60Complete = true;
-  const terminalSelectionPromise = clockPage.waitForResponse('**/api/models/selection');
-  await clockPage.clock.runFor(1000);
-  await terminalSelectionPromise;
+  // Verify pending action cleared from sessionStorage
+  let rejectPending = await rejectPage.evaluate(() => sessionStorage.getItem('argos_pending_model_action'));
+  if (rejectPending !== null) fail('Pending action was not cleared after confirmed rejection');
 
-  await clockPage.locator('#model-clock-container #recommendation-status')
-    .filter({hasText: 'Model switch verified with matching manifest digest'})
-    .waitFor({timeout: 10000});
-
-  // Success reported only after terminal completion and tag/digest verification
-  statusText = await clockPage.locator('#model-clock-container #recommendation-status').textContent();
-  if (!statusText.includes('Switched to candidate model qwen2.5:3b. Model switch verified with matching manifest digest.')) {
-    fail(`Expected verified success after terminal completion, got: ${statusText}`);
+  // Verify resubmission is permitted:
+  await rejectBtn.click();
+  if (rejectSelectCalls !== 2) {
+    fail(`Resubmission click was not permitted: expected 2 calls, got ${rejectSelectCalls}`);
   }
-  console.log('[PASS] Success reported after terminal completion and tag/digest verification');
+  console.log('[PASS] Confirmed POST rejection restored controls and permitted resubmission');
+  await rejectPage.close();
 
-  // Pending action cleared from sessionStorage
-  pendingSession = await clockPage.evaluate(() => sessionStorage.getItem('argos_pending_model_action'));
-  if (pendingSession !== null) fail('Pending model action was not cleared from sessionStorage after success');
+  // 9. Regression: Lost POST response reconciled with controller
+  console.log('--- Testing browser regression: lost POST response reconciled with controller ---');
+  const lostPage = await browser.newPage({viewport: {width: 1200, height: 1100}});
+  await lostPage.goto(url);
 
-  await clockPage.close();
+  let lostSelectCalls = 0;
+  await lostPage.route('**/api/models/select', async route => {
+    lostSelectCalls++;
+    // Simulate network drop / lost response
+    await route.abort('failed');
+  });
+
+  // Case A: Controller idle (server did not start switch)
+  await lostPage.route('**/api/models/selection', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      available: true, active: false, phase: 'idle'
+    })});
+  });
+
+  await lostPage.evaluate(() => {
+    const testContainer = document.createElement('div');
+    testContainer.id = 'model-lost-container';
+    document.body.appendChild(testContainer);
+    renderExperimentRecommendation(testContainer, {
+      intervention: 'model',
+      kind: 'ability',
+      delta: {verdict: 'observed_gain', correct_delta: 3, format_error_delta: 0},
+      candidate: {model: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'},
+      baseline: {model: 'qwen2.5:1.5b', manifest_digest: 'sha256:digest15b'}
+    });
+  });
+
+  const lostPrimaryBtn = lostPage.locator('#model-lost-container #exp-action-primary');
+  const lostSecondaryBtn = lostPage.locator('#model-lost-container #exp-action-secondary');
+  await lostPrimaryBtn.click();
+
+  // Wait for reconciliation error explaining switch was not started and controls restored
+  await lostPage.waitForFunction(() => {
+    const el = document.querySelector('#model-lost-container #recommendation-status');
+    return el && el.classList.contains('status-error') && el.textContent.includes('Controls restored');
+  }, null, {timeout: 5000});
+
+  // Verify controls restored after reconciliation with idle controller
+  btnDisabled = await lostPrimaryBtn.isDisabled();
+  secDisabled = await lostSecondaryBtn.isDisabled();
+  if (btnDisabled || secDisabled) {
+    fail('Controls were not restored after reconciling lost POST with idle controller');
+  }
+  let lostPending = await lostPage.evaluate(() => sessionStorage.getItem('argos_pending_model_action'));
+  if (lostPending !== null) fail('Pending action was not cleared after reconciling non-started switch');
+  console.log('[PASS] Lost POST response reconciled with idle controller restored controls');
+
+  // Case B: Lost POST response where controller IS active (switch started despite network drop)
+  await lostPage.unroute('**/api/models/selection');
+  let caseBSelectionCount = 0;
+  await lostPage.route('**/api/models/selection', async route => {
+    caseBSelectionCount++;
+    if (caseBSelectionCount < 3) {
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: true, phase: 'starting'
+      })});
+    } else {
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+        available: true, active: false, phase: 'completed'
+      })});
+    }
+  });
+
+  await lostPage.route('**/api/models', async route => {
+    await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({
+      selected_model: 'qwen2.5:3b',
+      installed: [{tag: 'qwen2.5:3b', manifest_digest: 'sha256:digest3b'}],
+      bundled: {models: []}
+    })});
+  });
+
+  // Re-click primary button
+  await lostPrimaryBtn.click();
+
+  // Wait for completion and verified success
+  await lostPage.waitForFunction(() => {
+    const el = document.querySelector('#model-lost-container #recommendation-status');
+    return el && el.textContent.includes('Model switch verified with matching manifest digest');
+  }, null, {timeout: 10000});
+
+  lostPending = await lostPage.evaluate(() => sessionStorage.getItem('argos_pending_model_action'));
+  if (lostPending !== null) fail('Pending action was not cleared after completing reconciled active switch');
+  console.log('[PASS] Lost POST response reconciled with active controller maintained lock and completed verified');
+  await lostPage.close();
 
   // =========================================================================
   // STEP 7: TEST COMPARISON READINESS & VISIBLE REFUSAL CARD (HTTP 409)
