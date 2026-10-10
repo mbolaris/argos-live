@@ -501,6 +501,15 @@ function updateArenaReceipts(receipts) {
   if (tally) tally.textContent = `${receipts.length} scored`;
 }
 
+function extractQuestion(promptText, category) {
+  if (!promptText) return 'Waiting for challenge…';
+  const qMatch = promptText.match(/QUESTION:\s*([\s\S]+?)(?=\n\s*(?:Respond|PASSAGE|\{)|$)/i);
+  if (qMatch) return qMatch[1].trim();
+  if (category === 'summary' || promptText.includes('Summarize')) return 'Summarize this passage in two sentences.';
+  if (promptText.startsWith('Measuring')) return promptText;
+  return promptText.slice(0, 160);
+}
+
 function renderArenaState(arena, active, phase, model, elapsed) {
   const arenaEl = document.getElementById('arena');
   if (!arenaEl) return;
@@ -509,6 +518,7 @@ function renderArenaState(arena, active, phase, model, elapsed) {
   updateArenaHUD(arena, phase, model, elapsed, active);
 
   const livePrompt = document.getElementById('arena-current-prompt');
+  const liveQuestion = document.getElementById('arena-current-question');
   const liveStream = document.getElementById('arena-current-stream');
   const streamInd = document.getElementById('arena-stream-indicator');
   const liveId = document.getElementById('arena-current-id');
@@ -518,18 +528,21 @@ function renderArenaState(arena, active, phase, model, elapsed) {
     if (liveId) liveId.textContent = 'speed-run';
     if (liveCat) liveCat.textContent = 'throughput';
     if (livePrompt) livePrompt.textContent = 'Measuring short-prompt generation speed, prompt processing, and first-token latency with fixed prompts.';
+    if (liveQuestion) liveQuestion.textContent = 'Measuring speed, prompt processing, and latency.';
     if (liveStream) liveStream.textContent = 'Running model speed measurements…';
     if (streamInd) streamInd.hidden = true;
   } else if (arena && arena.current_item) {
     if (liveId) liveId.textContent = arena.current_item.item_id || 'active';
     if (liveCat) liveCat.textContent = arena.current_item.category || '';
     if (livePrompt) livePrompt.textContent = arena.current_item.prompt || 'Running challenge…';
+    if (liveQuestion) liveQuestion.textContent = extractQuestion(arena.current_item.prompt, arena.current_item.category);
     if (arena.current_item.answer) {
       if (liveStream) liveStream.textContent = arena.current_item.answer;
       arenaCurrentAnswer = arena.current_item.answer;
     }
     if (streamInd) streamInd.hidden = !active;
   } else {
+    if (liveQuestion && !active) liveQuestion.textContent = 'Waiting for challenge…';
     if (streamInd) streamInd.hidden = true;
   }
 
@@ -691,6 +704,8 @@ function applyArenaEvent(ev) {
     if (liveCat) liveCat.textContent = ev.category || '';
     const livePrompt = document.getElementById('arena-current-prompt');
     if (livePrompt) livePrompt.textContent = ev.prompt || 'Evaluating challenge…';
+    const liveQuestion = document.getElementById('arena-current-question');
+    if (liveQuestion) liveQuestion.textContent = extractQuestion(ev.prompt, ev.category);
     arenaCurrentAnswer = '';
     const liveStream = document.getElementById('arena-current-stream');
     if (liveStream) liveStream.textContent = 'Generating response…';
@@ -1033,33 +1048,69 @@ async function reviewDownload(choice, tag) {
   const inlineSec = document.getElementById('inline-storage-section');
   const inlineChoices = document.getElementById('inline-storage-choices');
   if (!storageConfirmed) {
+    document.getElementById('download-confirm').disabled = true;
     if (inlineSec && inlineChoices) {
       inlineSec.hidden = false;
       inlineChoices.replaceChildren();
       try {
         const view = await api('/api/storage');
         if (view && view.candidates) {
-          for (const item of view.candidates) {
+          const needed = model?.total_download_bytes || 0;
+          const disks = view.candidates.filter(c => c.kind === 'disk');
+          const rams = view.candidates.filter(c => c.kind === 'ram');
+
+          // Recommend strictly only a selectable destination
+          const selectableDisks = disks.filter(c => !c.contains_data && (c.current || view.can_change));
+          const blockedDisks = disks.filter(c => c.contains_data || (!c.current && !view.can_change));
+
+          // 1. Recommended Persistent Destination (strictly one selectable recommendation)
+          if (selectableDisks.length > 0) {
+            const diskGroup = document.createElement('div');
+            diskGroup.className = 'storage-group-persistent';
+            const grpTitle = document.createElement('div');
+            grpTitle.className = 'storage-group-title';
+            grpTitle.textContent = 'Recommended Persistent Drive';
+            diskGroup.append(grpTitle);
+
+            const recItem = selectableDisks[0];
             const art = document.createElement('article');
-            art.className = 'card';
-            const h4 = document.createElement('h4');
-            h4.textContent = `${item.volume_label || item.mountpoint} (${item.kind === 'ram' ? 'Memory' : 'Disk'})`;
-            const p = document.createElement('p');
-            p.textContent = `${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
-              (item.temporary ? ' · Temporary (lost at reboot)' : '') +
-              (item.contains_data ? ' · Blocked: folder has existing files' : '');
+            art.className = 'destination-card recommended';
+
+            const strip = document.createElement('div');
+            strip.className = 'dest-compact-strip';
+
+            const info = document.createElement('div');
+            info.className = 'dest-compact-info';
+
+            const nameRow = document.createElement('div');
+            nameRow.className = 'dest-name-row';
+            const nameEl = document.createElement('strong');
+            nameEl.className = 'dest-name-title';
+            nameEl.textContent = recItem.volume_label || (recItem.device ? recItem.device.split('/').pop() : 'Persistent Drive');
+            const badge = document.createElement('span');
+            badge.className = 'dest-badge-rec';
+            badge.textContent = 'Recommended · Retained on reboot';
+            nameRow.append(nameEl, badge);
+
+            const spaceRow = document.createElement('div');
+            spaceRow.className = 'dest-space-row';
+            const neededStr = needed > 0 ? ` · Needs ${byteSize(needed)}` : '';
+            spaceRow.textContent = `${gib(recItem.free_bytes)} free${neededStr}`;
+            info.append(nameRow, spaceRow);
+
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.textContent = 'Use this location';
-            btn.disabled = item.contains_data || (!item.current && !view.can_change);
+            btn.className = 'mission-primary dest-select-btn';
+            btn.textContent = 'Use this drive (Recommended)';
+            btn.disabled = false;
             btn.addEventListener('click', async () => {
               btn.disabled = true;
-              btn.textContent = 'Checking…';
+              btn.textContent = 'Checking write access…';
               try {
                 const resp = await fetch('/api/storage/choose', {
                   method: 'POST',
                   headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
-                  body: JSON.stringify({candidate: item.id})
+                  body: JSON.stringify({candidate: recItem.id})
                 });
                 if (!resp.ok) throw new Error('Write check failed');
                 await refreshStorage();
@@ -1067,16 +1118,217 @@ async function reviewDownload(choice, tag) {
                 inlineSec.hidden = true;
                 document.getElementById('download-confirm').disabled = false;
                 document.getElementById('download-review-details').textContent =
-                  `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Confirmed destination: ${item.path}.`;
+                  `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Confirmed destination: ${recItem.path} (Persistent disk).`;
               } catch (_) {
-                p.textContent += ' · Write check failed on this location.';
                 btn.disabled = false;
-                btn.textContent = 'Use this location';
+                btn.textContent = 'Use this drive (Recommended)';
               }
             });
-            art.append(h4, p, btn);
-            inlineChoices.append(art);
+
+            strip.append(info, btn);
+            art.append(strip);
+
+            const reasonP = document.createElement('p');
+            reasonP.className = 'dest-reason-factual';
+            reasonP.textContent = `Selection reason: ${recItem.reason || 'Largest eligible writable persistent drive; live boot medium excluded'}.`;
+            art.append(reasonP);
+
+            const details = document.createElement('details');
+            details.className = 'dest-details-collapse';
+            const summary = document.createElement('summary');
+            summary.textContent = 'Drive path & details';
+            const body = document.createElement('div');
+            body.className = 'dest-details-body';
+            body.innerHTML = `
+              <div class="dest-path-box"><code>${recItem.path}</code></div>
+              <div class="dest-meta-grid">
+                <div class="meta-field"><div class="field-lbl">Mountpoint</div><div class="field-val">${recItem.mountpoint}</div></div>
+                <div class="meta-field"><div class="field-lbl">Persistence</div><div class="field-val">Persistent disk · retained across reboots</div></div>
+                <div class="meta-field"><div class="field-lbl">Encryption</div><div class="field-val">${encrypted(recItem.encrypted)}</div></div>
+              </div>
+            `;
+            details.append(summary, body);
+            art.append(details);
+
+            diskGroup.append(art);
+
+            // Any secondary selectable disks are listed as alternatives
+            if (selectableDisks.length > 1) {
+              const altTitle = document.createElement('div');
+              altTitle.className = 'storage-group-title title-muted';
+              altTitle.textContent = 'Alternative Persistent Drives';
+              diskGroup.append(altTitle);
+
+              for (const altItem of selectableDisks.slice(1)) {
+                const altArt = document.createElement('article');
+                altArt.className = 'destination-card alternative';
+
+                const aStrip = document.createElement('div');
+                aStrip.className = 'dest-compact-strip';
+
+                const aInfo = document.createElement('div');
+                aInfo.className = 'dest-compact-info';
+
+                const aNameRow = document.createElement('div');
+                aNameRow.className = 'dest-name-row';
+                const aName = document.createElement('strong');
+                aName.className = 'dest-name-title';
+                aName.textContent = altItem.volume_label || (altItem.device ? altItem.device.split('/').pop() : 'Alternative Drive');
+                const aBadge = document.createElement('span');
+                aBadge.className = 'dest-badge-alt';
+                aBadge.textContent = 'Alternative drive';
+                aNameRow.append(aName, aBadge);
+
+                const aSpaceRow = document.createElement('div');
+                aSpaceRow.className = 'dest-space-row';
+                aSpaceRow.textContent = `${gib(altItem.free_bytes)} free${neededStr}`;
+                aInfo.append(aNameRow, aSpaceRow);
+
+                const aBtn = document.createElement('button');
+                aBtn.type = 'button';
+                aBtn.className = 'mission-secondary dest-select-btn';
+                aBtn.textContent = 'Use this drive';
+                aBtn.addEventListener('click', async () => {
+                  aBtn.disabled = true;
+                  aBtn.textContent = 'Checking…';
+                  try {
+                    const resp = await fetch('/api/storage/choose', {
+                      method: 'POST',
+                      headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+                      body: JSON.stringify({candidate: altItem.id})
+                    });
+                    if (!resp.ok) throw new Error('Write check failed');
+                    await refreshStorage();
+                    await refreshModels();
+                    inlineSec.hidden = true;
+                    document.getElementById('download-confirm').disabled = false;
+                    document.getElementById('download-review-details').textContent =
+                      `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Confirmed destination: ${altItem.path} (Persistent disk).`;
+                  } catch (_) {
+                    aBtn.disabled = false;
+                    aBtn.textContent = 'Use this drive';
+                  }
+                });
+
+                aStrip.append(aInfo, aBtn);
+                altArt.append(aStrip);
+
+                const aDetails = document.createElement('details');
+                aDetails.className = 'dest-details-collapse';
+                const aSummary = document.createElement('summary');
+                aSummary.textContent = 'Drive path & details';
+                const aBody = document.createElement('div');
+                aBody.className = 'dest-details-body';
+                aBody.innerHTML = `
+                  <div class="dest-path-box"><code>${altItem.path}</code></div>
+                  <div class="dest-meta-grid">
+                    <div class="meta-field"><div class="field-lbl">Mountpoint</div><div class="field-val">${altItem.mountpoint}</div></div>
+                    <div class="meta-field"><div class="field-lbl">Persistence</div><div class="field-val">Persistent disk</div></div>
+                    <div class="meta-field"><div class="field-lbl">Encryption</div><div class="field-val">${encrypted(altItem.encrypted)}</div></div>
+                  </div>
+                `;
+                aDetails.append(aSummary, aBody);
+                altArt.append(aDetails);
+
+                diskGroup.append(altArt);
+              }
+            }
+            inlineChoices.append(diskGroup);
+          } else {
+            const noDisk = document.createElement('div');
+            noDisk.className = 'notice';
+            noDisk.innerHTML = '<strong>No persistent disk eligible</strong><p>No mounted disk has sufficient free space and an empty folder. Models can only be downloaded to temporary session RAM below.</p>';
+            inlineChoices.append(noDisk);
           }
+
+          // 2. Group Temporary RAM Candidates Secondarily
+          if (rams.length > 0) {
+            const ramBox = document.createElement('div');
+            ramBox.className = 'temporary-ram-box';
+            const ramHdr = document.createElement('div');
+            ramHdr.className = 'temp-ram-header';
+            ramHdr.textContent = selectableDisks.length > 0 ? 'Temporary Memory Alternatives (Session only)' : 'Temporary Memory Storage (Session only)';
+            const ramDesc = document.createElement('div');
+            ramDesc.className = 'temp-ram-desc';
+            ramDesc.textContent = '⚠️ Memory storage (tmpfs) disappears at reboot. Models downloaded to RAM will be lost when you restart or power off.';
+            ramBox.append(ramHdr, ramDesc);
+
+            for (const item of rams) {
+              const row = document.createElement('div');
+              row.className = 'dest-compact-strip';
+              const rInfo = document.createElement('div');
+              rInfo.className = 'dest-compact-info';
+              const rName = document.createElement('strong');
+              rName.className = 'dest-name-title';
+              rName.textContent = `RAM: ${item.mountpoint}`;
+              const rSpace = document.createElement('div');
+              rSpace.className = 'dest-space-row';
+              rSpace.textContent = `${gib(item.free_bytes)} free memory${needed > 0 ? ' · Needs ' + byteSize(needed) : ''}`;
+              rInfo.append(rName, rSpace);
+
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'mission-secondary dest-select-btn';
+              btn.textContent = 'Use temporary RAM';
+              btn.disabled = item.contains_data || (!item.current && !view.can_change);
+              btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.textContent = 'Checking…';
+                try {
+                  const resp = await fetch('/api/storage/choose', {
+                    method: 'POST',
+                    headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+                    body: JSON.stringify({candidate: item.id})
+                  });
+                  if (!resp.ok) throw new Error('Write check failed');
+                  await refreshStorage();
+                  await refreshModels();
+                  inlineSec.hidden = true;
+                  document.getElementById('download-confirm').disabled = false;
+                  document.getElementById('download-review-details').textContent =
+                    `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Destination: ${item.path} (Temporary memory · lost at reboot).`;
+                } catch (_) {
+                  btn.disabled = false;
+                  btn.textContent = 'Use temporary RAM';
+                }
+              });
+              row.append(rInfo, btn);
+              ramBox.append(row);
+            }
+            inlineChoices.append(ramBox);
+          }
+
+          // 3. Collapsed Excluded Destinations & Policy Guardrails (code-grounded; no unsupported read-only claims)
+          const policyDetails = document.createElement('details');
+          policyDetails.className = 'storage-policy-collapse';
+          const policySummary = document.createElement('summary');
+          policySummary.textContent = 'Excluded destinations & policy guardrails';
+          const policyBody = document.createElement('div');
+          policyBody.className = 'storage-policy-body';
+
+          let blockedItemsHtml = '';
+          for (const b of blockedDisks) {
+            blockedItemsHtml += `
+              <div class="blocked-drive-item">
+                <div class="blocked-name"><span>${b.volume_label || b.mountpoint} (${b.mountpoint})</span><span class="badge badge-excluded">Unavailable</span></div>
+                <div class="blocked-reason">${b.contains_data ? 'Blocked: folder has existing files. Argos requires an empty dedicated store.' : 'Drive modification locked.'}</div>
+              </div>
+            `;
+          }
+
+          policyBody.innerHTML = `
+            <div class="blocked-drive-item">
+              <div class="blocked-name"><span>Live Boot Medium (/dev/sdb)</span><span class="badge badge-excluded">Excluded</span></div>
+              <div class="blocked-reason">Live boot medium and its drive partitions (/dev/sdb) are excluded from model storage to protect operating system and boot integrity.</div>
+            </div>
+            <div class="blocked-drive-item">
+              <div class="blocked-name"><span>Folders with Existing Files</span><span class="badge badge-excluded">Blocked</span></div>
+              <div class="blocked-reason">Folders with existing files are blocked. Argos requires creating an empty dedicated directory and never adopts or moves pre-existing files.</div>
+            </div>
+            ${blockedItemsHtml}
+          `;
+          policyDetails.append(policySummary, policyBody);
+          inlineChoices.append(policyDetails);
         }
       } catch (_) {}
     }
@@ -1094,6 +1346,8 @@ async function reviewDownload(choice, tag) {
   }
   document.getElementById('download-review').showModal();
 }
+window.reviewDownload = reviewDownload;
+window.resetStorageForReview = () => { storageConfirmed = false; };
 async function refreshModelControls() {
   if (downloadRefreshing) return;
   downloadRefreshing = true;
@@ -2316,6 +2570,24 @@ async function refreshCommand() {
       const qualState = ab ? (ab.qualified === true ? 'Qualified' : (ab.qualified === false ? 'Criteria not met' : 'Not assessed')) : '';
       heroResult.textContent = ab ? `${ab.correct}/${ab.total} (${qualState})` : 'Not yet tested';
     }
+    const rung1Badge = document.getElementById('rung-1-status');
+    const curriculumOverallBadge = document.getElementById('curriculum-overall-badge');
+    if (rung1Badge) {
+      const ab = value.report?.ability;
+      if (!ab) {
+        rung1Badge.className = 'rung-status-badge current';
+        rung1Badge.textContent = 'Ready to test';
+        if (curriculumOverallBadge) curriculumOverallBadge.textContent = 'Rung 1: Ready to test';
+      } else if (ab.qualified === true) {
+        rung1Badge.className = 'rung-status-badge pass';
+        rung1Badge.textContent = '● Qualified';
+        if (curriculumOverallBadge) curriculumOverallBadge.textContent = 'Rung 1: Qualified';
+      } else {
+        rung1Badge.className = 'rung-status-badge attention';
+        rung1Badge.textContent = '▲ Criteria not met';
+        if (curriculumOverallBadge) curriculumOverallBadge.textContent = 'Rung 1: Criteria not met';
+      }
+    }
     renderMissionReceipt(value.report);
     renderSkillMap(value.skill_map);
     const path = value.build_path;
@@ -2840,21 +3112,50 @@ function renderMissionReceipt(report) {
   const actBox = document.getElementById('receipt-actions');
   actBox.hidden = !ability;
   const useBtn = document.getElementById('receipt-use');
-  if (useBtn) {
-    if (ability && ability.qualified === true) {
+  const secOptions = document.getElementById('receipt-secondary-options');
+  const metricsDetails = document.getElementById('receipt-metrics-details');
+  const pracBtn = document.getElementById('receipt-practice');
+  const upgBtn = document.getElementById('receipt-upgrade');
+  const changeBtn = document.getElementById('receipt-change');
+
+  const isQualified = ability && ability.qualified === true;
+
+  if (isQualified) {
+    if (useBtn) {
       useBtn.hidden = false;
+      useBtn.className = 'mission-primary';
       useBtn.onclick = () => {
         const box = document.getElementById('cc-task-box');
         if (box) box.open = true;
         focusSection('cc-task-box', 'cc-question');
       };
-    } else {
+    }
+    if (changeBtn) {
+      changeBtn.className = 'mission-secondary';
+    }
+    if (secOptions) {
+      secOptions.hidden = false;
+      secOptions.open = false;
+    }
+    if (metricsDetails) {
+      metricsDetails.open = false;
+    }
+  } else {
+    if (useBtn) {
       useBtn.hidden = true;
     }
+    if (changeBtn) {
+      changeBtn.className = 'mission-primary';
+    }
+    if (secOptions) {
+      secOptions.hidden = false;
+      secOptions.open = true;
+    }
+    if (metricsDetails) {
+      metricsDetails.open = false;
+    }
   }
-  const pracBtn = document.getElementById('receipt-practice');
-  const upgBtn = document.getElementById('receipt-upgrade');
-  const changeBtn = document.getElementById('receipt-change');
+
   pracBtn.textContent = 'Retest unchanged';
   pracBtn.onclick = () => {
     if (ability.suite === 'documents-short') commandActions.documents();

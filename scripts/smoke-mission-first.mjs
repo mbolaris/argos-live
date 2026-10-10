@@ -396,7 +396,206 @@ try {
   if (await keepModelBtn.count() !== 1) fail('Expected #receipt-keep-model button in DOM');
   console.log('[PASS] J3 curated storefront, inline storage, and model rollback controls verified');
 
-  console.log('All Mission First J5, J6b, J7, J8, and J3 checks passed successfully!');
+  // Playable Loop Redesign regressions:
+  // 1. Single Curriculum Map with 6 K-12 foundation rungs
+  const curriculumMap = page.locator('#curriculum-map');
+  if (await curriculumMap.count() !== 1) fail('Expected #curriculum-map in DOM');
+  const rungsCount = await page.locator('#curriculum-map .curriculum-rung').count();
+  if (rungsCount !== 6) fail(`Expected 6 curriculum rungs, found ${rungsCount}`);
+  const activeRungText = await page.locator('#curriculum-map .curriculum-rung.active').textContent();
+  if (!activeRungText.includes('Short Document Comprehension')) {
+    fail(`Active rung expected 'Short Document Comprehension', got: "${activeRungText}"`);
+  }
+  console.log('[PASS] K-12 foundation curriculum progression map verified (6 rungs, Short Document Comprehension active)');
+
+  // 2. Hardware diagnostic schematic moved to secondary details container
+  const schematicBay = page.locator('.secondary-details-bay #cc-schematic');
+  if (await schematicBay.count() !== 1) fail('Expected #cc-schematic inside .secondary-details-bay');
+  console.log('[PASS] Hardware diagnostic schematic preserved in secondary details bay');
+
+  // 3. Storage modal fixed layout with sticky header/footer and destination grouping
+  const stickyHeader = page.locator('#download-review .modal-sticky-header');
+  const stickyFooter = page.locator('#download-review .modal-sticky-footer');
+  if (await stickyHeader.count() !== 1 || await stickyFooter.count() !== 1) {
+    fail('Expected sticky header and footer in #download-review');
+  }
+  console.log('[PASS] Storage modal fixed layout with sticky header and footer verified');
+
+  // 4. Mobile responsiveness check at 320px
+  await page.setViewportSize({width: 320, height: 844});
+  const overflow320 = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  if (overflow320) fail('Layout overflows at 320px viewport width');
+  console.log('[PASS] Mobile responsiveness verified at 320px without layout overflow');
+
+  // 5. Home page hierarchy: verify redundant intros removed
+  const subTitleCount = await page.locator('.cc-subtitle').count();
+  const pauseNoticeCount = await page.locator('.cc-pause-notice').count();
+  if (subTitleCount !== 0) fail('Expected .cc-subtitle to be removed to eliminate duplicate home intro');
+  if (pauseNoticeCount !== 0) fail('Expected .cc-pause-notice to be removed to eliminate duplicate pause notice');
+  console.log('[PASS] Repeated home-page introductions verified removed');
+
+  // 6. Arena hierarchy & Watch HUD compact layout: question/stream first, source collapsed, no vertical gap blowout
+  const questionEl = page.locator('#arena-current-question');
+  if (await questionEl.count() !== 1) fail('Expected #arena-current-question in DOM');
+  const arenaHierarchyValid = await page.evaluate(() => {
+    const q = document.getElementById('arena-current-question');
+    const s = document.getElementById('arena-current-stream');
+    const src = document.getElementById('arena-source-details');
+    const prompt = document.getElementById('arena-current-prompt');
+    const hud = document.querySelector('.arena-hud');
+    const progress = document.querySelector('.arena-hud-progress');
+    const deck = document.getElementById('arena');
+    if (!q || !s || !src || !prompt || !hud || !progress || !deck) return false;
+    const qBeforeS = (q.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const sBeforeSrc = (s.compareDocumentPosition(src) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const srcContainsPrompt = src.contains(prompt);
+    const srcCollapsed = src.open === false;
+
+    // Computed layout checks: HUD and progress must be compact (no 200px/395px blowout)
+    const hudHeight = hud.getBoundingClientRect().height;
+    const progHeight = progress.getBoundingClientRect().height;
+    const deckPaddingTop = parseFloat(window.getComputedStyle(deck).paddingTop);
+    const compactHud = hudHeight <= 180 && progHeight <= 60 && deckPaddingTop <= 16;
+
+    return qBeforeS && sBeforeSrc && srcContainsPrompt && srcCollapsed && compactHud;
+  });
+  if (!arenaHierarchyValid) fail('Arena hierarchy or computed HUD layout invalid: check question/stream order and computed gaps');
+  const sourceSummaryText = await page.locator('#arena-source-details summary').textContent();
+  if (!sourceSummaryText.includes('Read source')) fail(`Expected 'Read source' summary, got: "${sourceSummaryText}"`);
+  console.log('[PASS] Arena hierarchy & compact Watch HUD verified: question/stream first, source collapsed, compact HUD height <= 180px');
+
+  // 7. Debrief hierarchy: "Use this build" as sole primary action when qualified, secondary options & metrics collapsed under Details
+  await page.route('**/api/command-center', route => {
+    const data = {
+      available: true,
+      name: 'Argos',
+      model: 'fixture:latest',
+      report: {
+        speed: { tokens_per_second: 20.0, prompt_tokens_per_second: 100.0, first_token_seconds: 0.2 },
+        ability: { correct: 8, total: 8, qualified: true, suite: 'documents-short' },
+      },
+      next_action: { title: 'Use this build', action: 'task' },
+      systems: [],
+      journal: []
+    };
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+  });
+  await page.evaluate(async () => { await refreshCommand(); });
+
+  const debriefHierarchyValid = await page.evaluate(() => {
+    const takeaway = document.getElementById('cc-takeaway');
+    const actions = document.getElementById('receipt-actions');
+    const replay = document.getElementById('receipt-replay');
+    const useBtn = document.getElementById('receipt-use');
+    const changeBtn = document.getElementById('receipt-change');
+    const secOptions = document.getElementById('receipt-secondary-options');
+    const metricsDetails = document.getElementById('receipt-metrics-details');
+    const scoreboard = document.getElementById('cc-scoreboard');
+    const criteriaBox = document.getElementById('receipt-criteria-box');
+
+    if (!takeaway || !actions || !replay || !useBtn || !secOptions || !metricsDetails) {
+      return { valid: false, reason: 'Missing essential debrief elements' };
+    }
+
+    const takeawayBeforeReplay = (takeaway.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const actionsBeforeReplay = (actions.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    if (!takeawayBeforeReplay || !actionsBeforeReplay) {
+      return { valid: false, reason: 'Takeaway or actions do not precede replay details' };
+    }
+
+    // Verify "Use this build" is the sole visible primary action in #receipt-actions
+    const isVisible = el => !el.hidden && (el.checkVisibility ? el.checkVisibility() : true);
+    const visiblePrimaryButtons = Array.from(actions.querySelectorAll('.mission-primary')).filter(isVisible);
+    if (visiblePrimaryButtons.length !== 1 || !visiblePrimaryButtons[0].textContent.includes('Use this build')) {
+      return { valid: false, reason: `Expected 1 primary button ('Use this build'), found ${visiblePrimaryButtons.length}` };
+    }
+
+    // Verify secondary options collapsed under Details
+    if (secOptions.open !== false) {
+      return { valid: false, reason: 'Expected #receipt-secondary-options to be collapsed when qualified' };
+    }
+    if (!secOptions.contains(changeBtn)) {
+      return { valid: false, reason: 'Expected #receipt-change to be inside #receipt-secondary-options' };
+    }
+
+    // Verify metrics and criteria collapsed under Details
+    if (metricsDetails.open !== false) {
+      return { valid: false, reason: 'Expected #receipt-metrics-details to be collapsed when qualified' };
+    }
+    if (!metricsDetails.contains(scoreboard) || !metricsDetails.contains(criteriaBox)) {
+      return { valid: false, reason: 'Expected scoreboard and criteria checklist inside #receipt-metrics-details' };
+    }
+
+    return { valid: true };
+  });
+
+  if (!debriefHierarchyValid.valid) {
+    fail(`Debrief hierarchy regression failed: ${debriefHierarchyValid.reason}`);
+  }
+  await page.unroute('**/api/command-center');
+  console.log('[PASS] Debrief hierarchy verified: "Use this build" sole primary action, secondary options and metrics collapsed under Details');
+
+  // 8. Storage hierarchy, compact strip & computed layout: compact strip (<150px), compact card (<300px), compact padding, collapsed path/policies, no read-only claims
+  await page.evaluate(async () => {
+    window.resetStorageForReview();
+    const tag = 'qwen2.5:1.5b-instruct-q4_K_M';
+    await window.reviewDownload({ tag }, tag);
+  });
+  await page.waitForFunction(() => document.getElementById('download-review')?.open);
+
+  const storageHierarchyValid = await page.evaluate(() => {
+    const modal = document.getElementById('download-review');
+    const recCard = modal.querySelector('.destination-card.recommended');
+    if (!recCard) return { valid: false, reason: 'No recommended destination card found' };
+
+    // Compact strip with drive name, space, and button together
+    const strip = recCard.querySelector('.dest-compact-strip');
+    if (!strip) return { valid: false, reason: 'Missing .dest-compact-strip in recommended card' };
+
+    const nameTitle = strip.querySelector('.dest-name-title');
+    const spaceRow = strip.querySelector('.dest-space-row');
+    const btn = strip.querySelector('.dest-select-btn');
+    if (!nameTitle || !spaceRow || !btn) return { valid: false, reason: 'Compact strip missing name, space, or button' };
+
+    // Drive name should be concise (not a raw path)
+    if (nameTitle.textContent.includes('/') || nameTitle.textContent.includes('\\')) {
+      return { valid: false, reason: `Drive name contains raw path characters: ${nameTitle.textContent}` };
+    }
+
+    // Recommended destination must be selectable
+    if (btn.disabled) return { valid: false, reason: 'Recommended destination button is disabled' };
+
+    // Path must be collapsed
+    const pathDetails = recCard.querySelector('.dest-details-collapse');
+    if (!pathDetails || pathDetails.open) return { valid: false, reason: 'Drive path details not collapsed' };
+
+    // Policy guardrails must be collapsed
+    const policyDetails = modal.querySelector('.storage-policy-collapse');
+    if (!policyDetails || policyDetails.open) return { valid: false, reason: 'Policy guardrails not collapsed' };
+
+    // No unsupported read-only claims
+    if (modal.textContent.includes('mounted read-only')) {
+      return { valid: false, reason: 'Unsupported read-only claim found in modal text' };
+    }
+
+    // Computed layout checks: strip < 150px, card < 300px, modal header/body padding <= 16px
+    const stripHeight = strip.getBoundingClientRect().height;
+    const cardHeight = recCard.getBoundingClientRect().height;
+    const headerPadTop = parseFloat(window.getComputedStyle(modal.querySelector('.modal-sticky-header')).paddingTop);
+    const bodyPadTop = parseFloat(window.getComputedStyle(modal.querySelector('.modal-scroll-body')).paddingTop);
+    if (stripHeight > 150) return { valid: false, reason: `Strip height excessive: ${stripHeight}px > 150px` };
+    if (cardHeight > 300) return { valid: false, reason: `Card height excessive: ${cardHeight}px > 300px` };
+    if (headerPadTop > 16 || bodyPadTop > 16) return { valid: false, reason: `Modal padding excessive: header=${headerPadTop}px, body=${bodyPadTop}px` };
+
+    return { valid: true };
+  });
+
+  if (!storageHierarchyValid.valid) {
+    fail(`Storage hierarchy regression failed: ${storageHierarchyValid.reason}`);
+  }
+  console.log('[PASS] Storage hierarchy & computed layout verified: compact strip <= 150px, card <= 300px, collapsed path/policies, no read-only claims');
+
+  console.log('All Mission First, Playable Loop, and Storage Acquisition checks passed successfully!');
 } finally {
   if (browser) await browser.close();
   server.kill();

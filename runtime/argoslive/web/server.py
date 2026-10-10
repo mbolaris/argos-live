@@ -16,7 +16,11 @@ ASSETS = Path(__file__).with_name('static')
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
          '/favicon.svg': ('favicon.svg', 'image/svg+xml'),
          '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
-         '/style.css': ('style.css', 'text/css; charset=utf-8')}
+         '/style.css': ('style.css', 'text/css; charset=utf-8'),
+         '/prototype': ('prototype.html', 'text/html; charset=utf-8'),
+         '/prototype.html': ('prototype.html', 'text/html; charset=utf-8'),
+         '/prototype.js': ('prototype.js', 'text/javascript; charset=utf-8'),
+         '/prototype.css': ('prototype.css', 'text/css; charset=utf-8')}
 
 
 class DashboardServer(ThreadingHTTPServer):
@@ -224,7 +228,7 @@ class Handler(BaseHTTPRequestHandler):
             filename, mime = FILES[path]
             try:
                 body = (ASSETS / filename).read_bytes()
-                if path == '/':
+                if path in ('/', '/prototype', '/prototype.html'):
                     body = body.replace(b'__SESSION_TOKEN__', quote(self.server.token).encode('ascii'))
             except OSError:
                 self.reply(503, {'error': 'Dashboard asset unavailable'}, head=head)

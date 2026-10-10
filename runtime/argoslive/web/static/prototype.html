@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Argos Live · Playable Loop Prototype</title>
+  <link rel="icon" href="/favicon.svg?token=__SESSION_TOKEN__" type="image/svg+xml">
+  <link rel="stylesheet" href="/prototype.css?token=__SESSION_TOKEN__">
+  <script src="/prototype.js?token=__SESSION_TOKEN__" defer></script>
+</head>
+<body>
+  <!-- Watermark Notice -->
+  <div class="prototype-fixture-banner" id="proto-banner">
+    <span>★ Visual Prototype</span>
+    <span>·</span>
+    <span>Simulated Fixtures for Design Review</span>
+    <span>·</span>
+    <span>Continuous AI Improvement Workbench</span>
+  </div>
+
+  <!-- Prototype State Controller Tabs -->
+  <nav class="prototype-state-bar" aria-label="Prototype state switcher">
+    <span class="bar-title">Prototype View:</span>
+    <div class="prototype-tabs">
+      <button class="prototype-tab-btn active" data-target="screen-1" id="tab-screen-1" type="button">1. First Mission</button>
+      <button class="prototype-tab-btn" data-target="screen-2" id="tab-screen-2" type="button">2. Watch Test</button>
+      <button class="prototype-tab-btn" data-target="screen-3" id="tab-screen-3" type="button">3. Understand Result</button>
+      <button class="prototype-tab-btn" data-target="screen-4" id="tab-screen-4" type="button">4. Matched Comparison</button>
+      <button class="prototype-tab-btn" data-target="screen-5" id="tab-screen-5" type="button">5. Storage Selection</button>
+    </div>
+  </nav>
+
+  <div class="prototype-container">
+    <!-- Top App Header -->
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <div class="brand-logo-ring" aria-hidden="true"></div>
+        <div>
+          <div class="brand-title">Argos Live</div>
+          <div class="brand-sub">Private AI Workbench</div>
+        </div>
+      </div>
+      <div class="ai-status-pill" id="proto-ai-pill">
+        <span class="ai-status-dot" aria-hidden="true"></span>
+        <span>your AI &middot; starter model (qwen3:0.6b) &middot; Ready</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============================================================
+           SCREEN 1: THE MISSION SCREEN (FIRST MISSION)
+           ============================================================ -->
+      <section class="screen-panel active" id="screen-1" aria-labelledby="screen-1-heading">
+        <article class="mission-hero-card">
+          <div class="mission-badge-row">
+            <span class="mission-k12-badge">Foundation Mission 01 &middot; Reading &amp; Evidence</span>
+            <div class="mission-system-strip">
+              <span>Model: <strong>starter (qwen3:0.6b)</strong></span>
+              <span>&middot;</span>
+              <span>Prior Result: <strong>Not yet tested</strong></span>
+            </div>
+          </div>
+
+          <h1 class="mission-hero-title" id="screen-1-heading">Read this brief</h1>
+          <p class="mission-hero-desc">
+            Can your AI read a short brief, answer accurately, quote the supporting sentence, and acknowledge when information is not stated? Start here to establish your AI's baseline ability.
+          </p>
+
+          <div class="mission-preview-box">
+            <div class="preview-stat-item">
+              <div class="stat-label">Challenge workload</div>
+              <div class="stat-value">8 passages &middot; 24 scored challenges</div>
+            </div>
+            <div class="preview-stat-item">
+              <div class="stat-label">Scoring method</div>
+              <div class="stat-value">Fixed, deterministic verification</div>
+            </div>
+            <div class="preview-stat-item">
+              <div class="stat-label">Prerequisites</div>
+              <div class="stat-value">None (Bundled starter model)</div>
+            </div>
+          </div>
+
+          <div class="mission-hero-actions">
+            <button class="btn-primary-action" id="proto-start-mission" type="button">
+              Start Mission: Read this brief
+            </button>
+            <button class="btn-secondary-action" id="proto-talk-ai" type="button">
+              Talk to your AI
+            </button>
+          </div>
+          <p class="chat-pause-hint">
+            <span>ℹ Chat pauses during the test and resumes automatically afterward.</span>
+          </p>
+        </article>
+
+        <!-- The Single Curriculum Map -->
+        <section class="curriculum-section" aria-labelledby="curriculum-heading">
+          <div class="section-header-compact">
+            <h2 class="section-heading-sm" id="curriculum-heading">Shared Foundation Curriculum</h2>
+            <p class="section-sub-sm">One clear pathway from reading to tool use before specialization</p>
+          </div>
+
+          <div class="curriculum-ladder">
+            <!-- Rung 1: Active -->
+            <div class="curriculum-rung active">
+              <div class="rung-left">
+                <span class="rung-num-pill">01</span>
+                <div class="rung-info">
+                  <div class="rung-name">Reading &amp; Evidence (Read this brief)</div>
+                  <div class="rung-desc">Extract facts, quote exact evidence, recognize unstated information.</div>
+                </div>
+              </div>
+              <span class="rung-status-badge current">Current Mission</span>
+            </div>
+
+            <!-- Rung 2: Following Directions -->
+            <div class="curriculum-rung">
+              <div class="rung-left">
+                <span class="rung-num-pill">02</span>
+                <div class="rung-info">
+                  <div class="rung-name">Following Directions &amp; Formats</div>
+                  <div class="rung-desc">Strict JSON schemas, constraints, and refusal of unsupported speculation.</div>
+                </div>
+              </div>
+              <span class="rung-status-badge locked">Next Up</span>
+            </div>
+
+            <!-- Rung 3: Numbers & Tables -->
+            <div class="curriculum-rung locked">
+              <div class="rung-left">
+                <span class="rung-num-pill">03</span>
+                <div class="rung-info">
+                  <div class="rung-name">Numbers, Calculations &amp; Tables</div>
+                  <div class="rung-desc">Arithmetic reasoning, tabular lookup, units, and consistency checks.</div>
+                </div>
+              </div>
+              <span class="rung-status-badge locked">Foundation</span>
+            </div>
+
+            <!-- Rung 4: Reasoning & Planning -->
+            <div class="curriculum-rung locked">
+              <div class="rung-left">
+                <span class="rung-num-pill">04</span>
+                <div class="rung-info">
+                  <div class="rung-name">Reasoning &amp; Multi-Step Plans</div>
+                  <div class="rung-desc">Dependency ordering, obstacle handling, and revision of flawed steps.</div>
+                </div>
+              </div>
+              <span class="rung-status-badge locked">Foundation</span>
+            </div>
+
+            <!-- Rung 5: Sandboxed Tools -->
+            <div class="curriculum-rung locked">
+              <div class="rung-left">
+                <span class="rung-num-pill">05</span>
+                <div class="rung-info">
+                  <div class="rung-name">Sandboxed Tool Execution</div>
+                  <div class="rung-desc">Real isolated container commands producing verified artifacts (J4).</div>
+                </div>
+              </div>
+              <span class="rung-status-badge locked">Sandbox Required</span>
+            </div>
+
+            <!-- Rung 6: Integrated Projects -->
+            <div class="curriculum-rung locked">
+              <div class="rung-left">
+                <span class="rung-num-pill">06</span>
+                <div class="rung-info">
+                  <div class="rung-name">Integrated Useful Projects</div>
+                  <div class="rung-desc">Owner-judged capstone missions combining demonstrated foundations.</div>
+                </div>
+              </div>
+              <span class="rung-status-badge locked">Capstone</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Secondary Details Accordion -->
+        <details class="details-fold">
+          <summary>Hardware specifications &amp; runtime integrity</summary>
+          <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted); line-height: 1.6;">
+            <p><strong>Host CPU:</strong> AMD Ryzen 7 (8 cores, 16 threads) &middot; <strong>Memory:</strong> 32 GB RAM (24 GB available)</p>
+            <p><strong>Inference Backend:</strong> Pinned Ollama standard library &middot; <strong>GPU Acceleration:</strong> NVIDIA RTX 4080 (16 GB VRAM)</p>
+            <p><strong>Active Model:</strong> Seed model <code>qwen3:0.6b</code> (SHA256 verified) &middot; <strong>Storage:</strong> Bundled read-only live image</p>
+          </div>
+        </details>
+      </section>
+
+      <!-- ============================================================
+           SCREEN 2: ACTIVE STREAMING TEST (THE WATCH SCREEN)
+           ============================================================ -->
+      <section class="screen-panel" id="screen-2" aria-labelledby="screen-2-heading">
+        <div class="watch-container">
+          <div class="watch-hud-bar">
+            <div class="hud-meta-items">
+              <div class="hud-item">
+                <span class="hud-label">Phase</span>
+                <span class="hud-val phase-pulse" id="proto-phase-val">Active Trial</span>
+              </div>
+              <div class="hud-item">
+                <span class="hud-label">Model</span>
+                <span class="hud-val">starter (qwen3:0.6b)</span>
+              </div>
+              <div class="hud-item">
+                <span class="hud-label">Recipe</span>
+                <span class="hud-val">Standard calibration</span>
+              </div>
+              <div class="hud-item">
+                <span class="hud-label">Elapsed</span>
+                <span class="hud-val" id="proto-elapsed-val">14s</span>
+              </div>
+            </div>
+
+            <div class="hud-progress-block">
+              <div class="hud-progress-info">
+                <span>Challenge 1 of 24</span>
+                <span>4%</span>
+              </div>
+              <div class="hud-progress-track">
+                <div class="hud-progress-fill" style="width: 4%;"></div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-stop-test" id="proto-stop-test" type="button">Stop Test</button>
+              <button class="btn-primary-action" id="proto-view-result" type="button" style="min-height: 40px; padding: 8px 16px; font-size: 13px;" hidden>View Result &rarr;</button>
+            </div>
+          </div>
+
+          <div class="watch-main-grid">
+            <!-- Left: Current Challenge & Stream -->
+            <article class="challenge-stage-card">
+              <div class="stage-card-header">
+                <span class="stage-title-tag">Current Challenge</span>
+                <span class="stage-item-id">quote-01 &middot; Factual Extraction</span>
+              </div>
+
+              <div class="passage-display-box">
+                <span class="passage-label">Source passage excerpt:</span>
+                The Larkspur Harbor ferry began service on 4 March 1987. Two vessels, the Marigold and the Heron, share the route. The Marigold carries up to 240 passengers and 18 cars, while the Heron carries 180 passengers and no cars. Crossings take 35 minutes. In winter the first departure leaves at 6:40 in the morning and the last at 8:15 in the evening...
+              </div>
+
+              <div class="question-prompt-box">
+                Question: How many minutes does a crossing take?
+              </div>
+
+              <div class="streaming-answer-box">
+                <div class="streaming-label-row">
+                  <span class="streaming-badge">
+                    <span>●</span> Observable streaming response
+                  </span>
+                  <span style="font-size: 11px; color: var(--text-dim);">Temperature 0.0 &middot; Raw tokens</span>
+                </div>
+                <pre class="streaming-content"><code id="proto-stream-text">{"status": "answered", "answer": "35 minutes", "quote": "Crossings take 35 minutes."}</code><span class="cursor-blink" aria-hidden="true"></span></pre>
+              </div>
+            </article>
+
+            <!-- Right: Live Receipts Stream -->
+            <aside class="receipts-feed-card">
+              <div class="feed-header">Completed Scored Receipts (1/24)</div>
+              <div class="receipt-item-list">
+                <div class="receipt-row passed">
+                  <div class="receipt-top">
+                    <span class="receipt-id">quote-01</span>
+                    <span class="receipt-badge pass">Pass</span>
+                  </div>
+                  <div class="receipt-explanation">
+                    Factual answer <strong>'35 minutes'</strong> and exact quote verified.
+                  </div>
+                </div>
+                <div class="receipt-row" style="opacity: 0.5; border-left: 3px solid var(--border-subtle);">
+                  <div class="receipt-top">
+                    <span class="receipt-id">answer-01</span>
+                    <span class="receipt-badge" style="background: rgba(255,255,255,0.06); color: var(--text-dim);">Running</span>
+                  </div>
+                  <div class="receipt-explanation">Awaiting model completion…</div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SCREEN 3: RESULT & RECOMMENDED IMPROVEMENT (THE DEBRIEF)
+           ============================================================ -->
+      <section class="screen-panel" id="screen-3" aria-labelledby="screen-3-heading">
+        <article class="result-header-card">
+          <h1 class="result-headline" id="screen-3-heading">23 of 24 challenges passed &middot; 1 format miss</h1>
+          <p class="result-subline">
+            High factual reading accuracy with one response-contract failure. Context 4096 &middot; Standard recipe.
+          </p>
+        </article>
+
+        <!-- Representative Success & Miss -->
+        <section class="evidence-comparison-grid" aria-label="Representative evidence">
+          <div class="evidence-box success">
+            <h2 class="evidence-box-title">✓ Representative Success</h2>
+            <div class="evidence-q">Q: How many minutes does a crossing take?</div>
+            <div class="evidence-ans">{"answer": "35 minutes", "quote": "Crossings take 35 minutes."}</div>
+            <div class="evidence-diagnosis">
+              <strong>Verdict: Pass</strong> &middot; Model identified exact fact and provided supporting source citation without hallucination.
+            </div>
+          </div>
+
+          <div class="evidence-box miss">
+            <h2 class="evidence-box-title">✕ Representative Miss</h2>
+            <div class="evidence-q">Q: How many passengers can the Marigold carry?</div>
+            <div class="evidence-ans">"The Marigold carries up to 240 passengers as stated in the passage."</div>
+            <div class="evidence-diagnosis">
+              <strong>Response contract miss:</strong> Factual knowledge was correct (240 passengers), but model added conversational preamble instead of strict requested format.
+            </div>
+          </div>
+        </section>
+
+        <!-- Local Model Take -->
+        <article class="model-opinion-card">
+          <div class="opinion-badge-row">
+            <span class="opinion-tag">Model Opinion &middot; Memory Only &middot; Not Scored Evidence</span>
+            <span style="font-size: 11px; color: var(--text-dim);">Prompt budget: 180 tokens</span>
+          </div>
+          <blockquote class="opinion-quote">
+            “I understood the ferry facts accurately, but added conversational explanation where strict structured output was required. I recommend trying concise response instructions to omit extra prose.”
+          </blockquote>
+          <cite class="opinion-author">&mdash; your AI (starter model: qwen3:0.6b)</cite>
+        </article>
+
+        <!-- One Supported Recommended Experiment -->
+        <article class="experiment-proposal-card">
+          <div class="proposal-badge">Supported Improvement Proposal</div>
+          <h2 class="proposal-title">Test concise response instructions</h2>
+          <p class="proposal-hypothesis">
+            Instructing the model to omit conversational prose addresses response-contract format errors while preserving factual accuracy.
+          </p>
+
+          <div class="preset-preview-box">
+            Preset: Strict Format Instructions (Concise)<br>
+            &ldquo;Follow the requested output format; omit extra prose.&rdquo;
+          </div>
+
+          <div class="protection-notice">
+            <strong>Assistant Protection Notice:</strong> This experiment modifies the <em>Lab test recipe only</em>. It does not alter your assistant's personality, model weights, or OpenClaw conversational configuration.
+          </div>
+
+          <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+            <button class="btn-primary-action" id="proto-try-improvement" type="button">
+              Try Recommended Improvement &rarr;
+            </button>
+            <button class="btn-secondary-action" id="proto-retest-unchanged" type="button">
+              Retest Unchanged
+            </button>
+            <button class="btn-secondary-action" id="proto-try-model" type="button">
+              Try a Stronger Model
+            </button>
+          </div>
+        </article>
+
+        <details class="details-fold">
+          <summary>Full 24 challenge records and runtime speed measurements</summary>
+          <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted); line-height: 1.6;">
+            <p><strong>Generation Speed:</strong> 28.4 tokens/sec &middot; <strong>First-Token Latency:</strong> 0.28s &middot; <strong>Prompt Processing:</strong> 342 tokens/sec</p>
+            <p>Run ID: <code>91d3e3725b5d1e428efc8f035bc11b6c</code> &middot; Seed: 1 &middot; Temperature: 0.0 &middot; Clean shutdown verified.</p>
+          </div>
+        </details>
+      </section>
+
+      <!-- ============================================================
+           SCREEN 4: MATCHED COMPARISON & KEEP/RESTORE (DECISION)
+           ============================================================ -->
+      <section class="screen-panel" id="screen-4" aria-labelledby="screen-4-heading">
+        <div class="comparison-container">
+          <article class="comparison-hero-card">
+            <span class="comp-badge">Controlled Experiment Comparison</span>
+            <h1 class="comp-title" id="screen-4-heading">Experiment: Concise Recipe vs Baseline</h1>
+            <p class="comp-sub">
+              Single-variable intervention on identical hardware, model digest, and suite (24 challenges).
+            </p>
+
+            <div class="comparison-table-wrap">
+              <table class="comp-table">
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Baseline (Standard)</th>
+                    <th>Candidate (Concise Recipe)</th>
+                    <th>Observed Delta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Correct tasks</strong></td>
+                    <td>23 / 24 (95.8%)</td>
+                    <td>24 / 24 (100.0%)</td>
+                    <td class="comp-delta gain">+1 task</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Format errors</strong></td>
+                    <td>1</td>
+                    <td>0</td>
+                    <td class="comp-delta gain">-1 (Resolved)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Generation speed</strong></td>
+                    <td>28.4 tok/s</td>
+                    <td>28.2 tok/s</td>
+                    <td class="comp-delta neutral">-0.2 tok/s</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Changed Answer Diff -->
+            <div class="changed-evidence-card">
+              <div class="changed-title">Changed Task Answer (1 Item Differs)</div>
+              <p style="margin: 0 0 10px; font-size: 13px; font-weight: 600;">Question: How many passengers can the Marigold carry?</p>
+              <div class="diff-box">
+                <div class="diff-panel before">
+                  <div class="diff-label">Baseline (Standard Calibration): Format Error</div>
+                  <code>"The Marigold carries up to 240 passengers as stated in the passage."</code>
+                </div>
+                <div class="diff-panel after">
+                  <div class="diff-label">Candidate (Concise Recipe): Passed ✓</div>
+                  <code>{"status": "answered", "answer": "up to 240 passengers", "quote": "The Marigold carries up to 240 passengers and 18 cars."}</code>
+                </div>
+              </div>
+            </div>
+
+            <div class="honest-disclaimer-box">
+              <strong>Evidence Note:</strong> Observed gain (+1 tasks) under concise preset. Repeated practice or single-exercise delta is not confirmed general improvement without independent held-out validation.
+            </div>
+
+            <!-- Keep or Restore Action Bar -->
+            <div class="decision-action-bar">
+              <button class="btn-primary-action" id="proto-keep-recipe" type="button">
+                Keep Trial Recipe
+              </button>
+              <button class="btn-secondary-action" id="proto-restore-standard" type="button">
+                Restore Standard Calibration
+              </button>
+              <button class="btn-secondary-action" id="proto-open-storage-comp" type="button">
+                Upgrade Model &amp; Storage &rarr;
+              </button>
+            </div>
+            <p id="proto-decision-note" style="font-size: 13px; color: var(--accent-cyan); margin-top: 14px;"></p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SCREEN 5: STORAGE & MODEL ACQUISITION
+           ============================================================ -->
+      <section class="screen-panel" id="screen-5" aria-labelledby="screen-5-heading">
+        <div class="storage-modal-card">
+          <!-- Sticky Header -->
+          <div class="storage-sticky-header">
+            <h1 class="storage-modal-title" id="screen-5-heading">Model Storage Selection</h1>
+            <p class="storage-modal-sub">
+              Large models require dedicated storage. Select where downloaded model weights will be kept.
+            </p>
+          </div>
+
+          <!-- Scrollable Body with Clean Hierarchy -->
+          <div class="storage-scroll-body">
+            <!-- 1. Recommended Persistent Destination -->
+            <article class="destination-card recommended">
+              <div class="dest-header">
+                <span class="dest-name">Internal DATA Drive</span>
+                <span class="dest-badge-rec">★ Recommended</span>
+              </div>
+              <div class="dest-path">
+                Proposed Path: <strong>/mnt/argos-data/ArgosLive/Models/catalog</strong>
+              </div>
+              <div class="dest-meta-grid">
+                <div class="meta-field">
+                  <span class="field-lbl">Available Space</span>
+                  <span class="field-val">184.2 GB free</span>
+                </div>
+                <div class="meta-field">
+                  <span class="field-lbl">Reboot Behavior</span>
+                  <span class="field-val" style="color: var(--accent-emerald);">Persistent (Survives Reboot)</span>
+                </div>
+                <div class="meta-field">
+                  <span class="field-lbl">Filesystem</span>
+                  <span class="field-val">NTFS (/dev/nvme0n1p3)</span>
+                </div>
+                <div class="meta-field">
+                  <span class="field-lbl">Security</span>
+                  <span class="field-val">Public model weights only</span>
+                </div>
+              </div>
+              <button class="btn-primary-action" id="proto-select-data-btn" type="button" style="width: 100%; justify-content: center; min-height: 44px; font-size: 14px;">
+                Use this location (Runs write check)
+              </button>
+            </article>
+
+            <!-- 2. Blocked & Excluded Destinations Explained -->
+            <article class="blocked-drives-box">
+              <div style="font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;">
+                Excluded &amp; Restricted Destinations
+              </div>
+
+              <div class="blocked-drive-item">
+                <div class="blocked-name">
+                  <span>Encrypted USB Persistence (/run/live/persistence/sdb2)</span>
+                  <span style="color: var(--accent-amber); font-size: 11px;">Excluded for models</span>
+                </div>
+                <div class="blocked-reason">
+                  Reserved exclusively for assistant profiles, conversations, and settings. Large public model downloads use internal storage to preserve USB lifespan and capacity.
+                </div>
+              </div>
+
+              <div class="blocked-drive-item">
+                <div class="blocked-name">
+                  <span>Existing Folder (/mnt/argos-data/old-models)</span>
+                  <span style="color: var(--accent-rose); font-size: 11px;">Blocked: contains files</span>
+                </div>
+                <div class="blocked-reason">
+                  Folder contains existing files. Argos never adopts, overwrites, or relocates existing data automatically.
+                </div>
+              </div>
+
+              <div class="blocked-drive-item">
+                <div class="blocked-name">
+                  <span>Windows OS Partition (C:)</span>
+                  <span style="color: var(--text-dim); font-size: 11px;">Excluded</span>
+                </div>
+                <div class="blocked-reason">
+                  Read-only host system partition. Argos Live never alters host Windows boot files.
+                </div>
+              </div>
+            </article>
+
+            <!-- 3. Temporary RAM Alternatives (Grouped Secondarily) -->
+            <article class="temporary-ram-box">
+              <div class="temp-ram-header">⚠ Temporary Session Memory (Lost on Reboot)</div>
+              <div class="temp-ram-desc">
+                Download models into system RAM tmpfs. Files disappear when your computer restarts or shuts down. Use only for quick, single-session trials.
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 10px;">
+                <span style="font-family: var(--font-mono); color: var(--text-muted);">/run/user/1000/argos-live-1000/models</span>
+                <span style="font-weight: 700; color: var(--text-main);">24.0 GB free RAM</span>
+              </div>
+              <button class="btn-secondary-action" id="proto-use-ram-btn" type="button" style="width: 100%; min-height: 40px; padding: 8px 14px; font-size: 13px;">
+                Use temporary RAM for this session only
+              </button>
+            </article>
+          </div>
+
+          <!-- Sticky Footer -->
+          <div class="storage-sticky-footer">
+            <div class="footer-status-text" id="proto-footer-status">
+              Please choose a model storage destination above.
+            </div>
+            <div class="footer-btn-group">
+              <button class="btn-secondary-action" id="proto-footer-dismiss" type="button" style="min-height: 42px; padding: 8px 18px; font-size: 13px;">
+                Cancel &amp; Keep Starter
+              </button>
+              <button class="btn-primary-action" id="proto-footer-confirm-btn" type="button" style="min-height: 42px; padding: 8px 18px; font-size: 13px;" disabled>
+                Confirm Destination
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

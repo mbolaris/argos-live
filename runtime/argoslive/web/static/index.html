@@ -15,7 +15,6 @@
     <p class="intro">Build a private AI worth relying on. Discover its strengths, take on a mission, and see what your next upgrade really changes.</p>
     <section id="command-center" aria-labelledby="cc-title" hidden>
       <h2 id="cc-title">Mission control</h2>
-      <p class="cc-subtitle">Measure your build. Find its strengths. Choose the next mission.</p>
       <div id="cc-moment" class="notice moment" role="status" hidden>
         <strong id="cc-moment-title"></strong> <span id="cc-moment-tier" class="state"></span>
         <p id="cc-moment-detail"></p>
@@ -34,38 +33,113 @@
         </div>
         <h3 id="cc-next-title">Checking your systems…</h3>
         <p id="cc-next-reason"></p>
-        <p class="cc-pause-notice">Chat pauses for the test and resumes afterward.</p>
         <div class="cc-hero-actions">
           <button id="cc-next-go" class="mission-primary" type="button" hidden>Start: Read this brief</button>
           <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button>
         </div>
+        <div class="mission-preview-box" aria-label="Mission scope and qualification requirements">
+          <div class="preview-stat-item">
+            <div class="stat-label">Challenge Suite</div>
+            <div class="stat-value">Short Document Comprehension</div>
+          </div>
+          <div class="preview-stat-item">
+            <div class="stat-label">Scope</div>
+            <div class="stat-value">8 passages · 24 challenges</div>
+          </div>
+          <div class="preview-stat-item">
+            <div class="stat-label">Qualification Criteria</div>
+            <div class="stat-value">7/8 answers · 6/8 quotes · 7/8 unstated · ≤2 format errors</div>
+          </div>
+        </div>
         <p id="cc-live-trial" role="status" aria-live="polite"></p>
       </article>
+      <div id="curriculum-map" class="curriculum-section" aria-label="Foundation curriculum progress">
+        <div class="section-header-compact">
+          <div>
+            <span class="mission-label">Foundation Curriculum</span>
+            <h3 class="section-heading-sm">Foundation Curriculum Roadmap</h3>
+          </div>
+          <span id="curriculum-overall-badge" class="dest-badge-rec">Rung 1: Ready to test</span>
+        </div>
+        <p class="section-sub-sm">Shared K–12 foundation progression. Rung 01 is implemented; subsequent rungs are planned roadmap areas.</p>
+        <div class="curriculum-ladder">
+          <div id="curriculum-rung-1" class="curriculum-rung active">
+            <div class="rung-left">
+              <span class="rung-num-pill">01</span>
+              <div class="rung-info">
+                <div class="rung-name">Short Document Comprehension</div>
+                <div class="rung-desc">8 passages · 24 scored challenges. Reading, exact quote attribution, and absence detection.</div>
+              </div>
+            </div>
+            <span id="rung-1-status" class="rung-status-badge current">Ready to test</span>
+          </div>
+          <div class="curriculum-rung locked">
+            <div class="rung-left">
+              <span class="rung-num-pill">02</span>
+              <div class="rung-info">
+                <div class="rung-name">Fact Extraction &amp; Quote Fidelity</div>
+                <div class="rung-desc">Verbatim quote extraction with strict character boundaries and citation accuracy.</div>
+              </div>
+            </div>
+            <span class="rung-status-badge locked">Roadmap · Future</span>
+          </div>
+          <div class="curriculum-rung locked">
+            <div class="rung-left">
+              <span class="rung-num-pill">03</span>
+              <div class="rung-info">
+                <div class="rung-name">Work with Numbers &amp; Units</div>
+                <div class="rung-desc">Multi-step calculation, unit conversion, and result verification without arithmetic drift.</div>
+              </div>
+            </div>
+            <span class="rung-status-badge locked">Roadmap · Future</span>
+          </div>
+          <div class="curriculum-rung locked">
+            <div class="rung-left">
+              <span class="rung-num-pill">04</span>
+              <div class="rung-info">
+                <div class="rung-name">Reason &amp; Plan</div>
+                <div class="rung-desc">Order steps, account for dependency constraints, and revise flawed plans with evidence.</div>
+              </div>
+            </div>
+            <span class="rung-status-badge locked">Roadmap · Future</span>
+          </div>
+          <div class="curriculum-rung locked">
+            <div class="rung-left">
+              <span class="rung-num-pill">05</span>
+              <div class="rung-info">
+                <div class="rung-name">Sandboxed Tool Use</div>
+                <div class="rung-desc">Controlled execution inside J4 sandbox. Requires actual verified execution artifacts.</div>
+              </div>
+            </div>
+            <span class="rung-status-badge locked">Roadmap · Future</span>
+          </div>
+          <div class="curriculum-rung locked">
+            <div class="rung-left">
+              <span class="rung-num-pill">06</span>
+              <div class="rung-info">
+                <div class="rung-name">Useful Task Missions</div>
+                <div class="rung-desc">End-to-end task completion combining demonstrated foundations. Gate to specialization.</div>
+              </div>
+            </div>
+            <span class="rung-status-badge locked">Roadmap · Future</span>
+          </div>
+        </div>
+      </div>
       <div class="cc-grid">
-        <div class="ladder-bay"><p class="mission-label">Your document mission ladder</p><h3 id="cc-stage">Prototype · ready to test</h3><ol id="cc-build-steps" class="cc-build-steps"></ol><p id="cc-build-summary"></p><p id="cc-build-scope"></p><figure class="cc-figure">
-          <svg id="cc-schematic" viewBox="0 0 220 300" role="img" aria-labelledby="cc-schematic-label" focusable="false">
-            <title id="cc-schematic-label">Robot blueprint. Outlined sections are not yet demonstrated; solid sections are.</title>
-            <g data-system="brain"><rect x="70" y="14" width="80" height="56" rx="10"/><title>Brain</title></g>
-            <g data-system="sensors"><circle cx="93" cy="42" r="8"/><circle cx="127" cy="42" r="8"/><title>Sensors</title></g>
-            <g data-system="power-core"><rect x="80" y="90" width="60" height="58" rx="8"/><circle cx="110" cy="119" r="13"/><title>Power core</title></g>
-            <g data-system="cooling"><path d="M86 154h48M86 162h48M86 170h48"/><title>Cooling</title></g>
-            <g data-system="memory-banks"><rect x="76" y="182" width="68" height="40" rx="6"/><path d="M92 190v24M110 190v24M128 190v24"/><title>Memory banks</title></g>
-            <g data-system="hands"><rect x="28" y="96" width="34" height="76" rx="8"/><rect x="158" y="96" width="34" height="76" rx="8"/><title>Hands</title></g>
-            <g data-system="stability"><path d="M84 230v52h-18v8h40v-8h-4v-52M136 230v52h18v8h-40v-8h4v-52"/><title>Stability</title></g>
-          </svg>
-          <figcaption id="cc-name">Argos</figcaption>
-        </figure></div>
         <div class="mission-main">
           <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
             <p class="mission-label">Your latest measured result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
-            <div id="cc-scoreboard" class="scoreboard"></div><p id="cc-takeaway"></p>
-            <div id="receipt-replay" class="receipt-replay" hidden>
-              <p class="replay-label">Representative challenge replay</p>
-              <div id="receipt-replay-list" class="replay-list"></div>
-            </div>
-            <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
-              <p class="replay-label">Qualification criteria checklist</p>
-              <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
+            <p id="cc-takeaway"></p>
+            <div id="receipt-actions" class="receipt-actions" hidden>
+              <button id="receipt-use" type="button" class="mission-primary" hidden>Use this build in Mission Brief ↓</button>
+              <details id="receipt-secondary-options" class="receipt-secondary-details">
+                <summary class="receipt-secondary-summary">More options (Experiments &amp; retesting)</summary>
+                <div class="receipt-secondary-body">
+                  <button id="receipt-change" type="button" class="mission-secondary">Try one change: concise instructions</button>
+                  <button id="receipt-practice" type="button" class="mission-secondary">Retest unchanged</button>
+                  <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
+                </div>
+              </details>
             </div>
             <div id="receipt-recipe-bar" class="receipt-recipe-bar" hidden>
               <span>Tested with recipe: <strong id="receipt-tested-recipe"></strong></span>
@@ -78,11 +152,19 @@
               <button id="receipt-restore-model" type="button" class="btn-text-action">Restore previous model</button>
               <button id="receipt-keep-model" type="button" class="btn-text-action">Keep this model</button>
             </div>
-            <div id="receipt-actions" class="receipt-actions" hidden>
-              <button id="receipt-use" type="button" class="mission-primary" hidden>Use this build in Mission Brief ↓</button>
-              <button id="receipt-change" type="button" class="mission-primary">Try one change: concise instructions</button>
-              <button id="receipt-practice" type="button" class="mission-secondary">Retest unchanged</button>
-              <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
+            <details id="receipt-metrics-details" class="receipt-metrics-details">
+              <summary class="receipt-metrics-summary">Metrics &amp; criteria (Details)</summary>
+              <div class="receipt-metrics-body">
+                <div id="cc-scoreboard" class="scoreboard"></div>
+                <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
+                  <p class="replay-label">Qualification criteria checklist</p>
+                  <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
+                </div>
+              </div>
+            </details>
+            <div id="receipt-replay" class="receipt-replay" hidden>
+              <p class="replay-label">Representative challenge replay</p>
+              <div id="receipt-replay-list" class="replay-list"></div>
             </div>
             <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
           </article>
@@ -110,6 +192,22 @@
             <p id="cc-scope"></p>
           </details>
         </div>
+        <details class="details-section secondary-details-bay">
+          <summary>Diagnostic hardware schematic &amp; build stages (Details)</summary>
+          <div class="ladder-bay"><p class="mission-label">Your document mission ladder</p><h3 id="cc-stage">Prototype · ready to test</h3><ol id="cc-build-steps" class="cc-build-steps"></ol><p id="cc-build-summary"></p><p id="cc-build-scope"></p><figure class="cc-figure">
+            <svg id="cc-schematic" viewBox="0 0 220 300" role="img" aria-labelledby="cc-schematic-label" focusable="false">
+              <title id="cc-schematic-label">Robot blueprint. Outlined sections are not yet demonstrated; solid sections are.</title>
+              <g data-system="brain"><rect x="70" y="14" width="80" height="56" rx="10"/><title>Brain</title></g>
+              <g data-system="sensors"><circle cx="93" cy="42" r="8"/><circle cx="127" cy="42" r="8"/><title>Sensors</title></g>
+              <g data-system="power-core"><rect x="80" y="90" width="60" height="58" rx="8"/><circle cx="110" cy="119" r="13"/><title>Power core</title></g>
+              <g data-system="cooling"><path d="M86 154h48M86 162h48M86 170h48"/><title>Cooling</title></g>
+              <g data-system="memory-banks"><rect x="76" y="182" width="68" height="40" rx="6"/><path d="M92 190v24M110 190v24M128 190v24"/><title>Memory banks</title></g>
+              <g data-system="hands"><rect x="28" y="96" width="34" height="76" rx="8"/><rect x="158" y="96" width="34" height="76" rx="8"/><title>Hands</title></g>
+              <g data-system="stability"><path d="M84 230v52h-18v8h40v-8h-4v-52M136 230v52h18v8h-40v-8h4v-52"/><title>Stability</title></g>
+            </svg>
+            <figcaption id="cc-name">Argos</figcaption>
+          </figure></div>
+        </details>
       </div>
       <section id="skill-map-bay" class="skill-map-bay" aria-labelledby="skill-map-title">
         <div class="skill-map-header">
@@ -288,9 +386,9 @@
               <span id="arena-current-id" class="arena-tag">Waiting…</span>
               <span id="arena-current-category" class="arena-cat-tag"></span>
             </div>
-            <div class="arena-prompt-box">
-              <span class="arena-sublabel">Fixed challenge prompt:</span>
-              <div id="arena-current-prompt" class="arena-prompt-text">Trial ready to begin.</div>
+            <div class="arena-question-box">
+              <span class="arena-sublabel">Question:</span>
+              <div id="arena-current-question" class="arena-question-text">Waiting for challenge…</div>
             </div>
             <div class="arena-stream-box">
               <div class="arena-stream-header">
@@ -299,6 +397,13 @@
               </div>
               <pre id="arena-current-stream" class="arena-stream-content" tabindex="0">Awaiting model response…</pre>
             </div>
+            <details id="arena-source-details" class="arena-source-details">
+              <summary class="arena-source-summary">Read source</summary>
+              <div class="arena-prompt-box">
+                <span class="arena-sublabel">Passage &amp; request schema:</span>
+                <div id="arena-current-prompt" class="arena-prompt-text">Trial ready to begin.</div>
+              </div>
+            </details>
           </div>
           <div id="arena-receipts-card" class="arena-card receipts-card">
             <div class="arena-card-header">
@@ -339,12 +444,23 @@
       <h3>Reboot check</h3>
       <p>A small marker file holding only a random identifier and boot ID is written inside Argos folders. After you restart, this page reports whether those folders kept it. That shows the folder was retained. It does not show encryption, and it does not test conversation recall.</p>
       <button id="reboot-check" type="button" disabled>Start reboot check</button>
-      <dialog id="storage-review" aria-labelledby="storage-review-title">
-        <h3 id="storage-review-title">Review model storage</h3>
-        <p id="storage-review-details"></p>
-        <p>Argos creates one new empty folder here, runs a short write check, and records its identity. Existing files are never adopted or moved.</p>
-        <button id="storage-confirm" type="button">Use this location</button>
-        <button id="storage-dismiss" type="button">Keep current choice</button>
+      <dialog id="storage-review" class="modal-fixed-layout" aria-labelledby="storage-review-title">
+        <div class="modal-sticky-header">
+          <span class="domain-tag">Storage Configuration</span>
+          <h3 id="storage-review-title">Review model storage</h3>
+          <p>Choose an eligible drive. Argos will run a short write check.</p>
+        </div>
+        <div class="modal-scroll-body">
+          <p id="storage-review-details"></p>
+          <div class="modal-info-block">
+            <strong>Write verification &amp; safety</strong>
+            <p>Argos creates one new empty folder here, runs a short write check, and records its identity. Existing files are never adopted or moved.</p>
+          </div>
+        </div>
+        <div class="modal-sticky-footer">
+          <button id="storage-confirm" type="button" class="mission-primary">Use this location</button>
+          <button id="storage-dismiss" type="button" class="mission-secondary">Keep current choice</button>
+        </div>
       </dialog>
     </section>
     <section aria-labelledby="models-title">
@@ -360,29 +476,48 @@
         <button id="download-cancel" type="button" disabled>Cancel download</button>
         <p>Chat pauses for acquisition and its local reply check, then prior assistant startup is requested again. A downloaded model is not automatically selected. Cancelled partial files are retained; nothing is erased.</p>
       </div>
-      <dialog id="download-review" aria-labelledby="download-review-title">
-        <h3 id="download-review-title">Review model download</h3>
-        <p id="download-review-details"></p>
-        <div id="inline-storage-section" class="inline-storage-section" hidden>
-          <h4>Choose where to store models</h4>
-          <p id="inline-storage-help">Downloading this model requires choosing a storage location. Select an eligible drive below; Argos will run a short write check.</p>
-          <div id="inline-storage-choices" class="cards"></div>
+      <dialog id="download-review" class="modal-fixed-layout" aria-labelledby="download-review-title">
+        <div class="modal-sticky-header">
+          <span class="domain-tag">Model Acquisition</span>
+          <h3 id="download-review-title">Review model download</h3>
+          <p id="download-review-details"></p>
         </div>
-        <p>Uses your selected model store and internet connection. Chat will pause while download, full artifact checks and a short local reply test run. No change to your active model or permissions.</p>
-        <button id="download-confirm" type="button">Pause chat, download and verify</button>
-        <button id="download-dismiss" type="button">Keep current setup</button>
+        <div class="modal-scroll-body">
+          <div id="inline-storage-section" class="inline-storage-section" hidden>
+            <p id="inline-storage-help" class="inline-storage-intro">Select an eligible drive below; Argos will run a short write check.</p>
+            <div id="inline-storage-choices" class="storage-group-container"></div>
+          </div>
+          <div class="modal-info-block">
+            <strong>Acquisition guardrails</strong>
+            <p>Uses your selected model store and verified network checksums. Chat will pause while download, full artifact checks and a short local reply test run. No change to your active model or permissions.</p>
+          </div>
+        </div>
+        <div class="modal-sticky-footer">
+          <button id="download-confirm" type="button" class="mission-primary">Pause chat, download and verify</button>
+          <button id="download-dismiss" type="button" class="mission-secondary">Keep current setup</button>
+        </div>
       </dialog>
       <div id="selection-controls" class="notice" hidden>
         <strong>Try a verified model</strong>
         <p id="selection-status" role="status" aria-live="polite"></p>
         <button id="selection-cancel" type="button" disabled>Cancel switch and restore</button>
       </div>
-      <dialog id="selection-review" aria-labelledby="selection-title">
-        <h3 id="selection-title">Review model switch</h3>
-        <p id="selection-details"></p>
-        <p>Chat pauses while files are reverified and the model starts through OpenClaw. Your previous selection is restored if startup fails. Your personality, skills and permissions are preserved. Run the same baseline afterward to compare measured speed and tested ability.</p>
-        <button id="selection-confirm" type="button">Switch and test startup</button>
-        <button id="selection-dismiss" type="button">Keep current model</button>
+      <dialog id="selection-review" class="modal-fixed-layout" aria-labelledby="selection-title">
+        <div class="modal-sticky-header">
+          <span class="domain-tag">Model Upgrade</span>
+          <h3 id="selection-title">Review model switch</h3>
+          <p id="selection-details"></p>
+        </div>
+        <div class="modal-scroll-body">
+          <div class="modal-info-block">
+            <strong>Safe rollback transaction</strong>
+            <p>Chat pauses while files are reverified and the model starts through OpenClaw. Your previous selection is restored if startup fails. Your personality, skills and permissions are preserved. Run the same baseline afterward to compare measured speed and tested ability.</p>
+          </div>
+        </div>
+        <div class="modal-sticky-footer">
+          <button id="selection-confirm" type="button" class="mission-primary">Switch and test startup</button>
+          <button id="selection-dismiss" type="button" class="mission-secondary">Keep current model</button>
+        </div>
       </dialog>
       <div id="bundled-models" class="cards"></div>
       <h3>Curated upgrade candidates</h3>
