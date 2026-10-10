@@ -489,7 +489,7 @@ try {
   const debriefHierarchyValid = await page.evaluate(() => {
     const takeaway = document.getElementById('cc-takeaway');
     const actions = document.getElementById('receipt-actions');
-    const replay = document.getElementById('receipt-replay');
+    const replay = document.getElementById('replay');
     const useBtn = document.getElementById('receipt-use');
     const changeBtn = document.getElementById('receipt-change');
     const secOptions = document.getElementById('receipt-secondary-options');
@@ -502,8 +502,9 @@ try {
     }
 
     const takeawayBeforeReplay = (takeaway.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    const actionsBeforeReplay = (actions.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    if (!takeawayBeforeReplay || !actionsBeforeReplay) {
+    // Result, then every answer, then what to do about it.
+    const replayBeforeActions = (replay.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    if (!takeawayBeforeReplay || !replayBeforeActions) {
       return { valid: false, reason: 'Takeaway or actions do not precede replay details' };
     }
 
@@ -518,8 +519,8 @@ try {
     if (next.dataset.kind !== 'repeat' || !visiblePrimaryButtons[0].textContent.includes('Rerun the same trial unchanged')) {
       return { valid: false, reason: `Expected an unchanged retest proposal for a clean result, got ${next.dataset.kind}` };
     }
-    if ((next.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
-      return { valid: false, reason: 'Next experiment does not precede replay details' };
+    if ((replay.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
+      return { valid: false, reason: 'Replay does not precede the next experiment' };
     }
     if (!isVisible(useBtn) || !useBtn.textContent.includes('Try it on your own document')) {
       return { valid: false, reason: 'Qualified result does not offer using the build' };

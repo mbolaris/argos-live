@@ -123,7 +123,7 @@ async function captureViewport(vp, browser) {
     await page.waitForFunction(() => {
       const badge = document.getElementById('arena-phase-badge');
       const status = document.getElementById('lab-status');
-      const replayBox = document.getElementById('receipt-replay');
+      const replayBox = document.getElementById('replay');
       const baselineSaved = (badge && badge.textContent.includes('COMPLETED')) || (status && status.textContent.includes('Document trial saved'));
       const idRetained = sessionStorage.getItem('argos_baseline_doc_run_id') !== null;
       return baselineSaved && idRetained && replayBox && !replayBox.hidden;

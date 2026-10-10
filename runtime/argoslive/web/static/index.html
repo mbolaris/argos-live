@@ -200,6 +200,37 @@
             <p id="cc-takeaway"></p>
             <p id="cc-count-note" class="count-note" hidden></p>
             <div id="improve-comparison" class="improve-comparison" aria-live="polite"></div>
+            <section id="replay" class="replay" aria-labelledby="replay-title" hidden>
+              <div class="replay-head">
+                <div>
+                  <p class="mission-label">Replay</p>
+                  <h4 id="replay-title">Step through every answer</h4>
+                  <p id="replay-summary" class="replay-summary"></p>
+                </div>
+                <div class="replay-nav">
+                  <button id="replay-prev" type="button" class="mission-secondary" aria-label="Previous answer">←</button>
+                  <button id="replay-next-miss" type="button" class="mission-secondary">Next miss</button>
+                  <button id="replay-next" type="button" class="mission-secondary" aria-label="Next answer">→</button>
+                </div>
+              </div>
+              <div id="replay-grid" class="replay-grid" aria-label="Every answer, by passage"></div>
+              <article id="replay-detail" class="replay-detail" tabindex="-1" aria-live="polite">
+                <details id="replay-passage-box" class="replay-passage-box" open>
+                  <summary>The passage</summary>
+                  <div id="replay-passage" class="replay-passage"></div>
+                </details>
+                <div class="replay-body">
+                  <p id="replay-kind" class="replay-kind"></p>
+                  <h5 id="replay-question" class="replay-question"></h5>
+                  <p class="arena-sublabel">Your AI’s answer</p>
+                  <pre id="replay-answer" class="replay-answer"></pre>
+                  <p id="replay-verdict" class="replay-verdict"></p>
+                  <p id="replay-accepted" class="replay-accepted" hidden></p>
+                  <div id="replay-before" class="replay-before" hidden></div>
+                  <details class="replay-raw"><summary>Original model output</summary><pre id="replay-raw"></pre><p>Scoring used this original output.</p></details>
+                </div>
+              </article>
+            </section>
             <section id="improve-next" class="improve-next" aria-labelledby="improve-next-title" hidden>
               <p class="mission-label">Next experiment</p>
               <h4 id="improve-next-title"></h4>
@@ -216,6 +247,7 @@
                 <span class="opinion-tag">Its own words · not scored evidence</span>
               </div>
               <blockquote id="cc-debrief-text"></blockquote>
+              <p id="cc-debrief-facts" class="debrief-facts"></p>
               <p id="cc-debrief-note"></p>
             </article>
             <div id="receipt-actions" class="receipt-actions" hidden>
@@ -249,10 +281,6 @@
                   <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
                 </div>
               </div>
-            </details>
-            <details id="receipt-replay" class="receipt-replay" hidden>
-              <summary class="replay-label">See example answers</summary>
-              <div id="receipt-replay-list" class="replay-list"></div>
             </details>
             <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
           </article>
