@@ -170,6 +170,10 @@ class SnapshotTests(Base):
         value = sv.snapshot(self.home, topology=self.topology, probe=self.probe, boot=BOOT1)
         self.assertFalse(value['can_change'])
         self.assertIn('manual migration', value['change_blocked_reason'])
+        current = next(c for c in value['candidates'] if c['current'])
+        self.assertEqual(current['path'], state['storage'])
+        self.assertFalse(current['contains_data'])
+        self.assertEqual(sum(c['current'] for c in value['candidates']), 1)
 
     def test_reboot_state_flows_into_locations(self):
         state = self.write_state()
@@ -208,23 +212,36 @@ class ChooseTests(Base):
         rows = sv.candidates(self.mounts, self.blocks, 64 * GIB, probe=self.probe)
         rows = [r for r in rows if r['path'] == state['storage']]
         self.assertFalse(rows)  # The current store is not an auto-eligible catalog path.
-        seen = []
+        (Path(state['storage']) / 'blobs').mkdir()
+        blob = Path(state['storage']) / 'blobs/existing-model'
+        blob.write_bytes(b'keep this model')
         calls = {'n': 0}
         def check(path):
             calls['n'] += 1
             return {'verified': True, 'bytes': 1, 'at': 'now'}
-        self.mounts = self.mounts[:]  # unchanged
-        # Confirm by choosing an id equal to the configured path via a custom topology row.
-        original = sv.candidates
-        try:
-            sv.candidates = lambda *a, **k: [{'id': 'a' * 20, 'path': state['storage'], 'kind': 'disk',
-                                              'volume_uuid': None, 'encrypted': True}]
-            result = sv.choose(self.home, 'a' * 20, topology=self.topology, probe=self.probe, check=check)
-        finally:
-            sv.candidates = original
+        view = sv.snapshot(self.home, topology=self.topology, probe=self.probe, boot=BOOT1)
+        row = next(c for c in view['candidates'] if c['current'])
+        result = sv.choose(self.home, row['id'], topology=self.topology, probe=self.probe, check=check)
         self.assertFalse(result['changed'])
         self.assertEqual(calls['n'], 1)
         self.assertTrue(sv.confirmed(json.loads((self.home / '.config/argos-live/state.json').read_text())))
+        self.assertEqual(blob.read_bytes(), b'keep this model')
+        self.assertEqual(sv.read_state(self.home)['storage_id'], state['storage_id'])
+
+    def test_current_store_identity_change_or_failed_probe_cannot_confirm(self):
+        state = self.write_state()
+        choice = sv.candidate_id(state['storage'])
+        before = sv.state_path(self.home).read_bytes()
+        def failing_check(path):
+            raise OSError('read-only')
+        with self.assertRaises(OSError):
+            sv.choose(self.home, choice, topology=self.topology, probe=self.probe, check=failing_check)
+        self.assertEqual(sv.state_path(self.home).read_bytes(), before)
+        Path(state['storage'], '.argos-storage-id').write_text('different\n')
+        with self.assertRaises(ValueError):
+            sv.choose(self.home, choice, topology=self.topology, probe=self.probe)
+        view = sv.snapshot(self.home, topology=self.topology, probe=self.probe, boot=BOOT1)
+        self.assertFalse(any(c['path'] == state['storage'] for c in view['candidates']))
 
     def test_failed_write_check_leaves_state_and_removes_new_directories(self):
         self.write_state()

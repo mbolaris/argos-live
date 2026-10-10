@@ -238,7 +238,7 @@ async function refreshModels() {
     modelDestination = result.storage_path || null;
     modelEncryption = result.storage_encrypted;
     document.getElementById('upgrade-guidance').textContent = result.guidance?.message || 'Save a baseline, then compare the same tests after upgrading.';
-    status.textContent = result.storage_state === 'available' ? 'Reading your selected Ollama store.' :
+    status.textContent = result.storage_state === 'available' ? 'Model storage is available. Installed models and download jobs are listed below.' :
       result.storage_state === 'not-configured' ? 'Choose model storage in the welcome window.' :
       'Selected storage or job metadata needs attention. No fallback location is used.';
     if (result.invalid_manifests || result.invalid_jobs || result.truncated) {
@@ -1355,13 +1355,13 @@ async function refreshModelControls() {
     const value = await api('/api/models/control');
     downloadAvailable = value.available === true;
     downloadActive = value.active === true;
-    document.getElementById('download-controls').hidden = !downloadAvailable;
+    document.getElementById('download-controls').hidden = !downloadActive;
     document.getElementById('download-pause').disabled = !downloadActive || value.phase === 'cancelling';
     document.getElementById('download-cancel').disabled = !downloadActive || value.phase === 'cancelling';
     const names = {idle: 'Choose a model below to review its download.', pausing: 'Pausing chat…',
       downloading: 'Downloading model artifacts…', verifying: 'Checking full artifact hashes…',
       loading: 'Loading the new model…', testing: 'Testing a short local reply…', publishing: 'Publishing verified files…',
-      completed: 'Downloaded and reply-tested. Your active model is unchanged.', paused: 'Paused; review a retry to resume.',
+      completed: 'Downloaded and reply-tested. Check the selected model below.', paused: 'Paused; review a retry to resume.',
       cancelled: 'Cancelled. Partial files retained; no automatic retry.', cancelling: 'Stopping the job and cleaning up its owned service…',
       failed: 'Download, storage or verification needs attention. Review before retrying.',
       interrupted: 'Backend interrupted. Review before retrying.'};

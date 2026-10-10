@@ -5,6 +5,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
 from argoslive import lab, model_controls
@@ -87,6 +88,36 @@ class ModelControlsTests(unittest.TestCase):
         self.finish()
         self.assertEqual(self.queue.calls, ['retry'])
         self.assertEqual(self.controller.snapshot()['job_id'], 'a' * 32)
+
+    def test_queue_factory_can_reopen_actual_durable_queue(self):
+        root = self.assistant.home / '.config/argos-live'
+        root.mkdir(parents=True)
+        models = self.assistant.home / 'models'
+        models.mkdir()
+        (models / '.argos-storage-id').write_text('fixture\n')
+        (root / 'state.json').write_text(json.dumps({'storage': str(models), 'storage_id': 'fixture'}))
+        first = model_controls.queue(self.assistant.home)
+        job = first.create('qwen3:0.6b')
+        second = model_controls.queue(self.assistant.home)
+        self.assertEqual(second.get(job['id'])['id'], job['id'])
+
+    def test_completed_external_recovery_replaces_stale_failure_without_private_fields(self):
+        self.controller.queue = self.queue
+        self.controller.job_id = 'a' * 32
+        self.controller.phase = 'interrupted'
+        self.queue.job.update(state='ready', integrity_verified=True, inference_ready=True,
+            progress={'bytes_done': 100, 'bytes_total': 100},
+            reply_test={'text_reply_verified': True, 'private': 'PRIVATE'})
+        value = self.controller.snapshot()
+        self.assertEqual(value['phase'], 'completed')
+        self.assertFalse(value['active'])
+        self.assertTrue(value['reply_test']['text_reply_verified'])
+        self.assertNotIn('PRIVATE', str(value))
+        self.queue.job['inference_ready'] = False
+        self.assertEqual(self.controller.snapshot()['phase'], 'interrupted')
+        self.queue.job['inference_ready'] = True
+        self.queue.check = mock.Mock(side_effect=ValueError('Store changed'))
+        self.assertEqual(self.controller.snapshot()['phase'], 'interrupted')
     def test_download_and_benchmark_cannot_overlap_pause_is_durable(self):
         gate = threading.Event()
         self.queue.gate = gate

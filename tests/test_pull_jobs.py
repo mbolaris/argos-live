@@ -3,6 +3,7 @@ import copy
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -15,6 +16,35 @@ sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import catalog
 from argoslive.ollama import Client
 from argoslive.pull_jobs import Progress, Queue, read_json, worker_lock, write_json
+
+
+class QueueInitializationTests(unittest.TestCase):
+    def test_reopening_initialized_queue_preserves_jobs(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'jobs'
+            Queue.initialize(path)
+            saved = path / 'existing.json'
+            saved.write_text('keep')
+            self.assertEqual(Queue.initialize(path), path)
+            self.assertEqual(saved.read_text(), 'keep')
+
+    def test_existing_regular_file_is_not_a_queue(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'jobs'
+            path.write_text('keep')
+            with self.assertRaises(ValueError):
+                Queue.initialize(path)
+            self.assertEqual(path.read_text(), 'keep')
+
+    @unittest.skipUnless(hasattr(os, 'getuid'), 'POSIX ownership/mode check')
+    def test_existing_public_directory_is_rejected_without_chmod(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'jobs'
+            path.mkdir(mode=0o755)
+            path.chmod(0o755)
+            with self.assertRaises(ValueError):
+                Queue.initialize(path)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o755)
 
 
 class PullJobTests(unittest.TestCase):

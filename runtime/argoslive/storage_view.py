@@ -148,6 +148,28 @@ def candidates(mounts, blocks, ram_available, *, probe=storage.capacity):
     return rows
 
 
+def storage_choices(configured, mounts, blocks, ram_available, *, probe=storage.capacity):
+    """Fresh destinations plus confirmation of the identity-checked current store.
+
+    Existing files prevent migration, not confirmation of a store already owned
+    by this configuration. Never infer the current store from a fresh folder.
+    """
+    rows = candidates(mounts, blocks, ram_available, probe=probe)
+    if configured is not None:
+        current = storage.validate_configured(configured, mounts=mounts, blocks=blocks)
+        if not any(row['path'] == str(current) for row in rows):
+            mount = storage.covering(current, mounts)
+            metrics = probe(current)
+            if mount is not None and metrics is not None:
+                block = storage.block_for(mount, blocks)
+                row = storage.select_result(current, mount, metrics,
+                    'Confirm the existing configured model store; files stay in place',
+                    'ram' if mount['fstype'] in RAM_FILESYSTEMS else 'disk', block, 1, 1024**3)
+                row.update(id=candidate_id(current), temporary=configured.get('storage_temporary') is True)
+                rows.insert(0, row)
+    return rows
+
+
 def confirmed(configured):
     value = configured.get('storage_confirmed') if isinstance(configured, dict) else None
     return (isinstance(value, dict) and value.get('path') == configured.get('storage')
@@ -260,7 +282,8 @@ def snapshot(home=None, *, topology=topology, probe=storage.capacity, boot=None)
         result['locations'].append(row)
     if mounts is not None:
         try:
-            rows = candidates(mounts, blocks, ram, probe=probe)
+            rows = storage_choices(configured if result['state'] == 'available' else None,
+                                   mounts, blocks, ram, probe=probe)
         except (OSError, ValueError, TypeError, KeyError):
             rows = []
         current_path = result['configured']['path'] if result['configured'] else None
@@ -285,7 +308,7 @@ def choose(home, candidate, *, topology=topology, probe=storage.capacity, check=
     if not isinstance(candidate, str) or len(candidate) != 20:
         raise ValueError('Choose a listed storage location')
     mounts, blocks, ram = topology()
-    rows = candidates(mounts, blocks, ram, probe=probe)
+    rows = storage_choices(configured, mounts, blocks, ram, probe=probe)
     row = next((r for r in rows if r['id'] == candidate), None)
     current = storage.validate_configured(configured, mounts=mounts, blocks=blocks)
     if row is None:
