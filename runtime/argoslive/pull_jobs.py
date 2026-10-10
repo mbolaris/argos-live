@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import secrets
 import shutil
+import stat
 import time
 
 from . import catalog, storage
@@ -170,7 +171,16 @@ exclusion against unrelated Ollama processes is claimed.
     @staticmethod
     def initialize(root):
         root = storage.safe_local(root)
-        private_directory(root)
+        try:
+            private_directory(root)
+        except FileExistsError:
+            # Reopening a durable queue is normal on retry and after reboot.
+            # Validate existing privacy; never repair permissions or replace it.
+            info = root.lstat()
+            if (not stat.S_ISDIR(info.st_mode) or
+                    (hasattr(os, 'getuid') and
+                     (info.st_uid != os.getuid() or info.st_mode & 0o077))):
+                raise ValueError('Existing job directory must be private and owner-controlled') from None
         return root
 
     def path(self, job_id, suffix='.json'):

@@ -31,6 +31,21 @@ class Controller(Workload):
         with self.lock:
             value = super().snapshot()
             value.update(job_id=self.job_id, reply_test=self.receipt)
+            if (not value['active'] and self.queue and self.job_id and
+                    value['phase'] in ('interrupted', 'failed', 'paused')):
+                try:
+                    job = self.queue.get(self.job_id)
+                    self.queue.check(job)
+                    # A reviewed CLI recovery can finish the same durable job.
+                    # Do not keep showing the old in-memory failure afterward.
+                    if (job['state'] == 'ready' and job.get('integrity_verified') is True and
+                            job.get('inference_ready') is True):
+                        value.update(phase='completed', progress=job.get('progress'),
+                            reply_test={key: (job.get('reply_test') or {}).get(key) for key in
+                                ('eval_count', 'eval_duration', 'time_to_first_token_seconds',
+                                 'elapsed_seconds', 'text_reply_verified', 'performance_benchmark')})
+                except (OSError, ValueError, KeyError, TypeError):
+                    pass  # Missing/swapped stores never establish readiness.
             return value
 
     def start(self, *, tag=None, job=None):
