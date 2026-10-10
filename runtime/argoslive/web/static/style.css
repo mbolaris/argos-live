@@ -1893,3 +1893,69 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 #arena .latest-challenge-result.outcome-wrong, #arena .latest-challenge-result.outcome-format { border-color: var(--amber); background: #efca8b08; }
 #arena { scroll-margin-top: 85px; }
 #command-center[data-command-unavailable="true"] > :not(#arena):not(#cc-title):not(.session-path) { display: none; }
+/* Watch: progress and Stop up front; the passage beside the question; run details on request. */
+#arena .watch-status { margin: 10px 0 0; font-size: 15px; color: var(--text); }
+#arena .watch-progress { margin: 16px 0 20px; }
+#arena .watch-progress progress { display: block; width: 100%; height: 8px; margin: 8px 0 4px; accent-color: var(--accent); }
+#arena .arena-progress-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+#arena .watch-tally { display: flex; flex-wrap: wrap; gap: 6px; }
+#arena .arena-stat.summaries { color: var(--muted); border-color: var(--line); background: none; }
+#arena .arena-run-details > summary { font-size: 12px; font-weight: 400; color: var(--muted); padding: 6px 0; }
+#arena .arena-run-details .arena-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 6px 0 8px; padding: 12px; }
+#arena .arena-run-details dd { margin: 0; overflow-wrap: anywhere; }
+#arena .arena-count-note { font-size: 12px; margin: 0; }
+#arena .live-card { display: grid; gap: 18px; }
+#arena .arena-passage { margin: 0; padding: 12px 14px; border-radius: 12px; background: #0a1820; border: 1px solid #284352; }
+#arena .arena-passage > summary { font-size: 12px; letter-spacing: .08em; color: var(--accent); }
+#arena .arena-passage:not([open]) > summary::after { content: ' · tap to read'; text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); }
+#arena .arena-passage-text { margin-top: 10px; font-size: 15px; line-height: 1.7; color: var(--text); max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+#arena .arena-passage-text mark { background: #82e4de2e; color: var(--text); border-bottom: 2px solid var(--accent); padding: 1px 0; }
+#arena .arena-passage .arena-raw-details { margin-top: 10px; }
+#arena .arena-prompt-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-height: 220px; overflow-y: auto; }
+#arena .arena-cat-tag { color: var(--text); font-size: 12px; text-transform: none; letter-spacing: 0; }
+#arena .arena-tag { font-size: 11px; opacity: .7; }
+@media (min-width: 900px) {
+  #arena .live-card { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; }
+  #arena .arena-passage { position: sticky; top: 16px; }
+  #arena .arena-passage-text { max-height: 420px; }
+}
+/* Improve: result, one proposed experiment, its before/after, then everything else on request. */
+#cc-receipt .count-note { font-size: 13px; max-width: 65ch; margin-top: -4px; }
+.improve-next { margin: 24px 0 8px; padding: 22px 24px; border: 1px solid #42626a; border-radius: 16px; background: radial-gradient(ellipse at 100% 0%, #17423f44, transparent 65%), #101f29; }
+.improve-next .mission-label { color: var(--accent); margin: 0 0 6px; }
+.improve-next h4 { margin: 0 0 14px; font-size: 24px; letter-spacing: -.02em; }
+.improve-plan { display: grid; gap: 12px; margin: 0 0 18px; }
+.improve-plan div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; }
+.improve-plan dt { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding-top: 3px; }
+.improve-plan dd { margin: 0; line-height: 1.55; color: var(--text); }
+.improve-next .mission-primary { width: auto; min-width: 240px; margin: 0; padding: 15px 26px; font-size: 16px; }
+.improve-comparison:empty { display: none; }
+.improve-comparison { margin: 24px 0 8px; }
+.improve-comparison .experiment-card { margin: 0; padding: 22px 24px; border-radius: 16px; }
+.improve-comparison .experiment-card > h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 22px; }
+.before-after { display: grid; gap: 8px; margin: 0 0 12px; }
+.before-after div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px 14px; border-radius: 10px; background: #0a1820; }
+.before-after dt { color: var(--muted); }
+.before-after dd { margin: 0; font-size: 18px; }
+.before-after .before { color: var(--muted); }
+.before-after .arrow { color: var(--muted); }
+.experiment-full { margin-top: 14px; }
+.experiment-full > summary { color: var(--muted); font-size: 13px; }
+#cc-receipt .agent-debrief { margin: 24px 0 8px; }
+#cc-receipt .receipt-actions { margin-top: 20px; }
+#cc-receipt #receipt-use { width: auto; }
+#cc-receipt .receipt-replay > summary { cursor: pointer; padding: 10px 0; }
+@media (max-width: 600px) {
+  .improve-next, .improve-comparison .experiment-card { padding: 18px 14px; }
+  .improve-next h4 { font-size: 21px; }
+  .improve-plan div { grid-template-columns: 1fr; gap: 2px; }
+  .improve-next .mission-primary, #cc-receipt #receipt-use { width: 100%; min-width: 0; }
+  #arena .arena-passage-text { font-size: 14px; max-height: 240px; }
+}
+.improve-comparison .recommendation-badge { display: none; }
+.improve-comparison .experiment-summary { font-weight: 400; }
+.recipe-protection-notice p strong, .recipe-protection-notice p em { display: inline; }
+#cc-receipt .count-note { margin-top: 4px; }
+/* The approval decision stays reachable without scrolling past the explanation. */
+.recipe-modal { max-height: 92vh; overflow-y: auto; }
+.recipe-modal .modal-actions { position: sticky; bottom: -24px; margin: 0 -24px -24px; padding: 14px 24px 20px; background: #101b27; border-top: 1px solid var(--line); }

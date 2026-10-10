@@ -72,7 +72,7 @@ try {
   await waitNext('Read this brief');
   if (!(await page.locator('#cc-build-summary').textContent()).includes('1 of 4')) fail('Baseline did not advance its own build stage');
 
-  await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('repair brief'), null, {timeout: 15000});
+  await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('strict format instructions'), null, {timeout: 15000});
   if (!(await page.locator('#cc-stage').textContent()).includes('Mapped')) fail('Measured build stage missing');
   if (await page.locator('#cc-skill-bars meter').count() !== 5) fail('Ability map does not show each tested category');
   const expectedReceipt = await page.evaluate(() => api('/api/command-center'));
@@ -95,7 +95,7 @@ try {
   await page.waitForFunction(() => document.getElementById('cc-debrief-text').textContent.includes('<img'));
   if (await page.locator('#cc-debrief-text img').count()) fail('Model opinion rendered as HTML');
   await page.evaluate(async () => {
-    lastLabDebrief.text = 'The quick exercises exposed limits in my structured answers. I would like to try the repair brief next and show the sentence I used.';
+    lastLabDebrief.text = 'The quick exercises exposed limits in my structured answers. I would try strict format instructions for lab tests and compare on the same trial.';
     await refreshCommand();
   });
   for (const width of [320, 390, 768]) {

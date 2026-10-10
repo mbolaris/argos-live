@@ -1051,7 +1051,7 @@ Redesigned the experience around one playable loop: Challenge → Watch → Unde
   - `runtime/argoslive/data/documents/short.json` preserved intact without edits.
   - PR #74 merged to main; no ISO built. Physical USB deployment, physical GPU inference, and shipped Firefox ESR acceptance remain separate.
 
-### U8 Focused mission screen and readable live answers — `review`
+### U8 Focused mission screen and readable live answers — `completed` (PR #76)
 
 Following physical feedback that U7 still feels dense, replace simultaneous dashboards with one foreground activity. The implementation on `feat/mission-focus` provides:
 
@@ -1063,3 +1063,15 @@ Following physical feedback that U7 still feels dense, replace simultaneous dash
 - Empty result panels omitted; saved evidence and future curriculum boundaries preserved. No new scores, suite changes, model upgrades or agent capabilities.
 
 Acceptance: `scripts/smoke-mission-focus.mjs` exercises first mission, live answer, completed result, setup navigation, unique control IDs and 320/390/1280px bounds. It writes clearly labeled simulated previews to `output/playwright/mission-focus/` (ignored). Existing mission, dashboard and journey regressions remain required. Production-JS answer presentation regressions run in Tests. Real-model/shipped Firefox and physical Toronado acceptance remain separate from fixture Chromium; this change does not build or write a USB image.
+
+### U9 Improve: one evidence-based experiment, approved, retested and decided — `review`
+
+Following review of U8, the Improve step became the end of the loop instead of a menu. On `feat/improve-focus`:
+
+- Improve leads with the measured result in plain words ("23 of 24 correct", qualified or what is missing) and explains counts: the document trial produces 32 responses, 24 scored questions plus 8 summaries left for the owner that are never scored. Scoring and criteria are unchanged; the report now carries the unscored count and the run's lab recipe preset.
+- One next experiment is chosen from measured evidence and from experiments that exist: format misses propose strict format instructions; wrong answers without format misses propose comparing a different model; a clean result proposes an unchanged retest. Each shows why, what changes and how the result will be judged. Nothing runs until the owner approves in the review dialog.
+- The matched retest's before/after and Keep/Restore decision appear in Improve (not in collapsed test records). Labels name the action ("Keep strict format instructions", "Restore standard instructions"); wording says one matched retest, not a guarantee.
+- The local-model debrief is shown only when the model actually wrote one for the displayed runs, labeled as its opinion with the producing model. Its prompt now lists only experiments the product can run. No frontend-authored first-person text.
+- Watch shows the passage beside the question on wide screens and one tap away on phones, highlights a returned quotation only when it matches the passage exactly, and reduces the HUD to plain status, progress and Stop with model/recipe/elapsed under Run details. Fixed polled snapshots duplicating streamed answer text; a stopped run retries with its own settings instead of silently adding an instruction.
+
+Acceptance: `scripts/smoke-mission-focus.mjs` drives mission → watch → result → review (no start) → approve (one start) → matched retest → before/after → Keep → Restore with API verification, and writes labeled simulated previews to `output/playwright/mission-focus/`. Existing journey, mission, dashboard and arena regressions updated for the new labels. Real-model debrief quality, shipped Firefox and Toronado acceptance remain separate.

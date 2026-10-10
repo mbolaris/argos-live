@@ -31,6 +31,11 @@ class MissionReportTests(unittest.TestCase):
         self.assertEqual(receipt['ability']['total'], 20)
         self.assertIsNone(receipt['ability']['qualified'])
         self.assertIn('not an intelligence score', receipt['ability']['scope'])
+        self.assertEqual(receipt['ability']['unscored'], 0)
+        self.assertEqual(receipt['ability']['recipe'], {'preset': 'standard'})
+        self.ability['recipe'] = {'preset': 'concise', 'instructions': 'x'}
+        self.assertEqual(mission_report.summarize(self.runs)['ability']['recipe'], {'preset': 'concise'})
+        self.assertTrue(receipt['ability']['lead_sentence'].startswith('20 of 20 scored questions correct.'))
 
     def test_opinion_has_only_aggregate_input_and_cannot_change_scores(self):
         self.ability['items'][0]['output'] = 'PRIVATE_DOCUMENT_OR_TOKEN'
@@ -45,6 +50,9 @@ class MissionReportTests(unittest.TestCase):
         self.assertEqual(backend.observed_timeout, 45)
         self.assertFalse(backend.options['think'])
         self.assertEqual(self.ability['summary']['correct'], 20)
+        # Suggestions are limited to experiments the product can actually run.
+        self.assertIn('strict format instructions for lab tests', backend.prompt)
+        self.assertNotIn('repair plan', backend.prompt)
 
     def test_unidentified_mixed_or_incomplete_evidence_gets_no_opinion(self):
         for change in ({'manifest_digest': None}, {'manifest_digest': 'b' * 64}, {'state': 'cancelled'}):

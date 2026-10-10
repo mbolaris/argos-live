@@ -60,58 +60,49 @@
       </article>
         <div id="arena" class="arena-deck" hidden aria-live="polite">
           <div class="watch-heading"><div><p class="mission-label">Live mission</p><h3>Watch your AI work</h3></div><button id="lab-cancel" type="button" disabled>Stop test</button></div>
-          <p id="watch-explainer">Answers appear here as the model generates them. Each finished challenge gets a scored result.</p>
+          <p id="watch-status" class="watch-status" role="status">Getting ready…</p>
           <p id="watch-connection" role="status" hidden>Reconnecting to your mission… Showing the last received progress.</p>
-          <div class="arena-hud">
-            <div class="arena-hud-item">
-              <span class="arena-hud-label">Phase</span>
-              <span id="arena-phase-badge" class="arena-badge">Idle</span>
+          <div class="watch-progress">
+            <div class="arena-progress-header">
+              <span id="arena-progress-label">Starting…</span>
+              <span id="arena-tally" class="watch-tally"><span id="arena-tally-passed" class="arena-stat passed">0 correct</span> <span id="arena-tally-format-errors" class="arena-stat format-errors" hidden>0 wrong format</span> <span id="arena-tally-summaries" class="arena-stat summaries" hidden>0 summaries</span></span>
             </div>
-            <div class="arena-hud-item">
-              <span class="arena-hud-label">Model</span>
-              <span id="arena-model" class="arena-val">Current model</span>
-            </div>
-            <div class="arena-hud-item">
-              <span class="arena-hud-label">Recipe</span>
-              <span id="arena-recipe" class="arena-val">Standard</span>
-            </div>
-            <div class="arena-hud-item arena-hud-progress">
-              <div class="arena-progress-header">
-                <span id="arena-progress-label">0 / 20 challenges</span>
-                <span id="arena-elapsed">0 s</span>
-              </div>
-              <progress id="arena-progress-bar" max="20" value="0" aria-label="Trial progress"></progress>
-            </div>
-            <div class="arena-hud-item arena-hud-tally">
-              <span id="arena-tally-passed" class="arena-stat passed">0 passed</span>
-              <span id="arena-tally-format-errors" class="arena-stat format-errors">0 format errors</span>
-            </div>
+            <progress id="arena-progress-bar" max="1" value="0" aria-label="Trial progress"></progress>
+            <details id="arena-run-details" class="arena-run-details"><summary>Run details</summary>
+              <dl class="arena-hud">
+                <div class="arena-hud-item"><dt class="arena-hud-label">Model</dt><dd id="arena-model" class="arena-val">Current model</dd></div>
+                <div class="arena-hud-item"><dt class="arena-hud-label">Lab instructions</dt><dd id="arena-recipe" class="arena-val">Standard</dd></div>
+                <div class="arena-hud-item"><dt class="arena-hud-label">Step</dt><dd><span id="arena-phase-badge" class="arena-badge">Idle</span></dd></div>
+                <div class="arena-hud-item"><dt class="arena-hud-label">Elapsed</dt><dd id="arena-elapsed" class="arena-val">0 s</dd></div>
+              </dl>
+              <p class="arena-count-note">Each passage gets three scored questions (find a fact, quote the supporting sentence, and notice when the passage doesn’t say) plus one summary written for you to read. Summaries are not scored.</p>
+            </details>
           </div>
           <div id="arena-live-card" class="arena-card live-card">
-            <div class="arena-card-header">
-              <span class="arena-card-title">The challenge</span>
-              <span id="arena-current-id" class="arena-tag">Waiting…</span>
-              <span id="arena-current-category" class="arena-cat-tag"></span>
-            </div>
-            <div class="arena-question-box">
-              <span class="arena-sublabel">Question:</span>
-              <div id="arena-current-question" class="arena-question-text">Waiting for challenge…</div>
-            </div>
-            <div class="arena-stream-box">
-              <div class="arena-stream-header">
-                <span class="arena-sublabel">Your AI’s answer</span>
-                <span id="arena-stream-indicator" class="arena-indicator" hidden>Streaming…</span>
-              </div>
-              <pre id="arena-current-stream" class="arena-stream-content" tabindex="0">Awaiting model response…</pre>
-            </div>
-            <details class="arena-raw-details"><summary>Original model output</summary><pre id="arena-current-raw" tabindex="0"></pre><p>Scoring uses this original response, including any format errors.</p></details>
-            <details id="arena-source-details" class="arena-source-details">
-              <summary class="arena-source-summary">Read source</summary>
-              <div class="arena-prompt-box">
-                <span class="arena-sublabel">Passage &amp; request schema:</span>
-                <div id="arena-current-prompt" class="arena-prompt-text">Trial ready to begin.</div>
-              </div>
+            <details id="arena-source-details" class="arena-source-details arena-passage">
+              <summary class="arena-source-summary">The passage</summary>
+              <div id="arena-current-passage" class="arena-passage-text" tabindex="0">The passage appears when the reading challenges begin.</div>
+              <details class="arena-raw-details"><summary>Full prompt sent to the model</summary><pre id="arena-current-prompt" class="arena-prompt-text" tabindex="0">Trial ready to begin.</pre></details>
             </details>
+            <div class="arena-challenge">
+              <div class="arena-card-header">
+                <span class="arena-card-title">The challenge</span>
+                <span id="arena-current-category" class="arena-cat-tag"></span>
+                <span id="arena-current-id" class="arena-tag">Waiting…</span>
+              </div>
+              <div class="arena-question-box">
+                <span class="arena-sublabel">Question</span>
+                <div id="arena-current-question" class="arena-question-text">Waiting for challenge…</div>
+              </div>
+              <div class="arena-stream-box">
+                <div class="arena-stream-header">
+                  <span class="arena-sublabel">Your AI’s answer</span>
+                  <span id="arena-stream-indicator" class="arena-indicator" hidden>Writing…</span>
+                </div>
+                <pre id="arena-current-stream" class="arena-stream-content" tabindex="0">Awaiting model response…</pre>
+              </div>
+              <details class="arena-raw-details"><summary>Original model output</summary><pre id="arena-current-raw" tabindex="0"></pre><p>Scoring uses this original response, including any format errors.</p></details>
+            </div>
           </div>
           <p id="arena-latest-result" class="latest-challenge-result" role="status" hidden></p>
           <details id="arena-receipts-card" class="arena-card receipts-card">
@@ -205,22 +196,42 @@
       <div class="cc-grid">
         <div class="mission-main">
           <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
-            <p class="mission-label">Your latest measured result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
+            <p class="mission-label">Your latest result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
             <p id="cc-takeaway"></p>
+            <p id="cc-count-note" class="count-note" hidden></p>
+            <div id="improve-comparison" class="improve-comparison" aria-live="polite"></div>
+            <section id="improve-next" class="improve-next" aria-labelledby="improve-next-title" hidden>
+              <p class="mission-label">Next experiment</p>
+              <h4 id="improve-next-title"></h4>
+              <dl class="improve-plan">
+                <div><dt>Why this one</dt><dd id="improve-why"></dd></div>
+                <div><dt>What changes</dt><dd id="improve-change"></dd></div>
+                <div><dt>How you’ll know</dt><dd id="improve-measure"></dd></div>
+              </dl>
+              <button id="improve-go" type="button" class="mission-primary">Review experiment</button>
+            </section>
+            <article id="cc-debrief" class="agent-debrief" hidden aria-live="polite">
+              <div class="debrief-header">
+                <p class="mission-label">Your AI’s opinion</p>
+                <span class="opinion-tag">Its own words · not scored evidence</span>
+              </div>
+              <blockquote id="cc-debrief-text"></blockquote>
+              <p id="cc-debrief-note"></p>
+            </article>
             <div id="receipt-actions" class="receipt-actions" hidden>
-              <button id="receipt-use" type="button" class="mission-primary" hidden>Use this build in Mission Brief ↓</button>
+              <button id="receipt-use" type="button" class="mission-secondary" hidden>Try it on your own document ↓</button>
               <details id="receipt-secondary-options" class="receipt-secondary-details">
-                <summary class="receipt-secondary-summary">More options (Experiments &amp; retesting)</summary>
+                <summary class="receipt-secondary-summary">Other things to try</summary>
                 <div class="receipt-secondary-body">
-                  <button id="receipt-change" type="button" class="mission-secondary">Try one change: concise instructions</button>
-                  <button id="receipt-practice" type="button" class="mission-secondary">Retest unchanged</button>
-                  <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
+                  <button id="receipt-change" type="button" class="mission-secondary">Review: strict format instructions</button>
+                  <button id="receipt-practice" type="button" class="mission-secondary">Rerun the same trial unchanged</button>
+                  <button id="receipt-upgrade" type="button" class="mission-secondary">Compare a different model</button>
                 </div>
               </details>
             </div>
             <div id="receipt-recipe-bar" class="receipt-recipe-bar" hidden>
-              <span>Tested with recipe: <strong id="receipt-tested-recipe"></strong></span>
-              <span class="recipe-protect-tag">Lab only</span>
+              <span>Tested with: <strong id="receipt-tested-recipe"></strong></span>
+              <span class="recipe-protect-tag">Lab tests only</span>
               <button id="receipt-restore-recipe" type="button" class="btn-text-action">Restore standard</button>
             </div>
             <div id="receipt-model-rollback-bar" class="receipt-model-rollback-bar" hidden>
@@ -230,7 +241,7 @@
               <button id="receipt-keep-model" type="button" class="btn-text-action">Keep this model</button>
             </div>
             <details id="receipt-metrics-details" class="receipt-metrics-details">
-              <summary class="receipt-metrics-summary">Metrics &amp; criteria (Details)</summary>
+              <summary class="receipt-metrics-summary">Scores, speed and qualification rules</summary>
               <div class="receipt-metrics-body">
                 <div id="cc-scoreboard" class="scoreboard"></div>
                 <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
@@ -239,19 +250,11 @@
                 </div>
               </div>
             </details>
-            <div id="receipt-replay" class="receipt-replay" hidden>
-              <p class="replay-label">Representative challenge replay</p>
+            <details id="receipt-replay" class="receipt-replay" hidden>
+              <summary class="replay-label">See example answers</summary>
               <div id="receipt-replay-list" class="replay-list"></div>
-            </div>
+            </details>
             <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
-          </article>
-          <article id="cc-debrief" class="agent-debrief" hidden aria-live="polite">
-            <div class="debrief-header">
-              <p class="mission-label">At the workbench · Argos’s take</p>
-              <span class="opinion-tag">Model opinion · memory only · not scored evidence</span>
-            </div>
-            <blockquote id="cc-debrief-text"></blockquote>
-            <p id="cc-debrief-note"></p>
           </article>
           <details class="strengths-disclosure"><summary>Your skills · see measured strengths</summary>
           <div id="cc-readings" class="cc-readings" aria-label="Measured strengths"></div>
@@ -484,8 +487,8 @@
           <div class="modal-card">
             <div class="modal-header">
               <div>
-                <span class="domain-tag">Lab Experiment · One variable</span>
-                <h3 id="recipe-modal-title">Test concise response instructions</h3>
+                <span class="domain-tag">Experiment · one change · needs your approval</span>
+                <h3 id="recipe-modal-title">Try strict format instructions</h3>
               </div>
               <span class="state-badge measured">Lab only</span>
             </div>
@@ -501,15 +504,17 @@
                 <p>This experiment modifies the <em>Lab test recipe only</em>. It does <strong>not</strong> alter your assistant's OpenClaw personality, model weights, or conversational system prompts. Selecting a Lab recipe does not claim to change the assistant.</p>
               </div>
               <div class="modal-info-block">
-                <strong>Workload preview</strong>
-                <p>Runs the 8-passage short document trial under the owned Lab lease (context 4096, seed 1, temperature 0.0, output cap 128). Chat pauses during testing and resumes afterward.</p>
+                <strong>What happens if you approve</strong>
+                <p>Your AI reruns the same document trial: same model, same 8 passages, same scoring rules. Only the instruction above is added. Chat pauses during the test and resumes afterward.</p>
+                <p>Then you’ll see before and after, and choose to keep the instruction for lab tests or restore standard. This retest is what shows whether it helped; nothing is claimed until then.</p>
+                <details><summary>Technical settings</summary><p>Owned Lab lease · context 4096 · seed 1 · temperature 0.0 · output cap 128.</p></details>
               </div>
               <div id="recipe-status-note" class="recipe-status-note" role="status" aria-live="polite"></div>
             </div>
             <div class="modal-actions">
-              <button id="recipe-run" type="button" class="mission-primary">Run document trial with concise recipe</button>
-              <button id="recipe-select-only" type="button" class="mission-secondary">Set as active Lab recipe</button>
-              <button id="recipe-close" type="button">Keep standard</button>
+              <button id="recipe-run" type="button" class="mission-primary">Approve and run the retest</button>
+              <button id="recipe-close" type="button" class="mission-secondary">Not now</button>
+              <button id="recipe-select-only" type="button" class="btn-text-action">Use for lab tests without retesting</button>
             </div>
           </div>
         </dialog>

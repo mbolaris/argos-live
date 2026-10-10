@@ -105,6 +105,12 @@ def plain_failure_reason(item):
     return explain_outcome(item.get('outcome'), item.get('category', ''), item.get('output', ''))
 
 
+def recipe_preset(run):
+    value = run.get('recipe')
+    preset = value.get('preset') if isinstance(value, dict) else None
+    return preset if isinstance(preset, str) and preset else 'standard'
+
+
 def summarize(runs):
     speed = next((r for r in runs if r['kind'] == 'speed'), None)
     ability = next((r for r in runs if r['kind'] == 'ability'), None)
@@ -169,10 +175,10 @@ def summarize(runs):
         total = summary['total']
         format_errors = summary['format_errors']
         wrong_answers = total - correct - format_errors
+        unscored = len(ability.get('unscored') or [])
         lead_sentence = (
-            f"{correct} of {total} challenges passed. "
-            f"{format_errors} response contract (format) failures, "
-            f"{wrong_answers} wrong answers."
+            f"{correct} of {total} scored questions correct. "
+            f"{wrong_answers} wrong, {format_errors} in the wrong answer format."
         )
 
         receipt['ability'] = {
@@ -180,6 +186,10 @@ def summarize(runs):
             'correct': correct, 'total': total,
             'format_errors': format_errors,
             'wrong_answers': wrong_answers,
+            # Responses the code does not score, such as summaries left for the owner to read.
+            'unscored': unscored,
+            # Which lab instructions produced this result, so an experiment is never shown as the baseline.
+            'recipe': {'preset': recipe_preset(ability)},
             'lead_sentence': lead_sentence,
             'categories': [{'id': k, 'label': CATEGORY_LABELS.get(k, k.replace('_', ' ')),
                             'correct': v['correct'], 'total': v['total']}
@@ -214,8 +224,9 @@ def debrief(client, model, runs, *, cancel=None):
               'one limitation, and which experiment you would like to try next and why. '
               'Be candid, curious and specific. You have no feelings or evidence beyond this receipt. '
               'Do not claim AGI, rank, improvement, GPU use or capabilities not tested. '
-              'Choose an experiment: read a short fictional mission brief, spot a missing fact, '
-              'or compare a repair plan. This is your opinion; the scores are fixed by code. '
+              'Only these experiments exist: strict format instructions for lab tests, a retest with nothing changed, '
+              'or comparing a different local model. Suggest one of them or none. '
+              'This is your opinion; the scores are fixed by code. '
               'Return plain text, no tools.\nMEASURED RECEIPT:\n' + json.dumps(facts, allow_nan=False))
     old_timeout = client.timeout
     try:

@@ -152,11 +152,8 @@ async function captureViewport(vp, browser) {
     // Screen 4: Improvement Recipe Modal
     // -------------------------------------------------------------
     console.log(`[${vp.name}] Opening recipe modal & Capturing 4: Recipe...`);
-    await page.evaluate(() => {
-      const sec = document.getElementById('receipt-secondary-options');
-      if (sec) sec.open = true;
-    });
-    const changeBtn = page.locator('#receipt-change');
+    // Improve proposes the experiment the evidence supports; open its review dialog.
+    const changeBtn = page.locator('#improve-go');
     await changeBtn.waitFor({ state: 'visible' });
     await changeBtn.click();
 
@@ -182,14 +179,14 @@ async function captureViewport(vp, browser) {
 
     // Wait for candidate trial to complete and auto-render controlled comparison
     await page.waitForFunction(() => {
-      const card = document.querySelector('#experiment-comparison .experiment-card');
+      const card = document.querySelector('#improve-comparison .experiment-card');
       const rec = document.getElementById('experiment-recommendation');
       return card !== null && rec !== null;
     }, null, { timeout: 90000 });
 
     // Scroll comparison card into view
     await page.evaluate(() => {
-      const el = document.getElementById('experiment-comparison');
+      const el = document.getElementById('improve-comparison');
       if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' });
     });
     await attachBanner();
