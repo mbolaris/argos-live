@@ -33,9 +33,10 @@ try {
         document.body.prepend(banner);
       }
       // A native modal is above the body watermark in the top layer.
-      const modal = document.querySelector('dialog[open] .modal-header');
+      const modal = document.querySelector('dialog[open]');
       if (modal) {
-        const badge = document.createElement('span'); badge.className = 'state-badge fixture-modal-label';
+        const badge = document.createElement('div'); badge.className = 'fixture-modal-label';
+        badge.style.cssText = 'background:#453329;color:#ffe2b0;text-align:center;font:11px system-ui;padding:4px';
         badge.textContent = 'SIMULATED'; modal.prepend(badge);
       }
     });
