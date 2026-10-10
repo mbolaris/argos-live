@@ -190,6 +190,8 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         self.reply(200, self.server.benchmarks.experiment_comparison(
                             b_id, c_id, allowed_intervention=intervention), head=head)
+                elif path.startswith('/api/benchmarks/replay/'):
+                    self.reply(200, self.server.benchmarks.replay(path.removeprefix('/api/benchmarks/replay/')), head=head)
                 elif path.startswith('/api/benchmarks/run/'):
                     run_id = path.removeprefix('/api/benchmarks/run/')
                     value = self.server.benchmarks.load(run_id)

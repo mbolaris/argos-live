@@ -549,10 +549,13 @@ function hidePassage() {
   if (passage) { passage.dataset.text = ''; passage.textContent = ''; }
   const details = document.getElementById('arena-source-details');
   if (details) details.hidden = true;
+  // Without a passage the challenge takes the full card width instead of the passage column.
+  document.getElementById('arena-live-card')?.classList.add('no-passage');
 }
 function showChallenge(item) {
   const details = document.getElementById('arena-source-details');
   if (details) details.hidden = false;
+  document.getElementById('arena-live-card')?.classList.remove('no-passage');
   const id = document.getElementById('arena-current-id');
   if (id) id.textContent = item.item_id || 'active';
   const kind = document.getElementById('arena-current-category');
@@ -701,6 +704,8 @@ function renderArenaState(arena, active, phase, model, elapsed) {
     }
     if (streamInd) streamInd.hidden = !active;
   } else {
+    // Before the first challenge (pausing chat, starting the service) there is no passage yet.
+    hidePassage();
     if (liveQuestion && !active) liveQuestion.textContent = 'Waiting for challenge…';
     if (streamInd) streamInd.hidden = true;
   }
@@ -755,8 +760,8 @@ function renderArenaState(arena, active, phase, model, elapsed) {
         }
         if (nextActionBtn) {
           nextActionBtn.hidden = false;
-          nextActionBtn.textContent = 'See your result and what to try next ↑';
-          nextActionBtn.onclick = () => focusSection('cc-receipt');
+          nextActionBtn.textContent = 'Step through every answer ↑';
+          nextActionBtn.onclick = () => focusSection(document.getElementById('replay').hidden ? 'cc-receipt' : 'replay');
         }
         headline.textContent = 'Finished and saved';
         const scored = (arena?.receipts || []).filter(r => r.outcome !== 'unscored').length;
@@ -963,8 +968,8 @@ function applyArenaEvent(ev) {
           }
           if (nextActionBtn) {
             nextActionBtn.hidden = false;
-            nextActionBtn.textContent = 'See your result and what to try next ↑';
-            nextActionBtn.onclick = () => focusSection('cc-receipt');
+            nextActionBtn.textContent = 'Step through every answer ↑';
+            nextActionBtn.onclick = () => focusSection(document.getElementById('replay').hidden ? 'cc-receipt' : 'replay');
           }
           if (headline) headline.textContent = 'Finished and saved';
           const scored = arenaReceipts.filter(r => r.outcome !== 'unscored').length;
@@ -1779,7 +1784,15 @@ async function refreshBenchmarks() {
       }
       if (retainedBaselineDocRunId && docRuns.length >= 2) {
         const latestDoc = docRuns.find(r => r.id !== retainedBaselineDocRunId && r.state === 'completed');
-        if (latestDoc && latestDoc.id !== autoComparedCandidateId) {
+        const baselineRow = docRuns.find(r => r.id === retainedBaselineDocRunId);
+        // An older candidate or one already kept/restored is history, not the current decision.
+        const current = latestDoc && baselineRow && latestDoc.created > baselineRow.created &&
+          !decidedExperiments().includes(latestDoc.id);
+        if (!current && latestDoc?.id !== autoComparedCandidateId) {
+          document.getElementById('improve-comparison')?.replaceChildren();
+          lastExperiment = null;
+        }
+        if (current && latestDoc.id !== autoComparedCandidateId) {
           const fullCand = await api('/api/benchmarks/run/' + latestDoc.id);
           const candPreset = fullCand.recipe?.preset || 'standard';
           if (candPreset !== 'standard') {
@@ -1788,7 +1801,7 @@ async function refreshBenchmarks() {
             try {
               const expRes = await api(`/api/benchmarks/experiment?baseline=${encodeURIComponent(retainedBaselineDocRunId)}&candidate=${encodeURIComponent(latestDoc.id)}`);
               autoComparedCandidateId = latestDoc.id;
-              if (expOut) { renderExperiment(expOut, expRes); refreshCommand(); }
+              if (expOut) { lastExperiment = expRes; renderExperiment(expOut, expRes); refreshCommand(); renderReplay(); }
               status.textContent = 'Controlled experiment comparison ready. Evaluated on identical hardware with exactly one recipe intervention.';
               const arenaBanner = document.getElementById('arena-summary-banner');
               const arenaHeadline = document.getElementById('arena-summary-headline');
@@ -2292,6 +2305,7 @@ function renderExperimentRecommendation(card, result) {
           throw new Error(`Recipe restore verification failed: expected standard (null), got '${recipes.selected?.preset}'`);
         }
         statusNote.textContent = 'Restored standard instructions and verified. Lab tests are back to how they were before the experiment.';
+        if (result.candidate?.id) rememberDecided(result.candidate.id);
         const activeRecEl = document.getElementById('lab-active-recipe');
         if (activeRecEl) activeRecEl.textContent = 'Standard calibration';
         const restoreBtn = document.getElementById('lab-recipe-restore');
@@ -2317,6 +2331,7 @@ function renderExperimentRecommendation(card, result) {
           throw new Error(`Recipe selection verification failed: expected '${candPreset}', got '${recipes.selected?.preset}'`);
         }
         statusNote.textContent = `Kept and verified for lab tests: they now use ${candPreset === 'concise' ? 'strict format instructions' : candLabel}. Your everyday assistant is unchanged. You can restore standard at any time.`;
+        if (result.candidate?.id) rememberDecided(result.candidate.id);
         const activeRecEl = document.getElementById('lab-active-recipe');
         if (activeRecEl) activeRecEl.textContent = candLabel;
         const restoreBtn = document.getElementById('lab-recipe-restore');
@@ -3157,95 +3172,8 @@ function renderMissionReceipt(report) {
   document.getElementById('cc-receipt-note').textContent = ability ?
     `${ability.format_errors} response contract failures · ${ability.wrong_answers ?? Math.max(0, ability.total - ability.correct - ability.format_errors)} wrong answers. ${ability.scope} ${ability.created ? ability.created.slice(0, 10) : ''} · ${ability.suite}.` : 'One trial gives your next upgrade a fair starting point. No model download needed.';
 
-  // Render representative challenge replay (failed items first)
-  const replayBox = document.getElementById('receipt-replay');
-  const replayList = document.getElementById('receipt-replay-list');
-  const rep = ability?.replay;
-  const hasReplay = (rep?.passed?.length || 0) + (rep?.failed?.length || 0) > 0;
-  replayBox.hidden = !hasReplay;
-  if (hasReplay) {
-    replayList.replaceChildren();
-    const renderCard = (item) => {
-      const isPass = item.outcome === 'pass';
-      const outcomeClass = isPass ? 'pass' : (item.outcome === 'format_error' ? 'format' : 'wrong');
-      const card = document.createElement('div');
-      card.className = `replay-item outcome-${outcomeClass}`;
-
-      const hdr = document.createElement('div');
-      hdr.className = 'replay-item-header';
-      const titleGroup = document.createElement('div');
-      titleGroup.className = 'replay-title-group';
-      const cat = document.createElement('span');
-      cat.className = 'replay-tag';
-      cat.textContent = item.category_label || item.category;
-      const idSpan = document.createElement('span');
-      idSpan.className = 'replay-id';
-      idSpan.textContent = item.item_id ? ` · ${item.item_id}` : '';
-      titleGroup.append(cat, idSpan);
-
-      const statusGroup = document.createElement('div');
-      statusGroup.className = 'replay-status-group';
-      if (Number.isFinite(item.latency_seconds)) {
-        const lat = document.createElement('span');
-        lat.className = 'replay-latency';
-        lat.textContent = `${item.latency_seconds.toFixed(2)} s`;
-        statusGroup.append(lat);
-      }
-      const tag = document.createElement('span');
-      tag.className = `badge ${outcomeClass}`;
-      tag.textContent = isPass ? '● Pass' : (item.outcome === 'format_error' ? '▲ Contract failure' : '✕ Wrong answer');
-      statusGroup.append(tag);
-      hdr.append(titleGroup, statusGroup);
-      card.append(hdr);
-
-      const comp = document.createElement('div');
-      comp.className = 'replay-comparison';
-
-      const colChallenge = document.createElement('div');
-      colChallenge.className = 'replay-col replay-col-challenge';
-      const headingChallenge = document.createElement('span');
-      headingChallenge.className = 'replay-col-heading';
-      headingChallenge.textContent = 'Original Public Challenge';
-      const promptEl = document.createElement('p');
-      promptEl.className = 'replay-prompt-text';
-      promptEl.textContent = item.prompt || item.question || 'Challenge prompt not available';
-      colChallenge.append(headingChallenge, promptEl);
-
-      const colAnswer = document.createElement('div');
-      colAnswer.className = 'replay-col replay-col-answer';
-      const headingAnswer = document.createElement('span');
-      headingAnswer.className = 'replay-col-heading';
-      headingAnswer.textContent = 'Actual Model Answer';
-      const outEl = document.createElement('pre');
-      outEl.className = 'replay-output-text';
-      outEl.textContent = (item.output && item.output.trim()) ? item.output : '(empty response)';
-      colAnswer.append(headingAnswer, outEl);
-
-      comp.append(colChallenge, colAnswer);
-      card.append(comp);
-
-      if (item.reason) {
-        const reasonBox = document.createElement('div');
-        reasonBox.className = `replay-reason-box outcome-${outcomeClass}`;
-        const reasonLabel = document.createElement('strong');
-        reasonLabel.className = 'replay-reason-label';
-        reasonLabel.textContent = isPass ? 'Assessment: ' : (item.outcome === 'format_error' ? 'Contract failure: ' : 'Why it failed: ');
-        const reasonText = document.createElement('span');
-        reasonText.textContent = item.reason;
-        reasonBox.append(reasonLabel, reasonText);
-        card.append(reasonBox);
-      }
-
-      return card;
-    };
-
-    for (const item of (rep.failed || [])) {
-      replayList.append(renderCard(item));
-    }
-    for (const item of (rep.passed || [])) {
-      replayList.append(renderCard(item));
-    }
-  }
+  // Every answer of this run, persistent until the next result.
+  showReplayFor(ability?.suite === 'documents-short' ? ability.run : null);
 
   // Render qualification checks if present
   const criteriaBox = document.getElementById('receipt-criteria-box');
@@ -3371,6 +3299,9 @@ function renderMissionReceipt(report) {
   const current = lastLabDebrief?.state === 'completed' && lastLabDebrief.runs?.length && lastLabDebrief.runs.every(id => ids.includes(id));
   debrief.hidden = !current;
   document.getElementById('cc-debrief-text').textContent = current ? lastLabDebrief.text : '';
+  const facts = (ability?.categories || []).map(c => `${c.label} ${c.correct}/${c.total}`);
+  document.getElementById('cc-debrief-facts').textContent = current && ability ?
+    `Measured for this run: ${ability.correct} of ${ability.total} correct · ${facts.join(' · ')} · ${ability.format_errors} in the wrong format.` : '';
   document.getElementById('cc-debrief-note').textContent = current ?
     `Written by ${lastLabDebrief.model || 'the selected model'} after scoring. ${lastLabDebrief.label}` : '';
 }
@@ -3382,7 +3313,7 @@ function nextExperiment(ability) {
   const preset = ability.recipe?.preset || 'standard';
   const plural = (n, one, many) => (n === 1 ? one : many);
   if (preset !== 'standard') {
-    if (document.getElementById('improve-comparison')?.childElementCount) return null;
+    if (document.getElementById('improve-comparison')?.childElementCount || decidedExperiments().includes(ability.run)) return null;
     return {kind: 'records', title: 'Compare this run with a standard one',
       why: 'This result used strict format instructions, and there is no matching standard result from this session to compare it with.',
       change: 'Nothing changes. Saved test records let you pair two runs of the same trial.',
@@ -3425,6 +3356,153 @@ function renderNextExperiment(next, actions) {
   go.textContent = next.button;
   go.onclick = actions[next.kind];
 }
+const replayShort = {answer: 'Fact', quote: 'Quote', not_stated: 'Missing', summary: 'Summary'};
+const replayMarks = {pass: '✓', wrong_answer: '✗', format_error: '▲', unscored: '·'};
+const replayVerdicts = {pass: 'Correct', wrong_answer: 'Wrong', format_error: 'Not scorable', unscored: 'Not scored'};
+const replay = {runId: null, data: null, index: 0, loading: null};
+let lastExperiment = null;
+
+function replayMisses() {
+  return (replay.data?.items || []).map((item, i) => ['wrong_answer', 'format_error'].includes(item.outcome) ? i : -1).filter(i => i >= 0);
+}
+
+function replayChanges() {
+  // A before/after comparison marks the answers that changed in this run.
+  if (!lastExperiment || lastExperiment.candidate?.id !== replay.runId) return null;
+  return new Map((lastExperiment.items || []).filter(row => row.changed).map(row => [row.item_id, row]));
+}
+
+async function showReplayFor(runId) {
+  const section = document.getElementById('replay');
+  if (!runId) { section.hidden = true; replay.runId = null; replay.data = null; return; }
+  if (replay.runId === runId && (replay.data || replay.loading)) return;
+  replay.runId = runId; replay.data = null;
+  const loading = replay.loading = api('/api/benchmarks/replay/' + encodeURIComponent(runId)).catch(() => null);
+  const data = await loading;
+  if (replay.loading !== loading) return;
+  replay.loading = null;
+  if (!data || replay.runId !== runId) { section.hidden = true; return; }
+  replay.data = data;
+  const misses = replayMisses();
+  replay.index = misses.length ? misses[0] : 0;
+  section.hidden = false;
+  renderReplay();
+}
+
+function renderReplay() {
+  const data = replay.data;
+  if (!data) return;
+  const run = data.run, changes = replayChanges();
+  const misses = replayMisses().length;
+  document.getElementById('replay-summary').textContent =
+    `${run.correct} of ${run.total} correct · ${misses} ${misses === 1 ? 'miss' : 'misses'} · ${run.unscored} summaries for you` +
+    (changes ? ` · ${changes.size} changed in the experiment` : '') + (misses ? '. Start with a miss, or pick any answer.' : '. Pick any answer.');
+  const grid = document.getElementById('replay-grid');
+  grid.replaceChildren();
+  const groups = new Map();
+  data.items.forEach((item, i) => {
+    if (!groups.has(item.passage_id)) groups.set(item.passage_id, []);
+    groups.get(item.passage_id).push([item, i]);
+  });
+  for (const [passageId, entries] of groups) {
+    const row = document.createElement('div');
+    row.className = 'replay-row';
+    const name = document.createElement('span');
+    name.className = 'replay-row-name';
+    name.textContent = (passageId || '').replace(/[-_]/g, ' ');
+    row.append(name);
+    for (const [item, i] of entries) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = `replay-chip v-${item.outcome}` + (changes?.has(item.item_id) ? ' changed' : '') + (i === replay.index ? ' selected' : '');
+      chip.textContent = `${replayMarks[item.outcome] || '·'} ${replayShort[item.category] || item.category}`;
+      chip.setAttribute('aria-label', `${name.textContent}: ${challengeKinds[item.category] || item.category}, ${replayVerdicts[item.outcome] || item.outcome}` +
+        (changes?.has(item.item_id) ? ', changed in the experiment' : ''));
+      chip.setAttribute('aria-pressed', String(i === replay.index));
+      chip.addEventListener('click', () => selectReplay(i, true));
+      row.append(chip);
+    }
+    grid.append(row);
+  }
+  renderReplayDetail(changes);
+}
+
+function renderReplayDetail(changes) {
+  const item = replay.data.items[replay.index];
+  if (!item) return;
+  const passageText = replay.data.passages[item.passage_id] || '';
+  const passage = document.getElementById('replay-passage');
+  const answer = arenaAnswerPreview(item.output || '');
+  // Highlight only a quotation that appears exactly in the passage.
+  let quote = '';
+  try { quote = JSON.parse(item.output).quote || ''; } catch (_) {}
+  const at = quote.length >= 8 ? passageText.indexOf(quote) : -1;
+  if (at >= 0) {
+    const mark = document.createElement('mark');
+    mark.textContent = quote; mark.title = 'The sentence your AI quoted';
+    passage.replaceChildren(passageText.slice(0, at), mark, passageText.slice(at + quote.length));
+  } else {
+    passage.textContent = passageText;
+  }
+  const position = `${replay.index + 1} of ${replay.data.items.length}`;
+  document.getElementById('replay-kind').textContent = `${challengeKinds[item.category] || item.category} · ${position}`;
+  document.getElementById('replay-question').textContent = item.question || '';
+  document.getElementById('replay-answer').textContent = item.output ? answer : '(empty response)';
+  const verdict = document.getElementById('replay-verdict');
+  verdict.className = 'replay-verdict v-' + item.outcome;
+  verdict.textContent = item.reason;
+  const accepted = document.getElementById('replay-accepted');
+  accepted.hidden = item.outcome === 'pass' || !item.accepted?.length;
+  accepted.textContent = accepted.hidden ? '' : `Accepted answer${item.accepted.length > 1 ? 's' : ''}: ${item.accepted.join(' · ')}`;
+  const before = document.getElementById('replay-before');
+  const change = changes?.get(item.item_id);
+  before.hidden = !change;
+  if (change) {
+    const label = document.createElement('strong');
+    label.textContent = `Before the experiment (${replayVerdicts[change.baseline_outcome] || change.baseline_outcome}): `;
+    const text = document.createElement('span');
+    text.textContent = arenaAnswerPreview(change.baseline_output || '') || '(empty response)';
+    before.replaceChildren(label, text);
+  }
+  document.getElementById('replay-raw').textContent = item.output || '';
+  document.getElementById('replay-prev').disabled = replay.index === 0;
+  document.getElementById('replay-next').disabled = replay.index === replay.data.items.length - 1;
+  document.getElementById('replay-next-miss').disabled = !replayMisses().length;
+}
+
+function selectReplay(index, focus) {
+  if (!replay.data) return;
+  replay.index = Math.max(0, Math.min(index, replay.data.items.length - 1));
+  for (const [i, chip] of document.querySelectorAll('#replay-grid .replay-chip').entries()) {
+    chip.classList.toggle('selected', i === replay.index);
+    chip.setAttribute('aria-pressed', String(i === replay.index));
+  }
+  renderReplayDetail(replayChanges());
+  if (focus) document.querySelectorAll('#replay-grid .replay-chip')[replay.index]?.focus({preventScroll: true});
+}
+
+document.getElementById('replay-prev').addEventListener('click', () => selectReplay(replay.index - 1));
+document.getElementById('replay-next').addEventListener('click', () => selectReplay(replay.index + 1));
+document.getElementById('replay-next-miss').addEventListener('click', () => {
+  const misses = replayMisses();
+  if (misses.length) selectReplay(misses.find(i => i > replay.index) ?? misses[0]);
+});
+document.getElementById('replay').addEventListener('keydown', event => {
+  if (event.target.closest('details, pre')) return;
+  if (event.key === 'ArrowRight') { event.preventDefault(); selectReplay(replay.index + 1, true); }
+  if (event.key === 'ArrowLeft') { event.preventDefault(); selectReplay(replay.index - 1, true); }
+});
+
+function decidedExperiments() {
+  try { return JSON.parse(localStorage.getItem('argos_decided_experiments') || '[]'); } catch (_) { return []; }
+}
+function rememberDecided(candidateId) {
+  try {
+    const ids = decidedExperiments().filter(id => id !== candidateId).concat(candidateId).slice(-50);
+    localStorage.setItem('argos_decided_experiments', JSON.stringify(ids));
+  } catch (_) {}
+}
+
 const missionSamples = [
   {title: 'Expedition planner', hook: 'Help a robot crew get home before the tide rises.',
    document: 'The Beacon crew must return to the harbour before 18:00. The ridge trail takes 90 minutes and is open all day. The beach trail takes 40 minutes but closes at 16:00 when the tide rises. At 15:30 the crew is at the trail junction. Their battery has enough charge for either route. No ferry timetable is provided.',

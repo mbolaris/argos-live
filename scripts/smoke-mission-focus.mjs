@@ -102,6 +102,27 @@ try {
   await page.locator('#session-result').click();
   await page.waitForFunction(()=>document.getElementById('cc-receipt').getBoundingClientRect().top<140);
   await both('result',()=>scrollTo('cc-receipt'));
+  assert.match(await page.locator('#cc-debrief-facts').textContent(),/^Measured for this run: 23 of 24 correct/);
+
+  // ---- Replay: every answer of the finished run, starting with the miss.
+  await page.waitForFunction(()=>!document.getElementById('replay').hidden && document.querySelectorAll('#replay-grid .replay-chip').length===32);
+  assert.equal(await page.locator('#replay-grid .replay-row').count(),8,'One row per passage');
+  assert.equal(await page.locator('#replay-grid .replay-chip.selected').textContent(),'▲ Fact','Opens on the first miss');
+  assert.match(await page.locator('#replay-verdict').textContent(),/^Not scorable/);
+  assert.match(await page.locator('#replay-summary').textContent(),/^23 of 24 correct · 1 miss · 8 summaries for you/);
+  assert.ok((await page.locator('#replay-passage').textContent()).length>100,'Passage shown with the answer');
+  await page.locator('#replay-next').click();
+  assert.match(await page.locator('#replay-kind').textContent(),/^Quote the evidence · 2 of 32$/);
+  assert.equal(await page.locator('#replay-passage mark').count(),1,'Exact quote highlighted after the run');
+  await page.locator('#replay-grid .replay-chip.selected').focus();
+  await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
+  assert.match(await page.locator('#replay-verdict').textContent(),/^A summary written for you/);
+  await page.locator('#replay-next-miss').click();
+  assert.match(await page.locator('#replay-kind').textContent(),/· 1 of 32$/);
+  await both('replay',()=>scrollTo('replay'));
+  await page.reload();
+  await page.waitForFunction(()=>!document.getElementById('replay').hidden && document.querySelectorAll('#replay-grid .replay-chip').length===32);
+  assert.match(await page.locator('#replay-verdict').textContent(),/^Not scorable/,'Replay persists after reload');
 
   // ---- Approval before anything runs.
   let starts=0;page.on('request',r=>{if(r.url().endsWith('/api/lab/start-documents'))starts++;});
@@ -131,6 +152,12 @@ try {
   assert.equal(await page.locator('#improve-next').isHidden(),true,'No new proposal over an undecided experiment');
   await page.locator('#session-result').click();
   await both('compare',()=>scrollTo('improve-comparison'));
+  // The replay now shows the retest, marking the answer the experiment changed.
+  await page.waitForFunction(()=>document.querySelectorAll('#replay-grid .replay-chip.changed').length===1);
+  await page.locator('#replay-grid .replay-chip.changed').click();
+  assert.match(await page.locator('#replay-before').textContent(),/^Before the experiment \(Not scorable\)/);
+  assert.match(await page.locator('#replay-verdict').textContent(),/^Correct/);
+  await both('replay-compare',()=>scrollTo('replay'));
   await page.locator('#exp-action-primary').click();
   await page.waitForFunction(()=>document.getElementById('recommendation-status').textContent.includes('Your everyday assistant is unchanged'));
   assert.equal((await page.evaluate(()=>api('/api/lab/recipes'))).selected?.preset,'concise');
@@ -138,6 +165,11 @@ try {
   await page.locator('#exp-action-secondary').click();
   await page.waitForFunction(()=>document.getElementById('recommendation-status').textContent.includes('Restored standard instructions'));
   assert.equal((await page.evaluate(()=>api('/api/lab/recipes'))).selected,null);
+  // A decided experiment is history: after reload it no longer sits over the next decision.
+  await page.reload();
+  await page.waitForFunction(()=>!document.getElementById('replay').hidden && document.querySelectorAll('#replay-grid .replay-chip').length===32);
+  await page.waitForTimeout(4000);
+  assert.equal(await page.locator('#improve-comparison .experiment-card').count(),0,'Decided comparison not shown again');
 
   // Jumping to a nested destination must reveal its closed ancestors.
   await page.locator('.setup-link').click();
@@ -152,8 +184,12 @@ try {
   assert.equal(await page.evaluate(()=>{renderArenaState({total:0},true,'speed','fixture:latest',0);
     return document.getElementById('arena-source-details').hidden && !document.getElementById('arena-current-passage').dataset.text;}),true,
     'Speed check hides the previous passage');
+  // Without the passage column the challenge uses the full card width (found on Toronado's Firefox).
+  assert.ok(await page.evaluate(()=>{const card=document.getElementById('arena-live-card').getBoundingClientRect();
+    const challenge=document.querySelector('#arena-live-card .arena-challenge').getBoundingClientRect();
+    return challenge.width>card.width*0.8;}),'Speed check challenge spans the card');
   const finalIds=await page.locator('[id]').evaluateAll(nodes=>nodes.map(n=>n.id));
   assert.equal(new Set(finalIds).size,finalIds.length,'Unique control IDs after the experiment');
   assert.deepEqual(errors,[]);
-  console.log('PASS: mission, watch with passage, plain result, approved experiment, matched retest, before/after, keep and restore; fixture only.');
+  console.log('PASS: mission, watch with passage, plain result, replay of every answer (persists, marks changes), approved experiment, matched retest, before/after, keep and restore, decided comparison retired; fixture only.');
 } finally {if(browser)await browser.close();server.stdin.end();server.kill();}

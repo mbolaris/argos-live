@@ -51,6 +51,10 @@ class View:
     def load(self, run_id):
         return self.store.load(identifier(run_id))
 
+    def replay(self, run_id):
+        from argoslive import replay
+        return replay.build(self.load(run_id))
+
     def comparison(self, ids):
         if not 2 <= len(ids) <= 8 or len(set(ids)) != len(ids):
             raise ValueError('Select two to eight distinct runs')
