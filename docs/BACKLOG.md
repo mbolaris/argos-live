@@ -1129,3 +1129,14 @@ U9 keeps a winning instruction for lab tests only. The everyday assistant (OpenC
 Implementation on `feat/u10-assistant-trial` adds one reviewed grounded-answer block to operating instructions (`AGENTS.md`), independent eight-task before/after through scoped gateway sessions, per-check evidence and Keep/Restore. See [U10-ASSISTANT-TRIAL.md](U10-ASSISTANT-TRIAL.md) for exact scope, limits and fault recovery. Persona/config files are fingerprinted; owner edits block recovery without overwrites. Instructions, task identity and model are recorded. Local fixture Chromium and unit evidence do not establish real assistant improvement. Toronado deployment, a real approved trial, reboot and physical-phone checks are not performed in this slice.
 
 The same change makes answer-wording-only diagnostics recommend reviewing misses rather than a larger model. Unscored summaries are excluded from advice, and quotation failures remain separate from wording diagnoses. No lab scores, suite rules or qualification thresholds change.
+
+### U13 One Go button for the improvement loop — `in progress`
+
+Make it obvious how to play from the first screen: one prominent **GO** button
+starts the named next mission. After a diagnostic-only document result, GO leads
+to the reviewed reversible everyday-assistant trial instead of stopping at a
+miss-review screen. The approval dialog remains the gate before changing the
+assistant; live progress, before/after evidence, and Keep/Restore remain visible
+as the loop continues. If the trial was kept, GO returns the owner to a real chat
+task. Keep other setup and scoring details secondary, and test the full path in
+fixture browsers at phone and desktop sizes before any Toronado deployment.

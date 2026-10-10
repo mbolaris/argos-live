@@ -71,7 +71,9 @@ owner's active physical browser tab shows or a physical GPU inference result.
 ### 1. Home: one useful next action
 
 Show the chosen AI name (generic fallback: "your AI"), selected model, last result
-or "Not yet tested", one recommended mission and **Start: Read this brief**.
+or "Not yet tested", one recommended mission and a single **GO** button. The
+heading and accessible button name say what the action starts (for example,
+"Read this brief").
 Explain briefly that chat pauses for the test and resumes afterward. Put the start
 action above the fold at 390×844. While startup is busy, show its named phase and
 a disabled reason; never start another workload or silently queue duplicates.

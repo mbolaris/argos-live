@@ -1,5 +1,5 @@
 """Regression tests for J5 mission-first home corrections:
-1. "Start: Read this brief" is the single primary action for ready first-time users.
+1. A single "GO" action starts the named first mission for ready first-time users.
 2. Truthful assistant recovery status reporting (delayed recovering, failed, ready, not-running).
 3. Qualification tri-state handling (qualified, criteria not met, not assessed).
 4. Single documents workload execution and concurrent workload prevention.

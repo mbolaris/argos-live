@@ -1,5 +1,5 @@
 // Demonstrate the complete continuous document mission experiment flow:
-// 1. Start through "Start: Read this brief" (#cc-next-go).
+// 1. Start through the single "GO" action (#cc-next-go), with an accessible name describing the mission.
 // 2. Watch live arena streaming an actual challenge answer (passage, tokens, scored receipts).
 // 3. Baseline completion retains baseline run ID; Improve proposes the format experiment; the approval dialog opens with OpenClaw personality protection notice.
 // 4. Candidate retest runs with concise recipe; automatically pairs with baseline run ID and calls server comparator.
@@ -72,9 +72,10 @@ try {
   const startBtn = page.locator('#cc-next-go');
   if (!(await startBtn.isVisible())) fail('Primary Start button (#cc-next-go) is not visible');
   const startBtnText = (await startBtn.textContent()).trim();
-  if (startBtnText !== 'Start: Read this brief') {
-    fail(`Expected primary button 'Start: Read this brief', got '${startBtnText}'`);
+  if (startBtnText.trim() !== 'GO ▶') {
+    fail(`Expected primary button 'GO ▶', got '${startBtnText}'`);
   }
+  if ((await startBtn.getAttribute('aria-label')) !== 'Go: Read this brief') fail('GO button does not name its destination');
 
   // Verify collapsed legacy inventory and single recommended candidate
   const legacyOpen = await page.locator('#catalog-panel').evaluate(el => el.open);

@@ -1,5 +1,5 @@
 // Regression tests for J5 mission-first home corrections:
-// 1. "Start: Read this brief" is the single primary action, visible without scrolling at 390x844.
+// 1. "GO" is the single primary action, visible without scrolling at 390x844; its accessible name states the mission.
 // 2. Starts exactly one documents workload, disabled while busy.
 // 3. Truthful assistant recovery state (delayed in-progress, failed, ready) without unconditional claims.
 // 4. Cancellation retains partial challenge answers and marks stream incomplete.
@@ -43,11 +43,12 @@ try {
   const quickCount = await page.locator('#cc-start-documents-quick').count();
   if (quickCount !== 0) fail(`Old duplicate documents button still exists in DOM (count: ${quickCount})`);
 
-  // Verify #cc-next-go is visible and labeled "Start: Read this brief"
+  // Verify #cc-next-go is visible as the one obvious GO action and names its destination accessibly.
   const startBtn = page.locator('#cc-next-go');
   if (!(await startBtn.isVisible())) fail('Primary Start button is not visible');
   const btnText = (await startBtn.textContent()).trim();
-  if (btnText !== 'Start: Read this brief') fail(`Unexpected primary button text: "${btnText}"`);
+  if (!/^GO\s*▶$/.test(btnText)) fail(`Unexpected primary button text: "${btnText}"`);
+  if (await startBtn.getAttribute('aria-label') !== 'Go: Read this brief') fail('GO button does not say what it will start');
 
   // Assert that the Start button is visible without scrolling at 390x844
   const box = await startBtn.boundingBox();
