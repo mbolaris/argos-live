@@ -2750,6 +2750,7 @@ const commandActions = {
   baseline: () => startMissionTrial('lab-start'),
   documents: () => startMissionTrial('lab-start-documents'),
   models: () => focusSection('models-title'),
+  review: () => focusSection(document.getElementById('replay').hidden ? 'cc-receipt' : 'replay'),
   capabilities: () => focusSection('capabilities-title'),
   reboot: () => focusSection('storage-title', 'reboot-check'),
   chat: () => document.getElementById('chat').click(),
@@ -2840,7 +2841,7 @@ async function refreshCommand() {
     const go = document.getElementById('cc-next-go');
     go.hidden = !next.action; go.textContent = {storage: 'Set up model storage', baseline: 'Pause chat and run the first trial', documents: 'Start: Read this brief',
       models: 'Compare a model candidate', reboot: 'Verify storage after restart', chat: 'Talk to Argos', capabilities: 'Choose a capability',
-      task: 'Test a document you care about', restore: 'Review the previous model'}[next.action] || 'Start this mission';
+      task: 'Test a document you care about', restore: 'Review the previous model', review: 'Step through the misses'}[next.action] || 'Start this mission';
     const trialControl = {baseline: 'lab-start', documents: 'lab-start-documents'}[next.action];
     go.disabled = !!trialControl && document.getElementById(trialControl).disabled;
     const list = document.getElementById('cc-systems'); list.replaceChildren();
@@ -3274,6 +3275,7 @@ function renderMissionReceipt(report) {
 
   const next = nextExperiment(ability);
   renderNextExperiment(next, {format: openRecipeReview, model: () => focusSection('models-title'), repeat: rerun,
+    review: () => focusSection(document.getElementById('replay').hidden ? 'cc-receipt' : 'replay'),
     records: () => focusSection('benchmarks-title')});
 
   useBtn.hidden = ability?.qualified !== true;
@@ -3322,6 +3324,17 @@ function nextExperiment(ability) {
   }
   const formatErrors = ability.format_errors || 0;
   const wrong = ability.wrong_answers ?? Math.max(0, ability.total - ability.correct - formatErrors);
+  const groups = ability.diagnoses || {};
+  const kinds = Object.keys(groups);
+  if (kinds.length && kinds.every(kind => kind === 'wording' || kind === 'requirement')) {
+    // A diagnostic classification, not a new verdict: it should not send the owner to a larger model.
+    const w = groups.wording || 0, r = groups.requirement || 0;
+    return {kind: 'review', title: 'See why the answers missed',
+      why: `Diagnostic, not a score: every miss kept an accepted answer (${w} worded differently, ${r} not given as a short answer). That doesn’t point to a larger model.`,
+      change: 'Nothing yet. Step through the misses; a next experiment should target how answers are given, not the model.',
+      measure: 'Any change is judged by a matched retest on the same questions, and scores stay as scored.',
+      button: 'Step through the misses'};
+  }
   if (formatErrors > 0) {
     return {kind: 'format', title: 'Try strict format instructions',
       why: `${formatErrors} of ${ability.total} scored ${plural(formatErrors, 'answer was', 'answers were')} in the wrong answer format, so ${plural(formatErrors, 'it', 'they')} couldn’t count as correct.`,
@@ -3526,6 +3539,167 @@ function rememberDecided(candidateId) {
     localStorage.setItem('argos_decided_experiments', JSON.stringify(ids));
   } catch (_) {}
 }
+
+// ---- U10: one reviewed, reversible change to the everyday assistant, measured through the assistant.
+const trialChecks = {answer_present: 'answer given', answer_first: 'answer first', exact_quote: 'exact quote',
+  admits_not_stated: 'says it isn’t in the notice', replied: 'replied', no_instruction_leak: 'no talk of quotes or passages'};
+const trialKinds = {answer: 'Answer from a notice', not_stated: 'Question the notice can’t answer', control: 'Everyday question (no notice)'};
+let assistantTrial = null;
+let trialFollow = null;
+let trialResultKey = null;
+let trialActionPending = false;
+let trialRequestEpoch = 0;
+
+async function refreshAssistantTrial() {
+  if (trialActionPending) return;
+  const epoch = trialRequestEpoch;
+  let value;
+  try { value = await api('/api/assistant-trial'); } catch (_) { return; }
+  if (epoch !== trialRequestEpoch || trialActionPending) return;
+  assistantTrial = value;
+  renderAssistantTrial();
+}
+
+function renderAssistantTrial() {
+  const value = assistantTrial;
+  const section = document.getElementById('assistant-trial');
+  section.hidden = !value?.available || document.getElementById('cc-receipt').hidden;
+  if (section.hidden) return;
+  const progress = document.getElementById('assistant-trial-progress');
+  const result = document.getElementById('assistant-trial-result');
+  const status = value.status;
+  document.getElementById('assistant-trial-text').textContent = {
+    none: `Lab results don’t change your assistant. This tries one reviewed instruction (“${value.change.title}”) in the assistant you actually talk to, measured on new questions before and after.`,
+    'on-trial': 'The change is on trial in your assistant. Decide using the assistant’s own results below, not lab scores.',
+    kept: 'Kept: your assistant uses this change. You can restore the original file at any time.',
+    edited: 'AGENTS.md was edited after this change, so Argos won’t restore it automatically. Review the file by hand.',
+    unfinished: 'A trial didn’t finish. Recovery must verify the saved files before restoring anything; owner edits need review.',
+    'needs-review': 'The trial record needs review before Argos changes anything.'}[status] || '';
+  progress.hidden = !value.active;
+  // Follow an active trial closely; idle polling stays slow.
+  if (value.active && !trialFollow) trialFollow = setTimeout(() => { trialFollow = null; refreshAssistantTrial(); }, 700);
+  if (value.active) {
+    const p = value.progress || {};
+    const step = ['before', 'after'].includes(value.phase) ? (p.side || value.phase) : value.phase;
+    progress.textContent = {before: `Asking your assistant the trial questions as it is now: ${p.done ?? 0} of ${p.total ?? 0}…`,
+      after: `Asking the same questions with the change: ${p.done ?? 0} of ${p.total ?? 0}…`,
+      staging: 'Restarting your assistant with the change…', starting: 'Starting the trial…',
+      restoring: 'Restoring the original AGENTS.md and restarting your assistant…'}[step] || 'Working…';
+  }
+  document.getElementById('assistant-trial-note').textContent = value.message || '';
+  const show = (id, visible) => { document.getElementById(id).hidden = !visible; };
+  show('assistant-trial-review', status === 'none' && !value.active);
+  show('assistant-trial-keep', value.can_keep && !value.active);
+  show('assistant-trial-restore', value.can_restore && !value.active);
+  show('assistant-trial-cancel', value.active && value.phase !== 'restoring');
+  for (const id of ['review', 'keep', 'restore', 'cancel', 'approve']) {
+    document.getElementById('assistant-trial-' + id).disabled = trialActionPending;
+  }
+  if (value.result && status === 'on-trial') {
+    document.getElementById('assistant-trial-keep').className = value.result.suggestion === 'keep' ? 'mission-primary' : 'mission-secondary';
+    document.getElementById('assistant-trial-restore').className = value.result.suggestion === 'restore' ? 'mission-primary' : 'mission-secondary';
+  }
+  result.hidden = !value.result || value.active || !['on-trial', 'kept'].includes(status);
+  if (!result.hidden) {
+    const key = JSON.stringify([status, value.result]);
+    if (key !== trialResultKey) renderTrialResult(result, value.result, status);
+    trialResultKey = key;
+  } else trialResultKey = null;
+}
+
+function renderTrialResult(box, r, status) {
+  box.replaceChildren();
+  const rows = document.createElement('dl');
+  rows.className = 'before-after';
+  for (const [kind, label] of [['answer', 'Direct answer with an exact quote'], ['not_stated', 'Says when the notice doesn’t say'],
+                               ['control', 'Everyday checks (limited)']]) {
+    const t = r.totals[kind];
+    const item = document.createElement('div');
+    const name = document.createElement('dt'); name.textContent = label;
+    const v = document.createElement('dd');
+    const b = document.createElement('span'); b.className = 'before'; b.textContent = `${t.before} of ${t.total}`;
+    const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.textContent = ' → ';
+    const a = document.createElement('strong'); a.textContent = `${t.after} of ${t.total}`;
+    v.append(b, arrow, a); item.append(name, v); rows.append(item);
+  }
+  const summary = document.createElement('p');
+  summary.className = 'assistant-trial-summary';
+  summary.textContent = `Everyday-assistant results · gains: ${r.gains.length} · regressions: ${r.regressions.length}.` +
+    (status === 'on-trial' ? ` Suggested: ${r.suggestion === 'keep' ? 'keep it' : 'restore the original'} — your decision.` : '');
+  const caveat = document.createElement('p');
+  caveat.className = 'assistant-trial-note';
+  caveat.textContent = r.uncertainty;
+  const details = document.createElement('details');
+  const sum = document.createElement('summary'); sum.textContent = 'Every question, before and after';
+  details.append(sum);
+  for (const row of r.rows) {
+    const block = document.createElement('div'); block.className = 'trial-row';
+    const head = document.createElement('p'); head.className = 'trial-row-head';
+    const task = assistantTrial.tasks.find(task => task.id === row.id);
+    head.textContent = `${task?.question || task?.message || trialKinds[row.kind] || row.kind} · ${row.id}` +
+      (row.regressed.length ? ` · regressed: ${row.regressed.map(c => trialChecks[c] || c).join(', ')}` :
+       row.gained.length ? ` · gained: ${row.gained.map(c => trialChecks[c] || c).join(', ')}` : '');
+    block.append(head);
+    for (const side of ['before', 'after']) {
+      const s = row[side];
+      const line = document.createElement('p'); line.className = 'trial-row-side';
+      const marks = Object.entries(s.checks).map(([c, ok]) => `${ok ? '✓' : '✗'} ${trialChecks[c] || c}`).join(' · ');
+      const timing = Number.isFinite(s.elapsed_seconds) ? ` · ${s.elapsed_seconds}s` : '';
+      line.textContent = `${side === 'before' ? 'Before' : 'After'}${timing} (${marks}): ${s.reply || '(no reply)'}`;
+      block.append(line);
+    }
+    details.append(block);
+  }
+  box.append(rows, summary, caveat, details);
+}
+
+async function trialAction(path) {
+  if (trialActionPending) return;
+  trialActionPending = true;
+  trialRequestEpoch++;
+  renderAssistantTrial();
+  const note = document.getElementById('assistant-trial-note');
+  let failure = null;
+  try {
+    const res = await fetch('/api/assistant-trial/' + path, {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'});
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'That action is unavailable right now');
+    assistantTrial = body;
+    renderAssistantTrial();
+  } catch (err) {
+    failure = err.message;
+  } finally {
+    trialActionPending = false;
+    trialRequestEpoch++;
+    renderAssistantTrial();
+    if (failure) note.textContent = failure;
+  }
+}
+
+document.getElementById('assistant-trial-review').addEventListener('click', () => {
+  const value = assistantTrial;
+  if (!value?.change) return;
+  document.getElementById('assistant-trial-instruction').textContent = value.change.text;
+  document.getElementById('assistant-trial-unchanged').replaceChildren(...value.change.unchanged.map(text => {
+    const li = document.createElement('li'); li.textContent = text; return li;
+  }));
+  document.getElementById('assistant-trial-tasks').replaceChildren(...value.tasks.map(task => {
+    const li = document.createElement('li');
+    li.textContent = `${trialKinds[task.kind] || task.kind}: ${task.question || task.message}`;
+    return li;
+  }));
+  document.getElementById('assistant-trial-modal').showModal();
+});
+document.getElementById('assistant-trial-close').addEventListener('click', () => document.getElementById('assistant-trial-modal').close());
+document.getElementById('assistant-trial-approve').addEventListener('click', () => {
+  document.getElementById('assistant-trial-modal').close();
+  trialAction('start');
+});
+document.getElementById('assistant-trial-keep').addEventListener('click', () => trialAction('keep'));
+document.getElementById('assistant-trial-restore').addEventListener('click', () => trialAction('restore'));
+document.getElementById('assistant-trial-cancel').addEventListener('click', () => trialAction('cancel'));
+setInterval(refreshAssistantTrial, 3000);
+refreshAssistantTrial();
 
 const missionSamples = [
   {title: 'Expedition planner', hook: 'Help a robot crew get home before the tide rises.',

@@ -2025,3 +2025,16 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .replay-checks li.ok { color: #9de8d8; }
 .replay-checks li.no { color: #f3b3a2; }
 .replay-diagnosis { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+/* U10: the everyday-assistant trial reuses the Improve card styles. */
+.assistant-trial { margin: 24px 0 8px; padding: 22px 24px; border: 1px solid #2c4252; border-radius: 16px; background: #0f1c26; }
+.assistant-trial .mission-label { color: var(--blue); margin: 0 0 6px; }
+.assistant-trial h4 { margin: 0 0 8px; font-size: 20px; }
+.assistant-trial-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.assistant-trial-actions button { width: auto; margin: 0; }
+.assistant-trial-progress { color: var(--text); }
+.assistant-trial-note { font-size: 13px; }
+.assistant-trial-summary { margin: 8px 0 4px; color: var(--text); }
+.trial-row { padding: 8px 0; border-top: 1px solid var(--line); }
+.trial-row-head { margin: 0 0 4px; font-size: 13px; color: var(--text); }
+.trial-row-side { margin: 0 0 4px; font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .assistant-trial { padding: 18px 12px; } .assistant-trial-actions button { width: 100%; } }

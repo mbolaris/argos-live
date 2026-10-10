@@ -338,9 +338,9 @@ try {
   await page.locator('#receipt-change').click();
   const modalOpen = await page.locator('#recipe-modal').evaluate(el => el.open);
   if (!modalOpen) fail('#receipt-change did not open #recipe-modal');
-  const quoteText = await page.locator('.recipe-instruction-quote').textContent();
+  const quoteText = await page.locator('#recipe-modal .recipe-instruction-quote').textContent();
   if (!quoteText.includes('Follow the requested output format')) fail('Recipe modal missing concise instruction text');
-  const protectionText = await page.locator('.recipe-protection-notice').textContent();
+  const protectionText = await page.locator('#recipe-modal .recipe-protection-notice').textContent();
   if (!protectionText.includes('Lab test recipe only')) fail('Recipe modal missing assistant protection notice');
   console.log('[PASS] Recipe experiment modal opened with concise instruction preview and assistant protection notice');
 

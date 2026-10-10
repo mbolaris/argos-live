@@ -28,7 +28,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -39,6 +39,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.lab = lab
         self.downloads = downloads
         self.selection = selection
+        self.assistant_trial = assistant_trial
         self.storage = storage
         self.command = command
         self.status_provider = status_provider
@@ -115,6 +116,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
+        if path == '/api/assistant-trial':
+            self.reply(200, self.server.assistant_trial.snapshot() if self.server.assistant_trial else {'available': False}, head=head)
+            return
         if path == '/api/models/selection':
             self.reply(200, self.server.selection.snapshot() if self.server.selection else {'available': False}, head=head)
         elif path == '/api/models/control':
@@ -323,6 +327,21 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, self.server.storage.reboot_check())
             except (ValueError, OSError, TypeError, KeyError):
                 self.reply(409, {'error': 'Reboot check unavailable; configured storage needs attention'})
+            return
+        if self.command == 'POST' and self.server.assistant_trial and path in (
+                '/api/assistant-trial/start', '/api/assistant-trial/keep', '/api/assistant-trial/restore', '/api/assistant-trial/cancel'):
+            if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                self.reply(400, {'error': 'An empty request is required'})
+                return
+            trial = self.server.assistant_trial
+            try:
+                action = {'start': trial.start, 'keep': trial.keep, 'restore': trial.restore,
+                          'cancel': trial.cancel}[path.rsplit('/', 1)[1]]
+                self.reply(200, action())
+            except (ValueError, OSError) as exc:
+                from argoslive.assistant_trial import Refused
+                # Only fixed owner-facing reasons are shown; never private paths.
+                self.reply(409, {'error': str(exc) if isinstance(exc, Refused) else 'Assistant trial unavailable'})
             return
         if self.command == 'POST' and self.server.selection and path == '/api/models/select-cancel':
             if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):

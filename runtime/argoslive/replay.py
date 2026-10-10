@@ -105,6 +105,29 @@ def diagnose_fields(item, rule, passage):
     return {'reason': value['reason'], 'diagnosis': value.get('diagnosis'), 'checks': value.get('checks')}
 
 
+def miss_groups(run):
+    """Diagnostic groups of a saved document run's misses (wording, requirement, quote, wrong, format)."""
+    suite = run.get('document_suite') if isinstance(run, dict) else None
+    if not isinstance(run, dict) or run.get('suite') != 'documents-short' or not isinstance(suite, dict):
+        return {}
+    passages = suite.get('passages') if isinstance(suite.get('passages'), dict) else {}
+    scorer, groups = rules(run), {}
+    for item in run.get('items') or []:
+        if not isinstance(item, dict) or item.get('outcome') in ('pass', 'unscored') or item.get('category') == 'summary':
+            continue
+        value = diagnose(item, scorer.get(item.get('item_id')), passages.get(item.get('passage_id')))
+        group = (value.get('diagnosis') or {}).get('group', 'wrong')
+        if (value.get('diagnosis') or {}).get('kind') == 'quote_not_exact':
+            group = 'quote'
+        groups[group] = groups.get(group, 0) + 1
+    return groups
+
+
+def kept_meaning_only(groups):
+    """Every miss kept an accepted answer: only wording or response-requirement diagnoses."""
+    return bool(groups) and set(groups) <= {'wording', 'requirement'}
+
+
 def diagnosis_counts(items):
     counts = {}
     for item in items:

@@ -86,8 +86,11 @@ def reconnect(home, *, browser=open_browser, view=None):
 
 def serve(home, root, *, port=0, browser=open_browser, no_browser=False, controller=None, stop=None, view=None):
     from .model_selection import Controller as Selection, restore
-    from . import storage_view
+    from . import assistant_trial, storage_view
     restore(home)
+    # An unfinished assistant trial is reverted byte-exactly; one awaiting a decision stays.
+    if assistant_trial.recover(home) == 'needs-review':
+        raise ValueError('Assistant trial recovery needs review; no automatic startup')
     try:
         # Record retained reboot markers once per boot; failures stay visible as unknown.
         storage_view.record_reboot_evidence(home)
@@ -106,10 +109,11 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
     lab = LabController(controller, store=results)
     downloads = ModelController(controller, store=results)
     selection = Selection(controller, store=results)
+    trial = assistant_trial.Controller(controller, home=home)
     storage_controller = storage_view.Controller(controller, home=home)
     command = command_center.Controller(home, results, lab=lab, storage=storage_controller)
     with DashboardServer(port=port, startup=controller, lab=lab, downloads=downloads, selection=selection,
-            storage=storage_controller, command=command,
+            storage=storage_controller, command=command, assistant_trial=trial,
             benchmarks=BenchmarkView(results), models_provider=lambda: model_view.snapshot(home),
             status_provider=lambda: status_view.snapshot(home)) as server:
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)
@@ -131,6 +135,7 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
             stop.wait()
         finally:
             temporary.unlink(missing_ok=True)
+            trial.close()
             selection.close()
             downloads.close()
             lab.close()
