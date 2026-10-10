@@ -1963,6 +1963,13 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .recipe-modal .recipe-explanation { margin: 0; }
 .recipe-modal details > summary { color: var(--muted); font-size: 13px; cursor: pointer; }
 .recipe-modal details.recipe-protection-notice { padding: 0; border: 0; background: none; }
+
+/* Keep approval controls visible while longer assistant-trial details scroll. */
+#assistant-trial-modal { overflow: hidden; }
+#assistant-trial-modal .modal-card { max-height: 92vh; box-sizing: border-box; }
+#assistant-trial-modal .modal-header { flex-wrap: wrap; flex-shrink: 0; }
+#assistant-trial-modal .modal-body { min-height: 0; overflow-y: auto; }
+#assistant-trial-modal .modal-actions { position: static; flex-shrink: 0; }
 .experiment-scope { margin: 4px 0 0; font-size: 13px; color: var(--amber); }
 /* Firefox draws an unstyled progress track as a full light bar, which reads as complete at 0%. */
 #arena .watch-progress progress { appearance: none; -moz-appearance: none; border: 0; border-radius: 4px; background: #1c2d3a; }

@@ -36,12 +36,18 @@ try {
       const modal = document.querySelector('dialog[open]');
       if (modal) {
         const badge = document.createElement('div'); badge.className = 'fixture-modal-label';
-        badge.style.cssText = 'background:#453329;color:#ffe2b0;text-align:center;font:11px system-ui;padding:4px';
+        badge.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#453329;color:#ffe2b0;text-align:center;font:11px system-ui;padding:4px';
         badge.textContent = 'SIMULATED'; modal.prepend(badge);
       }
     });
     for (const [suffix, width, height] of [['desktop', 1280, 900], ['phone', 390, 844]]) {
       await page.setViewportSize({width, height});
+      if (await page.locator('#assistant-trial-modal').isVisible()) {
+        for (const id of ['assistant-trial-approve', 'assistant-trial-close']) {
+          const box = await page.locator(`#${id}`).boundingBox();
+          assert.ok(box && box.y >= 0 && box.y + box.height <= height, 'Approval controls fit without scrolling');
+        }
+      }
       await page.evaluate(() => { const el = document.getElementById('assistant-trial'); scrollTo(0, el.getBoundingClientRect().top + scrollY - 12); });
       await page.screenshot({path: `output/playwright/assistant-trial/${name}-${suffix}.png`});
     }
