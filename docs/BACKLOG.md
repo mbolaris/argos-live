@@ -1022,23 +1022,30 @@ separate; no backend budgets or permission boundaries were changed.
 
 Redesigned the experience around one playable loop: Challenge → Watch → Understand the result → Try one recommended improvement → Retest → Keep or restore. Resolved usability confusion observed on physical Toronado USB hardware without altering fixed scorers, test thresholds, backend permissions, or data assets.
 - **Home as Mission Screen:**
-  - Hero card `#cc-next` displays AI build identity (`AI: your AI`, `Model: Current model`), last tested result, concrete challenge preview (8 passages · 24 challenges · Reading & Comprehension baseline), and one dominant Start button `#cc-next-go` ("Start: Read this brief") positioned well above the fold on mobile (y=627.4 at 390×844) and desktop.
-  - Added single curriculum progression map `#curriculum-map` (K–12 Foundation Progression: 01 Short Document Comprehension active mission, 02 Fact Extraction & Quote Fidelity next, 03 Multi-Paragraph Synthesis, 04 Rule & Constraint Following, 05 Step-by-Step Reasoning, and 06 Tool & Function Calling specialization gateway).
+  - Hero card `#cc-next` displays AI build identity (`AI: your AI`, `Model: Current model`), last tested result, concrete challenge preview (8 passages · 24 challenges · Reading & Comprehension baseline), and one dominant Start button `#cc-next-go` ("Start: Read this brief") positioned well above the fold on mobile (y=530.3 at 390×844) and desktop. Redundant subtitle and duplicate pause notice eliminated to prevent repeating introductory text.
+  - Added single curriculum progression map `#curriculum-map` (K–12 Foundation Progression: 01 Short Document Comprehension active mission, 02 Fact Extraction & Quote Fidelity next, 03 Multi-Paragraph Synthesis, 04 Rule & Constraint Following, 05 Step-by-Step Reasoning, and 06 Tool & Function Calling specialization gateway). Future stages clearly delineated from active evidence.
   - Competing ladders and hardware blueprint `#cc-schematic` moved into secondary details container to keep the primary path uncluttered while preserving DOM nodes for automated test harnesses.
 - **Enjoyable Watch & Understandable Result:**
-  - Full-width observable live streaming answer (`#arena-current-stream`), prompt box, and HUD in `#arena`.
-  - Debrief leads with Representative Replay (`#receipt-replay`): spotlights primary miss with weakness diagnosis (contract preamble vs quote attribution) and representative pass before numerical metrics.
-  - Plain-language weakness summary (`#cc-takeaway`), bounded local model opinion (`#cc-debrief` with prominent disclaimer tag), and one supported recommended experiment action (`#receipt-change`). Detailed scoreboard and skill bars preserved in details.
+  - Arena layout prioritizes the active challenge question (`#arena-current-question`) and observable streamed response (`#arena-current-stream`) at the top of `#arena-live-card`. Multi-paragraph passage and schema collapsed under `<details id="arena-source-details"><summary>Read source</summary>`, with `#arena-current-prompt` preserved internally for test harnesses.
+  - Debrief leads with plain-language outcome explanation (`#cc-takeaway`), immediate action controls (`#receipt-actions`), numerical scoreboard, and qualification criteria checklist before representative replay details (`#receipt-replay`).
+  - Weakness diagnosis spotlights failure rationale and representative pass; bounded local model debrief opinion (`#cc-debrief`) prominently tagged with disclaimer.
 - **Storage Selection & Acquisition Fix (Toronado Root Cause):**
   - Converted `<dialog id="download-review">`, `<dialog id="storage-review">`, and `<dialog id="selection-review">` to `.modal-fixed-layout` with `.modal-sticky-header`, `.modal-scroll-body`, and `.modal-sticky-footer`. Prevents dialog heading and confirm/exit buttons from scrolling off-screen when multiple candidate locations exist.
-  - Grouped candidates into **Recommended Persistent Drive** (with volume label, free space, reboot retention, encryption status, and write-check button) and grouped temporary RAM alternatives secondarily (`.temporary-ram-box`) with explicit session-only warning.
-  - Added clear policy guardrails explaining excluded destinations: USB persistence reserved for AI profile/conversations to prevent storage exhaustion; folders with existing data blocked to enforce dedicated stores; and read-only host OS protection.
+  - Recommended destination cards feature a compact action strip (`.dest-compact-strip`) grouping concise drive name, free/needed space, and selection button together above the fold on phone viewports.
+  - Technical mountpoint paths collapsed under `<details class="dest-details-collapse"><summary>Drive path & details</summary>`.
+  - Excluded storage policy guardrails collapsed under `<details class="storage-policy-collapse"><summary>Excluded destinations & policy guardrails</summary>`, clearly explaining USB persistence reservation for AI profiles and existing data protection without unsupported read-only claims.
+  - Recommended destination filtered strictly for selectable candidate drives (`!contains_data && (current || can_change)`). Temporary RAM alternatives grouped secondarily with explicit session-only warning.
   - Strictly respected Content Security Policy (`style-src 'self'`) with CSS classes and zero inline style attributes.
 - **Verification:**
-  - Visual prototype and 10 screenshots captured and personally inspected across desktop (1280×900) and mobile (390×844), with zero horizontal overflow down to 320px.
-  - `scripts/smoke-mission-first.mjs` passed 100% with added regressions for 6-rung curriculum map, secondary schematic bay, sticky modal layout, and 320px viewport layout.
+  - Complete 6-stage production journey recaptured across mobile phone (390×844) and desktop (1200×900) via `scripts/capture-production-journey.mjs`, verified visually and archived in `work/production-screenshots/` and IDE artifact screenshots.
+  - `scripts/smoke-mission-first.mjs` passed 100% with all 8 regression suites:
+    - Regressions 1–4: 6-rung curriculum map, secondary schematic bay, sticky storage modal layout, 320px viewport responsiveness.
+    - Regression 5: Clean home intro without duplicated subtitles or pause notices.
+    - Regression 6: Arena hierarchy (question and streaming tokens first, passage collapsed under "Read source").
+    - Regression 7: Debrief hierarchy (compact takeaway and action controls rendered before replay details).
+    - Regression 8: Storage hierarchy (compact strip with concise drive name + space + button, selectable-only recommendation, collapsed path/policies, no unsupported read-only claims).
   - `scripts/demonstrate-journey.mjs` passed 100% (10 continuous experiment steps, auto-paired comparator, Keep/Restore actions, mobile responsive).
   - `scripts/smoke-dashboard-browser.mjs` passed 100% (CSP compliance, sticky storage modal, collapsed catalog).
   - `scripts/smoke-journey-browser.mjs` passed 100% (full journey, 320px phone responsiveness, moments).
   - `runtime/argoslive/data/documents/short.json` preserved intact without edits.
-  - Physical USB deployment, physical GPU inference, and shipped Firefox ESR acceptance remain separate.
+  - PR #74 kept open for review; no ISO built. Physical USB deployment, physical GPU inference, and shipped Firefox ESR acceptance remain separate.

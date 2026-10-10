@@ -427,6 +427,97 @@ try {
   if (overflow320) fail('Layout overflows at 320px viewport width');
   console.log('[PASS] Mobile responsiveness verified at 320px without layout overflow');
 
+  // 5. Home page hierarchy: verify redundant intros removed
+  const subTitleCount = await page.locator('.cc-subtitle').count();
+  const pauseNoticeCount = await page.locator('.cc-pause-notice').count();
+  if (subTitleCount !== 0) fail('Expected .cc-subtitle to be removed to eliminate duplicate home intro');
+  if (pauseNoticeCount !== 0) fail('Expected .cc-pause-notice to be removed to eliminate duplicate pause notice');
+  console.log('[PASS] Repeated home-page introductions verified removed');
+
+  // 6. Arena hierarchy: question and live answer first, passage & schema collapsed under "Read source"
+  const questionEl = page.locator('#arena-current-question');
+  if (await questionEl.count() !== 1) fail('Expected #arena-current-question in DOM');
+  const arenaHierarchyValid = await page.evaluate(() => {
+    const q = document.getElementById('arena-current-question');
+    const s = document.getElementById('arena-current-stream');
+    const src = document.getElementById('arena-source-details');
+    const prompt = document.getElementById('arena-current-prompt');
+    if (!q || !s || !src || !prompt) return false;
+    const qBeforeS = (q.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const sBeforeSrc = (s.compareDocumentPosition(src) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const srcContainsPrompt = src.contains(prompt);
+    const srcCollapsed = src.open === false;
+    return qBeforeS && sBeforeSrc && srcContainsPrompt && srcCollapsed;
+  });
+  if (!arenaHierarchyValid) fail('Arena hierarchy invalid: question and live answer must be first, with source collapsed');
+  const sourceSummaryText = await page.locator('#arena-source-details summary').textContent();
+  if (!sourceSummaryText.includes('Read source')) fail(`Expected 'Read source' summary, got: "${sourceSummaryText}"`);
+  console.log('[PASS] Arena hierarchy verified: question and stream first, passage collapsed under Read source');
+
+  // 7. Debrief hierarchy: compact takeaway and action buttons appear before #receipt-replay
+  const debriefHierarchyValid = await page.evaluate(() => {
+    const takeaway = document.getElementById('cc-takeaway');
+    const actions = document.getElementById('receipt-actions');
+    const replay = document.getElementById('receipt-replay');
+    if (!takeaway || !actions || !replay) return false;
+    const takeawayBeforeReplay = (takeaway.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const actionsBeforeReplay = (actions.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    return takeawayBeforeReplay && actionsBeforeReplay;
+  });
+  if (!debriefHierarchyValid) fail('Debrief hierarchy invalid: takeaway and action buttons must appear before replay details');
+  console.log('[PASS] Debrief hierarchy verified: compact result explanation and actions before replay details');
+
+  // 8. Storage hierarchy & policy: compact action strip, collapsed paths & policies, selectable-only recommendation, no unsupported read-only claims
+  await page.evaluate(async () => {
+    window.resetStorageForReview();
+    const tag = 'qwen2.5:1.5b-instruct-q4_K_M';
+    await window.reviewDownload({ tag }, tag);
+  });
+  await page.waitForFunction(() => document.getElementById('download-review')?.open);
+
+  const storageHierarchyValid = await page.evaluate(() => {
+    const modal = document.getElementById('download-review');
+    const recCard = modal.querySelector('.destination-card.recommended');
+    if (!recCard) return { valid: false, reason: 'No recommended destination card found' };
+
+    // Compact strip with drive name, space, and button together
+    const strip = recCard.querySelector('.dest-compact-strip');
+    if (!strip) return { valid: false, reason: 'Missing .dest-compact-strip in recommended card' };
+
+    const nameTitle = strip.querySelector('.dest-name-title');
+    const spaceRow = strip.querySelector('.dest-space-row');
+    const btn = strip.querySelector('.dest-select-btn');
+    if (!nameTitle || !spaceRow || !btn) return { valid: false, reason: 'Compact strip missing name, space, or button' };
+
+    // Drive name should be concise (not a raw path)
+    if (nameTitle.textContent.includes('/') || nameTitle.textContent.includes('\\')) {
+      return { valid: false, reason: `Drive name contains raw path characters: ${nameTitle.textContent}` };
+    }
+
+    // Recommended destination must be selectable
+    if (btn.disabled) return { valid: false, reason: 'Recommended destination button is disabled' };
+
+    // Path must be collapsed
+    const pathDetails = recCard.querySelector('.dest-details-collapse');
+    if (!pathDetails || pathDetails.open) return { valid: false, reason: 'Drive path details not collapsed' };
+
+    // Policy guardrails must be collapsed
+    const policyDetails = modal.querySelector('.storage-policy-collapse');
+    if (!policyDetails || policyDetails.open) return { valid: false, reason: 'Policy guardrails not collapsed' };
+
+    // No unsupported read-only claims
+    if (modal.textContent.includes('mounted read-only')) {
+      return { valid: false, reason: 'Unsupported read-only claim found in modal text' };
+    }
+
+    return { valid: true };
+  });
+
+  if (!storageHierarchyValid.valid) {
+    fail(`Storage hierarchy regression failed: ${storageHierarchyValid.reason}`);
+  }
+  console.log('[PASS] Storage hierarchy verified: compact strip, collapsed path/policies, selectable-only, no read-only claims');
+
   console.log('All Mission First, Playable Loop, and Storage Acquisition checks passed successfully!');
 } finally {
   if (browser) await browser.close();
