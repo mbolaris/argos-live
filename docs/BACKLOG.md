@@ -1064,7 +1064,7 @@ Following physical feedback that U7 still feels dense, replace simultaneous dash
 
 Acceptance: `scripts/smoke-mission-focus.mjs` exercises first mission, live answer, completed result, setup navigation, unique control IDs and 320/390/1280px bounds. It writes clearly labeled simulated previews to `output/playwright/mission-focus/` (ignored). Existing mission, dashboard and journey regressions remain required. Production-JS answer presentation regressions run in Tests. Real-model/shipped Firefox and physical Toronado acceptance remain separate from fixture Chromium; this change does not build or write a USB image.
 
-### U9 Improve: one evidence-based experiment, approved, retested and decided — `review`
+### U9 Improve: one evidence-based experiment, approved, retested and decided — `completed` (PR #77; live on Toronado 2026-10-10)
 
 Following review of U8, the Improve step became the end of the loop instead of a menu. On `feat/improve-focus`:
 
@@ -1076,7 +1076,11 @@ Following review of U8, the Improve step became the end of the loop instead of a
 
 Acceptance: `scripts/smoke-mission-focus.mjs` drives mission → watch → result → review (no start) → approve (one start) → matched retest → before/after → Keep → Restore with API verification, and writes labeled simulated previews to `output/playwright/mission-focus/`. Existing journey, mission, dashboard and arena regressions updated for the new labels. Real-model debrief quality, shipped Firefox and Toronado acceptance remain separate.
 
-### U10 Carry a kept lab instruction to the everyday assistant — `todo`
+### U9a Toronado Firefox acceptance of PR77 — `completed`
+
+Installed b8e09ce's four changed runtime files over the exact PR75 runtime (all 62 installed files matched ac850bb first) with per-file before/after SHA-256, root-only rollback copies and idle/identity gates; settings hash and results list unchanged across the graceful restart. Verified in the shipped Firefox ESR with the real qwen3:4b model: Improve showed the saved real experiment (strict format 20→19 of 24, Restore suggested) with lab-only wording; reviewing and "Not now" started nothing; an approved retest started exactly one run, paired the new run with the newest standard baseline, and produced a real local-model opinion labeled as such; Keep set the lab recipe to concise and Restore returned it to standard, both confirmed by the API; Watch showed the real passage beside its question and 32/24/8 counts; model switch review and storage views worked. Firefox-only findings fixed in a follow-up: the previous run's passage stayed visible during the next speed check, the unstyled progress track looked full at 0%, and the model rollback bar said "Current model" instead of the name. Not yet shown on real hardware: a quote highlight mid-stream (real answers stream in under a second), phone layout, and reboot persistence of the patch.
+
+### U10 Carry a kept lab instruction to the everyday assistant — `todo` (next functional milestone)
 
 U9 keeps a winning instruction for lab tests only. The everyday assistant (OpenClaw chat) does not use it, so a kept lab experiment is not evidence that the assistant improved, and the UI says so. Close this gap deliberately:
 

@@ -147,6 +147,11 @@ try {
     await page.setViewportSize({width,height:844});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`No overflow at ${width}`);
   }
+  // A new run's speed check never shows the previous run's passage (seen in shipped Firefox).
+  assert.ok(await page.locator('#arena-current-passage').evaluate(el=>el.dataset.text.length>0),'Passage from the finished run is present');
+  assert.equal(await page.evaluate(()=>{renderArenaState({total:0},true,'speed','fixture:latest',0);
+    return document.getElementById('arena-source-details').hidden && !document.getElementById('arena-current-passage').dataset.text;}),true,
+    'Speed check hides the previous passage');
   const finalIds=await page.locator('[id]').evaluateAll(nodes=>nodes.map(n=>n.id));
   assert.equal(new Set(finalIds).size,finalIds.length,'Unique control IDs after the experiment');
   assert.deepEqual(errors,[]);
