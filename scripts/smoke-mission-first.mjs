@@ -434,7 +434,7 @@ try {
   if (pauseNoticeCount !== 0) fail('Expected .cc-pause-notice to be removed to eliminate duplicate pause notice');
   console.log('[PASS] Repeated home-page introductions verified removed');
 
-  // 6. Arena hierarchy: question and live answer first, passage & schema collapsed under "Read source"
+  // 6. Arena hierarchy & Watch HUD compact layout: question/stream first, source collapsed, no vertical gap blowout
   const questionEl = page.locator('#arena-current-question');
   if (await questionEl.count() !== 1) fail('Expected #arena-current-question in DOM');
   const arenaHierarchyValid = await page.evaluate(() => {
@@ -442,32 +442,100 @@ try {
     const s = document.getElementById('arena-current-stream');
     const src = document.getElementById('arena-source-details');
     const prompt = document.getElementById('arena-current-prompt');
-    if (!q || !s || !src || !prompt) return false;
+    const hud = document.querySelector('.arena-hud');
+    const progress = document.querySelector('.arena-hud-progress');
+    const deck = document.getElementById('arena');
+    if (!q || !s || !src || !prompt || !hud || !progress || !deck) return false;
     const qBeforeS = (q.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     const sBeforeSrc = (s.compareDocumentPosition(src) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     const srcContainsPrompt = src.contains(prompt);
     const srcCollapsed = src.open === false;
-    return qBeforeS && sBeforeSrc && srcContainsPrompt && srcCollapsed;
+
+    // Computed layout checks: HUD and progress must be compact (no 200px/395px blowout)
+    const hudHeight = hud.getBoundingClientRect().height;
+    const progHeight = progress.getBoundingClientRect().height;
+    const deckPaddingTop = parseFloat(window.getComputedStyle(deck).paddingTop);
+    const compactHud = hudHeight <= 180 && progHeight <= 60 && deckPaddingTop <= 16;
+
+    return qBeforeS && sBeforeSrc && srcContainsPrompt && srcCollapsed && compactHud;
   });
-  if (!arenaHierarchyValid) fail('Arena hierarchy invalid: question and live answer must be first, with source collapsed');
+  if (!arenaHierarchyValid) fail('Arena hierarchy or computed HUD layout invalid: check question/stream order and computed gaps');
   const sourceSummaryText = await page.locator('#arena-source-details summary').textContent();
   if (!sourceSummaryText.includes('Read source')) fail(`Expected 'Read source' summary, got: "${sourceSummaryText}"`);
-  console.log('[PASS] Arena hierarchy verified: question and stream first, passage collapsed under Read source');
+  console.log('[PASS] Arena hierarchy & compact Watch HUD verified: question/stream first, source collapsed, compact HUD height <= 180px');
 
-  // 7. Debrief hierarchy: compact takeaway and action buttons appear before #receipt-replay
+  // 7. Debrief hierarchy: "Use this build" as sole primary action when qualified, secondary options & metrics collapsed under Details
+  await page.route('**/api/command-center', route => {
+    const data = {
+      available: true,
+      name: 'Argos',
+      model: 'fixture:latest',
+      report: {
+        speed: { tokens_per_second: 20.0, prompt_tokens_per_second: 100.0, first_token_seconds: 0.2 },
+        ability: { correct: 8, total: 8, qualified: true, suite: 'documents-short' },
+      },
+      next_action: { title: 'Use this build', action: 'task' },
+      systems: [],
+      journal: []
+    };
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+  });
+  await page.evaluate(async () => { await refreshCommand(); });
+
   const debriefHierarchyValid = await page.evaluate(() => {
     const takeaway = document.getElementById('cc-takeaway');
     const actions = document.getElementById('receipt-actions');
     const replay = document.getElementById('receipt-replay');
-    if (!takeaway || !actions || !replay) return false;
+    const useBtn = document.getElementById('receipt-use');
+    const changeBtn = document.getElementById('receipt-change');
+    const secOptions = document.getElementById('receipt-secondary-options');
+    const metricsDetails = document.getElementById('receipt-metrics-details');
+    const scoreboard = document.getElementById('cc-scoreboard');
+    const criteriaBox = document.getElementById('receipt-criteria-box');
+
+    if (!takeaway || !actions || !replay || !useBtn || !secOptions || !metricsDetails) {
+      return { valid: false, reason: 'Missing essential debrief elements' };
+    }
+
     const takeawayBeforeReplay = (takeaway.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     const actionsBeforeReplay = (actions.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    return takeawayBeforeReplay && actionsBeforeReplay;
-  });
-  if (!debriefHierarchyValid) fail('Debrief hierarchy invalid: takeaway and action buttons must appear before replay details');
-  console.log('[PASS] Debrief hierarchy verified: compact result explanation and actions before replay details');
+    if (!takeawayBeforeReplay || !actionsBeforeReplay) {
+      return { valid: false, reason: 'Takeaway or actions do not precede replay details' };
+    }
 
-  // 8. Storage hierarchy & policy: compact action strip, collapsed paths & policies, selectable-only recommendation, no unsupported read-only claims
+    // Verify "Use this build" is the sole visible primary action in #receipt-actions
+    const isVisible = el => !el.hidden && (el.checkVisibility ? el.checkVisibility() : true);
+    const visiblePrimaryButtons = Array.from(actions.querySelectorAll('.mission-primary')).filter(isVisible);
+    if (visiblePrimaryButtons.length !== 1 || !visiblePrimaryButtons[0].textContent.includes('Use this build')) {
+      return { valid: false, reason: `Expected 1 primary button ('Use this build'), found ${visiblePrimaryButtons.length}` };
+    }
+
+    // Verify secondary options collapsed under Details
+    if (secOptions.open !== false) {
+      return { valid: false, reason: 'Expected #receipt-secondary-options to be collapsed when qualified' };
+    }
+    if (!secOptions.contains(changeBtn)) {
+      return { valid: false, reason: 'Expected #receipt-change to be inside #receipt-secondary-options' };
+    }
+
+    // Verify metrics and criteria collapsed under Details
+    if (metricsDetails.open !== false) {
+      return { valid: false, reason: 'Expected #receipt-metrics-details to be collapsed when qualified' };
+    }
+    if (!metricsDetails.contains(scoreboard) || !metricsDetails.contains(criteriaBox)) {
+      return { valid: false, reason: 'Expected scoreboard and criteria checklist inside #receipt-metrics-details' };
+    }
+
+    return { valid: true };
+  });
+
+  if (!debriefHierarchyValid.valid) {
+    fail(`Debrief hierarchy regression failed: ${debriefHierarchyValid.reason}`);
+  }
+  await page.unroute('**/api/command-center');
+  console.log('[PASS] Debrief hierarchy verified: "Use this build" sole primary action, secondary options and metrics collapsed under Details');
+
+  // 8. Storage hierarchy, compact strip & computed layout: compact strip (<150px), compact card (<300px), compact padding, collapsed path/policies, no read-only claims
   await page.evaluate(async () => {
     window.resetStorageForReview();
     const tag = 'qwen2.5:1.5b-instruct-q4_K_M';
@@ -510,13 +578,22 @@ try {
       return { valid: false, reason: 'Unsupported read-only claim found in modal text' };
     }
 
+    // Computed layout checks: strip < 150px, card < 300px, modal header/body padding <= 16px
+    const stripHeight = strip.getBoundingClientRect().height;
+    const cardHeight = recCard.getBoundingClientRect().height;
+    const headerPadTop = parseFloat(window.getComputedStyle(modal.querySelector('.modal-sticky-header')).paddingTop);
+    const bodyPadTop = parseFloat(window.getComputedStyle(modal.querySelector('.modal-scroll-body')).paddingTop);
+    if (stripHeight > 150) return { valid: false, reason: `Strip height excessive: ${stripHeight}px > 150px` };
+    if (cardHeight > 300) return { valid: false, reason: `Card height excessive: ${cardHeight}px > 300px` };
+    if (headerPadTop > 16 || bodyPadTop > 16) return { valid: false, reason: `Modal padding excessive: header=${headerPadTop}px, body=${bodyPadTop}px` };
+
     return { valid: true };
   });
 
   if (!storageHierarchyValid.valid) {
     fail(`Storage hierarchy regression failed: ${storageHierarchyValid.reason}`);
   }
-  console.log('[PASS] Storage hierarchy verified: compact strip, collapsed path/policies, selectable-only, no read-only claims');
+  console.log('[PASS] Storage hierarchy & computed layout verified: compact strip <= 150px, card <= 300px, collapsed path/policies, no read-only claims');
 
   console.log('All Mission First, Playable Loop, and Storage Acquisition checks passed successfully!');
 } finally {

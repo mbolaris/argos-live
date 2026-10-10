@@ -132,9 +132,14 @@
             <p id="cc-takeaway"></p>
             <div id="receipt-actions" class="receipt-actions" hidden>
               <button id="receipt-use" type="button" class="mission-primary" hidden>Use this build in Mission Brief ↓</button>
-              <button id="receipt-change" type="button" class="mission-primary">Try one change: concise instructions</button>
-              <button id="receipt-practice" type="button" class="mission-secondary">Retest unchanged</button>
-              <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
+              <details id="receipt-secondary-options" class="receipt-secondary-details">
+                <summary class="receipt-secondary-summary">More options (Experiments &amp; retesting)</summary>
+                <div class="receipt-secondary-body">
+                  <button id="receipt-change" type="button" class="mission-secondary">Try one change: concise instructions</button>
+                  <button id="receipt-practice" type="button" class="mission-secondary">Retest unchanged</button>
+                  <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
+                </div>
+              </details>
             </div>
             <div id="receipt-recipe-bar" class="receipt-recipe-bar" hidden>
               <span>Tested with recipe: <strong id="receipt-tested-recipe"></strong></span>
@@ -147,11 +152,16 @@
               <button id="receipt-restore-model" type="button" class="btn-text-action">Restore previous model</button>
               <button id="receipt-keep-model" type="button" class="btn-text-action">Keep this model</button>
             </div>
-            <div id="cc-scoreboard" class="scoreboard"></div>
-            <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
-              <p class="replay-label">Qualification criteria checklist</p>
-              <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
-            </div>
+            <details id="receipt-metrics-details" class="receipt-metrics-details">
+              <summary class="receipt-metrics-summary">Metrics &amp; criteria (Details)</summary>
+              <div class="receipt-metrics-body">
+                <div id="cc-scoreboard" class="scoreboard"></div>
+                <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
+                  <p class="replay-label">Qualification criteria checklist</p>
+                  <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
+                </div>
+              </div>
+            </details>
             <div id="receipt-replay" class="receipt-replay" hidden>
               <p class="replay-label">Representative challenge replay</p>
               <div id="receipt-replay-list" class="replay-list"></div>

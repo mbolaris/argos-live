@@ -3112,21 +3112,50 @@ function renderMissionReceipt(report) {
   const actBox = document.getElementById('receipt-actions');
   actBox.hidden = !ability;
   const useBtn = document.getElementById('receipt-use');
-  if (useBtn) {
-    if (ability && ability.qualified === true) {
+  const secOptions = document.getElementById('receipt-secondary-options');
+  const metricsDetails = document.getElementById('receipt-metrics-details');
+  const pracBtn = document.getElementById('receipt-practice');
+  const upgBtn = document.getElementById('receipt-upgrade');
+  const changeBtn = document.getElementById('receipt-change');
+
+  const isQualified = ability && ability.qualified === true;
+
+  if (isQualified) {
+    if (useBtn) {
       useBtn.hidden = false;
+      useBtn.className = 'mission-primary';
       useBtn.onclick = () => {
         const box = document.getElementById('cc-task-box');
         if (box) box.open = true;
         focusSection('cc-task-box', 'cc-question');
       };
-    } else {
+    }
+    if (changeBtn) {
+      changeBtn.className = 'mission-secondary';
+    }
+    if (secOptions) {
+      secOptions.hidden = false;
+      secOptions.open = false;
+    }
+    if (metricsDetails) {
+      metricsDetails.open = false;
+    }
+  } else {
+    if (useBtn) {
       useBtn.hidden = true;
     }
+    if (changeBtn) {
+      changeBtn.className = 'mission-primary';
+    }
+    if (secOptions) {
+      secOptions.hidden = false;
+      secOptions.open = true;
+    }
+    if (metricsDetails) {
+      metricsDetails.open = false;
+    }
   }
-  const pracBtn = document.getElementById('receipt-practice');
-  const upgBtn = document.getElementById('receipt-upgrade');
-  const changeBtn = document.getElementById('receipt-change');
+
   pracBtn.textContent = 'Retest unchanged';
   pracBtn.onclick = () => {
     if (ability.suite === 'documents-short') commandActions.documents();

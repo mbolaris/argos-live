@@ -142,13 +142,14 @@ try {
   await page.screenshot({path: 'work/journey-2-watch.png'});
   console.log('PASS [Step 2: Watch]: Captured work/journey-2-watch.png');
 
-  // Wait for baseline document trial to complete and baseline run ID to be retained
+  // Wait for baseline document trial to complete and debrief actions to be rendered
   await page.waitForFunction(() => {
     const badge = document.getElementById('arena-phase-badge');
     const status = document.getElementById('lab-status');
     const baselineSaved = (badge && badge.textContent.includes('COMPLETED')) || (status && status.textContent.includes('Document trial saved'));
     const idRetained = sessionStorage.getItem('argos_baseline_doc_run_id') !== null;
-    return baselineSaved && idRetained;
+    const act = document.getElementById('receipt-actions');
+    return baselineSaved && idRetained && act && !act.hidden;
   }, null, {timeout: 90000});
 
   const retainedBaselineId = await page.evaluate(() => sessionStorage.getItem('argos_baseline_doc_run_id'));
@@ -159,6 +160,10 @@ try {
   // STEP 3: OPEN RECIPE MODAL & VERIFY PERSONALITY PROTECTION
   // =========================================================================
   console.log('--- Step 3: Open recipe experiment modal ---');
+  await page.evaluate(() => {
+    const sec = document.getElementById('receipt-secondary-options');
+    if (sec) sec.open = true;
+  });
   const changeBtn = page.locator('#receipt-change');
   await changeBtn.waitFor({state: 'visible'});
   await changeBtn.click();

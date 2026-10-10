@@ -1027,11 +1027,12 @@ Redesigned the experience around one playable loop: Challenge → Watch → Unde
   - Competing ladders and hardware blueprint `#cc-schematic` moved into secondary details container to keep the primary path uncluttered while preserving DOM nodes for automated test harnesses.
 - **Enjoyable Watch & Understandable Result:**
   - Arena layout prioritizes the active challenge question (`#arena-current-question`) and observable streamed response (`#arena-current-stream`) at the top of `#arena-live-card`. Multi-paragraph passage and schema collapsed under `<details id="arena-source-details"><summary>Read source</summary>`, with `#arena-current-prompt` preserved internally for test harnesses.
-  - Debrief leads with plain-language outcome explanation (`#cc-takeaway`), immediate action controls (`#receipt-actions`), numerical scoreboard, and qualification criteria checklist before representative replay details (`#receipt-replay`).
+  - Eliminated excessive vertical gaps in Watch HUD: replaced `flex: 1 1 200px` on `.arena-hud-progress` with `flex: 0 0 auto; width: 100%`, grouped Phase, Model, and Recipe into a compact top row, reduced padding/gaps, reducing computed HUD height from 395px down to 122px (total `.arena-deck` down from 882px to 490px–547px on phone viewports).
+  - Debrief leads with plain-language outcome explanation (`#cc-takeaway`). When qualification passes, `#receipt-use` ("Use this build in Mission Brief ↓") is rendered as the sole visible primary debrief action (`.mission-primary`). Experiments and retesting (`#receipt-change`, `#receipt-practice`, `#receipt-upgrade`) are collapsed under `<details id="receipt-secondary-options"><summary>More options (Experiments & retesting)</summary>`. Scoreboard metrics and qualification criteria checklist are collapsed under `<details id="receipt-metrics-details"><summary>Metrics & criteria (Details)</summary>`, allowing representative replay (`#receipt-replay`) to be immediately visible below.
   - Weakness diagnosis spotlights failure rationale and representative pass; bounded local model debrief opinion (`#cc-debrief`) prominently tagged with disclaimer.
 - **Storage Selection & Acquisition Fix (Toronado Root Cause):**
   - Converted `<dialog id="download-review">`, `<dialog id="storage-review">`, and `<dialog id="selection-review">` to `.modal-fixed-layout` with `.modal-sticky-header`, `.modal-scroll-body`, and `.modal-sticky-footer`. Prevents dialog heading and confirm/exit buttons from scrolling off-screen when multiple candidate locations exist.
-  - Recommended destination cards feature a compact action strip (`.dest-compact-strip`) grouping concise drive name, free/needed space, and selection button together above the fold on phone viewports.
+  - Eliminated excessive vertical gap in storage card: replaced `flex: 1 1 200px` on `.dest-compact-info` with `flex: 0 0 auto; width: 100%`, reducing `.dest-compact-strip` height from 252px down to 113px and recommended card height from 401px down to 240px. Concise drive name, free/needed space, and selection button are grouped together tightly.
   - Technical mountpoint paths collapsed under `<details class="dest-details-collapse"><summary>Drive path & details</summary>`.
   - Excluded storage policy guardrails collapsed under `<details class="storage-policy-collapse"><summary>Excluded destinations & policy guardrails</summary>`, clearly explaining USB persistence reservation for AI profiles and existing data protection without unsupported read-only claims.
   - Recommended destination filtered strictly for selectable candidate drives (`!contains_data && (current || can_change)`). Temporary RAM alternatives grouped secondarily with explicit session-only warning.
@@ -1041,9 +1042,9 @@ Redesigned the experience around one playable loop: Challenge → Watch → Unde
   - `scripts/smoke-mission-first.mjs` passed 100% with all 8 regression suites:
     - Regressions 1–4: 6-rung curriculum map, secondary schematic bay, sticky storage modal layout, 320px viewport responsiveness.
     - Regression 5: Clean home intro without duplicated subtitles or pause notices.
-    - Regression 6: Arena hierarchy (question and streaming tokens first, passage collapsed under "Read source").
-    - Regression 7: Debrief hierarchy (compact takeaway and action controls rendered before replay details).
-    - Regression 8: Storage hierarchy (compact strip with concise drive name + space + button, selectable-only recommendation, collapsed path/policies, no unsupported read-only claims).
+    - Regression 6: Arena hierarchy & computed HUD layout (question and streaming tokens first, passage collapsed under "Read source", computed HUD height <= 180px, progress height <= 60px, deck padding <= 16px).
+    - Regression 7: Debrief hierarchy & qualified action state ("Use this build" sole visible primary action, secondary options collapsed under Details, metrics/criteria checklist collapsed under Details).
+    - Regression 8: Storage hierarchy & computed card layout (compact strip <= 150px, card <= 300px, modal padding <= 16px, selectable-only recommendation, collapsed path/policies, no unsupported read-only claims).
   - `scripts/demonstrate-journey.mjs` passed 100% (10 continuous experiment steps, auto-paired comparator, Keep/Restore actions, mobile responsive).
   - `scripts/smoke-dashboard-browser.mjs` passed 100% (CSP compliance, sticky storage modal, collapsed catalog).
   - `scripts/smoke-journey-browser.mjs` passed 100% (full journey, 320px phone responsiveness, moments).

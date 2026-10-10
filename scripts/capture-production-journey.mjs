@@ -97,11 +97,18 @@ async function captureViewport(vp, browser) {
         stream.textContent !== 'Generating response…';
     }, null, { timeout: 30000 });
 
+    await attachBanner();
     await page.evaluate(() => {
       const arena = document.getElementById('arena');
-      if (arena) arena.scrollIntoView({ behavior: 'instant', block: 'start' });
+      const banner = document.getElementById('fixture-watermark-banner');
+      const labNav = document.querySelector('.lab-nav');
+      const bannerHeight = banner ? banner.getBoundingClientRect().height : 42;
+      const labNavHeight = labNav ? labNav.getBoundingClientRect().height : 60;
+      if (arena) {
+        const top = arena.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: Math.max(0, top - bannerHeight - labNavHeight - 8), behavior: 'instant' });
+      }
     });
-    await attachBanner();
     await page.waitForTimeout(200);
 
     const shot2 = join(outDir, `prod-2-streaming-${vp.name}.png`);
@@ -123,9 +130,15 @@ async function captureViewport(vp, browser) {
     }, null, { timeout: 90000 });
 
     // Scroll to #cc-receipt so debrief and replay are framed well
+    await attachBanner();
     await page.evaluate(() => {
       const el = document.getElementById('cc-receipt');
-      if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' });
+      const banner = document.getElementById('fixture-watermark-banner');
+      const bannerHeight = banner ? banner.getBoundingClientRect().height : 54;
+      if (el) {
+        const top = el.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo(0, Math.max(0, top - bannerHeight - 6));
+      }
     });
     await attachBanner();
     await page.waitForTimeout(400);
@@ -139,6 +152,10 @@ async function captureViewport(vp, browser) {
     // Screen 4: Improvement Recipe Modal
     // -------------------------------------------------------------
     console.log(`[${vp.name}] Opening recipe modal & Capturing 4: Recipe...`);
+    await page.evaluate(() => {
+      const sec = document.getElementById('receipt-secondary-options');
+      if (sec) sec.open = true;
+    });
     const changeBtn = page.locator('#receipt-change');
     await changeBtn.waitFor({ state: 'visible' });
     await changeBtn.click();
