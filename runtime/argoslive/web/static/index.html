@@ -15,7 +15,6 @@
     <p class="intro">Build a private AI worth relying on. Discover its strengths, take on a mission, and see what your next upgrade really changes.</p>
     <section id="command-center" aria-labelledby="cc-title" hidden>
       <h2 id="cc-title">Mission control</h2>
-      <p class="cc-subtitle">Measure your build. Find its strengths. Choose the next mission.</p>
       <div id="cc-moment" class="notice moment" role="status" hidden>
         <strong id="cc-moment-title"></strong> <span id="cc-moment-tier" class="state"></span>
         <p id="cc-moment-detail"></p>
@@ -34,7 +33,6 @@
         </div>
         <h3 id="cc-next-title">Checking your systems…</h3>
         <p id="cc-next-reason"></p>
-        <p class="cc-pause-notice">Chat pauses for the test and resumes afterward.</p>
         <div class="cc-hero-actions">
           <button id="cc-next-go" class="mission-primary" type="button" hidden>Start: Read this brief</button>
           <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button>
@@ -131,11 +129,13 @@
         <div class="mission-main">
           <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
             <p class="mission-label">Your latest measured result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
-            <div id="receipt-replay" class="receipt-replay" hidden>
-              <p class="replay-label">Representative challenge replay</p>
-              <div id="receipt-replay-list" class="replay-list"></div>
-            </div>
             <p id="cc-takeaway"></p>
+            <div id="receipt-actions" class="receipt-actions" hidden>
+              <button id="receipt-use" type="button" class="mission-primary" hidden>Use this build in Mission Brief ↓</button>
+              <button id="receipt-change" type="button" class="mission-primary">Try one change: concise instructions</button>
+              <button id="receipt-practice" type="button" class="mission-secondary">Retest unchanged</button>
+              <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
+            </div>
             <div id="receipt-recipe-bar" class="receipt-recipe-bar" hidden>
               <span>Tested with recipe: <strong id="receipt-tested-recipe"></strong></span>
               <span class="recipe-protect-tag">Lab only</span>
@@ -147,16 +147,14 @@
               <button id="receipt-restore-model" type="button" class="btn-text-action">Restore previous model</button>
               <button id="receipt-keep-model" type="button" class="btn-text-action">Keep this model</button>
             </div>
-            <div id="receipt-actions" class="receipt-actions" hidden>
-              <button id="receipt-use" type="button" class="mission-primary" hidden>Use this build in Mission Brief ↓</button>
-              <button id="receipt-change" type="button" class="mission-primary">Try one change: concise instructions</button>
-              <button id="receipt-practice" type="button" class="mission-secondary">Retest unchanged</button>
-              <button id="receipt-upgrade" type="button" class="mission-secondary">Try a different model</button>
-            </div>
             <div id="cc-scoreboard" class="scoreboard"></div>
             <div id="receipt-criteria-box" class="receipt-criteria-box" hidden>
               <p class="replay-label">Qualification criteria checklist</p>
               <ul id="receipt-criteria-list" class="receipt-criteria-list"></ul>
+            </div>
+            <div id="receipt-replay" class="receipt-replay" hidden>
+              <p class="replay-label">Representative challenge replay</p>
+              <div id="receipt-replay-list" class="replay-list"></div>
             </div>
             <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
           </article>
@@ -378,9 +376,9 @@
               <span id="arena-current-id" class="arena-tag">Waiting…</span>
               <span id="arena-current-category" class="arena-cat-tag"></span>
             </div>
-            <div class="arena-prompt-box">
-              <span class="arena-sublabel">Fixed challenge prompt:</span>
-              <div id="arena-current-prompt" class="arena-prompt-text">Trial ready to begin.</div>
+            <div class="arena-question-box">
+              <span class="arena-sublabel">Question:</span>
+              <div id="arena-current-question" class="arena-question-text">Waiting for challenge…</div>
             </div>
             <div class="arena-stream-box">
               <div class="arena-stream-header">
@@ -389,6 +387,13 @@
               </div>
               <pre id="arena-current-stream" class="arena-stream-content" tabindex="0">Awaiting model response…</pre>
             </div>
+            <details id="arena-source-details" class="arena-source-details">
+              <summary class="arena-source-summary">Read source</summary>
+              <div class="arena-prompt-box">
+                <span class="arena-sublabel">Passage &amp; request schema:</span>
+                <div id="arena-current-prompt" class="arena-prompt-text">Trial ready to begin.</div>
+              </div>
+            </details>
           </div>
           <div id="arena-receipts-card" class="arena-card receipts-card">
             <div class="arena-card-header">
@@ -469,8 +474,7 @@
         </div>
         <div class="modal-scroll-body">
           <div id="inline-storage-section" class="inline-storage-section" hidden>
-            <h4>Choose where to store models</h4>
-            <p id="inline-storage-help">Downloading this model requires choosing a storage location. Select an eligible drive below; Argos will run a short write check.</p>
+            <p id="inline-storage-help" class="inline-storage-intro">Select an eligible drive below; Argos will run a short write check.</p>
             <div id="inline-storage-choices" class="storage-group-container"></div>
           </div>
           <div class="modal-info-block">
