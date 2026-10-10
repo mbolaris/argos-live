@@ -549,10 +549,13 @@ function hidePassage() {
   if (passage) { passage.dataset.text = ''; passage.textContent = ''; }
   const details = document.getElementById('arena-source-details');
   if (details) details.hidden = true;
+  // Without a passage the challenge takes the full card width instead of the passage column.
+  document.getElementById('arena-live-card')?.classList.add('no-passage');
 }
 function showChallenge(item) {
   const details = document.getElementById('arena-source-details');
   if (details) details.hidden = false;
+  document.getElementById('arena-live-card')?.classList.remove('no-passage');
   const id = document.getElementById('arena-current-id');
   if (id) id.textContent = item.item_id || 'active';
   const kind = document.getElementById('arena-current-category');
@@ -701,6 +704,8 @@ function renderArenaState(arena, active, phase, model, elapsed) {
     }
     if (streamInd) streamInd.hidden = !active;
   } else {
+    // Before the first challenge (pausing chat, starting the service) there is no passage yet.
+    hidePassage();
     if (liveQuestion && !active) liveQuestion.textContent = 'Waiting for challenge…';
     if (streamInd) streamInd.hidden = true;
   }

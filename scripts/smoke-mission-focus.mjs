@@ -152,6 +152,10 @@ try {
   assert.equal(await page.evaluate(()=>{renderArenaState({total:0},true,'speed','fixture:latest',0);
     return document.getElementById('arena-source-details').hidden && !document.getElementById('arena-current-passage').dataset.text;}),true,
     'Speed check hides the previous passage');
+  // Without the passage column the challenge uses the full card width (found on Toronado's Firefox).
+  assert.ok(await page.evaluate(()=>{const card=document.getElementById('arena-live-card').getBoundingClientRect();
+    const challenge=document.querySelector('#arena-live-card .arena-challenge').getBoundingClientRect();
+    return challenge.width>card.width*0.8;}),'Speed check challenge spans the card');
   const finalIds=await page.locator('[id]').evaluateAll(nodes=>nodes.map(n=>n.id));
   assert.equal(new Set(finalIds).size,finalIds.length,'Unique control IDs after the experiment');
   assert.deepEqual(errors,[]);
