@@ -388,6 +388,7 @@ let arenaPolling = false;
 let arenaTimer = null;
 let arenaReceipts = [];
 let arenaCurrentAnswer = '';
+let arenaCurrentItemId = null;
 let sessionActive = false;
 
 function updateSessionPath(active, hasResult) {
@@ -409,10 +410,13 @@ let retainedBaselineDocRunId = sessionStorage.getItem('argos_baseline_doc_run_id
 let autoComparedCandidateId = null;
 
 const outcomeMeta = {
-  pass: {label: 'Pass', cls: 'outcome-pass', reason: 'Criteria verified'},
-  wrong_answer: {label: 'Wrong Answer', cls: 'outcome-wrong', reason: 'Answer did not match expected criteria'},
-  format_error: {label: 'Format Error', cls: 'outcome-format', reason: 'Did not follow required format or closed JSON schema'},
-  unscored: {label: 'Summary', cls: 'outcome-unscored', reason: 'Summary generated for owner judgment'}
+  pass: {label: 'Pass', cls: 'outcome-pass', reason: 'Criteria verified', plain: 'correct.'},
+  wrong_answer: {label: 'Wrong Answer', cls: 'outcome-wrong', reason: 'Answer did not match expected criteria',
+    plain: 'wrong. The answer didn’t match what the passage supports.'},
+  format_error: {label: 'Format Error', cls: 'outcome-format', reason: 'Did not follow required format or closed JSON schema',
+    plain: 'not scorable. It didn’t use the required answer format, so it counts as a miss.'},
+  unscored: {label: 'Summary', cls: 'outcome-unscored', reason: 'Summary generated for owner judgment',
+    plain: 'a summary written for you to read. Summaries aren’t scored.'}
 };
 
 function renderReceiptItem(receipt) {
@@ -483,28 +487,103 @@ function updateArenaHUD(arena, phase, model, elapsed, active) {
   const el = document.getElementById('arena-elapsed');
   if (el) el.textContent = Number.isFinite(elapsed) ? `${Math.round(elapsed)} s` : '0 s';
 
-  const total = (arena && arena.total) ? arena.total : 20;
+  const total = (arena && arena.total) ? arena.total : 0;
   const completed = (arena && arena.completed) ? arena.completed : 0;
-  const bar = document.getElementById('arena-progress-bar');
-  if (bar) { bar.max = total; bar.value = completed; }
-  const pl = document.getElementById('arena-progress-label');
-  if (pl) pl.textContent = `${completed} / ${total} challenges`;
-
-  const passed = (arena && arena.correct) ? arena.correct : 0;
-  const formatErrors = (arena && arena.format_errors) ? arena.format_errors : 0;
-  const tp = document.getElementById('arena-tally-passed');
-  if (tp) tp.textContent = `${passed} passed`;
-  const tf = document.getElementById('arena-tally-format-errors');
-  if (tf) tf.textContent = `${formatErrors} format errors`;
+  setArenaProgress(completed, total);
+  const status = document.getElementById('watch-status');
+  if (status) status.textContent = watchStatus[phase] || 'Getting ready…';
   const recEl = document.getElementById('arena-recipe');
   if (recEl) {
     const curRec = arena?.recipe;
     if (curRec && curRec.preset !== 'standard') {
-      recEl.textContent = curRec.preset === 'concise' ? 'Strict format (concise)' : curRec.preset;
+      recEl.textContent = curRec.preset === 'concise' ? 'Strict format instructions' : curRec.preset;
     } else {
       recEl.textContent = 'Standard';
     }
   }
+}
+
+const watchStatus = {pausing: 'Pausing chat so your AI can focus on the test…',
+  'model-service': 'Starting the private test service…', speed: 'First, a quick speed check. Reading starts next.',
+  documents: 'Reading passages and answering questions. Fixed rules score each answer as it finishes.',
+  ability: 'Answering fixed exercises. Fixed rules score each answer as it finishes.',
+  debrief: 'Scoring is finished. Your AI is writing its opinion of the results (not scored)…',
+  cancelling: 'Stopping after the current answer…', completed: 'Finished. Your result is ready under Improve.',
+  cancelled: 'Stopped. Answers scored so far are kept, but an incomplete run cannot qualify.',
+  failed: 'The test could not finish. Answers scored so far are kept; check model setup before retrying.'};
+
+function setArenaProgress(completed, total) {
+  const bar = document.getElementById('arena-progress-bar');
+  if (bar) { bar.max = Math.max(1, total); bar.value = Math.min(completed, Math.max(1, total)); }
+  const label = document.getElementById('arena-progress-label');
+  if (label) label.textContent = total ? `${completed} of ${total} responses done` : 'Starting…';
+}
+
+function updateArenaTally(receipts) {
+  // Summaries are written for the owner to read; only the other answers are scored.
+  const count = outcome => receipts.filter(r => r.outcome === outcome).length;
+  const correct = receipts.filter(r => r.score === 1).length;
+  const wrong = count('wrong_answer'), format = count('format_error'), summaries = count('unscored');
+  const set = (id, value, text, alwaysShown) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.hidden = !alwaysShown && value === 0;
+  };
+  set('arena-tally-passed', correct, `${correct} correct` + (wrong ? ` · ${wrong} wrong` : ''), true);
+  set('arena-tally-format-errors', format, `${format} wrong format`);
+  set('arena-tally-summaries', summaries, `${summaries} ${summaries === 1 ? 'summary' : 'summaries'} (not scored)`);
+}
+
+const challengeKinds = {answer: 'Find the fact', quote: 'Quote the evidence', not_stated: 'Notice what’s missing',
+  summary: 'Summary · for you, not scored'};
+
+function extractPassage(promptText) {
+  const match = (promptText || '').match(/PASSAGE:\s*([\s\S]+?)(?=\n\s*(?:QUESTION:|Respond|Summarize)|$)/i);
+  return match ? match[1].trim() : '';
+}
+
+let passageRevealed = false;
+function showChallenge(item) {
+  const id = document.getElementById('arena-current-id');
+  if (id) id.textContent = item.item_id || 'active';
+  const kind = document.getElementById('arena-current-category');
+  if (kind) kind.textContent = challengeKinds[item.category] || item.category || '';
+  const prompt = document.getElementById('arena-current-prompt');
+  if (prompt) prompt.textContent = item.prompt || 'Running challenge…';
+  const question = document.getElementById('arena-current-question');
+  if (question) question.textContent = extractQuestion(item.prompt, item.category);
+  const passage = document.getElementById('arena-current-passage');
+  const text = extractPassage(item.prompt);
+  if (passage && passage.dataset.text !== text) {
+    passage.dataset.text = text;
+    passage.textContent = text || 'This challenge has no separate passage. The full prompt is below.';
+  }
+  // Wide screens show the passage beside the question; phones keep it one tap away.
+  const details = document.getElementById('arena-source-details');
+  if (details && text && !passageRevealed) {
+    passageRevealed = true;
+    if (window.matchMedia('(min-width: 900px)').matches) details.open = true;
+  }
+}
+
+function markQuotedSentence(raw) {
+  // Highlight only an exact quotation the model actually returned.
+  const passage = document.getElementById('arena-current-passage');
+  const text = passage?.dataset.text;
+  if (!passage || !text) return;
+  let quote = '';
+  const match = (raw || '').match(/"quote"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  if (match) { try { quote = JSON.parse('"' + match[1] + '"').trim(); } catch (_) {} }
+  const at = quote.length >= 8 ? text.indexOf(quote) : -1;
+  if (at < 0) {
+    if (passage.querySelector('mark')) passage.textContent = text;
+    return;
+  }
+  const mark = document.createElement('mark');
+  mark.textContent = quote;
+  mark.title = 'The sentence your AI quoted';
+  passage.replaceChildren(text.slice(0, at), mark, text.slice(at + quote.length));
 }
 
 function updateArenaReceipts(receipts) {
@@ -515,7 +594,8 @@ function updateArenaReceipts(receipts) {
     list.appendChild(renderReceiptItem(r));
   }
   const tally = document.getElementById('arena-receipts-tally');
-  if (tally) tally.textContent = `${receipts.length} scored`;
+  if (tally) tally.textContent = `${receipts.length} done`;
+  updateArenaTally(receipts);
   updateLatestChallenge(receipts.at(-1));
 }
 
@@ -526,7 +606,7 @@ function updateLatestChallenge(receipt) {
   if (!receipt) return;
   const meta = outcomeMeta[receipt.outcome] || outcomeMeta.unscored;
   label.className = 'latest-challenge-result ' + meta.cls;
-  label.textContent = `Last challenge · ${receipt.item_id || 'item'}: ${meta.label}. ${meta.reason}.`;
+  label.textContent = `Last answer (${challengeKinds[receipt.category] || receipt.item_id || 'challenge'}): ${meta.plain}`;
 }
 
 function extractQuestion(promptText, category) {
@@ -551,6 +631,8 @@ function arenaAnswerPreview(raw) {
     if (value.status === 'not_stated') return 'Not stated in the passage.';
     return raw;
   } catch (_) {
+    // The expected envelope has started but no answer text has arrived yet.
+    if (/^\s*\{\s*"status"\s*:\s*"not_stated"/.test(raw) && !/"answer"\s*:\s*"[^"]/.test(raw)) return 'Not stated in the passage.';
     // Decode an already received answer prefix, including JSON escapes. An
     // incomplete escape waits for the next delta instead of inventing text.
     const match = raw.match(/"answer"\s*:\s*"((?:\\.|[^"\\])*)/);
@@ -558,6 +640,7 @@ function arenaAnswerPreview(raw) {
       try { return JSON.parse('"' + match[1] + '"') || 'Waiting for answer text…'; }
       catch (_) { return 'Receiving answer text…'; }
     }
+    if (/^\s*\{\s*"status"/.test(raw)) return 'Receiving answer text…';
     return raw;
   }
 }
@@ -567,6 +650,7 @@ function presentArenaAnswer(raw) {
   if (stream) stream.textContent = arenaAnswerPreview(raw);
   const original = document.getElementById('arena-current-raw');
   if (original) original.textContent = raw;
+  markQuotedSentence(raw);
 }
 
 function renderArenaState(arena, active, phase, model, elapsed) {
@@ -590,18 +674,19 @@ function renderArenaState(arena, active, phase, model, elapsed) {
   const liveCat = document.getElementById('arena-current-category');
 
   if (phase === 'speed') {
-    if (liveId) liveId.textContent = 'speed-run';
-    if (liveCat) liveCat.textContent = 'throughput';
+    if (liveId) liveId.textContent = 'speed check';
+    if (liveCat) liveCat.textContent = 'Speed · timed, not scored for correctness';
     if (livePrompt) livePrompt.textContent = 'Measuring short-prompt generation speed, prompt processing, and first-token latency with fixed prompts.';
-    if (liveQuestion) liveQuestion.textContent = 'Measuring speed, prompt processing, and latency.';
-    if (liveStream) liveStream.textContent = 'Running model speed measurements…';
+    if (liveQuestion) liveQuestion.textContent = 'How quickly does your AI start and finish an answer?';
+    if (liveStream) liveStream.textContent = 'Timing a few fixed prompts…';
     if (streamInd) streamInd.hidden = true;
   } else if (arena && arena.current_item) {
-    if (liveId) liveId.textContent = arena.current_item.item_id || 'active';
-    if (liveCat) liveCat.textContent = arena.current_item.category || '';
-    if (livePrompt) livePrompt.textContent = arena.current_item.prompt || 'Running challenge…';
-    if (liveQuestion) liveQuestion.textContent = extractQuestion(arena.current_item.prompt, arena.current_item.category);
-    if (arena.current_item.answer) {
+    showChallenge(arena.current_item);
+    // Live events own the answer for the item they started; a polled snapshot only fills
+    // in an item the events have not reached, so received text is never appended twice.
+    const sameItem = arena.current_item.item_id === arenaCurrentItemId && arenaCurrentAnswer;
+    if (arena.current_item.answer && !sameItem) {
+      arenaCurrentItemId = arena.current_item.item_id;
       presentArenaAnswer(arena.current_item.answer);
       arenaCurrentAnswer = arena.current_item.answer;
     }
@@ -643,15 +728,15 @@ function renderArenaState(arena, active, phase, model, elapsed) {
       if (secActionBtn) secActionBtn.hidden = true;
       const arenaDocRunId = (arena && Array.isArray(arena.runs) && arena.runs.length) ? arena.runs[arena.runs.length - 1] : null;
       if (arenaDocRunId && arenaDocRunId === autoComparedCandidateId) {
-        headline.textContent = 'Candidate trial complete · Controlled comparison ready';
+        headline.textContent = 'Experiment finished · before and after are ready';
         if (detail) detail.textContent = `Paired with retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware. One action recommended below.`;
         if (nextActionBtn) {
           nextActionBtn.hidden = false;
-          nextActionBtn.textContent = 'Review comparison & recommendation ↓';
-          nextActionBtn.onclick = () => focusSection('experiment-comparison');
+          nextActionBtn.textContent = 'See before and after ↑';
+          nextActionBtn.onclick = () => focusSection('improve-comparison');
         }
       } else if (retainedBaselineDocRunId && arenaDocRunId && arenaDocRunId !== retainedBaselineDocRunId) {
-        headline.textContent = 'Candidate trial complete · Validating controlled comparison…';
+        headline.textContent = 'Experiment finished · comparing with your earlier result…';
         if (detail) detail.textContent = `Evaluating candidate against retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware…`;
         if (nextActionBtn) nextActionBtn.hidden = true;
       } else {
@@ -661,20 +746,23 @@ function renderArenaState(arena, active, phase, model, elapsed) {
         }
         if (nextActionBtn) {
           nextActionBtn.hidden = false;
-          nextActionBtn.textContent = 'Review result & debrief ↑';
+          nextActionBtn.textContent = 'See your result and what to try next ↑';
           nextActionBtn.onclick = () => focusSection('cc-receipt');
         }
-        headline.textContent = 'Trial completed and saved';
-        detail.textContent = `${arena?.correct || 0} of ${arena?.total || 0} passed · ${arena?.format_errors || 0} format errors · Evidence bound to ${model || 'model'} digest. Baseline saved.`;
+        headline.textContent = 'Finished and saved';
+        const scored = (arena?.receipts || []).filter(r => r.outcome !== 'unscored').length;
+        detail.textContent = scored ?
+          `${arena?.correct || 0} of ${scored} scored questions correct · ${arena?.format_errors || 0} in the wrong format. Saved for ${model || 'this model'}.` :
+          `Results saved for ${model || 'this model'}.`;
       }
     } else if (phase === 'cancelled') {
       banner.hidden = false;
       if (nextActionBtn) {
         nextActionBtn.hidden = false;
-        nextActionBtn.textContent = 'Retry failed trial';
+        nextActionBtn.textContent = 'Run it again with the same settings';
         nextActionBtn.onclick = async () => {
           try {
-            await post('/api/lab/start-documents', {recipe: 'concise'});
+            await post('/api/lab/start-documents', arena?.recipe?.preset && arena.recipe.preset !== 'standard' ? {recipe: arena.recipe.preset} : {});
             await refreshLab();
           } catch (err) {
             headline.textContent = 'Retry rejected';
@@ -683,8 +771,8 @@ function renderArenaState(arena, active, phase, model, elapsed) {
         };
       }
       if (secActionBtn) {
-        secActionBtn.hidden = false;
-        secActionBtn.textContent = 'Restore standard';
+        secActionBtn.hidden = !(arena?.recipe?.preset && arena.recipe.preset !== 'standard');
+        secActionBtn.textContent = 'Restore standard instructions';
         secActionBtn.onclick = async () => {
           try {
             await restoreLabRecipe();
@@ -706,10 +794,10 @@ function renderArenaState(arena, active, phase, model, elapsed) {
       banner.hidden = false;
       if (nextActionBtn) {
         nextActionBtn.hidden = false;
-        nextActionBtn.textContent = 'Retry failed trial';
+        nextActionBtn.textContent = 'Run it again with the same settings';
         nextActionBtn.onclick = async () => {
           try {
-            await post('/api/lab/start-documents', {recipe: 'concise'});
+            await post('/api/lab/start-documents', arena?.recipe?.preset && arena.recipe.preset !== 'standard' ? {recipe: arena.recipe.preset} : {});
             await refreshLab();
           } catch (err) {
             headline.textContent = 'Retry rejected';
@@ -718,8 +806,8 @@ function renderArenaState(arena, active, phase, model, elapsed) {
         };
       }
       if (secActionBtn) {
-        secActionBtn.hidden = false;
-        secActionBtn.textContent = 'Restore standard';
+        secActionBtn.hidden = !(arena?.recipe?.preset && arena.recipe.preset !== 'standard');
+        secActionBtn.textContent = 'Restore standard instructions';
         secActionBtn.onclick = async () => {
           try {
             await restoreLabRecipe();
@@ -758,19 +846,15 @@ function applyArenaEvent(ev) {
         badge.className = `arena-badge phase-${ev.phase}`;
       }
     }
+    const status = document.getElementById('watch-status');
+    if (status && watchStatus[ev.phase]) status.textContent = watchStatus[ev.phase];
     if (Number.isFinite(ev.elapsed_seconds)) {
       const el = document.getElementById('arena-elapsed');
       if (el) el.textContent = `${Math.round(ev.elapsed_seconds)} s`;
     }
   } else if (ev.type === 'item-start') {
-    const liveId = document.getElementById('arena-current-id');
-    if (liveId) liveId.textContent = ev.item_id || 'active';
-    const liveCat = document.getElementById('arena-current-category');
-    if (liveCat) liveCat.textContent = ev.category || '';
-    const livePrompt = document.getElementById('arena-current-prompt');
-    if (livePrompt) livePrompt.textContent = ev.prompt || 'Evaluating challenge…';
-    const liveQuestion = document.getElementById('arena-current-question');
-    if (liveQuestion) liveQuestion.textContent = extractQuestion(ev.prompt, ev.category);
+    showChallenge(ev);
+    arenaCurrentItemId = ev.item_id;
     arenaCurrentAnswer = '';
     const raw = document.getElementById('arena-current-raw');
     if (raw) raw.textContent = '';
@@ -778,12 +862,7 @@ function applyArenaEvent(ev) {
     if (liveStream) liveStream.textContent = 'Generating response…';
     const streamInd = document.getElementById('arena-stream-indicator');
     if (streamInd) streamInd.hidden = false;
-    if (Number.isFinite(ev.completed) && Number.isFinite(ev.total)) {
-      const bar = document.getElementById('arena-progress-bar');
-      if (bar) bar.value = ev.completed;
-      const pl = document.getElementById('arena-progress-label');
-      if (pl) pl.textContent = `${ev.completed} / ${ev.total} challenges`;
-    }
+    if (Number.isFinite(ev.completed) && Number.isFinite(ev.total)) setArenaProgress(ev.completed, ev.total);
   } else if (ev.type === 'answer-delta') {
     const delta = ev.delta || '';
     const MAX_BROWSER_STREAM = 8192;
@@ -816,19 +895,9 @@ function applyArenaEvent(ev) {
         list.scrollTop = list.scrollHeight;
       }
       const tally = document.getElementById('arena-receipts-tally');
-      if (tally) tally.textContent = `${arenaReceipts.length} scored`;
-      const passed = arenaReceipts.filter(r => r.score === 1).length;
-      const errors = arenaReceipts.filter(r => r.outcome === 'format_error').length;
-      const tp = document.getElementById('arena-tally-passed');
-      if (tp) tp.textContent = `${passed} passed`;
-      const tf = document.getElementById('arena-tally-format-errors');
-      if (tf) tf.textContent = `${errors} format errors`;
-      if (Number.isFinite(ev.completed) && Number.isFinite(ev.total)) {
-        const bar = document.getElementById('arena-progress-bar');
-        if (bar) bar.value = ev.completed;
-        const pl = document.getElementById('arena-progress-label');
-        if (pl) pl.textContent = `${ev.completed} / ${ev.total} challenges`;
-      }
+      if (tally) tally.textContent = `${arenaReceipts.length} done`;
+      updateArenaTally(arenaReceipts);
+      if (Number.isFinite(ev.completed) && Number.isFinite(ev.total)) setArenaProgress(ev.completed, ev.total);
     }
   } else if (ev.type === 'final') {
     const streamInd = document.getElementById('arena-stream-indicator');
@@ -867,15 +936,15 @@ function applyArenaEvent(ev) {
         if (secActionBtn) secActionBtn.hidden = true;
         const savedDocRunId = (Array.isArray(ev.runs) && ev.runs.length) ? ev.runs[ev.runs.length - 1] : null;
         if (savedDocRunId && savedDocRunId === autoComparedCandidateId) {
-          if (headline) headline.textContent = 'Candidate trial complete · Controlled comparison ready';
+          if (headline) headline.textContent = 'Experiment finished · before and after are ready';
           if (detail) detail.textContent = `Paired with retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware. One action recommended below.`;
           if (nextActionBtn) {
             nextActionBtn.hidden = false;
-            nextActionBtn.textContent = 'Review comparison & recommendation ↓';
-            nextActionBtn.onclick = () => focusSection('experiment-comparison');
+            nextActionBtn.textContent = 'See before and after ↑';
+            nextActionBtn.onclick = () => focusSection('improve-comparison');
           }
         } else if (retainedBaselineDocRunId && savedDocRunId && savedDocRunId !== retainedBaselineDocRunId) {
-          if (headline) headline.textContent = 'Candidate trial complete · Validating controlled comparison…';
+          if (headline) headline.textContent = 'Experiment finished · comparing with your earlier result…';
           if (detail) detail.textContent = `Evaluating candidate against retained baseline (${(retainedBaselineDocRunId || '').slice(0, 8)}…) on identical hardware…`;
           if (nextActionBtn) nextActionBtn.hidden = true;
         } else {
@@ -885,19 +954,22 @@ function applyArenaEvent(ev) {
           }
           if (nextActionBtn) {
             nextActionBtn.hidden = false;
-            nextActionBtn.textContent = 'Review result & debrief ↑';
+            nextActionBtn.textContent = 'See your result and what to try next ↑';
             nextActionBtn.onclick = () => focusSection('cc-receipt');
           }
-          if (headline) headline.textContent = 'Trial completed and saved';
-          if (detail) detail.textContent = `${ev.correct || 0} of ${ev.total || 0} passed · ${ev.format_errors || 0} format errors · Baseline saved.`;
+          if (headline) headline.textContent = 'Finished and saved';
+          const scored = arenaReceipts.filter(r => r.outcome !== 'unscored').length;
+          if (detail) detail.textContent = scored ?
+            `${ev.correct || 0} of ${scored} scored questions correct · ${ev.format_errors || 0} in the wrong format. Saved for ${ev.model || 'this model'}.` :
+            `Results saved for ${ev.model || 'this model'}.`;
         }
       } else if (ev.outcome === 'cancelled') {
         if (nextActionBtn) {
           nextActionBtn.hidden = false;
-          nextActionBtn.textContent = 'Retry failed trial';
+          nextActionBtn.textContent = 'Run it again with the same settings';
           nextActionBtn.onclick = async () => {
             try {
-              await post('/api/lab/start-documents', {recipe: 'concise'});
+              await post('/api/lab/start-documents', ev.recipe?.preset && ev.recipe.preset !== 'standard' ? {recipe: ev.recipe.preset} : {});
               await refreshLab();
             } catch (err) {
               if (headline) headline.textContent = 'Retry rejected';
@@ -906,8 +978,8 @@ function applyArenaEvent(ev) {
           };
         }
         if (secActionBtn) {
-          secActionBtn.hidden = false;
-          secActionBtn.textContent = 'Restore standard';
+          secActionBtn.hidden = !(ev.recipe?.preset && ev.recipe.preset !== 'standard');
+          secActionBtn.textContent = 'Restore standard instructions';
           secActionBtn.onclick = async () => {
             try {
               await restoreLabRecipe();
@@ -928,10 +1000,10 @@ function applyArenaEvent(ev) {
       } else {
         if (nextActionBtn) {
           nextActionBtn.hidden = false;
-          nextActionBtn.textContent = 'Retry failed trial';
+          nextActionBtn.textContent = 'Run it again with the same settings';
           nextActionBtn.onclick = async () => {
             try {
-              await post('/api/lab/start-documents', {recipe: 'concise'});
+              await post('/api/lab/start-documents', ev.recipe?.preset && ev.recipe.preset !== 'standard' ? {recipe: ev.recipe.preset} : {});
               await refreshLab();
             } catch (err) {
               if (headline) headline.textContent = 'Retry rejected';
@@ -940,8 +1012,8 @@ function applyArenaEvent(ev) {
           };
         }
         if (secActionBtn) {
-          secActionBtn.hidden = false;
-          secActionBtn.textContent = 'Restore standard';
+          secActionBtn.hidden = !(ev.recipe?.preset && ev.recipe.preset !== 'standard');
+          secActionBtn.textContent = 'Restore standard instructions';
           secActionBtn.onclick = async () => {
             try {
               await restoreLabRecipe();
@@ -1070,6 +1142,7 @@ async function refreshLab() {
         arenaCursor = value.seq || 0;
         arenaReceipts = [];
         arenaCurrentAnswer = '';
+        arenaCurrentItemId = null;
         const raw = document.getElementById('arena-current-raw');
         if (raw) raw.textContent = '';
         document.getElementById('arena-current-stream').textContent = 'Preparing the next mission…';
@@ -1700,11 +1773,12 @@ async function refreshBenchmarks() {
           const fullCand = await api('/api/benchmarks/run/' + latestDoc.id);
           const candPreset = fullCand.recipe?.preset || 'standard';
           if (candPreset !== 'standard') {
-            const expOut = document.getElementById('experiment-comparison');
+            const expOut = document.getElementById('improve-comparison');
+            document.getElementById('experiment-comparison')?.replaceChildren();
             try {
               const expRes = await api(`/api/benchmarks/experiment?baseline=${encodeURIComponent(retainedBaselineDocRunId)}&candidate=${encodeURIComponent(latestDoc.id)}`);
               autoComparedCandidateId = latestDoc.id;
-              if (expOut) renderExperiment(expOut, expRes);
+              if (expOut) { renderExperiment(expOut, expRes); refreshCommand(); }
               status.textContent = 'Controlled experiment comparison ready. Evaluated on identical hardware with exactly one recipe intervention.';
               const arenaBanner = document.getElementById('arena-summary-banner');
               const arenaHeadline = document.getElementById('arena-summary-headline');
@@ -1712,12 +1786,12 @@ async function refreshBenchmarks() {
               const arenaNext = document.getElementById('arena-next-action');
               if (arenaBanner && arenaHeadline) {
                 arenaBanner.hidden = false;
-                arenaHeadline.textContent = 'Candidate trial complete · Controlled comparison ready';
+                arenaHeadline.textContent = 'Experiment finished · before and after are ready';
                 if (arenaDetail) arenaDetail.textContent = `Paired with retained baseline (${retainedBaselineDocRunId.slice(0, 8)}…) on identical hardware. One action recommended below.`;
                 if (arenaNext) {
                   arenaNext.hidden = false;
-                  arenaNext.textContent = 'Review comparison & recommendation ↓';
-                  arenaNext.onclick = () => focusSection('experiment-comparison');
+                  arenaNext.textContent = 'See before and after ↑';
+                  arenaNext.onclick = () => focusSection('improve-comparison');
                 }
               }
             } catch (cmpErr) {
@@ -1733,8 +1807,8 @@ async function refreshBenchmarks() {
                 if (arenaDetail) arenaDetail.textContent = cmpErr.message || 'The server rejected this comparison pair. Runs must be completed on identical hardware with exactly one controlled intervention.';
                 if (arenaNext) {
                   arenaNext.hidden = false;
-                  arenaNext.textContent = 'Review refusal details ↓';
-                  arenaNext.onclick = () => focusSection('experiment-comparison');
+                  arenaNext.textContent = 'See why ↑';
+                  arenaNext.onclick = () => focusSection('improve-comparison');
                 }
               }
               if (expOut) {
@@ -2034,7 +2108,7 @@ function renderExperimentRecommendation(card, result) {
   const deltaCorr = result.delta?.correct_delta ?? 0;
   const deltaFmt = result.delta?.format_error_delta ?? 0;
 
-  let badgeText = 'Evidence-Based Recommendation';
+  let badgeText = 'Based on this comparison';
   let recTitle = '';
   let recReason = '';
   let primaryBtnText = '';
@@ -2093,71 +2167,53 @@ function renderExperimentRecommendation(card, result) {
       }
     }
   } else {
-    const candPreset = result.candidate?.recipe?.preset || 'concise';
-    const candLabel = candPreset === 'concise' ? 'Strict format instructions (concise)' : candPreset;
-
+    const KEEP = 'Keep for lab tests', RESTORE = 'Restore standard instructions';
+    const count = (n, what) => `${Math.abs(n)} ${what}${Math.abs(n) === 1 ? '' : 's'}`;
+    const keepFirst = (title, why) => {
+      recTitle = title; recReason = why;
+      primaryBtnText = KEEP; secondaryBtnText = RESTORE; primaryActionType = 'keep'; secondaryActionType = 'restore';
+    };
+    const restoreFirst = (title, why) => {
+      recTitle = title; recReason = why;
+      primaryBtnText = RESTORE; secondaryBtnText = KEEP; primaryActionType = 'restore'; secondaryActionType = 'keep';
+    };
     if (deltaCorr < 0 && deltaFmt < 0) {
       box.classList.add('verdict-tradeoff');
-      badgeText = 'Accuracy vs Format Tradeoff';
-      recTitle = 'Restore standard (preserve accuracy)';
-      recReason = `Explicit tradeoff observed: trial recipe reduced format errors (${deltaFmt}), but correct answers decreased (${deltaCorr} tasks). Standard calibration is recommended to preserve task accuracy. You may keep the trial recipe if strict format compliance is preferred.`;
-      primaryBtnText = 'Restore standard';
-      secondaryBtnText = 'Keep trial recipe';
-      primaryActionType = 'restore';
-      secondaryActionType = 'keep';
-    } else if (deltaCorr < 0 && deltaFmt >= 0) {
+      badgeText = 'Tradeoff';
+      restoreFirst('restore standard instructions',
+        `A tradeoff: the instruction reduced format errors (${deltaFmt}), but correct answers decreased (${deltaCorr} tasks). Restoring standard protects accuracy; keep the instruction only if format matters more to you.`);
+    } else if (deltaCorr < 0) {
       box.classList.add('verdict-restore');
-      recTitle = 'Restore standard';
-      const regr = [`${deltaCorr} tasks correct`];
-      if (deltaFmt > 0) regr.push(`+${deltaFmt} format errors`);
-      recReason = `Evidence shows regression (${regr.join(', ')}) under trial recipe compared to standard calibration. Restore standard instructions to maintain baseline quality.`;
-      primaryBtnText = 'Restore standard';
-      secondaryBtnText = 'Keep trial recipe';
-      primaryActionType = 'restore';
-      secondaryActionType = 'keep';
+      badgeText = 'Worse on this retest';
+      restoreFirst('restore standard instructions',
+        `On the same questions, ${count(deltaCorr, 'fewer answer')} ${Math.abs(deltaCorr) === 1 ? 'was' : 'were'} correct with the instruction` +
+        (deltaFmt > 0 ? ` and ${count(deltaFmt, 'more format error')} appeared.` : '.'));
     } else if (deltaCorr > 0 && deltaFmt > 0) {
       box.classList.add('verdict-tradeoff');
-      badgeText = 'Accuracy vs Format Tradeoff';
-      recTitle = 'Keep trial recipe (higher accuracy)';
-      recReason = `Explicit tradeoff observed: correct answers improved (+${deltaCorr} tasks), but format errors increased (+${deltaFmt}). Keep trial recipe if higher task accuracy is preferred, or restore standard calibration.`;
-      primaryBtnText = 'Keep trial recipe';
-      secondaryBtnText = 'Restore standard';
-      primaryActionType = 'keep';
-      secondaryActionType = 'restore';
-    } else if (deltaCorr > 0 && deltaFmt <= 0) {
+      badgeText = 'Tradeoff';
+      keepFirst('keep strict format instructions for lab tests',
+        `A tradeoff: correct answers improved (+${deltaCorr} tasks), but format errors increased (+${deltaFmt}). Keep it if accuracy matters more to you.`);
+    } else if (deltaCorr > 0) {
       box.classList.add('verdict-keep');
-      recTitle = 'Keep trial recipe';
-      const imp = [`+${deltaCorr} tasks correct`];
-      if (deltaFmt < 0) imp.push(`${deltaFmt} format errors`);
-      recReason = `Evidence shows observed performance gain (${imp.join(', ')}) under strict format instructions on identical hardware. Keep this recipe for future lab trials, or restore standard calibration.`;
-      primaryBtnText = 'Keep trial recipe';
-      secondaryBtnText = 'Restore standard';
-      primaryActionType = 'keep';
-      secondaryActionType = 'restore';
-    } else if (deltaCorr === 0 && deltaFmt < 0) {
+      badgeText = 'Better on this retest';
+      keepFirst('keep strict format instructions for lab tests',
+        `On the same questions, ${count(deltaCorr, 'more answer')} ${deltaCorr === 1 ? 'was' : 'were'} correct with the instruction` +
+        (deltaFmt < 0 ? ` and ${count(deltaFmt, 'fewer format error')} appeared.` : '.') + ' This is one matched retest, not a guarantee.');
+    } else if (deltaFmt < 0) {
       box.classList.add('verdict-keep');
-      recTitle = 'Keep trial recipe';
-      recReason = `Evidence shows identical task accuracy with fewer format errors (${deltaFmt}) under strict format instructions on identical hardware. Keep this recipe for future lab trials, or restore standard calibration.`;
-      primaryBtnText = 'Keep trial recipe';
-      secondaryBtnText = 'Restore standard';
-      primaryActionType = 'keep';
-      secondaryActionType = 'restore';
-    } else if (deltaCorr === 0 && deltaFmt > 0) {
+      badgeText = 'Fewer format errors';
+      keepFirst('keep strict format instructions for lab tests',
+        `The same number of answers were correct, with ${count(deltaFmt, 'fewer format error')}. This is one matched retest, not a guarantee.`);
+    } else if (deltaFmt > 0) {
       box.classList.add('verdict-restore');
-      recTitle = 'Restore standard';
-      recReason = `Evidence shows identical task accuracy with increased format errors (+${deltaFmt}) under trial recipe. Restore standard calibration to maintain baseline quality.`;
-      primaryBtnText = 'Restore standard';
-      secondaryBtnText = 'Keep trial recipe';
-      primaryActionType = 'restore';
-      secondaryActionType = 'keep';
+      badgeText = 'Worse on this retest';
+      restoreFirst('restore standard instructions',
+        `The same number of answers were correct, with ${count(deltaFmt, 'more format error')}.`);
     } else {
       box.classList.add('verdict-restore');
-      recTitle = 'Restore standard';
-      recReason = 'Evidence shows no measurable difference in task accuracy or format compliance. Restore standard calibration to keep the baseline environment unchanged, or keep trial recipe if preferred.';
-      primaryBtnText = 'Restore standard';
-      secondaryBtnText = 'Keep trial recipe';
-      primaryActionType = 'restore';
-      secondaryActionType = 'keep';
+      badgeText = 'No difference';
+      restoreFirst('restore standard instructions',
+        'No measurable difference in correct answers or format errors. Restoring standard keeps lab tests unchanged.');
     }
   }
 
@@ -2168,7 +2224,7 @@ function renderExperimentRecommendation(card, result) {
   badge.textContent = badgeText;
   const title = document.createElement('h4');
   title.id = 'recommendation-title';
-  title.textContent = `Recommended next action: ${recTitle}`;
+  title.textContent = `Suggested: ${recTitle}`;
   hdr.append(badge, title);
 
   const reason = document.createElement('p');
@@ -2225,7 +2281,7 @@ function renderExperimentRecommendation(card, result) {
         if (recipes.selected !== null && recipes.selected?.preset !== 'standard') {
           throw new Error(`Recipe restore verification failed: expected standard (null), got '${recipes.selected?.preset}'`);
         }
-        statusNote.textContent = 'Restored standard calibration. Active Lab recipe reset to Standard calibration.';
+        statusNote.textContent = 'Restored standard instructions and verified. Lab tests are back to how they were before the experiment.';
         const activeRecEl = document.getElementById('lab-active-recipe');
         if (activeRecEl) activeRecEl.textContent = 'Standard calibration';
         const restoreBtn = document.getElementById('lab-recipe-restore');
@@ -2250,7 +2306,7 @@ function renderExperimentRecommendation(card, result) {
         if (recipes.selected?.preset !== candPreset) {
           throw new Error(`Recipe selection verification failed: expected '${candPreset}', got '${recipes.selected?.preset}'`);
         }
-        statusNote.textContent = `Trial recipe kept and verified (${candLabel}). Active Lab recipe updated.`;
+        statusNote.textContent = `Kept and verified for lab tests: they now use ${candPreset === 'concise' ? 'strict format instructions' : candLabel}. Your everyday assistant is unchanged. You can restore standard at any time.`;
         const activeRecEl = document.getElementById('lab-active-recipe');
         if (activeRecEl) activeRecEl.textContent = candLabel;
         const restoreBtn = document.getElementById('lab-recipe-restore');
@@ -2398,26 +2454,57 @@ function renderExperiment(output, result) {
   output.replaceChildren();
   const card = document.createElement('article');
   card.className = 'experiment-card';
+  const recipeLabel = preset => (!preset || preset === 'standard') ? 'standard instructions' :
+    preset === 'concise' ? 'strict format instructions' : preset;
 
   const badge = document.createElement('span');
   badge.className = `experiment-badge badge-${result.delta?.verdict || 'no_change'}`;
-  badge.textContent = result.delta?.verdict === 'observed_gain' ? 'Observed gain' :
-                      result.delta?.verdict === 'regression' ? 'Observed regression' :
-                      result.delta?.verdict === 'no_change' ? 'No change' : 'Evaluated';
+  badge.textContent = result.delta?.verdict === 'observed_gain' ? 'Better on this retest' :
+                      result.delta?.verdict === 'regression' ? 'Worse on this retest' :
+                      result.delta?.verdict === 'no_change' ? 'No change' : 'Compared';
 
   const title = document.createElement('h3');
-  title.textContent = `Experiment: ${result.intervention === 'recipe' ? 'Instruction Recipe' : 'Model Upgrade'} Intervention`;
+  title.textContent = result.intervention === 'recipe' ?
+    `Experiment result: ${recipeLabel(result.candidate.recipe?.preset)}` :
+    `Experiment result: ${result.candidate.model} compared with ${result.baseline.model}`;
   title.prepend(badge);
+  card.append(title);
 
+  if (result.kind === 'ability') {
+    const rows = document.createElement('dl');
+    rows.className = 'before-after';
+    const row = (label, before, after) => {
+      const item = document.createElement('div');
+      const name = document.createElement('dt'); name.textContent = label;
+      const value = document.createElement('dd');
+      const b = document.createElement('span'); b.className = 'before'; b.textContent = before;
+      const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.textContent = ' → ';
+      const a = document.createElement('strong'); a.textContent = after;
+      value.append(b, arrow, a); item.append(name, value); rows.append(item);
+    };
+    row('Correct answers', `${result.baseline.correct} of ${result.baseline.total}`, `${result.candidate.correct} of ${result.candidate.total}`);
+    row('Wrong answer format', String(result.baseline.format_errors ?? 0), String(result.candidate.format_errors ?? 0));
+    card.append(rows);
+  }
+  if (result.intervention === 'recipe') {
+    // A lab instruction is not part of the everyday assistant; never imply that it improved.
+    const scope = document.createElement('p');
+    scope.className = 'experiment-scope';
+    scope.textContent = 'Lab tests only. Your everyday assistant doesn’t use this instruction, so this result doesn’t show the assistant itself improved.';
+    card.append(scope);
+  }
+
+  const full = document.createElement('details');
+  full.className = 'experiment-full';
+  const fullSummary = document.createElement('summary');
+  fullSummary.textContent = 'Full comparison';
+  const meta = document.createElement('p');
+  meta.className = 'experiment-meta';
+  meta.textContent = `Before: ${result.baseline.model} with ${recipeLabel(result.baseline.recipe?.preset)}. After: ${result.candidate.model} with ${recipeLabel(result.candidate.recipe?.preset)}.`;
   const summary = document.createElement('p');
   summary.className = 'experiment-summary';
   summary.textContent = result.delta?.summary || '';
-
-  const meta = document.createElement('p');
-  meta.className = 'experiment-meta';
-  meta.textContent = `Baseline (${result.baseline.recipe?.preset || 'standard'} · ${result.baseline.model}) vs Candidate (${result.candidate.recipe?.preset || 'standard'} · ${result.candidate.model})`;
-
-  card.append(title, summary, meta);
+  full.append(fullSummary, meta, summary);
 
   if (result.kind === 'ability') {
     const heads = ['Metric', `Baseline (${result.baseline.recipe?.preset || 'standard'})`, `Candidate (${result.candidate.recipe?.preset || 'standard'})`, 'Delta'];
@@ -2430,7 +2517,7 @@ function renderExperiment(output, result) {
     const bFmt = String(result.baseline.format_errors ?? 0);
     const cFmt = String(result.candidate.format_errors ?? 0);
     const dFmt = (result.delta.format_error_delta >= 0 ? '+' : '') + result.delta.format_error_delta;
-    table(card, 'Controlled task outcomes', heads, [
+    table(full, 'Controlled task outcomes', heads, [
       ['Correct tasks', bCorr, cCorr, dCorr],
       ['Accuracy', bAcc, cAcc, dAcc],
       ['Format errors', bFmt, cFmt, dFmt],
@@ -2439,19 +2526,19 @@ function renderExperiment(output, result) {
     const changedItems = (result.items || []).filter(it => it.changed);
     if (changedItems.length) {
       const hChanged = document.createElement('h4');
-      hChanged.textContent = `Changed task answers (${changedItems.length} items differ)`;
-      card.append(hChanged);
+      hChanged.textContent = `Answers that changed (${changedItems.length})`;
+      full.append(hChanged);
       for (const it of changedItems) {
         const box = document.createElement('details');
         const sum = document.createElement('summary');
         sum.textContent = `${it.category.replace('_', ' ')}: ${it.question || it.item_id} [${it.baseline_outcome} → ${it.candidate_outcome}]`;
         box.append(sum);
         const pBase = document.createElement('p');
-        pBase.textContent = `Baseline (${it.baseline_outcome}): ${it.baseline_output || 'no output kept'}`;
+        pBase.textContent = `Before (${it.baseline_outcome}): ${it.baseline_output || 'no output kept'}`;
         const pCand = document.createElement('p');
-        pCand.textContent = `Candidate (${it.candidate_outcome}): ${it.candidate_output || 'no output kept'}`;
+        pCand.textContent = `After (${it.candidate_outcome}): ${it.candidate_output || 'no output kept'}`;
         box.append(pBase, pCand);
-        card.append(box);
+        full.append(box);
       }
     }
   } else if (result.kind === 'speed') {
@@ -2465,17 +2552,16 @@ function renderExperiment(output, result) {
       p.candidate_ttft_s !== null ? p.candidate_ttft_s.toFixed(2) + ' s' : 'n/a',
       p.delta_ttft_s !== null ? (p.delta_ttft_s >= 0 ? '+' : '') + p.delta_ttft_s.toFixed(3) + ' s' : 'n/a',
     ]);
-    table(card, 'Paired prompt speed comparison (3-run medians)', heads, rows);
+    table(full, 'Paired prompt speed comparison (3-run medians)', heads, rows);
   }
-
-  // Evidence-based action recommendation
-  renderExperimentRecommendation(card, result);
-
   const limits = document.createElement('p');
   limits.className = 'experiment-limits';
   limits.textContent = result.limitations;
-  card.append(limits);
+  full.append(limits);
 
+  // Evidence-based action recommendation
+  renderExperimentRecommendation(card, result);
+  card.append(full);
   output.append(card);
 }
 document.getElementById('compare-experiment')?.addEventListener('click', async () => {
@@ -3030,16 +3116,24 @@ function renderMissionReceipt(report) {
   if (Number.isFinite(speed?.prompt_tokens_per_second)) {
     metric(speed.prompt_tokens_per_second.toFixed(1), 'Prompt tokens / second', 'Prompt processing rate');
   }
-  document.getElementById('cc-receipt-title').textContent = !ability ? 'Let’s find your starting point' : ability.qualified === true ? 'Short-document criteria met' : ability.qualified === false || ability.correct === 0 ? 'We found the next things to work on' : 'Your strengths are on the map';
-  const categories = [...(ability?.categories || [])].filter(c => c.total > 0).sort((a, b) => b.correct / b.total - a.correct / a.total);
-  const best = categories[0], gap = categories[categories.length - 1];
-  const leadVerdict = ability?.lead_sentence || '';
+  const missed = (ability?.checks || []).filter(c => !c.met);
+  document.getElementById('cc-receipt-title').textContent = !ability ? 'Let’s find your starting point' :
+    `${ability.correct} of ${ability.total} correct`;
   const takeawayEl = document.getElementById('cc-takeaway');
   if (!ability) {
     takeawayEl.textContent = 'Start here: run one trial, then try a mission below.';
   } else {
-    const categoryAdvice = ability.correct === 0 ? 'Every exercise in this suite was missed. Try a sample below to inspect an answer, then compare a candidate on the same trial.' : best ? `Best result: ${best.label} (${best.correct}/${best.total}). ` + (gap.correct < gap.total ? `Practice next: ${gap.label} (${gap.correct}/${gap.total}).` : 'All categories passed these exercises. Try a practical mission next.') : 'Inspect the detailed records below.';
-    takeawayEl.textContent = leadVerdict ? `${leadVerdict} ${categoryAdvice}` : categoryAdvice;
+    const wrong = ability.wrong_answers ?? Math.max(0, ability.total - ability.correct - ability.format_errors);
+    const misses = [wrong ? `${wrong} wrong` : '', ability.format_errors ? `${ability.format_errors} in the wrong answer format` : '']
+      .filter(Boolean).join(' and ');
+    const standing = ability.qualified === true ? 'Qualified for short-document reading.' :
+      ability.qualified === false ? `Not qualified yet: ${missed.map(c => `${c.label.toLowerCase()} ${c.observed} (needs ${c.name === 'format_errors' ? 'at most ' : ''}${c.required})`).join('; ')}.` : '';
+    takeawayEl.textContent = [standing, misses ? `Missed: ${misses}.` : 'Nothing missed in this suite.'].filter(Boolean).join(' ');
+  }
+  const countNote = document.getElementById('cc-count-note');
+  countNote.hidden = !ability?.unscored;
+  if (ability?.unscored) {
+    countNote.textContent = `Your AI wrote ${ability.total + ability.unscored} responses: ${ability.total} scored questions, plus ${ability.unscored} summaries for you to read that are not scored.`;
   }
   for (const category of ability?.categories || []) {
     const row = document.createElement('div'); row.className = 'skill-row';
@@ -3162,9 +3256,10 @@ function renderMissionReceipt(report) {
   // Render recipe indicator if present
   const recipeBar = document.getElementById('receipt-recipe-bar');
   if (recipeBar) {
-    if (ability?.recipe && ability.recipe.preset !== 'standard') {
+    // The before/after card already offers Restore; the bar covers results shown without one.
+    if (ability?.recipe && ability.recipe.preset !== 'standard' && !document.getElementById('improve-comparison').childElementCount) {
       recipeBar.hidden = false;
-      const recTitle = ability.recipe.preset === 'concise' ? 'Strict format instructions (concise)' : ability.recipe.preset;
+      const recTitle = ability.recipe.preset === 'concise' ? 'strict format instructions' : ability.recipe.preset;
       document.getElementById('receipt-tested-recipe').textContent = recTitle;
     } else {
       recipeBar.hidden = true;
@@ -3228,70 +3323,95 @@ function renderMissionReceipt(report) {
   const pracBtn = document.getElementById('receipt-practice');
   const upgBtn = document.getElementById('receipt-upgrade');
   const changeBtn = document.getElementById('receipt-change');
-
-  const isQualified = ability && ability.qualified === true;
-
-  if (isQualified) {
-    if (useBtn) {
-      useBtn.hidden = false;
-      useBtn.className = 'mission-primary';
-      useBtn.onclick = () => {
-        const box = document.getElementById('cc-task-box');
-        if (box) box.open = true;
-        focusSection('cc-task-box', 'cc-question');
-      };
-    }
-    if (changeBtn) {
-      changeBtn.className = 'mission-secondary';
-    }
-    if (secOptions) {
-      secOptions.hidden = false;
-      if (newReceipt) secOptions.open = false;
-    }
-    if (metricsDetails) {
-      if (newReceipt) metricsDetails.open = false;
-    }
-  } else {
-    if (useBtn) {
-      useBtn.hidden = true;
-    }
-    if (changeBtn) {
-      changeBtn.className = 'mission-primary';
-    }
-    if (secOptions) {
-      secOptions.hidden = false;
-      if (newReceipt) secOptions.open = true;
-    }
-    if (metricsDetails) {
-      if (newReceipt) metricsDetails.open = false;
-    }
-  }
-
-  pracBtn.textContent = 'Retest unchanged';
-  pracBtn.onclick = () => {
-    if (ability.suite === 'documents-short') commandActions.documents();
-    else commandActions.baseline();
+  const openRecipeReview = () => {
+    const modal = document.getElementById('recipe-modal');
+    if (!modal) return;
+    const note = document.getElementById('recipe-status-note');
+    if (note) note.textContent = '';
+    modal.showModal();
   };
-  upgBtn.onclick = () => focusSection('models-title');
-  if (changeBtn) {
-    changeBtn.disabled = !ability;
-    changeBtn.onclick = () => {
-      const modal = document.getElementById('recipe-modal');
-      if (modal) {
-        const note = document.getElementById('recipe-status-note');
-        if (note) note.textContent = '';
-        modal.showModal();
-      }
-    };
-  }
+  const rerun = () => (ability?.suite === 'documents-short' ? commandActions.documents() : commandActions.baseline());
 
+  const next = nextExperiment(ability);
+  renderNextExperiment(next, {format: openRecipeReview, model: () => focusSection('models-title'), repeat: rerun,
+    records: () => focusSection('benchmarks-title')});
+
+  useBtn.hidden = ability?.qualified !== true;
+  useBtn.onclick = () => {
+    const box = document.getElementById('cc-task-box');
+    if (box) box.open = true;
+    focusSection('cc-task-box', 'cc-question');
+  };
+  if (secOptions && newReceipt) secOptions.open = false;
+  if (metricsDetails && newReceipt) metricsDetails.open = false;
+  // The proposed experiment is not repeated among the other choices.
+  changeBtn.hidden = next?.kind === 'format';
+  changeBtn.disabled = !ability;
+  changeBtn.onclick = openRecipeReview;
+  pracBtn.hidden = next?.kind === 'repeat';
+  pracBtn.onclick = rerun;
+  upgBtn.hidden = next?.kind === 'model';
+  upgBtn.onclick = () => focusSection('models-title');
+
+  // A debrief is shown only when the local model actually wrote one for these exact runs.
   const debrief = document.getElementById('cc-debrief');
   const ids = [speed?.run, ability?.run];
   const current = lastLabDebrief?.state === 'completed' && lastLabDebrief.runs?.length && lastLabDebrief.runs.every(id => ids.includes(id));
-  debrief.hidden = !ability;
-  const debriefModelTag = (current && lastLabDebrief.model) ? ` [from ${lastLabDebrief.model}]` : '';
-  document.getElementById('cc-debrief-text').textContent = current ? lastLabDebrief.text : 'No local-model debrief for these results in this session. Run a trial to hear the selected model’s take.';
-  document.getElementById('cc-debrief-note').textContent = current ? (lastLabDebrief.label + debriefModelTag) : 'Debriefs are optional, stay in memory and never change a score.';
+  debrief.hidden = !current;
+  document.getElementById('cc-debrief-text').textContent = current ? lastLabDebrief.text : '';
+  document.getElementById('cc-debrief-note').textContent = current ?
+    `Written by ${lastLabDebrief.model || 'the selected model'} after scoring. ${lastLabDebrief.label}` : '';
+}
+
+function nextExperiment(ability) {
+  // Choose from experiments the product can actually run, using only measured evidence.
+  // The instruction retest reruns the document trial, so only a document result can be matched.
+  if (!ability || ability.suite !== 'documents-short') return null;
+  const preset = ability.recipe?.preset || 'standard';
+  const plural = (n, one, many) => (n === 1 ? one : many);
+  if (preset !== 'standard') {
+    if (document.getElementById('improve-comparison')?.childElementCount) return null;
+    return {kind: 'records', title: 'Compare this run with a standard one',
+      why: 'This result used strict format instructions, and there is no matching standard result from this session to compare it with.',
+      change: 'Nothing changes. Saved test records let you pair two runs of the same trial.',
+      measure: 'A controlled comparison shows before and after for each question.',
+      button: 'Open test records'};
+  }
+  const formatErrors = ability.format_errors || 0;
+  const wrong = ability.wrong_answers ?? Math.max(0, ability.total - ability.correct - formatErrors);
+  if (formatErrors > 0) {
+    return {kind: 'format', title: 'Try strict format instructions',
+      why: `${formatErrors} of ${ability.total} scored ${plural(formatErrors, 'answer was', 'answers were')} in the wrong answer format, so ${plural(formatErrors, 'it', 'they')} couldn’t count as correct.`,
+      change: 'One lab instruction is added: “Follow the requested output format; omit extra prose.” Same model, same passages, same scoring. Your chat assistant is not changed.',
+      measure: 'Your AI reruns the same trial. You compare before and after, then keep the instruction or restore standard.',
+      button: 'Review experiment'};
+  }
+  if (wrong > 0) {
+    return {kind: 'model', title: 'Compare a different model',
+      why: `${wrong} ${plural(wrong, 'answer was', 'answers were')} wrong and none had format problems. The only instruction experiment targets format problems, so it doesn’t fit this result.`,
+      change: 'Pick a candidate model in Models & setup. It runs this same trial, and switching your assistant can be undone.',
+      measure: 'Matched results on the same questions show whether the candidate does better here.',
+      button: 'Choose a model to compare'};
+  }
+  return {kind: 'repeat', title: 'Check that it’s consistent',
+    why: `All ${ability.total} scored questions were correct this time.`,
+    change: 'Nothing. Your AI reruns the same trial unchanged.',
+    measure: 'If the result holds, you can trust it more. If it changes, you’ve found variation worth knowing about.',
+    button: 'Rerun the same trial unchanged'};
+}
+
+function renderNextExperiment(next, actions) {
+  const box = document.getElementById('improve-next');
+  box.hidden = !next;
+  if (!next) return;
+  box.dataset.kind = next.kind;
+  document.getElementById('improve-next-title').textContent = next.title;
+  document.getElementById('improve-why').textContent = next.why;
+  document.getElementById('improve-change').textContent = next.change;
+  document.getElementById('improve-measure').textContent = next.measure;
+  const go = document.getElementById('improve-go');
+  go.textContent = next.button;
+  go.onclick = actions[next.kind];
 }
 const missionSamples = [
   {title: 'Expedition planner', hook: 'Help a robot crew get home before the tide rises.',

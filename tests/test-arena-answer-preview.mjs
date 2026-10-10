@@ -19,3 +19,8 @@ test('not-stated status is distinct from an answer',()=>{
   assert.equal(context.arenaAnswerPreview('{"status":"not_stated"}'),'Not stated in the passage.');
   assert.equal(context.arenaAnswerPreview('{"status":"not_stated","answer":""}'),'Not stated in the passage.');
 });
+test('an envelope that has not reached its answer shows progress, not JSON',()=>{
+  assert.equal(context.arenaAnswerPreview('{"status": "answered", "a'),'Receiving answer text…');
+  assert.equal(context.arenaAnswerPreview('{"status": "not_stated", "answer": "", "quo'),'Not stated in the passage.');
+  assert.equal(context.arenaAnswerPreview('{"status": "not_stated", "answer": "Ye'),'Ye');
+});

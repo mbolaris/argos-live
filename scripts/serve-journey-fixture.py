@@ -9,6 +9,7 @@ Prints the tokenized URL on the first line.
 import contextlib
 from functools import partial
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -26,6 +27,8 @@ from test_bench_speed import Backend
 from test_doc_trial import DocBackend
 from test_lab import Assistant
 
+# Visual acceptance can slow streaming to capture a live answer; default keeps tests fast.
+STREAM_DELAY = float(os.environ.get('ARGOS_FIXTURE_STREAM_DELAY', '0.012'))
 PASSAGE_ANSWER = {'status': 'answered', 'answer': '35 minutes', 'quote': 'Crossings take 35 minutes.'}
 
 
@@ -37,7 +40,7 @@ class Fixture(DocBackend):
         system = kwargs.get('system')
         result = super().generate(model, prompt, **kwargs)
         if prompt and 'MEASURED RECEIPT:' in prompt:
-            result['text'] = 'The quick exercises exposed limits in my structured answers. I would like to try the repair brief next and show the sentence I used.'
+            result['text'] = 'I found most facts, but one answer ignored the required format. I would try strict format instructions for lab tests and compare on the same trial.'
         elif prompt and 'DOCUMENT:' in prompt:
             result['text'] = json.dumps(PASSAGE_ANSWER)
         elif prompt in self.answers:
@@ -60,7 +63,7 @@ class Fixture(DocBackend):
                     break
                 chunk = text[i:i + chunk_size]
                 callback({'response': chunk})
-                time.sleep(0.012)
+                time.sleep(STREAM_DELAY)
         else:
             time.sleep(0.02)
         return result

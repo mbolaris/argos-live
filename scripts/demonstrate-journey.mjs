@@ -1,9 +1,9 @@
 // Demonstrate the complete continuous document mission experiment flow:
 // 1. Start through "Start: Read this brief" (#cc-next-go).
 // 2. Watch live arena streaming an actual challenge answer (passage, tokens, scored receipts).
-// 3. Baseline completion retains baseline run ID; recipe modal opens with OpenClaw personality protection notice.
+// 3. Baseline completion retains baseline run ID; Improve proposes the format experiment; the approval dialog opens with OpenClaw personality protection notice.
 // 4. Candidate retest runs with concise recipe; automatically pairs with baseline run ID and calls server comparator.
-// 5. Evidence-based recommendation rendered (primary Keep trial recipe / secondary Restore standard, or vice versa).
+// 5. Before/after and an evidence-based recommendation render in Improve (Keep strict format instructions / Restore standard instructions).
 // 6. Action executed (Restore standard -> resets active recipe to Standard calibration and verifies selected: null).
 // 7. Cancellation and reload resilience tested mid-flight.
 // 8. Incompatible-pair refusal verified server-side (HTTP 409).
@@ -160,11 +160,10 @@ try {
   // STEP 3: OPEN RECIPE MODAL & VERIFY PERSONALITY PROTECTION
   // =========================================================================
   console.log('--- Step 3: Open recipe experiment modal ---');
-  await page.evaluate(() => {
-    const sec = document.getElementById('receipt-secondary-options');
-    if (sec) sec.open = true;
-  });
-  const changeBtn = page.locator('#receipt-change');
+  // The format miss leads Improve to propose exactly this experiment; reviewing it starts nothing.
+  await page.waitForFunction(() => document.getElementById('improve-next')?.dataset.kind === 'format' &&
+    !document.getElementById('improve-next').hidden);
+  const changeBtn = page.locator('#improve-go');
   await changeBtn.waitFor({state: 'visible'});
   await changeBtn.click();
 
@@ -172,8 +171,8 @@ try {
   const modalText = await page.locator('#recipe-modal').textContent();
 
   // Assert OpenClaw assistant personality protection notice is explicit
-  if (!modalText.includes('Assistant protection (No personality or weight change)')) {
-    fail('Recipe modal lacks OpenClaw assistant protection title');
+  if (!modalText.includes('Your everyday assistant is not changed')) {
+    fail('Recipe modal lacks everyday-assistant protection summary');
   }
   if (!modalText.includes('does not alter your assistant\'s OpenClaw personality')) {
     fail('Recipe modal lacks OpenClaw personality protection statement');
@@ -200,7 +199,7 @@ try {
 
   // Wait for candidate trial to stream, complete, and auto-render controlled comparison
   await page.waitForFunction(() => {
-    const card = document.querySelector('#experiment-comparison .experiment-card');
+    const card = document.querySelector('#improve-comparison .experiment-card');
     const rec = document.getElementById('experiment-recommendation');
     return card !== null && rec !== null;
   }, null, {timeout: 90000});
@@ -223,7 +222,7 @@ try {
   if (!experimentData.delta?.verdict) fail('Missing delta verdict in comparator response');
 
   // Verify Evidence-Based Recommendation Box in rendered card
-  await page.waitForFunction(() => document.getElementById('arena-next-action')?.textContent.includes('Review comparison'));
+  await page.waitForFunction(() => document.getElementById('arena-next-action')?.textContent.includes('See before and after'));
   await page.locator('#arena-next-action').click();
   const recBox = page.locator('#experiment-recommendation');
   await recBox.waitFor({state: 'visible'});
@@ -249,15 +248,15 @@ try {
   }
 
   await attachFixtureBanner();
-  await page.locator('#experiment-comparison').scrollIntoViewIfNeeded();
+  await page.locator('#improve-comparison').scrollIntoViewIfNeeded();
   await page.screenshot({path: 'work/journey-4-compare.png'});
   console.log('PASS [Step 4: Compare]: Captured work/journey-4-compare.png');
 
   // =========================================================================
   // STEP 5: EXECUTE ACTION (AUTHENTIC KEEP -> VERIFY -> RESTORE -> VERIFY)
   // =========================================================================
-  console.log('--- Step 5: Execute action: Keep trial recipe -> verify -> Restore standard -> verify ---');
-  // First, click "Keep trial recipe" and verify authenticated selection and state
+  console.log('--- Step 5: Execute action: Keep strict format instructions -> verify -> Restore standard instructions -> verify ---');
+  // First, click "Keep strict format instructions" and verify authenticated selection and state
   const keepReq = page.waitForResponse(r => r.url().endsWith('/api/lab/recipe/select') && r.request().method() === 'POST');
   await primaryBtn.click();
   const keepResp = await keepReq;
@@ -268,7 +267,7 @@ try {
     const note = document.getElementById('recommendation-status');
     const restoreBtn = document.getElementById('lab-recipe-restore');
     return el && el.textContent.includes('Strict format instructions (concise)') &&
-           note && note.textContent.includes('Trial recipe kept and verified') &&
+           note && note.textContent.includes('Kept and verified') &&
            restoreBtn && !restoreBtn.hidden;
   }, null, {timeout: 10000});
 
@@ -276,7 +275,7 @@ try {
   if (keptState.selected?.preset !== 'concise') {
     fail(`Recipe selection verification failed; expected preset 'concise', got ${JSON.stringify(keptState.selected)}`);
   }
-  console.log('[PASS] "Keep trial recipe" executed through authenticated API and verified in active Lab state');
+  console.log('[PASS] "Keep strict format instructions" executed through authenticated API and verified in active Lab state');
 
   // Now click "Restore standard" and verify authenticated restore and state
   const restoreReq = page.waitForResponse(r => r.url().endsWith('/api/lab/recipe/restore') && r.request().method() === 'POST');
@@ -290,7 +289,7 @@ try {
     const note = document.getElementById('recommendation-status');
     const restoreBtn = document.getElementById('lab-recipe-restore');
     return el && el.textContent.includes('Standard calibration') &&
-           note && note.textContent.includes('Restored standard calibration') &&
+           note && note.textContent.includes('Restored standard instructions') &&
            (!restoreBtn || restoreBtn.hidden);
   }, null, {timeout: 10000});
 
@@ -350,11 +349,11 @@ try {
   });
 
   if (!tradeoffTest.tradeoff.isTradeoffClass) fail('Tradeoff recommendation missing verdict-tradeoff class');
-  if (tradeoffTest.tradeoff.primBtnA !== 'Restore standard') {
-    fail(`Tradeoff recommendation should recommend 'Restore standard' as primary to protect accuracy, got '${tradeoffTest.tradeoff.primBtnA}'`);
+  if (tradeoffTest.tradeoff.primBtnA !== 'Restore standard instructions') {
+    fail(`Tradeoff recommendation should recommend 'Restore standard instructions' as primary to protect accuracy, got '${tradeoffTest.tradeoff.primBtnA}'`);
   }
-  if (tradeoffTest.tradeoff.secBtnA !== 'Keep trial recipe') {
-    fail(`Tradeoff recommendation should offer 'Keep trial recipe' as secondary, got '${tradeoffTest.tradeoff.secBtnA}'`);
+  if (tradeoffTest.tradeoff.secBtnA !== 'Keep for lab tests') {
+    fail(`Tradeoff recommendation should offer 'Keep for lab tests' as secondary, got '${tradeoffTest.tradeoff.secBtnA}'`);
   }
   if (!tradeoffTest.tradeoff.reasonA.includes('reduced format errors (-1)') || !tradeoffTest.tradeoff.reasonA.includes('correct answers decreased (-2 tasks)')) {
     fail('Tradeoff recommendation does not explicitly state the accuracy vs format tradeoff');
@@ -1064,13 +1063,13 @@ try {
     await refreshCommand();
   });
 
-  // Assert cancellation banner offers primary Retry failed trial and secondary Restore standard
+  // A stopped standard run offers to run again with the same settings; there is nothing to restore.
   const retryBtn = page.locator('#arena-next-action');
   const secRestoreBtn = page.locator('#arena-secondary-action');
   if (!(await retryBtn.isVisible())) fail('Retry button missing on cancellation');
-  if (!(await secRestoreBtn.isVisible())) fail('Secondary restore button missing on cancellation');
-  if ((await retryBtn.textContent()).trim() !== 'Retry failed trial') {
-    fail(`Expected 'Retry failed trial', got '${await retryBtn.textContent()}'`);
+  if (await secRestoreBtn.isVisible()) fail('Restore offered for a run that used standard instructions');
+  if ((await retryBtn.textContent()).trim() !== 'Run it again with the same settings') {
+    fail(`Expected 'Run it again with the same settings', got '${await retryBtn.textContent()}'`);
   }
   console.log('[PASS] Truthful cancellation summary and retry recommendation verified');
 
@@ -1085,7 +1084,7 @@ try {
   const mbRetryBtn = page.locator('#arena-next-action');
   if (!(await mbRetryBtn.isVisible())) fail('Arena retry action not visible on mobile');
   const mbSecRestoreBtn = page.locator('#arena-secondary-action');
-  if (!(await mbSecRestoreBtn.isVisible())) fail('Arena secondary restore action not visible on mobile');
+  if (await mbSecRestoreBtn.isVisible()) fail('Restore offered on mobile for a standard run');
 
   // Settle Command Center and verify action button is present and visible
   await page.evaluate(async () => {

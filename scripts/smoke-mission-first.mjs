@@ -334,6 +334,7 @@ try {
   await page.unroute('**/api/command-center');
 
   // J6b: Recipe experiment modal, selection, and restoration
+  await page.locator('#receipt-secondary-options > summary').click();
   await page.locator('#receipt-change').click();
   const modalOpen = await page.locator('#recipe-modal').evaluate(el => el.open);
   if (!modalOpen) fail('#receipt-change did not open #recipe-modal');
@@ -372,9 +373,11 @@ try {
 
   // J8: Integrated watch / debrief / skill-map and receipt use checks
   const opinionTag = await page.locator('.opinion-tag').textContent();
-  if (!opinionTag.includes('Model opinion') || !opinionTag.includes('not scored evidence')) {
-    fail(`Expected opinion disclaimer tag, got: "${opinionTag}"`);
+  const opinionLabel = await page.locator('#cc-debrief .mission-label').textContent();
+  if (!opinionLabel.includes('opinion') || !opinionTag.includes('not scored evidence')) {
+    fail(`Expected opinion label and disclaimer tag, got: "${opinionLabel}" / "${opinionTag}"`);
   }
+  if (await page.locator('#cc-debrief').isVisible()) fail('Debrief shown without a model-written opinion for these runs');
   const legendText = await page.locator('.skill-map-legend').textContent();
   if (!legendText.includes('Qualified') || !legendText.includes('Tested') || !legendText.includes('Needs work')) {
     fail(`Expected 3-state legend marks in skill map, got: "${legendText}"`);
@@ -444,28 +447,26 @@ try {
     const q = document.getElementById('arena-current-question');
     const s = document.getElementById('arena-current-stream');
     const src = document.getElementById('arena-source-details');
+    const passage = document.getElementById('arena-current-passage');
     const prompt = document.getElementById('arena-current-prompt');
-    const hud = document.querySelector('.arena-hud');
-    const progress = document.querySelector('.arena-hud-progress');
+    const details = document.getElementById('arena-run-details');
+    const progress = document.querySelector('.watch-progress');
     const deck = document.getElementById('arena');
-    if (!q || !s || !src || !prompt || !hud || !progress || !deck) return false;
+    if (!q || !s || !src || !passage || !prompt || !details || !progress || !deck) return false;
     const qBeforeS = (q.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    const sBeforeSrc = (s.compareDocumentPosition(src) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    const srcContainsPrompt = src.contains(prompt);
-    const srcCollapsed = src.open === false;
-
-    // Computed layout checks: HUD and progress must be compact (no 200px/395px blowout)
-    const hudHeight = hud.getBoundingClientRect().height;
-    const progHeight = progress.getBoundingClientRect().height;
-    const deckPaddingTop = parseFloat(window.getComputedStyle(deck).paddingTop);
-    const compactHud = hudHeight <= 180 && progHeight <= 60 && deckPaddingTop <= 16;
-
-    return qBeforeS && sBeforeSrc && srcContainsPrompt && srcCollapsed && compactHud;
+    // The passage leads the challenge; the full prompt stays inspectable inside it.
+    const srcBeforeQ = (src.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const srcContains = src.contains(passage) && src.contains(prompt);
+    // Model, recipe and elapsed time are on request; progress stays compact.
+    const detailsCollapsed = details.open === false && details.contains(document.getElementById('arena-model'));
+    const compact = progress.getBoundingClientRect().height <= 160 && parseFloat(window.getComputedStyle(deck).paddingTop) <= 16;
+    const checks = {qBeforeS, srcBeforeQ, srcContains, detailsCollapsed, compact};
+    return Object.values(checks).every(Boolean) || JSON.stringify(checks);
   });
-  if (!arenaHierarchyValid) fail('Arena hierarchy or computed HUD layout invalid: check question/stream order and computed gaps');
-  const sourceSummaryText = await page.locator('#arena-source-details summary').textContent();
-  if (!sourceSummaryText.includes('Read source')) fail(`Expected 'Read source' summary, got: "${sourceSummaryText}"`);
-  console.log('[PASS] Arena hierarchy & compact Watch HUD verified: question/stream first, source collapsed, compact HUD height <= 180px');
+  if (arenaHierarchyValid !== true) fail('Watch hierarchy or layout invalid: ' + arenaHierarchyValid);
+  const sourceSummaryText = await page.locator('#arena-source-details > summary').textContent();
+  if (!sourceSummaryText.includes('The passage')) fail(`Expected 'The passage' summary, got: "${sourceSummaryText}"`);
+  console.log('[PASS] Watch hierarchy verified: passage, question, answer; run details collapsed; progress block <= 160px at 320px');
 
   // 7. Debrief hierarchy: "Use this build" as sole primary action when qualified, secondary options & metrics collapsed under Details
   await page.route('**/api/command-center', route => {
@@ -506,11 +507,22 @@ try {
       return { valid: false, reason: 'Takeaway or actions do not precede replay details' };
     }
 
-    // Verify "Use this build" is the sole visible primary action in #receipt-actions
+    // The proposed experiment is the sole visible primary action; using the build stays available.
     const isVisible = el => !el.hidden && (el.checkVisibility ? el.checkVisibility() : true);
-    const visiblePrimaryButtons = Array.from(actions.querySelectorAll('.mission-primary')).filter(isVisible);
-    if (visiblePrimaryButtons.length !== 1 || !visiblePrimaryButtons[0].textContent.includes('Use this build')) {
-      return { valid: false, reason: `Expected 1 primary button ('Use this build'), found ${visiblePrimaryButtons.length}` };
+    const receipt = document.getElementById('cc-receipt');
+    const visiblePrimaryButtons = Array.from(receipt.querySelectorAll('.mission-primary')).filter(isVisible);
+    if (visiblePrimaryButtons.length !== 1 || visiblePrimaryButtons[0].id !== 'improve-go') {
+      return { valid: false, reason: `Expected 1 primary button (#improve-go), found ${visiblePrimaryButtons.map(b => b.id).join(', ')}` };
+    }
+    const next = document.getElementById('improve-next');
+    if (next.dataset.kind !== 'repeat' || !visiblePrimaryButtons[0].textContent.includes('Rerun the same trial unchanged')) {
+      return { valid: false, reason: `Expected an unchanged retest proposal for a clean result, got ${next.dataset.kind}` };
+    }
+    if ((next.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
+      return { valid: false, reason: 'Next experiment does not precede replay details' };
+    }
+    if (!isVisible(useBtn) || !useBtn.textContent.includes('Try it on your own document')) {
+      return { valid: false, reason: 'Qualified result does not offer using the build' };
     }
 
     // Verify secondary options collapsed under Details
@@ -536,7 +548,7 @@ try {
     fail(`Debrief hierarchy regression failed: ${debriefHierarchyValid.reason}`);
   }
   await page.unroute('**/api/command-center');
-  console.log('[PASS] Debrief hierarchy verified: "Use this build" sole primary action, secondary options and metrics collapsed under Details');
+  console.log('[PASS] Improve hierarchy verified: one proposed experiment as sole primary action, use-the-build secondary, options and metrics collapsed');
 
   // 8. Storage hierarchy, compact strip & computed layout: compact strip (<150px), compact card (<300px), compact padding, collapsed path/policies, no read-only claims
   await page.evaluate(async () => {

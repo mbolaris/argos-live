@@ -114,7 +114,7 @@ try {
   await page.waitForFunction(() => document.getElementById('lab-start').disabled &&
     document.getElementById('lab-status').textContent.includes('Measured run 1/3'));
   await page.locator('#arena').waitFor({state: 'visible'});
-  await page.waitForFunction(() => document.getElementById('arena-progress-label').textContent.includes('challenges'));
+  await page.waitForFunction(() => document.getElementById('arena-progress-label').textContent.includes('1 of 20 responses done'));
   await page.locator('#lab-cancel').click();
   await page.waitForFunction(() => !document.getElementById('lab-start').disabled &&
     document.getElementById('lab-status').textContent.includes('Test cancelled'));
