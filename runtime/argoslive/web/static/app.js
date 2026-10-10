@@ -535,7 +535,7 @@ function updateArenaTally(receipts) {
   set('arena-tally-summaries', summaries, `${summaries} ${summaries === 1 ? 'summary' : 'summaries'} (not scored)`);
 }
 
-const challengeKinds = {answer: 'Find the fact', quote: 'Quote the evidence', not_stated: 'Notice what’s missing',
+const challengeKinds = {answer: 'Find the fact', quote: 'Answer with a supporting quote', not_stated: 'Notice what’s missing',
   summary: 'Summary · for you, not scored'};
 
 function extractPassage(promptText) {
@@ -3331,7 +3331,7 @@ function nextExperiment(ability) {
   }
   if (wrong > 0) {
     return {kind: 'model', title: 'Compare a different model',
-      why: `${wrong} ${plural(wrong, 'answer was', 'answers were')} wrong and none had format problems. The only instruction experiment targets format problems, so it doesn’t fit this result.`,
+      why: `${wrong} ${plural(wrong, 'answer was', 'answers were')} marked wrong and none had format problems; the replay shows why each one missed. The only instruction experiment targets format problems, so it doesn’t fit this result.`,
       change: 'Pick a candidate model in Models & setup. It runs this same trial, and switching your assistant can be undone.',
       measure: 'Matched results on the same questions show whether the candidate does better here.',
       button: 'Choose a model to compare'};
@@ -3397,6 +3397,13 @@ function renderReplay() {
   document.getElementById('replay-summary').textContent =
     `${run.correct} of ${run.total} correct · ${misses} ${misses === 1 ? 'miss' : 'misses'} · ${run.unscored} summaries for you` +
     (changes ? ` · ${changes.size} changed in the experiment` : '') + (misses ? '. Start with a miss, or pick any answer.' : '. Pick any answer.');
+  // Group misses by diagnostic label so wording misses are not mistaken for wrong facts.
+  const reasons = {};
+  for (const item of data.items) if (item.diagnosis) reasons[item.diagnosis.label] = (reasons[item.diagnosis.label] || 0) + 1;
+  const breakdown = document.getElementById('replay-breakdown');
+  breakdown.hidden = !Object.keys(reasons).length;
+  breakdown.textContent = 'Why they missed (diagnostic, not a score): ' +
+    Object.entries(reasons).map(([label, n]) => `${label} ×${n}`).join(' · ');
   const grid = document.getElementById('replay-grid');
   grid.replaceChildren();
   const groups = new Map();
@@ -3454,6 +3461,23 @@ function renderReplayDetail(changes) {
   const accepted = document.getElementById('replay-accepted');
   accepted.hidden = item.outcome === 'pass' || !item.accepted?.length;
   accepted.textContent = accepted.hidden ? '' : `Accepted answer${item.accepted.length > 1 ? 's' : ''}: ${item.accepted.join(' · ')}`;
+  // Answer acceptance and quote validity are separate checks; the saved verdict needs both.
+  const checks = document.getElementById('replay-checks');
+  const c = item.checks || {};
+  const rows = [];
+  if ('answer_accepted' in c) rows.push(['Answer is an accepted answer', c.answer_accepted]);
+  if ('quote_exact' in c) rows.push(['Quote copied exactly from the passage', c.quote_exact],
+                                    ['Quote contains an accepted answer', c.quote_supports]);
+  checks.hidden = item.outcome === 'pass' || !rows.length;
+  checks.replaceChildren(...rows.map(([label, ok]) => {
+    const li = document.createElement('li');
+    li.className = ok ? 'ok' : 'no';
+    li.textContent = `${ok ? '✓' : '✗'} ${label}`;
+    return li;
+  }));
+  const diagnosis = document.getElementById('replay-diagnosis');
+  diagnosis.hidden = !item.diagnosis;
+  diagnosis.textContent = item.diagnosis ? `Diagnostic label (new, not a score): ${item.diagnosis.label}` : '';
   const before = document.getElementById('replay-before');
   const change = changes?.get(item.item_id);
   before.hidden = !change;

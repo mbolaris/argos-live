@@ -1102,7 +1102,11 @@ Real inference answers all 32 responses in about 15 seconds, so live Watch shows
 - Accept: fixture smoke steps through all 32 items at 390 and 1280 px; shipped Firefox on Toronado shows a real run's replay after completion and after reload.
 
 
-### U12 Real misses are answer wording, not evidence — `needs owner decision`
+### U12 Real misses are answer wording, not evidence — `audited; next experiment proposed`
+
+Audit: `docs/DOCUMENT-MISS-AUDIT.md`. Across seven qwen3:4b runs all 30 miss instances are answer-field misses with valid quotes (16 right meaning rejected for wording, 14 full sentences where a short answer is required); none are wrong facts or unsupported quotes. Older qwen3:0.6b misses are mostly genuinely wrong. The replay now shows answer acceptance and quote validity as separate checks with new, clearly marked diagnostic labels; the combined check is displayed as "Correct answers with a supporting quote" (saved labels unchanged). Proposed next experiment, not implemented: one generic lab instruction restating the short-answer contract, judged by a matched retest and reported as suite-format compliance only. Accepted answers, suite version and thresholds unchanged pending an owner decision.
+
+Earlier finding:
 
 The U11 replay on Toronado (qwen3:4b, six document runs: four standard at 20/24 and two strict-format at 19/24) showed every miss had an exactly copied, supporting quote. The answers missed the exact accepted forms: "to protect nesting birds" (accepts "nesting birds", "protect nesting birds"), "Markdown export" (accepts "markdown"), and the full supporting sentence given as the short answer twice; strict format added "Android 10 or newer" on one fact question. So "Show the evidence 4/8" mostly measures answer wording, and the strict-format instruction does not target it. Options, none applied:
 

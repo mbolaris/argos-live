@@ -109,11 +109,14 @@ try {
   assert.equal(await page.locator('#replay-grid .replay-row').count(),8,'One row per passage');
   assert.equal(await page.locator('#replay-grid .replay-chip.selected').textContent(),'▲ Fact','Opens on the first miss');
   assert.match(await page.locator('#replay-verdict').textContent(),/^Not scorable/);
+  assert.equal(await page.locator('#replay-breakdown').textContent(),'Why they missed (diagnostic, not a score): Not in the required answer format ×1');
+  assert.equal(await page.locator('#replay-diagnosis').textContent(),'Diagnostic label (new, not a score): Not in the required answer format');
   assert.match(await page.locator('#replay-summary').textContent(),/^23 of 24 correct · 1 miss · 8 summaries for you/);
   assert.ok((await page.locator('#replay-passage').textContent()).length>100,'Passage shown with the answer');
   await page.locator('#replay-next').click();
-  assert.match(await page.locator('#replay-kind').textContent(),/^Quote the evidence · 2 of 32$/);
+  assert.match(await page.locator('#replay-kind').textContent(),/^Answer with a supporting quote · 2 of 32$/);
   assert.equal(await page.locator('#replay-passage mark').count(),1,'Exact quote highlighted after the run');
+  assert.equal(await page.locator('#replay-checks').isHidden(),true,'Checks are shown for misses only');
   await page.locator('#replay-grid .replay-chip.selected').focus();
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
   assert.match(await page.locator('#replay-verdict').textContent(),/^A summary written for you/);
