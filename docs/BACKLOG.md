@@ -1084,7 +1084,7 @@ Installed b8e09ce's four changed runtime files over the exact PR75 runtime (all 
 
 Installed a84538d's two changed files over the exact b8e09ce runtime (all 62 files matched first) with the same hash, rollback, idle and settings gates; settings hash unchanged and rollback copies verified against the baseline. In the shipped Firefox with qwen3:4b: the progress bar is an empty dark track at "Starting…"; after a run left its last passage on screen, the next run's speed check showed no previous passage; the rollback bar names `qwen3:4b-instruct-2507-q4_K_M`. Model switching: the review dialog opened and was dismissed; no switch occurred. Found: with the passage hidden the speed-check challenge fell into the narrow passage column (fixed in the next PR); an already-decided experiment comparison is re-paired with a newer standard run and still shown above the current proposal; a real debrief claimed it "quotes correctly" and mentioned format errors when quotations scored 4/8 and format errors were 0. Still unverified: quote highlight mid-stream on real hardware, physical phone layout, and reboot persistence of the live patch (to be checked in a reboot coordinated with the owner before any ISO build).
 
-### U11 Persistent challenge replay — `review`
+### U11 Persistent challenge replay — `completed` (PR #79; live on Toronado 2026-10-10)
 
 Implemented on `fix/speed-check-layout` (with the speed-check layout fix): `GET /api/benchmarks/replay/<run>` (read-only, document trials only) returns all 32 responses in suite order with the saved verdicts, plain reasons computed with the scorer's own parsing (for example "the answer was right, but the quote isn't copied exactly from the passage"), the fixed accepted answers, and whether a returned quote appears in the passage; scores are never recomputed. Improve shows "Step through every answer" after the result: one row per passage with Fact/Quote/Missing/Summary chips colored by verdict, opening on the first miss, with ←/→, "Next miss" and arrow keys; the detail shows the passage with an exact quote highlighted, the question, the readable answer, the verdict, accepted answers on a miss, and the original output. It persists across reloads until the next result. A pending before/after decision sits above the replay; in an experiment, changed answers are ringed and show the answer from before. The measured facts appear under the model's opinion. A comparison is shown only while its candidate is newer than its baseline and not yet kept or restored in this browser. The old "See example answers" section is removed; quick-suite (non-document) runs show their result without a replay.
 
@@ -1101,7 +1101,20 @@ Real inference answers all 32 responses in about 15 seconds, so live Watch shows
 - Show only an undecided comparison whose candidate is newer than its baseline; a decided or stale comparison moves to history.
 - Accept: fixture smoke steps through all 32 items at 390 and 1280 px; shipped Firefox on Toronado shows a real run's replay after completion and after reload.
 
- — `todo` (next functional milestone)
+
+### U12 Real misses are answer wording, not evidence — `needs owner decision`
+
+The U11 replay on Toronado (qwen3:4b, six document runs: four standard at 20/24 and two strict-format at 19/24) showed every miss had an exactly copied, supporting quote. The answers missed the exact accepted forms: "to protect nesting birds" (accepts "nesting birds", "protect nesting birds"), "Markdown export" (accepts "markdown"), and the full supporting sentence given as the short answer twice; strict format added "Android 10 or newer" on one fact question. So "Show the evidence 4/8" mostly measures answer wording, and the strict-format instruction does not target it. Options, none applied:
+
+1. Experiment, no scorer change: add a reviewed lab instruction such as "Answer with the shortest phrase from the passage" as a second recipe, proposed only when replayed misses show exact quotes with mismatched answers, and judged by the usual matched retest with Keep/Restore. Lab-only, like strict format.
+2. Suite revision, owner-approved: accept reviewed answer variants (for example a leading "to", or the accepted phrase contained in a short answer) as a new suite version with its own criteria. Results under different versions are never compared or used to claim improvement.
+3. Leave the scorer strict and say so: the replay now explains these misses as "the quote was copied exactly, but the answer … is not one of the accepted answers".
+
+### U9c Toronado acceptance of PR79 (U11 replay) — `completed`
+
+Installed 4d467ae over the exact a84538d runtime (62 files matched; five replaced, `replay.py` added and checked absent first) with hash, rollback (new file removed on rollback), idle and settings gates; settings hash unchanged. In shipped Firefox with qwen3:4b: the replay of a real run showed 32 chips in 8 passage rows, opened on the first miss with the exact quote highlighted in the passage, Next miss moved to the next miss, it persisted after reload, and after a new run it switched to that run; the speed check used the full width with no previous passage; measured facts appeared under a real opinion; the decided strict-format comparison no longer appeared. Still unverified: physical phone layout and reboot persistence.
+
+### U10 Carry a kept lab instruction to the everyday assistant — `todo` (next functional milestone)
 
 U9 keeps a winning instruction for lab tests only. The everyday assistant (OpenClaw chat) does not use it, so a kept lab experiment is not evidence that the assistant improved, and the UI says so. Close this gap deliberately:
 
