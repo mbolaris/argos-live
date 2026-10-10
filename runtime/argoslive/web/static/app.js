@@ -544,7 +544,15 @@ function extractPassage(promptText) {
 }
 
 let passageRevealed = false;
+function hidePassage() {
+  const passage = document.getElementById('arena-current-passage');
+  if (passage) { passage.dataset.text = ''; passage.textContent = ''; }
+  const details = document.getElementById('arena-source-details');
+  if (details) details.hidden = true;
+}
 function showChallenge(item) {
+  const details = document.getElementById('arena-source-details');
+  if (details) details.hidden = false;
   const id = document.getElementById('arena-current-id');
   if (id) id.textContent = item.item_id || 'active';
   const kind = document.getElementById('arena-current-category');
@@ -560,7 +568,6 @@ function showChallenge(item) {
     passage.textContent = text || 'This challenge has no separate passage. The full prompt is below.';
   }
   // Wide screens show the passage beside the question; phones keep it one tap away.
-  const details = document.getElementById('arena-source-details');
   if (details && text && !passageRevealed) {
     passageRevealed = true;
     if (window.matchMedia('(min-width: 900px)').matches) details.open = true;
@@ -674,6 +681,8 @@ function renderArenaState(arena, active, phase, model, elapsed) {
   const liveCat = document.getElementById('arena-current-category');
 
   if (phase === 'speed') {
+    // No passage belongs to the speed check; never leave the previous run's passage beside it.
+    hidePassage();
     if (liveId) liveId.textContent = 'speed check';
     if (liveCat) liveCat.textContent = 'Speed · timed, not scored for correctness';
     if (livePrompt) livePrompt.textContent = 'Measuring short-prompt generation speed, prompt processing, and first-token latency with fixed prompts.';
@@ -1589,6 +1598,7 @@ let selectionRefreshing = false;
 let selectionRollbackAvailable = false;
 let selectionPreviousModel = null;
 let currentModelName = null;
+let commandModelName = null;
 let activeModelMonitoring = null;
 let selectionProgressRevealed = false;
 async function refreshSelection() {
@@ -2749,6 +2759,7 @@ async function refreshCommand() {
     document.getElementById('cc-name').textContent = value.name + (value.model ? ' · ' + value.model : '');
     const heroAi = document.getElementById('cc-hero-ai');
     if (heroAi) heroAi.textContent = value.name || 'your AI';
+    commandModelName = value.model || null;
     const heroModel = document.getElementById('cc-hero-model');
     if (heroModel) {
       const isFixture = (value.model || '').startsWith('fixture:');
@@ -3272,7 +3283,8 @@ function renderMissionReceipt(report) {
     if (selectionRollbackAvailable && selectionPreviousModel) {
       rollbackBar.hidden = false;
       const curEl = document.getElementById('receipt-current-model');
-      if (curEl) curEl.textContent = currentModelName || 'Current model';
+      // Outside a switch the selection snapshot omits the model; the mission report names it.
+      if (curEl) curEl.textContent = currentModelName || commandModelName || 'Current model';
       const prevEl = document.getElementById('receipt-previous-model');
       if (prevEl) prevEl.textContent = selectionPreviousModel;
       const resBtn = document.getElementById('receipt-restore-model');
