@@ -223,7 +223,10 @@ try {
   if (!experimentData.delta?.verdict) fail('Missing delta verdict in comparator response');
 
   // Verify Evidence-Based Recommendation Box in rendered card
+  await page.waitForFunction(() => document.getElementById('arena-next-action')?.textContent.includes('Review comparison'));
+  await page.locator('#arena-next-action').click();
   const recBox = page.locator('#experiment-recommendation');
+  await recBox.waitFor({state: 'visible'});
   if (!(await recBox.isVisible())) fail('Evidence-based recommendation box is not rendered');
 
   const recTitle = (await page.locator('#recommendation-title').textContent()).trim();
@@ -994,6 +997,7 @@ try {
   console.log('--- Step 8: Test HTTP response status checking (non-throwing 409 prevention) ---');
   // Start another trial for resilience and conflict checks
   const runForConflict = page.waitForResponse(r => r.url().endsWith('/api/lab/start-documents') && r.request().method() === 'POST');
+  await page.evaluate(() => focusSection('lab-controls'));
   await page.locator('#lab-start-documents').click();
   await runForConflict;
 

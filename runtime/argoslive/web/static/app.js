@@ -388,6 +388,23 @@ let arenaPolling = false;
 let arenaTimer = null;
 let arenaReceipts = [];
 let arenaCurrentAnswer = '';
+let sessionActive = false;
+
+function updateSessionPath(active, hasResult) {
+  sessionActive = active;
+  const section = document.getElementById('command-center');
+  if (section) section.dataset.watching = String(active);
+  const watch = document.getElementById('session-watch');
+  const result = document.getElementById('session-result');
+  if (watch) watch.setAttribute('aria-disabled', String(document.getElementById('arena').hidden));
+  if (result) result.setAttribute('aria-disabled', String(!hasResult));
+  const current = active ? 'session-watch' : hasResult ? 'session-result' : 'session-play';
+  for (const id of ['session-play', 'session-watch', 'session-result']) {
+    const link = document.getElementById(id);
+    if (id === current) link?.setAttribute('aria-current', 'step');
+    else link?.removeAttribute('aria-current');
+  }
+}
 let retainedBaselineDocRunId = sessionStorage.getItem('argos_baseline_doc_run_id') || null;
 let autoComparedCandidateId = null;
 
@@ -499,6 +516,17 @@ function updateArenaReceipts(receipts) {
   }
   const tally = document.getElementById('arena-receipts-tally');
   if (tally) tally.textContent = `${receipts.length} scored`;
+  updateLatestChallenge(receipts.at(-1));
+}
+
+function updateLatestChallenge(receipt) {
+  const label = document.getElementById('arena-latest-result');
+  if (!label) return;
+  label.hidden = !receipt;
+  if (!receipt) return;
+  const meta = outcomeMeta[receipt.outcome] || outcomeMeta.unscored;
+  label.className = 'latest-challenge-result ' + meta.cls;
+  label.textContent = `Last challenge · ${receipt.item_id || 'item'}: ${meta.label}. ${meta.reason}.`;
 }
 
 function extractQuestion(promptText, category) {
@@ -510,10 +538,47 @@ function extractQuestion(promptText, category) {
   return promptText.slice(0, 160);
 }
 
+function arenaAnswerPreview(raw) {
+  // A reading challenge streams a JSON envelope. Present only text actually
+  // received; the original output remains visible and goes unchanged to scoring.
+  if (!raw.trimStart().startsWith('{')) return raw;
+  try {
+    const value = JSON.parse(raw);
+    const answer = typeof value.answer === 'string' ? value.answer : null;
+    const quote = typeof value.quote === 'string' ? value.quote : null;
+    if (value.status === 'not_stated' && !answer) return 'Not stated in the passage.';
+    if (answer !== null) return answer + (quote ? '\n\nSupporting quote:\n“' + quote + '”' : '');
+    if (value.status === 'not_stated') return 'Not stated in the passage.';
+    return raw;
+  } catch (_) {
+    // Decode an already received answer prefix, including JSON escapes. An
+    // incomplete escape waits for the next delta instead of inventing text.
+    const match = raw.match(/"answer"\s*:\s*"((?:\\.|[^"\\])*)/);
+    if (match) {
+      try { return JSON.parse('"' + match[1] + '"') || 'Waiting for answer text…'; }
+      catch (_) { return 'Receiving answer text…'; }
+    }
+    return raw;
+  }
+}
+
+function presentArenaAnswer(raw) {
+  const stream = document.getElementById('arena-current-stream');
+  if (stream) stream.textContent = arenaAnswerPreview(raw);
+  const original = document.getElementById('arena-current-raw');
+  if (original) original.textContent = raw;
+}
+
 function renderArenaState(arena, active, phase, model, elapsed) {
   const arenaEl = document.getElementById('arena');
   if (!arenaEl) return;
   arenaEl.hidden = false;
+  const mission = document.getElementById('command-center');
+  if (mission?.hidden) {
+    mission.dataset.commandUnavailable = 'true';
+    mission.hidden = false;
+  }
+  updateSessionPath(active, !document.getElementById('cc-receipt').hidden);
 
   updateArenaHUD(arena, phase, model, elapsed, active);
 
@@ -537,7 +602,7 @@ function renderArenaState(arena, active, phase, model, elapsed) {
     if (livePrompt) livePrompt.textContent = arena.current_item.prompt || 'Running challenge…';
     if (liveQuestion) liveQuestion.textContent = extractQuestion(arena.current_item.prompt, arena.current_item.category);
     if (arena.current_item.answer) {
-      if (liveStream) liveStream.textContent = arena.current_item.answer;
+      presentArenaAnswer(arena.current_item.answer);
       arenaCurrentAnswer = arena.current_item.answer;
     }
     if (streamInd) streamInd.hidden = !active;
@@ -707,6 +772,8 @@ function applyArenaEvent(ev) {
     const liveQuestion = document.getElementById('arena-current-question');
     if (liveQuestion) liveQuestion.textContent = extractQuestion(ev.prompt, ev.category);
     arenaCurrentAnswer = '';
+    const raw = document.getElementById('arena-current-raw');
+    if (raw) raw.textContent = '';
     const liveStream = document.getElementById('arena-current-stream');
     if (liveStream) liveStream.textContent = 'Generating response…';
     const streamInd = document.getElementById('arena-stream-indicator');
@@ -729,12 +796,13 @@ function applyArenaEvent(ev) {
     }
     const stream = document.getElementById('arena-current-stream');
     if (stream) {
-      stream.textContent = arenaCurrentAnswer;
+      presentArenaAnswer(arenaCurrentAnswer);
       stream.scrollTop = stream.scrollHeight;
     }
   } else if (ev.type === 'item-scored') {
     if (ev.receipt) {
       arenaReceipts.push(ev.receipt);
+      updateLatestChallenge(ev.receipt);
       const MAX_BROWSER_RECEIPTS = 100;
       if (arenaReceipts.length > MAX_BROWSER_RECEIPTS) {
         arenaReceipts.shift();
@@ -908,6 +976,8 @@ async function pollArenaEvents() {
     const url = `/api/lab/events?after=${arenaCursor}` + (arenaRunId ? `&run=${encodeURIComponent(arenaRunId)}` : '');
     const data = await api(url);
     if (!data) return;
+    const connection = document.getElementById('watch-connection');
+    if (connection) connection.hidden = true;
     if (data.reset || data.gap) {
       arenaCursor = data.cursor || 0;
       arenaRunId = data.run_id;
@@ -927,7 +997,8 @@ async function pollArenaEvents() {
       stopArenaPolling();
     }
   } catch (_) {
-    // transient network error
+    const connection = document.getElementById('watch-connection');
+    if (connection) connection.hidden = false;
   } finally {
     arenaPolling = false;
   }
@@ -999,6 +1070,9 @@ async function refreshLab() {
         arenaCursor = value.seq || 0;
         arenaReceipts = [];
         arenaCurrentAnswer = '';
+        const raw = document.getElementById('arena-current-raw');
+        if (raw) raw.textContent = '';
+        document.getElementById('arena-current-stream').textContent = 'Preparing the next mission…';
       }
       renderArenaState(value.arena, value.active, value.phase, value.model, value.elapsed_seconds);
       if (value.active) {
@@ -1037,7 +1111,11 @@ for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'star
       throw new Error(msg);
     }
     await refreshLab(); await refreshStartup();
-  } catch (err) { document.getElementById('lab-status').textContent = err.message || 'Test action unavailable. Refresh and retry.'; }
+    if (route !== 'cancel') focusSection('arena', 'lab-cancel');
+  } catch (err) {
+    document.getElementById('lab-status').textContent = err.message || 'Test action unavailable. Refresh and retry.';
+    focusSection('lab-status');
+  }
 });
 setInterval(async () => { await refreshLab(); }, 3000);
 const metricLabels = {accuracy: 'Test accuracy', short_generation_tokens_per_second: 'Short-prompt output tokens/s',
@@ -1439,6 +1517,7 @@ let selectionRollbackAvailable = false;
 let selectionPreviousModel = null;
 let currentModelName = null;
 let activeModelMonitoring = null;
+let selectionProgressRevealed = false;
 async function refreshSelection() {
   if (selectionRefreshing) return;
   selectionRefreshing = true;
@@ -1451,6 +1530,12 @@ async function refreshSelection() {
     currentModelName = value.model || null;
     const pending = getPendingModelAction();
     document.getElementById('selection-controls').hidden = (!selectionAvailable || value.phase === 'idle') && !pending;
+    if ((pending || selectionActive) && !selectionProgressRevealed) {
+      focusSection('selection-controls');
+      selectionProgressRevealed = true;
+    } else if (!pending && !selectionActive) {
+      selectionProgressRevealed = false;
+    }
     document.getElementById('selection-cancel').disabled = !selectionActive || value.phase === 'cancelling';
     document.getElementById('selection-cancel').hidden = !selectionActive;
     const messages = {idle: 'Choose Review switch on a local model.', pausing: 'Pausing the current assistant…',
@@ -2520,8 +2605,25 @@ const systemState = {unknown: 'Not yet tested', 'bench-test': 'Bench test', qual
 let commandAction = null;
 function focusSection(id, control) {
   const target = document.getElementById(id);
+  if (!target) return;
+  for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.open = true;
+  }
+  if (target.tagName === 'DETAILS') target.open = true;
   target.scrollIntoView({behavior: 'smooth', block: 'start'});
   if (control) document.getElementById(control)?.focus({preventScroll: true});
+}
+document.addEventListener('click', event => {
+  const link = event.target.closest('a[href^="#"]');
+  if (!link) return;
+  const id = link.getAttribute('href').slice(1);
+  if (!document.getElementById(id)) return;
+  event.preventDefault();
+  if (link.getAttribute('aria-disabled') === 'true') return;
+  focusSection(id);
+});
+if (new URLSearchParams(location.search).get('view') === 'lab') {
+  document.getElementById('workbench').open = true;
 }
 function sameBundledModel(model, bundled) {
   return bundled?.state === 'available' && model.files_present === true &&
@@ -2529,7 +2631,6 @@ function sameBundledModel(model, bundled) {
       typeof model.manifest_digest === 'string' && model.manifest_digest === starter.manifest_digest);
 }
 function startMissionTrial(control) {
-  focusSection('lab-controls', control);
   const button = document.getElementById(control);
   if (!button.disabled) button.click();
 }
@@ -2556,7 +2657,8 @@ async function refreshCommand() {
   try {
     const value = await api('/api/command-center');
     const section = document.getElementById('command-center');
-    section.hidden = value.available === false;
+    section.dataset.commandUnavailable = String(value.available === false);
+    section.hidden = value.available === false && document.getElementById('arena').hidden;
     if (value.available === false) return;
     document.getElementById('cc-name').textContent = value.name + (value.model ? ' · ' + value.model : '');
     const heroAi = document.getElementById('cc-hero-ai');
@@ -2591,6 +2693,9 @@ async function refreshCommand() {
       }
     }
     renderMissionReceipt(value.report);
+    const hasResult = Boolean(value.report?.ability || value.report?.speed);
+    document.getElementById('cc-receipt').hidden = !hasResult;
+    updateSessionPath(sessionActive, hasResult);
     renderSkillMap(value.skill_map);
     const path = value.build_path;
     const pathBox = document.getElementById('cc-build-path'); pathBox.hidden = !path;
@@ -2905,10 +3010,14 @@ function renderSkillMap(mapData) {
   }
 }
 
+let displayedReceiptKey = null;
 function renderMissionReceipt(report) {
   const scoreboard = document.getElementById('cc-scoreboard'); scoreboard.replaceChildren();
   const bars = document.getElementById('cc-skill-bars'); bars.replaceChildren();
   const ability = report?.ability, speed = report?.speed;
+  const receiptKey = JSON.stringify([ability?.run, speed?.run, ability?.qualified]);
+  const newReceipt = receiptKey !== displayedReceiptKey;
+  displayedReceiptKey = receiptKey;
   const metric = (value, label, note) => {
     const tile = document.createElement('div'); tile.className = 'score-tile';
     const number = document.createElement('strong'); number.textContent = value;
@@ -3137,10 +3246,10 @@ function renderMissionReceipt(report) {
     }
     if (secOptions) {
       secOptions.hidden = false;
-      secOptions.open = false;
+      if (newReceipt) secOptions.open = false;
     }
     if (metricsDetails) {
-      metricsDetails.open = false;
+      if (newReceipt) metricsDetails.open = false;
     }
   } else {
     if (useBtn) {
@@ -3151,10 +3260,10 @@ function renderMissionReceipt(report) {
     }
     if (secOptions) {
       secOptions.hidden = false;
-      secOptions.open = true;
+      if (newReceipt) secOptions.open = true;
     }
     if (metricsDetails) {
-      metricsDetails.open = false;
+      if (newReceipt) metricsDetails.open = false;
     }
   }
 

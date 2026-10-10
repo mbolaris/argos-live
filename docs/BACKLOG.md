@@ -1050,3 +1050,16 @@ Redesigned the experience around one playable loop: Challenge → Watch → Unde
   - `scripts/smoke-journey-browser.mjs` passed 100% (full journey, 320px phone responsiveness, moments).
   - `runtime/argoslive/data/documents/short.json` preserved intact without edits.
   - PR #74 merged to main; no ISO built. Physical USB deployment, physical GPU inference, and shipped Firefox ESR acceptance remain separate.
+
+### U8 Focused mission screen and readable live answers — `review`
+
+Following physical feedback that U7 still feels dense, replace simultaneous dashboards with one foreground activity. The implementation on `feat/mission-focus` provides:
+
+- A Mission → Watch → Improve navigation path and one primary next mission; Start remains visible on a 390×844 phone.
+- Watch beside the mission instead of buried in detailed test records. Starting a trial brings the active question, received answer text, progress, and Stop together; competing panels leave the foreground during a test.
+- Reading responses displayed as readable answer/quote text. Original response bytes remain inspectable and are unchanged for scoring; malformed responses still receive their actual format-error receipts.
+- A brief last-challenge result as each receipt arrives, with the full receipt list available on request. Reconnection reports stale progress rather than claiming continued live output.
+- Skill ladder, full map, examples, setup, model catalog and test records progressively disclosed. Links reveal their closed destination; review dialogs remain reachable independently of collapsed sections.
+- Empty result panels omitted; saved evidence and future curriculum boundaries preserved. No new scores, suite changes, model upgrades or agent capabilities.
+
+Acceptance: `scripts/smoke-mission-focus.mjs` exercises first mission, live answer, completed result, setup navigation, unique control IDs and 320/390/1280px bounds. It writes clearly labeled simulated previews to `output/playwright/mission-focus/` (ignored). Existing mission, dashboard and journey regressions remain required. Production-JS answer presentation regressions run in Tests. Real-model/shipped Firefox and physical Toronado acceptance remain separate from fixture Chromium; this change does not build or write a USB image.

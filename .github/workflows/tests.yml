@@ -17,4 +17,4 @@ jobs:
       - name: Node upstream tests
         run: |
           node --check runtime/argoslive/web/static/app.js
-          node --test tests/test-upstream.mjs tests/test-selection-outcomes.mjs tests/test-model-download-status.mjs
+          node --test tests/test-upstream.mjs tests/test-selection-outcomes.mjs tests/test-model-download-status.mjs tests/test-arena-answer-preview.mjs
