@@ -12,7 +12,10 @@ from .ollama import Cancelled
 CATEGORY_LABELS = {'choice': 'Pick the right answer', 'instruction': 'Follow directions',
                    'json': 'Organize information', 'numeric': 'Work with numbers',
                    'tool-call': 'Describe a tool request', 'answer': 'Find the facts',
-                   'quote': 'Show the evidence', 'not_stated': 'Know when it is missing'}
+                   'quote': 'Answer with a supporting quote', 'not_stated': 'Know when it is missing'}
+# The quote check passes only when the answer is accepted AND the quote supports it, so a miss can come
+# from answer wording alone. Saved runs keep their original labels; this only renames them for display.
+CHECK_LABELS = {'quote': 'Correct answers with a supporting quote'}
 
 
 REPLAY_LIMIT = 400
@@ -130,7 +133,7 @@ def summarize(runs):
             for c in ability['qualification'].get('checks', []):
                 checks.append({
                     'name': c.get('name'),
-                    'label': c.get('label'),
+                    'label': CHECK_LABELS.get(c.get('name'), c.get('label')),
                     'required': c.get('required'),
                     'observed': c.get('observed'),
                     'met': c.get('met'),

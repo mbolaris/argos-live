@@ -53,7 +53,7 @@
           </div>
           <div class="preview-stat-item">
             <div class="stat-label">Qualification Criteria</div>
-            <div class="stat-value">7/8 answers · 6/8 quotes · 7/8 unstated · ≤2 format errors</div>
+            <div class="stat-value">7/8 answers · 6/8 answers with a supporting quote · 7/8 “not stated” · ≤2 format errors</div>
           </div>
         </div></details>
         <p id="cc-live-trial" role="status" aria-live="polite"></p>
@@ -206,6 +206,7 @@
                   <p class="mission-label">Replay</p>
                   <h4 id="replay-title">Step through every answer</h4>
                   <p id="replay-summary" class="replay-summary"></p>
+                  <p id="replay-breakdown" class="replay-breakdown" hidden></p>
                 </div>
                 <div class="replay-nav">
                   <button id="replay-prev" type="button" class="mission-secondary" aria-label="Previous answer">←</button>
@@ -225,6 +226,8 @@
                   <p class="arena-sublabel">Your AI’s answer</p>
                   <pre id="replay-answer" class="replay-answer"></pre>
                   <p id="replay-verdict" class="replay-verdict"></p>
+                  <ul id="replay-checks" class="replay-checks" hidden></ul>
+                  <p id="replay-diagnosis" class="replay-diagnosis" hidden></p>
                   <p id="replay-accepted" class="replay-accepted" hidden></p>
                   <div id="replay-before" class="replay-before" hidden></div>
                   <details class="replay-raw"><summary>Original model output</summary><pre id="replay-raw"></pre><p>Scoring used this original output.</p></details>
