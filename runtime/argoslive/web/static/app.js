@@ -2167,7 +2167,7 @@ function renderExperimentRecommendation(card, result) {
       }
     }
   } else {
-    const KEEP = 'Keep strict format instructions', RESTORE = 'Restore standard instructions';
+    const KEEP = 'Keep for lab tests', RESTORE = 'Restore standard instructions';
     const count = (n, what) => `${Math.abs(n)} ${what}${Math.abs(n) === 1 ? '' : 's'}`;
     const keepFirst = (title, why) => {
       recTitle = title; recReason = why;
@@ -2191,18 +2191,18 @@ function renderExperimentRecommendation(card, result) {
     } else if (deltaCorr > 0 && deltaFmt > 0) {
       box.classList.add('verdict-tradeoff');
       badgeText = 'Tradeoff';
-      keepFirst('keep strict format instructions',
+      keepFirst('keep strict format instructions for lab tests',
         `A tradeoff: correct answers improved (+${deltaCorr} tasks), but format errors increased (+${deltaFmt}). Keep it if accuracy matters more to you.`);
     } else if (deltaCorr > 0) {
       box.classList.add('verdict-keep');
       badgeText = 'Better on this retest';
-      keepFirst('keep strict format instructions',
+      keepFirst('keep strict format instructions for lab tests',
         `On the same questions, ${count(deltaCorr, 'more answer')} ${deltaCorr === 1 ? 'was' : 'were'} correct with the instruction` +
         (deltaFmt < 0 ? ` and ${count(deltaFmt, 'fewer format error')} appeared.` : '.') + ' This is one matched retest, not a guarantee.');
     } else if (deltaFmt < 0) {
       box.classList.add('verdict-keep');
       badgeText = 'Fewer format errors';
-      keepFirst('keep strict format instructions',
+      keepFirst('keep strict format instructions for lab tests',
         `The same number of answers were correct, with ${count(deltaFmt, 'fewer format error')}. This is one matched retest, not a guarantee.`);
     } else if (deltaFmt > 0) {
       box.classList.add('verdict-restore');
@@ -2306,7 +2306,7 @@ function renderExperimentRecommendation(card, result) {
         if (recipes.selected?.preset !== candPreset) {
           throw new Error(`Recipe selection verification failed: expected '${candPreset}', got '${recipes.selected?.preset}'`);
         }
-        statusNote.textContent = `Kept and verified: lab tests now use ${candPreset === 'concise' ? 'strict format instructions' : candLabel}. You can restore standard at any time.`;
+        statusNote.textContent = `Kept and verified for lab tests: they now use ${candPreset === 'concise' ? 'strict format instructions' : candLabel}. Your everyday assistant is unchanged. You can restore standard at any time.`;
         const activeRecEl = document.getElementById('lab-active-recipe');
         if (activeRecEl) activeRecEl.textContent = candLabel;
         const restoreBtn = document.getElementById('lab-recipe-restore');
@@ -2485,6 +2485,13 @@ function renderExperiment(output, result) {
     row('Correct answers', `${result.baseline.correct} of ${result.baseline.total}`, `${result.candidate.correct} of ${result.candidate.total}`);
     row('Wrong answer format', String(result.baseline.format_errors ?? 0), String(result.candidate.format_errors ?? 0));
     card.append(rows);
+  }
+  if (result.intervention === 'recipe') {
+    // A lab instruction is not part of the everyday assistant; never imply that it improved.
+    const scope = document.createElement('p');
+    scope.className = 'experiment-scope';
+    scope.textContent = 'Lab tests only. Your everyday assistant doesn’t use this instruction, so this result doesn’t show the assistant itself improved.';
+    card.append(scope);
   }
 
   const full = document.createElement('details');

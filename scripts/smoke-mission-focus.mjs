@@ -108,6 +108,8 @@ try {
   await page.locator('#improve-go').click();
   await page.locator('#recipe-modal').waitFor({state:'visible'});
   assert.equal(starts,0,'Reviewing does not start the experiment');
+  assert.equal(await page.locator('.recipe-lead').textContent(),'Add one instruction, repeat the same test, compare results.');
+  assert.equal(await page.locator('#recipe-modal .recipe-protection-notice').evaluate(el=>el.open),false,'Protection detail is collapsed');
   await both('approve');
   await page.locator('#recipe-close').click();
   assert.equal(starts,0,'Not now does not start the experiment');
@@ -123,13 +125,14 @@ try {
   const comparison=await page.locator('#improve-comparison').textContent();
   assert.match(comparison,/Correct answers\s*23 of 24 → 24 of 24/);
   assert.match(comparison,/Wrong answer format\s*1 → 0/);
-  assert.equal(await page.locator('#exp-action-primary').textContent(),'Keep strict format instructions');
+  assert.equal(await page.locator('#exp-action-primary').textContent(),'Keep for lab tests');
   assert.equal(await page.locator('#exp-action-secondary').textContent(),'Restore standard instructions');
+  assert.match(comparison,/Lab tests only\. Your everyday assistant doesn’t use this instruction/);
   assert.equal(await page.locator('#improve-next').isHidden(),true,'No new proposal over an undecided experiment');
   await page.locator('#session-result').click();
   await both('compare',()=>scrollTo('improve-comparison'));
   await page.locator('#exp-action-primary').click();
-  await page.waitForFunction(()=>document.getElementById('recommendation-status').textContent.includes('Kept and verified'));
+  await page.waitForFunction(()=>document.getElementById('recommendation-status').textContent.includes('Your everyday assistant is unchanged'));
   assert.equal((await page.evaluate(()=>api('/api/lab/recipes'))).selected?.preset,'concise');
   await both('kept',()=>scrollTo('improve-comparison'));
   await page.locator('#exp-action-secondary').click();

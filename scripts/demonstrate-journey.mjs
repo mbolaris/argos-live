@@ -171,8 +171,8 @@ try {
   const modalText = await page.locator('#recipe-modal').textContent();
 
   // Assert OpenClaw assistant personality protection notice is explicit
-  if (!modalText.includes('Assistant protection (No personality or weight change)')) {
-    fail('Recipe modal lacks OpenClaw assistant protection title');
+  if (!modalText.includes('Your everyday assistant is not changed')) {
+    fail('Recipe modal lacks everyday-assistant protection summary');
   }
   if (!modalText.includes('does not alter your assistant\'s OpenClaw personality')) {
     fail('Recipe modal lacks OpenClaw personality protection statement');
@@ -352,8 +352,8 @@ try {
   if (tradeoffTest.tradeoff.primBtnA !== 'Restore standard instructions') {
     fail(`Tradeoff recommendation should recommend 'Restore standard instructions' as primary to protect accuracy, got '${tradeoffTest.tradeoff.primBtnA}'`);
   }
-  if (tradeoffTest.tradeoff.secBtnA !== 'Keep strict format instructions') {
-    fail(`Tradeoff recommendation should offer 'Keep strict format instructions' as secondary, got '${tradeoffTest.tradeoff.secBtnA}'`);
+  if (tradeoffTest.tradeoff.secBtnA !== 'Keep for lab tests') {
+    fail(`Tradeoff recommendation should offer 'Keep for lab tests' as secondary, got '${tradeoffTest.tradeoff.secBtnA}'`);
   }
   if (!tradeoffTest.tradeoff.reasonA.includes('reduced format errors (-1)') || !tradeoffTest.tradeoff.reasonA.includes('correct answers decreased (-2 tasks)')) {
     fail('Tradeoff recommendation does not explicitly state the accuracy vs format tradeoff');

@@ -1075,3 +1075,11 @@ Following review of U8, the Improve step became the end of the loop instead of a
 - Watch shows the passage beside the question on wide screens and one tap away on phones, highlights a returned quotation only when it matches the passage exactly, and reduces the HUD to plain status, progress and Stop with model/recipe/elapsed under Run details. Fixed polled snapshots duplicating streamed answer text; a stopped run retries with its own settings instead of silently adding an instruction.
 
 Acceptance: `scripts/smoke-mission-focus.mjs` drives mission → watch → result → review (no start) → approve (one start) → matched retest → before/after → Keep → Restore with API verification, and writes labeled simulated previews to `output/playwright/mission-focus/`. Existing journey, mission, dashboard and arena regressions updated for the new labels. Real-model debrief quality, shipped Firefox and Toronado acceptance remain separate.
+
+### U10 Carry a kept lab instruction to the everyday assistant — `todo`
+
+U9 keeps a winning instruction for lab tests only. The everyday assistant (OpenClaw chat) does not use it, so a kept lab experiment is not evidence that the assistant improved, and the UI says so. Close this gap deliberately:
+
+- Offer "Use this in your assistant" only after a kept lab result, as its own approved, reversible step that records the previous assistant configuration and the exact instruction applied.
+- Verify the assistant actually uses it (through the assistant path, not the lab path) with a matched before/after on the same fixed questions, then Keep/Restore for the assistant separately.
+- Never change model weights, personality files, credentials or conversations; never treat the lab result alone as proof for the assistant.

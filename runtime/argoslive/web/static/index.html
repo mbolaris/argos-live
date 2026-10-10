@@ -487,28 +487,20 @@
           <div class="modal-card">
             <div class="modal-header">
               <div>
-                <span class="domain-tag">Experiment · one change · needs your approval</span>
+                <span class="domain-tag">Needs your approval</span>
                 <h3 id="recipe-modal-title">Try strict format instructions</h3>
               </div>
-              <span class="state-badge measured">Lab only</span>
+              <span class="state-badge measured">Lab tests only</span>
             </div>
             <div class="modal-body">
-              <div class="modal-info-block">
-                <strong>What changes</strong>
-                <p>Preset: <strong>Strict format instructions (concise)</strong></p>
-                <blockquote class="recipe-instruction-quote">“Follow the requested output format; omit extra prose.”</blockquote>
-                <p class="recipe-explanation">Instructs the model to follow requested output format without extra conversational preamble or trailing explanation.</p>
-              </div>
-              <div class="modal-info-block recipe-protection-notice">
-                <strong>Assistant protection (No personality or weight change)</strong>
-                <p>This experiment modifies the <em>Lab test recipe only</em>. It does <strong>not</strong> alter your assistant's OpenClaw personality, model weights, or conversational system prompts. Selecting a Lab recipe does not claim to change the assistant.</p>
-              </div>
-              <div class="modal-info-block">
-                <strong>What happens if you approve</strong>
-                <p>Your AI reruns the same document trial: same model, same 8 passages, same scoring rules. Only the instruction above is added. Chat pauses during the test and resumes afterward.</p>
-                <p>Then you’ll see before and after, and choose to keep the instruction for lab tests or restore standard. This retest is what shows whether it helped; nothing is claimed until then.</p>
-                <details><summary>Technical settings</summary><p>Owned Lab lease · context 4096 · seed 1 · temperature 0.0 · output cap 128.</p></details>
-              </div>
+              <p class="recipe-lead">Add one instruction, repeat the same test, compare results.</p>
+              <blockquote class="recipe-instruction-quote">“Follow the requested output format; omit extra prose.”</blockquote>
+              <p class="recipe-explanation">Same model, same 8 passages, same scoring. Chat pauses during the test. Afterward you choose Keep or Restore.</p>
+              <details class="recipe-protection-notice">
+                <summary>Your everyday assistant is not changed</summary>
+                <p>This experiment modifies the <em>Lab test recipe only</em>. It does <strong>not</strong> alter your assistant's OpenClaw personality, model weights, or conversational system prompts. Keeping it changes how lab tests are run; it does not make your everyday assistant use the instruction or show that the assistant improved.</p>
+              </details>
+              <details class="recipe-technical"><summary>Technical settings</summary><p>Owned Lab lease · context 4096 · seed 1 · temperature 0.0 · output cap 128.</p></details>
               <div id="recipe-status-note" class="recipe-status-note" role="status" aria-live="polite"></div>
             </div>
             <div class="modal-actions">
