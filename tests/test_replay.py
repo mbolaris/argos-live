@@ -57,6 +57,20 @@ class ReplayTests(unittest.TestCase):
         self.assertEqual(broken['outcome'], 'format_error')
         self.assertTrue(broken['reason'].startswith('Not scorable'))
 
+    def test_wording_miss_with_an_exact_quote_says_so(self):
+        # Seen on Toronado: right evidence, answer phrased differently from every accepted form.
+        def mode(item):
+            if item['id'] != 'quote-01':
+                return item['reference']
+            value = json.loads(item['reference'])
+            value['answer'] = 'about ' + value['answer']
+            return json.dumps(value)
+        item = next(i for i in replay.build(run(mode))['items'] if i['item_id'] == 'quote-01')
+        self.assertEqual(item['outcome'], 'wrong_answer')
+        self.assertTrue(item['quote_in_passage'])
+        self.assertIn('the quote was copied exactly, but the answer “about', item['reason'])
+        self.assertIn('word for word', item['reason'])
+
     def test_only_document_runs_replay(self):
         with self.assertRaises(ValueError):
             replay.build(ability_result())

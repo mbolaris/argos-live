@@ -52,6 +52,11 @@ def explain(item, rule, passage):
                     return 'Wrong: the answer was right, but the quote isn’t copied exactly from the passage.'
                 return 'Wrong: the answer was right, but the quoted sentence doesn’t contain it.'
             if not answer_ok:
+                if doc_trial.collapse(value['quote']) and doc_trial.collapse(value['quote']) in doc_trial.collapse(passage or ''):
+                    # The evidence was right; only the answer's wording missed the exact accepted forms.
+                    return (f'Wrong: the quote was copied exactly, but the answer “{value["answer"][:80]}” is not one of the '
+                            f'accepted answers ({expected}). Answers must match word for word, ignoring case and '
+                            'surrounding punctuation.')
                 return f'Wrong: expected {expected}, with a sentence copied from the passage.' if expected else \
                     'Wrong: the answer doesn’t match the passage.'
     return 'Wrong: the answer or its quote didn’t match the passage.'
