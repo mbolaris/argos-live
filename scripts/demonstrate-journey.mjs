@@ -758,6 +758,15 @@ try {
   console.log('[PASS] Resumed monitoring from normal page initialization after actual page.reload() verified');
 
   // Now terminal completion arrives!
+  // Polling may replace the verified message with the steady ready state within
+  // one fake-clock tick. Retain proof that the verified transition actually ran.
+  await clockPage.evaluate(() => {
+    window.verifiedSwitchMessage = '';
+    new MutationObserver(() => {
+      const text = document.getElementById('selection-status').textContent;
+      if (text.includes('Model switch verified with matching manifest digest')) window.verifiedSwitchMessage = text;
+    }).observe(document.getElementById('selection-status'), {childList: true, subtree: true, characterData: true});
+  });
   over60Complete = true;
 
   // Advance fake clock until terminal completion and identity verification finish
@@ -765,14 +774,15 @@ try {
   for (let i = 0; i < 15; i++) {
     await clockPage.clock.runFor(1000);
     currentStatus = (await clockPage.locator('#selection-status').textContent()) || '';
-    if (currentStatus.includes('Model switch verified with matching manifest digest')) {
+    if (await clockPage.evaluate(() => Boolean(window.verifiedSwitchMessage))) {
       break;
     }
   }
 
   console.log('Current selection status after terminal completion:', currentStatus);
 
-  if (!currentStatus.includes('Switched to candidate model qwen2.5:3b. Model switch verified with matching manifest digest.')) {
+  const verifiedSwitchMessage = await clockPage.evaluate(() => window.verifiedSwitchMessage);
+  if (!verifiedSwitchMessage.includes('Switched to candidate model qwen2.5:3b. Model switch verified with matching manifest digest.')) {
     fail(`Expected verified success on #selection-status after terminal completion, got: ${currentStatus}`);
   }
   console.log('[PASS] Success reported on page reload after terminal completion and tag/digest verification');

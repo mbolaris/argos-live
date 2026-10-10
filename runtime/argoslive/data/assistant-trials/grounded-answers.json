@@ -1,0 +1,31 @@
+{
+  "schema": "argos-assistant-tasks/1",
+  "change": "grounded-answers",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "note": "Independent of the document suite: no shared passages, questions or answer strings. Asked the way an owner would in chat; the prompts never ask for quotes.",
+  "passages": {
+    "garden": "The Elm Street community garden has 32 plots. Each plot rents for $40 per season. Water is shut off from November to March. Every member works one volunteer shift each season. The waiting list opens on 1 February.",
+    "makerspace": "The makerspace at Harbor Library has two 3D printers and a laser cutter. Members book the laser cutter in 90-minute blocks. Children under 14 need an adult with them. Printing filament is free, and acrylic sheets cost $5 each.",
+    "detour": "Route 12 will detour around Pine Avenue from 3 to 14 June while the bridge is repaired. During the detour, buses stop on Cedar Street instead. Evening service ends at 10:30 p.m. until the bridge reopens. Fares do not change."
+  },
+  "tasks": [
+    {"id": "garden-answer", "kind": "answer", "passage": "garden",
+     "question": "How much does a plot cost per season?", "accepted": ["$40", "40 dollars", "forty dollars"]},
+    {"id": "makerspace-answer", "kind": "answer", "passage": "makerspace",
+     "question": "How long can I book the laser cutter for?", "accepted": ["90 minutes", "90-minute", "an hour and a half"]},
+    {"id": "detour-answer", "kind": "answer", "passage": "detour",
+     "question": "Where do the buses stop during the detour?", "accepted": ["Cedar Street"]},
+    {"id": "garden-missing", "kind": "not_stated", "passage": "garden",
+     "question": "Who founded the garden?"},
+    {"id": "makerspace-missing", "kind": "not_stated", "passage": "makerspace",
+     "question": "What brand are the 3D printers?"},
+    {"id": "detour-missing", "kind": "not_stated", "passage": "detour",
+     "question": "How much does the bridge repair cost?"},
+    {"id": "control-plant", "kind": "control",
+     "message": "Suggest one name for a houseplant, in one short sentence."},
+    {"id": "control-walk", "kind": "control",
+     "message": "Give me one tip for a short walk on a cold morning, in one sentence."}
+  ]
+}

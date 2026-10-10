@@ -253,6 +253,20 @@
               <p id="cc-debrief-facts" class="debrief-facts"></p>
               <p id="cc-debrief-note"></p>
             </article>
+            <section id="assistant-trial" class="assistant-trial" aria-labelledby="assistant-trial-title" hidden>
+              <p class="mission-label">Your everyday assistant</p>
+              <h4 id="assistant-trial-title">Try one change in the assistant you talk to</h4>
+              <p id="assistant-trial-text"></p>
+              <p id="assistant-trial-progress" class="assistant-trial-progress" role="status" aria-live="polite" hidden></p>
+              <div id="assistant-trial-result" hidden></div>
+              <p id="assistant-trial-note" class="assistant-trial-note" role="status"></p>
+              <div class="assistant-trial-actions">
+                <button id="assistant-trial-review" type="button" class="mission-secondary">Review the change</button>
+                <button id="assistant-trial-keep" type="button" class="mission-primary" hidden>Keep in my assistant</button>
+                <button id="assistant-trial-restore" type="button" class="mission-secondary" hidden>Restore the original</button>
+                <button id="assistant-trial-cancel" type="button" class="mission-secondary" hidden>Stop the trial</button>
+              </div>
+            </section>
             <div id="receipt-actions" class="receipt-actions" hidden>
               <button id="receipt-use" type="button" class="mission-secondary" hidden>Try it on your own document ↓</button>
               <details id="receipt-secondary-options" class="receipt-secondary-details">
@@ -514,6 +528,30 @@
               <button id="skill-node-close" type="button">Close</button>
             </div>
         </dialog>
+    <dialog id="assistant-trial-modal" class="recipe-modal" aria-labelledby="assistant-trial-modal-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <span class="domain-tag">Needs your approval</span>
+            <h3 id="assistant-trial-modal-title">Try “grounded answers” in your everyday assistant</h3>
+          </div>
+          <span class="state-badge measured">Everyday assistant</span>
+        </div>
+        <div class="modal-body">
+          <p class="recipe-lead">Ask your assistant the same new questions before and after one added instruction, then keep or restore it.</p>
+          <blockquote id="assistant-trial-instruction" class="recipe-instruction-quote"></blockquote>
+          <p class="recipe-explanation">Added as a marked block at the end of <strong>AGENTS.md</strong>. Chat briefly restarts to apply it, and again if you restore. Trial questions run in their own new conversations, not yours. Allow up to 120 seconds per question; Stop ends the trial and checks recovery.</p>
+          <details class="recipe-protection-notice"><summary>What does not change</summary><ul id="assistant-trial-unchanged"></ul>
+            <p>These files are checked byte for byte before and after. If you edit protected files during the trial, automatic recovery stops for review; your edits are never overwritten.</p></details>
+          <details><summary>The questions it will ask</summary><ol id="assistant-trial-tasks"></ol>
+            <p>New passages and questions, separate from the lab’s test, scored by fixed checks. Lab scores are not used.</p></details>
+        </div>
+        <div class="modal-actions">
+          <button id="assistant-trial-approve" type="button" class="mission-primary">Approve and run the assistant trial</button>
+          <button id="assistant-trial-close" type="button" class="mission-secondary">Not now</button>
+        </div>
+      </div>
+    </dialog>
     <dialog id="recipe-modal" class="recipe-modal" aria-labelledby="recipe-modal-title">
           <div class="modal-card">
             <div class="modal-header">

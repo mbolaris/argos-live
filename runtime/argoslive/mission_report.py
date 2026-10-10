@@ -108,6 +108,14 @@ def plain_failure_reason(item):
     return explain_outcome(item.get('outcome'), item.get('category', ''), item.get('output', ''))
 
 
+def miss_groups(run):
+    from . import replay
+    try:
+        return replay.miss_groups(run)
+    except (OSError, ValueError, TypeError, KeyError):
+        return {}
+
+
 def recipe_preset(run):
     value = run.get('recipe')
     preset = value.get('preset') if isinstance(value, dict) else None
@@ -191,6 +199,8 @@ def summarize(runs):
             'wrong_answers': wrong_answers,
             # Responses the code does not score, such as summaries left for the owner to read.
             'unscored': unscored,
+            # Diagnostic groups of the misses (not scores), so advice can tell wording from wrong facts.
+            'diagnoses': miss_groups(ability),
             # Which lab instructions produced this result, so an experiment is never shown as the baseline.
             'recipe': {'preset': recipe_preset(ability)},
             'lead_sentence': lead_sentence,

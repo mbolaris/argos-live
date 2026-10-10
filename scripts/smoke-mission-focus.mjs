@@ -132,7 +132,7 @@ try {
   await page.locator('#improve-go').click();
   await page.locator('#recipe-modal').waitFor({state:'visible'});
   assert.equal(starts,0,'Reviewing does not start the experiment');
-  assert.equal(await page.locator('.recipe-lead').textContent(),'Add one instruction, repeat the same test, compare results.');
+  assert.equal(await page.locator('#recipe-modal .recipe-lead').textContent(),'Add one instruction, repeat the same test, compare results.');
   assert.equal(await page.locator('#recipe-modal .recipe-protection-notice').evaluate(el=>el.open),false,'Protection detail is collapsed');
   await both('approve');
   await page.locator('#recipe-close').click();

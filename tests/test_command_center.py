@@ -188,6 +188,26 @@ class CommandCenterTests(unittest.TestCase):
         self.assertIn('restore', improved['detail'])
         self.assertNotIn('smarter', json.dumps(value).lower())
 
+    def test_wording_only_misses_do_not_recommend_a_larger_model(self):
+        def wording(item):
+            # Right evidence, answer worded differently from every accepted form (audited Toronado pattern).
+            if item['category'] != 'quote':
+                return item['reference']
+            value = json.loads(item['reference'])
+            value['answer'] = 'to ' + value['answer']
+            return json.dumps(value)
+        self.add_documents('a:1b', 'a', mode=wording, created=1)
+        value = self.snap()
+        self.assertEqual(value['next_action']['id'], 'review')
+        self.assertIn('diagnostic review (not a score)', value['next_action']['reason'])
+        self.assertNotIn('larger model is not automatically better', value['next_action']['reason'])
+        self.assertEqual(value['report']['ability']['diagnoses'], {'wording': 8})
+        self.assertFalse(value['report']['ability']['qualified'])
+
+    def test_wrong_facts_still_point_past_the_current_model(self):
+        self.add_documents('a:1b', 'a', mode='wrong', created=1)
+        self.assertNotEqual(self.snap()['next_action']['id'], 'review')
+
     def test_regression_is_acknowledged_and_restore_is_offered(self):
         self.add_documents('a:1b', 'a', created=1)
         self.add_documents('b:4b', 'b', mode='wrong', created=2)

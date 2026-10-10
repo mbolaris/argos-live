@@ -1118,10 +1118,14 @@ The U11 replay on Toronado (qwen3:4b, six document runs: four standard at 20/24 
 
 Installed 4d467ae over the exact a84538d runtime (62 files matched; five replaced, `replay.py` added and checked absent first) with hash, rollback (new file removed on rollback), idle and settings gates; settings hash unchanged. In shipped Firefox with qwen3:4b: the replay of a real run showed 32 chips in 8 passage rows, opened on the first miss with the exact quote highlighted in the passage, Next miss moved to the next miss, it persisted after reload, and after a new run it switched to that run; the speed check used the full width with no previous passage; measured facts appeared under a real opinion; the decided strict-format comparison no longer appeared. Still unverified: physical phone layout and reboot persistence.
 
-### U10 Carry a kept lab instruction to the everyday assistant — `todo` (next functional milestone)
+### U10 One approved, reversible everyday-assistant experiment — `in review`
 
 U9 keeps a winning instruction for lab tests only. The everyday assistant (OpenClaw chat) does not use it, so a kept lab experiment is not evidence that the assistant improved, and the UI says so. Close this gap deliberately:
 
-- Offer "Use this in your assistant" only after a kept lab result, as its own approved, reversible step that records the previous assistant configuration and the exact instruction applied.
+- Offer a separately approved assistant experiment that records the previous assistant configuration and exact instruction. No lab result automatically promotes a change or proves it helps the assistant.
 - Verify the assistant actually uses it (through the assistant path, not the lab path) with a matched before/after on the same fixed questions, then Keep/Restore for the assistant separately.
 - Never change model weights, personality files, credentials or conversations; never treat the lab result alone as proof for the assistant.
+
+Implementation on `feat/u10-assistant-trial` adds one reviewed grounded-answer block to operating instructions (`AGENTS.md`), independent eight-task before/after through scoped gateway sessions, per-check evidence and Keep/Restore. See [U10-ASSISTANT-TRIAL.md](U10-ASSISTANT-TRIAL.md) for exact scope, limits and fault recovery. Persona/config files are fingerprinted; owner edits block recovery without overwrites. Instructions, task identity and model are recorded. Local fixture Chromium and unit evidence do not establish real assistant improvement. Toronado deployment, a real approved trial, reboot and physical-phone checks are not performed in this slice.
+
+The same change makes answer-wording-only diagnostics recommend reviewing misses rather than a larger model. Unscored summaries are excluded from advice, and quotation failures remain separate from wording diagnoses. No lab scores, suite rules or qualification thresholds change.

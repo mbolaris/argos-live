@@ -19,13 +19,62 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'runtime'), str(ROOT / 'tests')]
-from argoslive import command_center, lab as lab_module, storage, storage_view
+from argoslive import assistant_trial, command_center, lab as lab_module, storage, storage_view
 from argoslive.results import Store
 from argoslive.web.benchmarks import View as BenchmarkView
 from argoslive.web.server import DashboardServer
 from test_bench_speed import Backend
 from test_doc_trial import DocBackend
 from test_lab import Assistant
+from test_assistant_trial import Runner as TrialRunner
+
+
+class FixtureAssistant(Assistant):
+    """Retains the existing Lab recovery fixture; supports reserved trial restarts."""
+    def start(self, *, _reserved=False):
+        assert _reserved or not self.lab_active
+        self.calls.append('resume')
+        self.active = True
+
+
+class TrialStartup:
+    """Only the trial sees immediate fake readiness; the Lab still tests delayed recovery."""
+    def __init__(self, assistant):
+        self.assistant = assistant
+        self.home, self.lock = assistant.home, assistant.lock
+
+    @property
+    def lab_active(self):
+        return self.assistant.lab_active
+
+    @lab_active.setter
+    def lab_active(self, value):
+        self.assistant.lab_active = value
+
+    @property
+    def chat_claimed(self):
+        return self.assistant.chat_claimed
+
+    @chat_claimed.setter
+    def chat_claimed(self, value):
+        self.assistant.chat_claimed = value
+
+    def snapshot(self):
+        active = self.assistant.active
+        return {'active': active, 'phase': 'ready' if active else 'stopped', 'model_reply_verified': active}
+
+    def stop(self):
+        self.assistant.stop()
+
+    def start(self, *, _reserved=False):
+        self.assistant.start(_reserved=_reserved)
+
+
+class SlowTrialRunner(TrialRunner):
+    """Fixture assistant replies, paced so trial progress is visible. Never a real model."""
+    def turn(self, message):
+        time.sleep(STREAM_DELAY * 10)
+        return super().turn(message)
 
 # Visual acceptance can slow streaming to capture a live answer; default keeps tests fast.
 STREAM_DELAY = float(os.environ.get('ARGOS_FIXTURE_STREAM_DELAY', '0.012'))
@@ -121,7 +170,16 @@ def main():
             fn.__kwdefaults__['hardware'] = lambda *a, **kw: fixture_hw
     mock.patch.object(hw, 'snapshot', lambda *a, **kw: fixture_hw).start()
     topology = lambda: (storage.mount_table(mountinfo), storage.block_table(lsblk), 8 * 1024**3)
-    assistant = Assistant(home)
+    assistant = FixtureAssistant(home)
+    # A fixture everyday-assistant workspace for the U10 trial: persona files and operating notes.
+    workspace = home / '.openclaw/workspace'
+    workspace.mkdir(parents=True)
+    (home / '.openclaw/openclaw.json').write_text(json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}))
+    (workspace / 'AGENTS.md').write_text('# Operating notes\nBe kind and brief.\n')
+    for name in ('SOUL.md', 'IDENTITY.md', 'USER.md'):
+        (workspace / name).write_text(f'Fixture {name}\n')
+    trial = assistant_trial.Controller(TrialStartup(assistant), home=home, runner=SlowTrialRunner(home), ready_timeout=10,
+                                       validate_profile=lambda home: (home, 'fixture:latest'))
     backend = Fixture()
 
     @contextlib.contextmanager
@@ -136,7 +194,7 @@ def main():
     # The fixture store holds no real manifest, so its identity is supplied; the backend reports the same digest.
     command = command_center.Controller(home, store, lab=lab, storage=storage_controller,
                                         identity=lambda _: {'model': 'fixture:latest', 'digest': 'a' * 64})
-    with DashboardServer(port=0, lab=lab, storage=storage_controller, command=command,
+    with DashboardServer(port=0, lab=lab, storage=storage_controller, command=command, assistant_trial=trial,
                          benchmarks=BenchmarkView(store),
                          models_provider=partial(models.snapshot, home=home, hardware=lambda *a, **kw: fixture_hw),
                          status_provider=partial(live_status.snapshot, home=home, hardware=lambda *a, **kw: fixture_hw)) as server:
@@ -149,6 +207,7 @@ def main():
         except Exception:
             pass
         t.join(timeout=1)
+    trial.close()
     lab.close()
     try:
         temp.cleanup()

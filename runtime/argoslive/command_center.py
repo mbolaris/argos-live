@@ -320,6 +320,16 @@ def next_action(f, selected, active):
                 'reason': f"{older['model']} passed the document criteria; {newer['model']} missed them. The previous model remains available.",
                 'action': 'restore', 'model': older['model']}
     if not current['qualification']['qualified']:
+        from . import replay
+        groups = replay.miss_groups(current)
+        if replay.kept_meaning_only(groups):
+            # Diagnostic, not a score: these misses don't point to a larger model.
+            wording, requirement = groups.get('wording', 0), groups.get('requirement', 0)
+            return {'id': 'review', 'title': 'See why the answers missed',
+                    'reason': ('A diagnostic review (not a score) found every miss kept an accepted answer: '
+                               f'{wording} worded differently and {requirement} not given as a short answer. '
+                               'That does not point to a larger model. Step through the misses before choosing a change.'),
+                    'action': 'review'}
         if not view.get('confirmed'):
             return storage_action()
         return {'id': 'models', 'title': 'Find a candidate for the missed checks',
