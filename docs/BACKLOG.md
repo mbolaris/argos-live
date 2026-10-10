@@ -1018,7 +1018,7 @@ fixture journey passes, including real page reload and a switch lasting over 60
 seconds. Shipped Firefox, real model upgrades and physical USB acceptance remain
 separate; no backend budgets or permission boundaries were changed.
 
-### U7 Playable loop redesign & storage dialog hierarchy — `completed`
+### U7 Playable loop redesign & storage dialog hierarchy — `done` ([PR #74](https://github.com/mbolaris/argos-live/pull/74))
 
 Redesigned the experience around one playable loop: Challenge → Watch → Understand the result → Try one recommended improvement → Retest → Keep or restore. Resolved usability confusion observed on physical Toronado USB hardware without altering fixed scorers, test thresholds, backend permissions, or data assets.
 - **Home as Mission Screen:**
@@ -1049,4 +1049,4 @@ Redesigned the experience around one playable loop: Challenge → Watch → Unde
   - `scripts/smoke-dashboard-browser.mjs` passed 100% (CSP compliance, sticky storage modal, collapsed catalog).
   - `scripts/smoke-journey-browser.mjs` passed 100% (full journey, 320px phone responsiveness, moments).
   - `runtime/argoslive/data/documents/short.json` preserved intact without edits.
-  - PR #74 kept open for review; no ISO built. Physical USB deployment, physical GPU inference, and shipped Firefox ESR acceptance remain separate.
+  - PR #74 merged to main; no ISO built. Physical USB deployment, physical GPU inference, and shipped Firefox ESR acceptance remain separate.
