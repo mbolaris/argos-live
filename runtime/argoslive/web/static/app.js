@@ -1355,7 +1355,9 @@ async function refreshModelControls() {
     const value = await api('/api/models/control');
     downloadAvailable = value.available === true;
     downloadActive = value.active === true;
-    document.getElementById('download-controls').hidden = !downloadActive;
+    document.getElementById('download-controls').hidden = !downloadAvailable;
+    document.getElementById('download-pause').hidden = !downloadActive;
+    document.getElementById('download-cancel').hidden = !downloadActive;
     document.getElementById('download-pause').disabled = !downloadActive || value.phase === 'cancelling';
     document.getElementById('download-cancel').disabled = !downloadActive || value.phase === 'cancelling';
     const names = {idle: 'Choose a model below to review its download.', pausing: 'Pausing chat…',

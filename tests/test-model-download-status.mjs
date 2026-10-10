@@ -19,7 +19,9 @@ for (const [phase, active] of [['completed', false], ['interrupted', false], ['d
     });
     vm.runInContext(source.slice(start, end), context);
     await context.refreshModelControls();
-    assert.equal(elements.get('download-controls').hidden, !active);
+    assert.equal(elements.get('download-controls').hidden, false);
+    assert.equal(elements.get('download-pause').hidden, !active);
+    assert.equal(elements.get('download-cancel').hidden, !active);
     assert.equal(elements.get('download-pause').disabled, !active);
     assert.equal(elements.get('download-cancel').disabled, !active);
     const text = elements.get('download-status').textContent;
