@@ -1,5 +1,6 @@
 artifacts/
 /work/
+/output/playwright/
 /local/
 *.log
 __pycache__/

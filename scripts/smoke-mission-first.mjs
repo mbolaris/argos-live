@@ -166,6 +166,7 @@ try {
   // Step 5b: Start a NEW trial (ready -> new trial)
   await page.unroute('**/api/startup');
   const newTrialStarted = page.waitForResponse(r => r.url().endsWith('/api/lab/start-documents') && r.request().method() === 'POST');
+  await page.evaluate(() => focusSection('lab-controls'));
   await page.locator('#lab-start-documents').click();
   await newTrialStarted;
 
@@ -352,6 +353,7 @@ try {
   if (restoreBtnHidden) fail('Restore button should be visible when non-standard recipe is active');
   console.log(`[PASS] Concise recipe selected as active Lab recipe: "${activeRecipeText}"`);
 
+  await page.evaluate(() => focusSection('lab-controls'));
   await page.locator('#lab-recipe-restore').click();
   await page.waitForTimeout(200);
   const restoredRecipeText = (await page.locator('#lab-active-recipe').textContent()).trim();
@@ -386,6 +388,7 @@ try {
   // J3: Curated models storefront, inline storage, and model rollback transaction checks
   const curatedDeck = page.locator('#model-curated');
   if (await curatedDeck.count() !== 1) fail('Expected #model-curated storefront deck in DOM');
+  await page.evaluate(() => focusSection('models-title'));
   const inlineStorageSec = page.locator('#inline-storage-section');
   if (await inlineStorageSec.count() !== 1) fail('Expected #inline-storage-section in DOM');
   const rollbackBar = page.locator('#receipt-model-rollback-bar');

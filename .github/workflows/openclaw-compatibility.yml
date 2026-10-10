@@ -83,6 +83,7 @@ jobs:
           scripts/ci-annotate-failure.sh 'Dashboard browser smoke' node scripts/smoke-dashboard-browser.mjs
           scripts/ci-annotate-failure.sh 'Journey browser smoke' node scripts/smoke-journey-browser.mjs
           scripts/ci-annotate-failure.sh 'Mission-first browser smoke' node scripts/smoke-mission-first.mjs
+          scripts/ci-annotate-failure.sh 'Focused mission browser smoke' node scripts/smoke-mission-focus.mjs
       - name: Validate schema and native recovery in disposable state
         shell: bash
         run: |

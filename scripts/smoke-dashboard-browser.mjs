@@ -47,6 +47,7 @@ try {
     await route.fulfill({response, json: value});
   });
   const response = await page.goto(url);
+  await page.locator('#workbench > summary').click();
   if (response.status() !== 200) throw new Error('Dashboard page did not load');
   await page.getByText('Live measurements refreshed. Missing measurements remain unknown.', {exact: true}).waitFor({timeout: 60000});
   if (await page.locator('#hardware .card').count() !== 8) throw new Error('Missing live status cards');
@@ -107,6 +108,7 @@ try {
     await route.fulfill({json: lab});
   });
   await page.reload();
+  await page.locator('#workbench > summary').click();
   await page.locator('#lab-controls').waitFor({state: 'visible'});
   await page.locator('#lab-start').click();
   await page.waitForFunction(() => document.getElementById('lab-start').disabled &&
@@ -162,6 +164,7 @@ try {
     await route.fulfill({json: {changed: false}});
   });
   await page.reload();
+  await page.locator('#workbench > summary').click();
   await page.locator('#download-controls').waitFor({state: 'visible'});
   if (await page.locator('#catalog-panel').evaluate(panel => panel.open)) {
     throw new Error('Reload should keep model catalog collapsed');
@@ -189,7 +192,7 @@ try {
   await page.locator('#download-pause').click();
   await page.waitForFunction(() => document.getElementById('download-status').textContent.includes('Paused;'));
   if (modelCalls.join(',') !== 'download,pause') throw new Error('Guided download controls failed');
-  await page.locator('details:has(#model-catalog) > summary').click();
+  await page.locator('#catalog-panel > summary').click();
   await page.locator('section:has(#models-title)').screenshot({path: 'work/dashboard-download-progress.png'});
   let selection = {available: true, active: false, phase: 'idle'};
   const selectionCalls = [];
@@ -212,6 +215,7 @@ try {
     await route.fulfill({json: selection});
   });
   await page.reload();
+  await page.locator('#workbench > summary').click();
   await page.locator('#installed-models button').waitFor();
   if (await page.locator('#selection-controls').isVisible() || await page.locator('#selection-cancel').isVisible()) {
     throw new Error('Idle selection displays an operation or cancellation control');
@@ -256,6 +260,7 @@ try {
     await route.fulfill({json: startup});
   });
   await page.reload();
+  await page.locator('#workbench > summary').click();
   await page.locator('#startup-controls').waitFor({state: 'visible'});
   if (!(await page.locator('#start-assistant').isDisabled()) || await page.locator('#stop-assistant').isDisabled()) {
     throw new Error('Managed warmup controls are incorrect');
@@ -311,6 +316,7 @@ try {
   }
   await page.screenshot({path: 'work/dashboard-model-lab.png', fullPage: true});
   await page.goto(url);
+  await page.locator('#workbench > summary').click();
   await page.waitForFunction(() => !document.getElementById('chat-fallback').disabled);
   await page.waitForTimeout(3500);
   if (chatHandoffs.length || explicitChats.length || page.url() !== url) {

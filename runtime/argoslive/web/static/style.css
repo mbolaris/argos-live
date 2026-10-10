@@ -1800,3 +1800,96 @@ dialog.modal-fixed-layout[open] {
 
 
 
+
+/* Mission first: one focal point, with setup and evidence a deliberate reveal. */
+main { max-width: 1080px; }
+h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
+.intro { max-width: none; }
+.setup-link { font-size: 13px; text-decoration: none; padding: 12px 0 12px 12px; }
+#command-center { padding: 24px; background: #0e1923; border-color: #263c4b; }
+#cc-title { font-size: 11px; }
+.session-path { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0 24px; }
+.session-path a { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 14px; border-radius: 10px; background: #142431; color: var(--muted); text-decoration: none; font-size: 14px; }
+.session-path a span { font: 12px ui-monospace, monospace; opacity: .65; }
+.session-path a[aria-current] { background: #82e4de; color: #082627; font-weight: 750; box-shadow: 0 0 28px #82e4de15; }
+.session-path a[aria-disabled="true"] { opacity: .45; cursor: default; }
+#cc-next { background: transparent; padding: 12px 0 24px; border: 0; box-shadow: none; }
+#cc-next-title { font-size: clamp(28px, 4vw, 42px); margin: 16px 0 10px; }
+#cc-next-reason { max-width: 65ch; font-size: 16px; line-height: 1.65; }
+.cc-hero-meta { flex-direction: column; align-items: flex-start; gap: 8px; }
+.cc-hero-status-strip { flex-wrap: wrap; max-width: 100%; background: none; padding: 0; }
+.cc-status-item { min-width: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 12px; }
+#cc-hero-model { font-weight: 500; }
+.cc-hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 10px; }
+.cc-hero-actions .mission-primary { width: auto; min-width: 260px; padding: 17px 28px; font-size: 17px; margin: 0; }
+.cc-hero-actions .mission-secondary { margin: 0; border-color: transparent; background: none; padding-left: 0; }
+.mission-rules { margin-top: 20px; }
+.mission-rules summary { color: var(--muted); font-weight: 500; }
+.mission-rules .mission-preview-box { margin-top: 8px; }
+#curriculum-map { padding: 0; border: 0; border-top: 1px solid var(--line); background: none; }
+#curriculum-map > summary { padding: 16px 0; }
+#curriculum-map > summary .dest-badge-rec { float: right; margin-top: 4px; }
+#curriculum-map .section-header-compact { margin-top: 16px; }
+#command-center > details, .mission-main > details { border-top: 1px solid var(--line); margin-top: 8px; }
+#command-center > details > summary { padding: 10px 0; }
+#cc-receipt { border: 0; padding: 24px 0 8px; }
+#cc-receipt-title { font-size: 32px; margin-bottom: 12px; }
+#cc-takeaway { font-size: 17px; max-width: 65ch; }
+#cc-readings { margin-top: 16px; }
+#command-center[data-watching="true"] > #cc-next,
+#command-center[data-watching="true"] > .cc-grid,
+#command-center[data-watching="true"] > details,
+#command-center[data-watching="true"] > #cc-task-box { display: none; }
+#arena { padding: 0; margin: 0 0 24px; border: 0; background: none; box-shadow: none; }
+.watch-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.watch-heading h3 { margin: 4px 0; font-size: 27px; }
+.watch-heading .mission-label { margin-bottom: 6px; color: var(--accent); }
+.watch-heading #lab-cancel { margin: 0; flex: 0 0 auto; }
+#watch-explainer { font-size: 13px; max-width: 65ch; }
+#arena .arena-hud { margin: 20px 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #111f2a; }
+#arena .live-card { border: 1px solid #42626a; padding: 24px; border-radius: 18px; background: radial-gradient(ellipse at 100% 0%, #17423f55, transparent 65%), #101f29; }
+#arena .arena-question-text { font-size: clamp(19px, 2.8vw, 27px); line-height: 1.5; font-weight: 650; }
+#arena .arena-question-box { border: 0; background: none; padding: 0 0 18px; }
+#arena .arena-stream-box { padding: 20px; border-radius: 12px; background: #07141b; }
+#arena .arena-stream-content { font-size: 16px; line-height: 1.75; min-height: 96px; max-height: 320px; }
+#arena .arena-sublabel { font-size: 11px; font-weight: 500; }
+#arena .arena-card-header { margin-bottom: 18px; }
+#arena .receipts-card { border: 0; background: none; padding: 4px 0; }
+#arena .receipts-card > .arena-card-header { display: none; }
+#arena .receipts-card summary { font-weight: 500; }
+#arena .arena-summary-banner { margin-top: 16px; padding: 20px; }
+.workbench { margin-top: 24px; border: 1px solid var(--line); padding: 12px 24px; border-radius: 16px; background: #101925; }
+.workbench > summary { color: var(--text); font-size: 16px; }
+.workbench > summary span { display: block; color: var(--muted); font-size: 12px; font-weight: 400; padding: 6px 0 4px; }
+.workbench[open] { padding-bottom: 24px; }
+.workbench .lab-nav { position: static; }
+@media (max-width: 600px) {
+  main { padding: 20px 16px 48px; }
+  header .brand { font-size: 17px; }
+  .setup-link { font-size: 12px; }
+  h1 { margin-top: 24px; }
+  .intro { font-size: 14px; }
+  #command-center { padding: 18px 14px; margin-top: 24px; }
+  .session-path { gap: 5px; margin: 14px 0 20px; }
+  .session-path a { padding: 10px 8px; gap: 6px; font-size: 12px; }
+  .session-path a span { font-size: 10px; }
+  #cc-next { padding-top: 0; }
+  #cc-next-title { font-size: 30px; }
+  #cc-next-reason { font-size: 14px; }
+  .cc-hero-actions .mission-primary { width: 100%; min-width: 0; font-size: 16px; padding: 15px 16px; }
+  #curriculum-map > summary .dest-badge-rec { float: none; display: block; width: fit-content; margin-top: 8px; }
+  #arena .live-card { padding: 16px 12px; }
+  #arena .arena-stream-box { padding: 14px 10px; }
+  #arena .arena-stream-content { font-size: 14px; max-height: 260px; }
+  .watch-heading h3 { font-size: 22px; }
+  .watch-heading #lab-cancel { padding: 10px 12px; font-size: 12px; }
+  .workbench { padding: 10px 16px; }
+}
+#command-center #cc-next-title { font-size: clamp(28px, 4vw, 42px); }
+#arena .arena-raw-details pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; font-size: 12px; }
+#arena .arena-raw-details summary { font-size: 12px; font-weight: 400; }
+@media (max-width: 600px) { #command-center #cc-next-title { font-size: 30px; } }
+#arena .latest-challenge-result { margin: 14px 0 4px; padding: 12px 16px; border-left: 3px solid var(--accent); background: #82e4de08; font-size: 13px; }
+#arena .latest-challenge-result.outcome-wrong, #arena .latest-challenge-result.outcome-format { border-color: var(--amber); background: #efca8b08; }
+#arena { scroll-margin-top: 85px; }
+#command-center[data-command-unavailable="true"] > :not(#arena):not(#cc-title):not(.session-path) { display: none; }

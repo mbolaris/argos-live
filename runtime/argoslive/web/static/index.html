@@ -10,11 +10,16 @@
 </head>
 <body>
   <main>
-    <header><span class="brand">Argos Live</span><span class="badge">Private AI workspace</span></header>
-    <h1>How far can your AI go?</h1>
-    <p class="intro">Build a private AI worth relying on. Discover its strengths, take on a mission, and see what your next upgrade really changes.</p>
+    <header><span class="brand">Argos Live</span><a class="setup-link" href="#models-title">Models &amp; setup ↗</a></header>
+    <h1>Build a better AI.</h1>
+    <p class="intro">Take on a mission. Watch it work. Find your next improvement.</p>
     <section id="command-center" aria-labelledby="cc-title" hidden>
       <h2 id="cc-title">Mission control</h2>
+      <nav class="session-path" aria-label="Your play session">
+        <a id="session-play" href="#cc-next" aria-current="step"><span>01</span> Mission</a>
+        <a id="session-watch" href="#arena" aria-disabled="true"><span>02</span> Watch</a>
+        <a id="session-result" href="#cc-receipt" aria-disabled="true"><span>03</span> Improve</a>
+      </nav>
       <div id="cc-moment" class="notice moment" role="status" hidden>
         <strong id="cc-moment-title"></strong> <span id="cc-moment-tier" class="state"></span>
         <p id="cc-moment-detail"></p>
@@ -37,7 +42,7 @@
           <button id="cc-next-go" class="mission-primary" type="button" hidden>Start: Read this brief</button>
           <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button>
         </div>
-        <div class="mission-preview-box" aria-label="Mission scope and qualification requirements">
+        <details class="mission-rules"><summary>What will it test?</summary><div class="mission-preview-box" aria-label="Mission scope and qualification requirements">
           <div class="preview-stat-item">
             <div class="stat-label">Challenge Suite</div>
             <div class="stat-value">Short Document Comprehension</div>
@@ -50,16 +55,88 @@
             <div class="stat-label">Qualification Criteria</div>
             <div class="stat-value">7/8 answers · 6/8 quotes · 7/8 unstated · ≤2 format errors</div>
           </div>
-        </div>
+        </div></details>
         <p id="cc-live-trial" role="status" aria-live="polite"></p>
       </article>
-      <div id="curriculum-map" class="curriculum-section" aria-label="Foundation curriculum progress">
+        <div id="arena" class="arena-deck" hidden aria-live="polite">
+          <div class="watch-heading"><div><p class="mission-label">Live mission</p><h3>Watch your AI work</h3></div><button id="lab-cancel" type="button" disabled>Stop test</button></div>
+          <p id="watch-explainer">Answers appear here as the model generates them. Each finished challenge gets a scored result.</p>
+          <p id="watch-connection" role="status" hidden>Reconnecting to your mission… Showing the last received progress.</p>
+          <div class="arena-hud">
+            <div class="arena-hud-item">
+              <span class="arena-hud-label">Phase</span>
+              <span id="arena-phase-badge" class="arena-badge">Idle</span>
+            </div>
+            <div class="arena-hud-item">
+              <span class="arena-hud-label">Model</span>
+              <span id="arena-model" class="arena-val">Current model</span>
+            </div>
+            <div class="arena-hud-item">
+              <span class="arena-hud-label">Recipe</span>
+              <span id="arena-recipe" class="arena-val">Standard</span>
+            </div>
+            <div class="arena-hud-item arena-hud-progress">
+              <div class="arena-progress-header">
+                <span id="arena-progress-label">0 / 20 challenges</span>
+                <span id="arena-elapsed">0 s</span>
+              </div>
+              <progress id="arena-progress-bar" max="20" value="0" aria-label="Trial progress"></progress>
+            </div>
+            <div class="arena-hud-item arena-hud-tally">
+              <span id="arena-tally-passed" class="arena-stat passed">0 passed</span>
+              <span id="arena-tally-format-errors" class="arena-stat format-errors">0 format errors</span>
+            </div>
+          </div>
+          <div id="arena-live-card" class="arena-card live-card">
+            <div class="arena-card-header">
+              <span class="arena-card-title">The challenge</span>
+              <span id="arena-current-id" class="arena-tag">Waiting…</span>
+              <span id="arena-current-category" class="arena-cat-tag"></span>
+            </div>
+            <div class="arena-question-box">
+              <span class="arena-sublabel">Question:</span>
+              <div id="arena-current-question" class="arena-question-text">Waiting for challenge…</div>
+            </div>
+            <div class="arena-stream-box">
+              <div class="arena-stream-header">
+                <span class="arena-sublabel">Your AI’s answer</span>
+                <span id="arena-stream-indicator" class="arena-indicator" hidden>Streaming…</span>
+              </div>
+              <pre id="arena-current-stream" class="arena-stream-content" tabindex="0">Awaiting model response…</pre>
+            </div>
+            <details class="arena-raw-details"><summary>Original model output</summary><pre id="arena-current-raw" tabindex="0"></pre><p>Scoring uses this original response, including any format errors.</p></details>
+            <details id="arena-source-details" class="arena-source-details">
+              <summary class="arena-source-summary">Read source</summary>
+              <div class="arena-prompt-box">
+                <span class="arena-sublabel">Passage &amp; request schema:</span>
+                <div id="arena-current-prompt" class="arena-prompt-text">Trial ready to begin.</div>
+              </div>
+            </details>
+          </div>
+          <p id="arena-latest-result" class="latest-challenge-result" role="status" hidden></p>
+          <details id="arena-receipts-card" class="arena-card receipts-card">
+            <summary>Challenge results <span id="arena-receipts-tally" class="arena-tag">0 scored</span></summary>
+            <div class="arena-card-header">
+              <span class="arena-card-title">Challenge results</span>
+            </div>
+            <div id="arena-receipts-list" class="arena-receipts-list"></div>
+          </details>
+          <div id="arena-summary-banner" class="arena-summary-banner" hidden>
+            <strong id="arena-summary-headline">Trial complete</strong>
+            <p id="arena-summary-detail"></p>
+            <div class="arena-summary-actions">
+              <button id="arena-next-action" type="button" class="mission-primary arena-summary-btn">Review result &amp; debrief ↑</button>
+              <button id="arena-secondary-action" type="button" class="mission-secondary arena-summary-btn" hidden>Restore standard</button>
+            </div>
+          </div>
+        </div>
+      <details id="curriculum-map" class="curriculum-section" aria-label="Foundation curriculum progress">
+        <summary>Your skill ladder <span id="curriculum-overall-badge" class="dest-badge-rec">Rung 1: Ready to test</span></summary>
         <div class="section-header-compact">
           <div>
             <span class="mission-label">Foundation Curriculum</span>
             <h3 class="section-heading-sm">Foundation Curriculum Roadmap</h3>
           </div>
-          <span id="curriculum-overall-badge" class="dest-badge-rec">Rung 1: Ready to test</span>
         </div>
         <p class="section-sub-sm">Shared K–12 foundation progression. Rung 01 is implemented; subsequent rungs are planned roadmap areas.</p>
         <div class="curriculum-ladder">
@@ -124,7 +201,7 @@
             <span class="rung-status-badge locked">Roadmap · Future</span>
           </div>
         </div>
-      </div>
+      </details>
       <div class="cc-grid">
         <div class="mission-main">
           <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
@@ -176,6 +253,7 @@
             <blockquote id="cc-debrief-text"></blockquote>
             <p id="cc-debrief-note"></p>
           </article>
+          <details class="strengths-disclosure"><summary>Your skills · see measured strengths</summary>
           <div id="cc-readings" class="cc-readings" aria-label="Measured strengths"></div>
           <div id="skill-map-compact" class="skill-map-compact" aria-label="Task Skill Map summary">
             <div class="compact-map-header">
@@ -187,6 +265,7 @@
             </div>
             <div id="compact-map-domains" class="compact-map-domains"></div>
           </div>
+          </details>
           <details class="cc-evidence"><summary>See what has been tested</summary>
             <ul id="cc-systems" class="cc-systems"></ul>
             <p id="cc-scope"></p>
@@ -209,6 +288,7 @@
           </figure></div>
         </details>
       </div>
+      <details id="full-skill-map"><summary>Explore the skill map</summary>
       <section id="skill-map-bay" class="skill-map-bay" aria-labelledby="skill-map-title">
         <div class="skill-map-header">
           <div>
@@ -228,7 +308,146 @@
           <div id="skill-map-graph" class="skill-map-graph" role="region" aria-label="Interactive skill map graph"></div>
           <div id="skill-map-list" class="skill-map-list" role="region" aria-label="Grouped skills list"></div>
         </div>
-        <dialog id="skill-node-modal" class="skill-node-modal" aria-labelledby="node-modal-title">
+
+
+      </section>
+      </details>
+      <div id="cc-build-path" hidden></div>
+      <details id="example-missions"><summary>Try a real-world example</summary>
+      <section class="challenge-deck" aria-labelledby="cc-challenges-title">
+        <p class="mission-label">Take it for a spin</p><h3 id="cc-challenges-title">Choose your next challenge</h3>
+        <p>Choose a fictional scenario, see the brief, then ask Argos. Judge the answer yourself. These are demonstrations, not scored qualifications.</p>
+        <div id="cc-challenges" class="cards"></div>
+      </section>
+      </details>
+      <details class="cc-evidence"><summary>Progress journal</summary>
+        <ol id="cc-journal" class="cc-journal"></ol>
+      <label><input id="cc-quiet" type="checkbox"> Quiet acknowledgments. Progress is still recorded.</label>
+      </details>
+      <details id="cc-task-box"><summary>Your mission brief</summary>
+        <p>Choose a sample above or paste something real and ask one question. Chat pauses while the model reads it. The text and the answer stay on screen only; they are not saved. The answer must quote a sentence from your text, and Argos checks that the quote is really there.</p>
+        <label for="cc-doc">Document (up to 6000 characters)</label>
+        <textarea id="cc-doc" rows="8" maxlength="6000"></textarea>
+        <label for="cc-question">Question</label>
+        <input id="cc-question" type="text" maxlength="300">
+        <button id="cc-ask" type="button">Pause chat and ask</button>
+        <div id="cc-task-result" class="card" hidden aria-live="polite">
+          <h3 id="cc-answer"></h3><p id="cc-quote"></p><p id="cc-task-note"></p>
+          <button id="cc-accept" type="button">Good answer</button><button id="cc-reject" type="button">Not good enough</button>
+        </div>
+        <p id="cc-task-status" role="status"></p>
+      </details>
+    </section>
+    <details id="workbench" class="workbench"><summary>Models &amp; setup <span>Storage, downloads, test records and hardware</span></summary>
+    <section class="notice" aria-label="Assistant status">
+      <strong id="assistant-status">Checking your workspace…</strong>
+      <p id="assistant-help">This page observes your workspace. It does not start or change services.</p>
+      <div id="startup-controls" hidden>
+        <p id="startup-status" role="status" aria-live="polite">Preparing your assistant…</p>
+        <progress id="startup-progress" max="5" value="0" aria-label="Assistant setup progress"></progress>
+        <p id="startup-metrics"></p>
+        <button id="start-assistant" type="button">Start Assistant</button>
+        <button id="stop-assistant" type="button" disabled>Stop Assistant</button>
+      </div>
+      <button id="chat-fallback" type="button" disabled>Talk to Argos</button>
+    </section>
+    <nav class="lab-nav" aria-label="Workspace sections"><a href="#cc-title">Mission Control</a><a href="#benchmarks-title">Test performance</a><a href="#storage-title">Choose model storage</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Add a capability</a><a href="#hardware-title">Hardware details</a></nav>
+    <section aria-labelledby="benchmarks-title">
+      <h2 id="benchmarks-title">Detailed test records</h2>
+      <p>How fast does it answer? Which tasks does it get right? Build a baseline you can compare after each model upgrade.</p>
+      <div class="cards">
+        <article class="card"><h3>Responsiveness</h3><p>Output tokens/s measures generation speed. First-token latency measures the wait before an answer starts. Prompt tokens/s measures how quickly it reads input.</p></article>
+        <article class="card"><h3>Tested ability</h3><p>Fixed, scored tasks measure specific abilities. The quick suite reports correct answers and format errors by category. These are small probes, not an intelligence score or a test of real tool use.</p></article>
+        <article class="card"><h3>Your upgrade loop</h3><p>1. Test this model. 2. Choose an upgrade for a useful task. 3. Repeat the same suite. 4. Compare gains and regressions. Keep speed and quality separate.</p></article>
+      </div>
+      <div id="lab-controls" class="notice" hidden>
+        <h3>Live proving ground</h3>
+        <p>Chat pauses while this local test runs. Watch your AI answer fixed, observable challenges with real-time streamed responses and scored receipts.</p>
+        <div class="lab-actions">
+          <button id="lab-start" type="button">Pause chat and run baseline trial</button>
+          <button id="lab-start-documents" type="button">Pause chat and run the document trial</button>
+        </div>
+        <p>The document trial gives your model eight short original passages. For each it must answer a question, quote the sentence that supports the answer, and say so when the passage does not contain the answer. It also writes a short summary for you to judge. Scoring is automatic and fixed in advance. It runs speed on short and medium prompts first, and qualifies short-document reading only. It says nothing about longer documents or your own files.</p>
+        <div id="lab-recipe-bar" class="lab-recipe-bar">
+          <span>Active Lab recipe: <strong id="lab-active-recipe">Standard calibration</strong></span>
+          <button id="lab-recipe-restore" type="button" class="btn-text-action" hidden>Restore standard</button>
+        </div>
+        <p id="lab-status" role="status" aria-live="polite">Ready to measure your model.</p>
+        <p class="lab-footnote">Tests use fixed public prompts with tools disabled. Cancellation can take up to a backend request timeout plus cleanup. Each batch has a 15-minute limit.</p>
+      </div>
+      <p id="lab-unavailable">Open Argos Setup and Assistant to run guided tests in the managed workspace.</p>
+      <p id="benchmarks-status" role="status">Checking saved benchmarks…</p>
+      <div id="benchmark-runs" class="cards"></div>
+      <button id="compare-runs" type="button" disabled>Compare selected runs</button>
+      <button id="compare-experiment" type="button" disabled>Controlled experiment comparison</button>
+      <button id="download-comparison" type="button" disabled>Download comparison CSV</button>
+      <div id="experiment-comparison" class="cards" aria-live="polite"></div>
+      <div id="benchmark-comparison" class="cards" aria-live="polite"></div>
+      <p>Select two to eight completed runs of the same type, suite and settings. Hardware and runtime versions can affect the results. A short startup warmup is shown separately from repeated benchmarks.</p>
+    </section>
+    <section aria-labelledby="storage-title">
+      <h2 id="storage-title">Where your data lives</h2>
+      <p>Models, your assistant profile, conversations and results can sit on different drives. Each row shows the real location, what backs it, its encryption and free space. Anything Argos cannot confirm says unknown.</p>
+      <p id="storage-status" role="status" aria-live="polite">Checking storage…</p>
+      <div id="storage-locations" class="cards"></div>
+      <h3>Choose where models are stored</h3>
+      <p id="storage-choice-help">Large downloads need a deliberate choice of location. Temporary memory storage disappears at reboot. A mounted drive is not used for models until you choose it here.</p>
+      <div id="storage-choices" class="cards"></div>
+      <h3>Reboot check</h3>
+      <p>A small marker file holding only a random identifier and boot ID is written inside Argos folders. After you restart, this page reports whether those folders kept it. That shows the folder was retained. It does not show encryption, and it does not test conversation recall.</p>
+      <button id="reboot-check" type="button" disabled>Start reboot check</button>
+
+    </section>
+    <section aria-labelledby="models-title">
+      <h2 id="models-title">Upgrade your model</h2>
+      <p>Save a baseline first. After changing the configured model, run the same tests to compare responsiveness and tested ability. A bigger model is not automatically better at every task.</p>
+      <p id="models-status" role="status">Checking selected model storage…</p>
+      <div id="download-controls" class="notice" hidden>
+        <p id="upgrade-guidance"></p>
+        <strong>Download and verify a catalog model</strong>
+        <p id="download-status" role="status" aria-live="polite">Choose a model below to review its download.</p>
+        <progress id="download-progress" max="100" value="0" aria-label="Model bytes downloaded" hidden></progress>
+        <button id="download-pause" type="button" disabled>Pause download</button>
+        <button id="download-cancel" type="button" disabled>Cancel download</button>
+        <p>Chat pauses for acquisition and its local reply check, then prior assistant startup is requested again. A downloaded model is not automatically selected. Cancelled partial files are retained; nothing is erased.</p>
+      </div>
+
+      <div id="selection-controls" class="notice" hidden>
+        <strong>Try a verified model</strong>
+        <p id="selection-status" role="status" aria-live="polite"></p>
+        <button id="selection-cancel" type="button" disabled>Cancel switch and restore</button>
+      </div>
+
+      <div id="bundled-models" class="cards"></div>
+      <h3>Curated upgrade candidates</h3>
+      <p class="section-sub">At most three reviewed downloadable options with distinct roles, evaluated for local usefulness at acceptable cost.</p>
+      <div id="model-curated" class="cards"></div>
+      <h3>Downloaded models</h3>
+      <div id="installed-models" class="cards"></div>
+      <h3>Downloads in progress</h3>
+      <div id="model-jobs" class="cards"></div>
+      <details id="catalog-panel"><summary>Compatibility &amp; specialist models (collapsed by default)</summary>
+        <p>Specialist, legacy and larger community models. Preserved for installed weights and rollback compatibility.</p>
+        <div id="model-catalog" class="cards"></div>
+      </details>
+      <p>Fit estimates are advisory. Start with a model suited to a useful task, then measure its actual performance. Model activation is a separate reviewed step.</p>
+    </section>
+    <section aria-labelledby="capabilities-title">
+      <h2 id="capabilities-title">Capabilities</h2>
+      <p>Choose what you want your assistant to do next. Each card explains the setup and a practical acceptance test. Available plugins still need setup and a successful test before they are ready.</p>
+      <p id="status" role="status">Checking capability inventory…</p>
+      <div id="capabilities" class="cards"></div>
+      <button id="refresh" type="button">Refresh status</button>
+    </section>
+    <section aria-labelledby="hardware-title">
+      <h2 id="hardware-title">Your computer</h2>
+      <div id="hardware" class="cards"></div>
+      <p id="live-status" role="status">Checking hardware and services…</p>
+    </section>
+    </details>
+
+    <!-- Modals stay outside collapsed disclosures so every reviewed action is reachable. -->
+    <dialog id="skill-node-modal" class="skill-node-modal" aria-labelledby="node-modal-title">
           <div class="modal-card">
             <div class="modal-header">
               <div>
@@ -261,7 +480,7 @@
               <button id="skill-node-close" type="button">Close</button>
             </div>
         </dialog>
-        <dialog id="recipe-modal" class="recipe-modal" aria-labelledby="recipe-modal-title">
+    <dialog id="recipe-modal" class="recipe-modal" aria-labelledby="recipe-modal-title">
           <div class="modal-card">
             <div class="modal-header">
               <div>
@@ -294,157 +513,7 @@
             </div>
           </div>
         </dialog>
-      </section>
-      <div id="cc-build-path" hidden></div>
-      <section class="challenge-deck" aria-labelledby="cc-challenges-title">
-        <p class="mission-label">Take it for a spin</p><h3 id="cc-challenges-title">Choose your next challenge</h3>
-        <p>Choose a fictional scenario, see the brief, then ask Argos. Judge the answer yourself. These are demonstrations, not scored qualifications.</p>
-        <div id="cc-challenges" class="cards"></div>
-      </section>
-      <details class="cc-evidence"><summary>Progress journal</summary>
-        <ol id="cc-journal" class="cc-journal"></ol>
-      </details>
-      <label><input id="cc-quiet" type="checkbox"> Quiet acknowledgments. Progress is still recorded.</label>
-      <details id="cc-task-box"><summary>Your mission brief</summary>
-        <p>Choose a sample above or paste something real and ask one question. Chat pauses while the model reads it. The text and the answer stay on screen only; they are not saved. The answer must quote a sentence from your text, and Argos checks that the quote is really there.</p>
-        <label for="cc-doc">Document (up to 6000 characters)</label>
-        <textarea id="cc-doc" rows="8" maxlength="6000"></textarea>
-        <label for="cc-question">Question</label>
-        <input id="cc-question" type="text" maxlength="300">
-        <button id="cc-ask" type="button">Pause chat and ask</button>
-        <div id="cc-task-result" class="card" hidden aria-live="polite">
-          <h3 id="cc-answer"></h3><p id="cc-quote"></p><p id="cc-task-note"></p>
-          <button id="cc-accept" type="button">Good answer</button><button id="cc-reject" type="button">Not good enough</button>
-        </div>
-        <p id="cc-task-status" role="status"></p>
-      </details>
-    </section>
-    <section class="notice" aria-label="Assistant status">
-      <strong id="assistant-status">Checking your workspace…</strong>
-      <p id="assistant-help">This page observes your workspace. It does not start or change services.</p>
-      <div id="startup-controls" hidden>
-        <p id="startup-status" role="status" aria-live="polite">Preparing your assistant…</p>
-        <progress id="startup-progress" max="5" value="0" aria-label="Assistant setup progress"></progress>
-        <p id="startup-metrics"></p>
-        <button id="start-assistant" type="button">Start Assistant</button>
-        <button id="stop-assistant" type="button" disabled>Stop Assistant</button>
-      </div>
-      <button id="chat-fallback" type="button" disabled>Talk to Argos</button>
-    </section>
-    <nav class="lab-nav" aria-label="Workspace sections"><a href="#cc-title">Mission Control</a><a href="#benchmarks-title">Test performance</a><a href="#storage-title">Choose model storage</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Add a capability</a><a href="#hardware-title">Hardware details</a></nav>
-    <section aria-labelledby="benchmarks-title">
-      <h2 id="benchmarks-title">Detailed test records</h2>
-      <p>How fast does it answer? Which tasks does it get right? Build a baseline you can compare after each model upgrade.</p>
-      <div class="cards">
-        <article class="card"><h3>Responsiveness</h3><p>Output tokens/s measures generation speed. First-token latency measures the wait before an answer starts. Prompt tokens/s measures how quickly it reads input.</p></article>
-        <article class="card"><h3>Tested ability</h3><p>Fixed, scored tasks measure specific abilities. The quick suite reports correct answers and format errors by category. These are small probes, not an intelligence score or a test of real tool use.</p></article>
-        <article class="card"><h3>Your upgrade loop</h3><p>1. Test this model. 2. Choose an upgrade for a useful task. 3. Repeat the same suite. 4. Compare gains and regressions. Keep speed and quality separate.</p></article>
-      </div>
-      <div id="lab-controls" class="notice" hidden>
-        <h3>Live proving ground</h3>
-        <p>Chat pauses while this local test runs. Watch your AI answer fixed, observable challenges with real-time streamed responses and scored receipts.</p>
-        <div class="lab-actions">
-          <button id="lab-start" type="button">Pause chat and run baseline trial</button>
-          <button id="lab-start-documents" type="button">Pause chat and run the document trial</button>
-          <button id="lab-cancel" type="button" disabled>Cancel test</button>
-        </div>
-        <p>The document trial gives your model eight short original passages. For each it must answer a question, quote the sentence that supports the answer, and say so when the passage does not contain the answer. It also writes a short summary for you to judge. Scoring is automatic and fixed in advance. It runs speed on short and medium prompts first, and qualifies short-document reading only. It says nothing about longer documents or your own files.</p>
-        <div id="lab-recipe-bar" class="lab-recipe-bar">
-          <span>Active Lab recipe: <strong id="lab-active-recipe">Standard calibration</strong></span>
-          <button id="lab-recipe-restore" type="button" class="btn-text-action" hidden>Restore standard</button>
-        </div>
-        <p id="lab-status" role="status" aria-live="polite">Ready to measure your model.</p>
-        <div id="arena" class="arena-deck" hidden aria-live="polite">
-          <div class="arena-hud">
-            <div class="arena-hud-item">
-              <span class="arena-hud-label">Phase</span>
-              <span id="arena-phase-badge" class="arena-badge">Idle</span>
-            </div>
-            <div class="arena-hud-item">
-              <span class="arena-hud-label">Model</span>
-              <span id="arena-model" class="arena-val">Current model</span>
-            </div>
-            <div class="arena-hud-item">
-              <span class="arena-hud-label">Recipe</span>
-              <span id="arena-recipe" class="arena-val">Standard</span>
-            </div>
-            <div class="arena-hud-item arena-hud-progress">
-              <div class="arena-progress-header">
-                <span id="arena-progress-label">0 / 20 challenges</span>
-                <span id="arena-elapsed">0 s</span>
-              </div>
-              <progress id="arena-progress-bar" max="20" value="0" aria-label="Trial progress"></progress>
-            </div>
-            <div class="arena-hud-item arena-hud-tally">
-              <span id="arena-tally-passed" class="arena-stat passed">0 passed</span>
-              <span id="arena-tally-format-errors" class="arena-stat format-errors">0 format errors</span>
-            </div>
-          </div>
-          <div id="arena-live-card" class="arena-card live-card">
-            <div class="arena-card-header">
-              <span class="arena-card-title">Current Challenge</span>
-              <span id="arena-current-id" class="arena-tag">Waiting…</span>
-              <span id="arena-current-category" class="arena-cat-tag"></span>
-            </div>
-            <div class="arena-question-box">
-              <span class="arena-sublabel">Question:</span>
-              <div id="arena-current-question" class="arena-question-text">Waiting for challenge…</div>
-            </div>
-            <div class="arena-stream-box">
-              <div class="arena-stream-header">
-                <span class="arena-sublabel">Observable streamed response:</span>
-                <span id="arena-stream-indicator" class="arena-indicator" hidden>Streaming…</span>
-              </div>
-              <pre id="arena-current-stream" class="arena-stream-content" tabindex="0">Awaiting model response…</pre>
-            </div>
-            <details id="arena-source-details" class="arena-source-details">
-              <summary class="arena-source-summary">Read source</summary>
-              <div class="arena-prompt-box">
-                <span class="arena-sublabel">Passage &amp; request schema:</span>
-                <div id="arena-current-prompt" class="arena-prompt-text">Trial ready to begin.</div>
-              </div>
-            </details>
-          </div>
-          <div id="arena-receipts-card" class="arena-card receipts-card">
-            <div class="arena-card-header">
-              <span class="arena-card-title">Verified Scored Receipts</span>
-              <span id="arena-receipts-tally" class="arena-tag">0 scored</span>
-            </div>
-            <div id="arena-receipts-list" class="arena-receipts-list"></div>
-          </div>
-          <div id="arena-summary-banner" class="arena-summary-banner" hidden>
-            <strong id="arena-summary-headline">Trial complete</strong>
-            <p id="arena-summary-detail"></p>
-            <div class="arena-summary-actions">
-              <button id="arena-next-action" type="button" class="mission-primary arena-summary-btn">Review result &amp; debrief ↑</button>
-              <button id="arena-secondary-action" type="button" class="mission-secondary arena-summary-btn" hidden>Restore standard</button>
-            </div>
-          </div>
-        </div>
-        <p class="lab-footnote">Tests use fixed public prompts with tools disabled. Cancellation can take up to a backend request timeout plus cleanup. Each batch has a 15-minute limit.</p>
-      </div>
-      <p id="lab-unavailable">Open Argos Setup and Assistant to run guided tests in the managed workspace.</p>
-      <p id="benchmarks-status" role="status">Checking saved benchmarks…</p>
-      <div id="benchmark-runs" class="cards"></div>
-      <button id="compare-runs" type="button" disabled>Compare selected runs</button>
-      <button id="compare-experiment" type="button" disabled>Controlled experiment comparison</button>
-      <button id="download-comparison" type="button" disabled>Download comparison CSV</button>
-      <div id="experiment-comparison" class="cards" aria-live="polite"></div>
-      <div id="benchmark-comparison" class="cards" aria-live="polite"></div>
-      <p>Select two to eight completed runs of the same type, suite and settings. Hardware and runtime versions can affect the results. A short startup warmup is shown separately from repeated benchmarks.</p>
-    </section>
-    <section aria-labelledby="storage-title">
-      <h2 id="storage-title">Where your data lives</h2>
-      <p>Models, your assistant profile, conversations and results can sit on different drives. Each row shows the real location, what backs it, its encryption and free space. Anything Argos cannot confirm says unknown.</p>
-      <p id="storage-status" role="status" aria-live="polite">Checking storage…</p>
-      <div id="storage-locations" class="cards"></div>
-      <h3>Choose where models are stored</h3>
-      <p id="storage-choice-help">Large downloads need a deliberate choice of location. Temporary memory storage disappears at reboot. A mounted drive is not used for models until you choose it here.</p>
-      <div id="storage-choices" class="cards"></div>
-      <h3>Reboot check</h3>
-      <p>A small marker file holding only a random identifier and boot ID is written inside Argos folders. After you restart, this page reports whether those folders kept it. That shows the folder was retained. It does not show encryption, and it does not test conversation recall.</p>
-      <button id="reboot-check" type="button" disabled>Start reboot check</button>
-      <dialog id="storage-review" class="modal-fixed-layout" aria-labelledby="storage-review-title">
+    <dialog id="storage-review" class="modal-fixed-layout" aria-labelledby="storage-review-title">
         <div class="modal-sticky-header">
           <span class="domain-tag">Storage Configuration</span>
           <h3 id="storage-review-title">Review model storage</h3>
@@ -454,7 +523,7 @@
           <p id="storage-review-details"></p>
           <div class="modal-info-block">
             <strong>Write verification &amp; safety</strong>
-            <p>Argos creates one new empty folder here, runs a short write check, and records its identity. Existing files are never adopted or moved.</p>
+            <p>Argos confirms your existing model store or creates a new empty one, then runs a short write check. Your model files stay in place; moving a populated store is a separate migration.</p>
           </div>
         </div>
         <div class="modal-sticky-footer">
@@ -462,21 +531,7 @@
           <button id="storage-dismiss" type="button" class="mission-secondary">Keep current choice</button>
         </div>
       </dialog>
-    </section>
-    <section aria-labelledby="models-title">
-      <h2 id="models-title">Upgrade your model</h2>
-      <p>Save a baseline first. After changing the configured model, run the same tests to compare responsiveness and tested ability. A bigger model is not automatically better at every task.</p>
-      <p id="models-status" role="status">Checking selected model storage…</p>
-      <div id="download-controls" class="notice" hidden>
-        <p id="upgrade-guidance"></p>
-        <strong>Download and verify a catalog model</strong>
-        <p id="download-status" role="status" aria-live="polite">Choose a model below to review its download.</p>
-        <progress id="download-progress" max="100" value="0" aria-label="Model bytes downloaded" hidden></progress>
-        <button id="download-pause" type="button" disabled>Pause download</button>
-        <button id="download-cancel" type="button" disabled>Cancel download</button>
-        <p>Chat pauses for acquisition and its local reply check, then prior assistant startup is requested again. A downloaded model is not automatically selected. Cancelled partial files are retained; nothing is erased.</p>
-      </div>
-      <dialog id="download-review" class="modal-fixed-layout" aria-labelledby="download-review-title">
+    <dialog id="download-review" class="modal-fixed-layout" aria-labelledby="download-review-title">
         <div class="modal-sticky-header">
           <span class="domain-tag">Model Acquisition</span>
           <h3 id="download-review-title">Review model download</h3>
@@ -497,12 +552,7 @@
           <button id="download-dismiss" type="button" class="mission-secondary">Keep current setup</button>
         </div>
       </dialog>
-      <div id="selection-controls" class="notice" hidden>
-        <strong>Try a verified model</strong>
-        <p id="selection-status" role="status" aria-live="polite"></p>
-        <button id="selection-cancel" type="button" disabled>Cancel switch and restore</button>
-      </div>
-      <dialog id="selection-review" class="modal-fixed-layout" aria-labelledby="selection-title">
+    <dialog id="selection-review" class="modal-fixed-layout" aria-labelledby="selection-title">
         <div class="modal-sticky-header">
           <span class="domain-tag">Model Upgrade</span>
           <h3 id="selection-title">Review model switch</h3>
@@ -519,32 +569,6 @@
           <button id="selection-dismiss" type="button" class="mission-secondary">Keep current model</button>
         </div>
       </dialog>
-      <div id="bundled-models" class="cards"></div>
-      <h3>Curated upgrade candidates</h3>
-      <p class="section-sub">At most three reviewed downloadable options with distinct roles, evaluated for local usefulness at acceptable cost.</p>
-      <div id="model-curated" class="cards"></div>
-      <h3>Downloaded models</h3>
-      <div id="installed-models" class="cards"></div>
-      <h3>Downloads in progress</h3>
-      <div id="model-jobs" class="cards"></div>
-      <details id="catalog-panel"><summary>Compatibility &amp; specialist models (collapsed by default)</summary>
-        <p>Specialist, legacy and larger community models. Preserved for installed weights and rollback compatibility.</p>
-        <div id="model-catalog" class="cards"></div>
-      </details>
-      <p>Fit estimates are advisory. Start with a model suited to a useful task, then measure its actual performance. Model activation is a separate reviewed step.</p>
-    </section>
-    <section aria-labelledby="capabilities-title">
-      <h2 id="capabilities-title">Capabilities</h2>
-      <p>Choose what you want your assistant to do next. Each card explains the setup and a practical acceptance test. Available plugins still need setup and a successful test before they are ready.</p>
-      <p id="status" role="status">Checking capability inventory…</p>
-      <div id="capabilities" class="cards"></div>
-      <button id="refresh" type="button">Refresh status</button>
-    </section>
-    <section aria-labelledby="hardware-title">
-      <h2 id="hardware-title">Your computer</h2>
-      <div id="hardware" class="cards"></div>
-      <p id="live-status" role="status">Checking hardware and services…</p>
-    </section>
   </main>
 </body>
 </html>

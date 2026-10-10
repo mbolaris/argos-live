@@ -37,6 +37,7 @@ try {
 
   // Start the baseline trial
   await page.waitForFunction(() => !document.getElementById('lab-start').disabled, null, { timeout: 30000 });
+  await page.evaluate(() => focusSection('lab-controls'));
   await page.locator('#lab-start').click();
 
   // Wait for arena to display and start streaming
@@ -76,6 +77,7 @@ try {
   // 3. Demonstrate Mid-Test Cancellation UI
   console.log('DEMONSTRATING: Mid-test cancellation UI…');
   await page.waitForFunction(() => !document.getElementById('lab-start').disabled, null, { timeout: 30000 });
+  await page.evaluate(() => focusSection('lab-controls'));
   await page.locator('#lab-start').click();
   await page.waitForFunction(() => !document.getElementById('lab-cancel').disabled, null, { timeout: 30000 });
   await page.locator('#lab-cancel').click();
@@ -93,6 +95,7 @@ try {
   // 4. Run trial to completion to demonstrate readable result replay
   console.log('DEMONSTRATING: Trial completion and readable result replay…');
   await page.waitForFunction(() => !document.getElementById('lab-start').disabled, null, { timeout: 30000 });
+  await page.evaluate(() => focusSection('lab-controls'));
   await page.locator('#lab-start').click();
 
   await page.waitForFunction(() => {

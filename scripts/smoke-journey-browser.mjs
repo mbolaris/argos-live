@@ -61,7 +61,8 @@ try {
   for (let n = 0; n < 2; n++) {
     await page.waitForFunction(() => !document.getElementById('lab-start').disabled, null, {timeout: 60000});
     const started = page.waitForResponse(response => response.url().endsWith('/api/lab/start') && response.request().method() === 'POST');
-    await page.locator('#lab-start').click();
+    await page.evaluate(() => focusSection('lab-controls'));
+  await page.locator('#lab-start').click();
     if (!(await started).ok()) fail('Baseline start was refused');
     // The previous run's completed text is not evidence that this run finished.
     await page.waitForFunction(count => document.querySelectorAll('#benchmark-runs .card').length >= count &&
@@ -78,6 +79,7 @@ try {
   const score = expectedReceipt.report.ability;
   if (!(await page.locator('#cc-scoreboard').textContent()).includes(`${score.correct} / ${score.total}`)) fail('Readable score differs from measured evidence');
   await page.locator('#command-center').screenshot({path: 'work/journey-ladder-baseline.png'});
+  await page.locator('#example-missions > summary').click();
   for (const index of [0, 1, 2]) {
     await page.locator('#cc-challenges button').nth(index).click();
     if (!(await page.locator('#cc-doc').inputValue()).length) fail('Mission preview has no brief');
@@ -145,6 +147,7 @@ try {
   }
 
   // 5. Document trial, fixed criteria, one qualified moment.
+  await page.evaluate(() => focusSection('lab-controls'));
   await page.locator('#lab-start-documents').click();
   await page.waitForFunction(() => document.getElementById('lab-status').textContent.startsWith('Document trial saved'), null, {timeout: 180000});
   await waitNext('Test a document that matters to you');
