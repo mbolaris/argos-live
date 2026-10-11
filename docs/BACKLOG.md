@@ -1138,5 +1138,8 @@ to the reviewed reversible everyday-assistant trial instead of stopping at a
 miss-review screen. The approval dialog remains the gate before changing the
 assistant; live progress, before/after evidence, and Keep/Restore remain visible
 as the loop continues. If the trial was kept, GO returns the owner to a real chat
-task. Keep other setup and scoring details secondary, and test the full path in
-fixture browsers at phone and desktop sizes before any Toronado deployment.
+task. Give the agent an eager, evidence-honest voice: it should invite the owner
+to let it prove whether a proposed change helps, promise a matched retest, and
+make clear the owner still chooses Keep or Restore. Keep other setup and scoring
+details secondary, and test the full path in fixture browsers at phone and
+desktop sizes before any Toronado deployment.

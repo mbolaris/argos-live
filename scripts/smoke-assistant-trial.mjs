@@ -68,8 +68,10 @@ try {
   const guidedAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'}, assistantTrial));
   assert.equal(guidedAction.action, 'assistant-trial');
-  assert.equal(guidedAction.title, 'Try one small improvement');
-  assert.match(guidedAction.reason, /Press Go to review it first/);
+  assert.equal(guidedAction.title, 'Ready to prove I can do better?');
+  assert.match(guidedAction.reason, /I’m ready to test one reviewed instruction/);
+  assert.match(guidedAction.reason, /I’ll answer the same questions before and after/);
+  assert.match(guidedAction.reason, /then you choose Keep or Restore/);
   const runningAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'none', active: true}));
   assert.equal(runningAction.title, 'Watch the improvement run');

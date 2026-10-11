@@ -2773,8 +2773,8 @@ function presentedNextAction(next, trial) {
       reason: 'Your everyday assistant is answering the before-and-after questions now. Go to its live progress.', action: 'assistant-trial'};
   }
   if (trial.status === 'none') {
-    return {...next, id: 'assistant-trial', title: 'Try one small improvement',
-      reason: 'Your AI can test one reviewed instruction in your everyday assistant. Press Go to review it first. If you approve, watch the same questions before and after, then choose Keep or Restore.',
+    return {...next, id: 'assistant-trial', title: 'Ready to prove I can do better?',
+      reason: 'I’m ready to test one reviewed instruction in your everyday assistant. Press Go to review it first. If you approve, I’ll answer the same questions before and after, then you choose Keep or Restore.',
       action: 'assistant-trial'};
   }
   if (trial.status === 'on-trial') {
