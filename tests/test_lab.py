@@ -27,8 +27,8 @@ class Assistant:
     def stop(self):
         self.calls.append('pause')
         self.active = False
-    def start(self):
-        assert not self.lab_active
+    def start(self, *, _reserved=False):
+        assert _reserved or not self.lab_active
         self.calls.append('resume')
         self.active = True
     def resolve_source(self, home):

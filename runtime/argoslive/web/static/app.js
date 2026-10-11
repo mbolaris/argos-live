@@ -4309,7 +4309,7 @@ function renderAutoClimb() {
 
   show('auto-climb-start-view', phase === 'idle');
   show('auto-climb-countdown-view', phase === 'countdown');
-  show('auto-climb-watch-view', ['assess', 'stage', 'retest', 'validate', 'keep-or-restore'].includes(phase));
+  show('auto-climb-watch-view', ['assess', 'acquire', 'stage', 'retest', 'validate', 'keep-or-restore'].includes(phase));
   show('auto-climb-summary-view', ['paused', 'stopped', 'plateau', 'budget-exhausted'].includes(phase));
 
   // Countdown view
@@ -4343,6 +4343,8 @@ function renderAutoClimb() {
     if (propCost) propCost.textContent = prop.cost || '';
     const propCheck = document.getElementById('auto-climb-prop-check');
     if (propCheck) propCheck.textContent = prop.verification || '';
+    const propStorageNotice = document.getElementById('auto-climb-prop-storage-needed');
+    if (propStorageNotice) propStorageNotice.hidden = !prop.storage_needed;
   } else {
     if (autoClimbCountdownTimer) {
       clearInterval(autoClimbCountdownTimer);
@@ -4351,11 +4353,12 @@ function renderAutoClimb() {
   }
 
   // Watch view
-  if (['assess', 'stage', 'retest', 'validate', 'keep-or-restore'].includes(phase)) {
+  if (['assess', 'acquire', 'stage', 'retest', 'validate', 'keep-or-restore'].includes(phase)) {
     const prog = val.progress;
     const stageEl = document.getElementById('auto-climb-watch-stage');
     if (stageEl) {
       stageEl.textContent = phase === 'assess' ? 'Evaluating baseline' :
+        phase === 'acquire' ? 'Downloading candidate model' :
         phase === 'stage' ? 'Staging candidate' :
         phase === 'retest' ? 'Testing practice challenges' :
         phase === 'validate' ? 'Running independent validation' : 'Resolving decision';

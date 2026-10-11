@@ -16,6 +16,7 @@ Owner-approved product contract:
 """
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -23,7 +24,7 @@ import threading
 import time
 import uuid
 
-from . import assistant_trial, catalog, hw, storage
+from . import assistant_trial, catalog, hw, model_selection, model_verify, starter, storage
 from .assistant_trial import (
     agents_path,
     changed_trial_files,
@@ -63,6 +64,17 @@ def get_model_catalog_entry(tag):
 def get_model_digest(tag):
     entry = get_model_catalog_entry(tag)
     return entry.get('manifest_digest') if entry else None
+
+
+def configured_model(home):
+    """Return the model only when both Argos and OpenClaw configuration agree."""
+    state_path = storage.safe_local(Path(home) / '.config/argos-live/state.json')
+    config_path = storage.safe_local(Path(home) / '.openclaw/openclaw.json')
+    state = read_json(state_path)
+    config = read_json(config_path)
+    tag = state.get('model')
+    primary = config.get('agents', {}).get('defaults', {}).get('model', {}).get('primary')
+    return tag if isinstance(tag, str) and primary == 'ollama/' + tag else None
 
 PRACTICE_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'grounded-answers.json'
 VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'held-out-validation.json'
@@ -155,23 +167,151 @@ def load_validation_partitions(path=VALIDATION_TASKS_PATH):
     }]
 
 
+def recommend_hardware_model(home, *, envelope=None, budgets=None,
+                             hardware_fn=hw.snapshot, catalog_data=None):
+    """Find the best eligible candidate model for this machine within approved budget."""
+    envelope = envelope or DEFAULT_ENVELOPE
+    budgets = budgets or {}
+    data = catalog_data if catalog_data is not None else catalog.load()
+
+    state_file = storage.safe_local(Path(home) / '.config/argos-live/state.json')
+    current_model = starter.TAG
+    configured = None
+    if state_file.exists():
+        try:
+            configured = read_json(state_file)
+            current_model = configured.get('model') or starter.TAG
+        except (OSError, ValueError):
+            pass
+
+    current_entry = next((e for e in data['models'] if e['tag'] == current_model), None)
+    if not current_entry:
+        return None
+    current_weight = current_entry['weight_bytes']
+
+    measured = hardware_fn() if hardware_fn else {}
+    ram = measured.get('ram', {}).get('available_bytes')
+    gpus = measured.get('gpus') or []
+    capacities = [g['vram_total_bytes'] - g['vram_used_bytes'] for g in gpus
+                  if type(g.get('vram_total_bytes')) is int and type(g.get('vram_used_bytes')) is int
+                  and g['vram_total_bytes'] >= g['vram_used_bytes']]
+    vram = max(capacities) if capacities else None
+
+    # The reviewed selection/startup path runs the conversation at 32k context.
+    # A fit recommendation at the smaller benchmark context would be misleading.
+    execution_context = 32768
+
+    eligible_candidates = []
+    for entry in data['models']:
+        tag = entry['tag']
+        if tag == current_model or '/' in tag:
+            continue
+        if not catalog.is_curated(tag):
+            continue
+        if 'text' not in entry.get('capabilities', []):
+            continue
+        if entry.get('context_tokens', 0) < execution_context:
+            continue
+        if entry['weight_bytes'] <= current_weight:
+            continue
+
+        cur_info = catalog.curated_info(tag)
+        if cur_info and not cur_info.get('downloadable', True):
+            continue
+
+        gpu_fit = catalog.fit(entry, vram, device='gpu', context_tokens=execution_context) if vram is not None else {'status': 'unknown'}
+        cpu_fit = catalog.fit(entry, ram, device='cpu', context_tokens=execution_context) if ram is not None else {'status': 'unknown'}
+        if gpu_fit['status'] != 'fits' and cpu_fit['status'] != 'fits':
+            continue
+
+        # Check full artifact identity/readiness if configured with model_verify.verify
+        installed = False
+        if configured:
+            try:
+                root = storage.validate_configured(configured)
+                model_verify.verify(root, entry)
+                installed = True
+            except Exception:
+                installed = False
+
+        needs_download = not installed
+        download_bytes = entry['total_download_bytes'] if needs_download else 0
+
+        # If download is needed, check against envelope budget
+        if needs_download:
+            max_downloads = envelope.get('max_model_downloads', 1)
+            max_bytes = envelope.get('max_download_bytes', 8 * 1024 * 1024 * 1024)
+            if budgets.get('model_downloads', 0) >= max_downloads:
+                continue
+            if budgets.get('download_bytes', 0) + download_bytes > max_bytes:
+                continue
+
+        eligible_candidates.append((entry, installed, download_bytes))
+
+    if not eligible_candidates:
+        return None
+
+    # Pick smallest viable weight upgrade among curated candidates
+    selected_entry, installed, download_bytes = min(eligible_candidates, key=lambda item: item[0]['weight_bytes'])
+
+    needs_download = not installed
+    storage_needed = False
+    if needs_download:
+        try:
+            from . import storage_view
+            storage_view.require_ready_for_download(Path(home))
+        except Exception:
+            storage_needed = True
+
+    curated_info = catalog.curated_info(selected_entry['tag']) or {}
+    rationale = curated_info.get('rationale', 'Curated upgrade with confirmed hardware memory headroom.')
+    cost_str = (f"{download_bytes // (1024 * 1024):,} MB download · ~5 min test"
+                if needs_download else "0 MB download · ~2 min test")
+
+    return {
+        'id': f'model-{selected_entry["tag"]}',
+        'kind': 'model',
+        'tag': selected_entry['tag'],
+        'title': f'Upgrade model to {selected_entry["tag"]}',
+        'change': f'Switch assistant primary model from {current_model} to {selected_entry["tag"]}.',
+        'rationale': rationale,
+        'cost': cost_str,
+        'verification': '8 practice challenges + 8 independent validation challenges',
+        'needs_download': needs_download,
+        'download_bytes': download_bytes,
+        'storage_needed': storage_needed,
+            'manifest_digest': selected_entry.get('manifest_digest'),
+        'entry': selected_entry,
+    }
+
+
 class Controller:
     """Server-side Auto Climb coordinator owning session durability, countdown, and execution."""
 
     def __init__(self, startup, *, home=None, runner=None, clock=time.monotonic,
                  time_fn=time.time, sleep_fn=time.sleep, practice_path=PRACTICE_TASKS_PATH,
                  validation_path=VALIDATION_TASKS_PATH, candidates=None,
-                 model_recommender=None, model_switcher=None):
+                 model_recommender=recommend_hardware_model, model_switcher=None,
+                 model_restorer=None, download_runner=None, selection=None, downloads=None):
         self.startup = startup
         self.home = Path(home or getattr(startup, 'home', Path.home()))
         self.clock = clock
         self.time_fn = time_fn
         self.sleep_fn = sleep_fn
         self.practice_tasks = load_task_file(practice_path)
+        self.validation_tasks = load_task_file(validation_path)
         self.validation_partitions = load_validation_partitions(validation_path)
-        self.candidate_pool = list(candidates) if candidates is not None else list(INSTRUCTION_CANDIDATES)
-        self.model_recommender = model_recommender
+        if candidates is not None:
+            self.candidate_pool = list(candidates)
+            self.model_recommender = None if model_recommender is recommend_hardware_model else model_recommender
+        else:
+            self.candidate_pool = list(INSTRUCTION_CANDIDATES)
+            self.model_recommender = model_recommender
         self.model_switcher = model_switcher
+        self.model_restorer = model_restorer
+        self.download_runner = download_runner
+        self.selection = selection
+        self.downloads = downloads
 
         # Wire OpenClaw runner by default if not passed or not in startup
         self.runner = runner or getattr(startup, 'runner', None)
@@ -191,6 +331,8 @@ class Controller:
 
         self.lock = threading.RLock()
         self.worker = None
+        self.child_worker = None
+        self._active_slice_start = None
         self.closed = False
 
         self.session_path = storage.safe_local(self.home / SESSION_REL_PATH)
@@ -215,14 +357,41 @@ class Controller:
         try:
             data = read_json(self.inventory_path)
             if not isinstance(data, dict):
-                return {'schema': INVENTORY_SCHEMA, 'consumed_partitions': [], 'history': []}
+                raise ValueError('Corrupt exposure inventory: content must be a JSON object')
+            if data.get('schema') != INVENTORY_SCHEMA:
+                raise ValueError(f'Corrupt exposure inventory schema: {data.get("schema")}')
+            if not isinstance(data.get('consumed_partitions'), list):
+                raise ValueError('Corrupt exposure inventory: consumed_partitions must be a list')
+            if any(not isinstance(pid, str) or not pid for pid in data['consumed_partitions']):
+                raise ValueError('Corrupt exposure inventory: partition IDs must be non-empty strings')
+            history = data.get('history')
+            if not isinstance(history, list):
+                raise ValueError('Corrupt exposure inventory: history must be a list')
+            history_ids = []
+            for row in history:
+                if not isinstance(row, dict) or not isinstance(row.get('partition_id'), str) or not row['partition_id']:
+                    raise ValueError('Corrupt exposure inventory: invalid history entry')
+                history_ids.append(row['partition_id'])
+            # Treat history as an additional consumed ledger. This protects against
+            # an incomplete consumed_partitions array after an interrupted write.
+            data['consumed_partitions'] = sorted(set(data['consumed_partitions']).union(history_ids))
             return data
-        except Exception:
-            return {'schema': INVENTORY_SCHEMA, 'consumed_partitions': [], 'history': []}
+        except Exception as exc:
+            raise ValueError(f'Corrupt exposure inventory: {exc}') from exc
 
     def _consume_partitions(self, partition_ids, *, session_id, candidate_id, reason):
         with self.lock:
-            inv = self._load_inventory()
+            try:
+                inv = self._load_inventory()
+            except Exception as exc:
+                if self.session is not None:
+                    self.session['phase'] = 'blocked'
+                    self.session['failure_code'] = 'corrupt-inventory'
+                    self.session['stopping_reason'] = f'Corrupt exposure inventory: {exc}. Automatic validation blocked.'
+                    self.session['message'] = self.session['stopping_reason']
+                    self._save_session()
+                raise Refused(f'Corrupt exposure inventory: {exc}. Automatic validation blocked.')
+
             consumed = set(inv.get('consumed_partitions', []))
             history = list(inv.get('history', []))
             now_iso = datetime.now(timezone.utc).isoformat()
@@ -260,7 +429,17 @@ class Controller:
 
     def _get_fresh_partitions(self, count=2):
         with self.lock:
-            inv = self._load_inventory()
+            try:
+                inv = self._load_inventory()
+            except Exception as exc:
+                if self.session is not None:
+                    self.session['phase'] = 'blocked'
+                    self.session['failure_code'] = 'corrupt-inventory'
+                    self.session['stopping_reason'] = f'Corrupt exposure inventory: {exc}. Automatic validation blocked.'
+                    self.session['message'] = self.session['stopping_reason']
+                    self._save_session()
+                raise Refused(f'Corrupt exposure inventory: {exc}. Automatic validation blocked.')
+
             globally_consumed = set(inv.get('consumed_partitions', []))
             sess_consumed = set(self.session.get('exposure_ledger', {}).get('consumed_partitions', [])) if self.session else set()
             all_consumed = globally_consumed.union(sess_consumed)
@@ -281,36 +460,66 @@ class Controller:
             phase = data.get('phase')
             mutation = data.get('mutation')
 
-            if phase in ('staging', 'stage', 'retest', 'validate', 'countdown') or mutation:
-                agents = agents_path(self.home)
-                raw_before = mutation.get('raw_before') if mutation else data.get('raw_before')
-                expected_after = mutation.get('expected_after') if mutation else None
-
-                if agents.exists() and raw_before is not None:
-                    current = read_text(agents)
-                    clean_current = current.replace('\r\n', '\n') if isinstance(current, str) else ''
-                    clean_expected = expected_after.replace('\r\n', '\n') if isinstance(expected_after, str) else None
-                    clean_raw = raw_before.replace('\r\n', '\n') if isinstance(raw_before, str) else ''
-
-                    if clean_expected is not None and clean_current == clean_expected:
-                        # Staged change is present without owner edits: restore safely
-                        write_text(agents, raw_before)
-                        data['phase'] = 'paused'
-                        data['message'] = 'Recovered from restart. Pending mutation restored; session paused.'
-                        data.pop('mutation', None)
-                    elif clean_current == clean_raw:
-                        # Already at baseline
-                        data['phase'] = 'paused'
-                        data['message'] = 'Recovered from restart. Workspace matches baseline; session paused.'
-                        data.pop('mutation', None)
-                    else:
-                        # Owner modified AGENTS.md while offline: DO NOT overwrite!
+            if phase in ('staging', 'stage', 'retest', 'validate', 'countdown', 'acquire', 'undoing') or mutation:
+                if mutation and mutation.get('kind') == 'model':
+                    expected_model = data.get('active_model', {}).get('model')
+                    try:
+                        restored = model_selection.restore(self.home)
+                        current_model = configured_model(self.home)
+                        if not current_model or current_model != expected_model:
+                            raise RuntimeError('Configured model does not match the pre-experiment model')
+                        if restored is False and current_model != expected_model:
+                            raise RuntimeError('No model rollback transaction was available')
+                    except Exception:
                         data['phase'] = 'blocked'
-                        data['failure_code'] = 'owner-edit-conflict'
-                        data['message'] = 'Owner edit detected in AGENTS.md; preserved without overwriting. Session blocked.'
-                else:
+                        data['failure_code'] = 'model-restore-failed'
+                        data['message'] = 'Interrupted model change could not be verified or restored. Automatic recovery is blocked.'
+                        self.startup.lab_active = True
+                        # Preserve the mutation record so recovery remains reviewable.
+                        write_json(self.session_path, data)
+                        return data
+                    data['active_model'] = dict(data.get('active_model') or {})
+                    data.pop('mutation', None)
                     data['phase'] = 'paused'
-                    data['message'] = 'Recovered from restart. Workspace reset; session paused.'
+                    data['message'] = 'Recovered from restart. Previous model verified; session paused.'
+                elif mutation and mutation.get('kind') != 'instruction':
+                    data['phase'] = 'blocked'
+                    data['failure_code'] = 'unknown-mutation-kind'
+                    data['message'] = 'Interrupted change type is unknown; automatic recovery is blocked.'
+                    self.startup.lab_active = True
+                    write_json(self.session_path, data)
+                    return data
+
+                if not mutation or mutation.get('kind') == 'instruction':
+                    agents = agents_path(self.home)
+                    raw_before = mutation.get('raw_before') if mutation else data.get('raw_before')
+                    expected_after = mutation.get('expected_after') if mutation else None
+
+                    if agents.exists() and raw_before is not None:
+                        current = read_text(agents)
+                        clean_current = current.replace('\r\n', '\n') if isinstance(current, str) else ''
+                        clean_expected = expected_after.replace('\r\n', '\n') if isinstance(expected_after, str) else None
+                        clean_raw = raw_before.replace('\r\n', '\n') if isinstance(raw_before, str) else ''
+
+                        if clean_expected is not None and clean_current == clean_expected:
+                            # Staged change is present without owner edits: restore safely
+                            write_text(agents, raw_before)
+                            data['phase'] = 'paused'
+                            data['message'] = 'Recovered from restart. Pending mutation restored; session paused.'
+                            data.pop('mutation', None)
+                        elif clean_current == clean_raw:
+                            # Already at baseline
+                            data['phase'] = 'paused'
+                            data['message'] = 'Recovered from restart. Workspace matches baseline; session paused.'
+                            data.pop('mutation', None)
+                        else:
+                            # Owner modified AGENTS.md while offline: DO NOT overwrite!
+                            data['phase'] = 'blocked'
+                            data['failure_code'] = 'owner-edit-conflict'
+                            data['message'] = 'Owner edit detected in AGENTS.md; preserved without overwriting. Session blocked.'
+                    else:
+                        data['phase'] = 'paused'
+                        data['message'] = 'Recovered from restart. Workspace reset; session paused.'
                 write_json(self.session_path, data)
             return data
         except (OSError, ValueError):
@@ -330,7 +539,7 @@ class Controller:
                             raise
                         time.sleep(0.05)
 
-    def _restart_assistant(self, timeout=30):
+    def _restart_assistant(self, timeout=30, expected_model=None):
         """Restart local assistant via startup controller and wait until verified ready."""
         if not self.startup:
             return
@@ -351,9 +560,20 @@ class Controller:
             verified = snap.get('model_reply_verified') is True
             gateway_ready = snap.get('gateway_ready', phase_ready) is True
             if phase_ready and verified and gateway_ready:
+                if expected_model and snap.get('model') != expected_model:
+                    raise RuntimeError('Assistant became ready on a different model than the selected model')
                 return
             self.sleep_fn(0.2)
         raise TimeoutError('Assistant restart timed out waiting to become verified ready')
+
+    def _ensure_assistant_ready(self, expected_model=None):
+        """Reuse a child controller's verified restart, or perform one if still needed."""
+        status = self.startup.snapshot() if self.startup and hasattr(self.startup, 'snapshot') else {}
+        if (status.get('phase') == 'ready' and status.get('model_reply_verified') is True and
+                status.get('gateway_ready') is True and
+                (not expected_model or status.get('model') == expected_model)):
+            return
+        self._restart_assistant(expected_model=expected_model)
 
     # -------------------------------------------------------------------------
     # Public API
@@ -361,9 +581,11 @@ class Controller:
 
     def snapshot(self):
         with self.lock:
-            active = self.worker is not None and self.worker.is_alive()
             sess = self.session or {}
             phase = sess.get('phase', 'idle')
+            active = bool(self.worker is not None and self.worker.is_alive() and
+                          phase not in ('options-exhausted', 'plateau', 'budget-exhausted', 'stopped', 'blocked'))
+            active = active or phase == 'undoing'
 
             countdown_info = None
             if phase == 'countdown' and self.current_action_id:
@@ -375,8 +597,12 @@ class Controller:
                     'proposal': sess.get('proposal'),
                 }
 
-            can_undo = bool(sess.get('initial_raw_before') is not None and
-                            sess.get('current_kept_raw') != sess.get('initial_raw_before'))
+            clean_initial = (sess.get('initial_raw_before') or '').replace('\r\n', '\n')
+            clean_kept = (sess.get('current_kept_raw') or '').replace('\r\n', '\n')
+            initial_model_tag = sess.get('initial_model', {}).get('model')
+            active_model_tag = sess.get('active_model', {}).get('model')
+            can_undo = bool((sess.get('initial_raw_before') is not None and clean_kept != clean_initial) or
+                            (initial_model_tag and active_model_tag and initial_model_tag != active_model_tag))
 
             return {
                 'available': True,
@@ -403,7 +629,7 @@ class Controller:
                 'stopping_reason': sess.get('stopping_reason'),
                 'failure_code': sess.get('failure_code'),
                 'can_start': phase in ('idle', 'plateau', 'options-exhausted', 'budget-exhausted', 'stopped', 'blocked'),
-                'can_pause': active and phase not in ('paused', 'stopped', 'plateau', 'options-exhausted', 'budget-exhausted', 'blocked'),
+                'can_pause': active and phase not in ('paused', 'stopped', 'plateau', 'options-exhausted', 'budget-exhausted', 'blocked', 'undoing'),
                 'can_resume': phase == 'paused',
                 'can_stop': active or phase in ('countdown', 'paused'),
                 'can_override': phase == 'countdown',
@@ -445,6 +671,7 @@ class Controller:
                     'model_downloads': 0,
                     'download_bytes': 0,
                 },
+                'initial_model': dict(model_info),
                 'active_model': model_info,
                 'curriculum_version': 'argos-foundation/1',
                 'phase': 'preflight',
@@ -503,6 +730,8 @@ class Controller:
         """Pause Auto Climb (including during countdown or between steps)."""
         worker = None
         with self.lock:
+            if self.session and self.session.get('phase') == 'undoing':
+                raise Refused('Undo is finishing its model transaction; wait for it to complete')
             if not self.session or self.session.get('phase') in ('idle', 'stopped', 'plateau', 'options-exhausted', 'budget-exhausted', 'blocked'):
                 raise Refused('No active Auto Climb session to pause')
             self.pause_event.set()
@@ -561,6 +790,8 @@ class Controller:
         """Stop Auto Climb cleanly, restoring any in-flight mutation."""
         worker = None
         with self.lock:
+            if self.session and self.session.get('phase') == 'undoing':
+                raise Refused('Undo is finishing its model transaction; wait for it to complete')
             if not self.session or self.session.get('phase') in ('idle', 'stopped'):
                 return self.snapshot()
             self.stop_event.set()
@@ -580,52 +811,110 @@ class Controller:
             mutation = self.session.get('mutation')
             if mutation:
                 try:
-                    self._restore_instruction(mutation.get('raw_before', ''), mutation.get('expected_after', ''))
+                    if mutation.get('kind') == 'model':
+                        self._run_model_restore()
+                    else:
+                        self._restore_instruction(mutation.get('raw_before', ''), mutation.get('expected_after', ''))
                 except Exception as exc:
                     self.session['phase'] = 'blocked'
                     self.session['failure_code'] = 'restore-failed'
-                    self.session['message'] = f'Instruction restoration failed during stop: {exc}'
+                    self.session['message'] = f'Restoration failed during stop: {exc}'
                     self._save_session()
                     return self.snapshot()
 
             self.session['phase'] = 'stopped'
             self.session['stopping_reason'] = 'Stopped by owner'
             self.session['message'] = 'Auto Climb stopped.'
+            self.startup.lab_active = False
             self._save_session()
             return self.snapshot()
 
     def undo(self):
         """Revert all kept changes from this session back to the initial baseline, protecting owner edits."""
+        worker = None
+        with self.lock:
+            if not self.session:
+                raise Refused('No Auto Climb session to undo')
+            phase = self.session.get('phase')
+            worker = self.worker
+            if worker is not None and worker.is_alive() and phase not in (
+                    'options-exhausted', 'plateau', 'budget-exhausted', 'stopped', 'paused', 'blocked'):
+                raise Refused('Cannot undo while Auto Climb is actively running')
+        if worker is not None and worker.is_alive():
+            worker.join(timeout=2)
+
         with self.startup.lock, self.lock:
             if not self.session:
                 raise Refused('No Auto Climb session to undo')
-            if self.worker is not None and self.worker.is_alive():
+            if ((self.worker is not None and self.worker.is_alive()) or
+                    getattr(self.startup, 'lab_active', False)):
                 raise Refused('Cannot undo while Auto Climb is actively running')
             initial_raw = self.session.get('initial_raw_before')
-            if initial_raw is None:
-                raise Refused('No initial baseline recorded for undo')
             current_kept = self.session.get('current_kept_raw', initial_raw)
             clean_initial = initial_raw.replace('\r\n', '\n') if isinstance(initial_raw, str) else ''
             clean_kept = current_kept.replace('\r\n', '\n') if isinstance(current_kept, str) else ''
-            if clean_kept == clean_initial:
-                raise Refused('No kept changes to undo')
-            agents = agents_path(self.home)
-            current = read_text(agents)
-            clean_current = current.replace('\r\n', '\n') if isinstance(current, str) else ''
-            if clean_current != clean_kept:
-                raise Refused('Workspace was modified since Auto Climb; Undo blocked to preserve owner edits.')
+            instruction_changed = bool(initial_raw is not None and clean_kept != clean_initial)
 
-            write_text(agents, initial_raw)
-            restored = read_text(agents)
-            if (restored.replace('\r\n', '\n') if isinstance(restored, str) else '') != clean_initial:
-                raise ValueError('Undo could not be verified byte-for-byte')
-            self._restart_assistant()
-            self.session['current_kept_raw'] = initial_raw
-            self.session['phase'] = 'stopped'
-            self.session['stopping_reason'] = 'Undone to initial baseline by owner.'
-            self.session['message'] = self.session['stopping_reason']
+            initial_model = self.session.get('initial_model')
+            active_model = self.session.get('active_model')
+            initial_tag = initial_model.get('model') if isinstance(initial_model, dict) else None
+            active_tag = active_model.get('model') if isinstance(active_model, dict) else None
+            model_changed = bool(initial_tag and active_tag and initial_tag != active_tag)
+
+            if not instruction_changed and not model_changed:
+                raise Refused('No kept changes to undo')
+
+            if instruction_changed:
+                agents = agents_path(self.home)
+                current = read_text(agents)
+                clean_current = current.replace('\r\n', '\n') if isinstance(current, str) else ''
+                if clean_current != clean_kept:
+                    raise Refused('Workspace was modified since Auto Climb; Undo blocked to preserve owner edits.')
+            # Keep the workload reserved, then release locks before a child
+            # selector runs; that worker must acquire startup.lock to complete.
+            self.startup.lab_active = True
+            self.session['phase'] = 'undoing'
+            self.session['message'] = 'Restoring the session starting point…'
+            self.session['mutation'] = ({
+                'kind': 'model', 'candidate_id': f'undo-model-{initial_tag}',
+            } if model_changed else {
+                'kind': 'instruction', 'raw_before': current_kept,
+                'expected_after': initial_raw,
+            })
             self._save_session()
-            return self.snapshot()
+
+        try:
+            if instruction_changed:
+                write_text(agents, initial_raw)
+                restored = read_text(agents)
+                if (restored.replace('\r\n', '\n') if isinstance(restored, str) else '') != clean_initial:
+                    raise ValueError('Undo could not be verified byte-for-byte')
+                with self.lock:
+                    self.session['current_kept_raw'] = initial_raw
+                    self._save_session()
+                if not model_changed:
+                    self._restart_assistant()
+
+            if model_changed:
+                self._restore_kept_model(initial_tag)
+
+            with self.startup.lock, self.lock:
+                if model_changed:
+                    self.session['active_model'] = dict(initial_model)
+                self.session.pop('mutation', None)
+                self.session['phase'] = 'stopped'
+                self.session['stopping_reason'] = 'Undone to initial baseline by owner.'
+                self.session['message'] = self.session['stopping_reason']
+                self.startup.lab_active = False
+                self._save_session()
+                return self.snapshot()
+        except Exception as exc:
+            with self.lock:
+                self.session['phase'] = 'blocked'
+                self.session['failure_code'] = 'restore-failed'
+                self.session['message'] = f'Undo could not be verified; recovery is blocked: {exc}'
+                self._save_session()
+            raise Refused('Undo could not be verified; recovery is blocked.') from exc
 
     def close(self):
         """Shutdown coordinator and wait for worker thread."""
@@ -645,6 +934,7 @@ class Controller:
 
     def _run_session(self):
         slice_start_time = self.clock()
+        self._active_slice_start = slice_start_time
         try:
             # 1. Assessment / Baseline check
             if not self.session.get('starting_level'):
@@ -737,14 +1027,19 @@ class Controller:
 
         except Exception as error:
             with self.lock:
+                if self.session.get('failure_code') in ('restore-failed', 'owner-edit-conflict', 'corrupt-inventory'):
+                    return
                 mutation = self.session.get('mutation')
                 if mutation:
                     try:
-                        self._restore_instruction(mutation.get('raw_before', ''), mutation.get('expected_after', ''))
+                        if mutation.get('kind') == 'model':
+                            self._run_model_restore()
+                        else:
+                            self._restore_instruction(mutation.get('raw_before', ''), mutation.get('expected_after', ''))
                     except Exception as cleanup_err:
                         self.session['phase'] = 'blocked'
                         self.session['failure_code'] = 'restore-failed'
-                        self.session['message'] = f'Instruction restoration failed after error: {cleanup_err}'
+                        self.session['message'] = f'Restoration failed after error: {cleanup_err}'
                         self._save_session()
                         return
                 self.session['phase'] = 'blocked'
@@ -758,7 +1053,14 @@ class Controller:
                 budgets = self.session.setdefault('budgets_used', {})
                 budgets['duration_seconds'] = budgets.get('duration_seconds', 0) + elapsed
                 self._save_session()
-                self.startup.lab_active = False
+                if self.child_worker is not None and self.child_worker.is_alive():
+                    self.session['phase'] = 'blocked'
+                    self.session['failure_code'] = 'child-worker-stuck'
+                    self.session['message'] = 'A delegated model operation did not stop safely. The workload remains reserved for recovery.'
+                    self._save_session()
+                else:
+                    self.startup.lab_active = False
+                self._active_slice_start = None
 
     def _should_stop(self):
         return self.closed or self.stop_event.is_set() or self.pause_event.is_set()
@@ -803,17 +1105,23 @@ class Controller:
 
         return False
 
+    def _remaining_duration(self, slice_start_time):
+        envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
+        budgets = self.session.get('budgets_used', {})
+        elapsed = max(0, self.clock() - slice_start_time)
+        return max(0.0, envelope.get('max_duration_seconds', 3600) -
+                   budgets.get('duration_seconds', 0) - elapsed)
+
     def _select_next_candidate(self):
         completed = set(self.session.get('completed_candidates', []))
 
         # Check model recommendation candidate first if available (AC3)
-        if self.model_recommender and 'model-upgrade' not in completed:
+        if self.model_recommender:
             envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
             budgets = self.session.get('budgets_used', {})
-            if budgets.get('model_downloads', 0) < envelope.get('max_model_downloads', 1):
-                rec = self.model_recommender(self.home, envelope=envelope, budgets=budgets)
-                if rec:
-                    return rec
+            rec = self.model_recommender(self.home, envelope=envelope, budgets=budgets)
+            if rec and rec['id'] not in completed:
+                return rec
 
         for cand in self.candidate_pool:
             if cand['id'] not in completed:
@@ -824,6 +1132,39 @@ class Controller:
         """Reversibly stage candidate, retest, validate on fresh partitions, and Keep or Restore."""
         kind = candidate.get('kind', 'instruction')
         raw_before = read_text(agents_path(self.home)) or ''
+        prev_model = self.session.get('active_model', {}).get('model', starter.TAG)
+
+        # 0. If model requires download, perform acquisition first
+        if kind == 'model' and candidate.get('needs_download'):
+            if candidate.get('storage_needed'):
+                self.session.setdefault('completed_candidates', []).append(candidate['id'])
+                self.session.setdefault('history', []).append({
+                    'experiment_index': self.session.get('budgets_used', {}).get('completed_experiments', 0),
+                    'candidate': candidate,
+                    'verdict': 'skipped',
+                    'reason': 'Choose model storage before downloading a model.',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                })
+                self._save_session()
+                return
+
+            self.session['phase'] = 'acquire'
+            self.session['message'] = f'Downloading {candidate["title"]} ({candidate["cost"]})…'
+            self._save_session()
+
+            dl_ok = self._run_model_download(candidate)
+            if not dl_ok:
+                self.session.setdefault('completed_candidates', []).append(candidate['id'])
+                self.session.setdefault('history', []).append({
+                    'experiment_index': self.session.get('budgets_used', {}).get('completed_experiments', 0),
+                    'candidate': candidate,
+                    'verdict': 'failed',
+                    'reason': f'Download failed for {candidate["tag"]}.',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                })
+                self._save_session()
+                return
+
         fp_before = fingerprint(self.home)
         change_id = candidate.get('change_id')
         raw_after = staged(raw_before, change_id) if change_id else raw_before
@@ -872,9 +1213,19 @@ class Controller:
             write_text(agents_path(self.home), raw_after)
             self._restart_assistant()
         elif kind == 'model':
-            if self.model_switcher:
-                self.model_switcher(candidate['tag'])
-                self._restart_assistant()
+            switch_ok = self._run_model_switch(candidate['tag'])
+            if not switch_ok:
+                self._run_model_restore()
+                self.session.setdefault('completed_candidates', []).append(candidate['id'])
+                self.session.setdefault('history', []).append({
+                    'experiment_index': self.session.get('budgets_used', {}).get('completed_experiments', 0),
+                    'candidate': candidate,
+                    'verdict': 'failed',
+                    'reason': f'Assistant model switch to {candidate["tag"]} failed; restored previous model {prev_model}.',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                })
+                self._save_session()
+                return
 
         # 2. Retest practice challenges
         self.session['phase'] = 'retest'
@@ -884,7 +1235,10 @@ class Controller:
         practice_retest = self._run_task_suite('practice', self.practice_tasks, candidate['title'], slice_start_time=slice_start_time)
         if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
             try:
-                self._restore_instruction(raw_before, raw_after)
+                if kind == 'instruction':
+                    self._restore_instruction(raw_before, raw_after)
+                elif kind == 'model':
+                    self._run_model_restore()
             except Exception as exc:
                 self.session['phase'] = 'blocked'
                 self.session['failure_code'] = 'restore-failed'
@@ -910,7 +1264,10 @@ class Controller:
             val1_retest = self._run_task_suite('validation', p1, candidate['title'], slice_start_time=slice_start_time)
             if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
                 try:
-                    self._restore_instruction(raw_before, raw_after)
+                    if kind == 'instruction':
+                        self._restore_instruction(raw_before, raw_after)
+                    elif kind == 'model':
+                        self._run_model_restore()
                 except Exception as exc:
                     self.session['phase'] = 'blocked'
                     self.session['failure_code'] = 'restore-failed'
@@ -931,7 +1288,10 @@ class Controller:
                 val2_retest = self._run_task_suite('validation', p2, candidate['title'], slice_start_time=slice_start_time)
                 if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
                     try:
-                        self._restore_instruction(raw_before, raw_after)
+                        if kind == 'instruction':
+                            self._restore_instruction(raw_before, raw_after)
+                        elif kind == 'model':
+                            self._run_model_restore()
                     except Exception as exc:
                         self.session['phase'] = 'blocked'
                         self.session['failure_code'] = 'restore-failed'
@@ -966,17 +1326,18 @@ class Controller:
             self.session['practice_baseline'] = practice_retest
             p_baselines[p1['id']] = val1_retest
             p_baselines[p2['id']] = val2_retest
-            self.session['current_kept_raw'] = read_text(agents_path(self.home))
-            self.session['raw_before'] = self.session['current_kept_raw']
-            self.session['experiments_since_last_gain'] = 0
-            self.session.pop('mutation', None)
-
-            if kind == 'model':
+            if kind == 'instruction':
+                self.session['current_kept_raw'] = read_text(agents_path(self.home))
+                self.session['raw_before'] = self.session['current_kept_raw']
+            elif kind == 'model':
+                self._run_model_keep()
                 model_tag = candidate.get('tag')
                 model_digest = candidate.get('manifest_digest') or get_model_digest(model_tag)
                 self.session['active_model'] = {'model': model_tag, 'digest': model_digest}
                 if hasattr(self.runner, 'expected_model') and model_tag:
                     self.runner.expected_model = model_tag
+            self.session['experiments_since_last_gain'] = 0
+            self.session.pop('mutation', None)
 
             # Update current level metrics
             passed_practice = sum(1 for r in practice_retest if r['passed'])
@@ -990,7 +1351,10 @@ class Controller:
             }
         else:
             try:
-                self._restore_instruction(raw_before, raw_after)
+                if kind == 'instruction':
+                    self._restore_instruction(raw_before, raw_after)
+                elif kind == 'model':
+                    self._run_model_restore()
             except Exception as exc:
                 self.session['phase'] = 'blocked'
                 self.session['failure_code'] = 'restore-failed'
@@ -1048,6 +1412,202 @@ class Controller:
             self._save_session()
             raise Refused('Owner edit detected during experiment; preserved without overwriting.')
 
+    def _settle_child(self, worker, cancel_fn=None, timeout=300.0):
+        """Wait for child worker thread within timeout; cancel and join if overdue."""
+        if worker is None:
+            return True
+        self.child_worker = worker
+        deadline = time.monotonic() + max(0, timeout)
+        interrupted = False
+        while worker.is_alive():
+            if self._should_stop():
+                interrupted = True
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            worker.join(timeout=min(.1, remaining))
+        if worker.is_alive():
+            if cancel_fn:
+                try:
+                    cancel_fn()
+                except Exception:
+                    pass
+            worker.join(timeout=5.0)
+            if worker.is_alive():
+                raise RuntimeError('Child worker thread timed out and could not be terminated')
+            self.child_worker = None
+            if interrupted:
+                return False
+            raise RuntimeError('Child worker thread timed out and was cancelled')
+        self.child_worker = None
+        return not interrupted
+
+    def _run_model_download(self, candidate):
+        tag = candidate['tag']
+        download_bytes = candidate.get('download_bytes', 0)
+        budgets = self.session.setdefault('budgets_used', {})
+
+        # Always charge download attempts and bytes even on failure
+        budgets['model_downloads'] = budgets.get('model_downloads', 0) + 1
+        budgets['download_bytes'] = budgets.get('download_bytes', 0) + download_bytes
+        self._save_session()
+
+        if self.download_runner:
+            try:
+                ok = self.download_runner(tag)
+                return bool(ok)
+            except Exception:
+                return False
+
+        if self.downloads:
+            try:
+                # Retain lab_active throughout child delegation
+                self.downloads.start(tag=tag, _delegated=True)
+                if hasattr(self.downloads, 'worker') and self.downloads.worker:
+                    cancel_fn = getattr(self.downloads, 'cancel', None)
+                    remaining = self._remaining_duration(self._active_slice_start)
+                    if remaining <= 0:
+                        self._check_budget_exhaustion(self._active_slice_start)
+                        cancel_fn() if cancel_fn else None
+                        return False
+                    settled = self._settle_child(self.downloads.worker, cancel_fn=cancel_fn,
+                                                 timeout=min(300.0, remaining))
+                    if not settled:
+                        return False
+                snap = self.downloads.snapshot()
+                return snap.get('phase') == 'completed'
+            except Exception:
+                return False
+
+        # Fail closed if downloader unavailable (never synthetic success)
+        return False
+
+    def _run_model_switch(self, tag):
+        if self.model_switcher:
+            ok = self.model_switcher(tag)
+            if ok is not False:
+                self._restart_assistant()
+                if hasattr(self.runner, 'expected_model'):
+                    self.runner.expected_model = tag
+                return True
+            return False
+
+        if self.selection:
+            try:
+                self.selection.start(tag=tag, _delegated=True)
+            except TypeError:
+                self.selection.start(tag=tag)
+            if hasattr(self.selection, 'worker') and self.selection.worker:
+                cancel_fn = getattr(self.selection, 'cancel', None)
+                remaining = self._remaining_duration(self._active_slice_start)
+                if remaining <= 0:
+                    self._check_budget_exhaustion(self._active_slice_start)
+                    cancel_fn() if cancel_fn else None
+                    return False
+                if not self._settle_child(self.selection.worker, cancel_fn=cancel_fn,
+                                          timeout=min(300.0, remaining)):
+                    return False
+            snap = self.selection.snapshot()
+            if snap.get('phase') == 'completed':
+                self._ensure_assistant_ready(expected_model=tag)
+                if hasattr(self.runner, 'expected_model'):
+                    self.runner.expected_model = tag
+                return True
+            return False
+
+        # Use reviewed model_selection controller with journaled transactions
+        sel = model_selection.Controller(self.startup)
+        self.selection = sel
+        sel.start(tag=tag, _delegated=True)
+        if hasattr(sel, 'worker') and sel.worker:
+            cancel_fn = getattr(sel, 'cancel', None)
+            remaining = self._remaining_duration(self._active_slice_start)
+            if remaining <= 0:
+                self._check_budget_exhaustion(self._active_slice_start)
+                cancel_fn() if cancel_fn else None
+                return False
+            if not self._settle_child(sel.worker, cancel_fn=cancel_fn,
+                                      timeout=min(300.0, remaining)):
+                return False
+        snap = sel.snapshot()
+        if snap.get('phase') == 'completed':
+            self._ensure_assistant_ready(expected_model=tag)
+            if hasattr(self.runner, 'expected_model'):
+                self.runner.expected_model = tag
+            return True
+        return False
+
+    def _run_model_restore(self):
+        """Restore previous model; propagate errors and never swallow exceptions."""
+        prev_model = self.session.get('active_model', {}).get('model', 'starter')
+        if self.model_restorer:
+            if self.model_restorer() is False:
+                raise RuntimeError('Model restoration was rejected')
+            self._ensure_assistant_ready(expected_model=prev_model)
+            if hasattr(self.runner, 'expected_model') and prev_model:
+                self.runner.expected_model = prev_model
+            return
+
+        if self.selection:
+            try:
+                self.selection.start_restore(_delegated=True)
+            except TypeError:
+                self.selection.start_restore()
+            if hasattr(self.selection, 'worker') and self.selection.worker:
+                cancel_fn = getattr(self.selection, 'cancel', None)
+                self._settle_child(self.selection.worker, cancel_fn=cancel_fn, timeout=300.0)
+            snap = self.selection.snapshot()
+            if snap.get('phase') != 'completed':
+                if configured_model(self.home) != prev_model:
+                    raise RuntimeError(f'Model restoration did not complete: {snap.get("phase")}')
+            self._restart_assistant()
+            if hasattr(self.runner, 'expected_model') and prev_model:
+                self.runner.expected_model = prev_model
+            return
+
+        ok = model_selection.restore(self.home)
+        if not ok:
+            if configured_model(self.home) != prev_model:
+                raise RuntimeError('Model restoration failed to restore previous state')
+        self._ensure_assistant_ready(expected_model=prev_model)
+        if hasattr(self.runner, 'expected_model') and prev_model:
+            self.runner.expected_model = prev_model
+
+    def _run_model_keep(self):
+        """Finalize model keep transaction; propagate errors."""
+        if self.selection:
+            if self.selection.keep_current() is False:
+                raise RuntimeError('Model Keep could not finalize its rollback transaction')
+            return
+        if self.model_switcher is None and model_selection.keep_current(self.home) is False:
+            raise RuntimeError('Model Keep could not finalize its rollback transaction')
+
+    def _restore_kept_model(self, target_tag):
+        """Select a previously kept model through the normal journaled model-selection path."""
+        if self.model_restorer:
+            if self.model_restorer() is False:
+                raise RuntimeError('Model Undo was rejected')
+            self._restart_assistant()
+            if hasattr(self.runner, 'expected_model'):
+                self.runner.expected_model = target_tag
+            return
+        selection = self.selection or model_selection.Controller(self.startup)
+        self.selection = selection
+        selection.start(tag=target_tag, _delegated=True)
+        if hasattr(selection, 'worker') and selection.worker:
+            self._settle_child(selection.worker, cancel_fn=getattr(selection, 'cancel', None), timeout=300.0)
+        snap = selection.snapshot()
+        if snap.get('phase') != 'completed':
+            raise RuntimeError(f'Model Undo selection did not complete: {snap.get("phase")}')
+        self._ensure_assistant_ready(expected_model=target_tag)
+        if configured_model(self.home) != target_tag:
+            raise RuntimeError('Model Undo did not restore the initial configured model')
+        if selection.keep_current() is False:
+            raise RuntimeError('Model Undo could not finalize its transaction')
+        if hasattr(self.runner, 'expected_model'):
+            self.runner.expected_model = target_tag
+
     def _run_task_suite(self, side, suite, label, slice_start_time=None):
         """Run tasks through OpenClaw runner turn-by-turn with live streaming progress."""
         if self.runner is None or not hasattr(self.runner, 'turn'):
@@ -1064,6 +1624,10 @@ class Controller:
             if self._should_stop():
                 break
             if slice_start_time is not None and self._check_budget_exhaustion(slice_start_time):
+                break
+            remaining = self._remaining_duration(slice_start_time) if slice_start_time is not None else None
+            if remaining is not None and remaining <= 0:
+                self._check_budget_exhaustion(slice_start_time)
                 break
 
             prompt_msg = message(task, passages)
@@ -1084,9 +1648,16 @@ class Controller:
 
             start_t = self.clock()
             try:
-                turn_res = self.runner.turn(prompt_msg)
+                if remaining is not None and isinstance(self.runner, assistant_trial.OpenClawRunner):
+                    turn_res = self.runner.turn(prompt_msg, timeout=remaining)
+                else:
+                    turn_res = self.runner.turn(prompt_msg)
             except TrialTurnError as exc:
                 if self._should_stop() or (hasattr(exc, 'code') and exc.code == 'cancelled'):
+                    break
+                if (slice_start_time is not None and
+                        hasattr(exc, 'code') and exc.code == 'turn-timeout' and
+                        self._check_budget_exhaustion(slice_start_time)):
                     break
                 raise
             if isinstance(turn_res, dict):

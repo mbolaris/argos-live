@@ -48,14 +48,14 @@ class Controller(Workload):
                     pass  # Missing/swapped stores never establish readiness.
             return value
 
-    def start(self, *, tag=None, job=None):
+    def start(self, *, tag=None, job=None, _delegated=False):
         if (tag is None) == (job is None):
             raise ValueError('Choose one catalog model or existing job')
         if tag is not None and (not isinstance(tag, str) or
                 not any(entry['tag'] == tag for entry in catalog.load()['models'])):
             raise ValueError('Choose an exact reviewed catalog tag')
         with self.startup.lock, self.lock:
-            if self.closed or self.snapshot()['active'] or self.startup.lab_active:
+            if self.closed or self.snapshot()['active'] or (self.startup.lab_active and not _delegated):
                 raise ValueError('Another desktop workload is active')
             # Deliberate storage choice and a fresh bounded write check (S3/S4).
             self.storage_gate(self.startup.home)
@@ -72,7 +72,7 @@ class Controller(Workload):
             self.job_id = value['id']
             self.receipt = None
             self.cancel_action = 'cancel'
-            return super().start()
+            return super().start(_delegated=_delegated)
 
     def cancel(self, action='cancel'):
         if action not in ('pause', 'cancel'):

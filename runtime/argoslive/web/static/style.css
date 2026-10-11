@@ -2317,6 +2317,10 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .auto-climb-summary-actions { margin-top: 14px; }
 .auto-climb-summary-actions button { margin: 0; width: 100%; }
 
+.auto-climb-storage-needed { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #281f14; border: 1px solid #735029; }
+.auto-climb-notice { margin: 0 0 8px; font-size: 13px; color: var(--amber); }
+.choose-storage-link { display: inline-block; text-align: center; text-decoration: none; padding: 8px 12px; font-size: 13px; min-height: 38px; line-height: 20px; box-sizing: border-box; }
+
 @media (max-width: 600px) {
   .auto-climb-card { padding: 16px 12px; }
   .prop-details-list div { grid-template-columns: 1fr; gap: 2px; }
