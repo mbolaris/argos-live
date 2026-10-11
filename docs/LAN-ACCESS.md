@@ -20,4 +20,8 @@ Stop the relay with Ctrl+C. This command does not install an autostart service, 
 
 Tests use a real dashboard HTTP server and relay: pairing, rate limiting, backend authentication, Host/Origin rejection, and desktop token rotation.
 
+The pairing form uses `Referrer-Policy: same-origin`: `no-referrer` caused real browser form submissions to carry `Origin: null`, which correctly failed the relay's origin check. Other responses retain `no-referrer`. Error responses have explicit text content types and readable bodies, avoiding empty file downloads on mobile browsers. Regression coverage checks the policy, null-origin rejection, readable errors, and valid same-origin pairing.
+
 Live verification on Toronado: the pairing page was reachable from Yugo over the LAN (HTTP 200), an unauthenticated API request was rejected (403), and a private live check passed pairing plus authenticated dashboard/JavaScript fetches. No benchmark or settings mutation was needed. A physical phone has not yet been tested. The live relay is a separate owner-owned helper using the installed runtime and is enabled only for the current session.
+
+After the owner reported an empty `/pair` download on their iPhone, a Chromium form submission reproduced `Origin: null` and HTTP 403. The corrected live relay was then checked in a mobile viewport from Yugo: actual form submission sent the expected LAN origin, navigated to the authenticated dashboard, and fetched authenticated status successfully with no download. The owner still needs to confirm the corrected flow on the physical iPhone. Restarting only the relay rotated its pairing code; Argos and running trials were not restarted.

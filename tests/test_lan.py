@@ -48,6 +48,20 @@ class LanTests(unittest.TestCase):
         for _ in range(5):self.assertEqual(self.request('/pair','POST','code=no')[0],403)
         self.assertEqual(self.request('/pair','POST','code='+self.relay.code)[0],429)
 
+    def test_pairing_page_preserves_form_origin_and_errors_are_readable(self):
+        status, _, headers = self.request()
+        self.assertEqual(headers['Referrer-Policy'], 'same-origin')
+        status, body, headers = self.request('/pair', 'POST', 'code=000',
+                                            {'Origin': 'null'})
+        self.assertEqual(status, 403)
+        self.assertIn('text/plain', headers['Content-Type'])
+        self.assertIn(b'Access denied', body)
+        self.assertEqual(int(headers['Content-Length']), len(body))
+        status, _, headers = self.request('/pair', 'POST', 'code='+self.relay.code,
+                                         {'Origin': self.relay.origin})
+        self.assertEqual(status, 303)
+        self.assertIn('text/plain', headers['Content-Type'])
+
     def test_desktop_restart_uses_new_session_token(self):
         self.backend.token='a'*43
         self.path.write_text(json.dumps({'schema':'argos-desktop-session/1','url':self.backend.url}))

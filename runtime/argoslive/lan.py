@@ -41,7 +41,12 @@ class Handler(BaseHTTPRequestHandler):
     def reply(self, status, body=b'', **headers):
         self.send_response(status)
         self.send_header('Cache-Control', 'no-store')
-        self.send_header('Referrer-Policy', 'no-referrer')
+        self.send_header('Referrer-Policy', headers.pop('Referrer_Policy', 'no-referrer'))
+        if not any(key.lower() == 'content_type' for key in headers):
+            headers['Content_Type'] = 'text/plain; charset=utf-8'
+        if not body and status >= 400:
+            body = {403: b'Access denied. Open the LAN home page and pair again.',
+                    503: b'Argos is restarting. Try again shortly.'}.get(status, b'Request could not be completed.')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Connection', 'close')
@@ -75,7 +80,9 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == '/pair' or (parsed.path == '/' and not parsed.query):
             if self.command in ['GET', 'HEAD']:
                 page = b'''<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect to Argos</title><body style="background:#0b1721;color:#e5f5ff;font:18px system-ui;max-width:420px;margin:60px auto;padding:24px"><h1>Connect to your AI</h1><p>Enter the 8-digit code shown on Toronado.</p><form method="post" action="/pair"><input name="code" type="password" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="off" required aria-label="Pairing code" style="font:24px system-ui;width:100%;box-sizing:border-box;padding:14px"><button style="font:18px system-ui;width:100%;padding:14px;margin-top:16px">Open Argos</button></form>'''
-                return self.reply(200, page, Content_Type='text/html; charset=utf-8', Content_Security_Policy="default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
+                # no-referrer makes browser form POSTs carry Origin: null.
+                # Preserve same-origin form authentication without leaking referrers off-site.
+                return self.reply(200, page, Content_Type='text/html; charset=utf-8', Referrer_Policy='same-origin', Content_Security_Policy="default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
             now = time.monotonic()
             with self.server.pair_lock:
                 self.server.attempts = [t for t in self.server.attempts if now-t < 60]
