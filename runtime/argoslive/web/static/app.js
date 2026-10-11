@@ -2803,7 +2803,7 @@ function presentedNextAction(next, trial, report) {
       (documentResultExists || next.action === 'review' || trial.result_state === 'no-improvement')) {
     const ideaCount = trial.changes?.length || 0;
     return {...next, id: 'assistant-trial', title: ideaCount
-      ? `I found ${ideaCount} ideas to test — want to watch?` : 'No new idea is ready yet',
+      ? 'Find your AI’s next improvement' : 'No new idea is ready yet',
       reason: 'Same model. Same eight challenges. Watch every answer, then choose Keep or Restore.',
       action: 'assistant-trial'};
   }
@@ -2813,7 +2813,7 @@ function presentedNextAction(next, trial, report) {
       reason: 'The before-and-after run is ready. Review the answers, then choose Keep or Restore.', action: 'assistant-trial'};
   }
   if (trial.status === 'kept') {
-    if (trial.changes?.length) return {...next, id: 'assistant-trial', title: 'Ready for another improvement round?',
+    if (trial.changes?.length) return {...next, id: 'assistant-trial', title: 'Try the next improvement round',
       reason: 'I kept one tested idea. GO tests the remaining untried ideas together; you decide what stays.', action: 'assistant-trial'};
     return {...next, id: 'chat', title: 'Try your AI on something real',
       reason: 'You have tried every reviewed starter idea. Put your AI to work on a real question while we gather a new lead.', action: 'chat'};
@@ -2903,9 +2903,12 @@ async function refreshCommand() {
     document.getElementById('cc-next-reason').textContent = next.reason;
     const go = document.getElementById('cc-next-go');
     go.hidden = !next.action;
-    go.replaceChildren(document.createTextNode('GO '));
+    const actionLabel = next.action === 'assistant-trial'
+      ? (assistantTrial?.active ? 'Watch live answers' : assistantTrial?.status === 'on-trial' ? 'Review the result' : 'Start improvement round')
+      : ({documents: 'Start reading challenge', baseline: 'Start quick check', chat: 'Open chat', review: 'Review results', wait: 'View progress'}[next.action] || next.title);
+    go.replaceChildren(document.createTextNode(actionLabel + ' '));
     const arrow = document.createElement('span'); arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '▶'; go.append(arrow);
-    go.setAttribute('aria-label', `Go: ${next.title}`);
+    go.setAttribute('aria-label', actionLabel);
     go.dataset.action = next.action || '';
     const trialControl = {baseline: 'lab-start', documents: 'lab-start-documents'}[next.action];
     go.disabled = !!trialControl && document.getElementById(trialControl).disabled;

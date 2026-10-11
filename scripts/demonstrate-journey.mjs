@@ -72,10 +72,10 @@ try {
   const startBtn = page.locator('#cc-next-go');
   if (!(await startBtn.isVisible())) fail('Primary Start button (#cc-next-go) is not visible');
   const startBtnText = (await startBtn.textContent()).trim();
-  if (startBtnText.trim() !== 'GO ▶') {
-    fail(`Expected primary button 'GO ▶', got '${startBtnText}'`);
+  if (startBtnText.trim() !== 'Start reading challenge ▶') {
+    fail(`Expected primary button 'Start reading challenge ▶', got '${startBtnText}'`);
   }
-  if ((await startBtn.getAttribute('aria-label')) !== 'Go: Read this brief') fail('GO button does not name its destination');
+  if ((await startBtn.getAttribute('aria-label')) !== 'Start reading challenge') fail('GO button does not name its destination');
 
   // Verify collapsed legacy inventory and single recommended candidate
   const legacyOpen = await page.locator('#catalog-panel').evaluate(el => el.open);

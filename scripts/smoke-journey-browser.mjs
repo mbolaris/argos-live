@@ -40,8 +40,8 @@ try {
 
   // 1. Nothing proven: first-time user is guided to "Read this brief".
   await waitNext('Read this brief');
-  if ((await page.locator('#cc-next-go').textContent()).trim() !== 'GO ▶' ||
-      await page.locator('#cc-next-go').getAttribute('aria-label') !== 'Go: Read this brief') fail('GO action or accessible mission label is incorrect');
+  if ((await page.locator('#cc-next-go').textContent()).trim() !== 'Start reading challenge ▶' ||
+      await page.locator('#cc-next-go').getAttribute('aria-label') !== 'Start reading challenge') fail('GO action or accessible mission label is incorrect');
   if (!(await page.locator('#cc-build-summary').textContent()).includes('0 of 4')) fail('Build path claims untested progress');
   if (await page.locator('#cc-build-steps [aria-current="step"]').count() !== 1) fail('Build path does not identify the next step');
   if (!(await page.locator('#cc-title').textContent()).includes('Mission control')) fail('Mission Control did not lead the page');

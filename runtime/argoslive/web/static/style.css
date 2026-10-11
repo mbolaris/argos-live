@@ -2131,7 +2131,6 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 #command-center.assistant-trial-offer-focus #improve-next,
 #command-center.assistant-trial-offer-focus #cc-debrief,
 #command-center.assistant-trial-offer-focus #receipt-actions { display: none !important; }
-#command-center.assistant-trial-offer-focus #chat,
 #command-center.assistant-trial-offer-focus .mission-rules { display: none !important; }
 .cc-next-trial-offer { margin: 12px 0 0; padding: 12px; border: 1px solid #39776f; border-radius: 12px; background: linear-gradient(140deg, #12312f, #111d29 72%); }
 .cc-next-trial-offer[hidden] { display: none; }
@@ -2202,3 +2201,8 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
   #command-center.assistant-trial-focus #assistant-trial { padding-bottom: 96px; }
 }
 @media (prefers-reduced-motion: reduce) { .assistant-trial-checkpoint.improved { animation: none; } }
+
+/* Keep chat separate from the improvement action. */
+.cc-chat-area { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+.cc-chat-area button { margin: 0; padding: 8px 12px; background: transparent; }
+.cc-hero-actions .cc-go-button { letter-spacing: 0; font-size: 18px; max-width: 100%; white-space: normal; }
