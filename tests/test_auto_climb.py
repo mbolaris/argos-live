@@ -715,6 +715,130 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
+    def test_swallowed_restoration_failure_propagates_and_blocks_session(self):
+        """Restoration failures are never swallowed; session blocks with failure_code='restore-failed'."""
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=self.runner,
+            clock=self.clock.monotonic, sleep_fn=lambda s: None,
+        )
+        try:
+            controller.start()
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    break
+                time.sleep(0.05)
+
+            # Stage a mutation in session
+            controller.session['phase'] = 'stage'
+            controller.session['mutation'] = {
+                'kind': 'instruction',
+                'raw_before': self.original_agents_content,
+                'expected_after': self.original_agents_content + '\n# Some staged candidate\n',
+            }
+            # Set workspace file to staged text
+            self.agents_file.write_text(self.original_agents_content + '\n# Some staged candidate\n')
+
+            # Force restoration failure (mock write_text to raise error)
+            import unittest.mock as mock
+            with mock.patch('argoslive.auto_climb.write_text', side_effect=OSError('Simulated disk error')):
+                snap = controller.stop()
+                self.assertEqual(snap['phase'], 'blocked')
+                self.assertEqual(snap['failure_code'], 'restore-failed')
+                self.assertIn('restoration failed', snap['message'].lower())
+        finally:
+            controller.close()
+
+    def test_validation_partitions_not_reused_across_sessions_or_after_interruption(self):
+        """Partitions are consumed in global inventory before baseline; failed candidate, new session, or reboot never reuses them."""
+        # FakeRunner in baseline mode fails practice (0 gains), so candidate 1 will be restored
+        failing_runner = FakeRunner(home=self.home, mode='baseline')
+        clock = ControllableClock()
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=failing_runner,
+            clock=clock.monotonic, sleep_fn=lambda s: None,
+        )
+        try:
+            controller.start()
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            # Wait for candidate 1 experiment to finish
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if len(snap['history']) >= 1:
+                    break
+                time.sleep(0.05)
+
+            snap = controller.snapshot()
+            self.assertEqual(snap['history'][0]['verdict'], 'restored')
+
+            # Check that val-p1 and val-p2 are recorded as globally consumed in exposure-inventory.json
+            inventory_file = self.home / '.local/share/argos-live/auto-climb/exposure-inventory.json'
+            self.assertTrue(inventory_file.exists())
+            inv_data = json.loads(inventory_file.read_text())
+            self.assertIn('val-p1', inv_data['consumed_partitions'])
+            self.assertIn('val-p2', inv_data['consumed_partitions'])
+
+            # Candidate 2 will be proposed; verify it reserves fresh partitions (val-p3 and val-p4), NOT val-p1 or val-p2!
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            # Wait for candidate 2 experiment to finish
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if len(snap['history']) >= 2:
+                    break
+                time.sleep(0.05)
+
+            inv_data2 = json.loads(inventory_file.read_text())
+            self.assertIn('val-p3', inv_data2['consumed_partitions'])
+            self.assertIn('val-p4', inv_data2['consumed_partitions'])
+        finally:
+            controller.close()
+
+        # Now start a completely NEW session in a new Controller instance (simulating restart / reboot)
+        new_controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=failing_runner,
+            clock=clock.monotonic, sleep_fn=lambda s: None,
+        )
+        try:
+            new_controller.start()
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = new_controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    new_controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            # Since all 4 partitions (val-p1..p4) were already consumed in exposure-inventory.json,
+            # new session refuses to reuse them and halts honestly due to fresh inventory exhaustion!
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = new_controller.snapshot()
+                if snap['phase'] in ('options-exhausted', 'blocked', 'stopped'):
+                    break
+                time.sleep(0.05)
+
+            snap = new_controller.snapshot()
+            self.assertIn('Fresh validation inventory exhausted', snap['stopping_reason'])
+        finally:
+            new_controller.close()
+
 
 if __name__ == '__main__':
     unittest.main()

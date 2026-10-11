@@ -23,7 +23,7 @@ import threading
 import time
 import uuid
 
-from . import assistant_trial, hw, storage
+from . import assistant_trial, catalog, hw, storage
 from .assistant_trial import (
     agents_path,
     changed_trial_files,
@@ -43,6 +43,26 @@ from .pull_jobs import read_json, write_json
 
 SCHEMA = 'argos-auto-climb/1'
 SESSION_REL_PATH = Path('.local/share/argos-live/auto-climb/session.json')
+INVENTORY_REL_PATH = Path('.local/share/argos-live/auto-climb/exposure-inventory.json')
+INVENTORY_SCHEMA = 'argos-auto-climb-inventory/1'
+
+
+def get_model_catalog_entry(tag):
+    if not tag:
+        return None
+    try:
+        data = catalog.load()
+        for m in data.get('models', []):
+            if m.get('tag') == tag:
+                return m
+    except Exception:
+        pass
+    return None
+
+
+def get_model_digest(tag):
+    entry = get_model_catalog_entry(tag)
+    return entry.get('manifest_digest') if entry else None
 
 PRACTICE_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'grounded-answers.json'
 VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'held-out-validation.json'
@@ -162,11 +182,19 @@ class Controller:
         if hasattr(self.runner, 'cancel_event'):
             self.runner.cancel_event = self.cancel_event
 
+        # Track and set expected model on runner
+        active_model_tag = None
+        if hasattr(self.startup, 'snapshot'):
+            active_model_tag = self.startup.snapshot().get('model')
+        if active_model_tag and hasattr(self.runner, 'expected_model'):
+            self.runner.expected_model = active_model_tag
+
         self.lock = threading.RLock()
         self.worker = None
         self.closed = False
 
         self.session_path = storage.safe_local(self.home / SESSION_REL_PATH)
+        self.inventory_path = storage.safe_local(self.home / INVENTORY_REL_PATH)
         self.session = self._load_or_recover_session()
 
         # Ephemeral runtime flags
@@ -180,6 +208,67 @@ class Controller:
         # Ephemeral watch streaming data
         self.current_progress = None
         self.current_receipts = []
+
+    def _load_inventory(self):
+        if not self.inventory_path.exists():
+            return {'schema': INVENTORY_SCHEMA, 'consumed_partitions': [], 'history': []}
+        try:
+            data = read_json(self.inventory_path)
+            if not isinstance(data, dict):
+                return {'schema': INVENTORY_SCHEMA, 'consumed_partitions': [], 'history': []}
+            return data
+        except Exception:
+            return {'schema': INVENTORY_SCHEMA, 'consumed_partitions': [], 'history': []}
+
+    def _consume_partitions(self, partition_ids, *, session_id, candidate_id, reason):
+        with self.lock:
+            inv = self._load_inventory()
+            consumed = set(inv.get('consumed_partitions', []))
+            history = list(inv.get('history', []))
+            now_iso = datetime.now(timezone.utc).isoformat()
+            for pid in partition_ids:
+                if pid not in consumed:
+                    consumed.add(pid)
+                    history.append({
+                        'partition_id': pid,
+                        'session_id': session_id,
+                        'candidate_id': candidate_id,
+                        'consumed_at': now_iso,
+                        'reason': reason,
+                    })
+            inv['schema'] = INVENTORY_SCHEMA
+            inv['consumed_partitions'] = sorted(consumed)
+            inv['history'] = history
+            inv['updated_at'] = now_iso
+            self.inventory_path.parent.mkdir(parents=True, exist_ok=True)
+            for attempt in range(5):
+                try:
+                    write_json(self.inventory_path, inv)
+                    break
+                except (PermissionError, OSError):
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.05)
+
+            # Mirror in session exposure ledger
+            if self.session is not None:
+                ledger = self.session.setdefault('exposure_ledger', {})
+                sess_consumed = set(ledger.get('consumed_partitions', []))
+                sess_consumed.update(partition_ids)
+                ledger['consumed_partitions'] = sorted(sess_consumed)
+                self._save_session()
+
+    def _get_fresh_partitions(self, count=2):
+        with self.lock:
+            inv = self._load_inventory()
+            globally_consumed = set(inv.get('consumed_partitions', []))
+            sess_consumed = set(self.session.get('exposure_ledger', {}).get('consumed_partitions', [])) if self.session else set()
+            all_consumed = globally_consumed.union(sess_consumed)
+
+            available = [p for p in self.validation_partitions if p['id'] not in all_consumed]
+            if len(available) < count:
+                return None
+            return available[:count]
 
     def _load_or_recover_session(self):
         """Recover pending session from disk, resolving pending mutations if any."""
@@ -332,7 +421,12 @@ class Controller:
             merged_envelope = validate_envelope(envelope)
 
             status_val = self.startup.snapshot() if hasattr(self.startup, 'snapshot') else {}
-            model_info = {'model': status_val.get('model', 'starter'), 'digest': status_val.get('digest')}
+            active_tag = status_val.get('model', 'starter')
+            active_digest = status_val.get('digest') or get_model_digest(active_tag)
+            model_info = {'model': active_tag, 'digest': active_digest}
+
+            if hasattr(self.runner, 'expected_model') and active_tag:
+                self.runner.expected_model = active_tag
 
             session_id = str(uuid.uuid4())
             now_iso = datetime.now(timezone.utc).isoformat()
@@ -389,7 +483,7 @@ class Controller:
     def try_now(self, action_id):
         """Override countdown: proceed to the proposed action immediately."""
         with self.lock:
-            if self.session.get('phase') != 'countdown' or self.current_action_id != action_id:
+            if not self.session or self.session.get('phase') != 'countdown' or self.current_action_id != action_id:
                 raise Refused('That proposal is no longer active')
             self.try_now_event.set()
             self.session['phase'] = 'stage'
@@ -399,7 +493,7 @@ class Controller:
     def skip(self, action_id):
         """Override countdown: skip the proposed candidate and propose another."""
         with self.lock:
-            if self.session.get('phase') != 'countdown' or self.current_action_id != action_id:
+            if not self.session or self.session.get('phase') != 'countdown' or self.current_action_id != action_id:
                 raise Refused('That proposal is no longer active')
             self.current_action_id = None
             self.skip_event.set()
@@ -407,31 +501,47 @@ class Controller:
 
     def pause(self):
         """Pause Auto Climb (including during countdown or between steps)."""
+        worker = None
         with self.lock:
             if not self.session or self.session.get('phase') in ('idle', 'stopped', 'plateau', 'options-exhausted', 'budget-exhausted', 'blocked'):
                 raise Refused('No active Auto Climb session to pause')
             self.pause_event.set()
             self.cancel_event.set()
             self.current_action_id = None
+            worker = self.worker
+
+        # Join outside coordinator locks so worker can acquire self.lock to finalize
+        if worker is not None and worker.is_alive():
+            worker.join(timeout=5.0)
+
+        with self.lock:
+            if worker is not None and worker.is_alive():
+                raise Refused('Previous Auto Climb worker is still terminating')
+            self.worker = None
             self.session['phase'] = 'paused'
             self.session['message'] = 'Auto Climb paused. Resume whenever you are ready.'
-            self._save_session()
-            if self.worker and self.worker.is_alive():
-                self.worker.join(timeout=2.0)
-            self.session['phase'] = 'paused'
             self._save_session()
             return self.snapshot()
 
     def resume(self):
         """Resume a paused Auto Climb session."""
+        worker = None
+        with self.lock:
+            if not self.session or self.session.get('phase') != 'paused':
+                raise Refused('Session is not paused')
+            worker = self.worker
+
+        # Wait outside coordinator locks if worker is still terminating
+        if worker is not None and worker.is_alive():
+            worker.join(timeout=5.0)
+
         with self.startup.lock, self.lock:
             if not self.session or self.session.get('phase') != 'paused':
                 raise Refused('Session is not paused')
-            if self.worker is not None and self.worker.is_alive():
-                self.worker.join(timeout=2.0)
-                if self.worker.is_alive():
-                    raise Refused('Previous Auto Climb worker is still terminating')
+            if (self.worker is not None and self.worker.is_alive()) or (worker is not None and worker.is_alive()) or getattr(self.startup, 'lab_active', False):
+                raise Refused('Previous Auto Climb worker is still terminating')
 
+            self.worker = None
             self.pause_event.clear()
             self.cancel_event.clear()
             self.skip_event.clear()
@@ -449,22 +559,34 @@ class Controller:
 
     def stop(self):
         """Stop Auto Climb cleanly, restoring any in-flight mutation."""
+        worker = None
         with self.lock:
             if not self.session or self.session.get('phase') in ('idle', 'stopped'):
                 return self.snapshot()
             self.stop_event.set()
             self.cancel_event.set()
             self.current_action_id = None
+            worker = self.worker
 
-            # If mutation in flight, safely restore
+        if worker is not None and worker.is_alive():
+            worker.join(timeout=5.0)
+
+        with self.lock:
+            if worker is not None and worker.is_alive():
+                raise Refused('Previous Auto Climb worker is still terminating')
+            self.worker = None
+
+            # If mutation in flight, safely restore and propagate failure
             mutation = self.session.get('mutation')
             if mutation:
-                raw_before = mutation.get('raw_before')
-                expected_after = mutation.get('expected_after')
-                agents = agents_path(self.home)
-                if agents.exists() and read_text(agents) == expected_after and raw_before is not None:
-                    write_text(agents, raw_before)
-                self.session.pop('mutation', None)
+                try:
+                    self._restore_instruction(mutation.get('raw_before', ''), mutation.get('expected_after', ''))
+                except Exception as exc:
+                    self.session['phase'] = 'blocked'
+                    self.session['failure_code'] = 'restore-failed'
+                    self.session['message'] = f'Instruction restoration failed during stop: {exc}'
+                    self._save_session()
+                    return self.snapshot()
 
             self.session['phase'] = 'stopped'
             self.session['stopping_reason'] = 'Stopped by owner'
@@ -494,6 +616,9 @@ class Controller:
                 raise Refused('Workspace was modified since Auto Climb; Undo blocked to preserve owner edits.')
 
             write_text(agents, initial_raw)
+            restored = read_text(agents)
+            if (restored.replace('\r\n', '\n') if isinstance(restored, str) else '') != clean_initial:
+                raise ValueError('Undo could not be verified byte-for-byte')
             self._restart_assistant()
             self.session['current_kept_raw'] = initial_raw
             self.session['phase'] = 'stopped'
@@ -510,7 +635,9 @@ class Controller:
             self.cancel_event.set()
             worker = self.worker
         if worker and worker.is_alive():
-            worker.join(timeout=5)
+            worker.join(timeout=5.0)
+        with self.lock:
+            self.worker = None
 
     # -------------------------------------------------------------------------
     # Execution Engine
@@ -525,35 +652,26 @@ class Controller:
                 self.session['message'] = 'Assessing your AI’s current baseline on foundation challenges…'
                 self._save_session()
 
-                practice_baseline = self._run_task_suite('baseline', self.practice_tasks, 'practice')
-                if self._should_stop():
-                    return
-
-                # Baseline on partition 1 (initial reference)
-                p1 = self.validation_partitions[0]
-                validation_baseline = self._run_task_suite('baseline', p1, 'validation')
-                if self._should_stop():
+                practice_baseline = self._run_task_suite('baseline', self.practice_tasks, 'practice', slice_start_time=slice_start_time)
+                if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
                     return
 
                 passed_practice = sum(1 for r in practice_baseline if r['passed'])
-                passed_validation = sum(1 for r in validation_baseline if r['passed'])
 
                 baseline_level = {
                     'practice_passed': passed_practice,
                     'practice_total': len(practice_baseline),
-                    'validation_passed': passed_validation,
-                    'validation_total': len(validation_baseline),
-                    'label': f'{passed_practice}/{len(practice_baseline)} practice · {passed_validation}/{len(validation_baseline)} validation',
+                    'validation_passed': 0,
+                    'validation_total': 0,
+                    'label': f'{passed_practice}/{len(practice_baseline)} practice',
                 }
                 self.session['starting_level'] = baseline_level
                 self.session['current_level'] = baseline_level
                 self.session['practice_baseline'] = practice_baseline
-                self.session['validation_baseline'] = validation_baseline
-                self.session['partition_baselines'] = {p1['id']: validation_baseline}
                 self._save_session()
 
             # Main experiment loop
-            while not self._should_stop():
+            while not self._should_stop() and self.session.get('phase') not in ('budget-exhausted', 'blocked'):
                 # Check budgets before selecting candidate
                 if self._check_budget_exhaustion(slice_start_time):
                     break
@@ -609,7 +727,6 @@ class Controller:
 
                 # Check plateau policy after experiment
                 if self.session.get('experiments_since_last_gain', 0) >= 3:
-                    # Check if all options evaluated
                     remaining = self._select_next_candidate()
                     if remaining is None:
                         self.session['phase'] = 'plateau'
@@ -619,9 +736,17 @@ class Controller:
                         break
 
         except Exception as error:
-            import traceback
-            traceback.print_exc()
             with self.lock:
+                mutation = self.session.get('mutation')
+                if mutation:
+                    try:
+                        self._restore_instruction(mutation.get('raw_before', ''), mutation.get('expected_after', ''))
+                    except Exception as cleanup_err:
+                        self.session['phase'] = 'blocked'
+                        self.session['failure_code'] = 'restore-failed'
+                        self.session['message'] = f'Instruction restoration failed after error: {cleanup_err}'
+                        self._save_session()
+                        return
                 self.session['phase'] = 'blocked'
                 self.session['failure_code'] = 'coordinator-error'
                 self.session['message'] = f'Auto Climb stopped due to an error: {type(error).__name__}: {error}'
@@ -695,14 +820,6 @@ class Controller:
                 return cand
         return None
 
-    def _get_next_fresh_partition(self, exclude=None):
-        exclude = set(exclude or [])
-        consumed = set(self.session.get('exposure_ledger', {}).get('consumed_partitions', []))
-        for p in self.validation_partitions:
-            if p['id'] not in consumed and p['id'] not in exclude:
-                return p
-        return None
-
     def _execute_experiment(self, candidate, slice_start_time):
         """Reversibly stage candidate, retest, validate on fresh partitions, and Keep or Restore."""
         kind = candidate.get('kind', 'instruction')
@@ -711,21 +828,31 @@ class Controller:
         change_id = candidate.get('change_id')
         raw_after = staged(raw_before, change_id) if change_id else raw_before
 
-        # Ensure fresh validation partitions are pre-evaluated on the clean current kept build (raw_before)
-        p1 = self._get_next_fresh_partition()
-        p2 = self._get_next_fresh_partition(exclude=[p1['id']] if p1 else [])
-        if p1 is None or p2 is None:
-            self.session['phase'] = 'blocked'
+        fresh = self._get_fresh_partitions(2)
+        if fresh is None or len(fresh) < 2:
+            self.session['phase'] = 'options-exhausted'
             self.session['stopping_reason'] = 'Fresh validation inventory exhausted; automatic promotion paused.'
             self.session['message'] = self.session['stopping_reason']
             self._save_session()
             return
 
+        p1, p2 = fresh[0], fresh[1]
+
+        # Reserve and record both partitions as consumed globally BEFORE running any turns
+        self._consume_partitions([p1['id'], p2['id']],
+                                 session_id=self.session['session_id'],
+                                 candidate_id=candidate['id'],
+                                 reason='reserved-before-baseline')
+
         p_baselines = self.session.setdefault('partition_baselines', {})
-        if p1['id'] not in p_baselines:
-            p_baselines[p1['id']] = self._run_task_suite('baseline', p1, f'kept-{p1["id"]}')
-        if p2['id'] not in p_baselines:
-            p_baselines[p2['id']] = self._run_task_suite('baseline', p2, f'kept-{p2["id"]}')
+        p1_baseline = self._run_task_suite('baseline', p1, f'kept-{p1["id"]}', slice_start_time=slice_start_time)
+        if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
+            return
+        p2_baseline = self._run_task_suite('baseline', p2, f'kept-{p2["id"]}', slice_start_time=slice_start_time)
+        if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
+            return
+        p_baselines[p1['id']] = p1_baseline
+        p_baselines[p2['id']] = p2_baseline
         self._save_session()
 
         # 1. Journal mutation before write
@@ -754,9 +881,16 @@ class Controller:
         self.session['message'] = f'Evaluating {candidate["title"]} on practice challenges…'
         self._save_session()
 
-        practice_retest = self._run_task_suite('practice', self.practice_tasks, candidate['title'])
-        if self._should_stop():
-            self._restore_instruction(raw_before, raw_after)
+        practice_retest = self._run_task_suite('practice', self.practice_tasks, candidate['title'], slice_start_time=slice_start_time)
+        if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
+            try:
+                self._restore_instruction(raw_before, raw_after)
+            except Exception as exc:
+                self.session['phase'] = 'blocked'
+                self.session['failure_code'] = 'restore-failed'
+                self.session['message'] = f'Restoration failed: {exc}'
+                self._save_session()
+                raise
             return
 
         # Compare against REBASED practice baseline (current kept build)
@@ -773,14 +907,16 @@ class Controller:
             self.session['message'] = 'Practice showed gains. Verifying on fresh independent validation partition…'
             self._save_session()
 
-            # Consume partition 1
-            self.session.setdefault('exposure_ledger', {}).setdefault('consumed_partitions', []).append(p1['id'])
-            self._save_session()
-
-            p1_baseline = p_baselines[p1['id']]
-            val1_retest = self._run_task_suite('validation', p1, candidate['title'])
-            if self._should_stop():
-                self._restore_instruction(raw_before, raw_after)
+            val1_retest = self._run_task_suite('validation', p1, candidate['title'], slice_start_time=slice_start_time)
+            if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
+                try:
+                    self._restore_instruction(raw_before, raw_after)
+                except Exception as exc:
+                    self.session['phase'] = 'blocked'
+                    self.session['failure_code'] = 'restore-failed'
+                    self.session['message'] = f'Restoration failed: {exc}'
+                    self._save_session()
+                    raise
                 return
 
             comp1 = assistant_trial.compare(p1_baseline, val1_retest)
@@ -792,13 +928,16 @@ class Controller:
                 validation_comp = comp1
             else:
                 # 4. Confirmation on a SECOND disjoint fresh partition!
-                self.session.setdefault('exposure_ledger', {}).setdefault('consumed_partitions', []).append(p2['id'])
-                self._save_session()
-
-                p2_baseline = p_baselines[p2['id']]
-                val2_retest = self._run_task_suite('validation', p2, candidate['title'])
-                if self._should_stop():
-                    self._restore_instruction(raw_before, raw_after)
+                val2_retest = self._run_task_suite('validation', p2, candidate['title'], slice_start_time=slice_start_time)
+                if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
+                    try:
+                        self._restore_instruction(raw_before, raw_after)
+                    except Exception as exc:
+                        self.session['phase'] = 'blocked'
+                        self.session['failure_code'] = 'restore-failed'
+                        self.session['message'] = f'Restoration failed: {exc}'
+                        self._save_session()
+                        raise
                     return
 
                 comp2 = assistant_trial.compare(p2_baseline, val2_retest)
@@ -832,6 +971,13 @@ class Controller:
             self.session['experiments_since_last_gain'] = 0
             self.session.pop('mutation', None)
 
+            if kind == 'model':
+                model_tag = candidate.get('tag')
+                model_digest = candidate.get('manifest_digest') or get_model_digest(model_tag)
+                self.session['active_model'] = {'model': model_tag, 'digest': model_digest}
+                if hasattr(self.runner, 'expected_model') and model_tag:
+                    self.runner.expected_model = model_tag
+
             # Update current level metrics
             passed_practice = sum(1 for r in practice_retest if r['passed'])
             passed_val = sum(1 for r in val2_retest if r['passed']) if 'val2_retest' in locals() else 0
@@ -843,7 +989,14 @@ class Controller:
                 'label': f'{passed_practice}/{len(practice_retest)} practice · {passed_val}/8 validation',
             }
         else:
-            self._restore_instruction(raw_before, raw_after)
+            try:
+                self._restore_instruction(raw_before, raw_after)
+            except Exception as exc:
+                self.session['phase'] = 'blocked'
+                self.session['failure_code'] = 'restore-failed'
+                self.session['message'] = f'Restoration failed: {exc}'
+                self._save_session()
+                raise
             self.session['experiments_since_last_gain'] = self.session.get('experiments_since_last_gain', 0) + 1
 
         # Record experiment record in session history
@@ -893,8 +1046,9 @@ class Controller:
             self.session['failure_code'] = 'owner-edit-conflict'
             self.session['message'] = 'Owner edit detected during experiment; preserved without overwriting. Session blocked.'
             self._save_session()
+            raise Refused('Owner edit detected during experiment; preserved without overwriting.')
 
-    def _run_task_suite(self, side, suite, label):
+    def _run_task_suite(self, side, suite, label, slice_start_time=None):
         """Run tasks through OpenClaw runner turn-by-turn with live streaming progress."""
         if self.runner is None or not hasattr(self.runner, 'turn'):
             raise TrialTurnError('missing-runner')
@@ -908,6 +1062,8 @@ class Controller:
 
         for idx, task in enumerate(tasks):
             if self._should_stop():
+                break
+            if slice_start_time is not None and self._check_budget_exhaustion(slice_start_time):
                 break
 
             prompt_msg = message(task, passages)

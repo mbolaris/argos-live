@@ -83,7 +83,10 @@ class TestAutoClimbAPI(unittest.TestCase):
             with urlopen(req, timeout=5) as resp:
                 return resp.status, json.loads(resp.read().decode('utf-8'))
         except HTTPError as err:
-            return err.code, json.loads(err.read().decode('utf-8'))
+            try:
+                return err.code, json.loads(err.read().decode('utf-8'))
+            finally:
+                err.close()
 
     def test_get_auto_climb_snapshot(self):
         status, body = self.request('/api/auto-climb')
