@@ -330,10 +330,33 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.command == 'POST' and self.server.assistant_trial and path in (
                 '/api/assistant-trial/start', '/api/assistant-trial/keep', '/api/assistant-trial/restore', '/api/assistant-trial/cancel'):
+            trial = self.server.assistant_trial
+            if path == '/api/assistant-trial/start':
+                lengths = self.headers.get_all('Content-Length')
+                if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                        or len(lengths[0]) > 3 or not lengths[0].isdigit() or not 1 <= int(lengths[0]) <= 512
+                        or self.headers.get('Content-Type') != 'application/json'):
+                    self.reply(400, {'error': 'GO requires the reviewed improvement plan shown on screen'})
+                    return
+                try:
+                    self.connection.settimeout(3)
+                    body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    if (not isinstance(body, dict) or set(body) != {'changes'} or not isinstance(body['changes'], list)
+                            or not 1 <= len(body['changes']) <= 3 or any(not isinstance(item, str) for item in body['changes'])
+                            or len(body['changes']) != len(set(body['changes']))):
+                        raise ValueError('Unexpected approved plan')
+                except (ValueError, OSError, UnicodeError, TypeError):
+                    self.reply(400, {'error': 'GO requires a valid reviewed improvement plan'})
+                    return
+                try:
+                    self.reply(200, trial.start(body['changes']))
+                except (ValueError, OSError) as exc:
+                    from argoslive.assistant_trial import Refused
+                    self.reply(409, {'error': str(exc) if isinstance(exc, Refused) else 'Assistant trial unavailable'})
+                return
             if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
                 self.reply(400, {'error': 'An empty request is required'})
                 return
-            trial = self.server.assistant_trial
             try:
                 action = {'start': trial.start, 'keep': trial.keep, 'restore': trial.restore,
                           'cancel': trial.cancel}[path.rsplit('/', 1)[1]]

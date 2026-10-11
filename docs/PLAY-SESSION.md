@@ -15,13 +15,14 @@ the next challenge. Users do not design benchmarks, choose a profession or shop
 through a catalog before their first session. The blueprint and skill map carry
 the giant-robot ambition; specific measured outcomes make progress meaningful.
 
-Use one loop: **Challenge → Watch → Debrief → Try one change → Retest → Keep or
-restore → Validate → Use it.** Every stage ends with one recommended available
+Use one loop: **Challenge → Watch → Debrief → Try a bounded idea round → Compare
+→ Keep or restore → Validate → Use it.** Every stage ends with one recommended available
 action. The owner should be able to press one prominent **Go** control to follow
 that next step; the adjacent heading explains exactly what Go will do. A stage
-that cannot continue states the blocker and offers a useful exit. Go can start a
-test or open the review for a reversible change, but never silently approves a
-lasting assistant change.
+that cannot continue states the blocker and offers a useful exit. When the screen
+discloses the exact bounded temporary trial, pressing Go is the owner's approval
+to start that trial in one step. Go never automatically keeps a lasting assistant
+change; the owner still chooses Keep or Restore after seeing its evidence.
 
 ## Release journey
 
@@ -43,17 +44,18 @@ lasting assistant change.
    It can acknowledge a weakness and suggest a next experiment; the independent
    controller validates what is available. Keep the measured receipt usable when
    the opinion fails. Put timings, all records and runtime details behind Details.
-4. **Make one change.** Recommend one supported, reversible experiment with the
-   exact change, reason and workload preview. The first inexpensive route is the
-   reviewed concise Lab instruction preset (J6b); it changes the Lab recipe only,
-   not the active assistant personality. Never pretend that Lab promotion improved
-   the real OpenClaw agent. A suggestion needs approval and does not execute itself.
-5. **Retest visibly.** Use the same watch screen. J7 validates one changed variable
-   and matched model/recipe/suite/runtime/hardware/coverage before comparisons.
-   Show changed answers and matched measures, not just a number. One extra answer
-   is an observed gain, not confirmed general improvement. Keep/Restore makes the
-   selected Lab recipe and its evidence explicit. Failure restores or explains
-   recovery without claiming a successful improvement.
+4. **Run a bounded idea round.** Show a fixed, reviewed plan before GO. One click
+   runs one baseline and every untried starter idea separately against the same
+   questions, with a verified reset between them and a 32-answer hard cap. The agent cannot
+   invent a change or alter the scorer. Lab experiments and everyday-assistant
+   trials remain separate evidence paths; never pretend a Lab change improved the
+   real OpenClaw agent.
+5. **Compare and decide.** Show each idea's challenge gains, unchanged answers,
+   regressions and target-check result. The agent may give a bounded opinion from
+   aggregate counts, but code chooses any recommendation and the owner chooses
+   Keep or Restore. Keep advances to untried reviewed ideas; Restore unwinds the
+   last change. One observed win is not proof of general improvement. Failure
+   restores or explains recovery without claiming success.
 6. **Qualify the build.** Repeated visible questions are practice. Independent
    fixed validation and held-out original tasks are needed for stronger improvement
    claims. Fill only the supported task nodes for the current tested model/recipe.

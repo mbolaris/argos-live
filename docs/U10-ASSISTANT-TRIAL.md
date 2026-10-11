@@ -9,33 +9,44 @@ The lab improves how Argos *tests* a model. U10 is the first change to the assis
 - **Transactions:** `model_selection` already does journal → stop → write → start → wait for a verified reply → keep a rollback record → Keep/Restore. Owner edits block automatic restore, and an unfinished journal is resolved at the next desktop start. U10 copies this shape for one file.
 - **Assistant path:** `openclaw agent --agent main --session-id <new> --session-key agent:main:argos-trial-<new> --message … --timeout 120 --json` runs one turn through the running gateway with the normal workspace bootstrap. This is the everyday-assistant path, not the lab's direct Ollama calls. No thinking, model or delivery override is supplied. The pinned installed CLI implementation was inspected read-only on Toronado: explicit scoped keys are routed to the gateway, with no implicit local-execution fallback. Real trial execution remains unverified until authorized physical acceptance.
 
-## The one change
+## Reviewed starter ideas
 
-**Grounded answers** (`grounded-answers` v1), appended to `AGENTS.md` inside an Argos-managed block:
+The current starter set contains three small, separate changes to `AGENTS.md`: **Answer first**, **Show the source**, and **Be honest when it is missing**. Each has a stable ID and fixed instruction text in `assistant_trial.py`; model output cannot invent instructions or add permissions. One GO discloses and tests every currently untried idea in a single campaign.
+
+- **Answer first:** put the direct answer in one short sentence before explanation.
+- **Show the source:** add one exact supporting sentence to answers about supplied text.
+- **Be honest when it is missing:** say when the supplied source does not contain the answer.
+
+The initial round tests all three. After a winner is kept, the next action is to try the assistant on a real question; no second GO is needed to reach another starter idea. Already-tested ideas are recorded with the kept change and are not repeated as if new. If a prior two-idea record exists, the remaining untried idea is still offered. If no idea clears the win threshold, nothing new is recorded; another GO repeats the same set to check whether the result holds, or the owner can continue to chat.
+
+The original **Grounded answers** (`grounded-answers` v1) block remains recognized so existing Keep/Restore records can be recovered. New rounds do not add that combined block.
+
+Example of the reviewed `Show the source` block:
 
 ```
-<!-- argos-trial:grounded-answers v1 — added with your approval; Argos Live can restore the original file -->
-## Answering from text you were given
-When I give you a document, notice or passage and ask about it: answer directly first, in a short phrase or sentence. Then quote the sentence from the text that supports your answer. If the text does not contain the answer, say so plainly instead of guessing.
-<!-- /argos-trial:grounded-answers -->
+<!-- argos-trial:quote-evidence v1 — added with your approval; Argos Live can restore the original file -->
+## Show the source
+When answering a question about text I provided, give the answer and then quote one exact sentence that supports it. Never make up or alter a quotation.
+<!-- /argos-trial:quote-evidence -->
 ```
 
-- **Scope:** questions about text the owner provides in chat. No model, tool, permission, channel, personality or setting change. `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `openclaw.json` and `state.json` must be byte-identical before and after (checked). Main-agent workspace overrides are resolved; behavior overrides beyond the reviewed defaults are refused. Oversized or linked instruction files and a block beyond the bootstrap character limit are refused.
-- **Expected benefit:** direct answers to document questions, with a quotation the owner can check, and an honest "the text doesn't say" instead of a guess.
+- **Scope:** each candidate affects one narrow behavior only. No model, tool, permission, channel, personality or setting change. `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `openclaw.json` and `state.json` must be byte-identical before and after (checked). Main-agent workspace overrides are resolved; behavior overrides beyond the reviewed defaults are refused. Oversized or linked instruction files and a block beyond the bootstrap character limit are refused.
+- **Expected benefit:** clear answers, verifiable source quotes, or fewer guesses when evidence is missing. Each idea is measured against the checks it targets; this does not establish broad intelligence.
 - **Why this change:** the audit (`DOCUMENT-MISS-AUDIT.md`) showed qwen3:4b quotes reliably but buries short answers in full sentences when asked for structured output. That observation motivated the change. It is **not** evidence that the change helps the assistant: the lab instruction "strict format" was tried and restored, and no lab result is used below.
 
 ## Approval
 
-The Improve page shows one compact "Try in your everyday assistant" card (no new dashboard). Its dialog shows the exact text, the file it goes into, what stays unchanged, the independent tasks it will run, and that chat restarts when applying or restoring. Nothing changes until **Approve and run the assistant trial**. This is an independently approved assistant experiment; a successful lab result is not a prerequisite or proof.
+The Improve page offers one focused card: one **GO** runs the whole bounded campaign. Before GO, it shows each idea's scope and expandable exact wording, the same eight questions in each comparison, the maximum answer count, the reset between ideas, and the files/settings that stay unchanged. The questions are expandable. Pressing **GO** is explicit approval for that exact plan; its idea IDs are sent to the controller, which refuses to start if the plan changed since it was shown. There is no redundant preview-then-approve dialog. Nothing changes before GO. This is an independently approved assistant experiment; a successful lab result is not a prerequisite or proof.
 
 ## Trial (one approved run)
 
 1. **Gates:** no other workload; the assistant is ready with a verified reply; no unfinished journal; the reviewed profile passes; the `AGENTS.md` and protected-file hashes are recorded.
-2. **Before:** run the independent tasks through the assistant path (current configuration), one fresh session per task.
-3. **Stage:** write the journal (raw `AGENTS.md` before/after, protected hashes), stop the assistant, append the block atomically, start the assistant, and wait for a verified reply.
-4. **After:** run the same tasks in fresh sessions.
-5. **Verify:** protected files unchanged; `AGENTS.md` equals the staged bytes. An ordinary failure restores the original bytes and restarts, with verification before clearing the journal. Owner edits block automatic recovery: keep their bytes, stop the assistant and retain the journal for review. Never claim a restore that failed.
-6. **Decision:** the change stays applied, marked *on trial*, until the owner chooses.
+2. **Baseline:** run the independent tasks through the assistant path (current configuration), one fresh session per task.
+3. **One idea at a time:** for each disclosed candidate, journal the exact bytes, stop the assistant, append that single block atomically, restart and run the same tasks in fresh sessions. Restore and verify the baseline before testing the next candidate. The session is capped at one baseline and three candidates (32 task answers total).
+4. **Select:** only a candidate that improves at least two challenges without a regression can be recommended. If multiple qualify, use the fixed score ordering; apply only the leading idea again for the owner's Keep/Restore decision. If none qualifies, restore the original or prior-kept bytes and report the no-win result. No idea is silently kept.
+5. **Reflect:** ask the selected local model for a bounded opinion using aggregate check counts for each idea only. No raw replies, personal profile, tools or hidden reasoning enter this prompt. This opinion cannot change scores or the controller's Keep/Restore recommendation. Failure to produce an opinion does not discard the scored result.
+6. **Verify:** protected files unchanged; `AGENTS.md` equals the staged bytes. An ordinary failure restores the exact pre-round bytes and restarts, with verification before clearing the journal. Owner edits block automatic recovery: keep their bytes, stop the assistant and retain the journal for review. Never claim a restore that failed.
+7. **Decision:** the leading idea stays applied, marked *on trial*, until the owner chooses. Keep records all ideas tested in that campaign, so the next action advances to a real task; Restore unwinds the kept choice and its history.
 
 ## Independent tasks
 
@@ -51,11 +62,11 @@ While an approved trial is running, the watch view shows the current before/chan
 
 ## Result shown to the owner
 
-Before → after per task and check; **gains** (fail → pass), **regressions** (pass → fail), reply time, and an explicit uncertainty note: one run per task, 8 tasks, sampling varies, so a difference of one task is not meaningful. A suggestion is shown only as a suggestion: consider keeping if at least two tasks gain checks and none regress, otherwise restore. Even two gains do not establish statistical significance. Evidence records the model, profile hash, task version/hash and exact instruction hash. Assistant evidence is labeled "everyday assistant"; it never appears in lab scores and lab scores never appear in it.
+Each idea gets a side-by-side plain-language scorecard: challenges improved, unchanged or worse, plus its target check count. The recommended idea is selected by the fixed threshold and tie-break order; all other results remain available. One run per task means small differences are noisy and are not proof of general improvement. The selected model can add a short first-person opinion based only on aggregate counts; it is prominently labeled as opinion and displayed separately from scored facts. The code recommendation remains authoritative. Evidence records the model, profile hash, task version/hash and exact instruction hash. Assistant evidence is labeled "everyday assistant"; it never appears in lab scores and lab scores never appear in it.
 
 ## Keep or Restore
 
-- **Keep:** record the change in `~/.config/argos-live/assistant-changes.json` (original and applied bytes, hashes and time), clear the journal, and verify the file. Restore stays available while `AGENTS.md` still equals the applied bytes.
+- **Keep:** record the winning change and the full set tested in `~/.config/argos-live/assistant-changes.json` (original and applied bytes, hashes, time and prior record), clear the journal, and verify the file. Restore stays available while `AGENTS.md` still equals the applied bytes. The next round skips already-tested ideas.
 - **Restore:** refuse if the owner has edited `AGENTS.md` since (the owner is told to review it by hand). Otherwise stop, write the original bytes, start, wait for a verified reply, and verify `AGENTS.md` matches the original and the protected files are unchanged.
 - **Crash:** an unfinished trial or Restore journal found at desktop start restores the original bytes only if file/schema/change/protected identities match. Otherwise startup is blocked for review. A valid trial awaiting a decision remains on trial. Restore from a kept change also writes a journal before stopping, so failed restarts remain recoverable. Private errors go to `~/.config/argos-live/assistant-trial-error.json`, never HTTP.
 
@@ -66,6 +77,6 @@ The "next action" no longer recommends a larger model when every miss kept an ac
 ## Acceptance
 
 - Unit tests: block apply/restore is byte-exact; protected-file and owner-edit guards; crash recovery; task scoring per check on recorded replies; gain/regression arithmetic; journal and record schemas; routes are authenticated and empty-bodied.
-- Fixture browser smoke: approve → before → staged → after → result → Keep (record verified) → Restore (original bytes verified), plus cancellation and stable opened evidence across polling, using a fixture assistant runner, never a real model. Simulated previews are labeled.
+- Fixture browser smoke: review the exact three-idea plan → one GO → baseline and each isolated candidate with visible progress → side-by-side results and opinion → Keep one winner → direct real-question next step → Restore to byte-exact prior state, plus cancellation and stable opened evidence across polling. Uses a fixture assistant runner, never a real model; simulated previews are labeled.
 - `command_center` and Improve no longer recommend a model candidate for wording-only or requirement-only misses.
-- Not in this PR: deployment, a real-assistant run on Toronado, physical phone, reboot. The first real trial on Toronado happens only after the owner approves it in the dialog.
+- Not in PR #86: deployment, a real-assistant run on Toronado, physical phone, reboot. Fixture browser evidence is not real-model evidence. Any real trial still needs the owner's explicit GO on the device.

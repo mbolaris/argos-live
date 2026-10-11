@@ -1126,29 +1126,52 @@ U9 keeps a winning instruction for lab tests only. The everyday assistant (OpenC
 - Verify the assistant actually uses it (through the assistant path, not the lab path) with a matched before/after on the same fixed questions, then Keep/Restore for the assistant separately.
 - Never change model weights, personality files, credentials or conversations; never treat the lab result alone as proof for the assistant.
 
-Implementation on `feat/u10-assistant-trial` adds one reviewed grounded-answer block to operating instructions (`AGENTS.md`), independent eight-task before/after through scoped gateway sessions, per-check evidence and Keep/Restore. See [U10-ASSISTANT-TRIAL.md](U10-ASSISTANT-TRIAL.md) for exact scope, limits and fault recovery. Persona/config files are fingerprinted; owner edits block recovery without overwrites. Instructions, task identity and model are recorded. Local fixture Chromium and unit evidence do not establish real assistant improvement. Toronado deployment, a real approved trial, reboot and physical-phone checks are not performed in this slice.
+Implementation on `feat/u10-assistant-trial` adds a reviewed starter set of independent instruction ideas in `AGENTS.md`, matched eight-task comparisons through scoped gateway sessions, per-check evidence and Keep/Restore. See [U10-ASSISTANT-TRIAL.md](U10-ASSISTANT-TRIAL.md) for exact scope, limits and fault recovery. Persona/config files are fingerprinted; owner edits block recovery without overwrites. Instructions, tested ideas, task identity and model are recorded. Local fixture Chromium and unit evidence do not establish real assistant improvement. Toronado deployment, a real approved trial, reboot and physical-phone checks are not performed in this slice.
 
 The same change makes answer-wording-only diagnostics recommend reviewing misses rather than a larger model. Unscored summaries are excluded from advice, and quotation failures remain separate from wording diagnoses. No lab scores, suite rules or qualification thresholds change.
 
-### U13 One Go button for the improvement loop — `in progress`
+### U13 One Go button for the improvement loop — `in progress` ([PR #86](https://github.com/mbolaris/argos-live/pull/86))
 
-Make it obvious how to play from the first screen: one prominent **GO** button
-starts the named next mission. After a diagnostic-only document result, GO leads
-to the reviewed reversible everyday-assistant trial instead of stopping at a
-miss-review screen. The approval dialog remains the gate before changing the
-assistant; live progress, before/after evidence, and Keep/Restore remain visible
-as the loop continues. If the trial was kept, GO returns the owner to a real chat
-task. Give the agent an eager, evidence-honest voice: it should invite the owner
-to let it prove whether a proposed change helps, promise a matched retest, and
-make clear the owner still chooses Keep or Restore. During the trial, make the
-before/change/retest stages, current question, latest answer and its limited
-checks visible as each assistant turn completes. Keep other setup and scoring
-details secondary, and test the full path in fixture browsers at phone and
-desktop sizes before any Toronado deployment.
+Make the improvement loop feel like a short, watchable game rather than a setup
+dashboard. One prominent **GO** starts a disclosed, fixed-order campaign: one shared
+baseline, then all currently untried separately reviewed instruction ideas, each
+run against the same eight questions with a verified reset between ideas. Cap a
+full starter campaign at 32 assistant answers. The candidate list is human-reviewed and fixed; the model may
+comment on aggregate outcomes, but it cannot invent changes, edit the yardstick,
+or choose Keep/Restore. One GO click approves only the exact plan shown beside
+it. The agent reports progress and its opinion; the owner still chooses Keep or
+Restore. Keep records every idea tested in the campaign so one GO can reach the
+full starter set before the owner decides. After the set is exhausted, send the owner to a real chat
+task while gathering a new reviewed lead. During the run, show the baseline or
+idea number, session-wide answer count, current question, latest answer and its
+limited checks as each assistant turn completes. Keep technical setup and full
+scoring details secondary, and test the full path in fixture browsers at phone
+and desktop sizes before any Toronado deployment.
 
-The result must answer “did it help?” in one glance: use a plain-language
-verdict, show how many of the eight challenges improved or regressed, and put
-one recommended Keep/Restore action first with a short reason. Keep score
-breakdowns and per-question replies available under a disclosure. After Keep,
-offer one direct next step to try the assistant in chat. On a phone, the verdict
-and decision controls should be visible without opening the breakdown.
+The trial’s post-score reflection is a distinct, bounded assistant turn using
+only aggregate check counts. Show it as the AI’s opinion beside the fixed
+scorecard, never as scored evidence. Opinion timeout or failure must preserve the
+finished measured result and Keep/Restore choices. No raw replies, private
+profile material, tool output, hidden reasoning or personal conversation enters
+the reflection prompt.
+
+The result must answer “did it help?” in one glance: show each idea's challenge
+gains, unchanged answers, regressions and target-check count side by side, then
+name one winner only when it clears the fixed threshold (at least two challenge
+gains and no regression). Put one recommended Keep/Restore action first with a
+short reason. Keep per-question replies available under a disclosure. After Keep,
+offer one direct next step to try the assistant in chat. For an earlier kept
+two-idea record, offer its untested idea before chat. On a phone, the verdict and
+decision controls should be visible without opening the breakdown.
+
+The completed screen has exactly one prominent next action; the alternative
+outcome is available under a clearly named disclosure. Any pending model switch
+is shown as a separate, collapsed decision so it cannot look like part of the
+instruction trial. The selected idea's eight labeled checkpoints show improved,
+steady and regressed challenges at a glance. This visual scoreboard is not a
+model-authored opinion; show the local assistant's bounded reflection separately
+and never let it override measurements. While Keep/Restore is pending, hide
+unrelated skill maps, examples, journals, mission briefs and hardware diagnostics.
+After Keep, focus the real-question next step and leave Restore as an undo; after
+Restore, return the normal navigation. Spell out checkpoint counts (“1 challenge
+improved · 7 unchanged · 0 worse”) so the marks are immediately understandable.

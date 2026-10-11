@@ -38,6 +38,15 @@
         </div>
         <h3 id="cc-next-title">Checking your systems…</h3>
         <p id="cc-next-reason"></p>
+        <section id="cc-next-trial-offer" class="cc-next-trial-offer" hidden aria-label="What GO will do">
+          <p class="cc-next-trial-kicker">ONE GO · ONE BASELINE · ALL UNTRIED IDEAS · UP TO 32 ANSWERS</p>
+          <p>GO approves the exact ideas below. I’ll test each on the same eight challenges, reset between ideas, and show the score as it arrives. Your model, personality, tools and permissions stay unchanged. I’ll recommend one; you choose Keep or Restore.</p>
+          <div id="cc-next-trial-instructions" class="cc-next-trial-instructions"></div>
+          <details>
+            <summary>See the eight questions</summary>
+            <ol id="cc-next-trial-tasks"></ol>
+          </details>
+        </section>
         <div class="cc-hero-actions">
           <button id="cc-next-go" class="mission-primary cc-go-button" type="button" hidden aria-label="Go: start the next mission">GO <span aria-hidden="true">▶</span></button>
           <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button>
@@ -196,7 +205,7 @@
       <div class="cc-grid">
         <div class="mission-main">
           <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
-            <p class="mission-label">Your latest result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
+            <p id="cc-receipt-kicker" class="mission-label">Your latest result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
             <p id="cc-takeaway"></p>
             <p id="cc-count-note" class="count-note" hidden></p>
             <div id="improve-comparison" class="improve-comparison" aria-live="polite"></div>
@@ -255,18 +264,28 @@
             </article>
             <section id="assistant-trial" class="assistant-trial" aria-labelledby="assistant-trial-title" hidden>
               <p class="mission-label">Your everyday assistant</p>
-              <h4 id="assistant-trial-title">Try one change in the assistant you talk to</h4>
+              <h4 id="assistant-trial-title">Let your AI prove one change</h4>
               <p id="assistant-trial-text"></p>
+              <section id="assistant-trial-plan" class="assistant-trial-plan" hidden aria-label="The approved improvement test">
+                <p class="assistant-trial-plan-label">ONE GO · SAME EIGHT CHALLENGES · YOU CHOOSE WHAT STAYS</p>
+                <p id="assistant-trial-plan-summary"></p>
+                <details id="assistant-trial-plan-details">
+                  <summary>See the exact ideas and test</summary>
+                  <div id="assistant-trial-ideas" class="assistant-trial-ideas"></div>
+                  <ul id="assistant-trial-unchanged"></ul>
+                  <ol id="assistant-trial-tasks"></ol>
+                </details>
+              </section>
               <div id="assistant-trial-progress" class="assistant-trial-watch" role="region" aria-label="Assistant trial watch" hidden>
-                <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 8 answered</strong></div>
-                <progress id="assistant-trial-bar" max="8" value="0" aria-label="Assistant trial progress"></progress>
-                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight challenge steps"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="trial-watch-steps" aria-hidden="true"><span id="assistant-trial-step-before">BEFORE</span><span id="assistant-trial-step-change">CHANGE</span><span id="assistant-trial-step-after">RETEST</span></div>
+                <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 32 answers</strong></div>
+                <progress id="assistant-trial-bar" max="24" value="0" aria-label="Improvement session progress"></progress>
+                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight challenges in each stage"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="trial-watch-steps" aria-hidden="true"><span id="assistant-trial-step-before">BASELINE</span><span id="assistant-trial-step-change">IDEAS</span><span id="assistant-trial-step-after">SAME QUESTIONS</span></div>
                 <article class="trial-watch-current">
                   <p class="trial-watch-kicker">THE CHALLENGE</p>
                   <h5 id="assistant-trial-question">Preparing the first question…</h5>
                   <p id="assistant-trial-thinking" class="trial-watch-thinking" role="status" aria-live="polite">Getting the assistant ready…</p>
-                  <details id="assistant-trial-source" hidden><summary>Read the source notice</summary><p id="assistant-trial-source-text"></p></details>
+                  <details id="assistant-trial-source" open hidden><summary>Source notice</summary><p id="assistant-trial-source-text"></p></details>
                 </article>
                 <article id="assistant-trial-latest" class="trial-watch-latest" hidden>
                   <p class="trial-watch-kicker">LAST ANSWER · <span id="assistant-trial-last-question"></span></p>
@@ -277,18 +296,35 @@
               </div>
               <div id="assistant-trial-result" hidden></div>
               <div class="assistant-trial-actions">
-                <button id="assistant-trial-review" type="button" class="mission-secondary">Review the change</button>
                 <button id="assistant-trial-keep" type="button" class="mission-primary" hidden>Keep in my assistant</button>
                 <button id="assistant-trial-restore" type="button" class="mission-secondary" hidden>Restore the original</button>
+                <button id="assistant-trial-next-round" type="button" class="mission-primary" hidden>Run the next improvement round</button>
                 <button id="assistant-trial-chat" type="button" class="mission-primary" hidden>Try it with a real question</button>
                 <button id="assistant-trial-cancel" type="button" class="mission-secondary" hidden>Stop the trial</button>
+                <details id="assistant-trial-alternatives" class="assistant-trial-alternatives" hidden>
+                  <summary>Choose a different outcome</summary>
+                </details>
               </div>
+              <article id="assistant-trial-opinion" class="assistant-trial-opinion" hidden aria-live="polite">
+                <div class="assistant-trial-opinion-head"><strong>What your AI thinks</strong><span>Local model opinion · not scored</span></div>
+                <blockquote id="assistant-trial-opinion-text"></blockquote>
+                <p id="assistant-trial-opinion-model"></p>
+              </article>
               <p id="assistant-trial-note" class="assistant-trial-note" role="status"></p>
               <details id="assistant-trial-score-details" class="assistant-trial-score-details" hidden>
                 <summary>See score breakdown and all answers</summary>
                 <div id="assistant-trial-score-breakdown"></div>
               </details>
             </section>
+            <details id="receipt-model-rollback-details" class="receipt-model-rollback-details" hidden>
+              <summary>Separate model change · review later</summary>
+              <div id="receipt-model-rollback-bar" class="receipt-model-rollback-bar" hidden>
+                <span>Assistant model: <strong id="receipt-current-model"></strong> (switched from <span id="receipt-previous-model"></span>)</span>
+                <span class="model-protect-tag">Separate from the instruction test</span>
+                <button id="receipt-restore-model" type="button" class="btn-text-action">Restore previous model</button>
+                <button id="receipt-keep-model" type="button" class="btn-text-action">Keep this model</button>
+              </div>
+            </details>
             <div id="receipt-actions" class="receipt-actions" hidden>
               <button id="receipt-use" type="button" class="mission-secondary" hidden>Try it on your own document ↓</button>
               <details id="receipt-secondary-options" class="receipt-secondary-details">
@@ -300,17 +336,13 @@
                 </div>
               </details>
             </div>
-            <div id="receipt-recipe-bar" class="receipt-recipe-bar" hidden>
-              <span>Tested with: <strong id="receipt-tested-recipe"></strong></span>
-              <span class="recipe-protect-tag">Lab tests only</span>
-              <button id="receipt-restore-recipe" type="button" class="btn-text-action">Restore standard</button>
-            </div>
-            <div id="receipt-model-rollback-bar" class="receipt-model-rollback-bar" hidden>
-              <span>Assistant model: <strong id="receipt-current-model"></strong> (switched from <span id="receipt-previous-model"></span>)</span>
-              <span class="model-protect-tag">Assistant transaction</span>
-              <button id="receipt-restore-model" type="button" class="btn-text-action">Restore previous model</button>
-              <button id="receipt-keep-model" type="button" class="btn-text-action">Keep this model</button>
-            </div>
+            <details id="receipt-extra-details" class="receipt-extra-details">
+              <summary>Explore scores, skills &amp; run details</summary>
+              <div id="receipt-recipe-bar" class="receipt-recipe-bar" hidden>
+                <span>Tested with: <strong id="receipt-tested-recipe"></strong></span>
+                <span class="recipe-protect-tag">Lab tests only</span>
+                <button id="receipt-restore-recipe" type="button" class="btn-text-action">Restore standard</button>
+              </div>
             <details id="receipt-metrics-details" class="receipt-metrics-details">
               <summary class="receipt-metrics-summary">Scores, speed and qualification rules</summary>
               <div class="receipt-metrics-body">
@@ -322,8 +354,8 @@
               </div>
             </details>
             <details class="skill-breakdown"><summary>Skill breakdown</summary><div id="cc-skill-bars"></div><p id="cc-receipt-note">Run the first trial to map your strengths.</p></details>
-          </article>
-          <details class="strengths-disclosure"><summary>Your skills · see measured strengths</summary>
+            </details>
+          <details id="cc-strengths-disclosure" class="strengths-disclosure"><summary>Your skills · see measured strengths</summary>
           <div id="cc-readings" class="cc-readings" aria-label="Measured strengths"></div>
           <div id="skill-map-compact" class="skill-map-compact" aria-label="Task Skill Map summary">
             <div class="compact-map-header">
@@ -336,12 +368,13 @@
             <div id="compact-map-domains" class="compact-map-domains"></div>
           </div>
           </details>
-          <details class="cc-evidence"><summary>See what has been tested</summary>
+          <details id="cc-evidence-disclosure" class="cc-evidence"><summary>See what has been tested</summary>
             <ul id="cc-systems" class="cc-systems"></ul>
             <p id="cc-scope"></p>
           </details>
+          </article>
         </div>
-        <details class="details-section secondary-details-bay">
+        <details id="cc-diagnostics-disclosure" class="details-section secondary-details-bay">
           <summary>Diagnostic hardware schematic &amp; build stages (Details)</summary>
           <div class="ladder-bay"><p class="mission-label">Your document mission ladder</p><h3 id="cc-stage">Prototype · ready to test</h3><ol id="cc-build-steps" class="cc-build-steps"></ol><p id="cc-build-summary"></p><p id="cc-build-scope"></p><figure class="cc-figure">
             <svg id="cc-schematic" viewBox="0 0 220 300" role="img" aria-labelledby="cc-schematic-label" focusable="false">
@@ -390,7 +423,7 @@
         <div id="cc-challenges" class="cards"></div>
       </section>
       </details>
-      <details class="cc-evidence"><summary>Progress journal</summary>
+      <details id="cc-progress-journal" class="cc-evidence"><summary>Progress journal</summary>
         <ol id="cc-journal" class="cc-journal"></ol>
       <label><input id="cc-quiet" type="checkbox"> Quiet acknowledgments. Progress is still recorded.</label>
       </details>
@@ -550,30 +583,6 @@
               <button id="skill-node-close" type="button">Close</button>
             </div>
         </dialog>
-    <dialog id="assistant-trial-modal" class="recipe-modal" aria-labelledby="assistant-trial-modal-title">
-      <div class="modal-card">
-        <div class="modal-header">
-          <div>
-            <span class="domain-tag">Needs your approval</span>
-            <h3 id="assistant-trial-modal-title">Try “grounded answers” in your everyday assistant</h3>
-          </div>
-          <span class="state-badge measured">Everyday assistant</span>
-        </div>
-        <div class="modal-body">
-          <p class="recipe-lead">Ask your assistant the same new questions before and after one added instruction, then keep or restore it.</p>
-          <blockquote id="assistant-trial-instruction" class="recipe-instruction-quote"></blockquote>
-          <p class="recipe-explanation">Added as a marked block at the end of <strong>AGENTS.md</strong>. Chat briefly restarts to apply it, and again if you restore. Trial questions run in their own new conversations, not yours. Allow up to 120 seconds per question; Stop ends the trial and checks recovery.</p>
-          <details class="recipe-protection-notice"><summary>What does not change</summary><ul id="assistant-trial-unchanged"></ul>
-            <p>These files are checked byte for byte before and after. If you edit protected files during the trial, automatic recovery stops for review; your edits are never overwritten.</p></details>
-          <details><summary>The questions it will ask</summary><ol id="assistant-trial-tasks"></ol>
-            <p>New passages and questions, separate from the lab’s test, scored by fixed checks. Lab scores are not used.</p></details>
-        </div>
-        <div class="modal-actions">
-          <button id="assistant-trial-approve" type="button" class="mission-primary">Approve and run the assistant trial</button>
-          <button id="assistant-trial-close" type="button" class="mission-secondary">Not now</button>
-        </div>
-      </div>
-    </dialog>
     <dialog id="recipe-modal" class="recipe-modal" aria-labelledby="recipe-modal-title">
           <div class="modal-card">
             <div class="modal-header">

@@ -178,8 +178,22 @@ def main():
     (workspace / 'AGENTS.md').write_text('# Operating notes\nBe kind and brief.\n')
     for name in ('SOUL.md', 'IDENTITY.md', 'USER.md'):
         (workspace / name).write_text(f'Fixture {name}\n')
+    def fixture_trial_opinion(model, prompt, cancel):
+        return {'text': 'I handled the supplied notices better in this small test. Next I would like to check a few real questions.'}
     trial = assistant_trial.Controller(TrialStartup(assistant), home=home, runner=SlowTrialRunner(home), ready_timeout=10,
-                                       validate_profile=lambda home: (home, 'fixture:latest'))
+                                       validate_profile=lambda home: (home, 'fixture:latest'),
+                                       reflector=fixture_trial_opinion)
+    if os.environ.get('ARGOS_FIXTURE_DEBUG_TRIAL') == '1':
+        def report_trial_error():
+            error_path = home / '.config/argos-live/assistant-trial-error.json'
+            while not error_path.exists():
+                time.sleep(.05)
+            try:
+                print('Fixture trial traceback: ' + json.loads(error_path.read_text()).get('traceback', ''),
+                      file=sys.stderr, flush=True)
+            except (OSError, ValueError):
+                pass
+        threading.Thread(target=report_trial_error, daemon=True).start()
     backend = Fixture()
 
     @contextlib.contextmanager

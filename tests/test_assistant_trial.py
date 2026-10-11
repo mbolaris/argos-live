@@ -38,8 +38,15 @@ class Runner:
     def turn(self, message):
         # AGENTS.md is written as UTF-8. Use the same encoding on Windows and Unix
         # so the em dash in the reviewed marker is not decoded through a legacy code page.
-        guided = at.START in at.agents_path(self.home).read_text(encoding='utf-8')
+        instructions = at.agents_path(self.home).read_text(encoding='utf-8')
+        installed = [change for change in at.CHANGES if change['start'] in instructions]
+        active_ids = {change['id'] for change in installed}
+        legacy = at.LEGACY_CHANGE['start'] in instructions
+        guided = bool(active_ids or legacy)
         self.turns.append((guided, message))
+        if message.startswith(at.OPINION_PREFIX):
+            return {'text': 'I handled the supplied notices better in this small test. Next I would like to check a few real questions.',
+                    'elapsed_seconds': 0.1, 'session_id': f'fixture-{len(self.turns)}'}
         if self.edit and len(self.turns) == 12:
             self.edit()
         data = at.load_tasks()
@@ -47,13 +54,18 @@ class Runner:
         if task['kind'] == 'control':
             text = 'Quoting the passage: "Fernsworth".' if guided and self.misbehave else 'How about Fernsworth?'
         elif task['kind'] == 'not_stated':
-            text = 'The notice does not say.' if guided else 'It was probably founded by local volunteers.'
+            text = ('The notice does not say.' if legacy or 'honest-uncertainty' in active_ids
+                    else 'It was probably founded by local volunteers.')
         else:
             passage = data['passages'][task['passage']]
             answer, sentence = next((a, s) for s in passage.split('. ') for a in task['accepted'] if at.contains(s, a))
             sentence = sentence.rstrip('.') + '.'
-            text = (f'{answer}. "{sentence}"' if guided else
-                    f'Looking at the notice, there are several details, and in short it is {answer}.')
+            if legacy or 'quote-evidence' in active_ids:
+                text = f'{answer}. "{sentence}"'
+            elif 'answer-first' in active_ids:
+                text = f'{answer}. That is the short answer.'
+            else:
+                text = f'Looking at the notice, there are several details, and in short it is {answer}.'
         return {'text': text, 'elapsed_seconds': 0.1, 'session_id': f'fixture-{len(self.turns)}'}
 
 
@@ -73,10 +85,15 @@ class TrialTests(unittest.TestCase):
             (workspace / name).write_text(f'{name} persona')
         self.agents = workspace / 'AGENTS.md'
         self.startup = Startup(self.home)
+        self.opinions = []
+
+    def fixture_opinion(self, model, prompt, cancel):
+        self.opinions.append((model, prompt))
+        return {'text': 'I handled the supplied notices better in this small test. Next I would like to check a few real questions.'}
 
     def trial(self, **runner):
         controller = at.Controller(self.startup, home=self.home, runner=Runner(self.home, **runner), ready_timeout=5,
-                                   validate_profile=lambda home: (home, 'fixture'))
+                                   validate_profile=lambda home: (home, 'fixture'), reflector=self.fixture_opinion)
         self.addCleanup(controller.close)
         return controller
 
@@ -90,21 +107,31 @@ class TrialTests(unittest.TestCase):
         self.wait(trial)
         value = trial.snapshot()
         self.assertEqual(value['status'], 'on-trial')
-        self.assertEqual(self.startup.calls, ['stop', 'start'])
+        self.assertGreaterEqual(self.startup.calls.count('stop'), 4)
+        self.assertEqual(self.startup.calls.count('stop'), self.startup.calls.count('start'))
         self.assertFalse(self.startup.lab_active)
-        turns = trial.runner.turns
-        self.assertEqual([guided for guided, _ in turns], [False] * 8 + [True] * 8)
+        turns = [row for row in trial.runner.turns if not row[1].startswith(at.OPINION_PREFIX)]
+        self.assertEqual([guided for guided, _ in turns], [False] * 8 + [True] * 24)
+        self.assertEqual(len(self.opinions), 1)
+        self.assertEqual(self.opinions[0][0], 'fixture')
+        self.assertIn('MEASURED COUNTS', self.opinions[0][1])
         result = value['result']
+        self.assertEqual([item['change']['id'] for item in result['experiments']],
+                         ['answer-first', 'quote-evidence', 'honest-uncertainty'])
+        self.assertEqual(result['selected_change'], 'quote-evidence')
         self.assertEqual(result['totals']['answer'], {'before': 0, 'after': 3, 'total': 3})
-        self.assertEqual(result['totals']['not_stated'], {'before': 0, 'after': 3, 'total': 3})
+        self.assertEqual(result['totals']['not_stated'], {'before': 0, 'after': 0, 'total': 3})
         self.assertEqual(result['totals']['control'], {'before': 2, 'after': 2, 'total': 2})
         self.assertEqual(result['regressions'], [])
         self.assertEqual(result['suggestion'], 'keep')
         self.assertEqual(result['evidence'], 'everyday-assistant')
+        self.assertEqual(result['opinion']['state'], 'completed')
+        self.assertEqual(result['opinion']['model'], 'fixture')
+        self.assertIn('not scored evidence', result['opinion']['label'])
         self.assertIn('not meaningful', result['uncertainty'])
         # The original bytes are kept exactly before the marked block.
         self.assertTrue(self.agents.read_bytes().startswith(self.original.encode()))
-        self.assertIn(at.BLOCK, self.agents.read_text(encoding='utf-8'))
+        self.assertIn(at.CHANGE_BY_ID['quote-evidence']['block'], self.agents.read_text(encoding='utf-8'))
         self.assertEqual((self.agents.parent / 'SOUL.md').read_text(), 'SOUL.md persona')
 
     def test_live_progress_shows_current_challenge_and_latest_scored_reply(self):
@@ -127,6 +154,7 @@ class TrialTests(unittest.TestCase):
             progress = trial.snapshot()['progress']
             self.assertEqual((progress['side'], progress['done'], progress['total']), ('before', 1, 8))
             self.assertEqual(progress['current']['id'], 'makerspace-answer')
+            self.assertEqual(progress['session_total'], 32)
             self.assertTrue(progress['current']['question'])
             self.assertTrue(progress['current']['source'])
             self.assertEqual(progress['latest']['id'], 'garden-answer')
@@ -137,6 +165,71 @@ class TrialTests(unittest.TestCase):
             release_second_turn.set()
         self.wait(trial)
 
+    def test_opinion_prompt_contains_only_aggregate_counts(self):
+        prompt = at.opinion_prompt({'experiments': [
+            {'change': {'title': 'Answer first'}, 'comparison': {'gains': ['one'], 'regressions': [],
+             'rows': [{'reply': 'PRIVATE ANSWER MUST NOT BE SENT'}],
+             'totals': {'answer': {'before': 0, 'after': 1, 'total': 1},
+                        'not_stated': {'before': 1, 'after': 1, 'total': 1},
+                        'control': {'before': 2, 'after': 2, 'total': 2}}}}]})
+        self.assertNotIn('PRIVATE ANSWER MUST NOT BE SENT', prompt)
+        facts = json.loads(prompt.split('MEASURED COUNTS:\n', 1)[1])
+        self.assertEqual(facts['ideas'][0]['idea'], 'Answer first')
+        self.assertEqual(facts['ideas'][0]['checks']['answer'], {'before': 0, 'after': 1, 'out_of': 1})
+
+    def test_opinion_failure_does_not_discard_measured_trial(self):
+        trial = self.trial()
+        def failing_opinion(model, prompt, cancel):
+            raise ValueError('private gateway detail')
+        trial.reflector = failing_opinion
+        trial.start(); self.wait(trial)
+        result = trial.snapshot()['result']
+        self.assertEqual(trial.snapshot()['status'], 'on-trial')
+        self.assertEqual(result['totals']['answer'], {'before': 0, 'after': 3, 'total': 3})
+        self.assertEqual(result['opinion'], {'state': 'unavailable'})
+
+    def test_reflection_has_live_phase_and_does_not_change_fixed_score(self):
+        trial = self.trial()
+        opinion_started, release_opinion = threading.Event(), threading.Event()
+        def paused_opinion(model, prompt, cancel):
+            opinion_started.set()
+            release_opinion.wait(timeout=5)
+            return {'text': 'The measured result is still small; I want another useful question.'}
+        trial.reflector = paused_opinion
+        trial.start()
+        try:
+            self.assertTrue(opinion_started.wait(timeout=5))
+            value = trial.snapshot()
+            self.assertTrue(value['active'])
+            self.assertEqual(value['phase'], 'reflecting')
+            self.assertEqual(value['progress']['done'], 8)
+            self.assertIsNone(value['progress']['current'])
+        finally:
+            release_opinion.set()
+        self.wait(trial)
+        self.assertEqual(trial.snapshot()['result']['totals']['answer'], {'before': 0, 'after': 3, 'total': 3})
+
+    def test_skipping_optional_opinion_keeps_completed_score_for_owner_decision(self):
+        trial = self.trial()
+        opinion_started, release_opinion = threading.Event(), threading.Event()
+        def paused_opinion(model, prompt, cancel):
+            opinion_started.set()
+            release_opinion.wait(timeout=5)
+            if cancel.is_set():
+                raise ValueError('cancelled')
+            return {'text': 'Opinion'}
+        trial.reflector = paused_opinion
+        trial.start()
+        self.assertTrue(opinion_started.wait(timeout=5))
+        trial.cancel()
+        release_opinion.set()
+        self.wait(trial)
+        value = trial.snapshot()
+        self.assertEqual(value['status'], 'on-trial')
+        self.assertEqual(value['result']['opinion'], {'state': 'unavailable'})
+        self.assertEqual(value['result']['totals']['answer'], {'before': 0, 'after': 3, 'total': 3})
+        self.assertIn(at.CHANGE_BY_ID['quote-evidence']['block'], self.agents.read_text(encoding='utf-8'))
+
     def test_keep_records_and_restore_is_byte_exact(self):
         trial = self.trial()
         trial.start(); self.wait(trial)
@@ -144,6 +237,7 @@ class TrialTests(unittest.TestCase):
         record = json.loads((self.home / '.config/argos-live/assistant-changes.json').read_text())
         self.assertEqual(record['schema'], 'argos-assistant-changes/1')
         self.assertEqual(record['raw_before'], self.original)
+        self.assertEqual(record['tested_changes'], ['answer-first', 'quote-evidence', 'honest-uncertainty'])
         self.assertFalse((self.home / '.config/argos-live/assistant-trial.json').exists())
         trial.restore(); self.wait(trial)
         self.assertEqual(trial.phase, 'restored')
@@ -151,20 +245,57 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(trial.snapshot()['status'], 'none')
         self.assertFalse((self.home / '.config/argos-live/assistant-changes.json').exists())
 
+    def test_kept_full_campaign_finishes_in_one_go_and_restore_is_byte_exact(self):
+        trial = self.trial()
+        trial.start(); self.wait(trial); trial.keep()
+        first = at.CHANGE_BY_ID['quote-evidence']
+        self.assertIn(first['block'], self.agents.read_text(encoding='utf-8'))
+        self.assertEqual(trial.snapshot()['changes'], [], 'One complete GO tests the whole starter set')
+        trial.restore(); self.wait(trial)
+        self.assertEqual(trial.snapshot()['status'], 'none')
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+
+    def test_old_two_idea_keep_can_resume_remaining_idea_and_restore_chain(self):
+        trial = self.trial()
+        trial.start(); self.wait(trial); trial.keep()
+        journal, record_path = at.paths(self.home)
+        record = json.loads(record_path.read_text())
+        self.assertEqual(record['tested_changes'], ['answer-first', 'quote-evidence', 'honest-uncertainty'])
+        # Model a valid record from the earlier two-idea release, so upgrading
+        # an already-kept assistant still offers its one untried starter idea.
+        record['planned_changes'] = ['answer-first', 'quote-evidence']
+        record['tested_changes'] = ['answer-first', 'quote-evidence']
+        record['result']['experiments'] = record['result']['experiments'][:2]
+        record_path.write_text(json.dumps(record))
+        next_plan = trial.snapshot()['changes']
+        self.assertEqual([change['id'] for change in next_plan], ['honest-uncertainty'])
+        trial.start(); self.wait(trial)
+        self.assertEqual(trial.snapshot()['result']['selected_change'], 'honest-uncertainty')
+        self.assertEqual(trial.keep()['status'], 'kept')
+        self.assertIn(at.CHANGE_BY_ID['honest-uncertainty']['block'], self.agents.read_text(encoding='utf-8'))
+        trial.restore(); self.wait(trial)
+        self.assertEqual(trial.snapshot()['status'], 'kept')
+        self.assertIn(at.CHANGE_BY_ID['quote-evidence']['block'], self.agents.read_text(encoding='utf-8'))
+        self.assertNotIn(at.CHANGE_BY_ID['honest-uncertainty']['start'], self.agents.read_text(encoding='utf-8'))
+        trial.restore(); self.wait(trial)
+        self.assertEqual(trial.snapshot()['status'], 'none')
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+
     def test_a_regression_suggests_restore(self):
         trial = self.trial(misbehave=True)
         trial.start(); self.wait(trial)
         result = trial.snapshot()['result']
-        self.assertEqual(result['regressions'], ['control-plant', 'control-walk'])
+        self.assertTrue(any(item['comparison']['regressions'] == ['control-plant', 'control-walk']
+                            for item in result['experiments']))
         self.assertEqual(result['suggestion'], 'restore')
 
     def test_protected_file_change_stops_for_review_without_false_restore(self):
         trial = self.trial(edit=lambda: (self.agents.parent / 'SOUL.md').write_text('changed'))
         trial.start(); self.wait(trial)
         self.assertEqual(trial.phase, 'recovery-blocked')
-        self.assertIn(at.BLOCK, self.agents.read_text(encoding='utf-8'))
+        self.assertIn(at.CHANGE_BY_ID['answer-first']['block'], self.agents.read_text(encoding='utf-8'))
         self.assertEqual(trial.snapshot()['status'], 'unfinished')
-        self.assertEqual(self.startup.calls, ['stop', 'start', 'stop'])
+        self.assertEqual(self.startup.calls.count('stop'), self.startup.calls.count('start') + 1)
         self.assertIn('Owner edits prevent', trial.message)
 
     def test_owner_edit_blocks_restore_and_keep(self):
@@ -322,8 +453,9 @@ class TrialTests(unittest.TestCase):
 
 class RouteTests(unittest.TestCase):
     setUp, trial = TrialTests.setUp, TrialTests.trial
+    fixture_opinion = staticmethod(lambda model, prompt, cancel: {'text': 'A fixture opinion.'})
 
-    def test_routes_are_authenticated_empty_bodied_and_fixed_text(self):
+    def test_routes_bind_go_to_the_reviewed_plan_and_other_actions_stay_empty_bodied(self):
         import http.client
         from contextlib import closing
         from argoslive.web.server import DashboardServer
@@ -345,6 +477,12 @@ class RouteTests(unittest.TestCase):
                 self.assertEqual(request('/api/assistant-trial/start', 'POST')[0], 403)
                 code, _ = request('/api/assistant-trial/start', 'POST', {**auth, 'Content-Type': 'application/json'}, b'{"x":1}')
                 self.assertEqual(code, 400)
+                code, body = request('/api/assistant-trial/start', 'POST', {**auth, 'Content-Type': 'application/json'},
+                                     b'{"changes":["answer-first"]}')
+                self.assertEqual(code, 409, 'A stale or substituted plan needs review before any test begins')
+                self.assertIn(b'Review the updated ideas', body)
+                self.assertFalse(trial.snapshot()['active'])
+                self.assertEqual(self.agents.read_bytes(), self.original.encode())
                 code, body = request('/api/assistant-trial/keep', 'POST', auth)
                 self.assertEqual(code, 409)
                 self.assertNotIn(str(self.home).encode(), body)
