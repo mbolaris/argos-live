@@ -2774,7 +2774,7 @@ function presentedNextAction(next, trial) {
   }
   if (trial.status === 'none') {
     return {...next, id: 'assistant-trial', title: 'Ready to prove I can do better?',
-      reason: 'I’m ready to test one reviewed instruction in your everyday assistant. Press Go to review it first. If you approve, I’ll answer the same questions before and after, then you choose Keep or Restore.',
+      reason: 'I want to test one change, then show you a matched retest. Press Go to preview it; you approve before it runs. I’ll recommend Keep or Restore.',
       action: 'assistant-trial'};
   }
   if (trial.status === 'on-trial') {
@@ -2902,6 +2902,7 @@ async function refreshCommand() {
       document.getElementById('cc-moment-detail').textContent = value.moment.detail;
     }
     document.getElementById('cc-quiet').checked = value.quiet === true;
+    syncAssistantTrialFocus();
   } catch (_) {
     document.getElementById('cc-next-title').textContent = 'Command center unavailable. Refresh to retry.';
   } finally { commandRefreshing = false; }
@@ -3237,15 +3238,19 @@ function renderMissionReceipt(report) {
   }
 
   // Model transaction rollback bar (J3)
+  const rollbackDetails = document.getElementById('receipt-model-rollback-details');
   const rollbackBar = document.getElementById('receipt-model-rollback-bar');
   if (rollbackBar) {
     if (selectionRollbackAvailable && selectionPreviousModel) {
+      rollbackDetails.hidden = false;
       rollbackBar.hidden = false;
       const curEl = document.getElementById('receipt-current-model');
       // Outside a switch the selection snapshot omits the model; the mission report names it.
       if (curEl) curEl.textContent = currentModelName || commandModelName || 'Current model';
       const prevEl = document.getElementById('receipt-previous-model');
       if (prevEl) prevEl.textContent = selectionPreviousModel;
+      const summary = rollbackDetails.querySelector('summary');
+      if (summary) summary.textContent = `Separate model decision: ${currentModelName || commandModelName || 'model'} · review later`;
       const resBtn = document.getElementById('receipt-restore-model');
       if (resBtn) {
         resBtn.onclick = async () => {
@@ -3275,6 +3280,7 @@ function renderMissionReceipt(report) {
             });
             selectionRollbackAvailable = false;
             rollbackBar.hidden = true;
+            rollbackDetails.hidden = true;
           } catch (_) {
             keepBtn.disabled = false;
           }
@@ -3282,12 +3288,17 @@ function renderMissionReceipt(report) {
       }
     } else {
       rollbackBar.hidden = true;
+      rollbackDetails.hidden = true;
+      rollbackDetails.open = false;
     }
   }
 
   // Action buttons
   const actBox = document.getElementById('receipt-actions');
-  actBox.hidden = !ability;
+  const trialOwnsNextStep = Boolean(assistantTrial?.active ||
+    (assistantTrial?.result && ['on-trial', 'kept'].includes(assistantTrial.status)));
+  actBox.dataset.hasAbility = String(Boolean(ability));
+  actBox.hidden = !ability || Boolean(trialOwnsNextStep);
   const useBtn = document.getElementById('receipt-use');
   const secOptions = document.getElementById('receipt-secondary-options');
   const metricsDetails = document.getElementById('receipt-metrics-details');
@@ -3580,6 +3591,16 @@ let trialResultKey = null;
 let trialActionPending = false;
 let trialRequestEpoch = 0;
 
+function syncAssistantTrialFocus() {
+  const value = assistantTrial;
+  const focused = Boolean(value?.active ||
+    (value?.result && ['on-trial', 'kept'].includes(value.status)));
+  document.getElementById('command-center')?.classList.toggle('assistant-trial-focus', focused);
+  const actions = document.getElementById('receipt-actions');
+  if (actions) actions.hidden = focused || actions.dataset.hasAbility !== 'true';
+  return focused;
+}
+
 async function refreshAssistantTrial() {
   if (trialActionPending) return;
   const epoch = trialRequestEpoch;
@@ -3595,21 +3616,26 @@ async function refreshAssistantTrial() {
 function renderAssistantTrial() {
   const value = assistantTrial;
   const section = document.getElementById('assistant-trial');
+  const trialOwnsNextStep = syncAssistantTrialFocus();
   section.hidden = !value?.available || document.getElementById('cc-receipt').hidden;
   if (section.hidden) return;
   const progress = document.getElementById('assistant-trial-progress');
   const result = document.getElementById('assistant-trial-result');
   const scoreDetails = document.getElementById('assistant-trial-score-details');
   const status = value.status;
+  const receiptActions = document.getElementById('receipt-actions');
+  if (receiptActions && !document.getElementById('cc-receipt').hidden) {
+    receiptActions.hidden = receiptActions.dataset.hasAbility !== 'true' || Boolean(trialOwnsNextStep);
+  }
   document.getElementById('assistant-trial-title').textContent = value.active ? 'Watch me put this change to the test' : ({
     none: 'Ready to prove I can do better?', 'on-trial': 'Retest complete — here’s what changed',
     kept: 'Change kept — now try it for real', edited: 'Your edits need a hand review',
     unfinished: 'The trial stopped early', 'needs-review': 'This trial needs a closer look'}[status] || 'Your assistant trial');
   document.getElementById('assistant-trial-text').textContent = value.active
-    ? 'I’m working through the same eight questions before and after. Each answer and its checks show up here as soon as that turn finishes. When the run is done, you choose Keep or Restore.'
+    ? 'Same eight challenges before and after. Watch each answer and its checks arrive; then choose Keep or Restore.'
     : ({
-    none: `Lab scores don’t change your assistant. I’m ready to test one reviewed instruction (“${value.change.title}”) in the assistant you use, with the same eight questions before and after. Review it; approve to start, then judge the results yourself.`,
-    'on-trial': 'I ran the same eight questions before and after. The scorecard below shows what changed and my recommended next move.',
+    none: `I want to test one change: ${value.change.title}. I’ll run the same eight challenges before and after, show you what changed, and recommend what to do. Preview it, then approve the test.`,
+    'on-trial': 'Same assistant. Same eight challenges. One instruction changed.',
     kept: 'You kept the change. Try it with a real question in chat; you can restore the original at any time.',
     edited: 'AGENTS.md was edited after this change, so Argos won’t restore it automatically. Review the file by hand.',
     unfinished: 'A trial didn’t finish. Recovery must verify the saved files before restoring anything; owner edits need review.',
@@ -3678,22 +3704,36 @@ function renderAssistantTrial() {
     document.getElementById('assistant-trial-' + id).disabled = trialActionPending;
   }
   document.getElementById('assistant-trial-chat').disabled = document.getElementById('chat').disabled;
+  const actions = document.querySelector('#assistant-trial .assistant-trial-actions');
+  const alternatives = document.getElementById('assistant-trial-alternatives');
+  const keep = document.getElementById('assistant-trial-keep');
+  const restore = document.getElementById('assistant-trial-restore');
+  const chat = document.getElementById('assistant-trial-chat');
   if (value.result && status === 'on-trial') {
-    const keep = document.getElementById('assistant-trial-keep');
-    const restore = document.getElementById('assistant-trial-restore');
     const recommendedKeep = value.result.suggestion === 'keep';
     keep.className = recommendedKeep ? 'mission-primary' : 'mission-secondary';
     restore.className = recommendedKeep ? 'mission-secondary' : 'mission-primary';
-    keep.textContent = recommendedKeep ? 'Keep this change · recommended' : 'Keep this change anyway';
-    restore.textContent = recommendedKeep ? 'Restore the original' : 'Restore the original · recommended';
-    const actions = document.querySelector('#assistant-trial .assistant-trial-actions');
+    keep.textContent = recommendedKeep ? 'Keep this instruction · recommended' : 'Keep this instruction instead';
+    restore.textContent = recommendedKeep ? 'Restore the original instruction' : 'Restore the original instruction · recommended';
     const primary = recommendedKeep ? keep : restore;
     const secondary = recommendedKeep ? restore : keep;
-    actions.insertBefore(primary, actions.querySelector('#assistant-trial-cancel'));
-    actions.insertBefore(secondary, primary.nextSibling);
+    actions.insertBefore(primary, alternatives);
+    alternatives.append(secondary);
+    alternatives.hidden = false;
+    alternatives.querySelector('summary').textContent = 'Choose the other option';
+  } else if (status === 'kept' && !value.active && value.can_restore) {
+    actions.insertBefore(chat, alternatives);
+    alternatives.append(restore);
+    alternatives.hidden = false;
+    alternatives.querySelector('summary').textContent = 'Undo this choice';
   } else {
-    document.getElementById('assistant-trial-keep').textContent = 'Keep this change';
-    document.getElementById('assistant-trial-restore').textContent = 'Restore the original';
+    alternatives.hidden = true;
+    alternatives.open = false;
+    actions.insertBefore(keep, alternatives);
+    actions.insertBefore(restore, alternatives);
+    actions.insertBefore(chat, alternatives);
+    keep.textContent = 'Keep this instruction';
+    restore.textContent = 'Restore the original instruction';
   }
   result.hidden = !value.result || value.active || !['on-trial', 'kept'].includes(status);
   scoreDetails.hidden = result.hidden;
@@ -3721,13 +3761,31 @@ function renderTrialResult(box, breakdown, r, status) {
   const outcome = document.createElement('p');
   outcome.className = 'assistant-trial-outcome';
   outcome.textContent = decision.outcome;
+  const track = document.createElement('ol');
+  track.className = 'assistant-trial-track';
+  track.setAttribute('aria-label', 'Result for each of the eight matched challenges');
+  const gainIds = new Set(r.gains || []);
+  const regressions = new Set(r.regressions || []);
+  for (const [index, row] of (r.rows || []).entries()) {
+    const slipped = regressions.has(row.id);
+    const improved = !slipped && gainIds.has(row.id);
+    const state = slipped ? 'regressed' : improved ? 'improved' : 'unchanged';
+    const pip = document.createElement('li');
+    pip.className = `assistant-trial-checkpoint ${state}`;
+    pip.setAttribute('aria-label', `Challenge ${index + 1}: ${state}`);
+    pip.title = `Challenge ${index + 1}: ${state}`;
+    pip.textContent = state === 'improved' ? '✓' : state === 'regressed' ? '!' : '—';
+    track.append(pip);
+  }
+  const trackSummary = document.createElement('p');
+  trackSummary.className = 'assistant-trial-track-summary';
+  const held = Math.max(0, (r.rows || []).length - (r.gains || []).length - (r.regressions || []).length);
+  const gainCount = (r.gains || []).length;
+  trackSummary.textContent = `${gainCount} ${gainCount === 1 ? 'challenge improved' : 'challenges improved'} · ${held} unchanged · ${(r.regressions || []).length} worse`;
   const next = document.createElement('p');
   next.className = 'assistant-trial-next';
   next.textContent = decision.next;
-  const caveat = document.createElement('p');
-  caveat.className = 'assistant-trial-caveat';
-  caveat.textContent = 'Eight questions, one run each. This is a useful clue—not proof of a lasting improvement.';
-  verdict.append(kicker, title, outcome, next, caveat);
+  verdict.append(kicker, title, trackSummary, track, next);
   box.append(verdict);
 
   const rows = document.createElement('dl');
@@ -3794,9 +3852,9 @@ function assistantTrialDecision(r, status) {
       next: 'Recommended next: restore the original. This change helped in some places and slipped in others.'};
   }
   if (gains > 0) {
-    return {tone: 'cautious', title: 'One small gain — not enough to keep yet',
+    return {tone: 'cautious', title: 'One small win — not proven yet',
       outcome: `${gains} of ${total} challenges improved; none got worse.`,
-      next: 'Recommended next: restore the original. We only keep a change when at least two challenges improve with no regressions.'};
+      next: 'Recommended: restore the original instruction. I need two clean wins before I can recommend keeping it.'};
   }
   if (regressions > 0) {
     return {tone: 'caution', title: 'No clear gain — some answers got worse',

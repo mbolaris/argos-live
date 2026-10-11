@@ -1152,3 +1152,15 @@ one recommended Keep/Restore action first with a short reason. Keep score
 breakdowns and per-question replies available under a disclosure. After Keep,
 offer one direct next step to try the assistant in chat. On a phone, the verdict
 and decision controls should be visible without opening the breakdown.
+
+The completed screen has exactly one prominent next action; the alternative
+Keep/Restore outcome is available under a clearly named disclosure. Any pending
+model switch is shown as a separate, collapsed decision so it cannot look like
+part of the instruction trial. The result uses eight labeled checkpoints to
+show improved, steady and regressed challenges at a glance. This visual
+scoreboard is not a model-authored opinion; the local assistant's own bounded
+reflection remains a separate acceptance item. While Keep/Restore is pending,
+hide unrelated skill maps, examples, journals, mission briefs and hardware
+diagnostics; restore them after the owner makes a choice. Spell out the
+checkpoint counts (“1 challenge improved · 7 unchanged · 0 worse”) so the marks
+are immediately understandable.
