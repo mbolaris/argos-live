@@ -1,27 +1,42 @@
 # Implementation backlog
 
-## Current product priority: Auto Climb — in progress (PR #96), October 11
+## Current product priority: Auto Climb — AC1–AC3 merged; live acceptance pending, October 11
 
-Implementation contract and handoff: [AUTO-CLIMB-HANDOFF.md](AUTO-CLIMB-HANDOFF.md).
-This extends U13's fixed manual-decision campaign; it is not already delivered.
+Contract: [AUTO-CLIMB-SPEC.md](AUTO-CLIMB-SPEC.md). Current status and work order:
+[AUTO-CLIMB-WORKER.md](AUTO-CLIMB-WORKER.md). This extends U13's fixed campaign.
 
-- **AC1 — durable session coordinator and 30-second preview:** approved bounded
+**Merged implementation:** [PR95](https://github.com/mbolaris/argos-live/pull/95)
+merged as `3a835d9` (AC1/AC2 and review fixes); [PR98](https://github.com/mbolaris/argos-live/pull/98)
+merged as `8f21f54` (AC3 model-upgrade path, exact reviewed head `25ff49b`). All six PR98
+checks passed on that head. Focused local suites and browser smokes passed. Full Windows
+discovery has 13 platform-specific storage/journey/reboot-permission errors or failures;
+Linux CI passes. These are code merges, not a claim that the implementation is deployed
+or that Auto Climb improved a live assistant.
+
+**Still pending live acceptance:** verify the installed Toronado package against merged
+`main`; real model download/switch/requalification and guarded Keep/Restore; shipped
+Firefox and physical-phone behavior; measured physical GPU use; and reboot persistence.
+Fit estimates are not quality evidence, and CI/fixture results are not live gains. See
+the current acceptance sequence and historical findings in
+[AUTO-CLIMB-WORKER.md](AUTO-CLIMB-WORKER.md).
+
+- **AC1 — implementation merged (PR #95); live acceptance pending:** approved bounded
   plan, server-owned state/timers, idempotent commands, Pause/Skip/Stop, reconnect
   and crash recovery; reuse the existing assistant and model transaction primitives.
-- **AC2 — complete unattended assistant improvement loop:** independent validation,
+- **AC2 — implementation merged (PR #95); live assistant acceptance pending:** independent validation,
   deterministic automatic Keep/Restore, scoped plateau/budget stopping, and a sparse
   responsive watch/results experience. No lab-only gains presented as assistant gains.
-- **AC3 — in progress (PR #96):** fit-aware model upgrade recommendation, confirmed
-  storage gate, bounded verified download, reversible model switch and same-ladder
-  requalification. Real model acquisition and Toronado acceptance remain pending.
-- **AC4 — supported runtime options and reference library:** verified execution-path
+- **AC3 — implementation merged (PR #98); real model adapter acceptance pending:** one recommended eligible
+  model, confirmed model storage, bounded verified download, reversible switch and
+  same-ladder assessment. Preserve the working fallback.
+- **AC4 — planned:** verified execution-path
   adapters, citations and independently measured aided capabilities; real tool/skill
   progression remains dependent on sandbox acceptance.
 
-AC1/AC2 are under PR #95; AC3 is under PR #96. AC3 is required to complete the owner's
-minimum model-upgrade journey. Physical Firefox/phone/model evidence must remain
-separate from fixture and unit evidence. Budgets and plateau rules in the handoff are
-proposed defaults to validate, not established performance claims.
+AC1–AC3 code is merged; validate the real installed assistant before broadening the
+candidate space. Physical Firefox/phone/model evidence must remain separate from fixture
+and unit evidence. Budgets and plateau rules in the specification are implemented
+defaults to measure and review, not established performance claims.
 
 Updated October 4, 2026. Goals and milestones: [PROJECT-GOALS.md](PROJECT-GOALS.md). Model onboarding design: [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md). Personality transfer rules: [PROFILE-SYNC.md](PROFILE-SYNC.md).
 
