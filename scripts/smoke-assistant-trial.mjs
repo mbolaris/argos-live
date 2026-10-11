@@ -128,7 +128,7 @@ try {
   assert.equal(await page.locator('#cc-next-trial-first-run').isVisible(), true);
   assert.match(await page.locator('#cc-next-trial-first-run').textContent(), /pinned OpenClaw defaults/i);
   assert.equal(await page.locator('#arena').isHidden(), true, 'The previous mission is tucked away during the focused offer');
-  assert.equal(await page.locator('#chat').isHidden(), true, 'GO is the only primary action for this offer');
+  assert.equal(await page.locator('#chat').isVisible(), true, 'Chat remains available as a separate secondary action');
   await shot('1-offer', '#cc-next');
 
   // The owner may press GO while the assistant is still warming. This state
