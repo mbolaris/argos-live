@@ -40,7 +40,7 @@ The Improve page offers one focused card: one **GO** runs the whole bounded camp
 
 ## Trial (one approved run)
 
-1. **Gates:** no other workload; the assistant is ready with a verified reply; no unfinished journal; the reviewed profile passes; the `AGENTS.md` and protected-file hashes are recorded.
+1. **Gates:** no other workload; no unfinished journal; the reviewed profile passes; the `AGENTS.md` and protected-file hashes are recorded. GO may be pressed while the already-starting local assistant is warming up. The run visibly stays in **Warming up your AI** until a verified reply is ready; no trial question or instruction change starts before then. The owner may cancel warm-up. If startup fails or the owner edits protected instructions while waiting, the run stops without applying an idea.
 2. **Baseline:** run the independent tasks through the assistant path (current configuration), one fresh session per task.
 3. **One idea at a time:** for each disclosed candidate, journal the exact bytes, stop the assistant, append that single block atomically, restart and run the same tasks in fresh sessions. Restore and verify the baseline before testing the next candidate. The session is capped at one baseline and three candidates (32 task answers total).
 4. **Select:** only a candidate that improves at least two challenges without a regression can be recommended. If multiple qualify, use the fixed score ordering; apply only the leading idea again for the owner's Keep/Restore decision. If none qualifies, restore the original or prior-kept bytes and report the no-win result. No idea is silently kept.
@@ -58,7 +58,7 @@ The Improve page offers one focused card: one **GO** runs the whole bounded camp
 
 Checks are code, reported per task and per check. The change text contains no task answers. They are limited text heuristics, not semantic correctness guarantees or a general ability score. Before/after use identical prompts and fresh scoped sessions. Replies are retained in full up to a 6,000-character inspection limit; longer output stops the trial instead of hiding scored evidence.
 
-While an approved trial is running, the watch view shows the current before/change/retest stage, completed task count, current question and source notice, then the most recent completed reply paired with the question that produced it. Eight progress pips indicate completed prompts, not qualified skills. It updates after each gateway turn; the CLI does not stream tokens, so the interface must not imply that it does. Partial live progress is in memory only and is not treated as a completed trial result.
+While an approved trial is running, the watch view first shows a distinct warm-up state if needed, then the current before/change/retest stage, completed task count, current question and source notice, and most recent completed reply paired with the question that produced it. Eight progress pips indicate completed prompts, not qualified skills. It updates after each gateway turn; the CLI does not stream tokens, so the interface must not imply that it does. Partial live progress is in memory only and is not treated as a completed trial result.
 
 ## Result shown to the owner
 

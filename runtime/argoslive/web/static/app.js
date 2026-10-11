@@ -3707,18 +3707,20 @@ function renderAssistantTrial() {
   const result = document.getElementById('assistant-trial-result');
   const scoreDetails = document.getElementById('assistant-trial-score-details');
   const status = value.status;
+  const preparing = value.active && value.phase === 'preparing';
   const receiptActions = document.getElementById('receipt-actions');
   if (receiptActions && !document.getElementById('cc-receipt').hidden) {
     receiptActions.hidden = receiptActions.dataset.hasAbility !== 'true' || Boolean(trialOwnsNextStep);
   }
-  document.getElementById('assistant-trial-title').textContent = value.active ? 'Watch me test these ideas' : ({
+  document.getElementById('assistant-trial-title').textContent = preparing ? 'Warming up your AI' : value.active ? 'Watch me test these ideas' : ({
     none: value.result_state === 'no-improvement' ? 'No idea cleared the bar this round' : 'One tap starts the whole improvement round',
     'on-trial': 'Retests complete — here’s what changed',
     kept: value.changes?.length ? 'Kept. Ready for the next idea?' : 'You tried every starter idea',
     edited: 'Your edits need a hand review',
     unfinished: 'The trial stopped early', 'needs-review': 'This trial needs a closer look'}[status] || 'Your assistant trial');
   document.getElementById('assistant-trial-text').textContent = value.active
-    ? 'I’m trying the same challenges under each idea, resetting between them. Watch every answer and score arrive; then I’ll give you my take. You choose what stays.'
+    ? (preparing ? 'GO is saved. I’m getting your local assistant ready; no idea is applied until the same questions begin.'
+      : 'I’m trying the same challenges under each idea, resetting between them. Watch every answer and score arrive; then I’ll give you my take. You choose what stays.')
     : ({
     none: `GO approves ${value.changes?.length || 0} exact reviewed ideas. I’ll ask the same eight questions with each idea, reset between them, and keep only the strongest clean result on trial. Up to ${value.max_answers || 0} answers; you choose Keep or Restore.`,
     'on-trial': 'Same assistant. Same questions. Each idea was tested separately against the same starting setup.',
@@ -3757,25 +3759,27 @@ function renderAssistantTrial() {
     const phase = value.phase;
     const side = p.side;
     const idea = p.experiment;
-    document.getElementById('assistant-trial-step-change').textContent = phase === 'experiment'
+    document.getElementById('assistant-trial-step-change').textContent = phase === 'preparing' ? 'WARM-UP' : phase === 'experiment'
       ? `IDEA ${p.experiment_index || 1} / ${p.experiment_count || 1}`
       : phase === 'selecting' ? 'PICKING A WINNER' : phase === 'restoring' ? 'RESETTING' : 'IDEAS';
     const stageLabel = phase === 'before' ? 'Starting line · your current assistant' :
       phase === 'experiment' ? `Idea ${p.experiment_index || 1} of ${p.experiment_count || 1} · ${idea?.title || 'testing the change'}` : null;
     document.getElementById('assistant-trial-stage').textContent = {
+      preparing: 'Warming up your local AI',
       staging: 'Switching to the reviewed change', starting: 'Getting ready to test',
       selecting: 'Putting the strongest idea on trial',
       reflecting: 'Your AI is looking at the scorecard',
       restoring: 'Resetting to the starting setup between ideas'}[phase] || stageLabel || 'Working on the trial';
-    document.getElementById('assistant-trial-count').textContent = `${p.session_done ?? p.done ?? 0} of ${p.session_total ?? p.total ?? 8} answers`;
+    const answerTotal = p.session_total ?? p.total ?? value.max_answers ?? 8;
+    document.getElementById('assistant-trial-count').textContent = `${p.session_done ?? p.done ?? 0} of ${answerTotal} answers`;
     const bar = document.getElementById('assistant-trial-bar');
-    bar.max = p.session_total || p.total || 8;
+    bar.max = answerTotal;
     bar.value = Math.min(p.session_done ?? p.done ?? 0, bar.max);
     for (const [index, pip] of document.querySelectorAll('#assistant-trial-pips span').entries()) {
       pip.classList.toggle('done', index < (p.done || 0));
       pip.classList.toggle('current', index === (p.done || 0) && Boolean(p.current));
     }
-    for (const [id, active] of [['before', side === 'before' && phase !== 'staging'],
+    for (const [id, active] of [['before', phase === 'preparing' || (side === 'before' && phase !== 'staging')],
                                 ['change', ['staging', 'restoring', 'selecting'].includes(phase)],
                                 ['after', side === 'candidate' && phase === 'experiment']]) {
       const marker = document.getElementById(`assistant-trial-step-${id}`);
@@ -3787,6 +3791,7 @@ function renderAssistantTrial() {
     const current = p.current;
     const latest = p.latest;
     document.getElementById('assistant-trial-question').textContent = current?.question || ({
+      preparing: 'Your AI is warming up. No instruction has changed.',
       starting: 'The assistant is getting ready.', staging: 'Applying the reviewed instruction before the retest.',
       reflecting: 'All eight challenges are complete. Your AI is writing its opinion of the results.',
       restoring: 'The original instruction is being restored.'}[phase] || 'Finishing this part of the trial…');
@@ -3794,7 +3799,8 @@ function renderAssistantTrial() {
     document.getElementById('assistant-trial-source-text').textContent = current?.source || '';
     document.getElementById('assistant-trial-thinking').textContent = current && ['before', 'experiment'].includes(phase)
       ? (latest?.id === current.id ? 'Answer received · moving to the next challenge…' : 'Your assistant is working on this answer…')
-      : ({staging: 'Restarting the assistant safely…', starting: 'Checking the assistant is ready…',
+      : ({preparing: 'No answer is being scored yet. Your approved idea stays untouched until warm-up finishes.',
+         staging: 'Restarting the assistant safely…', starting: 'Checking the assistant is ready…',
          reflecting: 'The scored results are fixed; this extra opinion cannot change them.',
          restoring: 'Verifying the original is back in place…'}[phase] || 'Working…');
     const latestCard = document.getElementById('assistant-trial-latest');
@@ -3816,7 +3822,8 @@ function renderAssistantTrial() {
     document.getElementById('assistant-trial-step-change').textContent = 'IDEAS';
   }
   document.getElementById('assistant-trial-note').textContent = value.message || '';
-  document.getElementById('assistant-trial-note').hidden = status === 'on-trial' && Boolean(value.result);
+  document.getElementById('assistant-trial-note').hidden = preparing ||
+    (status === 'on-trial' && Boolean(value.result));
   const resultVisible = Boolean(value.result && !value.active &&
     (['on-trial', 'kept'].includes(status) || value.result_state === 'no-improvement'));
   const show = (id, visible) => { document.getElementById(id).hidden = !visible; };
@@ -3826,7 +3833,8 @@ function renderAssistantTrial() {
     (status === 'kept' || value.result_state === 'no-improvement'));
   show('assistant-trial-chat', !value.active && (status === 'kept' || value.result_state === 'no-improvement'));
   show('assistant-trial-cancel', value.active && value.phase !== 'restoring');
-  document.getElementById('assistant-trial-cancel').textContent = value.phase === 'reflecting' ? 'Skip the AI’s opinion' : 'Stop the trial';
+  document.getElementById('assistant-trial-cancel').textContent = value.phase === 'preparing' ? 'Cancel warm-up' :
+    value.phase === 'reflecting' ? 'Skip the AI’s opinion' : 'Stop the trial';
   for (const id of ['keep', 'restore', 'cancel', 'next-round']) {
     document.getElementById('assistant-trial-' + id).disabled = trialActionPending;
   }

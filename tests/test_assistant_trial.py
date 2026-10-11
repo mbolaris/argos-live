@@ -165,6 +165,104 @@ class TrialTests(unittest.TestCase):
             release_second_turn.set()
         self.wait(trial)
 
+    def test_one_go_waits_for_a_warming_assistant_without_changing_instructions(self):
+        trial = self.trial()
+        ready = threading.Event()
+        waiting = threading.Event()
+        self.startup.active = True
+        normal_snapshot = self.startup.snapshot
+
+        def warming_snapshot():
+            if not ready.is_set():
+                waiting.set()
+                return {'active': True, 'phase': 'first-reply', 'model_reply_verified': False}
+            return normal_snapshot()
+
+        self.startup.snapshot = warming_snapshot
+        started = trial.start()
+        self.assertTrue(started['active'])
+        self.assertEqual(started['phase'], 'preparing')
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+        self.assertTrue(waiting.wait(timeout=5), 'The worker should wait for model readiness after GO')
+        self.assertEqual(trial.runner.turns, [], 'No challenge starts before a verified assistant reply')
+        self.assertTrue(self.startup.lab_active, 'The one GO remains active while the assistant warms up')
+        ready.set()
+        self.wait(trial)
+        self.assertEqual(trial.snapshot()['status'], 'on-trial')
+        self.assertEqual(len(trial.runner.turns), 32, 'The bounded baseline and idea answers start after warm-up')
+        self.assertTrue(self.agents.read_bytes().startswith(self.original.encode()))
+
+    def test_cancel_during_warmup_does_not_start_a_trial_or_change_files(self):
+        trial = self.trial()
+        waiting = threading.Event()
+        self.startup.active = True
+
+        def warming_snapshot():
+            waiting.set()
+            return {'active': True, 'phase': 'first-reply', 'model_reply_verified': False}
+
+        self.startup.snapshot = warming_snapshot
+        trial.start()
+        self.assertTrue(waiting.wait(timeout=5))
+        trial.cancel()
+        self.wait(trial)
+        value = trial.snapshot()
+        self.assertEqual(value['phase'], 'cancelled')
+        self.assertIn('Warm-up stopped', value['message'])
+        self.assertEqual(trial.runner.turns, [])
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+        self.assertFalse(self.startup.lab_active)
+
+    def test_cancel_during_go_started_warmup_leaves_no_instruction_change(self):
+        trial = self.trial()
+        waiting = threading.Event()
+        self.startup.active = False
+        normal_snapshot = self.startup.snapshot
+
+        def startup_snapshot():
+            if 'start' in self.startup.calls and not waiting.is_set():
+                waiting.set()
+                return {'active': True, 'phase': 'setup', 'model_reply_verified': False}
+            return normal_snapshot()
+
+        self.startup.snapshot = startup_snapshot
+        trial.start()
+        self.assertTrue(waiting.wait(timeout=5), 'GO should start an idle assistant in the background')
+        trial.cancel()
+        self.wait(trial)
+        value = trial.snapshot()
+        self.assertEqual(value['phase'], 'cancelled')
+        self.assertEqual(trial.runner.turns, [])
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+        self.assertFalse(self.startup.lab_active)
+
+    def test_owner_edit_during_warmup_stops_before_any_trial_write(self):
+        trial = self.trial()
+        ready = threading.Event()
+        waiting = threading.Event()
+        self.startup.active = True
+        normal_snapshot = self.startup.snapshot
+
+        def warming_snapshot():
+            if not ready.is_set():
+                waiting.set()
+                return {'active': True, 'phase': 'first-reply', 'model_reply_verified': False}
+            return normal_snapshot()
+
+        self.startup.snapshot = warming_snapshot
+        trial.start()
+        self.assertTrue(waiting.wait(timeout=5))
+        owner_bytes = (self.original + '\r\nOwner edit while the model warms up.').encode('utf-8')
+        self.agents.write_bytes(owner_bytes)
+        ready.set()
+        self.wait(trial)
+        value = trial.snapshot()
+        self.assertEqual(value['phase'], 'failed')
+        self.assertIn('assistant changed while it warmed up', value['message'])
+        self.assertEqual(self.agents.read_bytes(), owner_bytes)
+        self.assertEqual(trial.runner.turns, [])
+        self.assertFalse(self.startup.lab_active)
+
     def test_opinion_prompt_contains_only_aggregate_counts(self):
         prompt = at.opinion_prompt({'experiments': [
             {'change': {'title': 'Answer first'}, 'comparison': {'gains': ['one'], 'regressions': [],
@@ -326,14 +424,16 @@ class TrialTests(unittest.TestCase):
             trial.restore()
         self.assertIn('Owner note.', self.agents.read_text())
 
-    def test_requires_a_ready_assistant_and_no_other_workload(self):
+    def test_refuses_another_workload_but_starts_from_stopped_state(self):
         trial = self.trial()
         self.startup.lab_active = True
         with self.assertRaises(at.Refused):
             trial.start()
         self.startup.lab_active, self.startup.active = False, False
-        with self.assertRaises(at.Refused):
-            trial.start()
+        trial.start()
+        self.wait(trial)
+        self.assertIn('start', self.startup.calls)
+        self.assertEqual(trial.snapshot()['status'], 'on-trial')
 
     def test_unfinished_trial_is_reverted_at_desktop_start(self):
         raw_after = at.staged(self.original)
@@ -386,6 +486,24 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(self.agents.read_bytes(), self.original.encode())
         self.assertEqual(trial.snapshot()['status'], 'none')
         self.assertTrue(self.startup.active)
+
+    def test_cancel_after_candidate_staging_restores_original_and_restarts_assistant(self):
+        trial = self.trial()
+        turn = trial.runner.turn
+
+        def cancelling_after_candidate(message):
+            reply = turn(message)
+            if len(trial.runner.turns) == 9:
+                trial.cancel_event.set()
+            return reply
+
+        trial.runner.turn = cancelling_after_candidate
+        trial.start(); self.wait(trial)
+        self.assertEqual(trial.phase, 'cancelled')
+        self.assertIn('original instructions were restored and verified', trial.message)
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+        self.assertFalse(at.paths(self.home)[0].exists())
+        self.assertTrue(self.startup.active, 'The safe rollback restarts the assistant even after Stop')
 
     def test_failed_restore_restart_retains_recoverable_journal(self):
         trial = self.trial()

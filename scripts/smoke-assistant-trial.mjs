@@ -121,6 +121,27 @@ try {
   assert.equal(await page.locator('#arena').isHidden(), true, 'The previous mission is tucked away during the focused offer');
   assert.equal(await page.locator('#chat').isHidden(), true, 'GO is the only primary action for this offer');
   await shot('1-offer', '#cc-next');
+
+  // The owner may press GO while the assistant is still warming. This state
+  // is a deterministic UI fixture, not evidence of model inference.
+  await page.evaluate(() => {
+    trialFollow = true;
+    assistantTrial = {...assistantTrial, active: true, phase: 'preparing', progress: null,
+      status: 'none', result_state: 'none', result: null, max_answers: 32,
+      message: 'Warming up your local assistant. No instructions have changed.'};
+    renderAssistantTrial();
+  });
+  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Warming up your AI');
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /GO is saved.*no idea is applied/i);
+  assert.equal(await page.locator('#assistant-trial-stage').textContent(), 'Warming up your local AI');
+  assert.equal(await page.locator('#assistant-trial-count').textContent(), '0 of 32 answers');
+  assert.equal(await page.locator('#assistant-trial-question').textContent(), 'Your AI is warming up. No instruction has changed.');
+  assert.equal(await page.locator('#assistant-trial-cancel').textContent(), 'Cancel warm-up');
+  assert.equal(await page.locator('#assistant-trial-note').isHidden(), true,
+    'The warm-up explanation appears once, without a duplicate status note');
+  await shot('1-warming-up');
+  await page.evaluate(async () => { trialFollow = false; await refreshAssistantTrial(); });
+  await page.waitForFunction(() => document.getElementById('assistant-trial-title').textContent !== 'Warming up your AI');
   await page.unroute('**/api/command-center');
 
   // A completed document result should lead to one safe improvement offer,
