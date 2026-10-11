@@ -27,20 +27,52 @@ from .pull_jobs import read_json, write_json
 SCHEMA = 'argos-assistant-trial/1'
 RECORD_SCHEMA = 'argos-assistant-changes/1'
 DATA = Path(__file__).with_name('data') / 'assistant-trials' / 'grounded-answers.json'
-CHANGE_ID, CHANGE_VERSION = 'grounded-answers', 1
-START = '<!-- argos-trial:grounded-answers v1 — added with your approval; Argos Live can restore the original file -->'
-END = '<!-- /argos-trial:grounded-answers -->'
-INSTRUCTION = ('## Answering from text you were given\n'
-               'When I give you a document, notice or passage and ask about it: answer directly first, in a short '
-               'phrase or sentence. Then quote the sentence from the text that supports your answer. If the text does '
-               'not contain the answer, say so plainly instead of guessing.')
-BLOCK = f'{START}\n{INSTRUCTION}\n{END}\n'
+LEGACY_ID = 'grounded-answers'
+LEGACY_INSTRUCTION = ('## Answering from text you were given\n'
+                      'When I give you a document, notice or passage and ask about it: answer directly first, in a short '
+                      'phrase or sentence. Then quote the sentence from the text that supports your answer. If the text does '
+                      'not contain the answer, say so plainly instead of guessing.')
+
+
+def _block(change_id, version, instruction):
+    start = f'<!-- argos-trial:{change_id} v{version} — added with your approval; Argos Live can restore the original file -->'
+    return start, f'<!-- /argos-trial:{change_id} -->', f'{start}\n{instruction}\n<!-- /argos-trial:{change_id} -->\n'
+
+
+_DEFINITIONS = (
+    ('answer-first', 'Answer first',
+     '## Answer first\nWhen answering a question, begin with the direct answer in one short sentence. Put explanation after it.',
+     'answer_first', 'Answer questions directly before adding detail.'),
+    ('quote-evidence', 'Show the source',
+     '## Show the source\nWhen answering a question about text I provided, give the answer and then quote one exact sentence that supports it. Never make up or alter a quotation.',
+     'exact_quote', 'Back up document answers with one exact sentence from the source.'),
+    ('honest-uncertainty', 'Be honest when it is missing',
+     '## Be honest when the source is silent\nIf text I provided does not contain the answer, say that it is not stated instead of guessing or filling in missing details.',
+     'admits_not_stated', 'Say plainly when the provided text does not contain an answer.'),
+)
+CHANGES = []
+for _id, _title, _text, _target, _scope in _DEFINITIONS:
+    _start, _end, _candidate_block = _block(_id, 1, _text)
+    CHANGES.append({'id': _id, 'version': 1, 'title': _title, 'file': 'AGENTS.md', 'text': _text,
+                    'target_check': _target, 'scope': _scope,
+                    'start': _start, 'end': _end, 'block': _candidate_block})
+CHANGE_BY_ID = {change['id']: change for change in CHANGES}
+# One GO runs the complete reviewed starter set before showing Keep/Restore.
+MAX_EXPERIMENTS = len(CHANGES)
+# Keep v1 journals and kept changes from the first U10 implementation recoverable.
+_legacy_start, _legacy_end, _legacy_block = _block(LEGACY_ID, 1, LEGACY_INSTRUCTION)
+LEGACY_CHANGE = {'id': LEGACY_ID, 'version': 1, 'title': 'Grounded answers', 'file': 'AGENTS.md',
+                 'text': LEGACY_INSTRUCTION, 'scope': 'Questions about text you give the assistant in chat.',
+                 'unchanged': ['Model and its files', 'Personality (SOUL.md, IDENTITY.md, USER.md) and memory',
+                               'Tools, permissions and channels', 'Argos and OpenClaw settings'],
+                 'start': _legacy_start, 'end': _legacy_end, 'block': _legacy_block}
+CHANGE_BY_ID[LEGACY_ID] = LEGACY_CHANGE
+CHANGE_ID, CHANGE_VERSION = LEGACY_ID, 1
+CHANGE = LEGACY_CHANGE
+START, END, INSTRUCTION, BLOCK = CHANGE['start'], CHANGE['end'], CHANGE['text'], CHANGE['block']
 PROTECTED = ('SOUL.md', 'IDENTITY.md', 'USER.md', 'MEMORY.md')
-CHANGE = {'id': CHANGE_ID, 'version': CHANGE_VERSION, 'title': 'Grounded answers', 'file': 'AGENTS.md',
-          'text': INSTRUCTION,
-          'scope': 'Questions about text you give the assistant in chat.',
-          'unchanged': ['Model and its files', 'Personality (SOUL.md, IDENTITY.md, USER.md) and memory',
-                        'Tools, permissions and channels', 'Argos and OpenClaw settings']}
+UNCHANGED = ['Model and its files', 'Personality (SOUL.md, IDENTITY.md, USER.md) and memory',
+             'Tools, permissions and channels', 'Argos and OpenClaw settings']
 UNCERTAINTY = ('One run per task and only eight tasks; replies vary between runs, so a difference of one task '
                'is not meaningful. Automated text checks are limited evidence, not a general ability rating. '
                'These are everyday-assistant results only, separate from lab scores.')
@@ -140,21 +172,63 @@ def compare(before, after):
                      'total': sum(1 for r in rows if r['kind'] == kind)} for kind in ('answer', 'not_stated', 'control')}
     suggestion = 'keep' if len(gains) >= 2 and not regressions else 'restore'
     return {'rows': rows, 'totals': totals, 'gains': gains, 'regressions': regressions,
+            'gained_checks': sum(len(row['gained']) for row in rows),
+            'regressed_checks': sum(len(row['regressed']) for row in rows),
             'suggestion': suggestion, 'uncertainty': UNCERTAINTY, 'evidence': 'everyday-assistant'}
+
+
+def tested_change_ids(record):
+    """Keep already-compared ideas out of future rounds after an owner keeps a winner."""
+    tested = []
+    current = record
+    while isinstance(current, dict):
+        ids = current.get('tested_changes') or [current.get('change')]
+        for change_id in ids:
+            if change_id in CHANGE_BY_ID and change_id not in tested:
+                tested.append(change_id)
+        current = current.get('previous_record')
+    return tested
+
+
+def planned_changes(raw_before, previous_record=None):
+    """Return the exact, fixed-order ideas disclosed before the owner presses GO."""
+    text = raw_before or ''
+    if f'argos-trial:{LEGACY_ID} ' in text:
+        return []
+    already_tested = set(tested_change_ids(previous_record))
+    available = [change for change in CHANGES
+                 if change['id'] not in already_tested and f"argos-trial:{change['id']} " not in text]
+    return available[:MAX_EXPERIMENTS]
+
+
+def session_result(experiments, selected_id=None):
+    """Keep each matched comparison distinct; only one candidate can remain on trial."""
+    selected = next((item for item in experiments if item['change']['id'] == selected_id), None)
+    basis = selected or (experiments[0] if experiments else {})
+    comparison = basis.get('comparison', {})
+    return {**comparison, 'experiments': experiments, 'selected_change': selected_id,
+            'suggestion': 'keep' if selected else 'restore',
+            'uncertainty': ('Each idea had one pass through the same eight questions. Small differences are not meaningful on their own; '
+                            'this is evidence about these checks, not proof of a smarter assistant.'),
+            'evidence': 'everyday-assistant'}
 
 
 def opinion_prompt(result):
     """Ask the tested assistant to reflect on public aggregates, never raw replies."""
-    totals = result['totals']
-    facts = {
-        'challenges': {'improved': len(result['gains']), 'worse': len(result['regressions']),
-                       'unchanged': len(result['rows']) - len(result['gains']) - len(result['regressions'])},
-        'checks': {kind: {'before': values['before'], 'after': values['after'], 'out_of': values['total']}
-                   for kind, values in totals.items()},
-    }
+    facts = {'ideas': []}
+    for experiment in result.get('experiments', []):
+        comparison = experiment['comparison']
+        facts['ideas'].append({
+            'idea': experiment['change']['title'],
+            'improved_challenges': len(comparison['gains']),
+            'worse_challenges': len(comparison['regressions']),
+            'checks_gained': comparison.get('gained_checks', 0),
+            'checks': {kind: {'before': values['before'], 'after': values['after'], 'out_of': values['total']}
+                       for kind, values in comparison['totals'].items()},
+        })
     return (OPINION_PREFIX +
-            'You are the local assistant taking part in a small, private improvement test. In at most two short '
-            'first-person sentences, say what these counts suggest and one thing you would like to investigate '
+            'You are the local assistant taking part in a small, private improvement game. In at most two short '
+            'first-person sentences, say which idea looks most promising from these counts and one thing you would like to investigate '
             'next (or say that you need more evidence). Be candid and curious. These checks are limited text '
             'heuristics: do not claim general ability, learning, statistical significance, or proven improvement. '
             'Do not change anything, call tools, or choose Keep/Restore; the owner decides. Suggest only a future '
@@ -202,13 +276,21 @@ def read_text(path):
     return path.read_bytes().decode('utf-8') if path.exists() else None
 
 
-def staged(raw_before):
-    if raw_before is not None and 'argos-trial:grounded-answers' in raw_before:
-        raise ValueError('The change is already present in AGENTS.md')
+def change_for(change_id):
+    value = CHANGE_BY_ID.get(change_id)
+    if value is None:
+        raise ValueError('This improvement idea is not in the reviewed list')
+    return value
+
+
+def staged(raw_before, change_id=CHANGE_ID):
+    change = change_for(change_id)
+    if raw_before is not None and f'argos-trial:{change_id} ' in raw_before:
+        raise ValueError('This improvement is already present in AGENTS.md')
     text = raw_before or ''
     if text and not text.endswith('\n'):
         text += '\n'
-    return text + ('\n' if text else '') + BLOCK
+    return text + ('\n' if text else '') + change['block']
 
 
 def write_text(path, text):
@@ -218,13 +300,33 @@ def write_text(path, text):
         replace_raw(path, text.encode('utf-8'))
 
 
-def valid_record(value, schema):
+def valid_record(value, schema, depth=0):
     try:
-        return (value.get('schema') == schema and value.get('change') == CHANGE_ID and
-                value.get('version') == CHANGE_VERSION and
-                (value.get('raw_before') is None or isinstance(value.get('raw_before'), str)) and
-                value.get('raw_after') == staged(value.get('raw_before')) and
-                isinstance(value.get('fingerprint'), dict))
+        if depth > 8 or not isinstance(value, dict) or value.get('schema') != schema:
+            return False
+        change = change_for(value.get('change'))
+        raw_before = value.get('raw_before')
+        if (value.get('version') != change['version'] or
+                (raw_before is not None and not isinstance(raw_before, str)) or
+                value.get('raw_after') != staged(raw_before, change['id']) or
+                not isinstance(value.get('fingerprint'), dict)):
+            return False
+        previous = value.get('previous_record')
+        if previous is not None:
+            if not valid_record(previous, RECORD_SCHEMA, depth + 1) or previous.get('raw_after') != raw_before:
+                return False
+        planned = value.get('planned_changes')
+        if planned is not None:
+            if (not isinstance(planned, list) or not planned or len(planned) > MAX_EXPERIMENTS or
+                    any(change_id not in CHANGE_BY_ID for change_id in planned) or len(planned) != len(set(planned)) or
+                    change['id'] not in planned):
+                return False
+        tested = value.get('tested_changes')
+        if tested is not None:
+            expected = list(dict.fromkeys(tested_change_ids(previous) + (planned or [change['id']])))
+            if tested != expected:
+                return False
+        return True
     except (ValueError, TypeError):
         return False
 
@@ -250,7 +352,10 @@ def recover(home):
             write_text(path, value['raw_before'])
         finish_journal(journal)
         _, record = paths(home)
-        if record.exists():
+        previous = value.get('previous_record')
+        if previous is not None:
+            write_json(record, previous)
+        elif record.exists():
             finish_journal(record)
         return 'restored'
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
@@ -333,6 +438,7 @@ class Controller:
         self.phase = 'idle'
         self.progress = None
         self.message = None
+        self.session_result = None
         self.closed = False
 
     # ---- public state
@@ -362,21 +468,44 @@ class Controller:
         with self.lock:
             active = self.worker is not None and self.worker.is_alive()
             status, value = self.status()
-            result = (value or {}).get('result')
+            result = self.session_result if self.phase == 'no-improvement' else (value or {}).get('result')
+            if result is None:
+                result = (value or {}).get('result')
             tasks = [{k: t[k] for k in ('id', 'kind', 'question', 'message', 'passage') if k in t} for t in self.tasks['tasks']]
+            try:
+                raw = read_text(agents_path(self.home))
+                prior_record = (value.get('previous_record') if status == 'on-trial' else value) if value else None
+                plan = planned_changes(raw, prior_record)
+            except (OSError, ValueError):
+                plan = []
+            public_plan = [self.public_change(change) for change in plan]
             return {'available': True, 'active': active, 'phase': self.phase, 'progress': copy.deepcopy(self.progress),
-                    'message': self.message, 'status': status, 'change': CHANGE, 'tasks': tasks,
+                    'message': self.message, 'status': status, 'change': public_plan[0] if public_plan else LEGACY_CHANGE,
+                    'changes': public_plan, 'unchanged': UNCHANGED,
+                    'max_experiments': len(plan), 'max_answers': len(tasks) * (1 + len(plan)), 'tasks': tasks,
                     'passages': self.tasks['passages'], 'result': result,
+                    'result_state': self.phase if self.phase == 'no-improvement' else status,
                     'can_restore': status in ('on-trial', 'kept'), 'can_keep': status == 'on-trial'}
 
     # ---- actions
-    def start(self):
+    def start(self, approved_changes=None):
         with self.startup.lock, self.lock:
             self.require_idle()
-            status, _ = self.status()
-            if status != 'none':
-                raise Refused('A change is already on trial or kept; restore it first')
-            self.begin('starting', self.execute)
+            status, prior = self.status()
+            if status not in ('none', 'kept'):
+                raise Refused('Finish or restore the current assistant change before starting another round')
+            raw_before = read_text(agents_path(self.home))
+            plan = planned_changes(raw_before, prior if status == 'kept' else None)
+            plan_ids = [change['id'] for change in plan]
+            if approved_changes is not None and approved_changes != plan_ids:
+                raise Refused('The improvement plan changed. Review the updated ideas before starting.')
+            if not plan:
+                raise Refused('All reviewed starter ideas are already in the assistant; nothing new is ready to test')
+            previous = prior if status == 'kept' else None
+            if previous is not None and not valid_record(previous, RECORD_SCHEMA):
+                raise Refused('The previous kept change needs review before another experiment')
+            self.session_result = None
+            self.begin('starting', lambda: self.execute(plan, previous))
             return self.snapshot()
 
     def keep(self):
@@ -389,10 +518,14 @@ class Controller:
             if fingerprint(self.home) != value['fingerprint']:
                 raise Refused('Protected assistant files changed during the trial; review before keeping')
             journal, record = paths(self.home)
-            write_json(record, {'schema': RECORD_SCHEMA, 'change': CHANGE_ID, 'version': CHANGE_VERSION,
+            write_json(record, {'schema': RECORD_SCHEMA, 'change': value['change'], 'version': value['version'],
                                 'raw_before': value['raw_before'], 'raw_after': value['raw_after'],
                                 'fingerprint': value['fingerprint'],
-                                'agents_sha256': digest(path), 'kept_at': time.time(), 'result': value['result']})
+                                'agents_sha256': digest(path), 'kept_at': time.time(), 'result': value['result'],
+                                'planned_changes': value.get('planned_changes', [value['change']]),
+                                'tested_changes': list(dict.fromkeys(tested_change_ids(value.get('previous_record')) +
+                                                                     value.get('planned_changes', [value['change']]))),
+                                'previous_record': value.get('previous_record')})
             finish_journal(journal)
             self.phase, self.message = 'kept', 'Kept and verified: AGENTS.md contains the reviewed change.'
             return self.snapshot()
@@ -487,7 +620,8 @@ class Controller:
             self.startup.chat_claimed = True
         self.wait_ready()
 
-    def run_tasks(self, side):
+    def run_tasks(self, side, *, experiment=None, experiment_index=0, experiment_count=0,
+                  session_offset=0, session_total=8):
         outcomes, total, latest = [], len(self.tasks['tasks']), None
         for index, task in enumerate(self.tasks['tasks']):
             if self.cancel_event.is_set():
@@ -496,7 +630,9 @@ class Controller:
                        'question': task.get('question') or task.get('message'),
                        'source': self.tasks['passages'].get(task.get('passage'))}
             self.progress = {'side': side, 'done': index, 'total': total,
-                             'current': current, 'latest': latest}
+                             'current': current, 'latest': latest, 'experiment': experiment,
+                             'experiment_index': experiment_index, 'experiment_count': experiment_count,
+                             'session_done': session_offset + index, 'session_total': session_total}
             reply = self.runner.turn(message(task, self.tasks['passages']))
             if not isinstance(reply.get('text'), str) or len(reply['text']) > 6000:
                 raise ValueError('The assistant response exceeds the trial inspection limit')
@@ -509,8 +645,13 @@ class Controller:
             latest = {**current, 'reply': reply['text'], 'checks': outcome['checks'],
                       'elapsed_seconds': reply.get('elapsed_seconds')}
             self.progress = {'side': side, 'done': index + 1, 'total': total,
-                             'current': current, 'latest': latest}
-        self.progress = {'side': side, 'done': total, 'total': total, 'current': None, 'latest': latest}
+                             'current': current, 'latest': latest, 'experiment': experiment,
+                             'experiment_index': experiment_index, 'experiment_count': experiment_count,
+                             'session_done': session_offset + index + 1, 'session_total': session_total}
+        self.progress = {'side': side, 'done': total, 'total': total, 'current': None, 'latest': latest,
+                         'experiment': experiment, 'experiment_index': experiment_index,
+                         'experiment_count': experiment_count, 'session_done': session_offset + total,
+                         'session_total': session_total}
         if self.cancel_event.is_set():
             raise ValueError('Cancelled')
         return outcomes
@@ -540,7 +681,20 @@ class Controller:
                                                        'temperature': 0.4, 'seed': 1},
                                think=False, keep_alive='5m', cancel=cancel)
 
-    def execute(self):
+    @staticmethod
+    def public_change(change):
+        return {key: change[key] for key in ('id', 'version', 'title', 'file', 'text', 'target_check', 'scope')}
+
+    def execute(self, plan, previous_record=None):
+        path = agents_path(self.home)
+        raw_before = read_text(path)
+        protected = fingerprint(self.home)
+        journal, _ = paths(self.home)
+        prior_record = copy.deepcopy(previous_record)
+        experiments = []
+        session_total = len(self.tasks['tasks']) * (1 + len(plan))
+        current_change = None
+        raw_after = None
         try:
             _, model = self.validate_profile(self.home)
         except Exception:
@@ -548,18 +702,17 @@ class Controller:
             raise
         if isinstance(self.runner, OpenClawRunner):
             self.runner.expected_model = model
-        path = agents_path(self.home)
-        raw_before = read_text(path)
-        raw_after = staged(raw_before)
+        if [change['id'] for change in plan] != [change['id'] for change in planned_changes(raw_before, previous_record)]:
+            raise ValueError('The disclosed improvement plan changed before the run started')
         config = read_json(storage.safe_local(self.home / '.openclaw/openclaw.json'))
         limit = config.get('agents', {}).get('defaults', {}).get('bootstrapMaxChars', 20000)
-        if not isinstance(limit, int) or len(raw_after) > limit:
-            self.message = 'AGENTS.md would exceed the assistant’s bootstrap limit. No change was made.'
+        if not isinstance(limit, int) or any(len(staged(raw_before, change['id'])) > limit for change in plan):
+            self.message = 'One of the reviewed ideas would exceed the assistant’s instruction limit. No change was made.'
             raise ValueError('Bootstrap instructions would be truncated')
-        protected = fingerprint(self.home)
         self.phase = 'before'
         try:
-            before = self.run_tasks('before')
+            before = self.run_tasks('before', experiment_count=len(plan),
+                                    session_total=session_total)
         except Exception:
             # A lost CLI reply can leave a gateway turn running. Release it
             # before releasing the desktop workload reservation.
@@ -570,48 +723,113 @@ class Controller:
             self.start_assistant()
             self.message = 'The trial stopped before any change was made. The assistant is ready again.'
             return 'cancelled' if self.cancel_event.is_set() else 'failed'
-        journal, _ = paths(self.home)
-        write_json(journal, {'schema': SCHEMA, 'phase': 'staging', 'change': CHANGE_ID, 'version': CHANGE_VERSION,
-                             'raw_before': raw_before, 'raw_after': raw_after, 'fingerprint': protected,
-                             'started': time.time()})
+        if read_text(path) != raw_before or fingerprint(self.home) != protected:
+            self.message = 'Assistant files changed during the baseline. No experiment was applied; review is needed.'
+            return 'recovery-blocked'
         try:
-            self.phase = 'staging'
+            for index, change in enumerate(plan):
+                if self.cancel_event.is_set():
+                    raise ValueError('Cancelled')
+                current_change = change
+                raw_after = staged(raw_before, change['id'])
+                value = {'schema': SCHEMA, 'phase': 'staging', 'change': change['id'],
+                         'version': change['version'], 'raw_before': raw_before, 'raw_after': raw_after,
+                         'fingerprint': protected, 'started': time.time(), 'previous_record': prior_record,
+                         'planned_changes': [item['id'] for item in plan]}
+                write_json(journal, value)
+                self.phase = 'staging'
+                self.restart()
+                if self.cancel_event.is_set():
+                    raise ValueError('Cancelled')
+                if read_text(path) != raw_before or fingerprint(self.home) != protected:
+                    raise ValueError('Assistant files changed during the trial')
+                write_text(path, raw_after)
+                self.start_assistant()
+                if self.cancel_event.is_set():
+                    raise ValueError('Cancelled')
+                self.phase = 'experiment'
+                after = self.run_tasks('candidate', experiment=self.public_change(change),
+                                       experiment_index=index + 1, experiment_count=len(plan),
+                                       session_offset=len(self.tasks['tasks']) * (index + 1),
+                                       session_total=session_total)
+                if read_text(path) != raw_after or fingerprint(self.home) != protected:
+                    raise ValueError('Assistant files changed during the trial')
+                comparison = compare(before, after)
+                comparison['configuration'] = {'model': model, 'tasks_version': self.tasks['version'],
+                                               'tasks_sha256': hashlib.sha256(json.dumps(self.tasks, sort_keys=True).encode()).hexdigest(),
+                                               'instruction_sha256': hashlib.sha256(change['block'].encode()).hexdigest(),
+                                               'profile_sha256': protected['openclaw.json']}
+                experiments.append({'change': self.public_change(change), 'comparison': comparison})
+                value.update(phase='restoring', result={'experiments': experiments})
+                write_json(journal, value)
+                self.phase = 'restoring'
+                self.restart()
+                if read_text(path) not in (raw_after, raw_before) or fingerprint(self.home) != protected:
+                    self.message = 'Owner edits prevent automatic recovery. The assistant is stopped; review the retained trial record.'
+                    return 'recovery-blocked'
+                if read_text(path) != raw_before:
+                    write_text(path, raw_before)
+                self.start_assistant()
+                if read_text(path) != raw_before or fingerprint(self.home) != protected:
+                    raise ValueError('Restoration between ideas could not be verified')
+                finish_journal(journal)
+                current_change = raw_after = None
+                if self.cancel_event.is_set():
+                    self.message = 'The run stopped safely. The original instructions are back.'
+                    return 'cancelled'
+
+            if not experiments:
+                self.message = 'There are no untried reviewed ideas in this starter set. Nothing was changed.'
+                return 'no-candidates'
+            winners = [item for item in experiments if item['comparison']['suggestion'] == 'keep']
+            winner = max(winners, key=lambda item: (item['comparison'].get('gained_checks', 0),
+                                                     len(item['comparison']['gains']),
+                                                     -len(item['comparison']['regressions'])), default=None)
+            result = session_result(experiments, winner['change']['id'] if winner else None)
+            if winner is None:
+                result['opinion'] = self.reflect(result, model)
+                self.session_result = result
+                self.message = 'No idea earned a clean two-challenge win. Your original setup is back; nothing new was kept.'
+                return 'no-improvement'
+
+            selected = change_for(winner['change']['id'])
+            raw_after = staged(raw_before, selected['id'])
+            value = {'schema': SCHEMA, 'phase': 'staging', 'change': selected['id'],
+                     'version': selected['version'], 'raw_before': raw_before, 'raw_after': raw_after,
+                     'fingerprint': protected, 'started': time.time(), 'previous_record': prior_record,
+                     'planned_changes': [item['id'] for item in plan], 'result': result}
+            write_json(journal, value)
+            current_change = selected
+            self.phase = 'selecting'
             self.restart()
-            if self.cancel_event.is_set():
-                raise ValueError('Cancelled')
             if read_text(path) != raw_before or fingerprint(self.home) != protected:
-                raise ValueError('Assistant files changed during the trial')
+                raise ValueError('Assistant files changed before the leading idea could be put on trial')
             write_text(path, raw_after)
             self.start_assistant()
-            if self.cancel_event.is_set():
-                raise ValueError('Cancelled')
-            self.phase = 'after'
-            after = self.run_tasks('after')
             if read_text(path) != raw_after or fingerprint(self.home) != protected:
-                raise ValueError('Assistant files changed during the trial')
-            value = read_json(journal)
-            result = compare(before, after)
-            result['configuration'] = {'model': model, 'tasks_version': self.tasks['version'],
-                                       'tasks_sha256': hashlib.sha256(json.dumps(self.tasks, sort_keys=True).encode()).hexdigest(),
-                                       'instruction_sha256': hashlib.sha256(BLOCK.encode()).hexdigest(),
-                                       'profile_sha256': protected['openclaw.json']}
+                raise ValueError('The leading idea could not be verified on the assistant')
             result['opinion'] = self.reflect(result, model)
             value.update(phase='awaiting-decision', result=result)
             write_json(journal, value)
-            self.message = 'The run is finished. Review the scorecard and your AI’s opinion, then choose what stays.'
+            self.message = 'I tried the reviewed ideas against the same questions. Review the comparison, then choose what stays.'
             return 'awaiting-decision'
         except Exception:
-            self.phase = 'restoring'
-            self.restart()
-            if read_text(path) not in (raw_after, raw_before) or fingerprint(self.home) != protected:
-                self.message = 'Owner edits prevent automatic recovery. The assistant is stopped; review the retained trial record.'
-                return 'recovery-blocked'
-            write_text(path, raw_before)
-            self.start_assistant()
-            if read_text(path) != raw_before or fingerprint(self.home) != protected:
-                raise ValueError('Restoration verification failed')
-            finish_journal(journal)
-            self.message = 'The trial stopped and the original AGENTS.md was restored.'
+            if journal.exists():
+                self.phase = 'restoring'
+                self.restart()
+                current = read_text(path)
+                if current not in (raw_after, raw_before) or fingerprint(self.home) != protected:
+                    self.message = 'Owner edits prevent automatic recovery. The assistant is stopped; review the retained trial record.'
+                    return 'recovery-blocked'
+                if current != raw_before:
+                    write_text(path, raw_before)
+                self.start_assistant()
+                if read_text(path) != raw_before or fingerprint(self.home) != protected:
+                    raise ValueError('Restoration verification failed')
+                finish_journal(journal)
+            elif not self.startup.snapshot().get('active') and fingerprint(self.home) == protected:
+                self.start_assistant()
+            self.message = 'The run stopped. The original instructions were restored and verified.'
             return 'cancelled' if self.cancel_event.is_set() else 'rolled-back'
 
     def execute_restore(self, value):
@@ -620,8 +838,7 @@ class Controller:
         if fingerprint(self.home) != value.get('fingerprint'):
             raise Refused('Protected assistant files changed; review before restoring')
         # Keep a recovery journal even when restoring a previously kept change.
-        recovery = {**value, 'schema': SCHEMA, 'phase': 'restoring',
-                    'change': CHANGE_ID, 'version': CHANGE_VERSION}
+        recovery = {**value, 'schema': SCHEMA, 'phase': 'restoring'}
         write_json(journal, recovery)
         self.restart()
         if read_text(path) != value['raw_after'] or fingerprint(self.home) != value['fingerprint']:
@@ -631,8 +848,12 @@ class Controller:
         self.start_assistant()
         if read_text(path) != value['raw_before'] or fingerprint(self.home) != value['fingerprint']:
             raise ValueError('Restore could not be verified')
-        for file in (journal, record):
-            if file.exists():
-                finish_journal(file)
+        previous = value.get('previous_record')
+        if previous is not None:
+            write_json(record, previous)
+        elif record.exists():
+            finish_journal(record)
+        if journal.exists():
+            finish_journal(journal)
         self.message = 'Restored and verified: AGENTS.md is byte-for-byte the original.'
         return 'restored'

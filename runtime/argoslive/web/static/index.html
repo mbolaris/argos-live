@@ -39,9 +39,9 @@
         <h3 id="cc-next-title">Checking your systems…</h3>
         <p id="cc-next-reason"></p>
         <section id="cc-next-trial-offer" class="cc-next-trial-offer" hidden aria-label="What GO will do">
-          <p class="cc-next-trial-kicker">ONE GO · 8 CHALLENGES BEFORE + THE SAME 8 AFTER</p>
-          <p>GO approves this exact run. I’ll add this instruction temporarily and restart chat. Your model, personality, tools and permissions stay unchanged. Watch every answer and my separate opinion, then choose Keep or Restore.</p>
-          <blockquote id="cc-next-trial-instruction"></blockquote>
+          <p class="cc-next-trial-kicker">ONE GO · ONE BASELINE · ALL UNTRIED IDEAS · UP TO 32 ANSWERS</p>
+          <p>GO approves the exact ideas below. I’ll test each on the same eight challenges, reset between ideas, and show the score as it arrives. Your model, personality, tools and permissions stay unchanged. I’ll recommend one; you choose Keep or Restore.</p>
+          <div id="cc-next-trial-instructions" class="cc-next-trial-instructions"></div>
           <details>
             <summary>See the eight questions</summary>
             <ol id="cc-next-trial-tasks"></ol>
@@ -267,20 +267,20 @@
               <h4 id="assistant-trial-title">Let your AI prove one change</h4>
               <p id="assistant-trial-text"></p>
               <section id="assistant-trial-plan" class="assistant-trial-plan" hidden aria-label="The approved improvement test">
-                <p class="assistant-trial-plan-label">ONE CHANGE · SAME EIGHT CHALLENGES · YOU CHOOSE WHAT STAYS</p>
+                <p class="assistant-trial-plan-label">ONE GO · SAME EIGHT CHALLENGES · YOU CHOOSE WHAT STAYS</p>
                 <p id="assistant-trial-plan-summary"></p>
                 <details id="assistant-trial-plan-details">
-                  <summary>See the exact change and test</summary>
-                  <blockquote id="assistant-trial-instruction" class="recipe-instruction-quote"></blockquote>
+                  <summary>See the exact ideas and test</summary>
+                  <div id="assistant-trial-ideas" class="assistant-trial-ideas"></div>
                   <ul id="assistant-trial-unchanged"></ul>
                   <ol id="assistant-trial-tasks"></ol>
                 </details>
               </section>
               <div id="assistant-trial-progress" class="assistant-trial-watch" role="region" aria-label="Assistant trial watch" hidden>
-                <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 8 answered</strong></div>
-                <progress id="assistant-trial-bar" max="8" value="0" aria-label="Assistant trial progress"></progress>
-                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight challenge steps"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="trial-watch-steps" aria-hidden="true"><span id="assistant-trial-step-before">BEFORE</span><span id="assistant-trial-step-change">CHANGE</span><span id="assistant-trial-step-after">RETEST</span></div>
+                <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 32 answers</strong></div>
+                <progress id="assistant-trial-bar" max="24" value="0" aria-label="Improvement session progress"></progress>
+                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight challenges in each stage"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="trial-watch-steps" aria-hidden="true"><span id="assistant-trial-step-before">BASELINE</span><span id="assistant-trial-step-change">IDEAS</span><span id="assistant-trial-step-after">SAME QUESTIONS</span></div>
                 <article class="trial-watch-current">
                   <p class="trial-watch-kicker">THE CHALLENGE</p>
                   <h5 id="assistant-trial-question">Preparing the first question…</h5>
@@ -295,20 +295,21 @@
                 </article>
               </div>
               <div id="assistant-trial-result" hidden></div>
-              <article id="assistant-trial-opinion" class="assistant-trial-opinion" hidden aria-live="polite">
-                <div class="assistant-trial-opinion-head"><strong>What your AI thinks</strong><span>Local model opinion · not scored</span></div>
-                <blockquote id="assistant-trial-opinion-text"></blockquote>
-                <p id="assistant-trial-opinion-model"></p>
-              </article>
               <div class="assistant-trial-actions">
                 <button id="assistant-trial-keep" type="button" class="mission-primary" hidden>Keep in my assistant</button>
                 <button id="assistant-trial-restore" type="button" class="mission-secondary" hidden>Restore the original</button>
+                <button id="assistant-trial-next-round" type="button" class="mission-primary" hidden>Run the next improvement round</button>
                 <button id="assistant-trial-chat" type="button" class="mission-primary" hidden>Try it with a real question</button>
                 <button id="assistant-trial-cancel" type="button" class="mission-secondary" hidden>Stop the trial</button>
                 <details id="assistant-trial-alternatives" class="assistant-trial-alternatives" hidden>
                   <summary>Choose a different outcome</summary>
                 </details>
               </div>
+              <article id="assistant-trial-opinion" class="assistant-trial-opinion" hidden aria-live="polite">
+                <div class="assistant-trial-opinion-head"><strong>What your AI thinks</strong><span>Local model opinion · not scored</span></div>
+                <blockquote id="assistant-trial-opinion-text"></blockquote>
+                <p id="assistant-trial-opinion-model"></p>
+              </article>
               <p id="assistant-trial-note" class="assistant-trial-note" role="status"></p>
               <details id="assistant-trial-score-details" class="assistant-trial-score-details" hidden>
                 <summary>See score breakdown and all answers</summary>

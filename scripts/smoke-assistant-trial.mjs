@@ -1,5 +1,5 @@
-// U10 acceptance in the browser: one GO approves and starts the bounded before/after trial,
-// followed by a fixture-assistant opinion, Keep, Restore, and diagnostic-only routing.
+// U10 acceptance in the browser: one GO approves a capped multi-idea matched session,
+// followed by a fixture-assistant opinion, chained Keep/Restore, and diagnostic routing.
 // Fixture replies only; never real-model evidence.
 import {createRequire} from 'node:module';
 import {spawn} from 'node:child_process';
@@ -21,6 +21,7 @@ try {
   browser = await chromium.launch({headless: true});
   const page = await browser.newPage({viewport: {width: 1280, height: 900}});
   const errors = []; page.on('pageerror', e => errors.push(e.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(`console: ${message.text()}`); });
   await page.route('**/style.css?*', async route => {
     const response = await route.fetch();
     await route.fulfill({response, body: await response.text() + '\n.simulation-banner{position:fixed;bottom:0;left:0;right:0;z-index:10000;background:#453329;color:#ffe2b0;text-align:center;font:11px system-ui;padding:5px}'});
@@ -44,7 +45,31 @@ try {
     for (const [suffix, width, height] of [['desktop', 1280, 900], ['phone', 390, 844]]) {
       await page.setViewportSize({width, height});
       await page.evaluate(selector => { const el = document.querySelector(selector); scrollTo(0, el.getBoundingClientRect().top + scrollY - 12); }, target);
+      if (width === 390 && name === '1-offer') {
+        const go = page.locator('#cc-next-go');
+        assert.equal(await go.evaluate(el => getComputedStyle(el).position), 'fixed', 'GO stays in reach while reviewing the plan on a phone');
+        const box = await go.boundingBox();
+        assert.ok(box.y + box.height <= 820, 'The pinned GO sits above the simulated-preview banner');
+      }
+      if (width === 390 && ['4-result', '4-result-one-gain-restore', '5-kept'].includes(name)) {
+        const action = page.locator('#assistant-trial .assistant-trial-actions > .mission-primary:visible');
+        assert.equal(await action.count(), 1, 'The phone has one prominent next action');
+        assert.equal(await action.evaluate(el => getComputedStyle(el).position), 'fixed', 'The result decision stays in reach on a phone');
+        const box = await action.boundingBox();
+        assert.ok(box.y + box.height <= 820, 'The pinned decision sits above the simulated-preview banner');
+      }
       await page.screenshot({path: `output/playwright/assistant-trial/${name}-${suffix}.png`});
+    }
+    if (['1-offer', '4-result', '4-result-one-gain-restore', '5-kept'].includes(name)) {
+      await page.setViewportSize({width: 320, height: 720});
+      await page.evaluate(selector => { const el = document.querySelector(selector); scrollTo(0, el.getBoundingClientRect().top + scrollY - 12); }, target);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 320), 'The 320px phone layout has no horizontal overflow');
+      const action = name === '1-offer' ? page.locator('#cc-next-go') :
+        page.locator('#assistant-trial .assistant-trial-actions > .mission-primary:visible');
+      assert.equal(await action.evaluate(el => getComputedStyle(el).position), 'fixed', 'The single next action stays pinned on a narrow phone');
+      const box = await action.boundingBox();
+      assert.ok(box.x >= 0 && box.x + box.width <= 320 && box.y + box.height <= 696,
+        'The narrow-phone action fits above the simulated-preview banner');
     }
     await page.setViewportSize({width: 1280, height: 900});
     await page.locator('.fixture-modal-label').evaluateAll(nodes => nodes.forEach(node => node.remove()));
@@ -52,18 +77,17 @@ try {
   const status = () => page.evaluate(() => api('/api/assistant-trial'));
   await page.goto(url);
   await page.locator('#cc-next-go').waitFor({state: 'visible'});
+  assert.equal(await page.locator('#cc-next-go').getAttribute('data-action'), 'documents',
+    'The first GO starts the required foundation mission');
   await page.locator('#cc-next-go').click();
-  await page.waitForFunction(() => !document.getElementById('cc-receipt').hidden && document.getElementById('command-center').dataset.watching === 'false', null, {timeout: 60000});
+  await page.waitForFunction(() => !document.getElementById('cc-receipt').hidden &&
+    document.getElementById('command-center').dataset.watching === 'false', null, {timeout: 60000});
   await page.locator('#assistant-trial').waitFor({state: 'visible', timeout: 10000});
+  assert.equal(await page.locator('#cc-receipt').isVisible(), true, 'The starting mission result remains visible before GO');
+  assert.equal(await page.locator('#command-center').getAttribute('data-watching'), 'false');
   assert.equal((await status()).status, 'none');
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /^Test: Grounded answers/);
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /same eight challenges before and after/);
-  assert.match(await page.locator('#assistant-trial-plan-summary').textContent(), /Model, personality, tools and permissions stay unchanged/);
-  assert.equal(await page.locator('#cc-next-go').isVisible(), true, 'The main GO is the one launch control');
 
-  // Put the real command-center renderer into the diagnostic follow-up state so
-  // the capture shows the actual one-tap improvement offer, not the earlier
-  // document qualification card.
+  // Simulate the diagnostic review next action after the foundation mission.
   await page.route('**/api/command-center', async route => {
     const response = await route.fetch();
     const payload = await response.json();
@@ -71,22 +95,35 @@ try {
     await route.fulfill({response, body: JSON.stringify(payload)});
   });
   await page.evaluate(() => refreshCommand());
-  await page.waitForFunction(() => document.getElementById('cc-next-go').dataset.action === 'assistant-trial');
-  assert.equal(await page.locator('#cc-next-title').textContent(), 'Ready to prove one change?');
+  await page.waitForFunction(() => document.getElementById('cc-next-go').dataset.action === 'assistant-trial' &&
+    !document.getElementById('cc-next-trial-offer').hidden, null, {timeout: 10000});
+  assert.equal(await page.locator('#cc-next-title').textContent(), 'Ready to test 3 improvement ideas?');
   assert.equal(await page.locator('#cc-next-trial-offer').isVisible(), true);
-  assert.match(await page.locator('#cc-next-trial-offer').textContent(), /GO approves this exact run/);
-  assert.match(await page.locator('#cc-next-trial-instruction').textContent(), /answer directly first/);
+  assert.match(await page.locator('#cc-next-trial-offer').textContent(), /all 3 untried ideas/i);
+  assert.match(await page.locator('#cc-next-trial-offer').textContent(), /up to 32 answers/i);
+  assert.equal(await page.locator('#cc-next-trial-instructions .cc-next-trial-idea').count(), 3);
+  assert.match(await page.locator('#cc-next-trial-instructions').textContent(), /Answer first/);
+  assert.match(await page.locator('#cc-next-trial-instructions').textContent(), /Show the source/);
+  assert.match(await page.locator('#cc-next-trial-instructions').textContent(), /Be honest when the source is silent/);
+  assert.equal(await page.locator('#cc-next-trial-instructions details').count(), 3);
+  await page.locator('#cc-next-trial-instructions details').first().locator('summary').click();
+  assert.match(await page.locator('#cc-next-trial-instructions details').first().textContent(), /begin with the direct answer in one short sentence/,
+    'The exact approved instruction remains available before GO');
+  await page.locator('#cc-next-trial-instructions details').first().locator('summary').click();
   assert.equal(await page.locator('#arena').isHidden(), true, 'The previous mission is tucked away during the focused offer');
   assert.equal(await page.locator('#chat').isHidden(), true, 'GO is the only primary action for this offer');
   await shot('1-offer', '#cc-next');
   await page.unroute('**/api/command-center');
 
   // Diagnostic misses should lead to one safe improvement offer; the disclosed GO itself is approval.
+  const firstMission = await page.evaluate(() => presentedNextAction(
+    {id: 'documents', title: 'Read this brief', reason: 'Read eight passages.', action: 'documents'}, assistantTrial));
+  assert.equal(firstMission.action, 'documents', 'An empty build still starts its foundation mission first');
   const guidedAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'}, assistantTrial));
   assert.equal(guidedAction.action, 'assistant-trial');
-  assert.equal(guidedAction.title, 'Ready to prove one change?');
-  assert.match(guidedAction.reason, /prove whether this change helps/);
+  assert.equal(guidedAction.title, 'Ready to test 3 improvement ideas?');
+  assert.match(guidedAction.reason, /whole campaign/);
   const runningAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'none', active: true}));
   assert.equal(runningAction.title, 'Watch the improvement run');
@@ -94,9 +131,10 @@ try {
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'on-trial', active: false}));
   assert.equal(decisionAction.title, 'Choose what stays in your assistant');
   const keptAction = await page.evaluate(() => presentedNextAction(
-    {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'kept', active: false}));
-  assert.equal(keptAction.action, 'chat');
-  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Go: Ready to prove one change?');
+    {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'kept', active: false,
+      changes: [{id: 'answer-first'}]}));
+  assert.equal(keptAction.action, 'assistant-trial');
+  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Go: Ready to test 3 improvement ideas?');
   await page.locator('#cc-next-go').click();
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).active, null, {timeout: 10000, polling: 100});
   assert.equal(await page.locator('#assistant-trial-modal').count(), 0, 'The one GO action starts the exact disclosed trial; no second approval dialog');
@@ -104,7 +142,7 @@ try {
 
   // ---- One GO runs baseline, temporary change, matched retest and opinion.
   await page.waitForFunction(() => !document.getElementById('assistant-trial-progress').hidden &&
-    document.getElementById('assistant-trial-stage').textContent.startsWith('Baseline'), null, {timeout: 10000});
+    document.getElementById('assistant-trial-stage').textContent.startsWith('Starting line'), null, {timeout: 10000});
   assert.equal(await page.locator('#cc-next').isHidden(), true,
     'The main mission card does not compete with the running trial');
   for (const id of ['#cc-receipt-kicker', '#cc-receipt-title', '#cc-takeaway', '#improve-comparison', '#cc-debrief', '#full-skill-map']) {
@@ -112,10 +150,9 @@ try {
       `${id} is tucked away while the assistant trial is in focus`);
   }
   await page.waitForFunction(() => !document.getElementById('assistant-trial-latest').hidden, null, {timeout: 10000});
-  assert.match(await page.locator('#assistant-trial-count').textContent(), /[1-8] of 8 answered/);
-  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Watch me put this change to the test');
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /same eight challenges before and after/);
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /each answer arrive/);
+  assert.match(await page.locator('#assistant-trial-count').textContent(), /[1-8] of 32 answers/);
+  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Watch me test these ideas');
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /resetting between them/);
   assert.ok((await page.locator('#assistant-trial-question').textContent()).length > 10);
   assert.ok((await page.locator('#assistant-trial-last-question').textContent()).length > 10,
     'The visible answer is paired with the challenge that produced it');
@@ -123,16 +160,46 @@ try {
   assert.ok(await page.locator('#assistant-trial-checks li').count() > 0);
   assert.equal(await page.locator('#assistant-trial-pips span').count(), 8);
   assert.equal(await page.locator('#assistant-trial-source').isHidden(), false, 'The current document source is available while watching');
+  await page.setViewportSize({width: 390, height: 844});
+  const stopBox = await page.locator('#assistant-trial-cancel').boundingBox();
+  assert.equal(await page.locator('#assistant-trial-cancel').evaluate(el => getComputedStyle(el).position), 'fixed',
+    'Stop stays in reach while the challenge and answer stack scroll on a phone');
+  assert.ok(stopBox.y + stopBox.height <= 820, 'The fixed Stop control sits above the simulated-preview banner');
+  await page.setViewportSize({width: 1280, height: 900});
   await shot('3-running');
-  await page.waitForFunction(async () => (await api('/api/assistant-trial')).status === 'on-trial', null, {timeout: 60000, polling: 500});
-  await page.waitForFunction(() => !document.getElementById('assistant-trial-result').hidden);
+  try {
+    await page.waitForFunction(async () => {
+      const value = await api('/api/assistant-trial');
+      return !value.active && value.status === 'on-trial';
+    }, null, {timeout: 60000, polling: 500});
+  } catch (error) {
+    console.error('The first assistant trial did not reach its decision:', JSON.stringify({trial: await status(), errors}));
+    await page.screenshot({path: 'output/playwright/assistant-trial/first-trial-timeout.png', fullPage: true});
+    throw error;
+  }
+  try {
+    await page.waitForFunction(() => !document.getElementById('assistant-trial-result').hidden, null, {timeout: 10000});
+  } catch (error) {
+    const state = await page.evaluate(async () => ({
+      rendered: {status: assistantTrial?.status, active: assistantTrial?.active, hasResult: Boolean(assistantTrial?.result),
+        resultState: assistantTrial?.result_state, actionPending: trialActionPending, followScheduled: Boolean(trialFollow)},
+      resultHidden: document.getElementById('assistant-trial-result').hidden,
+      server: await api('/api/assistant-trial'),
+    }));
+    console.error('Server completed the run but the result card stayed hidden:', JSON.stringify(state));
+    throw error;
+  }
   const result = (await status()).result;
-  assert.deepEqual(result.totals, {answer: {before: 0, after: 3, total: 3}, not_stated: {before: 0, after: 3, total: 3},
+  assert.equal(result.experiments.length, 3);
+  assert.equal(result.selected_change, 'quote-evidence');
+  assert.deepEqual(result.totals, {answer: {before: 0, after: 3, total: 3}, not_stated: {before: 0, after: 0, total: 3},
                                    control: {before: 2, after: 2, total: 2}}, JSON.stringify(result.rows.map(row => ({id: row.id, before: row.before.reply, after: row.after.reply}))));
   assert.equal(result.evidence, 'everyday-assistant');
   const card = await page.locator('#assistant-trial').textContent();
-  assert.equal(await page.locator('#assistant-trial-result h5').textContent(), 'Better on this retest');
-  assert.match(card, /6 challenges improved · 2 unchanged · 0 worse/);
+  assert.equal(await page.locator('#assistant-trial-result .assistant-trial-verdict h5').textContent(), 'Better on this retest');
+  assert.match(card, /3 of 8 challenges improved · 5 stayed the same · 0 slipped/);
+  assert.match(card, /Answer first/);
+  assert.match(card, /Show the source/);
   assert.match(card, /Recommended next: keep this change/);
   assert.match(card, /not meaningful/);
   assert.equal(await page.locator('#assistant-trial-opinion').isVisible(), true,
@@ -140,9 +207,10 @@ try {
   assert.match(await page.locator('#assistant-trial-opinion-text').textContent(), /I handled the supplied notices better/);
   assert.match(await page.locator('#assistant-trial-opinion').textContent(), /not scored/);
   assert.match(await page.locator('#assistant-trial-opinion-model').textContent(), /no tools or personal profile loaded/);
-  assert.doesNotMatch(card, /\d+ of 24/, 'No lab score inside assistant evidence');
+  assert.doesNotMatch(await page.locator('#assistant-trial-opinion').textContent(), /\d+ of 32/,
+    'No session-wide lab count is presented as an assistant score');
   assert.equal(await page.locator('#assistant-trial-keep').isVisible(), true);
-  assert.equal(await page.locator('#assistant-trial-keep').textContent(), 'Keep this instruction · recommended');
+  assert.equal(await page.locator('#assistant-trial-keep').textContent(), 'Keep “Show the source” · recommended');
   assert.equal(await page.locator('#assistant-trial .assistant-trial-checkpoint').count(), 8,
     'The result shows one visual checkpoint for each matched challenge');
   assert.equal(await page.locator('#receipt-actions').isHidden(), true,
@@ -158,7 +226,7 @@ try {
       `${id} stays out of the active decision view`);
   }
   assert.deepEqual((await page.locator('#assistant-trial .assistant-trial-actions button:visible').allTextContents()),
-    ['Keep this instruction · recommended'], 'Only the recommended action is prominent');
+    ['Keep “Show the source” · recommended'], 'Only the recommended action is prominent');
   assert.equal(await page.locator('#assistant-trial-alternatives').isVisible(), true);
   assert.equal(await page.locator('#assistant-trial-restore').isVisible(), false,
     'The alternative is tucked under one choice disclosure');
@@ -180,31 +248,42 @@ try {
   oneGain.suggestion = 'restore';
   oneGain.totals = {answer: {before: 0, after: 0, total: 3}, not_stated: {before: 2, after: 3, total: 3},
                     control: {before: 2, after: 2, total: 2}};
-  await page.evaluate(value => { assistantTrial.result = value; renderAssistantTrial(); }, oneGain);
-  assert.equal(await page.locator('#assistant-trial-result h5').textContent(), 'One small win — not proven yet');
+  let forcedTrialResult = oneGain;
+  await page.route('**/api/assistant-trial', async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    if (forcedTrialResult) payload.result = forcedTrialResult;
+    await route.fulfill({response, body: JSON.stringify(payload)});
+  });
+  await page.evaluate(() => refreshAssistantTrial());
+  assert.equal(await page.locator('#assistant-trial-result .assistant-trial-verdict h5').textContent(), 'One small win — not proven yet');
   assert.match(await page.locator('#assistant-trial-result').textContent(), /1 challenge improved · 7 unchanged · 0 worse/);
   assert.match(await page.locator('#assistant-trial-result').textContent(), /two clean wins/);
   assert.deepEqual((await page.locator('#assistant-trial .assistant-trial-actions button:visible').allTextContents()),
-    ['Restore the original instruction · recommended'], 'A cautious result has one prominent next action');
+    ['Restore the previous setup · recommended'], 'A cautious result has one prominent next action');
   assert.equal(await page.locator('#assistant-trial-keep').isVisible(), false);
   await page.locator('#assistant-trial-alternatives > summary').click();
-  assert.equal(await page.locator('#assistant-trial-keep').textContent(), 'Keep this instruction instead');
+  assert.equal(await page.locator('#assistant-trial-keep').textContent(), 'Keep “Show the source”');
   await page.locator('#assistant-trial-alternatives > summary').click();
   await shot('4-result-one-gain-restore');
-  await page.evaluate(value => { assistantTrial.result = value; renderAssistantTrial(); }, result);
-  assert.equal(await page.locator('#assistant-trial-result h5').textContent(), 'Better on this retest');
+  forcedTrialResult = result;
+  await page.evaluate(() => refreshAssistantTrial());
+  forcedTrialResult = null;
+  await page.unroute('**/api/assistant-trial');
+  assert.equal(await page.locator('#assistant-trial-result .assistant-trial-verdict h5').textContent(), 'Better on this retest');
 
   // ---- Keep, verified; then Restore, verified byte-exact by the controller.
   await page.locator('#assistant-trial-keep').click();
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).status === 'kept', null, {polling: 300});
   assert.match(await page.locator('#assistant-trial-note').textContent(), /Kept and verified/);
-  assert.equal(await page.locator('#assistant-trial-result h5').textContent(), 'Change kept');
-  assert.equal(await page.locator('#assistant-trial-chat').isVisible(), true, 'Keep offers the real next step: try a real question in chat');
+  assert.equal(await page.locator('#assistant-trial-result .assistant-trial-verdict h5').textContent(), 'Change kept');
+  assert.equal(await page.locator('#assistant-trial-next-round').isVisible(), false, 'The one GO campaign tested every starter idea');
+  assert.equal(await page.locator('#assistant-trial-chat').isVisible(), true, 'After the campaign, the next step is trying a real question');
   assert.equal(await page.locator('#assistant-trial-chat').isDisabled(), await page.locator('#chat').isDisabled(),
     'The next-step button follows live chat availability; this fixture has no chat endpoint');
-  assert.match(await page.locator('#assistant-trial-result').textContent(), /Next: try me with a real question in chat/);
+  assert.match(await page.locator('#assistant-trial-result').textContent(), /restore the original any time/);
   assert.deepEqual((await page.locator('#assistant-trial .assistant-trial-actions button:visible').allTextContents()),
-    ['Try it with a real question'], 'After Keep, trying the assistant is the single primary next step');
+    ['Try it with a real question'], 'After Keep, trying the assistant is the single primary action');
   assert.equal(await page.locator('#command-center').evaluate(el => el.classList.contains('assistant-trial-focus')), true,
     'Keep continues the focused flow into the real-question follow-up');
   assert.equal(await page.locator('#assistant-trial-restore').isVisible(), false,
@@ -219,9 +298,14 @@ try {
     'The main mission card returns after Restore');
   assert.equal(await page.locator('#command-center').evaluate(el => el.classList.contains('assistant-trial-focus')), false,
     'The focused mode ends when the choice is resolved');
-  for (const id of ['#receipt-extra-details', '#cc-receipt-kicker', '#cc-receipt-title', '#cc-takeaway',
-                    '#cc-strengths-disclosure', '#cc-evidence-disclosure',
-                    '#cc-diagnostics-disclosure', '#example-missions', '#cc-progress-journal', '#cc-task-box', '#full-skill-map']) {
+  const restoredSections = ['#receipt-extra-details', '#cc-receipt-kicker', '#cc-receipt-title', '#cc-takeaway',
+    '#cc-strengths-disclosure', '#cc-evidence-disclosure', '#cc-diagnostics-disclosure',
+    '#example-missions', '#cc-progress-journal', '#cc-task-box', '#full-skill-map'];
+  await page.waitForFunction(ids => ids.every(id => {
+    const el = document.querySelector(id);
+    return el && !el.hidden && getComputedStyle(el).display !== 'none';
+  }), restoredSections, {timeout: 10000});
+  for (const id of restoredSections) {
     assert.equal(await page.locator(id).isHidden(), false,
       `${id} returns after the focused assistant decision is complete`);
   }

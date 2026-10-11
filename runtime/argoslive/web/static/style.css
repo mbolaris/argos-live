@@ -2054,6 +2054,7 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .assistant-trial-alternatives[hidden] { display: none; }
 .assistant-trial-watch { margin: 16px 0; padding: 16px; border: 1px solid #315963; border-radius: 14px; background: radial-gradient(ellipse at 0% 0%, #1c625a38, transparent 65%), #0a1820; color: var(--text); }
 #assistant-trial-progress[hidden] { display: none; }
+#command-center.assistant-trial-running #assistant-trial-cancel:not([hidden]) { position: fixed; z-index: 120; right: max(16px, calc((100vw - 1016px) / 2)); bottom: 28px; left: max(16px, calc((100vw - 1016px) / 2)); width: auto; margin: 0; border-color: #8de5db; background: rgba(12, 35, 43, .96); box-shadow: 0 8px 32px #000b; backdrop-filter: blur(10px); }
 .trial-watch-topline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .trial-watch-stage { color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .04em; }
 .trial-watch-topline strong { font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -2129,6 +2130,14 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .cc-next-trial-kicker { margin: 0 0 7px; color: #8aecd9; font-size: 11px; font-weight: 850; letter-spacing: .09em; }
 .cc-next-trial-offer > p:not(.cc-next-trial-kicker) { margin: 0; color: var(--text); font-size: 13px; line-height: 1.45; }
 .cc-next-trial-offer blockquote { margin: 9px 0; padding: 9px 11px; border-left: 3px solid #72d9c9; border-radius: 0 8px 8px 0; background: #0a171d; color: var(--text); font-size: 13px; line-height: 1.4; }
+.cc-next-trial-instructions { display: grid; gap: 8px; margin: 10px 0; }
+.cc-next-trial-idea { margin: 0 !important; }
+.cc-next-trial-idea { padding: 9px 10px; border: 1px solid #294253; border-radius: 9px; background: #0a171d; }
+.cc-next-trial-idea > strong { display: block; margin: 0 0 3px; color: #9cefe1; }
+.cc-next-trial-idea > p { margin: 0; color: var(--text); font-size: 12px; line-height: 1.35; }
+.cc-next-trial-idea details { margin-top: 5px; }
+.cc-next-trial-idea details blockquote { margin: 5px 0 0; }
+.cc-next-trial-idea strong { display: block; margin-bottom: 4px; color: #9cefe1; }
 .cc-next-trial-offer blockquote strong { display: block; margin-bottom: 5px; color: #9cefe1; }
 .cc-next-trial-offer blockquote p { margin: 0; }
 .cc-next-trial-offer details { margin-top: 9px; color: var(--muted); font-size: 12px; }
@@ -2136,6 +2145,18 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .cc-next-trial-offer ol { padding-left: 22px; }
 .cc-next-trial-offer li { margin: 7px 0; line-height: 1.4; }
 .cc-next-trial-guardrail { margin: 9px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.assistant-trial-ideas { display: grid; gap: 9px; margin-top: 10px; }
+.assistant-trial-idea { padding: 12px; border: 1px solid #294253; border-radius: 10px; background: #0b1720; }
+.assistant-trial-idea h5 { margin: 0 0 7px; color: var(--accent); font-size: 14px; }
+.assistant-trial-idea blockquote { margin: 0; color: var(--text); white-space: pre-wrap; }
+.assistant-trial-idea blockquote strong { display: block; margin-bottom: 4px; }
+.assistant-trial-idea blockquote p { margin: 0; }
+.assistant-trial-experiments { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 9px; }
+.assistant-trial-experiment { padding: 12px; border: 1px solid #304553; border-radius: 12px; background: #0c1922; }
+.assistant-trial-experiment.selected { border-color: #70d7c7; background: linear-gradient(145deg, #12312f, #0c1922 75%); }
+.assistant-trial-experiment h5 { margin: 0 0 7px; color: var(--text); font-size: 15px; line-height: 1.3; }
+.assistant-trial-experiment p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+.assistant-trial-experiment .assistant-trial-experiment-target { color: #9cefe1; font-variant-numeric: tabular-nums; }
 .assistant-trial-verdict { padding: 16px; border: 1px solid #42626a; border-radius: 14px; background: #101f29; }
 .assistant-trial-verdict.better, .assistant-trial-verdict.kept { border-color: #58b9ac; background: radial-gradient(ellipse at 100% 0%, #17423f44, transparent 65%), #101f29; }
 .assistant-trial-verdict.mixed, .assistant-trial-verdict.cautious, .assistant-trial-verdict.caution { border-color: #d1a568; background: radial-gradient(ellipse at 100% 0%, #60462933, transparent 65%), #101f29; }
@@ -2161,5 +2182,13 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .trial-row { padding: 8px 0; border-top: 1px solid var(--line); }
 .trial-row-head { margin: 0 0 4px; font-size: 13px; color: var(--text); }
 .trial-row-side { margin: 0 0 4px; font-size: 13px; overflow-wrap: anywhere; }
-@media (max-width: 600px) { .assistant-trial { padding: 18px 12px; } .assistant-trial-actions { display: grid; } .assistant-trial-actions button { width: 100%; margin: 0; } .assistant-trial-watch { padding: 12px; } .trial-watch-current, .trial-watch-latest { padding: 11px; } .assistant-trial-verdict { padding: 14px 12px; } .assistant-trial-verdict h5 { font-size: 19px; } }
+@media (max-width: 600px) { .assistant-trial { padding: 18px 12px; } .assistant-trial-actions { display: grid; } .assistant-trial-actions button { width: 100%; margin: 0; } .assistant-trial-watch { padding: 12px; } .trial-watch-current, .trial-watch-latest { padding: 11px; } .assistant-trial-verdict { padding: 14px 12px; } .assistant-trial-verdict h5 { font-size: 19px; } .assistant-trial-experiments { grid-template-columns: 1fr; } }
+@media (max-width: 700px) {
+  #command-center.assistant-trial-offer-focus #cc-next-go:not([hidden]),
+  #command-center.assistant-trial-focus #assistant-trial .assistant-trial-actions > .mission-primary:not([hidden]) {
+    position: fixed; z-index: 120; right: 16px; bottom: max(28px, env(safe-area-inset-bottom)); left: 16px;
+    width: auto; margin: 0; box-shadow: 0 8px 32px #000b; backdrop-filter: blur(10px);
+  }
+  #command-center.assistant-trial-focus #assistant-trial { padding-bottom: 84px; }
+}
 @media (prefers-reduced-motion: reduce) { .assistant-trial-checkpoint.improved { animation: none; } }
