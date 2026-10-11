@@ -2042,10 +2042,45 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .assistant-trial h4 { margin: 0 0 8px; font-size: 20px; }
 .assistant-trial-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .assistant-trial-actions button { width: auto; margin: 0; }
-.assistant-trial-progress { color: var(--text); }
+.assistant-trial-watch { margin: 16px 0; padding: 16px; border: 1px solid #315963; border-radius: 14px; background: radial-gradient(ellipse at 0% 0%, #1c625a38, transparent 65%), #0a1820; color: var(--text); }
+#assistant-trial-progress[hidden] { display: none; }
+.trial-watch-topline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.trial-watch-stage { color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .04em; }
+.trial-watch-topline strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+.assistant-trial-watch > progress { display: block; appearance: none; width: 100%; height: 10px; margin: 12px 0; border: 0; border-radius: 99px; background: #1a2c38; }
+.assistant-trial-watch > progress::-webkit-progress-bar { border-radius: 99px; background: #1a2c38; }
+.assistant-trial-watch > progress::-webkit-progress-value { border-radius: 99px; background: linear-gradient(90deg, #67c9c2, #9bf0dd); transition: width .3s ease; }
+.assistant-trial-watch > progress::-moz-progress-bar { border-radius: 99px; background: linear-gradient(90deg, #67c9c2, #9bf0dd); }
+.trial-watch-pips { display: flex; justify-content: space-between; gap: 6px; margin: -4px 2px 14px; }
+.trial-watch-pips span { width: 10px; height: 10px; border: 1px solid #536775; border-radius: 50%; background: #1a2c38; transition: background .25s, border-color .25s, box-shadow .25s; }
+.trial-watch-pips span.done { border-color: var(--accent); background: var(--accent); }
+.trial-watch-pips span.current { border-color: #fff; box-shadow: 0 0 0 3px #82e4de66; }
+.trial-watch-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 14px; }
+.trial-watch-steps span { padding: 6px 8px; border: 1px solid #2b3e4b; border-radius: 7px; color: var(--muted); text-align: center; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.trial-watch-steps span.active { border-color: var(--accent); background: #82e4de18; color: var(--accent); }
+.trial-watch-steps span.done { color: #9de8d8; }
+.trial-watch-current { padding: 14px; border: 1px solid #263e4d; border-radius: 10px; background: #10212c; }
+.trial-watch-kicker { margin: 0 0 6px; color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.trial-watch-current h5 { margin: 0; font-size: 17px; line-height: 1.4; }
+.trial-watch-thinking { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+.trial-watch-thinking::before { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--accent); content: ''; animation: trial-pulse 1.3s ease-in-out infinite; }
+@keyframes trial-pulse { 50% { opacity: .3; transform: scale(.75); } }
+.trial-watch-current details { margin-top: 10px; }
+.trial-watch-current details summary { color: var(--accent); font-size: 12px; cursor: pointer; }
+.trial-watch-current details p { max-height: 180px; overflow: auto; margin: 8px 0 0; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+.trial-watch-latest { margin-top: 10px; padding: 14px; border: 1px solid #294b4a; border-radius: 10px; background: #0c292b; }
+.trial-watch-latest[hidden] { display: none; }
+.trial-watch-latest blockquote { max-height: 150px; overflow: auto; margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.trial-watch-latest .trial-watch-kicker span { color: var(--text); font-weight: 600; letter-spacing: 0; text-transform: none; }
+.trial-watch-checks { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.trial-watch-checks li { padding: 4px 7px; border-radius: 99px; background: #18333a; font-size: 11px; }
+.trial-watch-checks li.passed { color: #9de8d8; }
+.trial-watch-checks li.missed { color: #f3c18d; }
+.trial-watch-time { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .trial-watch-thinking::before { animation: none; } }
 .assistant-trial-note { font-size: 13px; }
 .assistant-trial-summary { margin: 8px 0 4px; color: var(--text); }
 .trial-row { padding: 8px 0; border-top: 1px solid var(--line); }
 .trial-row-head { margin: 0 0 4px; font-size: 13px; color: var(--text); }
 .trial-row-side { margin: 0 0 4px; font-size: 13px; overflow-wrap: anywhere; }
-@media (max-width: 600px) { .assistant-trial { padding: 18px 12px; } .assistant-trial-actions button { width: 100%; } }
+@media (max-width: 600px) { .assistant-trial { padding: 18px 12px; } .assistant-trial-actions button { width: 100%; } .assistant-trial-watch { padding: 12px; } .trial-watch-current, .trial-watch-latest { padding: 11px; } }

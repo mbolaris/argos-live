@@ -105,6 +105,36 @@ class TrialTests(unittest.TestCase):
         self.assertIn(at.BLOCK, self.agents.read_text())
         self.assertEqual((self.agents.parent / 'SOUL.md').read_text(), 'SOUL.md persona')
 
+    def test_live_progress_shows_current_challenge_and_latest_scored_reply(self):
+        trial = self.trial()
+        first_reply_returned = threading.Event()
+        release_second_turn = threading.Event()
+        turn = trial.runner.turn
+
+        def pause_second_turn(message):
+            reply = turn(message)
+            if len(trial.runner.turns) == 2:
+                first_reply_returned.set()
+                release_second_turn.wait(timeout=5)
+            return reply
+
+        trial.runner.turn = pause_second_turn
+        trial.start()
+        try:
+            self.assertTrue(first_reply_returned.wait(timeout=5))
+            progress = trial.snapshot()['progress']
+            self.assertEqual((progress['side'], progress['done'], progress['total']), ('before', 1, 8))
+            self.assertEqual(progress['current']['id'], 'makerspace-answer')
+            self.assertTrue(progress['current']['question'])
+            self.assertTrue(progress['current']['source'])
+            self.assertEqual(progress['latest']['id'], 'garden-answer')
+            self.assertTrue(progress['latest']['reply'])
+            self.assertIn('checks', progress['latest'])
+            self.assertNotIn('session_id', progress['latest'])
+        finally:
+            release_second_turn.set()
+        self.wait(trial)
+
     def test_keep_records_and_restore_is_byte_exact(self):
         trial = self.trial()
         trial.start(); self.wait(trial)

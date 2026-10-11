@@ -3600,23 +3600,70 @@ function renderAssistantTrial() {
   const progress = document.getElementById('assistant-trial-progress');
   const result = document.getElementById('assistant-trial-result');
   const status = value.status;
-  document.getElementById('assistant-trial-text').textContent = {
-    none: `Lab results don’t change your assistant. This tries one reviewed instruction (“${value.change.title}”) in the assistant you actually talk to, measured on new questions before and after.`,
+  document.getElementById('assistant-trial-title').textContent = value.active ? 'Watch me put this change to the test' : ({
+    none: 'Ready to prove I can do better?', 'on-trial': 'The results are in — your call',
+    kept: 'Change kept; keep me honest', edited: 'Your edits need a hand review',
+    unfinished: 'The trial stopped early', 'needs-review': 'This trial needs a closer look'}[status] || 'Your assistant trial');
+  document.getElementById('assistant-trial-text').textContent = value.active
+    ? 'I’m working through the same eight questions before and after. Each answer and its checks show up here as soon as that turn finishes. When the run is done, you choose Keep or Restore.'
+    : ({
+    none: `Lab scores don’t change your assistant. I’m ready to test one reviewed instruction (“${value.change.title}”) in the assistant you use, with the same eight questions before and after. Review it; approve to start, then judge the results yourself.`,
     'on-trial': 'The change is on trial in your assistant. Decide using the assistant’s own results below, not lab scores.',
     kept: 'Kept: your assistant uses this change. You can restore the original file at any time.',
     edited: 'AGENTS.md was edited after this change, so Argos won’t restore it automatically. Review the file by hand.',
     unfinished: 'A trial didn’t finish. Recovery must verify the saved files before restoring anything; owner edits need review.',
-    'needs-review': 'The trial record needs review before Argos changes anything.'}[status] || '';
+    'needs-review': 'The trial record needs review before Argos changes anything.'}[status] || '');
   progress.hidden = !value.active;
   // Follow an active trial closely; idle polling stays slow.
   if (value.active && !trialFollow) trialFollow = setTimeout(() => { trialFollow = null; refreshAssistantTrial(); }, 700);
   if (value.active) {
     const p = value.progress || {};
-    const step = ['before', 'after'].includes(value.phase) ? (p.side || value.phase) : value.phase;
-    progress.textContent = {before: `Asking your assistant the trial questions as it is now: ${p.done ?? 0} of ${p.total ?? 0}…`,
-      after: `Asking the same questions with the change: ${p.done ?? 0} of ${p.total ?? 0}…`,
-      staging: 'Restarting your assistant with the change…', starting: 'Starting the trial…',
-      restoring: 'Restoring the original AGENTS.md and restarting your assistant…'}[step] || 'Working…';
+    const phase = value.phase;
+    const side = ['before', 'after'].includes(phase) ? phase : p.side;
+    document.getElementById('assistant-trial-stage').textContent = {
+      before: 'Baseline · your assistant today', after: 'Retest · same questions, with the change',
+      staging: 'Switching to the reviewed change', starting: 'Getting ready to test',
+      restoring: 'Restoring the original setup'}[phase] || 'Working on the trial';
+    document.getElementById('assistant-trial-count').textContent = `${p.done ?? 0} of ${p.total ?? 8} answered`;
+    const bar = document.getElementById('assistant-trial-bar');
+    bar.max = p.total || 8;
+    bar.value = Math.min(p.done || 0, bar.max);
+    for (const [index, pip] of document.querySelectorAll('#assistant-trial-pips span').entries()) {
+      pip.classList.toggle('done', index < (p.done || 0));
+      pip.classList.toggle('current', index === (p.done || 0) && Boolean(p.current));
+    }
+    for (const [id, active] of [['before', side === 'before' && phase !== 'staging'],
+                                ['change', ['staging', 'restoring'].includes(phase)], ['after', side === 'after']]) {
+      const marker = document.getElementById(`assistant-trial-step-${id}`);
+      marker.classList.toggle('active', active);
+      marker.classList.toggle('done', (id === 'before' && ['staging', 'after', 'restoring'].includes(phase)) ||
+        (id === 'change' && phase === 'after'));
+    }
+    const current = p.current;
+    const latest = p.latest;
+    document.getElementById('assistant-trial-question').textContent = current?.question || ({
+      starting: 'The assistant is getting ready.', staging: 'Applying the reviewed instruction before the retest.',
+      restoring: 'The original instruction is being restored.'}[phase] || 'Finishing this part of the trial…');
+    document.getElementById('assistant-trial-source').hidden = !current?.source;
+    document.getElementById('assistant-trial-source-text').textContent = current?.source || '';
+    document.getElementById('assistant-trial-thinking').textContent = current && ['before', 'after'].includes(phase)
+      ? (latest?.id === current.id ? 'Answer received · moving to the next challenge…' : 'Your assistant is working on this answer…')
+      : ({staging: 'Restarting the assistant safely…', starting: 'Checking the assistant is ready…',
+         restoring: 'Verifying the original is back in place…'}[phase] || 'Working…');
+    const latestCard = document.getElementById('assistant-trial-latest');
+    latestCard.hidden = !latest;
+    if (latest) {
+      document.getElementById('assistant-trial-last-question').textContent = latest.question;
+      document.getElementById('assistant-trial-reply').textContent = latest.reply;
+      document.getElementById('assistant-trial-checks').replaceChildren(...Object.entries(latest.checks || {}).map(([key, passed]) => {
+        const item = document.createElement('li');
+        item.className = passed ? 'passed' : 'missed';
+        item.textContent = `${passed ? '✓' : '○'} ${trialChecks[key] || key}`;
+        return item;
+      }));
+      const elapsed = Number.isFinite(latest.elapsed_seconds) ? ` · ${latest.elapsed_seconds}s` : '';
+      document.getElementById('assistant-trial-time').textContent = `${trialKinds[latest.kind] || 'Challenge'}${elapsed}`;
+    }
   }
   document.getElementById('assistant-trial-note').textContent = value.message || '';
   const show = (id, visible) => { document.getElementById(id).hidden = !visible; };

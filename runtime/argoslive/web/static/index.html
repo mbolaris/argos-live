@@ -257,7 +257,24 @@
               <p class="mission-label">Your everyday assistant</p>
               <h4 id="assistant-trial-title">Try one change in the assistant you talk to</h4>
               <p id="assistant-trial-text"></p>
-              <p id="assistant-trial-progress" class="assistant-trial-progress" role="status" aria-live="polite" hidden></p>
+              <div id="assistant-trial-progress" class="assistant-trial-watch" role="region" aria-label="Assistant trial watch" hidden>
+                <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 8 answered</strong></div>
+                <progress id="assistant-trial-bar" max="8" value="0" aria-label="Assistant trial progress"></progress>
+                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight challenge steps"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="trial-watch-steps" aria-hidden="true"><span id="assistant-trial-step-before">BEFORE</span><span id="assistant-trial-step-change">CHANGE</span><span id="assistant-trial-step-after">RETEST</span></div>
+                <article class="trial-watch-current">
+                  <p class="trial-watch-kicker">THE CHALLENGE</p>
+                  <h5 id="assistant-trial-question">Preparing the first question…</h5>
+                  <p id="assistant-trial-thinking" class="trial-watch-thinking" role="status" aria-live="polite">Getting the assistant ready…</p>
+                  <details id="assistant-trial-source" hidden><summary>Read the source notice</summary><p id="assistant-trial-source-text"></p></details>
+                </article>
+                <article id="assistant-trial-latest" class="trial-watch-latest" hidden>
+                  <p class="trial-watch-kicker">LAST ANSWER · <span id="assistant-trial-last-question"></span></p>
+                  <blockquote id="assistant-trial-reply"></blockquote>
+                  <ul id="assistant-trial-checks" class="trial-watch-checks"></ul>
+                  <p id="assistant-trial-time" class="trial-watch-time"></p>
+                </article>
+              </div>
               <div id="assistant-trial-result" hidden></div>
               <p id="assistant-trial-note" class="assistant-trial-note" role="status"></p>
               <div class="assistant-trial-actions">

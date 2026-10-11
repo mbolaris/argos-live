@@ -1140,6 +1140,8 @@ assistant; live progress, before/after evidence, and Keep/Restore remain visible
 as the loop continues. If the trial was kept, GO returns the owner to a real chat
 task. Give the agent an eager, evidence-honest voice: it should invite the owner
 to let it prove whether a proposed change helps, promise a matched retest, and
-make clear the owner still chooses Keep or Restore. Keep other setup and scoring
+make clear the owner still chooses Keep or Restore. During the trial, make the
+before/change/retest stages, current question, latest answer and its limited
+checks visible as each assistant turn completes. Keep other setup and scoring
 details secondary, and test the full path in fixture browsers at phone and
 desktop sizes before any Toronado deployment.
