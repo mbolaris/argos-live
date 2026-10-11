@@ -34,14 +34,15 @@ The owner has narrowed the next milestone to personality and reviewed skill tran
 
 ## Stable update maintenance
 
-Daily read-only GitHub Actions discovery is configured for OpenClaw, Ollama and Node. The October 3 upstream check found OpenClaw 2026.9.8 and Ollama 0.35.1; the current ISO/USB still runs 2026.9.7 and 0.35.0. Candidate pins and metadata were generated, not promoted. Four discovery tests and Linux shell syntax checks pass. Debian security/stable-update repositories are now enabled in the build source with a separately pinned security snapshot, but this requires a clean candidate build and package audit. See RELEASE-PROCESS.md.
+Daily read-only GitHub Actions discovery is configured for OpenClaw, Ollama and Node. The current ISO/USB still runs OpenClaw 2026.9.7 and Ollama 0.35.0. An October 11 discovery found stable OpenClaw 2026.10.1; an OpenClaw-only candidate keeps Ollama 0.35.1 and Node 26.10.0 unchanged. Candidate pins, lock and addon metadata are staged for compatibility review, not installed or promoted. Its audit reports five transitive findings (three high, two moderate); Debian snapshots also need refreshing before a clean image build. See RELEASE-PROCESS.md and [the October 11 audit](RUNTIME-AUDIT-20261011.md).
 
 ## Release follow-ups
 
 The earlier runtime audit recorded 25 findings. The October 4 OpenClaw 2026.9.8
-candidate audit reports four vulnerable packages: three high, one moderate, zero
-critical, all under npm's dependency subtree. See
-[the path/exposure review](RUNTIME-AUDIT-20261004.md). Remediation and effective
+candidate audit reported four vulnerable packages, and the October 11 2026.10.1
+candidate audit reports five (three high, two moderate), all under npm's
+dependency subtree. See the [October 4 path/exposure review](RUNTIME-AUDIT-20261004.md)
+and [October 11 audit](RUNTIME-AUDIT-20261011.md). Remediation and effective
 policy/invocation acceptance remain open; successful inference/configuration
 tests do not resolve these findings. The physical USB remains on the older pins.
 

@@ -19,19 +19,19 @@ Owner decision: Ollama is the supported language-model inference backend. Use na
 | Skills and delegated model consultation | Reviewed skill definitions plus their declared and observed dependencies | Skill eligibility, required executable/tool/provider checks, denied-tool tests and actual result from the intended model |
 | Optional messaging channels | Bundled `telegram` or another selected channel plugin | Separate owner setup and credentials; not required for offline first chat |
 
-Bundled/external classifications above come from the [pinned v2026.9.7 inventory](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/plugins/plugin-inventory.md). Availability in upstream is not evidence the image has loaded or successfully exercised a capability. Advanced memory engines and additional channel providers remain optional; do not add them merely to increase the addon count.
+Bundled/external classifications above must be rechecked against the [candidate v2026.10.1 inventory](https://github.com/openclaw/openclaw/blob/v2026.10.1/docs/plugins/plugin-inventory.md). Availability in upstream is not evidence the image has loaded or successfully exercised a capability. Advanced memory engines and additional channel providers remain optional; do not add them merely to increase the addon count.
 
 ## Lifecycle and readiness
 
 For every supported addon, retain a generic catalog record: capability ID, plugin/package ID, bundled versus external distribution, exact version/revision and integrity, compatible host version, license/notices, Linux executables/assets, network/credential needs, tool grants, storage locations and acceptance/rollback evidence. No floating `latest` installations in image builds. Bundled code follows the pinned host release; external plugins need independent discovery and candidate testing.
 
-Display separate states for available, installed, dependency missing, credentials needed, disabled by policy, testing, ready and failed. Include useful reasons and the next setup action. A copied SKILL.md, installed npm package or loaded manifest cannot by itself establish readiness. Check dependencies, effective per-agent tool permissions and an actual controlled capability invocation. Skill eligibility depends on platform, binaries, environment and config; see [pinned skills documentation](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/tools/skills.md).
+Display separate states for available, installed, dependency missing, credentials needed, disabled by policy, testing, ready and failed. Include useful reasons and the next setup action. A copied SKILL.md, installed npm package or loaded manifest cannot by itself establish readiness. Check dependencies, effective per-agent tool permissions and an actual controlled capability invocation. Skill eligibility depends on platform, binaries, environment and config; see [candidate skills documentation](https://github.com/openclaw/openclaw/blob/v2026.10.1/docs/tools/skills.md).
 
 Keep personality transfer narrow. Resolve addon dependencies on Live, without cloning source permissions, tokens, channel bindings or executable helpers. Argos can receive the broadest explicitly selected access; Nyx and Proteus keep independent policies. The generic starter remains conversation-only until a capability profile is selected. Installing an addon must not silently widen every agent's tool access.
 
 Configure local inference/media services on loopback. Keep private settings and credentials in encrypted persistence; model assets may use owner-selected DATA with its encryption status visible. Keep basic chat available when optional providers fail. For GPU-heavy image/voice/model jobs, test resource coordination rather than running all backends simultaneously by default.
 
-Inspect registration and exercise the running gateway separately. Pin/review code before runtime inspection because inspection can load it. Preserve a private target snapshot before changes and verify rollback. Follow the [pinned plugin lifecycle documentation](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/tools/plugin.md).
+Inspect registration and exercise the running gateway separately. Pin/review code before runtime inspection because inspection can load it. Preserve a private target snapshot before changes and verify rollback. Follow the [candidate plugin lifecycle documentation](https://github.com/openclaw/openclaw/blob/v2026.10.1/docs/tools/plugin.md).
 
 ## Release gate
 
@@ -95,5 +95,5 @@ hashes. Ollama, memory-core, browser, document-extract and tts-local-cli registe
 as loaded; Telegram stayed disabled. The separate schema/native recovery smoke
 also passed. These are disposable CI results, not Toronado capability acceptance.
 
-Upstream references: [pinned plugin inventory](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/plugins/plugin-inventory.md)
-and [pinned inspection CLI](https://github.com/openclaw/openclaw/blob/v2026.9.7/docs/cli/plugins.md).
+Upstream references: [candidate plugin inventory](https://github.com/openclaw/openclaw/blob/v2026.10.1/docs/plugins/plugin-inventory.md)
+and [candidate inspection CLI](https://github.com/openclaw/openclaw/blob/v2026.10.1/docs/cli/plugins.md).

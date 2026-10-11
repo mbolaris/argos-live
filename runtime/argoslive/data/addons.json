@@ -4,12 +4,12 @@
     "local-transcription",
     "local-image-generation"
   ],
-  "host_integrity": "sha512-G+JkNUhtpDE3cXR4AEi2NyyG9fqI/T2WUSl8ZnR8AATH8Dh1kC3qYFL7wwPoZtgHiP/cszA86PEiE0PDysxb9Q==",
-  "host_version": "2026.9.8",
+  "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
+  "host_version": "2026.10.1",
   "note": "Metadata only. Contracts/default enablement are not effective agent tool grants or readiness.",
   "plugins": [
     {
-      "compatible_host": "2026.9.8",
+      "compatible_host": "2026.10.1",
       "declared_contracts": {
         "embeddingProviders": [
           "ollama"
@@ -27,7 +27,7 @@
       ],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-G+JkNUhtpDE3cXR4AEi2NyyG9fqI/T2WUSl8ZnR8AATH8Dh1kC3qYFL7wwPoZtgHiP/cszA86PEiE0PDysxb9Q==",
+      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
       "id": "ollama",
       "invocation_verified": false,
       "license": "MIT",
@@ -38,11 +38,11 @@
       },
       "package": "@openclaw/ollama-provider",
       "package_presence_verified": true,
-      "package_sha256": "0eabeb0949b173b05c2c8c86d9a447b22506ee376669ffa10568b288c9236d94",
-      "version": "2026.9.8"
+      "package_sha256": "679e4d6c3de2f3886c718bac78d9f72afce5ab67a1f126b5ed09e9a969458328",
+      "version": "2026.10.1"
     },
     {
-      "compatible_host": "2026.9.8",
+      "compatible_host": "2026.10.1",
       "declared_contracts": {
         "tools": [
           "intent",
@@ -53,26 +53,25 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": null,
-      "host_integrity": "sha512-G+JkNUhtpDE3cXR4AEi2NyyG9fqI/T2WUSl8ZnR8AATH8Dh1kC3qYFL7wwPoZtgHiP/cszA86PEiE0PDysxb9Q==",
+      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
       "id": "memory-core",
       "invocation_verified": false,
       "license": "MIT",
       "license_scope": "host-package",
       "manifest_sha256": "d8a557f1cc4ba394a874ff07b08fc6e8fcf4099fa45adaa4bd714ed1b48fa896",
       "npm_dependencies": {
-        "@openclaw/fs-safe": "0.21.1",
-        "chokidar": "5.0.0",
+        "@openclaw/fs-safe": "0.24.2",
         "json5": "2.2.3",
         "p-limit": "7.3.3",
         "typebox": "1.3.34"
       },
       "package": "@openclaw/memory-core",
       "package_presence_verified": true,
-      "package_sha256": "c676f007803f752b74409fef5e374969f36cf11c80a1bb9e0422d0d90e465248",
-      "version": "2026.9.8"
+      "package_sha256": "ac459967c6be4282fa5fcf4fbab6fd2739d999a369a8dc3ddd1193e99419faac",
+      "version": "2026.10.1"
     },
     {
-      "compatible_host": "2026.9.8",
+      "compatible_host": "2026.10.1",
       "declared_contracts": {
         "tools": [
           "browser"
@@ -81,15 +80,15 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-G+JkNUhtpDE3cXR4AEi2NyyG9fqI/T2WUSl8ZnR8AATH8Dh1kC3qYFL7wwPoZtgHiP/cszA86PEiE0PDysxb9Q==",
+      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
       "id": "browser",
       "invocation_verified": false,
       "license": "MIT",
       "license_scope": "host-package",
       "manifest_sha256": "6fb7a9c4c9992ca80802ada708b2575043b72caa2cbbce84c934572b2a37dfb3",
       "npm_dependencies": {
-        "@modelcontextprotocol/sdk": "1.30.0",
-        "chrome-devtools-mcp": "1.9.0",
+        "@modelcontextprotocol/sdk": "1.31.0",
+        "chrome-devtools-mcp": "1.10.1",
         "express": "5.2.1",
         "playwright-core": "1.63.0",
         "typebox": "1.3.34",
@@ -98,11 +97,11 @@
       },
       "package": "@openclaw/browser-plugin",
       "package_presence_verified": true,
-      "package_sha256": "cda47769f31c62522c752305900554e15134c932d3f65e6da2ae4908503a3eba",
-      "version": "2026.9.8"
+      "package_sha256": "b3f8e4df5f5c725efa9f0b552619c63df1dedf660ee48ad2346016e85ddee6b1",
+      "version": "2026.10.1"
     },
     {
-      "compatible_host": "2026.9.8",
+      "compatible_host": "2026.10.1",
       "declared_contracts": {
         "documentExtractors": [
           "pdf"
@@ -111,7 +110,7 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-G+JkNUhtpDE3cXR4AEi2NyyG9fqI/T2WUSl8ZnR8AATH8Dh1kC3qYFL7wwPoZtgHiP/cszA86PEiE0PDysxb9Q==",
+      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
       "id": "document-extract",
       "invocation_verified": false,
       "license": "MIT",
@@ -122,11 +121,11 @@
       },
       "package": "@openclaw/document-extract-plugin",
       "package_presence_verified": true,
-      "package_sha256": "7c4f04f876dc46b03f905a18d636adaca255a2db16da6d00c30fe87535193212",
-      "version": "2026.9.8"
+      "package_sha256": "bfbbf0b6f7fac63f6e23724d3326c86cc41a3b524ae32be41f31339f93296b5e",
+      "version": "2026.10.1"
     },
     {
-      "compatible_host": "2026.9.8",
+      "compatible_host": "2026.10.1",
       "declared_contracts": {
         "speechProviders": [
           "tts-local-cli",
@@ -136,7 +135,7 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-G+JkNUhtpDE3cXR4AEi2NyyG9fqI/T2WUSl8ZnR8AATH8Dh1kC3qYFL7wwPoZtgHiP/cszA86PEiE0PDysxb9Q==",
+      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
       "id": "tts-local-cli",
       "invocation_verified": false,
       "license": "MIT",
@@ -145,33 +144,33 @@
       "npm_dependencies": {},
       "package": "@openclaw/tts-local-cli",
       "package_presence_verified": true,
-      "package_sha256": "6a085c70123175d05491e7d54952b1b809841e32a868a391621817686ed5329d",
-      "version": "2026.9.8"
+      "package_sha256": "473f7beb85b56b14e1f8d497a1aa4f863c4b8e0e73091c50d9863692cf7f7811",
+      "version": "2026.10.1"
     },
     {
-      "compatible_host": "2026.9.8",
+      "compatible_host": "2026.10.1",
       "declared_contracts": {},
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": null,
-      "host_integrity": "sha512-G+JkNUhtpDE3cXR4AEi2NyyG9fqI/T2WUSl8ZnR8AATH8Dh1kC3qYFL7wwPoZtgHiP/cszA86PEiE0PDysxb9Q==",
+      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
       "id": "telegram",
       "invocation_verified": false,
       "license": "MIT",
       "license_scope": "host-package",
-      "manifest_sha256": "a416b771b8a05e288cabeab6fed225bf7e97c68206efaaf5c3cf973511fba4ca",
+      "manifest_sha256": "c6905f728b0158f748c53f3079830ab4b816620bda412aef5b2cb7abe1bdefd2",
       "npm_dependencies": {
         "@grammyjs/transformer-throttler": "1.2.1",
         "abort-controller": "3.0.0",
         "grammy": "1.46.0",
         "typebox": "1.3.34",
-        "undici": "8.10.2",
+        "undici": "8.11.2",
         "zod": "4.6.5"
       },
       "package": "@openclaw/telegram",
       "package_presence_verified": true,
-      "package_sha256": "dab474b4acd9a1a365470703a2e4ad6573a130f9243bff95d0b4cf386d2580a2",
-      "version": "2026.9.8"
+      "package_sha256": "ca47edbd1981a21601c82c45e5cae6e3714a6db759f791021d51ba806d142384",
+      "version": "2026.10.1"
     }
   ],
   "schema": "argos-addons/1",
@@ -218,11 +217,11 @@
     },
     {
       "path": "node_modules/chrome-devtools-mcp/skills/chrome-devtools-cli/SKILL.md",
-      "sha256": "46be445e0fcfac0996da0fc3b167dac4fb195ad7b56155dc34c8c0fea8c0a1b9"
+      "sha256": "c16bb00d0584614df93de4abe7c71a060fb0f9f75a97d2a05bcb13b10134e864"
     },
     {
       "path": "node_modules/chrome-devtools-mcp/skills/chrome-devtools/SKILL.md",
-      "sha256": "b27f4b6d68f775b744e9718698444e9df7b68444ed375ea7509fd7086e76ca4b"
+      "sha256": "dc9b3cd25a8f05f366e2979d1d598bb0122d2e58431fd961e20cd68e7392e030"
     },
     {
       "path": "node_modules/chrome-devtools-mcp/skills/cookie-debugging/SKILL.md",
@@ -270,7 +269,7 @@
     },
     {
       "path": "skills/clawhub/SKILL.md",
-      "sha256": "99bff7ff613a0f4b8a7c76e0853814adf7707eecdf5fe78b8893086ca4545696"
+      "sha256": "667007fa578dc292690ab7fbb9ddda80427fd6cb474ec6dc830edc670e3c41e1"
     },
     {
       "path": "skills/coding-agent/SKILL.md",
@@ -418,7 +417,7 @@
     },
     {
       "path": "skills/tmux/SKILL.md",
-      "sha256": "98b6b8392ec57e119a3e850363bc03eae3c917adb7c9a90327cf71842d9042f1"
+      "sha256": "8aeaa6f3dfe06d58e09721778b8c9e654bcbd47590f26f442c4dc87c9349c572"
     },
     {
       "path": "skills/trello/SKILL.md",
@@ -426,7 +425,7 @@
     },
     {
       "path": "skills/visualize/SKILL.md",
-      "sha256": "31be648a3a8d3d5c41b242ce60be9037cb77cd95aafcfbbffdf7576f9c238308"
+      "sha256": "94259bbb4d06ab0927d540780c2ef095c6bfe17cbb7248ce485c82656290338a"
     },
     {
       "path": "skills/weather/SKILL.md",
