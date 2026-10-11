@@ -123,21 +123,47 @@ try {
                                    control: {before: 2, after: 2, total: 2}}, JSON.stringify(result.rows.map(row => ({id: row.id, before: row.before.reply, after: row.after.reply}))));
   assert.equal(result.evidence, 'everyday-assistant');
   const card = await page.locator('#assistant-trial').textContent();
-  assert.match(card, /Everyday-assistant results · gains: 6 · regressions: 0/);
+  assert.equal(await page.locator('#assistant-trial-result h5').textContent(), 'Better on this retest');
+  assert.match(card, /6 of 8 challenges improved without a setback; 0 got worse/);
+  assert.match(card, /Recommended next: keep this change/);
   assert.match(card, /not meaningful/);
   assert.doesNotMatch(card, /\d+ of 24/, 'No lab score inside assistant evidence');
   assert.equal(await page.locator('#assistant-trial-keep').isVisible(), true);
-  await page.locator('#assistant-trial-result details > summary').click();
+  assert.equal(await page.locator('#assistant-trial-keep').textContent(), 'Keep this change · recommended');
+  assert.deepEqual((await page.locator('#assistant-trial .assistant-trial-actions button:visible').allTextContents()),
+    ['Keep this change · recommended', 'Restore the original'], 'The recommended move is the first and primary action');
+  await page.locator('#assistant-trial-score-details > summary').click();
   await page.evaluate(() => refreshAssistantTrial());
-  assert.equal(await page.locator('#assistant-trial-result details').evaluate(el => el.open), true,
+  assert.equal(await page.locator('#assistant-trial-score-details').evaluate(el => el.open), true,
     'Polling preserves opened per-question evidence');
-  await page.locator('#assistant-trial-result details > summary').click();
+  await page.locator('#assistant-trial-score-details > summary').click();
   await shot('4-result');
+
+  // Exercise the cautious, one-gain result that needs a clear Restore recommendation.
+  const oneGain = structuredClone(result);
+  oneGain.gains = oneGain.gains.slice(0, 1);
+  oneGain.regressions = [];
+  oneGain.suggestion = 'restore';
+  oneGain.totals = {answer: {before: 0, after: 0, total: 3}, not_stated: {before: 2, after: 3, total: 3},
+                    control: {before: 2, after: 2, total: 2}};
+  await page.evaluate(value => { assistantTrial.result = value; renderAssistantTrial(); }, oneGain);
+  assert.equal(await page.locator('#assistant-trial-result h5').textContent(), 'One small gain — not enough to keep yet');
+  assert.match(await page.locator('#assistant-trial-result').textContent(), /1 of 8 challenges improved; none got worse/);
+  assert.deepEqual((await page.locator('#assistant-trial .assistant-trial-actions button:visible').allTextContents()),
+    ['Restore the original · recommended', 'Keep this change anyway'], 'A cautious result puts Restore first');
+  await shot('4-result-one-gain-restore');
+  await page.evaluate(value => { assistantTrial.result = value; renderAssistantTrial(); }, result);
+  assert.equal(await page.locator('#assistant-trial-result h5').textContent(), 'Better on this retest');
 
   // ---- Keep, verified; then Restore, verified byte-exact by the controller.
   await page.locator('#assistant-trial-keep').click();
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).status === 'kept', null, {polling: 300});
   assert.match(await page.locator('#assistant-trial-note').textContent(), /Kept and verified/);
+  assert.equal(await page.locator('#assistant-trial-result h5').textContent(), 'Change kept');
+  assert.equal(await page.locator('#assistant-trial-chat').isVisible(), true, 'Keep offers the real next step: try a real question in chat');
+  assert.equal(await page.locator('#assistant-trial-chat').isDisabled(), await page.locator('#chat').isDisabled(),
+    'The next-step button follows live chat availability; this fixture has no chat endpoint');
+  assert.match(await page.locator('#assistant-trial-result').textContent(), /Next: try me with a real question in chat/);
   await shot('5-kept');
   await page.locator('#assistant-trial-restore').click();
   await page.waitForFunction(async () => { const v = await api('/api/assistant-trial'); return v.status === 'none' && v.phase === 'restored'; },
@@ -158,6 +184,13 @@ try {
     format_errors: 0, wrong_answers: 4, diagnoses: {wording: 2, requirement: 2}}));
   assert.equal(proposal.kind, 'review');
   assert.match(proposal.why, /^Diagnostic, not a score: every miss kept an accepted answer/);
+
+  const cautious = await page.evaluate(() => assistantTrialDecision({rows: Array(8).fill({}), gains: ['one'], regressions: [], suggestion: 'restore'}, 'on-trial'));
+  assert.equal(cautious.title, 'One small gain — not enough to keep yet');
+  assert.match(cautious.next, /at least two challenges improve/);
+  const mixed = await page.evaluate(() => assistantTrialDecision({rows: Array(8).fill({}), gains: ['one'], regressions: ['two'], suggestion: 'restore'}, 'on-trial'));
+  assert.equal(mixed.title, 'Mixed results');
+  assert.match(mixed.next, /restore the original/);
   const wrongFacts = await page.evaluate(() => nextExperiment({suite: 'documents-short', recipe: {preset: 'standard'}, total: 24, correct: 20,
     format_errors: 0, wrong_answers: 4, diagnoses: {wrong: 3, wording: 1}}));
   assert.equal(wrongFacts.kind, 'model');

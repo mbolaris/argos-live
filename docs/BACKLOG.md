@@ -1145,3 +1145,10 @@ before/change/retest stages, current question, latest answer and its limited
 checks visible as each assistant turn completes. Keep other setup and scoring
 details secondary, and test the full path in fixture browsers at phone and
 desktop sizes before any Toronado deployment.
+
+The result must answer “did it help?” in one glance: use a plain-language
+verdict, show how many of the eight challenges improved or regressed, and put
+one recommended Keep/Restore action first with a short reason. Keep score
+breakdowns and per-question replies available under a disclosure. After Keep,
+offer one direct next step to try the assistant in chat. On a phone, the verdict
+and decision controls should be visible without opening the breakdown.

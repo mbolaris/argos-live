@@ -276,13 +276,18 @@
                 </article>
               </div>
               <div id="assistant-trial-result" hidden></div>
-              <p id="assistant-trial-note" class="assistant-trial-note" role="status"></p>
               <div class="assistant-trial-actions">
                 <button id="assistant-trial-review" type="button" class="mission-secondary">Review the change</button>
                 <button id="assistant-trial-keep" type="button" class="mission-primary" hidden>Keep in my assistant</button>
                 <button id="assistant-trial-restore" type="button" class="mission-secondary" hidden>Restore the original</button>
+                <button id="assistant-trial-chat" type="button" class="mission-primary" hidden>Try it with a real question</button>
                 <button id="assistant-trial-cancel" type="button" class="mission-secondary" hidden>Stop the trial</button>
               </div>
+              <p id="assistant-trial-note" class="assistant-trial-note" role="status"></p>
+              <details id="assistant-trial-score-details" class="assistant-trial-score-details" hidden>
+                <summary>See score breakdown and all answers</summary>
+                <div id="assistant-trial-score-breakdown"></div>
+              </details>
             </section>
             <div id="receipt-actions" class="receipt-actions" hidden>
               <button id="receipt-use" type="button" class="mission-secondary" hidden>Try it on your own document ↓</button>

@@ -3599,17 +3599,18 @@ function renderAssistantTrial() {
   if (section.hidden) return;
   const progress = document.getElementById('assistant-trial-progress');
   const result = document.getElementById('assistant-trial-result');
+  const scoreDetails = document.getElementById('assistant-trial-score-details');
   const status = value.status;
   document.getElementById('assistant-trial-title').textContent = value.active ? 'Watch me put this change to the test' : ({
-    none: 'Ready to prove I can do better?', 'on-trial': 'The results are in — your call',
-    kept: 'Change kept; keep me honest', edited: 'Your edits need a hand review',
+    none: 'Ready to prove I can do better?', 'on-trial': 'Retest complete — here’s what changed',
+    kept: 'Change kept — now try it for real', edited: 'Your edits need a hand review',
     unfinished: 'The trial stopped early', 'needs-review': 'This trial needs a closer look'}[status] || 'Your assistant trial');
   document.getElementById('assistant-trial-text').textContent = value.active
     ? 'I’m working through the same eight questions before and after. Each answer and its checks show up here as soon as that turn finishes. When the run is done, you choose Keep or Restore.'
     : ({
     none: `Lab scores don’t change your assistant. I’m ready to test one reviewed instruction (“${value.change.title}”) in the assistant you use, with the same eight questions before and after. Review it; approve to start, then judge the results yourself.`,
-    'on-trial': 'The change is on trial in your assistant. Decide using the assistant’s own results below, not lab scores.',
-    kept: 'Kept: your assistant uses this change. You can restore the original file at any time.',
+    'on-trial': 'I ran the same eight questions before and after. The scorecard below shows what changed and my recommended next move.',
+    kept: 'You kept the change. Try it with a real question in chat; you can restore the original at any time.',
     edited: 'AGENTS.md was edited after this change, so Argos won’t restore it automatically. Review the file by hand.',
     unfinished: 'A trial didn’t finish. Recovery must verify the saved files before restoring anything; owner edits need review.',
     'needs-review': 'The trial record needs review before Argos changes anything.'}[status] || '');
@@ -3666,32 +3667,73 @@ function renderAssistantTrial() {
     }
   }
   document.getElementById('assistant-trial-note').textContent = value.message || '';
+  document.getElementById('assistant-trial-note').hidden = status === 'on-trial' && Boolean(value.result);
   const show = (id, visible) => { document.getElementById(id).hidden = !visible; };
   show('assistant-trial-review', status === 'none' && !value.active);
   show('assistant-trial-keep', value.can_keep && !value.active);
   show('assistant-trial-restore', value.can_restore && !value.active);
+  show('assistant-trial-chat', status === 'kept' && !value.active);
   show('assistant-trial-cancel', value.active && value.phase !== 'restoring');
   for (const id of ['review', 'keep', 'restore', 'cancel', 'approve']) {
     document.getElementById('assistant-trial-' + id).disabled = trialActionPending;
   }
+  document.getElementById('assistant-trial-chat').disabled = document.getElementById('chat').disabled;
   if (value.result && status === 'on-trial') {
-    document.getElementById('assistant-trial-keep').className = value.result.suggestion === 'keep' ? 'mission-primary' : 'mission-secondary';
-    document.getElementById('assistant-trial-restore').className = value.result.suggestion === 'restore' ? 'mission-primary' : 'mission-secondary';
+    const keep = document.getElementById('assistant-trial-keep');
+    const restore = document.getElementById('assistant-trial-restore');
+    const recommendedKeep = value.result.suggestion === 'keep';
+    keep.className = recommendedKeep ? 'mission-primary' : 'mission-secondary';
+    restore.className = recommendedKeep ? 'mission-secondary' : 'mission-primary';
+    keep.textContent = recommendedKeep ? 'Keep this change · recommended' : 'Keep this change anyway';
+    restore.textContent = recommendedKeep ? 'Restore the original' : 'Restore the original · recommended';
+    const actions = document.querySelector('#assistant-trial .assistant-trial-actions');
+    const primary = recommendedKeep ? keep : restore;
+    const secondary = recommendedKeep ? restore : keep;
+    actions.insertBefore(primary, actions.querySelector('#assistant-trial-cancel'));
+    actions.insertBefore(secondary, primary.nextSibling);
+  } else {
+    document.getElementById('assistant-trial-keep').textContent = 'Keep this change';
+    document.getElementById('assistant-trial-restore').textContent = 'Restore the original';
   }
   result.hidden = !value.result || value.active || !['on-trial', 'kept'].includes(status);
+  scoreDetails.hidden = result.hidden;
   if (!result.hidden) {
     const key = JSON.stringify([status, value.result]);
-    if (key !== trialResultKey) renderTrialResult(result, value.result, status);
+    if (key !== trialResultKey) renderTrialResult(result, document.getElementById('assistant-trial-score-breakdown'), value.result, status);
     trialResultKey = key;
-  } else trialResultKey = null;
+  } else {
+    trialResultKey = null;
+    scoreDetails.open = false;
+  }
 }
 
-function renderTrialResult(box, r, status) {
+function renderTrialResult(box, breakdown, r, status) {
   box.replaceChildren();
+  breakdown.replaceChildren();
+  const decision = assistantTrialDecision(r, status);
+  const verdict = document.createElement('section');
+  verdict.className = `assistant-trial-verdict ${decision.tone}`;
+  const kicker = document.createElement('p');
+  kicker.className = 'assistant-trial-verdict-kicker';
+  kicker.textContent = status === 'kept' ? 'YOUR DECISION' : 'THE RETEST';
+  const title = document.createElement('h5');
+  title.textContent = decision.title;
+  const outcome = document.createElement('p');
+  outcome.className = 'assistant-trial-outcome';
+  outcome.textContent = decision.outcome;
+  const next = document.createElement('p');
+  next.className = 'assistant-trial-next';
+  next.textContent = decision.next;
+  const caveat = document.createElement('p');
+  caveat.className = 'assistant-trial-caveat';
+  caveat.textContent = 'Eight questions, one run each. This is a useful clue—not proof of a lasting improvement.';
+  verdict.append(kicker, title, outcome, next, caveat);
+  box.append(verdict);
+
   const rows = document.createElement('dl');
   rows.className = 'before-after';
-  for (const [kind, label] of [['answer', 'Direct answer with an exact quote'], ['not_stated', 'Says when the notice doesn’t say'],
-                               ['control', 'Everyday checks (limited)']]) {
+  for (const [kind, label] of [['answer', 'Answer from the notice'], ['not_stated', 'Say when information is missing'],
+                               ['control', 'General chat check']]) {
     const t = r.totals[kind];
     const item = document.createElement('div');
     const name = document.createElement('dt'); name.textContent = label;
@@ -3701,13 +3743,13 @@ function renderTrialResult(box, r, status) {
     const a = document.createElement('strong'); a.textContent = `${t.after} of ${t.total}`;
     v.append(b, arrow, a); item.append(name, v); rows.append(item);
   }
-  const summary = document.createElement('p');
-  summary.className = 'assistant-trial-summary';
-  summary.textContent = `Everyday-assistant results · gains: ${r.gains.length} · regressions: ${r.regressions.length}.` +
-    (status === 'on-trial' ? ` Suggested: ${r.suggestion === 'keep' ? 'keep it' : 'restore the original'} — your decision.` : '');
-  const caveat = document.createElement('p');
-  caveat.className = 'assistant-trial-note';
-  caveat.textContent = r.uncertainty;
+  const uncertainty = document.createElement('details');
+  uncertainty.className = 'assistant-trial-uncertainty';
+  const uncertaintyTitle = document.createElement('summary');
+  uncertaintyTitle.textContent = 'How much should I trust this result?';
+  const uncertaintyText = document.createElement('p');
+  uncertaintyText.textContent = r.uncertainty;
+  uncertainty.append(uncertaintyTitle, uncertaintyText);
   const details = document.createElement('details');
   const sum = document.createElement('summary'); sum.textContent = 'Every question, before and after';
   details.append(sum);
@@ -3729,7 +3771,41 @@ function renderTrialResult(box, r, status) {
     }
     details.append(block);
   }
-  box.append(rows, summary, caveat, details);
+  breakdown.append(rows, uncertainty, details);
+}
+
+function assistantTrialDecision(r, status) {
+  const total = Array.isArray(r.rows) && r.rows.length ? r.rows.length : 8;
+  const gains = Array.isArray(r.gains) ? r.gains.length : 0;
+  const regressions = Array.isArray(r.regressions) ? r.regressions.length : 0;
+  if (status === 'kept') {
+    return {tone: 'kept', title: 'Change kept',
+      outcome: `You kept this change after a retest of ${total} challenges.`,
+      next: 'Next: try me with a real question in chat. You can restore the original any time.'};
+  }
+  if (r.suggestion === 'keep') {
+    return {tone: 'better', title: 'Better on this retest',
+      outcome: `${gains} of ${total} challenges improved without a setback; ${regressions} got worse.`,
+      next: 'Recommended next: keep this change. At least two challenges improved, and none got worse.'};
+  }
+  if (gains > 0 && regressions > 0) {
+    return {tone: 'mixed', title: 'Mixed results',
+      outcome: `${gains} of ${total} challenges improved without a setback; ${regressions} got worse.`,
+      next: 'Recommended next: restore the original. This change helped in some places and slipped in others.'};
+  }
+  if (gains > 0) {
+    return {tone: 'cautious', title: 'One small gain — not enough to keep yet',
+      outcome: `${gains} of ${total} challenges improved; none got worse.`,
+      next: 'Recommended next: restore the original. We only keep a change when at least two challenges improve with no regressions.'};
+  }
+  if (regressions > 0) {
+    return {tone: 'caution', title: 'No clear gain — some answers got worse',
+      outcome: `${regressions} of ${total} challenges got worse, and none improved cleanly.`,
+      next: 'Recommended next: restore the original instructions.'};
+  }
+  return {tone: 'neutral', title: 'No clear change this time',
+    outcome: `The retest did not find a clean improvement or a regression across ${total} challenges.`,
+    next: 'Recommended next: restore the original and try a different change later.'};
 }
 
 async function trialAction(path) {
@@ -3776,6 +3852,7 @@ document.getElementById('assistant-trial-approve').addEventListener('click', () 
 });
 document.getElementById('assistant-trial-keep').addEventListener('click', () => trialAction('keep'));
 document.getElementById('assistant-trial-restore').addEventListener('click', () => trialAction('restore'));
+document.getElementById('assistant-trial-chat').addEventListener('click', () => document.getElementById('chat').click());
 document.getElementById('assistant-trial-cancel').addEventListener('click', () => trialAction('cancel'));
 setInterval(refreshAssistantTrial, 3000);
 refreshAssistantTrial();

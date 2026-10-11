@@ -36,7 +36,9 @@ class Runner:
         self.home, self.misbehave, self.edit, self.turns = home, misbehave, edit, []
 
     def turn(self, message):
-        guided = at.START in (at.agents_path(self.home).read_text())
+        # AGENTS.md is written as UTF-8. Use the same encoding on Windows and Unix
+        # so the em dash in the reviewed marker is not decoded through a legacy code page.
+        guided = at.START in at.agents_path(self.home).read_text(encoding='utf-8')
         self.turns.append((guided, message))
         if self.edit and len(self.turns) == 12:
             self.edit()
@@ -102,7 +104,7 @@ class TrialTests(unittest.TestCase):
         self.assertIn('not meaningful', result['uncertainty'])
         # The original bytes are kept exactly before the marked block.
         self.assertTrue(self.agents.read_bytes().startswith(self.original.encode()))
-        self.assertIn(at.BLOCK, self.agents.read_text())
+        self.assertIn(at.BLOCK, self.agents.read_text(encoding='utf-8'))
         self.assertEqual((self.agents.parent / 'SOUL.md').read_text(), 'SOUL.md persona')
 
     def test_live_progress_shows_current_challenge_and_latest_scored_reply(self):
@@ -160,7 +162,7 @@ class TrialTests(unittest.TestCase):
         trial = self.trial(edit=lambda: (self.agents.parent / 'SOUL.md').write_text('changed'))
         trial.start(); self.wait(trial)
         self.assertEqual(trial.phase, 'recovery-blocked')
-        self.assertIn(at.BLOCK, self.agents.read_text())
+        self.assertIn(at.BLOCK, self.agents.read_text(encoding='utf-8'))
         self.assertEqual(trial.snapshot()['status'], 'unfinished')
         self.assertEqual(self.startup.calls, ['stop', 'start', 'stop'])
         self.assertIn('Owner edits prevent', trial.message)
