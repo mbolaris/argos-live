@@ -19,9 +19,10 @@ Use one loop: **Challenge → Watch → Debrief → Try one change → Retest �
 restore → Validate → Use it.** Every stage ends with one recommended available
 action. The owner should be able to press one prominent **Go** control to follow
 that next step; the adjacent heading explains exactly what Go will do. A stage
-that cannot continue states the blocker and offers a useful exit. Go can start a
-test or open the review for a reversible change, but never silently approves a
-lasting assistant change.
+that cannot continue states the blocker and offers a useful exit. When the screen
+discloses the exact bounded temporary trial, pressing Go is the owner's approval
+to start that trial in one step. Go never automatically keeps a lasting assistant
+change; the owner still chooses Keep or Restore after seeing its evidence.
 
 ## Release journey
 

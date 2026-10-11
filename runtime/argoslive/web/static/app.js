@@ -2752,8 +2752,8 @@ const commandActions = {
   models: () => focusSection('models-title'),
   review: () => focusSection(document.getElementById('replay').hidden ? 'cc-receipt' : 'replay'),
   'assistant-trial': () => {
-    focusSection('assistant-trial', 'assistant-trial-review');
-    if (assistantTrial?.status === 'none' && !assistantTrial.active) document.getElementById('assistant-trial-review').click();
+    focusSection('assistant-trial');
+    if (assistantTrial?.status === 'none' && !assistantTrial.active) trialAction('start');
   },
   capabilities: () => focusSection('capabilities-title'),
   reboot: () => focusSection('storage-title', 'reboot-check'),
@@ -2773,8 +2773,8 @@ function presentedNextAction(next, trial) {
       reason: 'Your everyday assistant is answering the before-and-after questions now. Go to its live progress.', action: 'assistant-trial'};
   }
   if (trial.status === 'none') {
-    return {...next, id: 'assistant-trial', title: 'Ready to prove I can do better?',
-      reason: 'I want to test one change, then show you a matched retest. Press Go to preview it; you approve before it runs. I’ll recommend Keep or Restore.',
+    return {...next, id: 'assistant-trial', title: 'Ready to prove one change?',
+      reason: 'I want to prove whether this change helps. GO starts the matched run; you choose what stays.',
       action: 'assistant-trial'};
   }
   if (trial.status === 'on-trial') {
@@ -2874,6 +2874,20 @@ async function refreshCommand() {
     go.dataset.action = next.action || '';
     const trialControl = {baseline: 'lab-start', documents: 'lab-start-documents'}[next.action];
     go.disabled = !!trialControl && document.getElementById(trialControl).disabled;
+    const offer = document.getElementById('cc-next-trial-offer');
+    const showingOffer = next.action === 'assistant-trial' && assistantTrial?.status === 'none' && !assistantTrial.active;
+    offer.hidden = !showingOffer;
+    syncAssistantTrialFocus();
+    if (showingOffer) {
+      renderTrialInstruction('cc-next-trial-instruction', assistantTrial.change?.text || '');
+      const tasks = document.getElementById('cc-next-trial-tasks');
+      tasks.replaceChildren(...(assistantTrial.tasks || []).map(task => {
+        const li = document.createElement('li');
+        const passage = task.passage && assistantTrial.passages?.[task.passage];
+        li.textContent = `${trialKinds[task.kind] || task.kind}: ${passage ? `${passage} ` : ''}${task.question || task.message}`;
+        return li;
+      }));
+    }
     const list = document.getElementById('cc-systems'); list.replaceChildren();
     const readings = document.getElementById('cc-readings'); readings.replaceChildren();
     for (const system of value.systems) {
@@ -3585,6 +3599,14 @@ function rememberDecided(candidateId) {
 const trialChecks = {answer_present: 'answer given', answer_first: 'answer first', exact_quote: 'exact quote',
   admits_not_stated: 'says it isn’t in the notice', replied: 'replied', no_instruction_leak: 'no talk of quotes or passages'};
 const trialKinds = {answer: 'Answer from a notice', not_stated: 'Question the notice can’t answer', control: 'Everyday question (no notice)'};
+function renderTrialInstruction(id, text) {
+  const block = document.getElementById(id);
+  const match = /^##\s+([^\n]+)\n([\s\S]*)$/.exec(text);
+  if (!match) { block.textContent = text; return; }
+  const heading = document.createElement('strong'); heading.textContent = match[1];
+  const body = document.createElement('p'); body.textContent = match[2];
+  block.replaceChildren(heading, body);
+}
 let assistantTrial = null;
 let trialFollow = null;
 let trialResultKey = null;
@@ -3595,7 +3617,10 @@ function syncAssistantTrialFocus() {
   const value = assistantTrial;
   const focused = Boolean(value?.active ||
     (value?.result && ['on-trial', 'kept'].includes(value.status)));
-  document.getElementById('command-center')?.classList.toggle('assistant-trial-focus', focused);
+  const section = document.getElementById('command-center');
+  section?.classList.toggle('assistant-trial-focus', focused);
+  section?.classList.toggle('assistant-trial-offer-focus', !focused && value?.status === 'none' &&
+    commandAction?.action === 'assistant-trial');
   const actions = document.getElementById('receipt-actions');
   if (actions) actions.hidden = focused || actions.dataset.hasAbility !== 'true';
   return focused;
@@ -3628,18 +3653,33 @@ function renderAssistantTrial() {
     receiptActions.hidden = receiptActions.dataset.hasAbility !== 'true' || Boolean(trialOwnsNextStep);
   }
   document.getElementById('assistant-trial-title').textContent = value.active ? 'Watch me put this change to the test' : ({
-    none: 'Ready to prove I can do better?', 'on-trial': 'Retest complete — here’s what changed',
+    none: 'One tap starts the whole test', 'on-trial': 'Retest complete — here’s what changed',
     kept: 'Change kept — now try it for real', edited: 'Your edits need a hand review',
     unfinished: 'The trial stopped early', 'needs-review': 'This trial needs a closer look'}[status] || 'Your assistant trial');
   document.getElementById('assistant-trial-text').textContent = value.active
-    ? 'Same eight challenges before and after. Watch each answer and its checks arrive; then choose Keep or Restore.'
+    ? 'I’m checking the same eight challenges before and after one change. Watch each answer arrive, then hear your AI’s opinion before you choose what stays.'
     : ({
-    none: `I want to test one change: ${value.change.title}. I’ll run the same eight challenges before and after, show you what changed, and recommend what to do. Preview it, then approve the test.`,
+    none: `Test: ${value.change.title}. GO is your approval for this exact bounded run. I’ll compare the same eight challenges before and after, briefly restart the assistant to apply the change, then show its separate opinion and recommend Keep or Restore.`,
     'on-trial': 'Same assistant. Same eight challenges. One instruction changed.',
     kept: 'You kept the change. Try it with a real question in chat; you can restore the original at any time.',
     edited: 'AGENTS.md was edited after this change, so Argos won’t restore it automatically. Review the file by hand.',
     unfinished: 'A trial didn’t finish. Recovery must verify the saved files before restoring anything; owner edits need review.',
     'needs-review': 'The trial record needs review before Argos changes anything.'}[status] || '');
+  const plan = document.getElementById('assistant-trial-plan');
+  plan.hidden = status !== 'none' || value.active;
+  if (!plan.hidden) {
+    document.getElementById('assistant-trial-plan-summary').textContent =
+      'GO adds the exact instruction below as a temporary marked block in AGENTS.md and briefly restarts chat. I run the same eight public challenges before and after, then the selected local model gives a separate opinion. You choose Keep or Restore; if the run fails, the original is restored. Model, personality, tools and permissions stay unchanged.';
+    renderTrialInstruction('assistant-trial-instruction', value.change?.text || '');
+    document.getElementById('assistant-trial-unchanged').replaceChildren(...(value.change?.unchanged || []).map(text => {
+      const li = document.createElement('li'); li.textContent = `Unchanged: ${text}`; return li;
+    }));
+    document.getElementById('assistant-trial-tasks').replaceChildren(...(value.tasks || []).map(task => {
+      const li = document.createElement('li');
+      li.textContent = `${trialKinds[task.kind] || task.kind}: ${task.question || task.message}`;
+      return li;
+    }));
+  }
   progress.hidden = !value.active;
   // Follow an active trial closely; idle polling stays slow.
   if (value.active && !trialFollow) trialFollow = setTimeout(() => { trialFollow = null; refreshAssistantTrial(); }, 700);
@@ -3650,6 +3690,7 @@ function renderAssistantTrial() {
     document.getElementById('assistant-trial-stage').textContent = {
       before: 'Baseline · your assistant today', after: 'Retest · same questions, with the change',
       staging: 'Switching to the reviewed change', starting: 'Getting ready to test',
+      reflecting: 'Your AI is looking at the scorecard',
       restoring: 'Restoring the original setup'}[phase] || 'Working on the trial';
     document.getElementById('assistant-trial-count').textContent = `${p.done ?? 0} of ${p.total ?? 8} answered`;
     const bar = document.getElementById('assistant-trial-bar');
@@ -3660,22 +3701,25 @@ function renderAssistantTrial() {
       pip.classList.toggle('current', index === (p.done || 0) && Boolean(p.current));
     }
     for (const [id, active] of [['before', side === 'before' && phase !== 'staging'],
-                                ['change', ['staging', 'restoring'].includes(phase)], ['after', side === 'after']]) {
+                                ['change', ['staging', 'restoring'].includes(phase)], ['after', side === 'after' && phase === 'after']]) {
       const marker = document.getElementById(`assistant-trial-step-${id}`);
       marker.classList.toggle('active', active);
       marker.classList.toggle('done', (id === 'before' && ['staging', 'after', 'restoring'].includes(phase)) ||
-        (id === 'change' && phase === 'after'));
+        (id === 'change' && ['after', 'reflecting'].includes(phase)) ||
+        (id === 'after' && phase === 'reflecting'));
     }
     const current = p.current;
     const latest = p.latest;
     document.getElementById('assistant-trial-question').textContent = current?.question || ({
       starting: 'The assistant is getting ready.', staging: 'Applying the reviewed instruction before the retest.',
+      reflecting: 'All eight challenges are complete. Your AI is writing its opinion of the results.',
       restoring: 'The original instruction is being restored.'}[phase] || 'Finishing this part of the trial…');
     document.getElementById('assistant-trial-source').hidden = !current?.source;
     document.getElementById('assistant-trial-source-text').textContent = current?.source || '';
     document.getElementById('assistant-trial-thinking').textContent = current && ['before', 'after'].includes(phase)
       ? (latest?.id === current.id ? 'Answer received · moving to the next challenge…' : 'Your assistant is working on this answer…')
       : ({staging: 'Restarting the assistant safely…', starting: 'Checking the assistant is ready…',
+         reflecting: 'The scored results are fixed; this extra opinion cannot change them.',
          restoring: 'Verifying the original is back in place…'}[phase] || 'Working…');
     const latestCard = document.getElementById('assistant-trial-latest');
     latestCard.hidden = !latest;
@@ -3695,12 +3739,12 @@ function renderAssistantTrial() {
   document.getElementById('assistant-trial-note').textContent = value.message || '';
   document.getElementById('assistant-trial-note').hidden = status === 'on-trial' && Boolean(value.result);
   const show = (id, visible) => { document.getElementById(id).hidden = !visible; };
-  show('assistant-trial-review', status === 'none' && !value.active);
   show('assistant-trial-keep', value.can_keep && !value.active);
   show('assistant-trial-restore', value.can_restore && !value.active);
   show('assistant-trial-chat', status === 'kept' && !value.active);
   show('assistant-trial-cancel', value.active && value.phase !== 'restoring');
-  for (const id of ['review', 'keep', 'restore', 'cancel', 'approve']) {
+  document.getElementById('assistant-trial-cancel').textContent = value.phase === 'reflecting' ? 'Skip the AI’s opinion' : 'Stop the trial';
+  for (const id of ['keep', 'restore', 'cancel']) {
     document.getElementById('assistant-trial-' + id).disabled = trialActionPending;
   }
   document.getElementById('assistant-trial-chat').disabled = document.getElementById('chat').disabled;
@@ -3736,6 +3780,13 @@ function renderAssistantTrial() {
     restore.textContent = 'Restore the original instruction';
   }
   result.hidden = !value.result || value.active || !['on-trial', 'kept'].includes(status);
+  const opinion = value.result?.opinion;
+  const opinionCard = document.getElementById('assistant-trial-opinion');
+  opinionCard.hidden = result.hidden || opinion?.state !== 'completed';
+  if (!opinionCard.hidden) {
+    document.getElementById('assistant-trial-opinion-text').textContent = opinion.text;
+    document.getElementById('assistant-trial-opinion-model').textContent = `${opinion.model} · no tools or personal profile loaded`;
+  }
   scoreDetails.hidden = result.hidden;
   if (!result.hidden) {
     const key = JSON.stringify([status, value.result]);
@@ -3889,25 +3940,6 @@ async function trialAction(path) {
   }
 }
 
-document.getElementById('assistant-trial-review').addEventListener('click', () => {
-  const value = assistantTrial;
-  if (!value?.change) return;
-  document.getElementById('assistant-trial-instruction').textContent = value.change.text;
-  document.getElementById('assistant-trial-unchanged').replaceChildren(...value.change.unchanged.map(text => {
-    const li = document.createElement('li'); li.textContent = text; return li;
-  }));
-  document.getElementById('assistant-trial-tasks').replaceChildren(...value.tasks.map(task => {
-    const li = document.createElement('li');
-    li.textContent = `${trialKinds[task.kind] || task.kind}: ${task.question || task.message}`;
-    return li;
-  }));
-  document.getElementById('assistant-trial-modal').showModal();
-});
-document.getElementById('assistant-trial-close').addEventListener('click', () => document.getElementById('assistant-trial-modal').close());
-document.getElementById('assistant-trial-approve').addEventListener('click', () => {
-  document.getElementById('assistant-trial-modal').close();
-  trialAction('start');
-});
 document.getElementById('assistant-trial-keep').addEventListener('click', () => trialAction('keep'));
 document.getElementById('assistant-trial-restore').addEventListener('click', () => trialAction('restore'));
 document.getElementById('assistant-trial-chat').addEventListener('click', () => document.getElementById('chat').click());

@@ -1,5 +1,6 @@
-// U10 acceptance in the browser: approval, before/after through a fixture assistant, Keep, Restore,
-// plus the diagnostic-only "review" recommendation. Fixture replies only; never real-model evidence.
+// U10 acceptance in the browser: one GO approves and starts the bounded before/after trial,
+// followed by a fixture-assistant opinion, Keep, Restore, and diagnostic-only routing.
+// Fixture replies only; never real-model evidence.
 import {createRequire} from 'node:module';
 import {spawn} from 'node:child_process';
 import {resolve} from 'node:path';
@@ -25,7 +26,7 @@ try {
     await route.fulfill({response, body: await response.text() + '\n.simulation-banner{position:fixed;bottom:0;left:0;right:0;z-index:10000;background:#453329;color:#ffe2b0;text-align:center;font:11px system-ui;padding:5px}'});
   });
   await mkdir('output/playwright/assistant-trial', {recursive: true});
-  const shot = async name => {
+  const shot = async (name, target = '#assistant-trial') => {
     await page.evaluate(() => {
       if (!document.querySelector('.simulation-banner')) {
         const banner = document.createElement('div'); banner.className = 'simulation-banner';
@@ -42,13 +43,7 @@ try {
     });
     for (const [suffix, width, height] of [['desktop', 1280, 900], ['phone', 390, 844]]) {
       await page.setViewportSize({width, height});
-      if (await page.locator('#assistant-trial-modal').isVisible()) {
-        for (const id of ['assistant-trial-approve', 'assistant-trial-close']) {
-          const box = await page.locator(`#${id}`).boundingBox();
-          assert.ok(box && box.y >= 0 && box.y + box.height <= height, 'Approval controls fit without scrolling');
-        }
-      }
-      await page.evaluate(() => { const el = document.getElementById('assistant-trial'); scrollTo(0, el.getBoundingClientRect().top + scrollY - 12); });
+      await page.evaluate(selector => { const el = document.querySelector(selector); scrollTo(0, el.getBoundingClientRect().top + scrollY - 12); }, target);
       await page.screenshot({path: `output/playwright/assistant-trial/${name}-${suffix}.png`});
     }
     await page.setViewportSize({width: 1280, height: 900});
@@ -61,18 +56,37 @@ try {
   await page.waitForFunction(() => !document.getElementById('cc-receipt').hidden && document.getElementById('command-center').dataset.watching === 'false', null, {timeout: 60000});
   await page.locator('#assistant-trial').waitFor({state: 'visible', timeout: 10000});
   assert.equal((await status()).status, 'none');
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /^I want to test one change/);
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /^Test: Grounded answers/);
   assert.match(await page.locator('#assistant-trial-text').textContent(), /same eight challenges before and after/);
-  await shot('1-offer');
+  assert.match(await page.locator('#assistant-trial-plan-summary').textContent(), /Model, personality, tools and permissions stay unchanged/);
+  assert.equal(await page.locator('#cc-next-go').isVisible(), true, 'The main GO is the one launch control');
 
-  // Diagnostic misses should lead to one safe improvement offer; approval still gates changes.
+  // Put the real command-center renderer into the diagnostic follow-up state so
+  // the capture shows the actual one-tap improvement offer, not the earlier
+  // document qualification card.
+  await page.route('**/api/command-center', async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.next_action = {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'};
+    await route.fulfill({response, body: JSON.stringify(payload)});
+  });
+  await page.evaluate(() => refreshCommand());
+  await page.waitForFunction(() => document.getElementById('cc-next-go').dataset.action === 'assistant-trial');
+  assert.equal(await page.locator('#cc-next-title').textContent(), 'Ready to prove one change?');
+  assert.equal(await page.locator('#cc-next-trial-offer').isVisible(), true);
+  assert.match(await page.locator('#cc-next-trial-offer').textContent(), /GO approves this exact run/);
+  assert.match(await page.locator('#cc-next-trial-instruction').textContent(), /answer directly first/);
+  assert.equal(await page.locator('#arena').isHidden(), true, 'The previous mission is tucked away during the focused offer');
+  assert.equal(await page.locator('#chat').isHidden(), true, 'GO is the only primary action for this offer');
+  await shot('1-offer', '#cc-next');
+  await page.unroute('**/api/command-center');
+
+  // Diagnostic misses should lead to one safe improvement offer; the disclosed GO itself is approval.
   const guidedAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'}, assistantTrial));
   assert.equal(guidedAction.action, 'assistant-trial');
-  assert.equal(guidedAction.title, 'Ready to prove I can do better?');
-  assert.match(guidedAction.reason, /I want to test one change, then show you a matched retest/);
-  assert.match(guidedAction.reason, /approve before it runs/);
-  assert.match(guidedAction.reason, /recommend Keep or Restore/);
+  assert.equal(guidedAction.title, 'Ready to prove one change?');
+  assert.match(guidedAction.reason, /prove whether this change helps/);
   const runningAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'none', active: true}));
   assert.equal(runningAction.title, 'Watch the improvement run');
@@ -82,26 +96,13 @@ try {
   const keptAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'kept', active: false}));
   assert.equal(keptAction.action, 'chat');
-  await page.evaluate(action => { commandAction = action; }, guidedAction);
+  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Go: Ready to prove one change?');
   await page.locator('#cc-next-go').click();
-  await page.locator('#assistant-trial-modal').waitFor({state: 'visible'});
-  await shot('2-go-approval');
-  await page.locator('#assistant-trial-close').click();
-  assert.equal((await status()).status, 'none', 'GO opens review; approval is still required before any change');
+  await page.waitForFunction(async () => (await api('/api/assistant-trial')).active, null, {timeout: 10000, polling: 100});
+  assert.equal(await page.locator('#assistant-trial-modal').count(), 0, 'The one GO action starts the exact disclosed trial; no second approval dialog');
+  await shot('2-one-go-running');
 
-  // ---- Approval: reviewing and "Not now" change nothing.
-  await page.locator('#assistant-trial-review').click();
-  await page.locator('#assistant-trial-modal').waitFor({state: 'visible'});
-  assert.match(await page.locator('#assistant-trial-instruction').textContent(), /^## Answering from text you were given/);
-  assert.equal(await page.locator('#assistant-trial-tasks li').count(), 8);
-  assert.equal(await page.locator('#assistant-trial-modal .recipe-protection-notice').evaluate(el => el.open), false);
-  await shot('2-approval');
-  await page.locator('#assistant-trial-close').click();
-  assert.equal((await status()).status, 'none', 'Not now changes nothing');
-
-  // ---- Approved trial: before, staged restart, after, result.
-  await page.locator('#assistant-trial-review').click();
-  await page.locator('#assistant-trial-approve').click();
+  // ---- One GO runs baseline, temporary change, matched retest and opinion.
   await page.waitForFunction(() => !document.getElementById('assistant-trial-progress').hidden &&
     document.getElementById('assistant-trial-stage').textContent.startsWith('Baseline'), null, {timeout: 10000});
   assert.equal(await page.locator('#cc-next').isHidden(), true,
@@ -113,8 +114,8 @@ try {
   await page.waitForFunction(() => !document.getElementById('assistant-trial-latest').hidden, null, {timeout: 10000});
   assert.match(await page.locator('#assistant-trial-count').textContent(), /[1-8] of 8 answered/);
   assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Watch me put this change to the test');
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /Same eight challenges before and after/);
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /answer and its checks arrive/);
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /same eight challenges before and after/);
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /each answer arrive/);
   assert.ok((await page.locator('#assistant-trial-question').textContent()).length > 10);
   assert.ok((await page.locator('#assistant-trial-last-question').textContent()).length > 10,
     'The visible answer is paired with the challenge that produced it');
@@ -134,6 +135,11 @@ try {
   assert.match(card, /6 challenges improved · 2 unchanged · 0 worse/);
   assert.match(card, /Recommended next: keep this change/);
   assert.match(card, /not meaningful/);
+  assert.equal(await page.locator('#assistant-trial-opinion').isVisible(), true,
+    'The same run ends with the local fixture assistant’s separate opinion');
+  assert.match(await page.locator('#assistant-trial-opinion-text').textContent(), /I handled the supplied notices better/);
+  assert.match(await page.locator('#assistant-trial-opinion').textContent(), /not scored/);
+  assert.match(await page.locator('#assistant-trial-opinion-model').textContent(), /no tools or personal profile loaded/);
   assert.doesNotMatch(card, /\d+ of 24/, 'No lab score inside assistant evidence');
   assert.equal(await page.locator('#assistant-trial-keep').isVisible(), true);
   assert.equal(await page.locator('#assistant-trial-keep').textContent(), 'Keep this instruction · recommended');
@@ -222,8 +228,8 @@ try {
   await shot('6-restored');
 
   // Cancellation must recover without leaving the approved instruction applied.
-  await page.locator('#assistant-trial-review').click();
-  await page.locator('#assistant-trial-approve').click();
+  await page.evaluate(() => { commandAction = {action: 'assistant-trial'}; });
+  await page.locator('#cc-next-go').click();
   await page.locator('#assistant-trial-cancel').waitFor({state: 'visible'});
   await page.locator('#assistant-trial-cancel').click();
   await page.waitForFunction(async () => { const v = await api('/api/assistant-trial'); return !v.active && v.status === 'none' && v.phase === 'cancelled'; },
@@ -252,5 +258,5 @@ try {
   const ids = await page.locator('[id]').evaluateAll(nodes => nodes.map(n => n.id));
   assert.equal(new Set(ids).size, ids.length, 'Unique control IDs');
   assert.deepEqual(errors, []);
-  console.log('PASS: U10 approval, before/after through fixture assistant, keep and restore verified, review recommendation for diagnostic misses; fixture only.');
+  console.log('PASS: one GO starts the disclosed U10 trial, before/after and fixture opinion complete, Keep/Restore verified, diagnostic review routed; fixture only.');
 } finally { if (browser) await browser.close(); server.stdin.end(); server.kill(); }

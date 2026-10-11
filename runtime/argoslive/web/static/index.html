@@ -38,6 +38,15 @@
         </div>
         <h3 id="cc-next-title">Checking your systems…</h3>
         <p id="cc-next-reason"></p>
+        <section id="cc-next-trial-offer" class="cc-next-trial-offer" hidden aria-label="What GO will do">
+          <p class="cc-next-trial-kicker">ONE GO · 8 CHALLENGES BEFORE + THE SAME 8 AFTER</p>
+          <p>GO approves this exact run. I’ll add this instruction temporarily and restart chat. Your model, personality, tools and permissions stay unchanged. Watch every answer and my separate opinion, then choose Keep or Restore.</p>
+          <blockquote id="cc-next-trial-instruction"></blockquote>
+          <details>
+            <summary>See the eight questions</summary>
+            <ol id="cc-next-trial-tasks"></ol>
+          </details>
+        </section>
         <div class="cc-hero-actions">
           <button id="cc-next-go" class="mission-primary cc-go-button" type="button" hidden aria-label="Go: start the next mission">GO <span aria-hidden="true">▶</span></button>
           <button id="chat" class="mission-secondary" type="button" disabled>Talk to Argos</button>
@@ -255,8 +264,18 @@
             </article>
             <section id="assistant-trial" class="assistant-trial" aria-labelledby="assistant-trial-title" hidden>
               <p class="mission-label">Your everyday assistant</p>
-              <h4 id="assistant-trial-title">Try one change in the assistant you talk to</h4>
+              <h4 id="assistant-trial-title">Let your AI prove one change</h4>
               <p id="assistant-trial-text"></p>
+              <section id="assistant-trial-plan" class="assistant-trial-plan" hidden aria-label="The approved improvement test">
+                <p class="assistant-trial-plan-label">ONE CHANGE · SAME EIGHT CHALLENGES · YOU CHOOSE WHAT STAYS</p>
+                <p id="assistant-trial-plan-summary"></p>
+                <details id="assistant-trial-plan-details">
+                  <summary>See the exact change and test</summary>
+                  <blockquote id="assistant-trial-instruction" class="recipe-instruction-quote"></blockquote>
+                  <ul id="assistant-trial-unchanged"></ul>
+                  <ol id="assistant-trial-tasks"></ol>
+                </details>
+              </section>
               <div id="assistant-trial-progress" class="assistant-trial-watch" role="region" aria-label="Assistant trial watch" hidden>
                 <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 8 answered</strong></div>
                 <progress id="assistant-trial-bar" max="8" value="0" aria-label="Assistant trial progress"></progress>
@@ -266,7 +285,7 @@
                   <p class="trial-watch-kicker">THE CHALLENGE</p>
                   <h5 id="assistant-trial-question">Preparing the first question…</h5>
                   <p id="assistant-trial-thinking" class="trial-watch-thinking" role="status" aria-live="polite">Getting the assistant ready…</p>
-                  <details id="assistant-trial-source" hidden><summary>Read the source notice</summary><p id="assistant-trial-source-text"></p></details>
+                  <details id="assistant-trial-source" open hidden><summary>Source notice</summary><p id="assistant-trial-source-text"></p></details>
                 </article>
                 <article id="assistant-trial-latest" class="trial-watch-latest" hidden>
                   <p class="trial-watch-kicker">LAST ANSWER · <span id="assistant-trial-last-question"></span></p>
@@ -276,8 +295,12 @@
                 </article>
               </div>
               <div id="assistant-trial-result" hidden></div>
+              <article id="assistant-trial-opinion" class="assistant-trial-opinion" hidden aria-live="polite">
+                <div class="assistant-trial-opinion-head"><strong>What your AI thinks</strong><span>Local model opinion · not scored</span></div>
+                <blockquote id="assistant-trial-opinion-text"></blockquote>
+                <p id="assistant-trial-opinion-model"></p>
+              </article>
               <div class="assistant-trial-actions">
-                <button id="assistant-trial-review" type="button" class="mission-secondary">Preview my change</button>
                 <button id="assistant-trial-keep" type="button" class="mission-primary" hidden>Keep in my assistant</button>
                 <button id="assistant-trial-restore" type="button" class="mission-secondary" hidden>Restore the original</button>
                 <button id="assistant-trial-chat" type="button" class="mission-primary" hidden>Try it with a real question</button>
@@ -559,30 +582,6 @@
               <button id="skill-node-close" type="button">Close</button>
             </div>
         </dialog>
-    <dialog id="assistant-trial-modal" class="recipe-modal" aria-labelledby="assistant-trial-modal-title">
-      <div class="modal-card">
-        <div class="modal-header">
-          <div>
-            <span class="domain-tag">Needs your approval</span>
-            <h3 id="assistant-trial-modal-title">Try “grounded answers” in your everyday assistant</h3>
-          </div>
-          <span class="state-badge measured">Everyday assistant</span>
-        </div>
-        <div class="modal-body">
-          <p class="recipe-lead">Ask your assistant the same new questions before and after one added instruction, then keep or restore it.</p>
-          <blockquote id="assistant-trial-instruction" class="recipe-instruction-quote"></blockquote>
-          <p class="recipe-explanation">Added as a marked block at the end of <strong>AGENTS.md</strong>. Chat briefly restarts to apply it, and again if you restore. Trial questions run in their own new conversations, not yours. Allow up to 120 seconds per question; Stop ends the trial and checks recovery.</p>
-          <details class="recipe-protection-notice"><summary>What does not change</summary><ul id="assistant-trial-unchanged"></ul>
-            <p>These files are checked byte for byte before and after. If you edit protected files during the trial, automatic recovery stops for review; your edits are never overwritten.</p></details>
-          <details><summary>The questions it will ask</summary><ol id="assistant-trial-tasks"></ol>
-            <p>New passages and questions, separate from the lab’s test, scored by fixed checks. Lab scores are not used.</p></details>
-        </div>
-        <div class="modal-actions">
-          <button id="assistant-trial-approve" type="button" class="mission-primary">Approve and run the assistant trial</button>
-          <button id="assistant-trial-close" type="button" class="mission-secondary">Not now</button>
-        </div>
-      </div>
-    </dialog>
     <dialog id="recipe-modal" class="recipe-modal" aria-labelledby="recipe-modal-title">
           <div class="modal-card">
             <div class="modal-header">

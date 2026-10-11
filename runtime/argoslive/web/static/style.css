@@ -2089,6 +2089,20 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .trial-watch-time { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
 @media (prefers-reduced-motion: reduce) { .trial-watch-thinking::before { animation: none; } }
 #assistant-trial-result { display: grid; gap: 10px; margin: 14px 0; }
+.assistant-trial-plan { margin: 14px 0; padding: 14px; border: 1px solid #31525f; border-radius: 12px; background: #101f29; }
+.assistant-trial-plan-label { margin: 0 0 7px; color: var(--accent); font-size: 10px; font-weight: 850; letter-spacing: .1em; }
+.assistant-trial-plan > p:not(.assistant-trial-plan-label) { margin: 0; color: var(--text); line-height: 1.5; }
+.assistant-trial-plan details { margin-top: 10px; color: var(--muted); font-size: 13px; }
+.assistant-trial-plan summary { cursor: pointer; color: var(--text); font-weight: 700; }
+.assistant-trial-plan blockquote { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: #0b1720; white-space: pre-wrap; }
+.assistant-trial-plan ul, .assistant-trial-plan ol { margin: 8px 0 0; padding-left: 22px; }
+.assistant-trial-plan li { margin: 5px 0; line-height: 1.4; }
+.assistant-trial-opinion { margin: 14px 0; padding: 14px; border: 1px solid #394874; border-radius: 12px; background: #151a2b; }
+.assistant-trial-opinion[hidden] { display: none; }
+.assistant-trial-opinion-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; color: #c4c7ff; }
+.assistant-trial-opinion-head span { color: var(--muted); font-size: 11px; }
+.assistant-trial-opinion blockquote { margin: 8px 0 0; color: var(--text); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.assistant-trial-opinion > p { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
 .assistant-trial-focus #cc-next,
 .assistant-trial-focus #cc-receipt-kicker,
 .assistant-trial-focus #cc-receipt-title,
@@ -2106,6 +2120,22 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .assistant-trial-focus #cc-progress-journal,
 .assistant-trial-focus #cc-task-box,
 .assistant-trial-focus #full-skill-map { display: none !important; }
+#command-center.assistant-trial-offer-focus > :not(#cc-title):not(#cc-next) { display: none !important; }
+#command-center.assistant-trial-offer-focus #chat,
+#command-center.assistant-trial-offer-focus .mission-rules { display: none !important; }
+#command-center.assistant-trial-offer-focus ~ #workbench { display: none !important; }
+.cc-next-trial-offer { margin: 12px 0 0; padding: 12px; border: 1px solid #39776f; border-radius: 12px; background: linear-gradient(140deg, #12312f, #111d29 72%); }
+.cc-next-trial-offer[hidden] { display: none; }
+.cc-next-trial-kicker { margin: 0 0 7px; color: #8aecd9; font-size: 11px; font-weight: 850; letter-spacing: .09em; }
+.cc-next-trial-offer > p:not(.cc-next-trial-kicker) { margin: 0; color: var(--text); font-size: 13px; line-height: 1.45; }
+.cc-next-trial-offer blockquote { margin: 9px 0; padding: 9px 11px; border-left: 3px solid #72d9c9; border-radius: 0 8px 8px 0; background: #0a171d; color: var(--text); font-size: 13px; line-height: 1.4; }
+.cc-next-trial-offer blockquote strong { display: block; margin-bottom: 5px; color: #9cefe1; }
+.cc-next-trial-offer blockquote p { margin: 0; }
+.cc-next-trial-offer details { margin-top: 9px; color: var(--muted); font-size: 12px; }
+.cc-next-trial-offer summary { color: #b8dff1; cursor: pointer; font-weight: 700; }
+.cc-next-trial-offer ol { padding-left: 22px; }
+.cc-next-trial-offer li { margin: 7px 0; line-height: 1.4; }
+.cc-next-trial-guardrail { margin: 9px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .assistant-trial-verdict { padding: 16px; border: 1px solid #42626a; border-radius: 14px; background: #101f29; }
 .assistant-trial-verdict.better, .assistant-trial-verdict.kept { border-color: #58b9ac; background: radial-gradient(ellipse at 100% 0%, #17423f44, transparent 65%), #101f29; }
 .assistant-trial-verdict.mixed, .assistant-trial-verdict.cautious, .assistant-trial-verdict.caution { border-color: #d1a568; background: radial-gradient(ellipse at 100% 0%, #60462933, transparent 65%), #101f29; }

@@ -26,7 +26,7 @@ When I give you a document, notice or passage and ask about it: answer directly 
 
 ## Approval
 
-The Improve page shows one compact "Try in your everyday assistant" card (no new dashboard). Its dialog shows the exact text, the file it goes into, what stays unchanged, the independent tasks it will run, and that chat restarts when applying or restoring. Nothing changes until **Approve and run the assistant trial**. This is an independently approved assistant experiment; a successful lab result is not a prerequisite or proof.
+The Improve page offers one focused card: one **GO** runs the whole bounded trial. Before GO, it shows the exact temporary instruction, the same eight questions before and after, the brief chat restart, and the files/settings that stay unchanged. The questions are expandable. Pressing **GO** is explicit approval for that exact run; there is no redundant preview-then-approve dialog. Nothing changes before GO. This is an independently approved assistant experiment; a successful lab result is not a prerequisite or proof.
 
 ## Trial (one approved run)
 
@@ -34,8 +34,9 @@ The Improve page shows one compact "Try in your everyday assistant" card (no new
 2. **Before:** run the independent tasks through the assistant path (current configuration), one fresh session per task.
 3. **Stage:** write the journal (raw `AGENTS.md` before/after, protected hashes), stop the assistant, append the block atomically, start the assistant, and wait for a verified reply.
 4. **After:** run the same tasks in fresh sessions.
-5. **Verify:** protected files unchanged; `AGENTS.md` equals the staged bytes. An ordinary failure restores the original bytes and restarts, with verification before clearing the journal. Owner edits block automatic recovery: keep their bytes, stop the assistant and retain the journal for review. Never claim a restore that failed.
-6. **Decision:** the change stays applied, marked *on trial*, until the owner chooses.
+5. **Reflect:** ask the selected local model for a bounded opinion using aggregate check counts only. No raw replies, personal profile, tools or hidden reasoning enter this prompt. This opinion cannot change scores or the controller's Keep/Restore recommendation. Failure to produce an opinion does not discard the scored result.
+6. **Verify:** protected files unchanged; `AGENTS.md` equals the staged bytes. An ordinary failure restores the original bytes and restarts, with verification before clearing the journal. Owner edits block automatic recovery: keep their bytes, stop the assistant and retain the journal for review. Never claim a restore that failed.
+7. **Decision:** the change stays applied, marked *on trial*, until the owner chooses.
 
 ## Independent tasks
 
@@ -51,7 +52,7 @@ While an approved trial is running, the watch view shows the current before/chan
 
 ## Result shown to the owner
 
-Before → after per task and check; **gains** (fail → pass), **regressions** (pass → fail), reply time, and an explicit uncertainty note: one run per task, 8 tasks, sampling varies, so a difference of one task is not meaningful. A suggestion is shown only as a suggestion: consider keeping if at least two tasks gain checks and none regress, otherwise restore. Even two gains do not establish statistical significance. Evidence records the model, profile hash, task version/hash and exact instruction hash. Assistant evidence is labeled "everyday assistant"; it never appears in lab scores and lab scores never appear in it.
+Before → after per task and check; **gains** (fail → pass), **regressions** (pass → fail), reply time, and an explicit uncertainty note: one run per task, 8 tasks, sampling varies, so a difference of one task is not meaningful. A suggestion is shown only as a suggestion: consider keeping if at least two tasks gain checks and none regress, otherwise restore. Even two gains do not establish statistical significance. The selected model can add a short first-person opinion based only on aggregate counts; it is prominently labeled as opinion and displayed separately from scored facts. The code recommendation remains authoritative. Evidence records the model, profile hash, task version/hash and exact instruction hash. Assistant evidence is labeled "everyday assistant"; it never appears in lab scores and lab scores never appear in it.
 
 ## Keep or Restore
 
@@ -68,4 +69,4 @@ The "next action" no longer recommends a larger model when every miss kept an ac
 - Unit tests: block apply/restore is byte-exact; protected-file and owner-edit guards; crash recovery; task scoring per check on recorded replies; gain/regression arithmetic; journal and record schemas; routes are authenticated and empty-bodied.
 - Fixture browser smoke: approve → before → staged → after → result → Keep (record verified) → Restore (original bytes verified), plus cancellation and stable opened evidence across polling, using a fixture assistant runner, never a real model. Simulated previews are labeled.
 - `command_center` and Improve no longer recommend a model candidate for wording-only or requirement-only misses.
-- Not in this PR: deployment, a real-assistant run on Toronado, physical phone, reboot. The first real trial on Toronado happens only after the owner approves it in the dialog.
+- Not in PR #86: deployment, a real-assistant run on Toronado, physical phone, reboot. Fixture browser evidence is not real-model evidence. Any real trial still needs the owner's explicit GO on the device.

@@ -21,6 +21,7 @@ import uuid
 
 from . import storage
 from .model_selection import finish_journal, replace_raw
+from .ollama import Client
 from .pull_jobs import read_json, write_json
 
 SCHEMA = 'argos-assistant-trial/1'
@@ -43,6 +44,7 @@ CHANGE = {'id': CHANGE_ID, 'version': CHANGE_VERSION, 'title': 'Grounded answers
 UNCERTAINTY = ('One run per task and only eight tasks; replies vary between runs, so a difference of one task '
                'is not meaningful. Automated text checks are limited evidence, not a general ability rating. '
                'These are everyday-assistant results only, separate from lab scores.')
+OPINION_PREFIX = 'ARGOS_TRIAL_OPINION/1\n'
 QUOTE = re.compile(r'[“"]([^”"]{15,})[”"]')
 NOT_STATED = re.compile(r"\b(doesn['’]?t|does not|didn['’]?t|did not|isn['’]?t|is not|not|no)\b[^.?!]{0,60}?"
                         r"\b(say|says|said|state|states|stated|mention|mentions|mentioned|give|gives|given|include|"
@@ -139,6 +141,25 @@ def compare(before, after):
     suggestion = 'keep' if len(gains) >= 2 and not regressions else 'restore'
     return {'rows': rows, 'totals': totals, 'gains': gains, 'regressions': regressions,
             'suggestion': suggestion, 'uncertainty': UNCERTAINTY, 'evidence': 'everyday-assistant'}
+
+
+def opinion_prompt(result):
+    """Ask the tested assistant to reflect on public aggregates, never raw replies."""
+    totals = result['totals']
+    facts = {
+        'challenges': {'improved': len(result['gains']), 'worse': len(result['regressions']),
+                       'unchanged': len(result['rows']) - len(result['gains']) - len(result['regressions'])},
+        'checks': {kind: {'before': values['before'], 'after': values['after'], 'out_of': values['total']}
+                   for kind, values in totals.items()},
+    }
+    return (OPINION_PREFIX +
+            'You are the local assistant taking part in a small, private improvement test. In at most two short '
+            'first-person sentences, say what these counts suggest and one thing you would like to investigate '
+            'next (or say that you need more evidence). Be candid and curious. These checks are limited text '
+            'heuristics: do not claim general ability, learning, statistical significance, or proven improvement. '
+            'Do not change anything, call tools, or choose Keep/Restore; the owner decides. Suggest only a future '
+            'question to investigate, not an action that runs automatically. The counts below are authoritative; '
+            'do not invent missing details.\nMEASURED COUNTS:\n' + json.dumps(facts, sort_keys=True))
 
 
 def paths(home):
@@ -295,13 +316,15 @@ class OpenClawRunner:
 
 
 class Controller:
-    def __init__(self, startup, *, home=None, runner=None, tasks=None, ready_timeout=900, validate_profile=None):
+    def __init__(self, startup, *, home=None, runner=None, tasks=None, ready_timeout=900,
+                 validate_profile=None, reflector=None):
         self.startup = startup
         self.home = Path(home or startup.home)
         self.runner = runner or OpenClawRunner(self.home)
         self.tasks = tasks or load_tasks()
         self.ready_timeout = ready_timeout
         self.validate_profile = validate_profile or reviewed_profile
+        self.reflector = reflector or self.model_opinion
         self.lock = threading.RLock()
         self.cancel_event = threading.Event()
         if isinstance(self.runner, OpenClawRunner):
@@ -340,7 +363,7 @@ class Controller:
             active = self.worker is not None and self.worker.is_alive()
             status, value = self.status()
             result = (value or {}).get('result')
-            tasks = [{k: t[k] for k in ('id', 'kind', 'question', 'message') if k in t} for t in self.tasks['tasks']]
+            tasks = [{k: t[k] for k in ('id', 'kind', 'question', 'message', 'passage') if k in t} for t in self.tasks['tasks']]
             return {'available': True, 'active': active, 'phase': self.phase, 'progress': copy.deepcopy(self.progress),
                     'message': self.message, 'status': status, 'change': CHANGE, 'tasks': tasks,
                     'passages': self.tasks['passages'], 'result': result,
@@ -492,6 +515,31 @@ class Controller:
             raise ValueError('Cancelled')
         return outcomes
 
+    def reflect(self, result, model):
+        """Keep the assistant's opinion separate from code-scored evidence."""
+        if self.cancel_event.is_set():
+            return {'state': 'unavailable'}
+        self.phase = 'reflecting'
+        self.message = 'The scorecard is fixed. Your AI is writing a short opinion.'
+        try:
+            reply = self.reflector(model, opinion_prompt(result), self.cancel_event)
+            text = reply.get('text') if isinstance(reply, dict) else None
+            if not isinstance(text, str) or not text.strip() or len(text.strip()) > 1000:
+                return {'state': 'unavailable'}
+            return {'state': 'completed', 'text': text.strip(), 'model': model,
+                    'label': 'Local model opinion · not scored evidence'}
+        except Exception:
+            # Reflection is optional; failure must never discard the scored trial.
+            return {'state': 'unavailable'}
+
+    @staticmethod
+    def model_opinion(model, prompt, cancel):
+        """Use the selected local model directly, without workspace profile or tools."""
+        client = Client(timeout=45)
+        return client.generate(model, prompt, options={'num_ctx': 2048, 'num_predict': 120,
+                                                       'temperature': 0.4, 'seed': 1},
+                               think=False, keep_alive='5m', cancel=cancel)
+
     def execute(self):
         try:
             _, model = self.validate_profile(self.home)
@@ -547,9 +595,10 @@ class Controller:
                                        'tasks_sha256': hashlib.sha256(json.dumps(self.tasks, sort_keys=True).encode()).hexdigest(),
                                        'instruction_sha256': hashlib.sha256(BLOCK.encode()).hexdigest(),
                                        'profile_sha256': protected['openclaw.json']}
+            result['opinion'] = self.reflect(result, model)
             value.update(phase='awaiting-decision', result=result)
             write_json(journal, value)
-            self.message = 'Trial finished. The change is on trial until you keep or restore it.'
+            self.message = 'The run is finished. Review the scorecard and your AI’s opinion, then choose what stays.'
             return 'awaiting-decision'
         except Exception:
             self.phase = 'restoring'

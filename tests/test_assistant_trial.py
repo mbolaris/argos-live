@@ -40,6 +40,9 @@ class Runner:
         # so the em dash in the reviewed marker is not decoded through a legacy code page.
         guided = at.START in at.agents_path(self.home).read_text(encoding='utf-8')
         self.turns.append((guided, message))
+        if message.startswith(at.OPINION_PREFIX):
+            return {'text': 'I handled the supplied notices better in this small test. Next I would like to check a few real questions.',
+                    'elapsed_seconds': 0.1, 'session_id': f'fixture-{len(self.turns)}'}
         if self.edit and len(self.turns) == 12:
             self.edit()
         data = at.load_tasks()
@@ -73,10 +76,15 @@ class TrialTests(unittest.TestCase):
             (workspace / name).write_text(f'{name} persona')
         self.agents = workspace / 'AGENTS.md'
         self.startup = Startup(self.home)
+        self.opinions = []
+
+    def fixture_opinion(self, model, prompt, cancel):
+        self.opinions.append((model, prompt))
+        return {'text': 'I handled the supplied notices better in this small test. Next I would like to check a few real questions.'}
 
     def trial(self, **runner):
         controller = at.Controller(self.startup, home=self.home, runner=Runner(self.home, **runner), ready_timeout=5,
-                                   validate_profile=lambda home: (home, 'fixture'))
+                                   validate_profile=lambda home: (home, 'fixture'), reflector=self.fixture_opinion)
         self.addCleanup(controller.close)
         return controller
 
@@ -94,6 +102,9 @@ class TrialTests(unittest.TestCase):
         self.assertFalse(self.startup.lab_active)
         turns = trial.runner.turns
         self.assertEqual([guided for guided, _ in turns], [False] * 8 + [True] * 8)
+        self.assertEqual(len(self.opinions), 1)
+        self.assertEqual(self.opinions[0][0], 'fixture')
+        self.assertIn('MEASURED COUNTS', self.opinions[0][1])
         result = value['result']
         self.assertEqual(result['totals']['answer'], {'before': 0, 'after': 3, 'total': 3})
         self.assertEqual(result['totals']['not_stated'], {'before': 0, 'after': 3, 'total': 3})
@@ -101,6 +112,9 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(result['regressions'], [])
         self.assertEqual(result['suggestion'], 'keep')
         self.assertEqual(result['evidence'], 'everyday-assistant')
+        self.assertEqual(result['opinion']['state'], 'completed')
+        self.assertEqual(result['opinion']['model'], 'fixture')
+        self.assertIn('not scored evidence', result['opinion']['label'])
         self.assertIn('not meaningful', result['uncertainty'])
         # The original bytes are kept exactly before the marked block.
         self.assertTrue(self.agents.read_bytes().startswith(self.original.encode()))
@@ -136,6 +150,70 @@ class TrialTests(unittest.TestCase):
         finally:
             release_second_turn.set()
         self.wait(trial)
+
+    def test_opinion_prompt_contains_only_aggregate_counts(self):
+        prompt = at.opinion_prompt({'gains': ['one'], 'regressions': [],
+                                    'rows': [{'reply': 'PRIVATE ANSWER MUST NOT BE SENT'}],
+                                    'totals': {'answer': {'before': 0, 'after': 1, 'total': 1},
+                                               'not_stated': {'before': 1, 'after': 1, 'total': 1},
+                                               'control': {'before': 2, 'after': 2, 'total': 2}}})
+        self.assertNotIn('PRIVATE ANSWER MUST NOT BE SENT', prompt)
+        facts = json.loads(prompt.split('MEASURED COUNTS:\n', 1)[1])
+        self.assertEqual(facts['challenges'], {'improved': 1, 'unchanged': 0, 'worse': 0})
+        self.assertEqual(facts['checks']['answer'], {'before': 0, 'after': 1, 'out_of': 1})
+
+    def test_opinion_failure_does_not_discard_measured_trial(self):
+        trial = self.trial()
+        def failing_opinion(model, prompt, cancel):
+            raise ValueError('private gateway detail')
+        trial.reflector = failing_opinion
+        trial.start(); self.wait(trial)
+        result = trial.snapshot()['result']
+        self.assertEqual(trial.snapshot()['status'], 'on-trial')
+        self.assertEqual(result['totals']['answer'], {'before': 0, 'after': 3, 'total': 3})
+        self.assertEqual(result['opinion'], {'state': 'unavailable'})
+
+    def test_reflection_has_live_phase_and_does_not_change_fixed_score(self):
+        trial = self.trial()
+        opinion_started, release_opinion = threading.Event(), threading.Event()
+        def paused_opinion(model, prompt, cancel):
+            opinion_started.set()
+            release_opinion.wait(timeout=5)
+            return {'text': 'The measured result is still small; I want another useful question.'}
+        trial.reflector = paused_opinion
+        trial.start()
+        try:
+            self.assertTrue(opinion_started.wait(timeout=5))
+            value = trial.snapshot()
+            self.assertTrue(value['active'])
+            self.assertEqual(value['phase'], 'reflecting')
+            self.assertEqual(value['progress']['done'], 8)
+            self.assertIsNone(value['progress']['current'])
+        finally:
+            release_opinion.set()
+        self.wait(trial)
+        self.assertEqual(trial.snapshot()['result']['totals']['answer'], {'before': 0, 'after': 3, 'total': 3})
+
+    def test_skipping_optional_opinion_keeps_completed_score_for_owner_decision(self):
+        trial = self.trial()
+        opinion_started, release_opinion = threading.Event(), threading.Event()
+        def paused_opinion(model, prompt, cancel):
+            opinion_started.set()
+            release_opinion.wait(timeout=5)
+            if cancel.is_set():
+                raise ValueError('cancelled')
+            return {'text': 'Opinion'}
+        trial.reflector = paused_opinion
+        trial.start()
+        self.assertTrue(opinion_started.wait(timeout=5))
+        trial.cancel()
+        release_opinion.set()
+        self.wait(trial)
+        value = trial.snapshot()
+        self.assertEqual(value['status'], 'on-trial')
+        self.assertEqual(value['result']['opinion'], {'state': 'unavailable'})
+        self.assertEqual(value['result']['totals']['answer'], {'before': 0, 'after': 3, 'total': 3})
+        self.assertIn(at.BLOCK, self.agents.read_text(encoding='utf-8'))
 
     def test_keep_records_and_restore_is_byte_exact(self):
         trial = self.trial()
@@ -322,6 +400,7 @@ class TrialTests(unittest.TestCase):
 
 class RouteTests(unittest.TestCase):
     setUp, trial = TrialTests.setUp, TrialTests.trial
+    fixture_opinion = staticmethod(lambda model, prompt, cancel: {'text': 'A fixture opinion.'})
 
     def test_routes_are_authenticated_empty_bodied_and_fixed_text(self):
         import http.client
