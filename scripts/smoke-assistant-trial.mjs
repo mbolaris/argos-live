@@ -199,6 +199,8 @@ try {
   assert.match(await page.locator('#assistant-trial-result').textContent(), /Next: try me with a real question in chat/);
   assert.deepEqual((await page.locator('#assistant-trial .assistant-trial-actions button:visible').allTextContents()),
     ['Try it with a real question'], 'After Keep, trying the assistant is the single primary next step');
+  assert.equal(await page.locator('#command-center').evaluate(el => el.classList.contains('assistant-trial-focus')), true,
+    'Keep continues the focused flow into the real-question follow-up');
   assert.equal(await page.locator('#assistant-trial-restore').isVisible(), false,
     'Restore stays available as an explicit undo, not a competing primary action');
   await shot('5-kept');

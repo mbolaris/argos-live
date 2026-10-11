@@ -1161,6 +1161,7 @@ show improved, steady and regressed challenges at a glance. This visual
 scoreboard is not a model-authored opinion; the local assistant's own bounded
 reflection remains a separate acceptance item. While Keep/Restore is pending,
 hide unrelated skill maps, examples, journals, mission briefs and hardware
-diagnostics; restore them after the owner makes a choice. Spell out the
+diagnostics. After Keep, focus the next real-chat step and leave Restore as an
+undo; after Restore, return the normal navigation. Spell out the
 checkpoint counts (“1 challenge improved · 7 unchanged · 0 worse”) so the marks
 are immediately understandable.
