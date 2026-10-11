@@ -550,8 +550,10 @@ class OpenClawRunner:
             if path.read_bytes() != expected:
                 raise ValueError('A workspace default could not be verified')
 
-    def turn(self, text):
+    def turn(self, text, timeout=180):
         from .owned_gateway import environment
+        if type(timeout) not in (int, float) or timeout <= 0:
+            raise TrialTurnError('turn-timeout')
         executable = self.executable or shutil.which('openclaw')
         if not executable:
             raise ValueError('OpenClaw is unavailable')
@@ -560,11 +562,12 @@ class OpenClawRunner:
         env.pop('OPENCLAW_GATEWAY_STARTUP_TRACE', None)
         session = str(uuid.uuid4())
         started = time.monotonic()
+        timeout = max(1, int(timeout))
         command = [str(executable), 'agent', '--agent', 'main', '--session-id', session,
                    '--session-key', 'agent:main:argos-trial-' + session,
-                   '--message', text, '--timeout', '120', '--json']
+                   '--message', text, '--timeout', str(timeout), '--json']
         with subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
-            deadline = time.monotonic() + 180
+            deadline = time.monotonic() + timeout
             while True:
                 if (self.cancel_event and self.cancel_event.is_set()) or time.monotonic() >= deadline:
                     cancelled = bool(self.cancel_event and self.cancel_event.is_set())
