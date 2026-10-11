@@ -27,7 +27,7 @@
       </div>
       <article class="card cc-mission-hero" id="cc-next">
         <div class="cc-hero-meta">
-          <p class="mission-label">Recommended next mission</p>
+          <p id="cc-next-label" class="mission-label">Recommended next mission</p>
           <div class="cc-hero-status-strip" aria-label="Build identity and tested evidence">
             <span class="cc-status-item">AI: <strong id="cc-hero-ai">your AI</strong></span>
             <span class="cc-status-sep">·</span>
@@ -39,11 +39,14 @@
         <h3 id="cc-next-title">Checking your systems…</h3>
         <p id="cc-next-reason"></p>
         <section id="cc-next-trial-offer" class="cc-next-trial-offer" hidden aria-label="What GO will do">
-          <p class="cc-next-trial-kicker">ONE GO · ONE BASELINE · ALL UNTRIED IDEAS · UP TO 32 ANSWERS</p>
-          <p>GO approves the exact ideas below. I’ll test each on the same eight challenges, reset between ideas, and show the score as it arrives. Your model, personality, tools and permissions stay unchanged. I’ll recommend one; you choose Keep or Restore.</p>
-          <div id="cc-next-trial-instructions" class="cc-next-trial-instructions"></div>
+          <p class="cc-next-trial-kicker">ONE GO · 3 IDEAS · 8 CHALLENGES EACH</p>
+          <p>I’ll show every answer, then recommend a winner. You choose Keep or Restore. Uses your current model; no download or storage setup.</p>
+          <details id="cc-next-trial-ideas-details">
+            <summary id="cc-next-trial-ideas-summary">See the exact ideas</summary>
+            <div id="cc-next-trial-instructions" class="cc-next-trial-instructions"></div>
+          </details>
           <details>
-            <summary>See the eight questions</summary>
+            <summary>See the eight challenges</summary>
             <ol id="cc-next-trial-tasks"></ol>
           </details>
         </section>

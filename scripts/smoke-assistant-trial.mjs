@@ -82,26 +82,33 @@ try {
   await page.locator('#cc-next-go').click();
   await page.waitForFunction(() => !document.getElementById('cc-receipt').hidden &&
     document.getElementById('command-center').dataset.watching === 'false', null, {timeout: 60000});
-  await page.locator('#assistant-trial').waitFor({state: 'visible', timeout: 10000});
+  await page.waitForFunction(() => document.getElementById('cc-next-go').dataset.action === 'assistant-trial' &&
+    !document.getElementById('cc-next-trial-offer').hidden, null, {timeout: 10000});
+  assert.equal(await page.locator('#cc-next-label').textContent(), 'Your next move');
   assert.equal(await page.locator('#cc-receipt').isVisible(), true, 'The starting mission result remains visible before GO');
+  assert.equal(await page.locator('#replay').isHidden(), true, 'Detailed replay is tucked away while the next move is in focus');
   assert.equal(await page.locator('#command-center').getAttribute('data-watching'), 'false');
   assert.equal((await status()).status, 'none');
 
-  // Simulate the diagnostic review next action after the foundation mission.
-  await page.route('**/api/command-center', async route => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    payload.next_action = {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'};
-    await route.fulfill({response, body: JSON.stringify(payload)});
-  });
+  // Simulate an unrelated storage blocker after the foundation mission. The
+  // real-model improvement loop should still be the obvious next GO.
+  const completedCommand = await page.evaluate(() => api('/api/command-center'));
+  completedCommand.next_action = {id: 'storage', title: 'Choose model storage', reason: 'Storage is not configured.', action: 'storage'};
+  await page.route('**/api/command-center', route => route.fulfill({json: completedCommand}));
   await page.evaluate(() => refreshCommand());
   await page.waitForFunction(() => document.getElementById('cc-next-go').dataset.action === 'assistant-trial' &&
     !document.getElementById('cc-next-trial-offer').hidden, null, {timeout: 10000});
-  assert.equal(await page.locator('#cc-next-title').textContent(), 'Ready to test 3 improvement ideas?');
+  assert.equal(await page.locator('#cc-next-title').textContent(), 'I found 3 ideas to test — want to watch?');
+  assert.match(await page.locator('#cc-next-reason').textContent(), /Same model\. Same eight challenges/);
   assert.equal(await page.locator('#cc-next-trial-offer').isVisible(), true);
-  assert.match(await page.locator('#cc-next-trial-offer').textContent(), /all 3 untried ideas/i);
+  assert.match(await page.locator('#cc-next-trial-offer').textContent(), /3 ideas · 8 challenges each/i);
   assert.match(await page.locator('#cc-next-trial-offer').textContent(), /up to 32 answers/i);
+  assert.equal(await page.locator('#workbench > summary').isVisible(), true,
+    'Model and storage setup remains accessible as a separate optional path');
+  assert.equal(await page.locator('#cc-next-trial-ideas-details').evaluate(el => el.open), false,
+    'The exact instruction cards stay tucked away until the user asks to inspect them');
   assert.equal(await page.locator('#cc-next-trial-instructions .cc-next-trial-idea').count(), 3);
+  await page.locator('#cc-next-trial-ideas-summary').click();
   assert.match(await page.locator('#cc-next-trial-instructions').textContent(), /Answer first/);
   assert.match(await page.locator('#cc-next-trial-instructions').textContent(), /Show the source/);
   assert.match(await page.locator('#cc-next-trial-instructions').textContent(), /Be honest when the source is silent/);
@@ -110,20 +117,39 @@ try {
   assert.match(await page.locator('#cc-next-trial-instructions details').first().textContent(), /begin with the direct answer in one short sentence/,
     'The exact approved instruction remains available before GO');
   await page.locator('#cc-next-trial-instructions details').first().locator('summary').click();
+  await page.locator('#cc-next-trial-ideas-summary').click();
   assert.equal(await page.locator('#arena').isHidden(), true, 'The previous mission is tucked away during the focused offer');
   assert.equal(await page.locator('#chat').isHidden(), true, 'GO is the only primary action for this offer');
   await shot('1-offer', '#cc-next');
   await page.unroute('**/api/command-center');
 
-  // Diagnostic misses should lead to one safe improvement offer; the disclosed GO itself is approval.
+  // A completed document result should lead to one safe improvement offer,
+  // independent of storage/model next actions; the disclosed GO is approval.
   const firstMission = await page.evaluate(() => presentedNextAction(
-    {id: 'documents', title: 'Read this brief', reason: 'Read eight passages.', action: 'documents'}, assistantTrial));
+    {id: 'documents', title: 'Read this brief', reason: 'Read eight passages.', action: 'documents'}, assistantTrial, null));
   assert.equal(firstMission.action, 'documents', 'An empty build still starts its foundation mission first');
   const guidedAction = await page.evaluate(() => presentedNextAction(
-    {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'}, assistantTrial));
+    {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'}, assistantTrial, null));
   assert.equal(guidedAction.action, 'assistant-trial');
-  assert.equal(guidedAction.title, 'Ready to test 3 improvement ideas?');
-  assert.match(guidedAction.reason, /whole campaign/);
+  assert.equal(guidedAction.title, 'I found 3 ideas to test — want to watch?');
+  assert.match(guidedAction.reason, /Same model\. Same eight challenges/);
+  const afterDocumentStorageAction = await page.evaluate(() => presentedNextAction(
+    {id: 'storage', title: 'Choose model storage', reason: 'Storage is not configured.', action: 'storage'},
+    {available: true, status: 'none', changes: [{id: 'answer-first'}, {id: 'quote-evidence'}]},
+    {ability: {suite: 'documents-short', qualified: false}}));
+  assert.equal(afterDocumentStorageAction.action, 'assistant-trial',
+    'A completed document result can start the assistant trial without configuring download storage');
+  assert.match(afterDocumentStorageAction.reason, /Same model\. Same eight challenges/);
+  const busyAction = await page.evaluate(() => presentedNextAction(
+    {id: 'wait', title: 'A task is running', reason: 'Chat resumes when it finishes.', action: null},
+    {available: true, status: 'none', changes: [{id: 'answer-first'}]},
+    {ability: {suite: 'documents-short', qualified: false}}));
+  assert.equal(busyAction.action, null, 'A running workload keeps its wait state instead of offering another run');
+  const restoreAction = await page.evaluate(() => presentedNextAction(
+    {id: 'restore', title: 'Restore the model that met the standard', reason: 'This model missed.', action: 'restore'},
+    {available: true, status: 'none', changes: [{id: 'answer-first'}]},
+    {ability: {suite: 'documents-short', qualified: false}}));
+  assert.equal(restoreAction.action, 'restore', 'A safety recovery recommendation keeps priority over improvement');
   const runningAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'none', active: true}));
   assert.equal(runningAction.title, 'Watch the improvement run');
@@ -134,7 +160,7 @@ try {
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'kept', active: false,
       changes: [{id: 'answer-first'}]}));
   assert.equal(keptAction.action, 'assistant-trial');
-  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Go: Ready to test 3 improvement ideas?');
+  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Go: I found 3 ideas to test — want to watch?');
   await page.locator('#cc-next-go').click();
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).active, null, {timeout: 10000, polling: 100});
   assert.equal(await page.locator('#assistant-trial-modal').count(), 0, 'The one GO action starts the exact disclosed trial; no second approval dialog');
@@ -309,6 +335,10 @@ try {
     assert.equal(await page.locator(id).isHidden(), false,
       `${id} returns after the focused assistant decision is complete`);
   }
+  assert.equal(await page.locator('#cc-next-go').getAttribute('data-action'), 'assistant-trial',
+    'The improvement loop is ready to run again after Restore');
+  assert.match(await page.locator('#assistant-trial-note').textContent(), /Restored and verified/,
+    'The restore confirmation stays visible while the next GO is available');
   await shot('6-restored');
 
   // Cancellation must recover without leaving the approved instruction applied.

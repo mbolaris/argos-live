@@ -22,6 +22,9 @@ try {
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !m.text().includes('503')) errors.push('console: ' + m.text()); });
+  // This journey covers the foundation mission and user document flow. The
+  // dedicated assistant-trial smoke owns U10 routing and Keep/Restore behavior.
+  await page.route('**/api/assistant-trial', route => route.fulfill({json: {available: false}}));
   await page.goto(url);
   const next = () => page.locator('#cc-next-title').textContent();
   const waitNext = (text) => page.waitForFunction((t) => document.getElementById('cc-next-title').textContent === t, text, {timeout: 60000});

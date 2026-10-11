@@ -1176,6 +1176,7 @@ async function refreshLab() {
   } finally { labRefreshing = false; }
 }
 for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
+  if (route === 'start-documents') assistantTrialOfferDismissed = false;
   if (route !== 'cancel') {
     labRecoveryTime = 0;
     lastLabRecovery = null;
@@ -2731,7 +2732,22 @@ document.addEventListener('click', event => {
   if (!document.getElementById(id)) return;
   event.preventDefault();
   if (link.getAttribute('aria-disabled') === 'true') return;
-  focusSection(id);
+  let layoutChanges = false;
+  if (link.id === 'session-play') {
+    assistantTrialOfferDismissed = false;
+    syncAssistantTrialFocus();
+    layoutChanges = true;
+  } else if (link.id === 'session-result' && document.getElementById('command-center').classList.contains('assistant-trial-offer-focus')) {
+    assistantTrialOfferDismissed = true;
+    syncAssistantTrialFocus();
+    layoutChanges = true;
+  }
+  if (layoutChanges) {
+    // Wait for the offer layout to expand or collapse before scrolling to its destination.
+    requestAnimationFrame(() => focusSection(id));
+  } else {
+    focusSection(id);
+  }
 });
 if (new URLSearchParams(location.search).get('view') === 'lab') {
   document.getElementById('workbench').open = true;
@@ -2766,20 +2782,23 @@ const commandActions = {
     document.getElementById('selection-confirm').disabled = false;
     document.getElementById('selection-review').showModal();
   }};
-function presentedNextAction(next, trial) {
+function presentedNextAction(next, trial, report) {
   if (!trial?.available) return next;
   if (trial.active) {
     return {...next, id: 'assistant-trial', title: 'Watch the improvement run',
       reason: 'Your everyday assistant is answering the before-and-after questions now. Go to its live progress.', action: 'assistant-trial'};
   }
-  // Preserve the first-run mission CTA. The improvement loop should take over
-  // only after the owner reaches its review card, or when resuming a completed
-  // no-win round; it must not intercept the initial document mission.
-  if (trial.status === 'none' && (next.action === 'review' || trial.result_state === 'no-improvement')) {
+  // Preserve the first-run mission and explicit wait/recovery actions. Once a
+  // real document result exists, offer the reviewed assistant trial ahead of
+  // unrelated storage or model-selection work.
+  const documentResultExists = report?.ability?.suite === 'documents-short';
+  if (trial.status === 'none' && trial.changes?.length && next.action &&
+      !['wait', 'restore', 'reboot'].includes(next.action) &&
+      (documentResultExists || next.action === 'review' || trial.result_state === 'no-improvement')) {
     const ideaCount = trial.changes?.length || 0;
     return {...next, id: 'assistant-trial', title: ideaCount
-      ? `Ready to test ${ideaCount} improvement idea${ideaCount === 1 ? '' : 's'}?` : 'No new idea is ready yet',
-      reason: 'One GO runs the whole campaign and shows every answer. I’ll recommend a winner; you choose Keep or Restore.',
+      ? `I found ${ideaCount} ideas to test — want to watch?` : 'No new idea is ready yet',
+      reason: 'Same model. Same eight challenges. Watch every answer, then choose Keep or Restore.',
       action: 'assistant-trial'};
   }
   if (trial.status === 'none') return next;
@@ -2870,8 +2889,10 @@ async function refreshCommand() {
     }
     // If diagnostics are the backend recommendation, lead with the reviewed
     // reversible assistant trial when it is available. Approval remains explicit.
-    const next = presentedNextAction(value.next_action, assistantTrial);
+    const next = presentedNextAction(value.next_action, assistantTrial, value.report);
     commandAction = next;
+    document.getElementById('cc-next-label').textContent = next.action === 'assistant-trial'
+      ? (assistantTrial?.active ? 'Live improvement run' : 'Your next move') : 'Recommended next mission';
     document.getElementById('cc-next-title').textContent = next.title;
     document.getElementById('cc-next-reason').textContent = next.reason;
     const go = document.getElementById('cc-next-go');
@@ -2891,9 +2912,11 @@ async function refreshCommand() {
       const ideaCount = assistantTrial.changes.length;
       const answerCount = assistantTrial.max_answers || 0;
       document.querySelector('#cc-next-trial-offer .cc-next-trial-kicker').textContent =
-        `ONE GO · ONE BASELINE · ALL ${ideaCount} UNTRIED IDEAS · UP TO ${answerCount} ANSWERS`;
+        `ONE GO · ${ideaCount} IDEAS · 8 CHALLENGES EACH`;
       document.querySelector('#cc-next-trial-offer > p:not(.cc-next-trial-kicker)').textContent =
-        `Each idea faces the same eight questions, with your current setup restored between tries. Watch answers arrive; I’ll recommend one. GO changes nothing permanently. Your model, personality, tools and permissions stay unchanged.`;
+        `I’ll show every answer, then recommend a winner. You choose Keep or Restore. Uses your current model; no download or storage setup.`;
+      document.getElementById('cc-next-trial-ideas-summary').textContent =
+        `See the exact ${ideaCount} ideas and 8 challenges (up to ${answerCount} answers)`;
       const ideas = document.getElementById('cc-next-trial-instructions');
       ideas.replaceChildren(...assistantTrial.changes.map((change, index) => {
         const card = document.createElement('article');
@@ -3646,6 +3669,7 @@ let trialFollow = null;
 let trialResultKey = null;
 let trialActionPending = false;
 let trialRequestEpoch = 0;
+let assistantTrialOfferDismissed = false;
 
 function syncAssistantTrialFocus() {
   const value = assistantTrial;
@@ -3655,7 +3679,7 @@ function syncAssistantTrialFocus() {
   section?.classList.toggle('assistant-trial-focus', focused);
   section?.classList.toggle('assistant-trial-running', Boolean(value?.active));
   section?.classList.toggle('assistant-trial-offer-focus', !focused && value?.status === 'none' &&
-    commandAction?.action === 'assistant-trial');
+    value?.phase !== 'restored' && commandAction?.action === 'assistant-trial' && !assistantTrialOfferDismissed);
   const actions = document.getElementById('receipt-actions');
   if (actions) actions.hidden = focused || actions.dataset.hasAbility !== 'true';
   return focused;

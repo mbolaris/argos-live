@@ -514,22 +514,28 @@ try {
       return { valid: false, reason: 'Takeaway or actions do not precede replay details' };
     }
 
-    // The proposed experiment is the sole visible primary action; using the build stays available.
+    // The one-button assistant-improvement loop leads after a document result;
+    // keep the measured score in view and tuck replay/secondary actions away.
     const isVisible = el => !el.hidden && (el.checkVisibility ? el.checkVisibility() : true);
     const receipt = document.getElementById('cc-receipt');
-    const visiblePrimaryButtons = Array.from(receipt.querySelectorAll('.mission-primary')).filter(isVisible);
-    if (visiblePrimaryButtons.length !== 1 || visiblePrimaryButtons[0].id !== 'improve-go') {
-      return { valid: false, reason: `Expected 1 primary button (#improve-go), found ${visiblePrimaryButtons.map(b => b.id).join(', ')}` };
+    if (!isVisible(receipt) || document.getElementById('cc-takeaway').textContent.length < 12) {
+      return { valid: false, reason: 'The document result disappeared behind the next action' };
     }
     const next = document.getElementById('improve-next');
-    if (next.dataset.kind !== 'repeat' || !visiblePrimaryButtons[0].textContent.includes('Rerun the same trial unchanged')) {
+    if (next.dataset.kind !== 'repeat' || !document.getElementById('improve-go').textContent.includes('Rerun the same trial unchanged')) {
       return { valid: false, reason: `Expected an unchanged retest proposal for a clean result, got ${next.dataset.kind}` };
     }
+    const visiblePrimaryButtons = Array.from(document.querySelectorAll('#command-center .mission-primary')).filter(isVisible);
+    if (visiblePrimaryButtons.length !== 1 || visiblePrimaryButtons[0].id !== 'cc-next-go' ||
+        visiblePrimaryButtons[0].dataset.action !== 'assistant-trial') {
+      return { valid: false, reason: `Expected one assistant-trial GO, found ${visiblePrimaryButtons.map(b => b.id).join(', ')}` };
+    }
+    if (isVisible(replay)) return { valid: false, reason: 'Detailed replay should stay tucked away during the offer' };
     if ((replay.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
       return { valid: false, reason: 'Replay does not precede the next experiment' };
     }
-    if (!isVisible(useBtn) || !useBtn.textContent.includes('Try it on your own document')) {
-      return { valid: false, reason: 'Qualified result does not offer using the build' };
+    if (!useBtn.textContent.includes('Try it on your own document')) {
+      return { valid: false, reason: 'Qualified result no longer offers using the build in its secondary actions' };
     }
 
     // Verify secondary options collapsed under Details
@@ -555,7 +561,7 @@ try {
     fail(`Debrief hierarchy regression failed: ${debriefHierarchyValid.reason}`);
   }
   await page.unroute('**/api/command-center');
-  console.log('[PASS] Improve hierarchy verified: one proposed experiment as sole primary action, use-the-build secondary, options and metrics collapsed');
+  console.log('[PASS] Improve hierarchy verified: one assistant-trial GO, result visible, replay tucked away, alternate actions and metrics retained');
 
   // 8. Storage hierarchy, compact strip & computed layout: compact strip (<150px), compact card (<300px), compact padding, collapsed path/policies, no read-only claims
   await page.evaluate(async () => {
