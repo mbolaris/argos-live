@@ -64,6 +64,12 @@ class ModelControlsTests(unittest.TestCase):
         self.assertTrue(value['reply_test']['text_reply_verified'])
         self.assertNotIn('PRIVATE', str(value))
         self.assertEqual(self.assistant.calls, ['pause', 'resolve', 'backend-start', 'backend-stop', 'resume'])
+    def test_delegated_download_keeps_parent_workload_reservation(self):
+        self.assistant.lab_active = True
+        self.controller.start(tag='qwen3:0.6b', _delegated=True)
+        self.finish()
+        self.assertTrue(self.assistant.lab_active)
+        self.assertTrue(self.controller.snapshot()['resume_requested'])
     def test_unconfirmed_or_failing_storage_stops_download_before_any_job(self):
         for failure in (ValueError('Choose where models are stored before downloading'), OSError('read-only')):
             def gate(home, failure=failure):

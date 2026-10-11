@@ -171,7 +171,7 @@ class Controller:
             self.selected_recipe = None
         return self.snapshot()
 
-    def start(self, plan='baseline', recipe=None):
+    def start(self, plan='baseline', recipe=None, *, _delegated=False):
         # Share startup's reservation: chat cannot restart into a benchmark.
         if plan not in PLANS:
             raise ValueError('Unknown model lab plan')
@@ -184,11 +184,12 @@ class Controller:
             if self.closed:
                 raise ValueError('The model lab is closed')
             active = self.worker is not None and self.worker.is_alive()
-            if active or getattr(self.startup, 'lab_active', False):
+            if active or (getattr(self.startup, 'lab_active', False) and not _delegated):
                 raise ValueError('Another desktop workload is already active')
             status = self.startup.snapshot()
             self.resume = status['active']
             self.startup.lab_active = True
+            self._delegated = _delegated
             self.startup.stop()
             self.plan = plan
             self.recipe = resolved_recipe
@@ -377,10 +378,17 @@ class Controller:
             timer.cancel()
             with self._order_locks():
                 if hasattr(self, 'startup') and self.startup is not None:
-                    self.startup.lab_active = False
+                    if not getattr(self, '_delegated', False):
+                        self.startup.lab_active = False
                     if self.resume:
                         try:
-                            self.startup.start()
+                            if getattr(self, '_delegated', False):
+                                try:
+                                    self.startup.start(_reserved=True)
+                                except TypeError:
+                                    self.startup.start()
+                            else:
+                                self.startup.start()
                             # Keep the lab visible; the owner can choose Open chat.
                             self.startup.chat_claimed = True
                             self.resume_requested = True

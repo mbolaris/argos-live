@@ -113,29 +113,29 @@ class Controller(Workload):
         self.is_restoring = False
         self.recovery_blocked = False
 
-    def start(self, *, tag):
+    def start(self, *, tag, _delegated=False):
         if not isinstance(tag, str) or not any(e['tag'] == tag for e in catalog.load()['models']):
             raise ValueError('Choose an exact reviewed model')
         with self.startup.lock, self.lock:
-            if self.closed or self.startup.lab_active:
+            if self.closed or (self.startup.lab_active and not _delegated):
                 raise ValueError('Another desktop workload is active')
             self.tag = tag
             self.is_restoring = False
             self.recovery_blocked = False
-            return super().start()
+            return super().start(_delegated=_delegated)
 
-    def start_restore(self):
+    def start_restore(self, *, _delegated=False):
         home = getattr(self.startup, 'home', None)
         allowed, prev_tag = can_restore_previous(home)
         if not allowed or not prev_tag:
             raise ValueError('Previous model selection is not available for restoration or files were edited')
         with self.startup.lock, self.lock:
-            if self.closed or self.startup.lab_active:
+            if self.closed or (self.startup.lab_active and not _delegated):
                 raise ValueError('Another desktop workload is active')
             self.tag = prev_tag
             self.is_restoring = True
             self.recovery_blocked = False
-            return super().start()
+            return super().start(_delegated=_delegated)
 
     def wait_stopped(self):
         deadline = time.monotonic() + 180

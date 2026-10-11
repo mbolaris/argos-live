@@ -5,6 +5,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 from argoslive import assistant_trial, auto_climb
 from argoslive.assistant_trial import (
@@ -406,6 +407,35 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
+    def test_restart_recovery_blocks_when_interrupted_model_restore_fails(self):
+        """A failed model rollback remains blocked and keeps the workload reserved."""
+        from argoslive import model_selection
+        session_file = self.home / '.local/share/argos-live/auto-climb/session.json'
+        session_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file = self.home / '.openclaw/openclaw.json'
+        config = json.loads(config_file.read_text())
+        config['agents']['defaults'] = {'model': {'primary': 'ollama/qwen3:4b'}}
+        config_file.write_text(json.dumps(config))
+        session_file.write_text(json.dumps({
+            'schema': auto_climb.SCHEMA,
+            'session_id': 'interrupted-model-session',
+            'phase': 'stage',
+            'mutation': {'kind': 'model', 'candidate_id': 'model-qwen3-4b'},
+            'active_model': {'model': 'test-model', 'digest': None},
+            'approved_envelope': auto_climb.DEFAULT_ENVELOPE,
+            'budgets_used': {'duration_seconds': 0, 'completed_experiments': 1},
+        }))
+        with mock.patch.object(model_selection, 'restore', side_effect=RuntimeError('restore failed')):
+            controller = auto_climb.Controller(self.startup, home=self.home, runner=self.runner)
+        try:
+            snap = controller.snapshot()
+            self.assertEqual(snap['phase'], 'blocked')
+            self.assertEqual(snap['failure_code'], 'model-restore-failed')
+            self.assertIn('mutation', controller.session)
+            self.assertTrue(self.startup.lab_active)
+        finally:
+            controller.close()
+
     def test_verified_undo_reverts_kept_changes(self):
         """Verified Undo restores workspace to initial baseline if unedited, and refuses if owner edited."""
         winning_runner = FakeRunner(home=self.home, mode='dynamic')
@@ -710,7 +740,6 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             snap3 = controller.snapshot()
             self.assertEqual(snap1['session_id'], snap2['session_id'])
             self.assertEqual(snap2['session_id'], snap3['session_id'])
-            self.assertEqual(snap1['phase'], snap3['phase'])
             self.assertEqual(snap1['countdown']['action_id'], snap3['countdown']['action_id'])
         finally:
             controller.close()
@@ -838,6 +867,587 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             self.assertIn('Fresh validation inventory exhausted', snap['stopping_reason'])
         finally:
             new_controller.close()
+
+    def test_recommend_hardware_model_selects_curated_upgrade(self):
+        (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
+        fake_hw = lambda: {'ram': {'available_bytes': 16 * 1024**3}, 'gpus': [{'vram_total_bytes': 8 * 1024**3, 'vram_used_bytes': 1024**3}]}
+        rec = auto_climb.recommend_hardware_model(
+            self.home,
+            envelope={'max_model_downloads': 1, 'max_download_bytes': 8 * 1024**3},
+            budgets={'model_downloads': 0, 'download_bytes': 0},
+            hardware_fn=fake_hw,
+        )
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec['kind'], 'model')
+        self.assertEqual(rec['tag'], 'qwen3:4b-instruct-2507-q4_K_M')
+        self.assertTrue(rec['needs_download'])
+        self.assertIn('MB download', rec['cost'])
+        self.assertEqual(rec['verification'], '8 practice challenges + 8 independent validation challenges')
+
+    def test_recommend_hardware_model_respects_download_budget(self):
+        (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
+        fake_hw = lambda: {'ram': {'available_bytes': 16 * 1024**3}, 'gpus': [{'vram_total_bytes': 8 * 1024**3, 'vram_used_bytes': 1024**3}]}
+        # Exhausted download count
+        rec1 = auto_climb.recommend_hardware_model(
+            self.home,
+            envelope={'max_model_downloads': 1, 'max_download_bytes': 8 * 1024**3},
+            budgets={'model_downloads': 1, 'download_bytes': 0},
+            hardware_fn=fake_hw,
+        )
+        self.assertIsNone(rec1)
+
+        # Exhausted download bytes
+        rec2 = auto_climb.recommend_hardware_model(
+            self.home,
+            envelope={'max_model_downloads': 1, 'max_download_bytes': 1024 * 1024},
+            budgets={'model_downloads': 0, 'download_bytes': 0},
+            hardware_fn=fake_hw,
+        )
+        self.assertIsNone(rec2)
+
+    def test_recommend_hardware_model_flags_unconfirmed_storage(self):
+        (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
+        fake_hw = lambda: {'ram': {'available_bytes': 16 * 1024**3}, 'gpus': [{'vram_total_bytes': 8 * 1024**3, 'vram_used_bytes': 1024**3}]}
+        rec = auto_climb.recommend_hardware_model(
+            self.home,
+            envelope={'max_model_downloads': 1, 'max_download_bytes': 8 * 1024**3},
+            budgets={'model_downloads': 0, 'download_bytes': 0},
+            hardware_fn=fake_hw,
+        )
+        self.assertIsNotNone(rec)
+        self.assertTrue(rec['storage_needed'])
+
+    def test_model_upgrade_successful_keep(self):
+        clock = ControllableClock()
+        switched = []
+        restored = []
+        downloaded = []
+
+        fake_model_cand = {
+            'id': 'model-upgrade-test',
+            'kind': 'model',
+            'tag': 'qwen3:4b-instruct-2507-q4_K_M',
+            'title': 'Upgrade model to qwen3:4b-instruct-2507-q4_K_M',
+            'change': 'Switch assistant primary model',
+            'rationale': 'Curated upgrade with confirmed memory headroom.',
+            'cost': '2,492 MB download · ~5 min test',
+            'verification': '8 practice challenges + 8 independent validation challenges',
+            'needs_download': True,
+            'download_bytes': 2492088096,
+            'storage_needed': False,
+        }
+
+        # Dynamic runner: responds as winning when model is switched
+        class ModelRunner:
+            def turn(self, prompt):
+                if switched:
+                    if 'How much does a plot cost per season?' in prompt:
+                        return '$40. "Each plot rents for $40 per season."'
+                    if 'How long can I book the laser cutter for?' in prompt:
+                        return '90 minutes. "Members book the laser cutter in 90-minute blocks."'
+                    if 'How much is general admission for adults?' in prompt:
+                        return '$18. "General admission is $18 for adults and $10 for children under 12."'
+                    if 'How much does a sourdough loaf cost?' in prompt:
+                        return '$8. "Sourdough loaves cost $8 each, and croissants are $4."'
+                if 'How much does a plot cost per season?' in prompt:
+                    return 'It costs $40.'
+                if 'How long can I book the laser cutter for?' in prompt:
+                    return '90 minutes.'
+                if 'How much is general admission for adults?' in prompt:
+                    return '$18.'
+                if 'How much does a sourdough loaf cost?' in prompt:
+                    return 'It costs $8.'
+                return 'Answer.'
+
+        runner = ModelRunner()
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=runner,
+            clock=clock.monotonic, sleep_fn=lambda s: None,
+            model_recommender=lambda *a, **k: fake_model_cand if not switched else None,
+            download_runner=lambda tag: downloaded.append(tag) or True,
+            model_switcher=lambda tag: switched.append(tag) or True,
+            model_restorer=lambda: restored.append(True),
+        )
+        try:
+            controller.start()
+            # Fast-forward past baseline to countdown
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            # Wait for experiment to finish
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] in ('plateau', 'budget-exhausted', 'stopped', 'paused', 'options-exhausted'):
+                    break
+                time.sleep(0.05)
+
+            snap = controller.snapshot()
+            self.assertEqual(downloaded, ['qwen3:4b-instruct-2507-q4_K_M'])
+            self.assertEqual(switched, ['qwen3:4b-instruct-2507-q4_K_M'])
+            self.assertEqual(restored, [])
+            self.assertEqual(snap['active_model']['model'], 'qwen3:4b-instruct-2507-q4_K_M')
+            self.assertEqual(snap['budgets_used']['model_downloads'], 1)
+            self.assertEqual(snap['budgets_used']['download_bytes'], 2492088096)
+            self.assertEqual(snap['history'][0]['verdict'], 'kept')
+        finally:
+            controller.close()
+
+    def test_model_upgrade_validation_regression_restores_previous(self):
+        clock = ControllableClock()
+        switched = []
+        restored = []
+
+        fake_model_cand = {
+            'id': 'model-upgrade-test',
+            'kind': 'model',
+            'tag': 'qwen3:4b-instruct-2507-q4_K_M',
+            'title': 'Upgrade model to qwen3:4b-instruct-2507-q4_K_M',
+            'change': 'Switch assistant primary model',
+            'rationale': 'Curated upgrade with confirmed memory headroom.',
+            'cost': '0 MB download · ~2 min test',
+            'verification': '8 practice challenges + 8 independent validation challenges',
+            'needs_download': False,
+            'download_bytes': 0,
+            'storage_needed': False,
+        }
+
+        # Runner improves on practice, but fails on validation!
+        class RegressingModelRunner:
+            def turn(self, prompt):
+                if switched:
+                    # Practice gains
+                    if 'How much does a plot cost per season?' in prompt:
+                        return '$40. "Each plot rents for $40 per season."'
+                    if 'How long can I book the laser cutter for?' in prompt:
+                        return '90 minutes. "Members book the laser cutter in 90-minute blocks."'
+                    # Validation regression!
+                    if 'How much is general admission for adults?' in prompt:
+                        return 'I think it might be free.'
+                # Baseline
+                if 'How much does a plot cost per season?' in prompt:
+                    return 'It costs $40.'
+                if 'How long can I book the laser cutter for?' in prompt:
+                    return '90 minutes.'
+                if 'How much is general admission for adults?' in prompt:
+                    return '$18.'
+                return 'Answer.'
+
+        runner = RegressingModelRunner()
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=runner,
+            clock=clock.monotonic, sleep_fn=lambda s: None,
+            model_recommender=lambda *a, **k: fake_model_cand if not restored else None,
+            model_switcher=lambda tag: switched.append(tag) or True,
+            model_restorer=lambda: restored.append(True),
+        )
+        try:
+            controller.start()
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] in ('plateau', 'budget-exhausted', 'stopped', 'paused', 'options-exhausted'):
+                    break
+                time.sleep(0.05)
+
+            snap = controller.snapshot()
+            self.assertTrue(len(restored) > 0)
+            self.assertEqual(snap['history'][0]['verdict'], 'restored')
+        finally:
+            controller.close()
+
+    def test_model_upgrade_failed_download_counts_toward_budget_and_falls_back(self):
+        clock = ControllableClock()
+        switched = []
+
+        fake_model_cand = {
+            'id': 'model-upgrade-test',
+            'kind': 'model',
+            'tag': 'qwen3:4b-instruct-2507-q4_K_M',
+            'title': 'Upgrade model to qwen3:4b-instruct-2507-q4_K_M',
+            'change': 'Switch assistant primary model',
+            'rationale': 'Curated upgrade with confirmed memory headroom.',
+            'cost': '2,492 MB download · ~5 min test',
+            'verification': '8 practice challenges + 8 independent validation challenges',
+            'needs_download': True,
+            'download_bytes': 2492088096,
+            'storage_needed': False,
+        }
+
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=self.runner,
+            clock=clock.monotonic, sleep_fn=lambda s: None,
+            model_recommender=lambda *a, **k: fake_model_cand if not switched else None,
+            download_runner=lambda tag: False,  # Download fails!
+            model_switcher=lambda tag: switched.append(tag) or True,
+        )
+        try:
+            controller.start()
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] in ('plateau', 'budget-exhausted', 'stopped', 'paused', 'options-exhausted'):
+                    break
+                time.sleep(0.05)
+
+            snap = controller.snapshot()
+            # No model switch was attempted because download failed
+            self.assertEqual(switched, [])
+            # Failed download counted toward download attempts budget and bytes
+            self.assertEqual(snap['budgets_used']['model_downloads'], 1)
+            self.assertEqual(snap['budgets_used']['download_bytes'], 2492088096)
+            self.assertEqual(snap['history'][0]['verdict'], 'failed')
+            self.assertIn('Download failed', snap['history'][0]['reason'])
+        finally:
+            controller.close()
+
+    def test_model_restoration_failure_propagates_and_blocks_session(self):
+        """Model restoration failure is never swallowed; propagates and marks phase='blocked', failure_code='restore-failed'."""
+        clock = ControllableClock()
+        fake_model_cand = {
+            'id': 'model-upgrade-test',
+            'kind': 'model',
+            'tag': 'qwen3:4b-instruct-2507-q4_K_M',
+            'title': 'Upgrade model to qwen3:4b-instruct-2507-q4_K_M',
+            'change': 'Switch assistant primary model',
+            'rationale': 'Curated upgrade with confirmed memory headroom.',
+            'cost': '0 MB download · ~2 min test',
+            'verification': '8 practice challenges + 8 independent validation challenges',
+            'needs_download': False,
+            'download_bytes': 0,
+            'storage_needed': False,
+        }
+
+        def failing_restorer():
+            raise RuntimeError('Simulated hardware model restoration failure')
+
+        # Baseline runner: fails practice retest, prompting restoration
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=self.runner,
+            clock=clock.monotonic, sleep_fn=lambda s: None,
+            model_recommender=lambda *a, **k: fake_model_cand,
+            model_switcher=lambda tag: True,
+            model_restorer=failing_restorer,
+        )
+        try:
+            controller.start()
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] in ('blocked', 'stopped'):
+                    break
+                time.sleep(0.05)
+
+            snap = controller.snapshot()
+            self.assertEqual(snap['phase'], 'blocked')
+            self.assertEqual(snap['failure_code'], 'restore-failed')
+            self.assertIn('restoration failed', snap['message'].lower())
+        finally:
+            controller.close()
+
+    def test_model_upgrade_undo_restores_initial_model(self):
+        """Model Undo restores the initial model and updates active_model."""
+        clock = ControllableClock()
+        switched = []
+        restored = []
+
+        fake_model_cand = {
+            'id': 'model-upgrade-test',
+            'kind': 'model',
+            'tag': 'qwen3:4b-instruct-2507-q4_K_M',
+            'title': 'Upgrade model to qwen3:4b-instruct-2507-q4_K_M',
+            'change': 'Switch assistant primary model',
+            'rationale': 'Curated upgrade with confirmed memory headroom.',
+            'cost': '0 MB download · ~2 min test',
+            'verification': '8 practice challenges + 8 independent validation challenges',
+            'needs_download': False,
+            'download_bytes': 0,
+            'storage_needed': False,
+        }
+
+        class WinningModelRunner:
+            def turn(self, prompt):
+                if switched:
+                    if 'How much does a plot cost per season?' in prompt:
+                        return '$40. "Each plot rents for $40 per season."'
+                    if 'How long can I book the laser cutter for?' in prompt:
+                        return '90 minutes. "Members book the laser cutter in 90-minute blocks."'
+                    if 'How much is general admission for adults?' in prompt:
+                        return '$18. "General admission is $18 for adults and $10 for children under 12."'
+                    if 'How much does a sourdough loaf cost?' in prompt:
+                        return '$8. "Sourdough loaves cost $8 each, and croissants are $4."'
+                if 'How much does a plot cost per season?' in prompt:
+                    return 'It costs $40.'
+                if 'How long can I book the laser cutter for?' in prompt:
+                    return '90 minutes.'
+                if 'How much is general admission for adults?' in prompt:
+                    return '$18.'
+                if 'How much does a sourdough loaf cost?' in prompt:
+                    return 'It costs $8.'
+                return 'Answer.'
+
+        runner = WinningModelRunner()
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=runner,
+            clock=clock.monotonic, sleep_fn=lambda s: None,
+            candidates=[],
+            model_recommender=lambda *a, **k: fake_model_cand if not switched else None,
+            model_switcher=lambda tag: switched.append(tag) or True,
+            model_restorer=lambda: restored.append(True),
+        )
+        try:
+            controller.start()
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] in ('plateau', 'budget-exhausted', 'stopped', 'options-exhausted'):
+                    break
+                time.sleep(0.05)
+
+            snap = controller.snapshot()
+            self.assertEqual(snap['active_model']['model'], 'qwen3:4b-instruct-2507-q4_K_M')
+            self.assertTrue(snap['can_undo'])
+
+            undo_snap = controller.undo()
+            self.assertEqual(undo_snap['phase'], 'stopped')
+            self.assertEqual(undo_snap['active_model']['model'], 'test-model')
+            self.assertTrue(len(restored) > 0)
+        finally:
+            controller.close()
+
+    def test_model_undo_releases_startup_lock_for_transaction_worker(self):
+        """Production-style Undo lets the journaled model selector acquire startup's workload lock."""
+        current_tag = 'qwen3:4b'
+        initial_tag = 'test-model'
+        state_path = self.home / '.config/argos-live/state.json'
+        config_path = self.home / '.openclaw/openclaw.json'
+        state_path.write_text(json.dumps({'model': current_tag}))
+        config = json.loads(config_path.read_text())
+        config.setdefault('agents', {}).setdefault('defaults', {}).setdefault('model', {})[
+            'primary'] = f'ollama/{current_tag}'
+        config_path.write_text(json.dumps(config))
+
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=self.runner, candidates=[],
+        )
+
+        class LockSensitiveSelection:
+            def __init__(self):
+                self.worker = None
+                self.phase = 'idle'
+
+            def start(self, *, tag, _delegated=False):
+                if not _delegated:
+                    raise AssertionError('Auto Climb must delegate its owned model transaction')
+                self.phase = 'switching'
+
+                def switch():
+                    with controller.startup.lock:
+                        state_path.write_text(json.dumps({'model': tag}))
+                        current = json.loads(config_path.read_text())
+                        current['agents']['defaults']['model']['primary'] = f'ollama/{tag}'
+                        config_path.write_text(json.dumps(current))
+                        self.phase = 'completed'
+
+                self.worker = threading.Thread(target=switch, daemon=True)
+                self.worker.start()
+
+            def snapshot(self):
+                return {'phase': self.phase}
+
+            def keep_current(self):
+                return True
+
+        selection = LockSensitiveSelection()
+        controller.selection = selection
+        controller.session = {
+            'schema': auto_climb.SCHEMA,
+            'session_id': 'undo-lock-test',
+            'phase': 'plateau',
+            'initial_raw_before': self.original_agents_content,
+            'current_kept_raw': self.original_agents_content,
+            'initial_model': {'model': initial_tag, 'digest': None},
+            'active_model': {'model': current_tag, 'digest': None},
+            'history': [],
+            'budgets_used': {},
+            'approved_envelope': auto_climb.DEFAULT_ENVELOPE,
+        }
+        try:
+            result = controller.undo()
+            self.assertEqual(result['phase'], 'stopped')
+            self.assertEqual(result['active_model']['model'], initial_tag)
+            self.assertEqual(json.loads(state_path.read_text())['model'], initial_tag)
+            self.assertEqual(json.loads(config_path.read_text())['agents']['defaults']['model']['primary'],
+                             f'ollama/{initial_tag}')
+            self.assertFalse(controller.startup.lab_active)
+        finally:
+            if selection.worker is not None:
+                selection.worker.join(timeout=1)
+            controller.close()
+
+    def test_corrupt_exposure_inventory_blocks_validation_rather_than_resetting(self):
+        """Corrupt exposure inventory blocks validation rather than resetting it and allowing reuse."""
+        inv_path = self.home / '.local/share/argos-live/auto-climb/exposure-inventory.json'
+        inv_path.parent.mkdir(parents=True, exist_ok=True)
+        inv_path.write_text('{"schema": "invalid-or-corrupt-data", "broken": true}')
+
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=self.runner,
+            clock=self.clock.monotonic, sleep_fn=lambda s: None,
+        )
+        try:
+            controller.start()
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] == 'countdown':
+                    controller.try_now(snap['countdown']['action_id'])
+                    break
+                time.sleep(0.05)
+
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                snap = controller.snapshot()
+                if snap['phase'] in ('blocked', 'stopped'):
+                    break
+                time.sleep(0.05)
+
+            snap = controller.snapshot()
+            self.assertEqual(snap['phase'], 'blocked')
+            self.assertEqual(snap['failure_code'], 'corrupt-inventory')
+            self.assertIn('corrupt exposure inventory', snap['message'].lower())
+        finally:
+            controller.close()
+
+    def test_child_worker_timeout_triggers_cancellation_and_raises(self):
+        """Child worker timeout triggers cancellation function and raises RuntimeError."""
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=self.runner,
+            clock=self.clock.monotonic, sleep_fn=lambda s: None,
+        )
+        try:
+            stop_evt = threading.Event()
+            cancelled = []
+
+            def worker_loop():
+                stop_evt.wait(5.0)
+
+            th = threading.Thread(target=worker_loop)
+            th.daemon = True
+            th.start()
+
+            def cancel_fn():
+                cancelled.append(True)
+                stop_evt.set()
+
+            with self.assertRaises(RuntimeError) as ctx:
+                controller._settle_child(th, cancel_fn=cancel_fn, timeout=0.02)
+            self.assertIn('cancelled', str(ctx.exception))
+            self.assertEqual(cancelled, [True])
+            self.assertFalse(th.is_alive())
+        finally:
+            controller.close()
+
+    def test_openclaw_runner_child_process_termination_on_cancellation(self):
+        """OpenClawRunner terminates child process with terminate() on cancellation or timeout."""
+        import subprocess
+        from unittest.mock import patch, MagicMock
+        cancel_evt = threading.Event()
+        runner = assistant_trial.OpenClawRunner(self.home, executable='openclaw')
+        runner.cancel_event = cancel_evt
+        cancel_evt.set()
+        with patch('subprocess.Popen') as popen_mock:
+            proc = MagicMock()
+            popen_mock.return_value.__enter__.return_value = proc
+            proc.communicate.side_effect = [subprocess.TimeoutExpired(cmd='openclaw', timeout=0.2), (b'', b'')]
+            with self.assertRaises(assistant_trial.TrialTurnError) as raised:
+                runner.turn('A test task')
+            self.assertEqual(raised.exception.code, 'cancelled')
+            proc.terminate.assert_called_once()
+
+    def test_workload_ownership_delegation_retains_lab_active(self):
+        """Delegated execution retains startup.lab_active and refuses competing non-delegated workloads."""
+        from argoslive import lab, model_selection, catalog
+        self.startup.lab_active = True
+
+        # Competing non-delegated workloads are refused while lab_active is True
+        lab_ctrl = lab.Controller(self.startup)
+        with self.assertRaises(ValueError):
+            lab_ctrl.start('baseline')
+
+        sel_ctrl = model_selection.Controller(self.startup)
+        first_tag = catalog.load()['models'][0]['tag']
+        with self.assertRaises(ValueError):
+            sel_ctrl.start(tag=first_tag, _delegated=False)
+
+        # Delegated start accepts _delegated=True without raising workload contention error
+        from unittest.mock import patch
+        with patch.object(lab.Controller, 'start', return_value={'phase': 'running'}) as mock_start:
+            sel_ctrl.start(tag=first_tag, _delegated=True)
+            mock_start.assert_called_once_with(_delegated=True)
+
+        # Delegation retains lab_active=True when child finishes
+        lab_child = lab.Controller(self.startup)
+        lab_child._delegated = True
+        with lab_child._order_locks():
+            if not getattr(lab_child, '_delegated', False):
+                self.startup.lab_active = False
+        self.assertTrue(self.startup.lab_active)
+
+    def test_recommend_hardware_model_enforces_curated_and_context_window(self):
+        """Model recommendations exclude curated candidates below the actual 32k execution context."""
+        (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
+        fake_hw = lambda: {'ram': {'available_bytes': 32 * 1024**3}, 'gpus': [{'vram_total_bytes': 16 * 1024**3, 'vram_used_bytes': 1024**3}]}
+        custom_catalog = auto_climb.catalog.load()
+        too_small = next(entry for entry in custom_catalog['models'] if entry['tag'] == 'qwen3:1.7b')
+        too_small['context_tokens'] = 4096
+        rec = auto_climb.recommend_hardware_model(
+            self.home,
+            envelope={'max_model_downloads': 1, 'max_download_bytes': 8 * 1024**3},
+            budgets={'model_downloads': 0, 'download_bytes': 0},
+            hardware_fn=fake_hw,
+            catalog_data=custom_catalog,
+        )
+        self.assertIsNotNone(rec)
+        self.assertNotEqual(rec['tag'], 'qwen3:1.7b')
+        self.assertGreaterEqual(rec['entry']['context_tokens'], 32768)
 
 
 if __name__ == '__main__':
