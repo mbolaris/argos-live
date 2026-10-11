@@ -1,5 +1,28 @@
 # Implementation backlog
 
+## Current product priority: Auto Climb — planned, October 11
+
+Implementation contract and handoff: [AUTO-CLIMB-HANDOFF.md](AUTO-CLIMB-HANDOFF.md).
+This extends U13's fixed manual-decision campaign; it is not already delivered.
+
+- **AC1 — durable session coordinator and 30-second preview:** approved bounded
+  plan, server-owned state/timers, idempotent commands, Pause/Skip/Stop, reconnect
+  and crash recovery; reuse the existing assistant and model transaction primitives.
+- **AC2 — complete unattended assistant improvement loop:** independent validation,
+  deterministic automatic Keep/Restore, scoped plateau/budget stopping, and a sparse
+  responsive watch/results experience. No lab-only gains presented as assistant gains.
+- **AC3 — fit-aware model upgrade and requalification:** one recommended eligible
+  model, confirmed model storage, bounded verified download, reversible switch and
+  the same supported ladder assessment. Preserve the working fallback.
+- **AC4 — supported runtime options and reference library:** verified execution-path
+  adapters, citations and independently measured aided capabilities; real tool/skill
+  progression remains dependent on sandbox acceptance.
+
+Deliver AC1/AC2 before broadening the candidate space. AC3 is required to complete
+the owner's minimum model-upgrade journey. Physical Firefox/phone/model evidence
+must remain separate from fixture and unit evidence. Budgets and plateau rules in
+the handoff are proposed defaults to validate, not established performance claims.
+
 Updated October 4, 2026. Goals and milestones: [PROJECT-GOALS.md](PROJECT-GOALS.md). Model onboarding design: [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md). Personality transfer rules: [PROFILE-SYNC.md](PROFILE-SYNC.md).
 
 Each item is sized for one agent session and one pull request. Pick an item whose dependencies are done, keep the change to its scope, and meet every acceptance criterion before opening the PR. If an item proves too large, split it in the PR description and update this file.

@@ -1,5 +1,11 @@
 # Shared foundations and owner-approved improvement
 
+October 11 update: [Auto Climb](AUTO-CLIMB-HANDOFF.md) extends the manual
+experiment/Keep/Restore flow described below. An approved bounded session may
+execute reviewed experiments and deterministic validated Keep/Restore decisions
+automatically, with a 30-second preview and owner override. Immutable scoring,
+scoped qualification and independent validation still apply. This is planned work.
+
 Agreed product direction, October 8, 2026. This is a roadmap, not a claim that
 these capabilities or autonomous experiments are implemented.
 
