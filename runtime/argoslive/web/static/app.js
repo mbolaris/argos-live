@@ -1176,6 +1176,7 @@ async function refreshLab() {
   } finally { labRefreshing = false; }
 }
 for (const [id, route] of [['lab-start', 'start'], ['lab-start-documents', 'start-documents'], ['lab-cancel', 'cancel']]) document.getElementById(id).addEventListener('click', async () => {
+  if (route === 'start-documents') assistantTrialOfferDismissed = false;
   if (route !== 'cancel') {
     labRecoveryTime = 0;
     lastLabRecovery = null;
@@ -2731,7 +2732,22 @@ document.addEventListener('click', event => {
   if (!document.getElementById(id)) return;
   event.preventDefault();
   if (link.getAttribute('aria-disabled') === 'true') return;
-  focusSection(id);
+  let layoutChanges = false;
+  if (link.id === 'session-play') {
+    assistantTrialOfferDismissed = false;
+    syncAssistantTrialFocus();
+    layoutChanges = true;
+  } else if (link.id === 'session-result' && document.getElementById('command-center').classList.contains('assistant-trial-offer-focus')) {
+    assistantTrialOfferDismissed = true;
+    syncAssistantTrialFocus();
+    layoutChanges = true;
+  }
+  if (layoutChanges) {
+    // Wait for the offer layout to expand or collapse before scrolling to its destination.
+    requestAnimationFrame(() => focusSection(id));
+  } else {
+    focusSection(id);
+  }
 });
 if (new URLSearchParams(location.search).get('view') === 'lab') {
   document.getElementById('workbench').open = true;
@@ -3653,6 +3669,7 @@ let trialFollow = null;
 let trialResultKey = null;
 let trialActionPending = false;
 let trialRequestEpoch = 0;
+let assistantTrialOfferDismissed = false;
 
 function syncAssistantTrialFocus() {
   const value = assistantTrial;
@@ -3662,7 +3679,7 @@ function syncAssistantTrialFocus() {
   section?.classList.toggle('assistant-trial-focus', focused);
   section?.classList.toggle('assistant-trial-running', Boolean(value?.active));
   section?.classList.toggle('assistant-trial-offer-focus', !focused && value?.status === 'none' &&
-    value?.phase !== 'restored' && commandAction?.action === 'assistant-trial');
+    value?.phase !== 'restored' && commandAction?.action === 'assistant-trial' && !assistantTrialOfferDismissed);
   const actions = document.getElementById('receipt-actions');
   if (actions) actions.hidden = focused || actions.dataset.hasAbility !== 'true';
   return focused;

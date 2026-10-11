@@ -2121,7 +2121,7 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .assistant-trial-focus #cc-progress-journal,
 .assistant-trial-focus #cc-task-box,
 .assistant-trial-focus #full-skill-map { display: none !important; }
-#command-center.assistant-trial-offer-focus > :not(#cc-title):not(#cc-next):not(.cc-grid) { display: none !important; }
+#command-center.assistant-trial-offer-focus > :not(#cc-title):not(.session-path):not(#cc-next):not(.cc-grid) { display: none !important; }
 #command-center.assistant-trial-offer-focus > .cc-grid { gap: 8px; }
 #command-center.assistant-trial-offer-focus #cc-receipt { padding-top: 10px; }
 #command-center.assistant-trial-offer-focus > .cc-grid > :not(.mission-main),

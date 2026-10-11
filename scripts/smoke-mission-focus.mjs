@@ -100,7 +100,7 @@ try {
   assert.equal(await page.locator('#receipt-change').isHidden(),true,'Proposed experiment is not repeated');
   assert.match(await page.locator('#cc-debrief-note').textContent(),/^Written by fixture:latest after scoring\./);
   await page.locator('#session-result').click();
-  await page.waitForFunction(()=>document.getElementById('cc-receipt').getBoundingClientRect().top<140);
+  await page.waitForFunction(()=>!document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
   await both('result',()=>scrollTo('cc-receipt'));
   assert.match(await page.locator('#cc-debrief-facts').textContent(),/^Measured for this run: 23 of 24 correct/);
 
@@ -124,6 +124,8 @@ try {
   assert.match(await page.locator('#replay-kind').textContent(),/· 1 of 32$/);
   await both('replay',()=>scrollTo('replay'));
   await page.reload();
+  await page.locator('#session-result').click();
+  await page.waitForFunction(()=>!document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
   await page.waitForFunction(()=>!document.getElementById('replay').hidden && document.querySelectorAll('#replay-grid .replay-chip').length===32);
   assert.match(await page.locator('#replay-verdict').textContent(),/^Not scorable/,'Replay persists after reload');
 
@@ -170,6 +172,8 @@ try {
   assert.equal((await page.evaluate(()=>api('/api/lab/recipes'))).selected,null);
   // A decided experiment is history: after reload it no longer sits over the next decision.
   await page.reload();
+  await page.locator('#session-result').click();
+  await page.waitForFunction(()=>!document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
   await page.waitForFunction(()=>!document.getElementById('replay').hidden && document.querySelectorAll('#replay-grid .replay-chip').length===32);
   await page.waitForTimeout(4000);
   assert.equal(await page.locator('#improve-comparison .experiment-card').count(),0,'Decided comparison not shown again');
