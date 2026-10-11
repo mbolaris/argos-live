@@ -19,7 +19,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'runtime'), str(ROOT / 'tests')]
-from argoslive import assistant_trial, command_center, lab as lab_module, storage, storage_view
+from argoslive import assistant_trial, auto_climb, command_center, lab as lab_module, storage, storage_view
 from argoslive.results import Store
 from argoslive.web.benchmarks import View as BenchmarkView
 from argoslive.web.server import DashboardServer
@@ -74,7 +74,41 @@ class SlowTrialRunner(TrialRunner):
     """Fixture assistant replies, paced so trial progress is visible. Never a real model."""
     def turn(self, message):
         time.sleep(STREAM_DELAY * 10)
-        return super().turn(message)
+        instructions = assistant_trial.agents_path(self.home).read_text(encoding='utf-8')
+        installed = [change for change in assistant_trial.CHANGES if change['start'] in instructions]
+        active_ids = {change['id'] for change in installed}
+        guided = bool(active_ids)
+        self.turns.append((guided, message))
+
+        # Check practice tasks
+        data = assistant_trial.load_tasks()
+        task = next((t for t in data['tasks'] if assistant_trial.message(t, data['passages']) == message), None)
+        if not task:
+            # Check held-out validation tasks
+            vdata = auto_climb.load_validation_tasks()
+            task = next((t for t in vdata['tasks'] if assistant_trial.message(t, vdata['passages']) == message), None)
+            if task:
+                data = vdata
+
+        if not task:
+            return {'text': 'I do not have enough information.', 'elapsed_seconds': 0.1, 'session_id': f'fixture-{len(self.turns)}'}
+
+        if task['kind'] == 'control':
+            text = 'Quoting the passage: "Fernsworth".' if guided and self.misbehave else 'How about Fernsworth?'
+        elif task['kind'] == 'not_stated':
+            text = ('The notice does not say.' if 'honest-uncertainty' in active_ids
+                    else 'It was probably founded by local volunteers.')
+        else:
+            passage = data['passages'][task['passage']]
+            answer, sentence = next(((a, s) for s in passage.split('. ') for a in task['accepted'] if assistant_trial.contains(s, a)), (task['accepted'][0], passage))
+            sentence = sentence.rstrip('.') + '.'
+            if 'quote-evidence' in active_ids:
+                text = f'{answer}. "{sentence}"'
+            elif 'answer-first' in active_ids:
+                text = f'{answer}. That is the short answer.'
+            else:
+                text = f'Looking at the notice, there are several details, and in short it is {answer}.'
+        return {'text': text, 'elapsed_seconds': 0.1, 'session_id': f'fixture-{len(self.turns)}'}
 
 # Visual acceptance can slow streaming to capture a live answer; default keeps tests fast.
 STREAM_DELAY = float(os.environ.get('ARGOS_FIXTURE_STREAM_DELAY', '0.012'))
@@ -183,6 +217,7 @@ def main():
     trial = assistant_trial.Controller(TrialStartup(assistant), home=home, runner=SlowTrialRunner(home), ready_timeout=10,
                                        validate_profile=lambda home: (home, 'fixture:latest'),
                                        reflector=fixture_trial_opinion)
+    climb = auto_climb.Controller(TrialStartup(assistant), home=home, runner=SlowTrialRunner(home))
     if os.environ.get('ARGOS_FIXTURE_DEBUG_TRIAL') == '1':
         def report_trial_error():
             error_path = home / '.config/argos-live/assistant-trial-error.json'
@@ -209,6 +244,7 @@ def main():
     command = command_center.Controller(home, store, lab=lab, storage=storage_controller,
                                         identity=lambda _: {'model': 'fixture:latest', 'digest': 'a' * 64})
     with DashboardServer(port=0, lab=lab, storage=storage_controller, command=command, assistant_trial=trial,
+                         auto_climb=climb,
                          benchmarks=BenchmarkView(store),
                          models_provider=partial(models.snapshot, home=home, hardware=lambda *a, **kw: fixture_hw),
                          status_provider=partial(live_status.snapshot, home=home, hardware=lambda *a, **kw: fixture_hw)) as server:
@@ -221,6 +257,7 @@ def main():
         except Exception:
             pass
         t.join(timeout=1)
+    climb.close()
     trial.close()
     lab.close()
     try:

@@ -2206,3 +2206,120 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .cc-chat-area { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
 .cc-chat-area button { margin: 0; padding: 8px 12px; background: transparent; }
 .cc-hero-actions .cc-go-button { letter-spacing: 0; font-size: 18px; max-width: 100%; white-space: normal; }
+
+/* Auto Climb: autonomous self-improvement coordinator */
+.auto-climb-card { margin: 24px 0 8px; padding: 22px 24px; border: 1px solid #365064; border-radius: 16px; background: #0c1822; }
+.auto-climb-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.auto-climb-title-group h4 { margin: 0; font-size: 22px; color: var(--text); }
+.auto-climb-title-group .mission-label { color: var(--accent); margin: 0 0 4px; }
+.auto-climb-badge { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); border: 1px solid #3d7f73; background: #0e2a2c; padding: 5px 10px; border-radius: 20px; font-weight: 700; }
+.auto-climb-message { margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.auto-climb-panel { margin-top: 14px; }
+
+.auto-climb-primary {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  background: var(--accent);
+  color: #082627;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.auto-climb-primary:hover {
+  filter: brightness(1.1);
+}
+.auto-climb-secondary {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #507582;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.auto-climb-secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Start panel */
+.auto-climb-envelope-summary { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 12px 14px; border-radius: 10px; background: #132431; border: 1px solid #283e50; font-size: 13px; }
+.auto-climb-envelope-summary .envelope-item strong { color: var(--text); }
+.auto-climb-start-actions { margin: 16px 0; }
+.auto-climb-start-actions button { margin: 0; width: 100%; font-size: 17px; }
+.auto-climb-envelope-details summary { font-size: 13px; color: var(--muted); cursor: pointer; }
+.auto-climb-rules-list { margin: 8px 0 0; padding-left: 20px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* Countdown panel */
+.countdown-hero { text-align: center; padding: 18px 14px; border-radius: 14px; background: #142838; border: 1px solid #305470; margin-bottom: 16px; }
+.countdown-timer-box { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+.countdown-secs { font-size: 42px; font-weight: 800; color: var(--accent); line-height: 1; }
+.countdown-label { font-size: 14px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.countdown-prompt { margin: 8px 0 0; font-size: 13px; color: var(--text); }
+.auto-climb-proposal-card { padding: 16px; border-radius: 12px; background: #0e1d28; border: 1px solid #2b4558; margin-bottom: 16px; }
+.prop-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.prop-badge { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; background: #233e50; color: var(--blue); padding: 3px 8px; border-radius: 6px; font-weight: 700; }
+.prop-header strong { font-size: 17px; color: var(--text); }
+.prop-details-list { display: grid; gap: 8px; margin: 0; font-size: 13px; }
+.prop-details-list div { display: grid; grid-template-columns: 120px 1fr; gap: 8px; }
+.prop-details-list dt { color: var(--muted); font-weight: 600; }
+.prop-details-list dd { margin: 0; color: var(--text); }
+.auto-climb-countdown-actions { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.auto-climb-countdown-actions button { margin: 0; width: 100%; min-height: 42px; }
+
+/* Live Watch panel */
+.auto-climb-watch-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid #283e50; margin-bottom: 12px; }
+.auto-climb-watch-stage { font-size: 14px; font-weight: 700; color: var(--accent); }
+.auto-climb-watch-tally { font-size: 12px; color: var(--muted); }
+.auto-climb-watch-controls { display: flex; gap: 8px; }
+.auto-climb-watch-controls button { margin: 0; padding: 4px 10px; min-height: 32px; font-size: 12px; }
+.auto-climb-watch-card { padding: 14px; border-radius: 12px; background: #0b1721; border: 1px solid #253a4b; }
+.watch-challenge-meta { display: flex; gap: 8px; margin-bottom: 8px; }
+.watch-kind-badge { font-size: 11px; text-transform: uppercase; background: #1a2f3f; color: var(--muted); padding: 2px 6px; border-radius: 4px; }
+.auto-climb-passage summary { font-size: 12px; text-transform: uppercase; color: var(--accent); cursor: pointer; }
+.auto-climb-passage p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.watch-question-box { margin-top: 10px; }
+.watch-question-box .sublabel, .watch-reply-box .sublabel { font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 700; display: block; margin-bottom: 4px; }
+.watch-question-box .question-text { font-size: 15px; font-weight: 600; color: var(--text); }
+.watch-reply-box { margin-top: 10px; }
+.watch-reply-box .reply-text { margin: 0; padding: 10px 12px; border-radius: 8px; background: #061017; border-left: 3px solid var(--accent); font-size: 14px; color: var(--text); white-space: pre-wrap; line-height: 1.5; }
+.auto-climb-receipts-strip { margin-top: 12px; }
+.auto-climb-receipts-strip .sublabel { font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.receipts-badges-list { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.receipt-chip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+.receipt-chip.passed { background: #0f302b; color: #9de8d8; border: 1px solid #3d7f73; }
+.receipt-chip.missed { background: #301919; color: #f3b3a2; border: 1px solid #8f453c; }
+.auto-climb-background-note { font-size: 11px; color: var(--muted); margin-top: 12px; text-align: center; }
+
+/* Summary / Decision panel */
+.verdict-banner { padding: 14px 16px; border-radius: 12px; background: #132736; border-left: 4px solid var(--accent); margin-bottom: 14px; }
+.verdict-banner h5 { margin: 0 0 6px; font-size: 17px; color: var(--text); }
+.verdict-banner p { margin: 0; font-size: 13px; color: var(--muted); }
+.auto-climb-levels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.level-box { padding: 10px 12px; border-radius: 10px; background: #0f1f2c; border: 1px solid #283e50; }
+.level-box .sublabel { font-size: 11px; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 4px; }
+.level-box strong { font-size: 14px; color: var(--text); }
+.auto-climb-history summary { font-size: 13px; cursor: pointer; color: var(--text); font-weight: 700; }
+.history-list { margin-top: 8px; display: grid; gap: 8px; }
+.history-item { padding: 10px 12px; border-radius: 8px; background: #0c1822; border: 1px solid #233747; font-size: 12px; }
+.history-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.history-verdict { font-weight: 700; text-transform: uppercase; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+.history-verdict.kept { background: #0f302b; color: #9de8d8; }
+.history-verdict.restored { background: #2f2518; color: var(--amber); }
+.history-verdict.skipped { background: #202b36; color: var(--muted); }
+.auto-climb-summary-actions { margin-top: 14px; }
+.auto-climb-summary-actions button { margin: 0; width: 100%; }
+
+@media (max-width: 600px) {
+  .auto-climb-card { padding: 16px 12px; }
+  .prop-details-list div { grid-template-columns: 1fr; gap: 2px; }
+  .auto-climb-countdown-actions { grid-template-columns: 1fr; }
+  .auto-climb-levels-grid { grid-template-columns: 1fr; }
+}
+

@@ -28,7 +28,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -40,6 +40,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.downloads = downloads
         self.selection = selection
         self.assistant_trial = assistant_trial
+        self.auto_climb = auto_climb
         self.storage = storage
         self.command = command
         self.status_provider = status_provider
@@ -116,6 +117,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
+        if path == '/api/auto-climb':
+            self.reply(200, self.server.auto_climb.snapshot() if self.server.auto_climb else {'available': False}, head=head)
+            return
         if path == '/api/assistant-trial':
             self.reply(200, self.server.assistant_trial.snapshot() if self.server.assistant_trial else {'available': False}, head=head)
             return
@@ -366,6 +370,39 @@ class Handler(BaseHTTPRequestHandler):
                 # Only fixed owner-facing reasons are shown; never private paths.
                 self.reply(409, {'error': str(exc) if isinstance(exc, Refused) else 'Assistant trial unavailable'})
             return
+        if self.command == 'POST' and self.server.auto_climb and path.startswith('/api/auto-climb/'):
+            auto = self.server.auto_climb
+            action_name = path.removeprefix('/api/auto-climb/')
+            from argoslive.auto_climb import Refused
+            if action_name in ('pause', 'resume', 'stop'):
+                if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                    self.reply(400, {'error': 'An empty request is required'})
+                    return
+                try:
+                    fn = getattr(auto, action_name)
+                    self.reply(200, fn())
+                except (ValueError, OSError) as exc:
+                    self.reply(409, {'error': str(exc) if isinstance(exc, Refused) else 'Action unavailable'})
+                return
+            if action_name in ('start', 'try-now', 'skip'):
+                lengths = self.headers.get_all('Content-Length')
+                body = {}
+                if lengths and len(lengths) == 1 and lengths[0].isdigit() and int(lengths[0]) > 0:
+                    try:
+                        self.connection.settimeout(3)
+                        body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    except (ValueError, OSError):
+                        pass
+                try:
+                    if action_name == 'start':
+                        self.reply(200, auto.start(body.get('envelope') if isinstance(body, dict) else None))
+                    elif action_name == 'try-now':
+                        self.reply(200, auto.try_now(body.get('action_id') if isinstance(body, dict) else None))
+                    elif action_name == 'skip':
+                        self.reply(200, auto.skip(body.get('action_id') if isinstance(body, dict) else None))
+                except (ValueError, OSError) as exc:
+                    self.reply(409, {'error': str(exc) if isinstance(exc, Refused) else 'Action unavailable'})
+                return
         if self.command == 'POST' and self.server.selection and path == '/api/models/select-cancel':
             if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
                 self.reply(400, {'error': 'An empty request is required'})

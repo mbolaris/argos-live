@@ -208,6 +208,127 @@
       </details>
       <div class="cc-grid">
         <div class="mission-main">
+          <section id="auto-climb" class="auto-climb-card" aria-labelledby="auto-climb-title" hidden>
+            <div class="auto-climb-header">
+              <div class="auto-climb-title-group">
+                <p class="mission-label">Autonomous Improvement</p>
+                <h4 id="auto-climb-title">Auto Climb</h4>
+              </div>
+              <span id="auto-climb-badge" class="auto-climb-badge">Ready</span>
+            </div>
+            <p id="auto-climb-message" class="auto-climb-message">Find my AI’s level → try the best eligible model for this machine → climb again → improve its configuration → stop with an understandable result.</p>
+
+            <!-- Start View -->
+            <div id="auto-climb-start-view" class="auto-climb-panel">
+              <div class="auto-climb-envelope-summary">
+                <span class="envelope-item"><strong>Duration:</strong> 60m budget</span>
+                <span class="envelope-item"><strong>Experiments:</strong> ≤6 completed</span>
+                <span class="envelope-item"><strong>Downloads:</strong> ≤1 model (≤8 GiB)</span>
+              </div>
+              <div class="auto-climb-start-actions">
+                <button id="auto-climb-start-btn" type="button" class="auto-climb-primary">Start Auto Climb <span aria-hidden="true">▶</span></button>
+              </div>
+              <details class="auto-climb-envelope-details">
+                <summary>Session limits &amp; safety rules</summary>
+                <ul class="auto-climb-rules-list">
+                  <li>Each experiment has a 30-second preview with Try now, Skip, Pause, and Stop.</li>
+                  <li>Candidate improvements are tested on practice challenges and confirmed by independent held-out validation.</li>
+                  <li>Improvements are kept automatically; non-improving changes are restored byte-for-byte.</li>
+                  <li>Stops honestly at measured plateau (3 attempts without gain) or budget exhaustion.</li>
+                </ul>
+              </details>
+            </div>
+
+            <!-- Countdown / Proposal View -->
+            <div id="auto-climb-countdown-view" class="auto-climb-panel" hidden>
+              <div class="countdown-hero">
+                <div class="countdown-timer-box">
+                  <span id="auto-climb-countdown-secs" class="countdown-secs">30</span>
+                  <span class="countdown-label">seconds until auto-test</span>
+                </div>
+                <p class="countdown-prompt">Silence permits the next move inside your approved session. You can try immediately or skip.</p>
+              </div>
+              <div class="auto-climb-proposal-card">
+                <div class="prop-header">
+                  <span class="prop-badge">Next experiment</span>
+                  <strong id="auto-climb-prop-title">Answer first</strong>
+                </div>
+                <dl class="prop-details-list">
+                  <div><dt>What changes</dt><dd id="auto-climb-prop-change"></dd></div>
+                  <div><dt>Why it might help</dt><dd id="auto-climb-prop-why"></dd></div>
+                  <div><dt>Likely cost</dt><dd id="auto-climb-prop-cost"></dd></div>
+                  <div><dt>What will be checked</dt><dd id="auto-climb-prop-check"></dd></div>
+                </dl>
+              </div>
+              <div class="auto-climb-countdown-actions">
+                <button id="auto-climb-try-now-btn" type="button" class="auto-climb-primary">Try now ▶</button>
+                <button id="auto-climb-skip-btn" type="button" class="auto-climb-secondary">Skip this idea ⏭</button>
+                <button id="auto-climb-pause-btn" type="button" class="auto-climb-secondary">Pause Auto Climb ⏸</button>
+                <button id="auto-climb-stop-btn" type="button" class="btn-text-action">Stop Auto Climb ⏹</button>
+              </div>
+            </div>
+
+            <!-- Live Watch View -->
+            <div id="auto-climb-watch-view" class="auto-climb-panel" hidden>
+              <div class="auto-climb-watch-header">
+                <span id="auto-climb-watch-stage" class="auto-climb-watch-stage">Testing…</span>
+                <span id="auto-climb-watch-tally" class="auto-climb-watch-tally">0 / 8 challenges</span>
+                <div class="auto-climb-watch-controls">
+                  <button id="auto-climb-watch-pause-btn" type="button" class="btn-text-action">Pause ⏸</button>
+                  <button id="auto-climb-watch-stop-btn" type="button" class="btn-text-action">Stop ⏹</button>
+                </div>
+              </div>
+              <div class="auto-climb-watch-card">
+                <div class="watch-challenge-meta">
+                  <span id="auto-climb-watch-kind" class="watch-kind-badge">challenge</span>
+                  <span id="auto-climb-watch-task-id" class="watch-id-badge"></span>
+                </div>
+                <details id="auto-climb-watch-passage-details" class="auto-climb-passage" open>
+                  <summary>Source text</summary>
+                  <p id="auto-climb-watch-passage-text"></p>
+                </details>
+                <div class="watch-question-box">
+                  <span class="sublabel">Question</span>
+                  <div id="auto-climb-watch-question" class="question-text"></div>
+                </div>
+                <div class="watch-reply-box">
+                  <span class="sublabel">Your AI’s answer</span>
+                  <blockquote id="auto-climb-watch-reply" class="reply-text"></blockquote>
+                </div>
+              </div>
+              <div class="auto-climb-receipts-strip">
+                <span class="sublabel">Recent receipts:</span>
+                <ul id="auto-climb-receipts-list" class="receipts-badges-list"></ul>
+              </div>
+              <p class="auto-climb-background-note">Auto Climb continues running on the server if you close this browser.</p>
+            </div>
+
+            <!-- Result / Summary / Stopping View -->
+            <div id="auto-climb-summary-view" class="auto-climb-panel" hidden>
+              <div id="auto-climb-verdict-banner" class="verdict-banner">
+                <h5 id="auto-climb-verdict-title">Experiment decision</h5>
+                <p id="auto-climb-verdict-reason"></p>
+              </div>
+              <div class="auto-climb-levels-grid">
+                <div class="level-box">
+                  <span class="sublabel">Starting Level</span>
+                  <strong id="auto-climb-starting-level">Not tested</strong>
+                </div>
+                <div class="level-box">
+                  <span class="sublabel">Current Level</span>
+                  <strong id="auto-climb-current-level">Not tested</strong>
+                </div>
+              </div>
+              <details id="auto-climb-history-details" class="auto-climb-history" open>
+                <summary>Completed experiments (<span id="auto-climb-history-count">0</span>)</summary>
+                <div id="auto-climb-history-list" class="history-list"></div>
+              </details>
+              <div class="auto-climb-summary-actions">
+                <button id="auto-climb-resume-btn" type="button" class="auto-climb-primary" hidden>Resume Auto Climb ▶</button>
+                <button id="auto-climb-restart-btn" type="button" class="auto-climb-primary" hidden>Start new Auto Climb ▶</button>
+              </div>
+            </div>
+          </section>
           <article id="cc-receipt" class="trial-receipt" aria-labelledby="cc-receipt-title">
             <p id="cc-receipt-kicker" class="mission-label">Your latest result</p><h3 id="cc-receipt-title">Let’s find your starting point</h3>
             <p id="cc-takeaway"></p>

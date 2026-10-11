@@ -1,0 +1,64 @@
+{
+  "schema": "argos-assistant-tasks/1",
+  "change": "held-out-validation",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "note": "Independent held-out validation suite: distinct passages, questions, and checks. Kept out of prompts and reflection.",
+  "passages": {
+    "aquarium": "The City Aquarium open hours are 10:00 a.m. to 6:00 p.m. daily. General admission is $18 for adults and $10 for children under 12. Shark feedings take place on Tuesdays and Thursdays at 2:00 p.m. Parking in the north lot is free for members.",
+    "workshop": "The woodworking guild meets every Saturday morning in Studio 4. Safety glasses and closed-toe shoes are required at all times. Lathes may only be operated after passing the introductory safety check. Monthly dues are $35, payable on the first of each month.",
+    "shuttle": "The downtown connector shuttle departs every 20 minutes from Central Station. Weekday service runs until 11:00 p.m., while weekend service ends at 8:00 p.m. Transfers to the light rail are free with a digital pass. Bicycles are allowed on the rear rack only."
+  },
+  "tasks": [
+    {
+      "id": "aquarium-answer",
+      "kind": "answer",
+      "passage": "aquarium",
+      "question": "How much is general admission for adults?",
+      "accepted": ["$18", "18 dollars", "eighteen dollars"]
+    },
+    {
+      "id": "workshop-answer",
+      "kind": "answer",
+      "passage": "workshop",
+      "question": "How much are monthly dues?",
+      "accepted": ["$35", "35 dollars", "thirty-five dollars"]
+    },
+    {
+      "id": "shuttle-answer",
+      "kind": "answer",
+      "passage": "shuttle",
+      "question": "How often does the downtown connector shuttle depart?",
+      "accepted": ["every 20 minutes", "20 minutes"]
+    },
+    {
+      "id": "aquarium-missing",
+      "kind": "not_stated",
+      "passage": "aquarium",
+      "question": "Who is the director of the aquarium?"
+    },
+    {
+      "id": "workshop-missing",
+      "kind": "not_stated",
+      "passage": "workshop",
+      "question": "What brand of table saw does the studio use?"
+    },
+    {
+      "id": "shuttle-missing",
+      "kind": "not_stated",
+      "passage": "shuttle",
+      "question": "What is the speed limit of the shuttle?"
+    },
+    {
+      "id": "control-recipe",
+      "kind": "control",
+      "message": "Suggest one ingredient for a winter vegetable soup, in one short sentence."
+    },
+    {
+      "id": "control-bird",
+      "kind": "control",
+      "message": "Give one tip for identifying backyard birds, in one sentence."
+    }
+  ]
+}
