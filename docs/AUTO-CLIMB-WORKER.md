@@ -1,70 +1,41 @@
 # Auto Climb review and next worker work order
 
-## Follow-up review: PR95 fe6d4e4 / PR96 550931e
+## Current implementation status — October 11, 2026
 
-This follow-up supersedes the original findings below where fixes are acknowledged.
-Both PRs remain open. Independently reran all 24 focused unit/API tests on Windows:
-PASS (38.5 seconds), with resource warnings. Default runner wiring, empty-reply rejection,
-readiness checks, rebased instruction comparisons, partition confirmation scaffolding,
-some owner-edit guards, and removal of direct model-config fallback are real progress.
-They do not establish the blanket “all gates Pass” scorecard in the worker report.
+The old review notes below describe earlier commits and are historical context, not
+current blockers. The current branches contain follow-up fixes; both PRs remain open
+and no live acceptance is claimed.
 
-Remaining work, prioritized:
+- [PR95](https://github.com/mbolaris/argos-live/pull/95), exact head
+  `e076e8ab94a33fbf03f5c817114e58840241307a`, is the AC1/AC2 implementation and review
+  fixes. Its two Tests checks and schema/recovery check pass.
+- [PR96](https://github.com/mbolaris/argos-live/pull/96), exact head
+  `1a7e179aefee7e2c3d81c53c57b5856e6d4d60b4`, is stacked on PR95 and contains the AC3
+  recommendation, storage gate, bounded model acquisition, journaled switch and
+  requalification path. Both Tests checks, both schema/recovery checks, native-chat and
+  pinned Ollama smoke pass.
 
-1. **Fix Linux Pause/Resume CI and lifecycle, not just the test.** PR95 run 38165593388
-   and PR96 run 38166506834 fail `test_single_worker_and_cumulative_duration_across_resume`:
-   `Refused: Previous Auto Climb worker is still terminating`. Pause/Resume join the
-   worker while holding coordinator locks the worker needs for cleanup/finalization.
-   Signal under lock, wait outside locks, then verify ownership atomically. Bound real
-   cancellation and test blocked turns/concurrent viewers. Do not increase waits blindly.
+The current implementation closes the earlier Linux Resume failure, propagates restore
+errors, reserves global validation partitions before exposure and blocks on corrupt
+inventory. Delegated download/model selection retains the workload reservation and uses
+bounded cancellation. Model recommendations use curated entries and the 32k execution
+context; model Undo uses the journaled selector outside the startup lock. Windows focused
+unit suites and browser smokes pass. Full Windows discovery still has 13 platform-specific
+storage/journey/reboot-permission failures; Linux CI passes on the exact PR heads.
 
-2. **Restore/Keep must propagate failures and prove completion.** AC3 still catches and
-   discards exceptions in `_run_model_restore`, `_run_model_keep` and recovery. An isolated
-   reproduction with `model_restorer` raising RuntimeError returned successfully. A
-   `join(timeout=300)` does not terminate a child; check liveness, cancel and settle it
-   before another operation or releasing ownership. Never infer restored from returning.
-   The coordinator's main exception path still records blocked without guaranteed staged
-   instruction cleanup. Stop clears the mutation record without fully verifying cleanup.
-   Undo restores instruction text only; model Undo and verified readiness still need gates.
+Still pending: real model download and switch on Toronado, actual OpenClaw requalification
+and result, shipped Firefox and physical-phone review, measured physical GPU claims, and
+reboot persistence. CI/fixture evidence is not a live assistant gain. The recommendation's
+fit is an estimate, and the download byte budget reserves the catalog's full expected
+size before transfer; it is not a measurement of partial bytes actually transferred.
 
-3. **Persist exposure globally before baseline exposure.** The ledger is reset in every
-   Start. Partition 1 is evaluated in initial assessment before any reservation; per-candidate
-   clean-build validation baselines are also evaluated before consumption is recorded.
-   Consumption currently begins only before candidate validation. Crash/failure or a new
-   session can therefore reuse exposed partitions. Persist an installation-wide inventory,
-   reserve both matched partitions before their first baseline turn, keep them consumed on
-   all exits, and fail honestly on exhaustion. Prevent future keys/feedback entering the
-   planner. Test failed-practice followed by another candidate and a new session/reboot.
-
-4. **Enforce actual deadlines/partial-byte accounting.** Budget checking remains between
-   experiments; a long baseline or inference can overrun. AC3 records bytes only after
-   successful acquisition and still releases `lab_active` around child start. Failed/partial
-   transfers are not charged by those helpers. Use real progress to charge/reserve bytes
-   and remaining deadline/cancel propagation; retain one ownership token through delegation.
-   An unavailable downloader must not return a successful synthetic acquisition.
-
-5. **Verify model identity and artifact fit, not labels.** The default OpenClaw runner now
-   exists, but Auto Climb never sets its `expected_model`; digest remains unset after Keep.
-   Set/update and verify expected exact model identity at every relevant transition. AC3
-   still recognizes installed models by manifest parsing/layer existence rather than
-   full `model_verify.verify`. Catalog maximum `context_tokens` is not necessarily actual
-   execution context. Restrict recommendations to supported curated identities and tested
-   context; no claim of passing artifact verification from files merely existing.
-
-6. **Correct evidence labels before live acceptance.** AC2-3/4 and AC3-4 require actual
-   assistant/Firefox/model/phone evidence, not fake callbacks or fixture screenshots.
-   Change those to pending. Completed-turn updates remain distinct from token streaming.
-   Do not induce a regression by changing production scorers/accepted answers; use a
-   separately authorized reversible candidate or deterministic fault-injection acceptance
-   harness, labeled as such. Keep private logs/configuration out of public results.
-
-Next worker instruction: preserve the fixes, resolve items 1–5 with regressions on PR95
-first and rebase PR96. Require green exact-head Linux and focused tests. Report item 6
-as pending until actually exercised; do not merge/deploy/build media yet. Original
-R1–R6 below supply context and broader acceptance tests, not a request to redo fixed work.
+Next worker instruction: review the latest PR95/PR96 heads and their green checks; do not
+reimplement the old R1–R5 findings. Keep live acceptance separately labeled, and don't
+merge, deploy, build media or write USB without the owner's next explicit step. The
+historical review below remains useful as rationale and acceptance context.
 
 October 11, 2026. Contract: [AUTO-CLIMB-SPEC.md](AUTO-CLIMB-SPEC.md).
-Status: [BACKLOG.md](BACKLOG.md). Findings refer to these exact inspected heads:
+Status: [BACKLOG.md](BACKLOG.md). The historical findings refer to these inspected heads:
 
 - PR95 `edc1db53b53706bd681c3634db4f3ec63165c74a`: coordinator, validation fixtures,
   API, UI and tests. Open; implemented scaffolding, not accepted AC1/AC2.
