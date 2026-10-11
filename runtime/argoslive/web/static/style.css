@@ -2131,7 +2131,6 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 #command-center.assistant-trial-offer-focus #improve-next,
 #command-center.assistant-trial-offer-focus #cc-debrief,
 #command-center.assistant-trial-offer-focus #receipt-actions { display: none !important; }
-#command-center.assistant-trial-offer-focus #chat,
 #command-center.assistant-trial-offer-focus .mission-rules { display: none !important; }
 .cc-next-trial-offer { margin: 12px 0 0; padding: 12px; border: 1px solid #39776f; border-radius: 12px; background: linear-gradient(140deg, #12312f, #111d29 72%); }
 .cc-next-trial-offer[hidden] { display: none; }

@@ -235,7 +235,7 @@ try {
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'kept', active: false,
       changes: [{id: 'answer-first'}]}));
   assert.equal(keptAction.action, 'assistant-trial');
-  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Go: Find your AI’s next improvement');
+  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Start improvement round');
   await page.locator('#cc-next-go').click();
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).active, null, {timeout: 10000, polling: 100});
   assert.equal(await page.locator('#assistant-trial-modal').count(), 0, 'The one GO action starts the exact disclosed trial; no second approval dialog');
