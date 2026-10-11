@@ -2121,10 +2121,18 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .assistant-trial-focus #cc-progress-journal,
 .assistant-trial-focus #cc-task-box,
 .assistant-trial-focus #full-skill-map { display: none !important; }
-#command-center.assistant-trial-offer-focus > :not(#cc-title):not(#cc-next) { display: none !important; }
+#command-center.assistant-trial-offer-focus > :not(#cc-title):not(#cc-next):not(.cc-grid) { display: none !important; }
+#command-center.assistant-trial-offer-focus > .cc-grid { gap: 8px; }
+#command-center.assistant-trial-offer-focus #cc-receipt { padding-top: 10px; }
+#command-center.assistant-trial-offer-focus > .cc-grid > :not(.mission-main),
+#command-center.assistant-trial-offer-focus .mission-main > #cc-receipt > #assistant-trial { display: none !important; }
+#command-center.assistant-trial-offer-focus #replay,
+#command-center.assistant-trial-offer-focus #improve-comparison,
+#command-center.assistant-trial-offer-focus #improve-next,
+#command-center.assistant-trial-offer-focus #cc-debrief,
+#command-center.assistant-trial-offer-focus #receipt-actions { display: none !important; }
 #command-center.assistant-trial-offer-focus #chat,
 #command-center.assistant-trial-offer-focus .mission-rules { display: none !important; }
-#command-center.assistant-trial-offer-focus ~ #workbench { display: none !important; }
 .cc-next-trial-offer { margin: 12px 0 0; padding: 12px; border: 1px solid #39776f; border-radius: 12px; background: linear-gradient(140deg, #12312f, #111d29 72%); }
 .cc-next-trial-offer[hidden] { display: none; }
 .cc-next-trial-kicker { margin: 0 0 7px; color: #8aecd9; font-size: 11px; font-weight: 850; letter-spacing: .09em; }
