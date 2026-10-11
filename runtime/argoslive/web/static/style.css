@@ -1822,6 +1822,9 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 #cc-hero-model { font-weight: 500; }
 .cc-hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 10px; }
 .cc-hero-actions .mission-primary { width: auto; min-width: 260px; padding: 17px 28px; font-size: 17px; margin: 0; }
+.cc-hero-actions .cc-go-button { min-width: 168px; font-size: 20px; font-weight: 800; letter-spacing: .12em; box-shadow: 0 8px 28px rgba(94, 234, 212, .14); }
+.cc-go-button span { display: inline-block; margin-left: 8px; font-size: .72em; transition: transform .16s ease; }
+.cc-go-button:hover span { transform: translateX(3px); }
 .cc-hero-actions .mission-secondary { margin: 0; border-color: transparent; background: none; padding-left: 0; }
 .mission-rules { margin-top: 20px; }
 .mission-rules summary { color: var(--muted); font-weight: 500; }
@@ -1877,6 +1880,7 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
   #cc-next-title { font-size: 30px; }
   #cc-next-reason { font-size: 14px; }
   .cc-hero-actions .mission-primary { width: 100%; min-width: 0; font-size: 16px; padding: 15px 16px; }
+  .cc-hero-actions .cc-go-button { font-size: 19px; }
   #curriculum-map > summary .dest-badge-rec { float: none; display: block; width: fit-content; margin-top: 8px; }
   #arena .live-card { padding: 16px 12px; }
   #arena .arena-stream-box { padding: 14px 10px; }

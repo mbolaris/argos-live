@@ -64,6 +64,28 @@ try {
   assert.match(await page.locator('#assistant-trial-text').textContent(), /^Lab results don’t change your assistant/);
   await shot('1-offer');
 
+  // Diagnostic misses should lead to one safe improvement offer; approval still gates changes.
+  const guidedAction = await page.evaluate(() => presentedNextAction(
+    {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'}, assistantTrial));
+  assert.equal(guidedAction.action, 'assistant-trial');
+  assert.equal(guidedAction.title, 'Try one small improvement');
+  assert.match(guidedAction.reason, /Press Go to review it first/);
+  const runningAction = await page.evaluate(() => presentedNextAction(
+    {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'none', active: true}));
+  assert.equal(runningAction.title, 'Watch the improvement run');
+  const decisionAction = await page.evaluate(() => presentedNextAction(
+    {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'on-trial', active: false}));
+  assert.equal(decisionAction.title, 'Choose what stays in your assistant');
+  const keptAction = await page.evaluate(() => presentedNextAction(
+    {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'kept', active: false}));
+  assert.equal(keptAction.action, 'chat');
+  await page.evaluate(action => { commandAction = action; }, guidedAction);
+  await page.locator('#cc-next-go').click();
+  await page.locator('#assistant-trial-modal').waitFor({state: 'visible'});
+  await shot('2-go-approval');
+  await page.locator('#assistant-trial-close').click();
+  assert.equal((await status()).status, 'none', 'GO opens review; approval is still required before any change');
+
   // ---- Approval: reviewing and "Not now" change nothing.
   await page.locator('#assistant-trial-review').click();
   await page.locator('#assistant-trial-modal').waitFor({state: 'visible'});
@@ -83,7 +105,7 @@ try {
   await page.waitForFunction(() => !document.getElementById('assistant-trial-result').hidden);
   const result = (await status()).result;
   assert.deepEqual(result.totals, {answer: {before: 0, after: 3, total: 3}, not_stated: {before: 0, after: 3, total: 3},
-                                   control: {before: 2, after: 2, total: 2}});
+                                   control: {before: 2, after: 2, total: 2}}, JSON.stringify(result.rows.map(row => ({id: row.id, before: row.before.reply, after: row.after.reply}))));
   assert.equal(result.evidence, 'everyday-assistant');
   const card = await page.locator('#assistant-trial').textContent();
   assert.match(card, /Everyday-assistant results · gains: 6 · regressions: 0/);

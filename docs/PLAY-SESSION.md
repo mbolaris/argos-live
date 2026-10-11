@@ -17,11 +17,16 @@ the giant-robot ambition; specific measured outcomes make progress meaningful.
 
 Use one loop: **Challenge → Watch → Debrief → Try one change → Retest → Keep or
 restore → Validate → Use it.** Every stage ends with one recommended available
-action. A stage that cannot continue states the blocker and offers a useful exit.
+action. The owner should be able to press one prominent **Go** control to follow
+that next step; the adjacent heading explains exactly what Go will do. A stage
+that cannot continue states the blocker and offers a useful exit. Go can start a
+test or open the review for a reversible change, but never silently approves a
+lasting assistant change.
 
 ## Release journey
 
-1. **Boot and start.** The primary action is visible on phone and desktop. Lead
+1. **Boot and start.** One **GO** action is visible on phone and desktop, with
+   an accessible name and a plain-language heading that say what it will do. Lead
    with the mission, what the AI will attempt and what the owner will see. Starter
    trials need no model storage or download. Existing full document qualification
    keeps its fixed suite and criteria; a future short introduction is practice,

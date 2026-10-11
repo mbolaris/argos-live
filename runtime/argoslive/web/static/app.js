@@ -2751,6 +2751,10 @@ const commandActions = {
   documents: () => startMissionTrial('lab-start-documents'),
   models: () => focusSection('models-title'),
   review: () => focusSection(document.getElementById('replay').hidden ? 'cc-receipt' : 'replay'),
+  'assistant-trial': () => {
+    focusSection('assistant-trial', 'assistant-trial-review');
+    if (assistantTrial?.status === 'none' && !assistantTrial.active) document.getElementById('assistant-trial-review').click();
+  },
   capabilities: () => focusSection('capabilities-title'),
   reboot: () => focusSection('storage-title', 'reboot-check'),
   chat: () => document.getElementById('chat').click(),
@@ -2762,6 +2766,28 @@ const commandActions = {
     document.getElementById('selection-confirm').disabled = false;
     document.getElementById('selection-review').showModal();
   }};
+function presentedNextAction(next, trial) {
+  if (next.action !== 'review' || !trial?.available) return next;
+  if (trial.active) {
+    return {...next, id: 'assistant-trial', title: 'Watch the improvement run',
+      reason: 'Your everyday assistant is answering the before-and-after questions now. Go to its live progress.', action: 'assistant-trial'};
+  }
+  if (trial.status === 'none') {
+    return {...next, id: 'assistant-trial', title: 'Try one small improvement',
+      reason: 'Your AI can test one reviewed instruction in your everyday assistant. Press Go to review it first. If you approve, watch the same questions before and after, then choose Keep or Restore.',
+      action: 'assistant-trial'};
+  }
+  if (trial.status === 'on-trial') {
+    return {...next, id: 'assistant-trial', title: 'Choose what stays in your assistant',
+      reason: 'The before-and-after run is ready. Review the answers, then choose Keep or Restore.', action: 'assistant-trial'};
+  }
+  if (trial.status === 'kept') {
+    return {...next, id: 'chat', title: 'Try your AI on something real',
+      reason: 'The trial change is saved. Ask your AI a question you care about; you can still review the comparison or restore the original instruction.', action: 'chat'};
+  }
+  return {...next, id: 'assistant-trial', title: 'Review the assistant trial',
+    reason: 'The trial needs attention before Argos can safely continue. Open its status and recovery details.', action: 'assistant-trial'};
+}
 let commandRefreshing = false;
 async function refreshCommand() {
   if (commandRefreshing) return;
@@ -2834,14 +2860,18 @@ async function refreshCommand() {
         item.append(number, title, state, notes); steps.append(item);
       }
     }
-    const next = value.next_action;
+    // If diagnostics are the backend recommendation, lead with the reviewed
+    // reversible assistant trial when it is available. Approval remains explicit.
+    const next = presentedNextAction(value.next_action, assistantTrial);
     commandAction = next;
     document.getElementById('cc-next-title').textContent = next.title;
     document.getElementById('cc-next-reason').textContent = next.reason;
     const go = document.getElementById('cc-next-go');
-    go.hidden = !next.action; go.textContent = {storage: 'Set up model storage', baseline: 'Pause chat and run the first trial', documents: 'Start: Read this brief',
-      models: 'Compare a model candidate', reboot: 'Verify storage after restart', chat: 'Talk to Argos', capabilities: 'Choose a capability',
-      task: 'Test a document you care about', restore: 'Review the previous model', review: 'Step through the misses'}[next.action] || 'Start this mission';
+    go.hidden = !next.action;
+    go.replaceChildren(document.createTextNode('GO '));
+    const arrow = document.createElement('span'); arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '▶'; go.append(arrow);
+    go.setAttribute('aria-label', `Go: ${next.title}`);
+    go.dataset.action = next.action || '';
     const trialControl = {baseline: 'lab-start', documents: 'lab-start-documents'}[next.action];
     go.disabled = !!trialControl && document.getElementById(trialControl).disabled;
     const list = document.getElementById('cc-systems'); list.replaceChildren();
@@ -3556,8 +3586,10 @@ async function refreshAssistantTrial() {
   let value;
   try { value = await api('/api/assistant-trial'); } catch (_) { return; }
   if (epoch !== trialRequestEpoch || trialActionPending) return;
+  const previousStatus = assistantTrial?.status;
   assistantTrial = value;
   renderAssistantTrial();
+  if (previousStatus !== value.status) refreshCommand();
 }
 
 function renderAssistantTrial() {
