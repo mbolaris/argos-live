@@ -41,6 +41,7 @@
         <section id="cc-next-trial-offer" class="cc-next-trial-offer" hidden aria-label="What GO will do">
           <p class="cc-next-trial-kicker">ONE GO · 3 IDEAS · 8 CHALLENGES EACH</p>
           <p>I’ll show every answer, then recommend a winner. You choose Keep or Restore. Uses your current model; no download or storage setup.</p>
+          <p id="cc-next-trial-first-run" class="cc-next-trial-first-run" hidden></p>
           <details id="cc-next-trial-ideas-details">
             <summary id="cc-next-trial-ideas-summary">See the exact ideas</summary>
             <div id="cc-next-trial-instructions" class="cc-next-trial-instructions"></div>
@@ -280,13 +281,13 @@
                 </details>
               </section>
               <div id="assistant-trial-progress" class="assistant-trial-watch" role="region" aria-label="Assistant trial watch" hidden>
-                <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 32 answers</strong><button id="assistant-trial-cancel" type="button" class="mission-secondary" hidden>Stop the trial</button></div>
-                <progress id="assistant-trial-bar" max="24" value="0" aria-label="Improvement session progress"></progress>
-                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight challenges in each stage"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 32 model replies</strong><button id="assistant-trial-cancel" type="button" class="mission-secondary" hidden>Stop the trial</button></div>
+                <progress id="assistant-trial-bar" max="32" value="0" aria-label="Model reply progress"></progress>
+                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight challenges in the current round"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
                 <div class="trial-watch-steps" aria-hidden="true"><span id="assistant-trial-step-before">BASELINE</span><span id="assistant-trial-step-change">IDEAS</span><span id="assistant-trial-step-after">SAME QUESTIONS</span></div>
                 <article class="trial-watch-current">
                   <p class="trial-watch-kicker">THE CHALLENGE</p>
-                  <h5 id="assistant-trial-question">Preparing the first question…</h5>
+                  <h5 id="assistant-trial-question">Preparing the first challenge…</h5>
                   <p id="assistant-trial-thinking" class="trial-watch-thinking" role="status" aria-live="polite">Getting the assistant ready…</p>
                   <details id="assistant-trial-source" open hidden><summary>Source notice</summary><p id="assistant-trial-source-text"></p></details>
                 </article>

@@ -97,6 +97,23 @@ class TrialTests(unittest.TestCase):
         self.addCleanup(controller.close)
         return controller
 
+    def bootstrap_trial(self, *, nonstandard=None):
+        defaults = {name: f'OpenClaw default for {name}\n' for name in at.OPENCLAW_FIRST_RUN_FILES}
+        runner = Runner(self.home)
+        def prepare_workspace(names):
+            for name in names:
+                path = self.agents.parent / name
+                if not path.exists():
+                    path.write_bytes(defaults[name].encode('utf-8'))
+            if nonstandard:
+                nonstandard()
+        runner.bootstrap_templates = lambda: defaults
+        runner.seed_workspace_defaults = lambda names, templates: prepare_workspace(names)
+        controller = at.Controller(self.startup, home=self.home, runner=runner, ready_timeout=5,
+                                   validate_profile=lambda home: (home, 'fixture'), reflector=self.fixture_opinion)
+        self.addCleanup(controller.close)
+        return controller, runner, defaults
+
     def wait(self, controller):
         controller.worker.join(timeout=10)
         self.assertFalse(controller.worker.is_alive())
@@ -191,6 +208,97 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(trial.snapshot()['status'], 'on-trial')
         self.assertEqual(len(trial.runner.turns), 32, 'The bounded baseline and idea answers start after warm-up')
         self.assertTrue(self.agents.read_bytes().startswith(self.original.encode()))
+
+    def test_one_go_initializes_only_exact_missing_openclaw_defaults_before_scoring(self):
+        for name in at.OPENCLAW_FIRST_RUN_FILES:
+            (self.agents.parent / name).unlink(missing_ok=True)
+        trial, runner, defaults = self.bootstrap_trial()
+        trial.start(); self.wait(trial)
+        self.assertEqual(trial.snapshot()['status'], 'on-trial')
+        self.assertEqual([guided for guided, _ in runner.turns], [False] * 8 + [True] * 24)
+        self.assertEqual(self.agents.read_text(encoding='utf-8').startswith(defaults['AGENTS.md']), True)
+        self.assertIn(at.CHANGE_BY_ID['quote-evidence']['block'], self.agents.read_text(encoding='utf-8'))
+        trial.restore(); self.wait(trial)
+        self.assertEqual(self.agents.read_text(encoding='utf-8'), defaults['AGENTS.md'])
+        for name in at.OPENCLAW_REQUIRED_FIRST_RUN_FILES[1:]:
+            self.assertEqual((self.agents.parent / name).read_text(encoding='utf-8'), defaults[name])
+
+    def test_first_run_loader_matches_the_pinned_openclaw_templates_exactly(self):
+        package = Path(self.temp.name) / 'node_modules' / 'openclaw'
+        executable = package / 'openclaw.mjs'
+        executable.parent.mkdir(parents=True)
+        executable.write_text('')
+        templates_dir = package / 'docs' / 'reference' / 'templates'
+        templates_dir.mkdir(parents=True)
+        for name in at.OPENCLAW_FIRST_RUN_FILES:
+            (templates_dir / name).write_bytes(f'---\r\nsummary: {name}\r\n---\r\n\r\ndefault {name}\r\n'.encode())
+        runner = at.OpenClawRunner(self.home, executable=str(executable))
+        templates = runner.bootstrap_templates()
+        self.assertEqual(set(templates), set(at.OPENCLAW_FIRST_RUN_FILES))
+        self.assertEqual(templates['BOOTSTRAP.md'], 'default BOOTSTRAP.md\r\n')
+
+    def test_first_run_workspace_snapshot_rejects_unlisted_files(self):
+        before = at.workspace_snapshot(self.agents.parent)
+        (self.agents.parent / 'unexpected.md').write_text('not an OpenClaw default', encoding='utf-8')
+        after = at.workspace_snapshot(self.agents.parent)
+        defaults = {name: f'OpenClaw default for {name}\n' for name in at.OPENCLAW_FIRST_RUN_FILES}
+        self.assertIsNone(at.new_template_files(before, after, defaults))
+
+    def test_openclaw_created_bootstrap_is_accepted_only_when_it_matches_pinned_template(self):
+        for name in at.OPENCLAW_FIRST_RUN_FILES:
+            (self.agents.parent / name).unlink(missing_ok=True)
+        trial, runner, defaults = self.bootstrap_trial()
+        original_turn = runner.turn
+        def create_bootstrap_during_first_reply(message):
+            bootstrap = self.agents.parent / 'BOOTSTRAP.md'
+            if not runner.turns and not bootstrap.exists():
+                bootstrap.write_bytes(defaults['BOOTSTRAP.md'].encode('utf-8'))
+            return original_turn(message)
+        runner.turn = create_bootstrap_during_first_reply
+        trial.start(); self.wait(trial)
+        self.assertEqual(trial.snapshot()['status'], 'on-trial',
+                         f"phase={trial.phase}; message={trial.message}; result={trial.snapshot()['result_state']}")
+        self.assertEqual((self.agents.parent / 'BOOTSTRAP.md').read_text(encoding='utf-8'),
+                         defaults['BOOTSTRAP.md'])
+
+    def test_terminal_recovery_state_is_exposed_without_a_trial_record(self):
+        trial = self.trial()
+        trial.phase = 'recovery-blocked'
+        trial.message = 'Review workspace files before trying again.'
+        value = trial.snapshot()
+        self.assertEqual(value['status'], 'none')
+        self.assertEqual(value['result_state'], 'recovery-blocked')
+        self.assertEqual(value['message'], 'Review workspace files before trying again.')
+
+    def test_legacy_record_without_bootstrap_guard_matches_only_when_bootstrap_is_absent(self):
+        expected = at.fingerprint(self.home)
+        del expected['BOOTSTRAP.md']
+        self.assertTrue(at.fingerprint_matches(self.home, expected))
+        (self.agents.parent / 'BOOTSTRAP.md').write_text('new unreviewed content', encoding='utf-8')
+        self.assertFalse(at.fingerprint_matches(self.home, expected))
+
+    def test_one_go_never_accepts_nonstandard_file_created_during_first_run_setup(self):
+        user_path = self.agents.parent / 'USER.md'
+        user_path.unlink()
+        def write_nonstandard():
+            user_path.write_text('owner content must be reviewed', encoding='utf-8')
+        trial, _, _ = self.bootstrap_trial(nonstandard=write_nonstandard)
+        trial.start(); self.wait(trial)
+        self.assertEqual(trial.phase, 'failed')
+        self.assertIn('No idea was tested or applied', trial.message)
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+        self.assertEqual(user_path.read_text(encoding='utf-8'), 'owner content must be reviewed')
+
+    def test_one_go_rejects_edits_to_existing_files_during_first_run_setup(self):
+        def edit_existing():
+            (self.agents.parent / 'SOUL.md').write_text('owner edit', encoding='utf-8')
+        trial, _, _ = self.bootstrap_trial(nonstandard=edit_existing)
+        (self.agents.parent / 'USER.md').unlink()
+        trial.start(); self.wait(trial)
+        self.assertEqual(trial.phase, 'failed')
+        self.assertIn('No idea was tested or applied', trial.message)
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+        self.assertEqual((self.agents.parent / 'SOUL.md').read_text(encoding='utf-8'), 'owner edit')
 
     def test_cancel_during_warmup_does_not_start_a_trial_or_change_files(self):
         trial = self.trial()

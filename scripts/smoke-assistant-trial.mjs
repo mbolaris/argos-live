@@ -102,7 +102,7 @@ try {
   assert.match(await page.locator('#cc-next-reason').textContent(), /Same model\. Same eight challenges/);
   assert.equal(await page.locator('#cc-next-trial-offer').isVisible(), true);
   assert.match(await page.locator('#cc-next-trial-offer').textContent(), /3 ideas · 8 challenges each/i);
-  assert.match(await page.locator('#cc-next-trial-offer').textContent(), /up to 32 answers/i);
+  assert.match(await page.locator('#cc-next-trial-offer').textContent(), /up to 32 model replies/i);
   assert.equal(await page.locator('#workbench > summary').isVisible(), true,
     'Model and storage setup remains accessible as a separate optional path');
   assert.equal(await page.locator('#cc-next-trial-ideas-details').evaluate(el => el.open), false,
@@ -118,6 +118,12 @@ try {
     'The exact approved instruction remains available before GO');
   await page.locator('#cc-next-trial-instructions details').first().locator('summary').click();
   await page.locator('#cc-next-trial-ideas-summary').click();
+  await page.evaluate(async () => {
+    assistantTrial = {...assistantTrial, first_run_setup: true};
+    await refreshCommand();
+  });
+  assert.equal(await page.locator('#cc-next-trial-first-run').isVisible(), true);
+  assert.match(await page.locator('#cc-next-trial-first-run').textContent(), /pinned OpenClaw defaults/i);
   assert.equal(await page.locator('#arena').isHidden(), true, 'The previous mission is tucked away during the focused offer');
   assert.equal(await page.locator('#chat').isHidden(), true, 'GO is the only primary action for this offer');
   await shot('1-offer', '#cc-next');
@@ -132,14 +138,28 @@ try {
     renderAssistantTrial();
   });
   assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Warming up your AI');
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /GO is saved.*no idea is applied/i);
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /GO is queued.*no idea has been applied/i);
   assert.equal(await page.locator('#assistant-trial-stage').textContent(), 'Warming up your local AI');
-  assert.equal(await page.locator('#assistant-trial-count').textContent(), '0 of 32 answers');
-  assert.equal(await page.locator('#assistant-trial-question').textContent(), 'Your AI is warming up. No instruction has changed.');
+  assert.equal(await page.locator('#assistant-trial-count').textContent(), '0 of 32 model replies');
+  assert.equal(await page.locator('#assistant-trial-question').textContent(), 'Your GO is saved. The assistant will begin when it’s ready.');
   assert.equal(await page.locator('#assistant-trial-cancel').textContent(), 'Cancel warm-up');
   assert.equal(await page.locator('#assistant-trial-note').isHidden(), true,
     'The warm-up explanation appears once, without a duplicate status note');
   await shot('1-warming-up');
+  await page.evaluate(() => {
+    assistantTrial = {...assistantTrial, phase: 'workspace', progress: {side: 'before', done: 0, total: 8,
+      current: {kind: 'setup', question: 'One quick private setup check before scoring.'}, latest: null,
+      session_done: 0, session_total: 32, waiting_seconds: 7},
+      message: 'Setting up only missing standard starter files from the pinned OpenClaw defaults. Existing files will not be overwritten. No challenge is scored yet.'};
+    renderAssistantTrial();
+  });
+  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Getting your AI ready');
+  assert.equal(await page.locator('#assistant-trial-stage').textContent(), 'First-run setup · no score yet');
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /only missing standard starter files/i);
+  assert.equal(await page.locator('#assistant-trial-count').textContent(), '0 of 32 model replies');
+  assert.match(await page.locator('#assistant-trial-thinking').textContent(), /7s · adding only missing starter files/i);
+  assert.equal(await page.locator('#assistant-trial-cancel').textContent(), 'Cancel setup');
+  await shot('1-first-run-setup');
   await page.evaluate(async () => { trialFollow = false; await refreshAssistantTrial(); });
   await page.waitForFunction(() => document.getElementById('assistant-trial-title').textContent !== 'Warming up your AI');
   await page.unroute('**/api/command-center');
@@ -174,6 +194,37 @@ try {
   const runningAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'none', active: true}));
   assert.equal(runningAction.title, 'Watch the improvement run');
+  const blockedAction = await page.evaluate(() => presentedNextAction(
+    {id: 'review', title: 'Review', reason: 'Review.', action: 'review'},
+    {available: true, status: 'none', result_state: 'recovery-blocked', message: 'Review the workspace.'}));
+  assert.equal(blockedAction.action, null, 'A safety stop does not offer another blind GO');
+  const savedTrialState = await page.evaluate(() => structuredClone(assistantTrial));
+  const receiptWasHidden = await page.locator('#cc-receipt').isHidden();
+  const offerWasDismissed = await page.evaluate(() => assistantTrialOfferDismissed);
+  await page.evaluate(() => {
+    assistantTrialOfferDismissed = true;
+    document.getElementById('cc-receipt').hidden = false;
+    assistantTrial = {...assistantTrial, available: true, active: false, status: 'none',
+      phase: 'recovery-blocked', result_state: 'recovery-blocked', result: null,
+      message: 'The first reply changed files in the AI’s workspace. No score was counted and no experiment was applied; the assistant is stopped until you review those files.'};
+    renderAssistantTrial();
+  });
+  assert.equal(await page.locator('#assistant-trial').isVisible(), true,
+    'The terminal safety state is visible instead of leaving the user at a spinner or GO button');
+  assert.equal(await page.locator('#cc-next').isHidden(), true,
+    'A terminal stop takes focus instead of competing with another GO action');
+  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Safety stop — review the workspace');
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /No score was counted/);
+  assert.equal(await page.locator('.assistant-trial-actions').isHidden(), true);
+  assert.equal(await page.locator('#assistant-trial-plan').isHidden(), true);
+  assert.equal(await page.locator('#assistant-trial-progress').isHidden(), true);
+  await shot('1-safety-stop');
+  await page.evaluate(({value, wasHidden, wasOfferDismissed}) => {
+    assistantTrial = value;
+    assistantTrialOfferDismissed = wasOfferDismissed;
+    document.getElementById('cc-receipt').hidden = wasHidden;
+    renderAssistantTrial();
+  }, {value: savedTrialState, wasHidden: receiptWasHidden, wasOfferDismissed: offerWasDismissed});
   const decisionAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'on-trial', active: false}));
   assert.equal(decisionAction.title, 'Choose what stays in your assistant');
@@ -189,7 +240,7 @@ try {
 
   // ---- One GO runs baseline, temporary change, matched retest and opinion.
   await page.waitForFunction(() => !document.getElementById('assistant-trial-progress').hidden &&
-    document.getElementById('assistant-trial-stage').textContent.startsWith('Starting line'), null, {timeout: 10000});
+    document.getElementById('assistant-trial-stage').textContent.startsWith('Starting setup'), null, {timeout: 10000});
   assert.equal(await page.locator('#cc-next').isHidden(), true,
     'The main mission card does not compete with the running trial');
   for (const id of ['#cc-receipt-kicker', '#cc-receipt-title', '#cc-takeaway', '#improve-comparison', '#cc-debrief', '#full-skill-map']) {
@@ -197,9 +248,9 @@ try {
       `${id} is tucked away while the assistant trial is in focus`);
   }
   await page.waitForFunction(() => !document.getElementById('assistant-trial-latest').hidden, null, {timeout: 10000});
-  assert.match(await page.locator('#assistant-trial-count').textContent(), /[1-8] of 32 answers/);
-  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Watch me test these ideas');
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /resetting between them/);
+  assert.match(await page.locator('#assistant-trial-count').textContent(), /[1-8] of 32 model replies/);
+  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'I’m proving my next improvement');
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /same challenges/i);
   assert.ok((await page.locator('#assistant-trial-question').textContent()).length > 10);
   assert.ok((await page.locator('#assistant-trial-last-question').textContent()).length > 10,
     'The visible answer is paired with the challenge that produced it');

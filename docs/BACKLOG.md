@@ -1173,6 +1173,15 @@ no idea is applied until readiness is verified. A warm-up timeout or owner edit
 stops safely. Fixture and unit tests do not replace a real-model rerun on the
 next image.
 
+The cold-start follow-up also handles a genuinely new OpenClaw workspace without
+asking the owner to navigate setup first: the GO offer discloses that setup, and
+the trial creates only missing pinned starter files with exclusive writes. It
+checks the workspace before and after setup, permits only exact pinned defaults
+created during the first assistant turn, and stops with a focused safety message
+if anything else changes. The watch counts model replies (up to 32), while its
+eight markers represent prompts in the current round; they are not skill
+qualification marks.
+
 The completed screen has exactly one prominent next action; the alternative
 outcome is available under a clearly named disclosure. Any pending model switch
 is shown as a separate, collapsed decision so it cannot look like part of the
