@@ -104,6 +104,8 @@ try {
     if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) fail(`Layout overflows at ${width}px`);
     const action = await page.locator('#cc-next-go').boundingBox();
     if (!action || action.height < 44 || action.x < 0 || action.x + action.width > width) fail(`Mission action is not phone-friendly at ${width}px`);
+    const runDetails = page.locator('#receipt-extra-details');
+    if (!(await runDetails.evaluate(details => details.open))) await runDetails.locator(':scope > summary').click();
     await page.locator('.skill-breakdown summary').click();
     if (!(await page.locator('#cc-skill-bars meter').first().isVisible())) fail('Skill breakdown cannot be expanded');
     await page.locator('.skill-breakdown summary').click();
