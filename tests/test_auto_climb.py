@@ -1252,6 +1252,76 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
+    def test_model_undo_releases_startup_lock_for_transaction_worker(self):
+        """Production-style Undo lets the journaled model selector acquire startup's workload lock."""
+        current_tag = 'qwen3:4b'
+        initial_tag = 'test-model'
+        state_path = self.home / '.config/argos-live/state.json'
+        config_path = self.home / '.openclaw/openclaw.json'
+        state_path.write_text(json.dumps({'model': current_tag}))
+        config = json.loads(config_path.read_text())
+        config.setdefault('agents', {}).setdefault('defaults', {}).setdefault('model', {})[
+            'primary'] = f'ollama/{current_tag}'
+        config_path.write_text(json.dumps(config))
+
+        controller = auto_climb.Controller(
+            self.startup, home=self.home, runner=self.runner, candidates=[],
+        )
+
+        class LockSensitiveSelection:
+            def __init__(self):
+                self.worker = None
+                self.phase = 'idle'
+
+            def start(self, *, tag, _delegated=False):
+                if not _delegated:
+                    raise AssertionError('Auto Climb must delegate its owned model transaction')
+                self.phase = 'switching'
+
+                def switch():
+                    with controller.startup.lock:
+                        state_path.write_text(json.dumps({'model': tag}))
+                        current = json.loads(config_path.read_text())
+                        current['agents']['defaults']['model']['primary'] = f'ollama/{tag}'
+                        config_path.write_text(json.dumps(current))
+                        self.phase = 'completed'
+
+                self.worker = threading.Thread(target=switch, daemon=True)
+                self.worker.start()
+
+            def snapshot(self):
+                return {'phase': self.phase}
+
+            def keep_current(self):
+                return True
+
+        selection = LockSensitiveSelection()
+        controller.selection = selection
+        controller.session = {
+            'schema': auto_climb.SCHEMA,
+            'session_id': 'undo-lock-test',
+            'phase': 'plateau',
+            'initial_raw_before': self.original_agents_content,
+            'current_kept_raw': self.original_agents_content,
+            'initial_model': {'model': initial_tag, 'digest': None},
+            'active_model': {'model': current_tag, 'digest': None},
+            'history': [],
+            'budgets_used': {},
+            'approved_envelope': auto_climb.DEFAULT_ENVELOPE,
+        }
+        try:
+            result = controller.undo()
+            self.assertEqual(result['phase'], 'stopped')
+            self.assertEqual(result['active_model']['model'], initial_tag)
+            self.assertEqual(json.loads(state_path.read_text())['model'], initial_tag)
+            self.assertEqual(json.loads(config_path.read_text())['agents']['defaults']['model']['primary'],
+                             f'ollama/{initial_tag}')
+            self.assertFalse(controller.startup.lab_active)
+        finally:
+            if selection.worker is not None:
+                selection.worker.join(timeout=1)
+            controller.close()
+
     def test_corrupt_exposure_inventory_blocks_validation_rather_than_resetting(self):
         """Corrupt exposure inventory blocks validation rather than resetting it and allowing reuse."""
         inv_path = self.home / '.local/share/argos-live/auto-climb/exposure-inventory.json'
@@ -1362,34 +1432,12 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         self.assertTrue(self.startup.lab_active)
 
     def test_recommend_hardware_model_enforces_curated_and_context_window(self):
-        """Model recommendations enforce curation and minimum 4096 context tokens."""
+        """Model recommendations exclude curated candidates below the actual 32k execution context."""
         (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
         fake_hw = lambda: {'ram': {'available_bytes': 32 * 1024**3}, 'gpus': [{'vram_total_bytes': 16 * 1024**3, 'vram_used_bytes': 1024**3}]}
-        custom_catalog = {
-            'models': [
-                {
-                    'tag': 'qwen3:0.6b',
-                    'weight_bytes': 600 * 1024 * 1024,
-                    'total_download_bytes': 600 * 1024 * 1024,
-                    'context_tokens': 4096,
-                    'capabilities': ['text'],
-                },
-                {
-                    'tag': 'small-context-model',
-                    'weight_bytes': 1200 * 1024 * 1024,
-                    'total_download_bytes': 1200 * 1024 * 1024,
-                    'context_tokens': 2048,  # Too small for execution context (4096)
-                    'capabilities': ['text'],
-                },
-                {
-                    'tag': 'uncurated-model',
-                    'weight_bytes': 1500 * 1024 * 1024,
-                    'total_download_bytes': 1500 * 1024 * 1024,
-                    'context_tokens': 4096,
-                    'capabilities': ['text'],
-                },
-            ]
-        }
+        custom_catalog = auto_climb.catalog.load()
+        too_small = next(entry for entry in custom_catalog['models'] if entry['tag'] == 'qwen3:1.7b')
+        too_small['context_tokens'] = 4096
         rec = auto_climb.recommend_hardware_model(
             self.home,
             envelope={'max_model_downloads': 1, 'max_download_bytes': 8 * 1024**3},
@@ -1397,9 +1445,10 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             hardware_fn=fake_hw,
             catalog_data=custom_catalog,
         )
-        self.assertIsNone(rec)
+        self.assertIsNotNone(rec)
+        self.assertNotEqual(rec['tag'], 'qwen3:1.7b')
+        self.assertGreaterEqual(rec['entry']['context_tokens'], 32768)
 
 
 if __name__ == '__main__':
     unittest.main()
-

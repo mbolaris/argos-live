@@ -280,7 +280,7 @@ def recommend_hardware_model(home, *, envelope=None, budgets=None,
         'needs_download': needs_download,
         'download_bytes': download_bytes,
         'storage_needed': storage_needed,
-            'manifest_digest': selected_entry.get('manifest_digest'),
+        'manifest_digest': selected_entry.get('manifest_digest'),
         'entry': selected_entry,
     }
 
@@ -631,7 +631,7 @@ class Controller:
                 'can_start': phase in ('idle', 'plateau', 'options-exhausted', 'budget-exhausted', 'stopped', 'blocked'),
                 'can_pause': active and phase not in ('paused', 'stopped', 'plateau', 'options-exhausted', 'budget-exhausted', 'blocked', 'undoing'),
                 'can_resume': phase == 'paused',
-                'can_stop': active or phase in ('countdown', 'paused'),
+                'can_stop': (active and phase != 'undoing') or phase in ('countdown', 'paused'),
                 'can_override': phase == 'countdown',
                 'can_undo': can_undo and not active,
             }
@@ -1561,7 +1561,7 @@ class Controller:
             if snap.get('phase') != 'completed':
                 if configured_model(self.home) != prev_model:
                     raise RuntimeError(f'Model restoration did not complete: {snap.get("phase")}')
-            self._restart_assistant()
+            self._ensure_assistant_ready(expected_model=prev_model)
             if hasattr(self.runner, 'expected_model') and prev_model:
                 self.runner.expected_model = prev_model
             return

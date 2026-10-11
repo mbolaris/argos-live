@@ -1,6 +1,6 @@
 # Implementation backlog
 
-## Current product priority: Auto Climb — planned, October 11
+## Current product priority: Auto Climb — in progress (PR #96), October 11
 
 Implementation contract and handoff: [AUTO-CLIMB-HANDOFF.md](AUTO-CLIMB-HANDOFF.md).
 This extends U13's fixed manual-decision campaign; it is not already delivered.
@@ -11,17 +11,17 @@ This extends U13's fixed manual-decision campaign; it is not already delivered.
 - **AC2 — complete unattended assistant improvement loop:** independent validation,
   deterministic automatic Keep/Restore, scoped plateau/budget stopping, and a sparse
   responsive watch/results experience. No lab-only gains presented as assistant gains.
-- **AC3 — fit-aware model upgrade and requalification:** one recommended eligible
-  model, confirmed model storage, bounded verified download, reversible switch and
-  the same supported ladder assessment. Preserve the working fallback.
+- **AC3 — in progress (PR #96):** fit-aware model upgrade recommendation, confirmed
+  storage gate, bounded verified download, reversible model switch and same-ladder
+  requalification. Real model acquisition and Toronado acceptance remain pending.
 - **AC4 — supported runtime options and reference library:** verified execution-path
   adapters, citations and independently measured aided capabilities; real tool/skill
   progression remains dependent on sandbox acceptance.
 
-Deliver AC1/AC2 before broadening the candidate space. AC3 is required to complete
-the owner's minimum model-upgrade journey. Physical Firefox/phone/model evidence
-must remain separate from fixture and unit evidence. Budgets and plateau rules in
-the handoff are proposed defaults to validate, not established performance claims.
+AC1/AC2 are under PR #95; AC3 is under PR #96. AC3 is required to complete the owner's
+minimum model-upgrade journey. Physical Firefox/phone/model evidence must remain
+separate from fixture and unit evidence. Budgets and plateau rules in the handoff are
+proposed defaults to validate, not established performance claims.
 
 Updated October 4, 2026. Goals and milestones: [PROJECT-GOALS.md](PROJECT-GOALS.md). Model onboarding design: [MODEL-ONBOARDING.md](MODEL-ONBOARDING.md). Personality transfer rules: [PROFILE-SYNC.md](PROFILE-SYNC.md).
 
