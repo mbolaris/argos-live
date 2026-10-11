@@ -188,10 +188,17 @@ try {
   assert.equal(await page.locator('#assistant-trial-source').isHidden(), false, 'The current document source is available while watching');
   await page.setViewportSize({width: 390, height: 844});
   const stopBox = await page.locator('#assistant-trial-cancel').boundingBox();
-  assert.equal(await page.locator('#assistant-trial-cancel').evaluate(el => getComputedStyle(el).position), 'fixed',
-    'Stop stays in reach while the challenge and answer stack scroll on a phone');
-  assert.ok(stopBox.y + stopBox.height <= 820, 'The fixed Stop control sits above the simulated-preview banner');
+  assert.equal(await page.locator('#assistant-trial-cancel').evaluate(el => getComputedStyle(el).position), 'static',
+    'Stop stays in the progress header instead of covering the live answer on a phone');
+  const questionBox = await page.locator('#assistant-trial-question').boundingBox();
+  assert.ok(stopBox.y + stopBox.height <= questionBox.y,
+    'The phone Stop control stays above the challenge and answer');
+  assert.equal(await page.locator('#assistant-trial-cancel').evaluate(el => el.parentElement.classList.contains('trial-watch-topline')), true,
+    'Stop sits beside live progress');
+  assert.ok(stopBox.width <= 140, `The phone Stop control stays close to its label (actual width ${stopBox.width}px)`);
   await page.setViewportSize({width: 1280, height: 900});
+  const desktopStopBox = await page.locator('#assistant-trial-cancel').boundingBox();
+  assert.ok(desktopStopBox.width <= 140, 'On desktop, Stop is a compact control instead of a full-width bar');
   await shot('3-running');
   try {
     await page.waitForFunction(async () => {

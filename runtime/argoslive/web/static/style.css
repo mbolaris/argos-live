@@ -2054,7 +2054,7 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .assistant-trial-alternatives[hidden] { display: none; }
 .assistant-trial-watch { margin: 16px 0; padding: 16px; border: 1px solid #315963; border-radius: 14px; background: radial-gradient(ellipse at 0% 0%, #1c625a38, transparent 65%), #0a1820; color: var(--text); }
 #assistant-trial-progress[hidden] { display: none; }
-#command-center.assistant-trial-running #assistant-trial-cancel:not([hidden]) { position: fixed; z-index: 120; right: max(16px, calc((100vw - 1016px) / 2)); bottom: 28px; left: max(16px, calc((100vw - 1016px) / 2)); width: auto; margin: 0; border-color: #8de5db; background: rgba(12, 35, 43, .96); box-shadow: 0 8px 32px #000b; backdrop-filter: blur(10px); }
+#command-center.assistant-trial-running #assistant-trial-cancel:not([hidden]) { flex: 0 0 auto; width: auto; max-width: 100%; min-height: 38px; margin: 0; padding: 7px 10px; font-size: 13px; white-space: nowrap; border-color: #8de5db; }
 .trial-watch-topline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .trial-watch-stage { color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .04em; }
 .trial-watch-topline strong { font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -2192,11 +2192,13 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .trial-row-side { margin: 0 0 4px; font-size: 13px; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .assistant-trial { padding: 18px 12px; } .assistant-trial-actions { display: grid; } .assistant-trial-actions button { width: 100%; margin: 0; } .assistant-trial-watch { padding: 12px; } .trial-watch-current, .trial-watch-latest { padding: 11px; } .assistant-trial-verdict { padding: 14px 12px; } .assistant-trial-verdict h5 { font-size: 19px; } .assistant-trial-experiments { grid-template-columns: 1fr; } }
 @media (max-width: 700px) {
+  .trial-watch-topline { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .trial-watch-stage { grid-column: 1 / -1; }
   #command-center.assistant-trial-offer-focus #cc-next-go:not([hidden]),
   #command-center.assistant-trial-focus #assistant-trial .assistant-trial-actions > .mission-primary:not([hidden]) {
     position: fixed; z-index: 120; right: 16px; bottom: max(28px, env(safe-area-inset-bottom)); left: 16px;
     width: auto; margin: 0; box-shadow: 0 8px 32px #000b; backdrop-filter: blur(10px);
   }
-  #command-center.assistant-trial-focus #assistant-trial { padding-bottom: 84px; }
+  #command-center.assistant-trial-focus #assistant-trial { padding-bottom: 96px; }
 }
 @media (prefers-reduced-motion: reduce) { .assistant-trial-checkpoint.improved { animation: none; } }

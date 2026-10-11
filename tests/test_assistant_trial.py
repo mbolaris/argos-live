@@ -298,6 +298,24 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(self.startup.calls.count('stop'), self.startup.calls.count('start') + 1)
         self.assertIn('Owner edits prevent', trial.message)
 
+    def test_protected_file_changed_during_baseline_is_named_without_exposing_contents(self):
+        trial = self.trial()
+        turn = trial.runner.turn
+
+        def change_persona_after_baseline(message):
+            reply = turn(message)
+            if len(trial.runner.turns) == 8:
+                (self.agents.parent / 'SOUL.md').write_text('private owner content')
+            return reply
+
+        trial.runner.turn = change_persona_after_baseline
+        trial.start(); self.wait(trial)
+        self.assertEqual(trial.phase, 'recovery-blocked')
+        self.assertIn('SOUL.md changed during the test', trial.message)
+        self.assertIn('No idea was applied', trial.message)
+        self.assertNotIn('private owner content', trial.message)
+        self.assertEqual(self.agents.read_bytes(), self.original.encode())
+
     def test_owner_edit_blocks_restore_and_keep(self):
         trial = self.trial()
         trial.start(); self.wait(trial)
