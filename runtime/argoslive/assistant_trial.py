@@ -272,6 +272,32 @@ def fingerprint(home):
     return {name: digest(storage.safe_local(path)) for name, path in files.items()}
 
 
+def changed_trial_files(home, agents, raw_agents, before):
+    """Name changed files without exposing their contents or values."""
+    changed = []
+    try:
+        if read_text(agents) != raw_agents:
+            changed.append('AGENTS.md')
+    except (OSError, ValueError):
+        changed.append('AGENTS.md')
+    paths = {'state.json': home / '.config/argos-live/state.json',
+             'openclaw.json': home / '.openclaw/openclaw.json'}
+    paths.update({name: agents.parent / name for name in PROTECTED})
+    for name, path in paths.items():
+        try:
+            current = digest(storage.safe_local(path))
+        except (OSError, ValueError):
+            current = object()
+        if current != before.get(name):
+            changed.append(name)
+    return changed
+
+
+def changed_trial_message(files):
+    names = ', '.join(files) if files else 'a protected assistant file'
+    return f'{names} changed during the test. No idea was applied; review it before trying again.'
+
+
 def read_text(path):
     return path.read_bytes().decode('utf-8') if path.exists() else None
 
@@ -717,14 +743,16 @@ class Controller:
             # A lost CLI reply can leave a gateway turn running. Release it
             # before releasing the desktop workload reservation.
             self.restart()
-            if read_text(path) != raw_before or fingerprint(self.home) != protected:
-                self.message = 'The trial stopped before any change; owner edits need review. The assistant is stopped.'
+            changed = changed_trial_files(self.home, path, raw_before, protected)
+            if changed:
+                self.message = changed_trial_message(changed) + ' The assistant is stopped.'
                 return 'recovery-blocked'
             self.start_assistant()
             self.message = 'The trial stopped before any change was made. The assistant is ready again.'
             return 'cancelled' if self.cancel_event.is_set() else 'failed'
-        if read_text(path) != raw_before or fingerprint(self.home) != protected:
-            self.message = 'Assistant files changed during the baseline. No experiment was applied; review is needed.'
+        changed = changed_trial_files(self.home, path, raw_before, protected)
+        if changed:
+            self.message = changed_trial_message(changed)
             return 'recovery-blocked'
         try:
             for index, change in enumerate(plan):
