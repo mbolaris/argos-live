@@ -2,46 +2,49 @@
 
 ## Current implementation status — October 11, 2026
 
-The old review notes below describe earlier commits and are historical context, not
-current blockers. The current branches contain follow-up fixes; both PRs remain open
-and no live acceptance is claimed.
+AC1–AC3 implementation is merged to `main`; this is code status, not live acceptance.
 
-- [PR95](https://github.com/mbolaris/argos-live/pull/95), exact head
-  `e076e8ab94a33fbf03f5c817114e58840241307a`, is the AC1/AC2 implementation and review
-  fixes. Its two Tests checks and schema/recovery check pass.
-- [PR96](https://github.com/mbolaris/argos-live/pull/96), exact head
-  `1a7e179aefee7e2c3d81c53c57b5856e6d4d60b4`, is stacked on PR95 and contains the AC3
-  recommendation, storage gate, bounded model acquisition, journaled switch and
-  requalification path. Both Tests checks, both schema/recovery checks, native-chat and
-  pinned Ollama smoke pass.
+- [PR95](https://github.com/mbolaris/argos-live/pull/95) merged as
+  `3a835d912bac01d78d0918331f37d57fd888444c`, implementing AC1/AC2 and review fixes.
+- [PR98](https://github.com/mbolaris/argos-live/pull/98) merged as
+  `8f21f5494e4dc343da0a638d1749ce59fe5f06c5`. It contains AC3; all six CI checks passed
+  on exact reviewed head `25ff49bc767e8610a01670a8eb485c6770590405` (Tests ×2,
+  schema-and-recovery ×2, native-chat, pinned Ollama smoke). PR96 was closed when its
+  stacked base branch was deleted; PR98 is the rebased replacement.
 
 The current implementation closes the earlier Linux Resume failure, propagates restore
 errors, reserves global validation partitions before exposure and blocks on corrupt
 inventory. Delegated download/model selection retains the workload reservation and uses
 bounded cancellation. Model recommendations use curated entries and the 32k execution
-context; model Undo uses the journaled selector outside the startup lock. Windows focused
-unit suites and browser smokes pass. Full Windows discovery still has 13 platform-specific
-storage/journey/reboot-permission failures; Linux CI passes on the exact PR heads.
+context; model Undo uses the journaled selector outside the startup lock. Focused local
+unit suites and browser smokes passed. Full Windows discovery still has 13 platform-
+specific storage/journey/reboot-permission errors or failures; Linux CI passes.
 
-Still pending: real model download and switch on Toronado, actual OpenClaw requalification
-and result, shipped Firefox and physical-phone review, measured physical GPU claims, and
-reboot persistence. CI/fixture evidence is not a live assistant gain. The recommendation's
-fit is an estimate, and the download byte budget reserves the catalog's full expected
-size before transfer; it is not a measurement of partial bytes actually transferred.
+Still pending: confirmation that the installed Toronado runtime matches merged `main`,
+real model download and switch, actual OpenClaw requalification and result, shipped
+Firefox and physical-phone review, measured physical GPU claims, and reboot persistence.
+No live deployment or assistant improvement is claimed by the code merges. CI/fixture
+evidence is not a live assistant gain. The recommendation's fit is an estimate, and the
+download byte budget reserves the catalog's full expected size before transfer; it is
+not a measurement of partial bytes actually transferred.
 
-Next worker instruction: review the latest PR95/PR96 heads and their green checks; do not
-reimplement the old R1–R5 findings. Keep live acceptance separately labeled, and don't
-merge, deploy, build media or write USB without the owner's next explicit step. The
+Next worker instruction: start from merged `main` and read the stable specification plus
+this work order. Do not reopen or reimplement PR95/PR96 findings. If live acceptance is
+authorized, verify the installed runtime and idle state first, use the existing guarded
+transactions, preserve owner data, and report each measured gate separately. Do not
+infer deployment, model-switch, reboot, or USB authorization from a code merge. The
 historical review below remains useful as rationale and acceptance context.
 
 October 11, 2026. Contract: [AUTO-CLIMB-SPEC.md](AUTO-CLIMB-SPEC.md).
-Status: [BACKLOG.md](BACKLOG.md). The historical findings refer to these inspected heads:
+Status: [BACKLOG.md](BACKLOG.md). The historical findings below refer to inspected
+pre-fix heads from the initial review; they are rationale, not current implementation tasks:
 
-- PR95 `edc1db53b53706bd681c3634db4f3ec63165c74a`: coordinator, validation fixtures,
-  API, UI and tests. Open; implemented scaffolding, not accepted AC1/AC2.
-- PR96 `e16b655b198ddfffd5696a6935f1b2a4fc482783`: recommendation, acquisition and
-  switching, stacked on PR95. Open; not accepted AC3.
-- Main `904fb2c` contains the plan. PR93's LAN/browser-origin fix is separately open.
+- PR95 `edc1db53b53706bd681c3634db4f3ec63165c74a`: initial coordinator, validation
+  fixtures, API, UI and tests; later corrected and merged as PR95 above.
+- PR96 `e16b655b198ddfffd5696a6935f1b2a4fc482783`: initial recommendation, acquisition
+  and switching; later rebased, corrected and merged as PR98 above.
+- Main `904fb2c` contained the plan at that review point. PR93's LAN/browser-origin
+  work was separate from this Auto Climb review.
 
 ## Evidence reviewed
 
@@ -53,7 +56,12 @@ Review reproductions used disposable local homes; no SSH/live patch/ISO/USB or o
 mutation was performed. “All milestones complete and verified on Toronado hardware”
 overstates the evidence. Correct status/PR descriptions before proceeding.
 
-## Required fixes, in order
+## Historical review findings and resolution context
+
+The following R1–R6 findings were raised against the initial PR95/PR96 heads. The
+coordinator, recovery, concurrency, validation, model-switch and watch changes were
+subsequently implemented and merged in PR95/PR98. Keep these notes for review context;
+use AUTO-CLIMB-SPEC.md and the current backlog for present acceptance status.
 
 ### R1: production runner and verified readiness — AC1-1, AC2-3
 
@@ -133,19 +141,24 @@ progress unless real incremental transport is implemented and tested. Show one m
 action and real question/source/answer/receipts, with before/after and scoped progress.
 Details pauses everyone. Opinion is separate from evidence and cannot erase results.
 
-## Work sequence
+## Remaining acceptance sequence
 
-1. Fetch current heads, retain existing work and correct completion claims. Reproduce
-   R1/R2, add regressions and fix them on PR95; then fix R3/R4 and exact-head checks.
-2. Rebase stacked PR96 on the corrected parent, finish R5/R6 and all numbered AC3 gates.
-   Update PR descriptions with gate IDs and actual evidence, not blanket milestone claims.
-3. After code review/tests, prepare controlled owner-authorized live acceptance: idle
-   first, full installed baseline/upload hash checks, rollback and unchanged durable
-   settings/results. Never patch a running trial or treat a separate test checkout as
-   a deployed assistant. Report precise remaining gates before requesting a merge/deploy.
-4. Observe actual OpenClaw replies, countdown override, unattended transition, verified
-   promotion/restoration and stop reason in shipped Firefox. Phone acceptance is separate.
-   An induced regression safely restored is valid; no guaranteed artificial improvement.
+1. Confirm the installed runtime and package on Toronado against merged `main`. Check
+   that no trial or model transaction is active; preserve rollback and durable settings/
+   results before any authorized live test. A source checkout is not a deployed assistant.
+2. In shipped Firefox, exercise the real OpenClaw path: baseline assessment, fit-aware
+   recommendation, storage confirmation and bounded model acquisition only within the
+   approved session envelope, then actual switch and same-ladder requalification. Record
+   selected-model identity, real replies, receipts, cost and stop reason. Fit is not quality.
+3. Exercise the 30-second preview, owner override, Pause/Resume/Stop, unattended
+   transition, and guarded Keep/Restore. Confirm fresh validation is disjoint and that
+   the transaction survives restart before claiming verified promotion or restoration.
+   A safely restored induced regression is valid; no improvement is guaranteed.
+4. Review phone layout, physical GPU use and reboot persistence as separate gates. Keep
+   completed-turn updates distinct from actual token streaming. Do not infer these from
+   CI or fixture screenshots.
+5. Treat ISO/USB release as a separate, explicitly authorized task with fresh media
+   identity, backup and reviewed preservation plan. No media write is implied here.
 
 ## Local testing
 
@@ -183,12 +196,12 @@ short.json. No USB/ISO/internal-disk/security work is part of this work order.
 
 ## Prompt to the worker
 
-Continue PR95 and stacked PR96; do not start a feature rewrite or merge/deploy yet.
-Read AUTO-CLIMB-SPEC.md and this work order from the updated plan PR. Fix R1–R4 with
-regressions on PR95 first: review reproduced a missing production runner scoring empty
-replies and recovery overwriting an owner edit. Then rebase PR96 and finish its adapter
-gates. Preserve existing code/UI and owner data; fake green tests do not establish a
-live assistant loop. Cite numbered gates and exact-head evidence in the PRs. Deliver
-reviewable fixes and precise remaining live acceptance. Keep one-button, sparse Watch
-and the 30-second preview. Ask for private connection notes only when live tests need
-them. Do not touch USB media, credentials, owner short.json or unrelated changes.
+Continue from `main` at `8f21f5494e4dc343da0a638d1749ce59fe5f06c5`. AC1–AC3 code is
+merged in PR95 and PR98; do not recreate those PRs or claim live acceptance from CI.
+Read AUTO-CLIMB-SPEC.md, BACKLOG.md and this work order. If the owner authorizes live
+acceptance, verify the installed package and idle state, preserve rollback and owner data,
+then report the real OpenClaw model/requalification and Keep/Restore gates with exact
+evidence. Keep fit, quality, completed-turn progress, streaming, physical GPU, phone and
+reboot claims separate. Request owner-local connection notes only when needed; never
+search unrelated transcripts or commit private details. Do not touch USB media,
+credentials, `runtime/argoslive/data/documents/short.json`, or unrelated changes.
