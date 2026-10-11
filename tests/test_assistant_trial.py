@@ -675,6 +675,16 @@ class TrialTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 runner.turn('A task')
 
+    def test_runner_classifies_timeout_without_exposing_cli_output(self):
+        with patch.object(at.subprocess, 'Popen') as spawn:
+            process = spawn.return_value.__enter__.return_value
+            process.returncode = 1
+            process.communicate.return_value = (b'{"status":"error"}', b'Request timed out at /private/path')
+            with self.assertRaises(at.TrialTurnError) as raised:
+                at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
+        self.assertEqual(raised.exception.code, 'turn-timeout')
+        self.assertNotIn('/private/path', str(raised.exception))
+
     def test_reviewed_profile_refuses_agent_behavior_overrides(self):
         config = self.home / '.openclaw/openclaw.json'
         value = json.loads(config.read_text())
@@ -689,10 +699,19 @@ class TrialTests(unittest.TestCase):
         with patch.object(trial.runner, 'turn', side_effect=ValueError('lost CLI reply')):
             trial.start(); self.wait(trial)
         self.assertEqual(trial.phase, 'failed')
+        self.assertEqual(trial.snapshot()['failure_code'], 'assistant-error')
+        self.assertIn('could not finish its first test answer', trial.message)
+        self.assertNotIn('lost CLI reply', trial.message)
+        private_error = json.loads((self.home / '.config/argos-live/assistant-trial-error.json').read_text())
+        self.assertEqual(private_error['failure_code'], 'assistant-error')
+        self.assertIn('lost CLI reply', private_error['traceback'])
         self.assertTrue(self.startup.active)
         self.assertEqual(self.startup.calls, ['stop', 'start'])
         self.assertEqual(self.agents.read_bytes(), self.original.encode())
         self.assertEqual(trial.snapshot()['status'], 'none')
+        trial.start(); self.wait(trial)
+        self.assertIsNone(trial.snapshot()['failure_code'], 'A retry clears the previous run reason')
+        self.assertIn(trial.phase, ('awaiting-decision', 'no-improvement'))
 
 
 class RouteTests(unittest.TestCase):

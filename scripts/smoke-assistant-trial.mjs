@@ -420,6 +420,28 @@ try {
     'The restore confirmation stays visible while the next GO is available');
   await shot('6-restored');
 
+  // A first-answer failure leaves the assistant unchanged and offers one safe retry.
+  let forcedFailure = true;
+  await page.route('**/api/assistant-trial', async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    if (forcedFailure) Object.assign(payload, {active: false, phase: 'failed', result_state: 'failed', status: 'none',
+      failure_code: 'assistant-error', message: 'Your local AI could not finish its first test answer. No idea was changed.'});
+    await route.fulfill({response, body: JSON.stringify(payload)});
+  });
+  await page.evaluate(() => refreshAssistantTrial());
+  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'This run stopped safely');
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /No idea was changed/);
+  assert.equal(await page.locator('#assistant-trial .assistant-trial-actions').isVisible(), true,
+    'A safe, unchanged failure keeps the next action available');
+  assert.deepEqual((await page.locator('#assistant-trial .assistant-trial-actions button:visible').allTextContents()),
+    ['Try this round again'], 'A failed run has one obvious retry and no misleading Keep/Restore choices');
+  assert.equal(await page.locator('#assistant-trial-keep').isVisible(), false);
+  assert.equal(await page.locator('#assistant-trial-restore').isVisible(), false);
+  await shot('7-failure-retry');
+  forcedFailure = false;
+  await page.unroute('**/api/assistant-trial');
+
   // Cancellation must recover without leaving the approved instruction applied.
   await page.evaluate(() => { commandAction = {action: 'assistant-trial'}; });
   await page.locator('#cc-next-go').click();
@@ -451,5 +473,5 @@ try {
   const ids = await page.locator('[id]').evaluateAll(nodes => nodes.map(n => n.id));
   assert.equal(new Set(ids).size, ids.length, 'Unique control IDs');
   assert.deepEqual(errors, []);
-  console.log('PASS: one GO starts the disclosed U10 trial, before/after and fixture opinion complete, Keep/Restore verified, diagnostic review routed; fixture only.');
+  console.log('PASS: one GO starts the disclosed U10 trial, Keep/Restore and safe failure retry verified; fixture only.');
 } finally { if (browser) await browser.close(); server.stdin.end(); server.kill(); }

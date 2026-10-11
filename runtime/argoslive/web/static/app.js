@@ -3853,11 +3853,16 @@ function renderAssistantTrial() {
     (status === 'on-trial' && Boolean(value.result));
   const resultVisible = Boolean(value.result && !value.active &&
     (['on-trial', 'kept'].includes(status) || value.result_state === 'no-improvement'));
+  const nextRound = document.getElementById('assistant-trial-next-round');
+  const failedRetryAllowed = Boolean(!value.active && status === 'none' && value.result_state === 'failed' &&
+    value.failure_code && value.changes?.length);
+  nextRound.textContent = failedRetryAllowed ? 'Try this round again' : 'Run the next improvement round';
+  if (failedRetryAllowed) nextRound.className = 'mission-primary';
   const show = (id, visible) => { document.getElementById(id).hidden = !visible; };
   show('assistant-trial-keep', value.can_keep && !value.active);
   show('assistant-trial-restore', value.can_restore && !value.active);
   show('assistant-trial-next-round', !value.active && value.changes?.length > 0 &&
-    (status === 'kept' || value.result_state === 'no-improvement'));
+    (status === 'kept' || value.result_state === 'no-improvement' || failedRetryAllowed));
   show('assistant-trial-chat', !value.active && (status === 'kept' || value.result_state === 'no-improvement'));
   show('assistant-trial-cancel', value.active && value.phase !== 'restoring');
   document.getElementById('assistant-trial-cancel').textContent = value.phase === 'preparing' ? 'Cancel warm-up' :
@@ -3868,12 +3873,11 @@ function renderAssistantTrial() {
   }
   document.getElementById('assistant-trial-chat').disabled = document.getElementById('chat').disabled;
   const actions = document.querySelector('#assistant-trial .assistant-trial-actions');
-  actions.hidden = terminalState;
+  actions.hidden = terminalState && !failedRetryAllowed;
   const alternatives = document.getElementById('assistant-trial-alternatives');
   const keep = document.getElementById('assistant-trial-keep');
   const restore = document.getElementById('assistant-trial-restore');
   const chat = document.getElementById('assistant-trial-chat');
-  const nextRound = document.getElementById('assistant-trial-next-round');
   if (value.result && status === 'on-trial') {
     const recommendedKeep = value.result.suggestion === 'keep';
     const selectedChange = value.result.experiments?.find(item => item.change.id === value.result.selected_change)?.change;
@@ -3905,6 +3909,10 @@ function renderAssistantTrial() {
     alternatives.hidden = false;
     alternatives.open = false;
     alternatives.querySelector('summary').textContent = 'Other choices';
+  } else if (failedRetryAllowed) {
+    actions.insertBefore(nextRound, alternatives);
+    alternatives.hidden = true;
+    alternatives.open = false;
   } else {
     alternatives.hidden = true;
     alternatives.open = false;
