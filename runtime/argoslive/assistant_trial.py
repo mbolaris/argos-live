@@ -91,6 +91,39 @@ class Refused(ValueError):
     """A fixed, owner-facing reason an action cannot run now. Safe to show over HTTP."""
 
 
+class TrialTurnError(ValueError):
+    """A safe category for a failed model turn; never contains CLI output."""
+
+    def __init__(self, code):
+        if code not in {'cancelled', 'turn-timeout', 'assistant-error', 'empty-reply',
+                        'invalid-reply', 'session-mismatch', 'model-mismatch'}:
+            code = 'assistant-error'
+        self.code = code
+        super().__init__(code)
+
+
+def trial_failure_code(error):
+    return error.code if isinstance(error, TrialTurnError) else 'assistant-error'
+
+
+def trial_failure_message(code):
+    return {
+        'cancelled': 'The run stopped safely. No idea was changed; your assistant is ready again.',
+        'turn-timeout': ('Your local AI did not finish its first test answer before the time limit. '
+                         'No idea was changed; your assistant is ready again. You can try this round again.'),
+        'assistant-error': ('Your local AI could not finish its first test answer. No idea was changed; '
+                            'your assistant is ready again. You can try this round again.'),
+        'empty-reply': ('Your AI returned no usable answer. I stopped safely before changing anything; '
+                        'your assistant is ready again.'),
+        'invalid-reply': ('I could not read the test reply safely. No idea was changed; '
+                          'your assistant is ready again.'),
+        'session-mismatch': ('I could not verify that the test reply came from this assistant. '
+                             'No idea was changed; your assistant is ready again.'),
+        'model-mismatch': ('I could not verify which local model answered. No idea was changed; '
+                           'your assistant is ready again.'),
+    }.get(code, 'The run stopped safely before changing anything. You can try this round again.')
+
+
 LEAK = re.compile(r'\b(quote|quoted|quotation|passage|not stated|supporting sentence)\b', re.I)
 
 
@@ -534,36 +567,42 @@ class OpenClawRunner:
             deadline = time.monotonic() + 180
             while True:
                 if (self.cancel_event and self.cancel_event.is_set()) or time.monotonic() >= deadline:
+                    cancelled = bool(self.cancel_event and self.cancel_event.is_set())
                     process.terminate()  # Pinned CLI forwards termination to the gateway's chat.abort.
                     try:
                         process.communicate(timeout=10)
                     except subprocess.TimeoutExpired:
                         process.kill(); process.communicate()
-                    raise ValueError('Assistant turn stopped')
+                    raise TrialTurnError('cancelled' if cancelled else 'turn-timeout')
                 try:
-                    stdout, _ = process.communicate(timeout=.2)
+                    stdout, stderr = process.communicate(timeout=.2)
                     break
                 except subprocess.TimeoutExpired:
                     continue
         if process.returncode or len(stdout) > 1024**2:
-            raise ValueError('The assistant did not complete the turn')
-        value = json.loads(stdout)
+            diagnostic = (stdout + stderr).decode('utf-8', errors='replace').lower()
+            timed_out = any(term in diagnostic for term in ('timed out', 'timeout', 'deadline exceeded'))
+            raise TrialTurnError('turn-timeout' if timed_out else 'assistant-error')
+        try:
+            value = json.loads(stdout)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise TrialTurnError('invalid-reply') from None
         body = value.get('result', value) if isinstance(value, dict) else {}
         rows = body.get('payloads') if isinstance(body, dict) else None
         if (not isinstance(value, dict) or value.get('ok') is False or
                 value.get('status', 'ok') != 'ok' or not isinstance(rows, list)):
-            raise ValueError('The assistant returned no reply')
+            raise TrialTurnError('empty-reply')
         reply = '\n'.join(row['text'] for row in rows if isinstance(row, dict) and isinstance(row.get('text'), str))
         if not reply.strip():
-            raise ValueError('The assistant returned no reply')
+            raise TrialTurnError('empty-reply')
         meta = body.get('meta')
         agent_meta = meta.get('agentMeta') if isinstance(meta, dict) else None
         actual_session = agent_meta.get('sessionId') if isinstance(agent_meta, dict) else None
         if actual_session != session:
-            raise ValueError('The assistant used a different session')
+            raise TrialTurnError('session-mismatch')
         if self.expected_model and (agent_meta.get('provider') != 'ollama' or
                                     agent_meta.get('model') != self.expected_model):
-            raise ValueError('The assistant used a different model')
+            raise TrialTurnError('model-mismatch')
         return {'text': reply, 'elapsed_seconds': round(time.monotonic() - started, 2), 'session_id': session}
 
 
@@ -585,8 +624,19 @@ class Controller:
         self.phase = 'idle'
         self.progress = None
         self.message = None
+        self.failure_code = None
         self.session_result = None
         self.closed = False
+
+    def record_failure(self, error):
+        """Expose a bounded reason while keeping the traceback in the private config directory."""
+        self.failure_code = ('cancelled' if self.cancel_event.is_set() else trial_failure_code(error))
+        try:
+            write_json(storage.safe_local(self.home / '.config/argos-live/assistant-trial-error.json'),
+                       {'phase': self.phase, 'failure_code': self.failure_code,
+                        'traceback': traceback.format_exc()[-16000:]})
+        except (OSError, ValueError):
+            pass
 
     # ---- public state
     def status(self):
@@ -638,7 +688,8 @@ class Controller:
             terminal_phases = {'no-improvement', 'failed', 'recovery-blocked', 'rolled-back', 'cancelled'}
             result_state = self.phase if self.phase in terminal_phases else status
             return {'available': True, 'active': active, 'phase': self.phase, 'progress': progress,
-                    'message': self.message, 'status': status, 'change': public_plan[0] if public_plan else LEGACY_CHANGE,
+                    'message': self.message, 'failure_code': self.failure_code,
+                    'status': status, 'change': public_plan[0] if public_plan else LEGACY_CHANGE,
                     'changes': public_plan, 'unchanged': UNCHANGED,
                     'first_run_setup': first_run_setup,
                     'max_experiments': len(plan), 'max_answers': len(tasks) * (1 + len(plan)), 'tasks': tasks,
@@ -673,6 +724,7 @@ class Controller:
                 for name in OPENCLAW_REQUIRED_FIRST_RUN_FILES if name != 'AGENTS.md'))
             approved_workspace = workspace_snapshot(agents_path(self.home).parent) if missing_first_run_files else None
             self.session_result = None
+            self.failure_code = None
             self.begin('preparing', lambda: self.execute_when_ready(
                 plan, previous, approved_raw, approved_fingerprint, approved_workspace))
             return self.snapshot()
@@ -747,15 +799,11 @@ class Controller:
         def run():
             try:
                 self.phase = target()
-            except Exception:
+            except Exception as error:
                 # Never expose private paths or exception text over HTTP.
-                try:
-                    write_json(storage.safe_local(self.home / '.config/argos-live/assistant-trial-error.json'),
-                               {'phase': self.phase, 'traceback': traceback.format_exc()[-16000:]})
-                except (OSError, ValueError):
-                    pass
+                self.record_failure(error)
                 self.phase = 'failed'
-                self.message = self.message or 'The trial stopped. Recovery needs review; no restoration is claimed.'
+                self.message = self.message or trial_failure_message(self.failure_code)
             finally:
                 with self.lock:
                     self.startup.lab_active = False
@@ -1030,7 +1078,8 @@ class Controller:
         try:
             before = self.run_tasks('before', experiment_count=len(plan),
                                     session_total=session_total)
-        except Exception:
+        except Exception as error:
+            self.record_failure(error)
             # A lost CLI reply can leave a gateway turn running. Release it
             # before releasing the desktop workload reservation.
             self.restart()
@@ -1045,7 +1094,7 @@ class Controller:
                 self.message = changed_trial_message(changed) + ' The assistant is stopped.'
                 return 'recovery-blocked'
             self.start_assistant()
-            self.message = 'The trial stopped before any change was made. The assistant is ready again.'
+            self.message = trial_failure_message(self.failure_code)
             return 'cancelled' if self.cancel_event.is_set() else 'failed'
         if not reconcile_bootstrap():
             self.message = ('The first reply changed files in the AI’s workspace. No score was counted and no '
