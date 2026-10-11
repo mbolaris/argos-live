@@ -61,15 +61,18 @@ try {
   await page.waitForFunction(() => !document.getElementById('cc-receipt').hidden && document.getElementById('command-center').dataset.watching === 'false', null, {timeout: 60000});
   await page.locator('#assistant-trial').waitFor({state: 'visible', timeout: 10000});
   assert.equal((await status()).status, 'none');
-  assert.match(await page.locator('#assistant-trial-text').textContent(), /^Lab results don’t change your assistant/);
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /^Lab scores don’t change your assistant/);
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /I’m ready to test one reviewed instruction/);
   await shot('1-offer');
 
   // Diagnostic misses should lead to one safe improvement offer; approval still gates changes.
   const guidedAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'}, assistantTrial));
   assert.equal(guidedAction.action, 'assistant-trial');
-  assert.equal(guidedAction.title, 'Try one small improvement');
-  assert.match(guidedAction.reason, /Press Go to review it first/);
+  assert.equal(guidedAction.title, 'Ready to prove I can do better?');
+  assert.match(guidedAction.reason, /I’m ready to test one reviewed instruction/);
+  assert.match(guidedAction.reason, /I’ll answer the same questions before and after/);
+  assert.match(guidedAction.reason, /then you choose Keep or Restore/);
   const runningAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'none', active: true}));
   assert.equal(runningAction.title, 'Watch the improvement run');
@@ -99,7 +102,19 @@ try {
   // ---- Approved trial: before, staged restart, after, result.
   await page.locator('#assistant-trial-review').click();
   await page.locator('#assistant-trial-approve').click();
-  await page.waitForFunction(() => /Asking your assistant the trial questions/.test(document.getElementById('assistant-trial-progress').textContent), null, {timeout: 10000});
+  await page.waitForFunction(() => !document.getElementById('assistant-trial-progress').hidden &&
+    document.getElementById('assistant-trial-stage').textContent.startsWith('Baseline'), null, {timeout: 10000});
+  await page.waitForFunction(() => !document.getElementById('assistant-trial-latest').hidden, null, {timeout: 10000});
+  assert.match(await page.locator('#assistant-trial-count').textContent(), /[1-8] of 8 answered/);
+  assert.equal(await page.locator('#assistant-trial-title').textContent(), 'Watch me put this change to the test');
+  assert.match(await page.locator('#assistant-trial-text').textContent(), /Each answer and its checks show up here/);
+  assert.ok((await page.locator('#assistant-trial-question').textContent()).length > 10);
+  assert.ok((await page.locator('#assistant-trial-last-question').textContent()).length > 10,
+    'The visible answer is paired with the challenge that produced it');
+  assert.ok((await page.locator('#assistant-trial-reply').textContent()).length > 5);
+  assert.ok(await page.locator('#assistant-trial-checks li').count() > 0);
+  assert.equal(await page.locator('#assistant-trial-pips span').count(), 8);
+  assert.equal(await page.locator('#assistant-trial-source').isHidden(), false, 'The current document source is available while watching');
   await shot('3-running');
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).status === 'on-trial', null, {timeout: 60000, polling: 500});
   await page.waitForFunction(() => !document.getElementById('assistant-trial-result').hidden);

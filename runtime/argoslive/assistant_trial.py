@@ -465,18 +465,29 @@ class Controller:
         self.wait_ready()
 
     def run_tasks(self, side):
-        outcomes, total = [], len(self.tasks['tasks'])
+        outcomes, total, latest = [], len(self.tasks['tasks']), None
         for index, task in enumerate(self.tasks['tasks']):
             if self.cancel_event.is_set():
                 raise ValueError('Cancelled')
-            self.progress = {'side': side, 'done': index, 'total': total}
+            current = {'id': task['id'], 'kind': task['kind'],
+                       'question': task.get('question') or task.get('message'),
+                       'source': self.tasks['passages'].get(task.get('passage'))}
+            self.progress = {'side': side, 'done': index, 'total': total,
+                             'current': current, 'latest': latest}
             reply = self.runner.turn(message(task, self.tasks['passages']))
             if not isinstance(reply.get('text'), str) or len(reply['text']) > 6000:
                 raise ValueError('The assistant response exceeds the trial inspection limit')
             outcome = score(task, self.tasks['passages'], reply['text'])
-            outcomes.append({'id': task['id'], 'kind': task['kind'], **outcome, 'reply': reply['text'],
-                             'elapsed_seconds': reply.get('elapsed_seconds'), 'session_id': reply.get('session_id')})
-        self.progress = {'side': side, 'done': total, 'total': total}
+            record = {'id': task['id'], 'kind': task['kind'], **outcome, 'reply': reply['text'],
+                      'elapsed_seconds': reply.get('elapsed_seconds'), 'session_id': reply.get('session_id')}
+            outcomes.append(record)
+            # Only the task, reply and visible checks are needed by the live watch;
+            # gateway session identifiers remain private to the final evidence.
+            latest = {**current, 'reply': reply['text'], 'checks': outcome['checks'],
+                      'elapsed_seconds': reply.get('elapsed_seconds')}
+            self.progress = {'side': side, 'done': index + 1, 'total': total,
+                             'current': current, 'latest': latest}
+        self.progress = {'side': side, 'done': total, 'total': total, 'current': None, 'latest': latest}
         if self.cancel_event.is_set():
             raise ValueError('Cancelled')
         return outcomes

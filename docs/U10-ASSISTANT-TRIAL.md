@@ -47,6 +47,8 @@ The Improve page shows one compact "Try in your everyday assistant" card (no new
 
 Checks are code, reported per task and per check. The change text contains no task answers. They are limited text heuristics, not semantic correctness guarantees or a general ability score. Before/after use identical prompts and fresh scoped sessions. Replies are retained in full up to a 6,000-character inspection limit; longer output stops the trial instead of hiding scored evidence.
 
+While an approved trial is running, the watch view shows the current before/change/retest stage, completed task count, current question and source notice, then the most recent completed reply paired with the question that produced it. Eight progress pips indicate completed prompts, not qualified skills. It updates after each gateway turn; the CLI does not stream tokens, so the interface must not imply that it does. Partial live progress is in memory only and is not treated as a completed trial result.
+
 ## Result shown to the owner
 
 Before → after per task and check; **gains** (fail → pass), **regressions** (pass → fail), reply time, and an explicit uncertainty note: one run per task, 8 tasks, sampling varies, so a difference of one task is not meaningful. A suggestion is shown only as a suggestion: consider keeping if at least two tasks gain checks and none regress, otherwise restore. Even two gains do not establish statistical significance. Evidence records the model, profile hash, task version/hash and exact instruction hash. Assistant evidence is labeled "everyday assistant"; it never appears in lab scores and lab scores never appear in it.
