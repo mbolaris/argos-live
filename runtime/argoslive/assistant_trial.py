@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import threading
 import time
@@ -70,7 +71,11 @@ CHANGE_BY_ID[LEGACY_ID] = LEGACY_CHANGE
 CHANGE_ID, CHANGE_VERSION = LEGACY_ID, 1
 CHANGE = LEGACY_CHANGE
 START, END, INSTRUCTION, BLOCK = CHANGE['start'], CHANGE['end'], CHANGE['text'], CHANGE['block']
-PROTECTED = ('SOUL.md', 'IDENTITY.md', 'USER.md', 'MEMORY.md')
+PROTECTED = ('SOUL.md', 'IDENTITY.md', 'USER.md', 'MEMORY.md', 'BOOTSTRAP.md')
+OPENCLAW_REQUIRED_FIRST_RUN_FILES = ('AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md')
+OPENCLAW_FIRST_RUN_FILES = (*OPENCLAW_REQUIRED_FIRST_RUN_FILES, 'BOOTSTRAP.md')
+MAX_SETUP_WORKSPACE_ENTRIES = 10_000
+MAX_SETUP_WORKSPACE_BYTES = 256 * 1024 * 1024
 UNCHANGED = ['Model and its files', 'Personality (SOUL.md, IDENTITY.md, USER.md) and memory',
              'Tools, permissions and channels', 'Argos and OpenClaw settings']
 UNCERTAINTY = ('One run per task and only eight tasks; replies vary between runs, so a difference of one task '
@@ -272,6 +277,74 @@ def fingerprint(home):
     return {name: digest(storage.safe_local(path)) for name, path in files.items()}
 
 
+def fingerprint_matches(home, expected):
+    """Match old saved records that predate the additional BOOTSTRAP.md guard."""
+    current = fingerprint(home)
+    if not isinstance(expected, dict) or not set(expected).issubset(current):
+        return False
+    if not all(current[name] == value for name, value in expected.items()):
+        return False
+    missing_guard = set(current) - set(expected)
+    # Legacy records can be read only while the newly guarded file is absent.
+    # If it exists, its contents were never covered by that record's approval.
+    return not missing_guard or missing_guard == {'BOOTSTRAP.md'} and current['BOOTSTRAP.md'] is None
+
+
+def workspace_snapshot(root):
+    """Hash bounded workspace files during first-run setup, excluding generated .git and guarded AGENTS.md."""
+    root = Path(root)
+    if not root.exists():
+        return {}
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError('The assistant workspace cannot be safely inspected')
+    result, total_bytes = {}, 0
+    for current, directories, files in os.walk(root, topdown=True, followlinks=False):
+        current_path = Path(current)
+        if current_path == root and '.git' in directories:
+            git_path = root / '.git'
+            if git_path.is_symlink():
+                raise ValueError('The assistant workspace cannot be safely inspected')
+            directories.remove('.git')
+        for name in list(directories):
+            path = current_path / name
+            if path.is_symlink():
+                raise ValueError('The assistant workspace contains a linked directory')
+            relative = path.relative_to(root).as_posix() + '/'
+            result[relative] = ('directory', None)
+        for name in files:
+            path = current_path / name
+            relative = path.relative_to(root).as_posix()
+            if relative == 'AGENTS.md':
+                continue  # The candidate block is checked and restored separately.
+            info = path.lstat()
+            if path.is_symlink() or not stat.S_ISREG(info.st_mode):
+                raise ValueError('The assistant workspace contains an unsafe file')
+            total_bytes += info.st_size
+            if len(result) >= MAX_SETUP_WORKSPACE_ENTRIES or total_bytes > MAX_SETUP_WORKSPACE_BYTES:
+                raise ValueError('The first-run workspace is too large to inspect safely')
+            hasher = hashlib.sha256()
+            with path.open('rb') as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                    hasher.update(chunk)
+            result[relative] = ('file', hasher.hexdigest())
+        if len(result) > MAX_SETUP_WORKSPACE_ENTRIES:
+            raise ValueError('The first-run workspace is too large to inspect safely')
+    return result
+
+
+def new_template_files(before, after, templates):
+    """Allow only absent-at-GO files whose bytes equal the pinned OpenClaw template."""
+    if before is None:
+        return set()
+    changed = {name for name in set(before) | set(after) if before.get(name) != after.get(name)}
+    for name in changed:
+        template = templates.get(name)
+        if (name in before or template is None or
+                after.get(name) != ('file', hashlib.sha256(template.encode('utf-8')).hexdigest())):
+            return None
+    return changed
+
+
 def changed_trial_files(home, agents, raw_agents, before):
     """Name changed files without exposing their contents or values."""
     changed = []
@@ -366,7 +439,7 @@ def recover(home):
         value = read_json(journal)
         if not valid_record(value, SCHEMA) or value.get('phase') not in ('staging', 'restoring', 'awaiting-decision'):
             return 'needs-review'
-        if fingerprint(home) != value.get('fingerprint'):
+        if not fingerprint_matches(home, value.get('fingerprint')):
             return 'needs-review'
         path = agents_path(home)
         current = read_text(path)
@@ -395,6 +468,54 @@ class OpenClawRunner:
         self.home, self.executable = Path(home), executable
         self.cancel_event = None
         self.expected_model = None
+
+    def bootstrap_templates(self):
+        """Load the pinned OpenClaw workspace defaults without copying user data."""
+        executable = self.executable or shutil.which('openclaw')
+        if not executable:
+            raise ValueError('OpenClaw is unavailable')
+        resolved = Path(executable).resolve(strict=True)
+        template_dir = next((parent / 'docs/reference/templates' for parent in (resolved.parent, *resolved.parents)
+                             if (parent / 'docs/reference/templates').is_dir()), None)
+        if template_dir is None:
+            raise ValueError('Pinned OpenClaw workspace templates are unavailable')
+        templates = {}
+        for name in OPENCLAW_FIRST_RUN_FILES:
+            path = template_dir / name
+            info = path.lstat()
+            if path.is_symlink() or not path.is_file() or info.st_size > 64 * 1024:
+                raise ValueError('Pinned OpenClaw workspace templates are not safe to read')
+            content = path.read_bytes().decode('utf-8')
+            # OpenClaw strips front matter and leading whitespace when it loads
+            # the packaged workspace templates. Match that exact published form.
+            frontmatter = re.match(r'\A---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|$)', content, re.S)
+            if frontmatter:
+                content = content[frontmatter.end():].lstrip()
+            templates[name] = content
+        return templates
+
+    def seed_workspace_defaults(self, names, templates):
+        """Create missing pinned defaults with exclusive creation; never invoke tools or overwrite files."""
+        agents = agents_path(self.home)
+        root = agents.parent
+        root.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            if name not in templates:
+                raise ValueError('Pinned OpenClaw workspace defaults are incomplete')
+            path = agents if name == 'AGENTS.md' else storage.safe_local(root / name)
+            if path.is_symlink():
+                raise ValueError('An existing workspace link was preserved')
+            expected = templates[name].encode('utf-8')
+            try:
+                with path.open('xb') as stream:
+                    stream.write(expected)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except FileExistsError:
+                if path.read_bytes() != expected:
+                    raise ValueError('An existing workspace file was preserved')
+            if path.read_bytes() != expected:
+                raise ValueError('A workspace default could not be verified')
 
     def turn(self, text):
         from .owned_gateway import environment
@@ -502,15 +623,27 @@ class Controller:
                 raw = read_text(agents_path(self.home))
                 prior_record = (value.get('previous_record') if status == 'on-trial' else value) if value else None
                 plan = planned_changes(raw, prior_record)
+                trial_fingerprint = fingerprint(self.home)
+                first_run_setup = bool(callable(getattr(self.runner, 'bootstrap_templates', None)) and (
+                    raw is None or any(trial_fingerprint.get(name) is None
+                                       for name in OPENCLAW_REQUIRED_FIRST_RUN_FILES if name != 'AGENTS.md')))
             except (OSError, ValueError):
                 plan = []
+                first_run_setup = False
             public_plan = [self.public_change(change) for change in plan]
-            return {'available': True, 'active': active, 'phase': self.phase, 'progress': copy.deepcopy(self.progress),
+            progress = copy.deepcopy(self.progress)
+            if progress is not None:
+                started = progress.pop('current_started_at', None)
+                progress['waiting_seconds'] = max(0, int(time.monotonic() - started)) if started is not None else 0
+            terminal_phases = {'no-improvement', 'failed', 'recovery-blocked', 'rolled-back', 'cancelled'}
+            result_state = self.phase if self.phase in terminal_phases else status
+            return {'available': True, 'active': active, 'phase': self.phase, 'progress': progress,
                     'message': self.message, 'status': status, 'change': public_plan[0] if public_plan else LEGACY_CHANGE,
                     'changes': public_plan, 'unchanged': UNCHANGED,
+                    'first_run_setup': first_run_setup,
                     'max_experiments': len(plan), 'max_answers': len(tasks) * (1 + len(plan)), 'tasks': tasks,
                     'passages': self.tasks['passages'], 'result': result,
-                    'result_state': self.phase if self.phase == 'no-improvement' else status,
+                    'result_state': result_state,
                     'can_restore': status in ('on-trial', 'kept'), 'can_keep': status == 'on-trial'}
 
     # ---- actions
@@ -535,9 +668,13 @@ class Controller:
                 raise Refused('The previous kept change needs review before another experiment')
             approved_raw = raw_before
             approved_fingerprint = fingerprint(self.home)
+            missing_first_run_files = (raw_before is None or any(
+                approved_fingerprint.get(name) is None
+                for name in OPENCLAW_REQUIRED_FIRST_RUN_FILES if name != 'AGENTS.md'))
+            approved_workspace = workspace_snapshot(agents_path(self.home).parent) if missing_first_run_files else None
             self.session_result = None
             self.begin('preparing', lambda: self.execute_when_ready(
-                plan, previous, approved_raw, approved_fingerprint))
+                plan, previous, approved_raw, approved_fingerprint, approved_workspace))
             return self.snapshot()
 
     def keep(self):
@@ -547,7 +684,7 @@ class Controller:
             path = agents_path(self.home)
             if status != 'on-trial' or read_text(path) != value['raw_after']:
                 raise Refused('Nothing on trial to keep, or AGENTS.md was edited during the trial')
-            if fingerprint(self.home) != value['fingerprint']:
+            if not fingerprint_matches(self.home, value['fingerprint']):
                 raise Refused('Protected assistant files changed during the trial; review before keeping')
             journal, record = paths(self.home)
             write_json(record, {'schema': RECORD_SCHEMA, 'change': value['change'], 'version': value['version'],
@@ -570,7 +707,7 @@ class Controller:
                 raise Refused('There is no change to restore')
             if read_text(agents_path(self.home)) != value['raw_after']:
                 raise Refused('AGENTS.md was edited after the change; review it by hand')
-            if fingerprint(self.home) != value.get('fingerprint'):
+            if not fingerprint_matches(self.home, value.get('fingerprint')):
                 raise Refused('Protected assistant files changed; review before restoring')
             self.begin('restoring', lambda: self.execute_restore(value))
             return self.snapshot()
@@ -644,9 +781,35 @@ class Controller:
                 raise ValueError('The assistant did not become ready')
             time.sleep(.1)
 
-    def execute_when_ready(self, plan, previous_record, approved_raw, approved_fingerprint):
+    def _reconcile_openclaw_bootstrap(self, approved_raw, approved_fingerprint, templates,
+                                      approved_workspace=None):
+        """Accept only exact OpenClaw defaults created for files absent at GO."""
+        path = agents_path(self.home)
+        current_raw = read_text(path)
+        current_fingerprint = fingerprint(self.home)
+        changed = changed_trial_files(self.home, path, approved_raw, approved_fingerprint)
+        current_workspace = workspace_snapshot(path.parent) if approved_workspace is not None else None
+        created_templates = new_template_files(approved_workspace, current_workspace, templates)
+        if created_templates is None:
+            return None
+        changed.extend(name for name in created_templates if name not in changed)
+        for name in changed:
+            if name not in templates or approved_fingerprint.get(name) is not None:
+                return None
+            current = read_text(path) if name == 'AGENTS.md' else (path.parent / name).read_bytes().decode('utf-8')
+            if current != templates[name]:
+                return None
+        return current_raw, current_fingerprint, bool(changed), current_workspace
+
+    def execute_when_ready(self, plan, previous_record, approved_raw, approved_fingerprint,
+                           approved_workspace=None):
         """Keep the approved GO alive while the local assistant warms up."""
         self.message = 'Warming up your local assistant. No instructions have changed.'
+        self.progress = {'side': 'before', 'done': 0, 'total': len(self.tasks['tasks']),
+                         'current': {'kind': 'setup', 'question': 'Waiting for your local assistant to be ready.'},
+                         'latest': None, 'session_done': 0,
+                         'session_total': len(self.tasks['tasks']) * (1 + len(plan)),
+                         'current_started_at': time.monotonic()}
         try:
             startup = self.startup.snapshot()
             if startup.get('phase') in ('idle', 'stopped') and not startup.get('active'):
@@ -656,13 +819,84 @@ class Controller:
             if self.cancel_event.is_set():
                 self.message = 'Warm-up stopped. No instructions were changed.'
                 return 'cancelled'
-            if (read_text(agents_path(self.home)) != approved_raw or
-                    fingerprint(self.home) != approved_fingerprint):
+            startup_changes = changed_trial_files(self.home, agents_path(self.home), approved_raw,
+                                                  approved_fingerprint)
+            startup_workspace = (workspace_snapshot(agents_path(self.home).parent)
+                                 if approved_workspace is not None else None)
+            startup_templates = new_template_files(approved_workspace, startup_workspace, {})
+            first_run_missing = (approved_raw is None or any(
+                approved_fingerprint.get(name) is None
+                for name in OPENCLAW_REQUIRED_FIRST_RUN_FILES if name != 'AGENTS.md') or
+                approved_fingerprint.get('BOOTSTRAP.md') is None)
+            templates = {}
+            if (callable(getattr(self.runner, 'bootstrap_templates', None)) and
+                    (first_run_missing or startup_changes or startup_templates)):
+                try:
+                    templates = self.runner.bootstrap_templates()
+                except Exception:
+                    self.message = ('I could not verify the pinned first-run workspace defaults. '
+                                    'No challenge was tested and no idea was applied.')
+                    return 'failed'
+            baseline = self._reconcile_openclaw_bootstrap(approved_raw, approved_fingerprint, templates,
+                                                         approved_workspace)
+            if baseline is None:
                 self.message = ('Your assistant changed while it warmed up. Nothing was tested or applied; '
                                 'review the updated ideas before pressing GO again.')
                 return 'failed'
-            self.message = None
-            return self.execute(plan, previous_record)
+            raw_before, protected, initialized, workspace_before = baseline
+            missing = (['AGENTS.md'] if raw_before is None else []) + [
+                name for name in OPENCLAW_REQUIRED_FIRST_RUN_FILES if name != 'AGENTS.md' and protected.get(name) is None]
+            if missing and not callable(getattr(self.runner, 'seed_workspace_defaults', None)):
+                self.message = 'The first-run workspace setup is unavailable. No challenge was scored and no idea was applied.'
+                return 'failed'
+            if missing and callable(getattr(self.runner, 'seed_workspace_defaults', None)):
+                if any(name not in templates for name in missing):
+                    self.message = 'The first-run workspace defaults could not be verified. No test or idea was applied.'
+                    return 'failed'
+                self.phase = 'workspace'
+                self.message = ('Setting up only missing standard starter files from the pinned OpenClaw defaults. '
+                                'Existing files will not be overwritten. No challenge is scored yet.')
+                self.progress = {'side': 'before', 'done': 0, 'total': len(self.tasks['tasks']),
+                                 'current': {'kind': 'setup', 'question': 'One quick private setup check before scoring.'},
+                                 'latest': None, 'session_done': 0,
+                                 'session_total': len(self.tasks['tasks']) * (1 + len(plan)),
+                                 'current_started_at': time.monotonic()}
+                if isinstance(self.runner, OpenClawRunner):
+                    _, model = self.validate_profile(self.home)
+                    self.runner.expected_model = model
+                try:
+                    self.runner.seed_workspace_defaults(missing, templates)
+                except Exception:
+                    self.message = ('The first-run setup could not be verified. No challenge was scored and no idea '
+                                    'was applied; review the workspace before trying again.')
+                    return 'failed'
+                if self.cancel_event.is_set():
+                    self.message = 'Setup stopped. No idea was tested or applied.'
+                    return 'cancelled'
+                baseline = self._reconcile_openclaw_bootstrap(raw_before, protected, templates, workspace_before)
+                if baseline is None:
+                    self.message = ('Workspace setup changed an existing file or created a nonstandard file. '
+                                    'No idea was tested or applied; review the workspace before trying again.')
+                    return 'failed'
+                raw_before, protected, initialized_after_go, workspace_before = baseline
+                initialized = initialized or initialized_after_go
+                remaining = (['AGENTS.md'] if raw_before is None else []) + [
+                    name for name in OPENCLAW_REQUIRED_FIRST_RUN_FILES if name != 'AGENTS.md' and protected.get(name) is None]
+                if remaining:
+                    self.message = 'OpenClaw did not finish first-run setup. No challenge was scored and no idea was applied.'
+                    return 'failed'
+            if [change['id'] for change in plan] != [change['id'] for change in planned_changes(
+                    raw_before, previous_record)]:
+                self.message = ('OpenClaw finished first-run setup, but the reviewed ideas changed. '
+                                'Nothing was tested or applied; review the new plan before pressing GO again.')
+                return 'failed'
+            self.progress = {'side': 'before', 'done': 0, 'total': len(self.tasks['tasks']),
+                             'current': None, 'latest': None,
+                             'session_done': 0, 'session_total': len(self.tasks['tasks']) * (1 + len(plan))}
+            self.message = ('First-run workspace is ready. Starting the scored challenges.' if initialized else None)
+            return self.execute(plan, previous_record, expected_raw=raw_before,
+                                expected_fingerprint=protected, expected_workspace=workspace_before,
+                                bootstrap_templates=templates)
         except Exception:
             if self.cancel_event.is_set():
                 self.message = 'Warm-up stopped. No instructions were changed.'
@@ -693,7 +927,8 @@ class Controller:
             self.progress = {'side': side, 'done': index, 'total': total,
                              'current': current, 'latest': latest, 'experiment': experiment,
                              'experiment_index': experiment_index, 'experiment_count': experiment_count,
-                             'session_done': session_offset + index, 'session_total': session_total}
+                             'session_done': session_offset + index, 'session_total': session_total,
+                             'current_started_at': time.monotonic()}
             reply = self.runner.turn(message(task, self.tasks['passages']))
             if not isinstance(reply.get('text'), str) or len(reply['text']) > 6000:
                 raise ValueError('The assistant response exceeds the trial inspection limit')
@@ -708,7 +943,8 @@ class Controller:
             self.progress = {'side': side, 'done': index + 1, 'total': total,
                              'current': current, 'latest': latest, 'experiment': experiment,
                              'experiment_index': experiment_index, 'experiment_count': experiment_count,
-                             'session_done': session_offset + index + 1, 'session_total': session_total}
+                             'session_done': session_offset + index + 1, 'session_total': session_total,
+                             'current_started_at': None}
         self.progress = {'side': side, 'done': total, 'total': total, 'current': None, 'latest': latest,
                          'experiment': experiment, 'experiment_index': experiment_index,
                          'experiment_count': experiment_count, 'session_done': session_offset + total,
@@ -746,10 +982,18 @@ class Controller:
     def public_change(change):
         return {key: change[key] for key in ('id', 'version', 'title', 'file', 'text', 'target_check', 'scope')}
 
-    def execute(self, plan, previous_record=None):
+    def execute(self, plan, previous_record=None, *, expected_raw=None, expected_fingerprint=None,
+                expected_workspace=None, bootstrap_templates=None):
         path = agents_path(self.home)
         raw_before = read_text(path)
         protected = fingerprint(self.home)
+        if (expected_raw is not None and raw_before != expected_raw) or (
+                expected_fingerprint is not None and protected != expected_fingerprint):
+            self.message = 'Workspace files changed before scoring began. No idea was applied; review before trying again.'
+            return 'failed'
+        if expected_workspace is not None and workspace_snapshot(path.parent) != expected_workspace:
+            self.message = 'Workspace files changed before scoring began. No idea was applied; review before trying again.'
+            return 'failed'
         journal, _ = paths(self.home)
         prior_record = copy.deepcopy(previous_record)
         experiments = []
@@ -763,6 +1007,18 @@ class Controller:
             raise
         if isinstance(self.runner, OpenClawRunner):
             self.runner.expected_model = model
+        def reconcile_bootstrap():
+            nonlocal raw_before, protected, expected_workspace
+            if not isinstance(self.runner, OpenClawRunner) and not bootstrap_templates:
+                return True
+            baseline = self._reconcile_openclaw_bootstrap(raw_before, protected,
+                                                          bootstrap_templates or {}, expected_workspace)
+            if baseline is None:
+                return False
+            raw_before, protected, _initialized, expected_workspace = baseline
+            return True
+        def workspace_unchanged():
+            return expected_workspace is None or workspace_snapshot(path.parent) == expected_workspace
         if [change['id'] for change in plan] != [change['id'] for change in planned_changes(raw_before, previous_record)]:
             raise ValueError('The disclosed improvement plan changed before the run started')
         config = read_json(storage.safe_local(self.home / '.openclaw/openclaw.json'))
@@ -778,14 +1034,26 @@ class Controller:
             # A lost CLI reply can leave a gateway turn running. Release it
             # before releasing the desktop workload reservation.
             self.restart()
+            if not reconcile_bootstrap():
+                self.message = ('The first reply changed files in the AI’s workspace. No score was counted and no '
+                                'experiment was applied; the assistant is stopped until you review those files.')
+                return 'recovery-blocked'
             changed = changed_trial_files(self.home, path, raw_before, protected)
+            if not workspace_unchanged():
+                changed.append('workspace files')
             if changed:
                 self.message = changed_trial_message(changed) + ' The assistant is stopped.'
                 return 'recovery-blocked'
             self.start_assistant()
             self.message = 'The trial stopped before any change was made. The assistant is ready again.'
             return 'cancelled' if self.cancel_event.is_set() else 'failed'
+        if not reconcile_bootstrap():
+            self.message = ('The first reply changed files in the AI’s workspace. No score was counted and no '
+                            'experiment was applied; the assistant is stopped until you review those files.')
+            return 'recovery-blocked'
         changed = changed_trial_files(self.home, path, raw_before, protected)
+        if not workspace_unchanged():
+            changed.append('workspace files')
         if changed:
             self.message = changed_trial_message(changed)
             return 'recovery-blocked'
@@ -804,7 +1072,8 @@ class Controller:
                 self.restart()
                 if self.cancel_event.is_set():
                     raise ValueError('Cancelled')
-                if read_text(path) != raw_before or fingerprint(self.home) != protected:
+                if (read_text(path) != raw_before or fingerprint(self.home) != protected or
+                        not workspace_unchanged()):
                     raise ValueError('Assistant files changed during the trial')
                 write_text(path, raw_after)
                 self.start_assistant()
@@ -815,7 +1084,8 @@ class Controller:
                                        experiment_index=index + 1, experiment_count=len(plan),
                                        session_offset=len(self.tasks['tasks']) * (index + 1),
                                        session_total=session_total)
-                if read_text(path) != raw_after or fingerprint(self.home) != protected:
+                if (read_text(path) != raw_after or fingerprint(self.home) != protected or
+                        not workspace_unchanged()):
                     raise ValueError('Assistant files changed during the trial')
                 comparison = compare(before, after)
                 comparison['configuration'] = {'model': model, 'tasks_version': self.tasks['version'],
@@ -827,13 +1097,15 @@ class Controller:
                 write_json(journal, value)
                 self.phase = 'restoring'
                 self.restart()
-                if read_text(path) not in (raw_after, raw_before) or fingerprint(self.home) != protected:
+                if (read_text(path) not in (raw_after, raw_before) or fingerprint(self.home) != protected or
+                        not workspace_unchanged()):
                     self.message = 'Owner edits prevent automatic recovery. The assistant is stopped; review the retained trial record.'
                     return 'recovery-blocked'
                 if read_text(path) != raw_before:
                     write_text(path, raw_before)
                 self.start_assistant()
-                if read_text(path) != raw_before or fingerprint(self.home) != protected:
+                if (read_text(path) != raw_before or fingerprint(self.home) != protected or
+                        not workspace_unchanged()):
                     raise ValueError('Restoration between ideas could not be verified')
                 finish_journal(journal)
                 current_change = raw_after = None
@@ -877,6 +1149,11 @@ class Controller:
             self.message = 'I tried the reviewed ideas against the same questions. Review the comparison, then choose what stays.'
             return 'awaiting-decision'
         except Exception:
+            if not workspace_unchanged():
+                self.restart()
+                self.message = ('A workspace file changed during the test. The assistant is stopped; no unexpected file '
+                                'was removed. Review the workspace before trying again.')
+                return 'recovery-blocked'
             if journal.exists():
                 self.phase = 'restoring'
                 self.restart()
@@ -898,18 +1175,18 @@ class Controller:
     def execute_restore(self, value):
         path = agents_path(self.home)
         journal, record = paths(self.home)
-        if fingerprint(self.home) != value.get('fingerprint'):
+        if not fingerprint_matches(self.home, value.get('fingerprint')):
             raise Refused('Protected assistant files changed; review before restoring')
         # Keep a recovery journal even when restoring a previously kept change.
         recovery = {**value, 'schema': SCHEMA, 'phase': 'restoring'}
         write_json(journal, recovery)
         self.restart()
-        if read_text(path) != value['raw_after'] or fingerprint(self.home) != value['fingerprint']:
+        if read_text(path) != value['raw_after'] or not fingerprint_matches(self.home, value['fingerprint']):
             self.message = 'Owner edits prevent automatic restore. The assistant is stopped; review the retained trial record.'
             return 'recovery-blocked'
         write_text(path, value['raw_before'])
         self.start_assistant()
-        if read_text(path) != value['raw_before'] or fingerprint(self.home) != value['fingerprint']:
+        if read_text(path) != value['raw_before'] or not fingerprint_matches(self.home, value['fingerprint']):
             raise ValueError('Restore could not be verified')
         previous = value.get('previous_record')
         if previous is not None:
