@@ -346,7 +346,10 @@ try {
   console.log('[PASS] Recipe experiment modal opened with concise instruction preview and assistant protection notice');
 
   await page.locator('#recipe-select-only').click();
-  await page.waitForTimeout(200);
+  await page.waitForFunction(() => {
+    const text = document.getElementById('lab-active-recipe')?.textContent || '';
+    return text.includes('concise') || text.includes('Strict format');
+  }, null, {timeout: 10000});
   const activeRecipeText = (await page.locator('#lab-active-recipe').textContent()).trim();
   if (!activeRecipeText.includes('concise') && !activeRecipeText.includes('Strict format')) {
     fail(`Active Lab recipe was not updated after selection: "${activeRecipeText}"`);
@@ -357,7 +360,9 @@ try {
 
   await page.evaluate(() => focusSection('lab-controls'));
   await page.locator('#lab-recipe-restore').click();
-  await page.waitForTimeout(200);
+  await page.waitForFunction(() =>
+    document.getElementById('lab-active-recipe')?.textContent.includes('Standard calibration'),
+  null, {timeout: 10000});
   const restoredRecipeText = (await page.locator('#lab-active-recipe').textContent()).trim();
   if (!restoredRecipeText.includes('Standard calibration')) {
     fail(`Active Lab recipe was not restored to standard: "${restoredRecipeText}"`);
