@@ -47,8 +47,8 @@ try {
   const startBtn = page.locator('#cc-next-go');
   if (!(await startBtn.isVisible())) fail('Primary Start button is not visible');
   const btnText = (await startBtn.textContent()).trim();
-  if (!/^GO\s*▶$/.test(btnText)) fail(`Unexpected primary button text: "${btnText}"`);
-  if (await startBtn.getAttribute('aria-label') !== 'Go: Read this brief') fail('GO button does not say what it will start');
+  if (!/^Start reading challenge\s*▶$/.test(btnText)) fail(`Unexpected primary button text: "${btnText}"`);
+  if (await startBtn.getAttribute('aria-label') !== 'Start reading challenge') fail('GO button does not say what it will start');
 
   // Assert that the Start button is visible without scrolling at 390x844
   const box = await startBtn.boundingBox();

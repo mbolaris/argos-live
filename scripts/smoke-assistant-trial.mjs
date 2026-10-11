@@ -98,7 +98,10 @@ try {
   await page.evaluate(() => refreshCommand());
   await page.waitForFunction(() => document.getElementById('cc-next-go').dataset.action === 'assistant-trial' &&
     !document.getElementById('cc-next-trial-offer').hidden, null, {timeout: 10000});
-  assert.equal(await page.locator('#cc-next-title').textContent(), 'I found 3 ideas to test — want to watch?');
+  assert.equal(await page.locator('#cc-next-title').textContent(), 'Find your AI’s next improvement');
+  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Start improvement round');
+  assert.equal(await page.locator('.cc-hero-actions #chat').count(), 0, 'Chat is separate from the primary action');
+  assert.equal(await page.locator('.cc-chat-area #chat').textContent(), 'Open chat ↗');
   assert.match(await page.locator('#cc-next-reason').textContent(), /Same model\. Same eight challenges/);
   assert.equal(await page.locator('#cc-next-trial-offer').isVisible(), true);
   assert.match(await page.locator('#cc-next-trial-offer').textContent(), /3 ideas · 8 challenges each/i);
@@ -172,7 +175,7 @@ try {
   const guidedAction = await page.evaluate(() => presentedNextAction(
     {id: 'review', title: 'See why answers missed', reason: 'Inspect diagnostics.', action: 'review'}, assistantTrial, null));
   assert.equal(guidedAction.action, 'assistant-trial');
-  assert.equal(guidedAction.title, 'I found 3 ideas to test — want to watch?');
+  assert.equal(guidedAction.title, 'Find your AI’s next improvement');
   assert.match(guidedAction.reason, /Same model\. Same eight challenges/);
   const afterDocumentStorageAction = await page.evaluate(() => presentedNextAction(
     {id: 'storage', title: 'Choose model storage', reason: 'Storage is not configured.', action: 'storage'},
@@ -232,7 +235,7 @@ try {
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'kept', active: false,
       changes: [{id: 'answer-first'}]}));
   assert.equal(keptAction.action, 'assistant-trial');
-  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Go: I found 3 ideas to test — want to watch?');
+  assert.equal(await page.locator('#cc-next-go').getAttribute('aria-label'), 'Go: Find your AI’s next improvement');
   await page.locator('#cc-next-go').click();
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).active, null, {timeout: 10000, polling: 100});
   assert.equal(await page.locator('#assistant-trial-modal').count(), 0, 'The one GO action starts the exact disclosed trial; no second approval dialog');
