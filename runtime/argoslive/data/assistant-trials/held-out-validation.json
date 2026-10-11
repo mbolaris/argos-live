@@ -1,10 +1,10 @@
 {
   "schema": "argos-assistant-tasks/1",
   "change": "held-out-validation",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "source": "original-argos-live",
-  "note": "Independent held-out validation suite: distinct passages, questions, and checks. Kept out of prompts and reflection.",
+  "note": "Independent held-out validation suite: partitioned disjoint passages, questions, and checks. Kept out of prompts and reflection.",
   "passages": {
     "aquarium": "The City Aquarium open hours are 10:00 a.m. to 6:00 p.m. daily. General admission is $18 for adults and $10 for children under 12. Shark feedings take place on Tuesdays and Thursdays at 2:00 p.m. Parking in the north lot is free for members.",
     "workshop": "The woodworking guild meets every Saturday morning in Studio 4. Safety glasses and closed-toe shoes are required at all times. Lathes may only be operated after passing the introductory safety check. Monthly dues are $35, payable on the first of each month.",
@@ -59,6 +59,244 @@
       "id": "control-bird",
       "kind": "control",
       "message": "Give one tip for identifying backyard birds, in one sentence."
+    }
+  ],
+  "partitions": [
+    {
+      "id": "val-p1",
+      "passages": {
+        "aquarium": "The City Aquarium open hours are 10:00 a.m. to 6:00 p.m. daily. General admission is $18 for adults and $10 for children under 12. Shark feedings take place on Tuesdays and Thursdays at 2:00 p.m. Parking in the north lot is free for members.",
+        "workshop": "The woodworking guild meets every Saturday morning in Studio 4. Safety glasses and closed-toe shoes are required at all times. Lathes may only be operated after passing the introductory safety check. Monthly dues are $35, payable on the first of each month.",
+        "shuttle": "The downtown connector shuttle departs every 20 minutes from Central Station. Weekday service runs until 11:00 p.m., while weekend service ends at 8:00 p.m. Transfers to the light rail are free with a digital pass. Bicycles are allowed on the rear rack only."
+      },
+      "tasks": [
+        {
+          "id": "aquarium-answer",
+          "kind": "answer",
+          "passage": "aquarium",
+          "question": "How much is general admission for adults?",
+          "accepted": ["$18", "18 dollars", "eighteen dollars"]
+        },
+        {
+          "id": "workshop-answer",
+          "kind": "answer",
+          "passage": "workshop",
+          "question": "How much are monthly dues?",
+          "accepted": ["$35", "35 dollars", "thirty-five dollars"]
+        },
+        {
+          "id": "shuttle-answer",
+          "kind": "answer",
+          "passage": "shuttle",
+          "question": "How often does the downtown connector shuttle depart?",
+          "accepted": ["every 20 minutes", "20 minutes"]
+        },
+        {
+          "id": "aquarium-missing",
+          "kind": "not_stated",
+          "passage": "aquarium",
+          "question": "Who is the director of the aquarium?"
+        },
+        {
+          "id": "workshop-missing",
+          "kind": "not_stated",
+          "passage": "workshop",
+          "question": "What brand of table saw does the studio use?"
+        },
+        {
+          "id": "shuttle-missing",
+          "kind": "not_stated",
+          "passage": "shuttle",
+          "question": "What is the speed limit of the shuttle?"
+        },
+        {
+          "id": "control-recipe",
+          "kind": "control",
+          "message": "Suggest one ingredient for a winter vegetable soup, in one short sentence."
+        },
+        {
+          "id": "control-bird",
+          "kind": "control",
+          "message": "Give one tip for identifying backyard birds, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p2",
+      "passages": {
+        "bakery": "The Maple Street Bakery opens at 6:30 a.m. Tuesday through Sunday. Sourdough loaves cost $8 each, and croissants are $4. Cake orders require 48 hours advance notice. The kitchen uses organic flour from Riverbend Mill.",
+        "clinic": "The community health clinic provides walk-in flu vaccinations on Wednesdays. Copays for insured patients are $15, while self-pay visits are $25. Parking validation is available at the reception desk. Minors must be accompanied by an adult guardian.",
+        "library": "The local branch library loans laptops for three hours per visit. Late returns incur a fee of $5 per day. Study rooms can be reserved online up to one week in advance. The annual book sale takes place in October."
+      },
+      "tasks": [
+        {
+          "id": "bakery-answer",
+          "kind": "answer",
+          "passage": "bakery",
+          "question": "How much does a sourdough loaf cost?",
+          "accepted": ["$8", "8 dollars", "eight dollars"]
+        },
+        {
+          "id": "clinic-answer",
+          "kind": "answer",
+          "passage": "clinic",
+          "question": "How much is the copay for insured patients?",
+          "accepted": ["$15", "15 dollars", "fifteen dollars"]
+        },
+        {
+          "id": "library-answer",
+          "kind": "answer",
+          "passage": "library",
+          "question": "How long can laptops be loaned for?",
+          "accepted": ["three hours", "3 hours"]
+        },
+        {
+          "id": "bakery-missing",
+          "kind": "not_stated",
+          "passage": "bakery",
+          "question": "Who is the head baker?"
+        },
+        {
+          "id": "clinic-missing",
+          "kind": "not_stated",
+          "passage": "clinic",
+          "question": "What brand of thermometer is used?"
+        },
+        {
+          "id": "library-missing",
+          "kind": "not_stated",
+          "passage": "library",
+          "question": "What is the library wifi password?"
+        },
+        {
+          "id": "control-gardening",
+          "kind": "control",
+          "message": "Name one tool commonly used for weeding, in one sentence."
+        },
+        {
+          "id": "control-astronomy",
+          "kind": "control",
+          "message": "Mention one planet that has rings, in one short sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p3",
+      "passages": {
+        "museum": "The Heritage Museum charges $12 for adult tickets and $6 for seniors. Audio guides are available at the front desk for an extra $3. Flash photography is strictly prohibited inside the main gallery. Free admission is offered on the first Friday of each month.",
+        "gym": "The fitness center locker rooms are closed for cleaning daily between 1:00 p.m. and 2:00 p.m. Towel rental is $2 per visit. Guest passes cost $10 per day. Squash court bookings must be cancelled at least 2 hours before the scheduled slot.",
+        "ferry": "The harbor ferry runs every 30 minutes from Pier 7. Adult one-way fare is $7, and children ride free on weekends. Pets must remain in an approved carrier. The upper deck is closed during high winds."
+      },
+      "tasks": [
+        {
+          "id": "museum-answer",
+          "kind": "answer",
+          "passage": "museum",
+          "question": "How much does an adult ticket cost?",
+          "accepted": ["$12", "12 dollars", "twelve dollars"]
+        },
+        {
+          "id": "gym-answer",
+          "kind": "answer",
+          "passage": "gym",
+          "question": "How much does a guest pass cost per day?",
+          "accepted": ["$10", "10 dollars", "ten dollars"]
+        },
+        {
+          "id": "ferry-answer",
+          "kind": "answer",
+          "passage": "ferry",
+          "question": "How often does the harbor ferry run?",
+          "accepted": ["every 30 minutes", "30 minutes"]
+        },
+        {
+          "id": "museum-missing",
+          "kind": "not_stated",
+          "passage": "museum",
+          "question": "Who donated the diamond collection?"
+        },
+        {
+          "id": "gym-missing",
+          "kind": "not_stated",
+          "passage": "gym",
+          "question": "What brand of treadmill is in Studio B?"
+        },
+        {
+          "id": "ferry-missing",
+          "kind": "not_stated",
+          "passage": "ferry",
+          "question": "Who is the captain of the ferry?"
+        },
+        {
+          "id": "control-music",
+          "kind": "control",
+          "message": "Name one string instrument, in one short sentence."
+        },
+        {
+          "id": "control-weather",
+          "kind": "control",
+          "message": "Describe what a barometer measures, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p4",
+      "passages": {
+        "theater": "The Civic Theater box office opens at noon on performance days. Student rush tickets are $20 with valid identification. Concessions accept card payments only. Late seating occurs only during designated applause breaks.",
+        "park": "Riverview Park pavilion rentals cost $50 per afternoon block. Charcoal grills are available on a first-come basis. Amplified sound requires a special city permit. The park gates close promptly at sunset.",
+        "hotel": "The harbor inn serves complimentary continental breakfast from 7:00 a.m. to 10:00 a.m. Overnight valet parking is $30 per vehicle. The indoor heated pool closes at 10:00 p.m. Check-out time is 11:00 a.m."
+      },
+      "tasks": [
+        {
+          "id": "theater-answer",
+          "kind": "answer",
+          "passage": "theater",
+          "question": "How much are student rush tickets?",
+          "accepted": ["$20", "20 dollars", "twenty dollars"]
+        },
+        {
+          "id": "park-answer",
+          "kind": "answer",
+          "passage": "park",
+          "question": "How much does a pavilion rental cost per afternoon block?",
+          "accepted": ["$50", "50 dollars", "fifty dollars"]
+        },
+        {
+          "id": "hotel-answer",
+          "kind": "answer",
+          "passage": "hotel",
+          "question": "How much is overnight valet parking per vehicle?",
+          "accepted": ["$30", "30 dollars", "thirty dollars"]
+        },
+        {
+          "id": "theater-missing",
+          "kind": "not_stated",
+          "passage": "theater",
+          "question": "What play is showing next month?"
+        },
+        {
+          "id": "park-missing",
+          "kind": "not_stated",
+          "passage": "park",
+          "question": "How many picnic tables are in the park?"
+        },
+        {
+          "id": "hotel-missing",
+          "kind": "not_stated",
+          "passage": "hotel",
+          "question": "What is the name of the general manager?"
+        },
+        {
+          "id": "control-bicycle",
+          "kind": "control",
+          "message": "Mention one safety item recommended for bicycling, in one sentence."
+        },
+        {
+          "id": "control-coffee",
+          "kind": "control",
+          "message": "Name one type of brewed coffee drink, in one short sentence."
+        }
+      ]
     }
   ]
 }

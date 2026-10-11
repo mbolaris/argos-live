@@ -61,7 +61,7 @@ class TrialStartup:
 
     def snapshot(self):
         active = self.assistant.active
-        return {'active': active, 'phase': 'ready' if active else 'stopped', 'model_reply_verified': active}
+        return {'active': active, 'phase': 'ready' if active else 'stopped', 'model_reply_verified': active, 'gateway_ready': active}
 
     def stop(self):
         self.assistant.stop()

@@ -4423,7 +4423,7 @@ function renderAutoClimb() {
             <strong>${candTitle}</strong>
             <span class="history-verdict ${verdictClass}">${item.verdict || ''}</span>
           </div>
-          <p style="margin:2px 0; color:var(--muted);">${rText}</p>
+          <p>${rText}</p>
         `;
         return div;
       }));

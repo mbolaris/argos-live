@@ -7,8 +7,11 @@ Owner-approved product contract:
 - Proposes structured, reversible interventions with a 30-second server countdown.
 - Supports Try now, Skip, Pause, and Stop overrides; opening details pauses countdown.
 - Practice identifies candidate gains; independent held-out validation confirms generalization.
-- Deterministic automatic Keep or byte-for-byte Restore.
-- Stops honestly at a measured plateau or budget exhaustion.
+- Fresh validation exposure and confirmation policy: disjoint partitions, consumed on exposure.
+- Rebased comparisons on verified current kept build; later regression cannot inherit earlier gains.
+- Guarded mutations: journal before write, owner-edit protection, verified Undo.
+- Single worker ownership, cancellable child execution, cumulative budgets across Resume/reboot.
+- Stops honestly at measured plateau (>= 3 non-improving AND all options evaluated), options exhausted, or budget exhaustion.
 - Reuses OpenClaw runner, transactions, scoring, hardware probing, and recovery.
 """
 from datetime import datetime, timezone
@@ -34,6 +37,7 @@ from .assistant_trial import (
     CHANGE_BY_ID,
     CHANGES,
     Refused,
+    TrialTurnError,
 )
 from .pull_jobs import read_json, write_json
 
@@ -86,6 +90,30 @@ INSTRUCTION_CANDIDATES = [
 ]
 
 
+def validate_envelope(envelope):
+    """Strictly validate approved session limits against specification rules."""
+    if envelope is None:
+        return dict(DEFAULT_ENVELOPE)
+    if not isinstance(envelope, dict):
+        raise Refused('Approved envelope must be a dictionary')
+    merged = dict(DEFAULT_ENVELOPE)
+    for k, v in envelope.items():
+        if k not in merged:
+            raise Refused(f'Unknown envelope limit: {k}')
+        merged[k] = v
+    if not isinstance(merged['max_duration_seconds'], int) or not (60 <= merged['max_duration_seconds'] <= 86400):
+        raise Refused('max_duration_seconds must be an integer between 60 and 86400')
+    if not isinstance(merged['max_experiments'], int) or not (1 <= merged['max_experiments'] <= 50):
+        raise Refused('max_experiments must be an integer between 1 and 50')
+    if not isinstance(merged['max_model_downloads'], int) or not (0 <= merged['max_model_downloads'] <= 5):
+        raise Refused('max_model_downloads must be an integer between 0 and 5')
+    if not isinstance(merged['max_download_bytes'], int) or not (0 <= merged['max_download_bytes'] <= 100 * 1024 * 1024 * 1024):
+        raise Refused('max_download_bytes must be an integer between 0 and 100 GiB')
+    if merged.get('permissions') != 'none':
+        raise Refused('permissions must be "none"')
+    return merged
+
+
 def load_task_file(path):
     with path.open('rb') as f:
         return json.loads(f.read().decode('utf-8'))
@@ -93,6 +121,18 @@ def load_task_file(path):
 
 def load_validation_tasks(path=VALIDATION_TASKS_PATH):
     return load_task_file(path)
+
+
+def load_validation_partitions(path=VALIDATION_TASKS_PATH):
+    data = load_task_file(path)
+    if 'partitions' in data and isinstance(data['partitions'], list):
+        return data['partitions']
+    # Fallback to single partition
+    return [{
+        'id': 'val-p1',
+        'passages': data.get('passages', {}),
+        'tasks': data.get('tasks', []),
+    }]
 
 
 class Controller:
@@ -104,15 +144,23 @@ class Controller:
                  model_recommender=None, model_switcher=None):
         self.startup = startup
         self.home = Path(home or getattr(startup, 'home', Path.home()))
-        self.runner = runner or getattr(startup, 'runner', None)
         self.clock = clock
         self.time_fn = time_fn
         self.sleep_fn = sleep_fn
         self.practice_tasks = load_task_file(practice_path)
-        self.validation_tasks = load_task_file(validation_path)
+        self.validation_partitions = load_validation_partitions(validation_path)
         self.candidate_pool = list(candidates) if candidates is not None else list(INSTRUCTION_CANDIDATES)
         self.model_recommender = model_recommender
         self.model_switcher = model_switcher
+
+        # Wire OpenClaw runner by default if not passed or not in startup
+        self.runner = runner or getattr(startup, 'runner', None)
+        if self.runner is None and self.home:
+            self.runner = assistant_trial.OpenClawRunner(self.home)
+
+        self.cancel_event = threading.Event()
+        if hasattr(self.runner, 'cancel_event'):
+            self.runner.cancel_event = self.cancel_event
 
         self.lock = threading.RLock()
         self.worker = None
@@ -142,16 +190,38 @@ class Controller:
             if data.get('schema') != SCHEMA:
                 return None
             phase = data.get('phase')
-            # If interrupted during an in-flight mutation, restore safely and pause
-            if phase in ('staging', 'retest', 'validate', 'countdown'):
-                raw_before = data.get('raw_before')
+            mutation = data.get('mutation')
+
+            if phase in ('staging', 'stage', 'retest', 'validate', 'countdown') or mutation:
                 agents = agents_path(self.home)
-                if raw_before is not None and agents.exists():
+                raw_before = mutation.get('raw_before') if mutation else data.get('raw_before')
+                expected_after = mutation.get('expected_after') if mutation else None
+
+                if agents.exists() and raw_before is not None:
                     current = read_text(agents)
-                    if current != raw_before:
+                    clean_current = current.replace('\r\n', '\n') if isinstance(current, str) else ''
+                    clean_expected = expected_after.replace('\r\n', '\n') if isinstance(expected_after, str) else None
+                    clean_raw = raw_before.replace('\r\n', '\n') if isinstance(raw_before, str) else ''
+
+                    if clean_expected is not None and clean_current == clean_expected:
+                        # Staged change is present without owner edits: restore safely
                         write_text(agents, raw_before)
-                data['phase'] = 'paused'
-                data['message'] = 'Recovered from restart. Pending mutation restored; session paused.'
+                        data['phase'] = 'paused'
+                        data['message'] = 'Recovered from restart. Pending mutation restored; session paused.'
+                        data.pop('mutation', None)
+                    elif clean_current == clean_raw:
+                        # Already at baseline
+                        data['phase'] = 'paused'
+                        data['message'] = 'Recovered from restart. Workspace matches baseline; session paused.'
+                        data.pop('mutation', None)
+                    else:
+                        # Owner modified AGENTS.md while offline: DO NOT overwrite!
+                        data['phase'] = 'blocked'
+                        data['failure_code'] = 'owner-edit-conflict'
+                        data['message'] = 'Owner edit detected in AGENTS.md; preserved without overwriting. Session blocked.'
+                else:
+                    data['phase'] = 'paused'
+                    data['message'] = 'Recovered from restart. Workspace reset; session paused.'
                 write_json(self.session_path, data)
             return data
         except (OSError, ValueError):
@@ -170,6 +240,31 @@ class Controller:
                         if attempt == 4:
                             raise
                         time.sleep(0.05)
+
+    def _restart_assistant(self, timeout=30):
+        """Restart local assistant via startup controller and wait until verified ready."""
+        if not self.startup:
+            return
+        try:
+            self.startup.stop()
+        except Exception:
+            pass
+        try:
+            self.startup.start(_reserved=True)
+        except TypeError:
+            self.startup.start()
+        start_t = self.clock()
+        while self.clock() - start_t < timeout:
+            snap = self.startup.snapshot()
+            if snap.get('phase') == 'failed':
+                raise RuntimeError(f'Assistant startup failed: {snap.get("failure")}')
+            phase_ready = snap.get('phase') == 'ready'
+            verified = snap.get('model_reply_verified') is True
+            gateway_ready = snap.get('gateway_ready', phase_ready) is True
+            if phase_ready and verified and gateway_ready:
+                return
+            self.sleep_fn(0.2)
+        raise TimeoutError('Assistant restart timed out waiting to become verified ready')
 
     # -------------------------------------------------------------------------
     # Public API
@@ -190,6 +285,9 @@ class Controller:
                     'total_seconds': sess.get('countdown_seconds', 30),
                     'proposal': sess.get('proposal'),
                 }
+
+            can_undo = bool(sess.get('initial_raw_before') is not None and
+                            sess.get('current_kept_raw') != sess.get('initial_raw_before'))
 
             return {
                 'available': True,
@@ -215,11 +313,12 @@ class Controller:
                 'message': sess.get('message', ''),
                 'stopping_reason': sess.get('stopping_reason'),
                 'failure_code': sess.get('failure_code'),
-                'can_start': phase in ('idle', 'plateau', 'budget-exhausted', 'stopped', 'blocked'),
-                'can_pause': active and phase not in ('paused', 'stopped', 'plateau', 'budget-exhausted', 'blocked'),
+                'can_start': phase in ('idle', 'plateau', 'options-exhausted', 'budget-exhausted', 'stopped', 'blocked'),
+                'can_pause': active and phase not in ('paused', 'stopped', 'plateau', 'options-exhausted', 'budget-exhausted', 'blocked'),
                 'can_resume': phase == 'paused',
                 'can_stop': active or phase in ('countdown', 'paused'),
                 'can_override': phase == 'countdown',
+                'can_undo': can_undo and not active,
             }
 
     def start(self, envelope=None):
@@ -230,15 +329,10 @@ class Controller:
             if (self.worker is not None and self.worker.is_alive()) or getattr(self.startup, 'lab_active', False):
                 raise Refused('Another desktop workload is active')
 
-            # Verify no pending external rollback exists
+            merged_envelope = validate_envelope(envelope)
+
             status_val = self.startup.snapshot() if hasattr(self.startup, 'snapshot') else {}
             model_info = {'model': status_val.get('model', 'starter'), 'digest': status_val.get('digest')}
-
-            merged_envelope = dict(DEFAULT_ENVELOPE)
-            if envelope:
-                for k, v in envelope.items():
-                    if k in merged_envelope:
-                        merged_envelope[k] = v
 
             session_id = str(uuid.uuid4())
             now_iso = datetime.now(timezone.utc).isoformat()
@@ -261,8 +355,12 @@ class Controller:
                 'curriculum_version': 'argos-foundation/1',
                 'phase': 'preflight',
                 'message': 'Starting Auto Climb session…',
-                'raw_before': raw_before,
+                'initial_raw_before': raw_before,
+                'current_kept_raw': raw_before,
                 'fingerprint': fp,
+                'exposure_ledger': {
+                    'consumed_partitions': [],
+                },
                 'history': [],
                 'completed_candidates': [],
                 'experiments_since_last_gain': 0,
@@ -276,6 +374,7 @@ class Controller:
             self._save_session()
 
             self.pause_event.clear()
+            self.cancel_event.clear()
             self.skip_event.clear()
             self.try_now_event.clear()
             self.stop_event.clear()
@@ -293,6 +392,8 @@ class Controller:
             if self.session.get('phase') != 'countdown' or self.current_action_id != action_id:
                 raise Refused('That proposal is no longer active')
             self.try_now_event.set()
+            self.session['phase'] = 'stage'
+            self._save_session()
             return self.snapshot()
 
     def skip(self, action_id):
@@ -307,12 +408,17 @@ class Controller:
     def pause(self):
         """Pause Auto Climb (including during countdown or between steps)."""
         with self.lock:
-            if not self.session or self.session.get('phase') in ('idle', 'stopped', 'plateau', 'budget-exhausted'):
+            if not self.session or self.session.get('phase') in ('idle', 'stopped', 'plateau', 'options-exhausted', 'budget-exhausted', 'blocked'):
                 raise Refused('No active Auto Climb session to pause')
             self.pause_event.set()
+            self.cancel_event.set()
             self.current_action_id = None
             self.session['phase'] = 'paused'
             self.session['message'] = 'Auto Climb paused. Resume whenever you are ready.'
+            self._save_session()
+            if self.worker and self.worker.is_alive():
+                self.worker.join(timeout=2.0)
+            self.session['phase'] = 'paused'
             self._save_session()
             return self.snapshot()
 
@@ -321,7 +427,13 @@ class Controller:
         with self.startup.lock, self.lock:
             if not self.session or self.session.get('phase') != 'paused':
                 raise Refused('Session is not paused')
+            if self.worker is not None and self.worker.is_alive():
+                self.worker.join(timeout=2.0)
+                if self.worker.is_alive():
+                    raise Refused('Previous Auto Climb worker is still terminating')
+
             self.pause_event.clear()
+            self.cancel_event.clear()
             self.skip_event.clear()
             self.try_now_event.clear()
             self.stop_event.clear()
@@ -341,10 +453,52 @@ class Controller:
             if not self.session or self.session.get('phase') in ('idle', 'stopped'):
                 return self.snapshot()
             self.stop_event.set()
+            self.cancel_event.set()
             self.current_action_id = None
+
+            # If mutation in flight, safely restore
+            mutation = self.session.get('mutation')
+            if mutation:
+                raw_before = mutation.get('raw_before')
+                expected_after = mutation.get('expected_after')
+                agents = agents_path(self.home)
+                if agents.exists() and read_text(agents) == expected_after and raw_before is not None:
+                    write_text(agents, raw_before)
+                self.session.pop('mutation', None)
+
             self.session['phase'] = 'stopped'
             self.session['stopping_reason'] = 'Stopped by owner'
             self.session['message'] = 'Auto Climb stopped.'
+            self._save_session()
+            return self.snapshot()
+
+    def undo(self):
+        """Revert all kept changes from this session back to the initial baseline, protecting owner edits."""
+        with self.startup.lock, self.lock:
+            if not self.session:
+                raise Refused('No Auto Climb session to undo')
+            if self.worker is not None and self.worker.is_alive():
+                raise Refused('Cannot undo while Auto Climb is actively running')
+            initial_raw = self.session.get('initial_raw_before')
+            if initial_raw is None:
+                raise Refused('No initial baseline recorded for undo')
+            current_kept = self.session.get('current_kept_raw', initial_raw)
+            clean_initial = initial_raw.replace('\r\n', '\n') if isinstance(initial_raw, str) else ''
+            clean_kept = current_kept.replace('\r\n', '\n') if isinstance(current_kept, str) else ''
+            if clean_kept == clean_initial:
+                raise Refused('No kept changes to undo')
+            agents = agents_path(self.home)
+            current = read_text(agents)
+            clean_current = current.replace('\r\n', '\n') if isinstance(current, str) else ''
+            if clean_current != clean_kept:
+                raise Refused('Workspace was modified since Auto Climb; Undo blocked to preserve owner edits.')
+
+            write_text(agents, initial_raw)
+            self._restart_assistant()
+            self.session['current_kept_raw'] = initial_raw
+            self.session['phase'] = 'stopped'
+            self.session['stopping_reason'] = 'Undone to initial baseline by owner.'
+            self.session['message'] = self.session['stopping_reason']
             self._save_session()
             return self.snapshot()
 
@@ -353,6 +507,7 @@ class Controller:
         with self.lock:
             self.closed = True
             self.stop_event.set()
+            self.cancel_event.set()
             worker = self.worker
         if worker and worker.is_alive():
             worker.join(timeout=5)
@@ -362,7 +517,7 @@ class Controller:
     # -------------------------------------------------------------------------
 
     def _run_session(self):
-        session_start_time = self.clock()
+        slice_start_time = self.clock()
         try:
             # 1. Assessment / Baseline check
             if not self.session.get('starting_level'):
@@ -373,7 +528,10 @@ class Controller:
                 practice_baseline = self._run_task_suite('baseline', self.practice_tasks, 'practice')
                 if self._should_stop():
                     return
-                validation_baseline = self._run_task_suite('baseline', self.validation_tasks, 'validation')
+
+                # Baseline on partition 1 (initial reference)
+                p1 = self.validation_partitions[0]
+                validation_baseline = self._run_task_suite('baseline', p1, 'validation')
                 if self._should_stop():
                     return
 
@@ -391,20 +549,25 @@ class Controller:
                 self.session['current_level'] = baseline_level
                 self.session['practice_baseline'] = practice_baseline
                 self.session['validation_baseline'] = validation_baseline
+                self.session['partition_baselines'] = {p1['id']: validation_baseline}
                 self._save_session()
 
             # Main experiment loop
             while not self._should_stop():
-                # Check budgets before proposing
-                if self._check_budget_exhaustion(session_start_time):
+                # Check budgets before selecting candidate
+                if self._check_budget_exhaustion(slice_start_time):
                     break
 
                 # 2. Select next candidate
                 candidate = self._select_next_candidate()
                 if candidate is None:
-                    # No candidates remaining -> Plateau!
-                    self.session['phase'] = 'plateau'
-                    self.session['stopping_reason'] = 'Plateau within this session’s tested options: all evaluated.'
+                    # Differentiate plateau vs options exhausted
+                    if self.session.get('experiments_since_last_gain', 0) >= 3:
+                        self.session['phase'] = 'plateau'
+                        self.session['stopping_reason'] = 'Plateau within this session’s tested options: 3 consecutive experiments showed no validated gain and all options evaluated.'
+                    else:
+                        self.session['phase'] = 'options-exhausted'
+                        self.session['stopping_reason'] = 'Options exhausted within approved session.'
                     self.session['message'] = self.session['stopping_reason']
                     self._save_session()
                     break
@@ -419,13 +582,7 @@ class Controller:
                     self.session['message'] = f'Suggested next improvement: {candidate["title"]}'
                     self._save_session()
 
-                # Release lab_active during countdown so UI/reconnect remains responsive
-                with self.lock:
-                    self.startup.lab_active = False
-
                 countdown_result = self._await_countdown(action_id)
-                with self.lock:
-                    self.startup.lab_active = True
 
                 if countdown_result == 'stopped':
                     break
@@ -442,16 +599,24 @@ class Controller:
                     self._save_session()
                     continue
 
-                # 4. Countdown passed or Try Now clicked -> Execute experiment!
-                self._execute_experiment(candidate, session_start_time)
+                # 4. Countdown passed or Try Now clicked -> Reserve experiment slot durably!
+                budgets = self.session.setdefault('budgets_used', {})
+                budgets['completed_experiments'] = budgets.get('completed_experiments', 0) + 1
+                self._save_session()
+
+                # Execute experiment!
+                self._execute_experiment(candidate, slice_start_time)
 
                 # Check plateau policy after experiment
                 if self.session.get('experiments_since_last_gain', 0) >= 3:
-                    self.session['phase'] = 'plateau'
-                    self.session['stopping_reason'] = 'Plateau within this session’s tested options: 3 consecutive experiments showed no validated gain.'
-                    self.session['message'] = self.session['stopping_reason']
-                    self._save_session()
-                    break
+                    # Check if all options evaluated
+                    remaining = self._select_next_candidate()
+                    if remaining is None:
+                        self.session['phase'] = 'plateau'
+                        self.session['stopping_reason'] = 'Plateau within this session’s tested options: 3 consecutive experiments showed no validated gain and all options evaluated.'
+                        self.session['message'] = self.session['stopping_reason']
+                        self._save_session()
+                        break
 
         except Exception as error:
             import traceback
@@ -463,6 +628,11 @@ class Controller:
                 self._save_session()
         finally:
             with self.lock:
+                # Accumulate elapsed slice duration
+                elapsed = max(0, int(self.clock() - slice_start_time))
+                budgets = self.session.setdefault('budgets_used', {})
+                budgets['duration_seconds'] = budgets.get('duration_seconds', 0) + elapsed
+                self._save_session()
                 self.startup.lab_active = False
 
     def _should_stop(self):
@@ -486,11 +656,11 @@ class Controller:
             return 'stopped' if self.stop_event.is_set() else 'paused'
         return 'proceed'
 
-    def _check_budget_exhaustion(self, session_start_time):
+    def _check_budget_exhaustion(self, slice_start_time):
         envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
         budgets = self.session.get('budgets_used', {})
-        elapsed = int(self.clock() - session_start_time)
-        budgets['duration_seconds'] = elapsed
+        current_slice = int(self.clock() - slice_start_time)
+        total_duration = budgets.get('duration_seconds', 0) + current_slice
 
         if budgets.get('completed_experiments', 0) >= envelope.get('max_experiments', 6):
             self.session['phase'] = 'budget-exhausted'
@@ -499,7 +669,7 @@ class Controller:
             self._save_session()
             return True
 
-        if elapsed >= envelope.get('max_duration_seconds', 3600):
+        if total_duration >= envelope.get('max_duration_seconds', 3600):
             self.session['phase'] = 'budget-exhausted'
             self.session['stopping_reason'] = f'Session time budget reached ({envelope.get("max_duration_seconds") // 60} minutes).'
             self.session['message'] = self.session['stopping_reason']
@@ -525,24 +695,56 @@ class Controller:
                 return cand
         return None
 
-    def _execute_experiment(self, candidate, session_start_time):
-        """Reversibly stage candidate, retest, validate, and Keep or Restore."""
+    def _get_next_fresh_partition(self, exclude=None):
+        exclude = set(exclude or [])
+        consumed = set(self.session.get('exposure_ledger', {}).get('consumed_partitions', []))
+        for p in self.validation_partitions:
+            if p['id'] not in consumed and p['id'] not in exclude:
+                return p
+        return None
+
+    def _execute_experiment(self, candidate, slice_start_time):
+        """Reversibly stage candidate, retest, validate on fresh partitions, and Keep or Restore."""
         kind = candidate.get('kind', 'instruction')
         raw_before = read_text(agents_path(self.home)) or ''
         fp_before = fingerprint(self.home)
+        change_id = candidate.get('change_id')
+        raw_after = staged(raw_before, change_id) if change_id else raw_before
 
-        # 1. Stage change
+        # Ensure fresh validation partitions are pre-evaluated on the clean current kept build (raw_before)
+        p1 = self._get_next_fresh_partition()
+        p2 = self._get_next_fresh_partition(exclude=[p1['id']] if p1 else [])
+        if p1 is None or p2 is None:
+            self.session['phase'] = 'blocked'
+            self.session['stopping_reason'] = 'Fresh validation inventory exhausted; automatic promotion paused.'
+            self.session['message'] = self.session['stopping_reason']
+            self._save_session()
+            return
+
+        p_baselines = self.session.setdefault('partition_baselines', {})
+        if p1['id'] not in p_baselines:
+            p_baselines[p1['id']] = self._run_task_suite('baseline', p1, f'kept-{p1["id"]}')
+        if p2['id'] not in p_baselines:
+            p_baselines[p2['id']] = self._run_task_suite('baseline', p2, f'kept-{p2["id"]}')
+        self._save_session()
+
+        # 1. Journal mutation before write
         self.session['phase'] = 'stage'
         self.session['message'] = f'Staging: {candidate["title"]}…'
+        self.session['mutation'] = {
+            'kind': kind,
+            'raw_before': raw_before,
+            'expected_after': raw_after,
+            'fingerprint': fp_before,
+            'candidate_id': candidate['id'],
+            'staged_at': datetime.now(timezone.utc).isoformat(),
+        }
         self._save_session()
 
         if kind == 'instruction':
-            change_id = candidate['change_id']
-            raw_after = staged(raw_before, change_id)
             write_text(agents_path(self.home), raw_after)
             self._restart_assistant()
         elif kind == 'model':
-            # AC3 model switch
             if self.model_switcher:
                 self.model_switcher(candidate['tag'])
                 self._restart_assistant()
@@ -554,17 +756,11 @@ class Controller:
 
         practice_retest = self._run_task_suite('practice', self.practice_tasks, candidate['title'])
         if self._should_stop():
-            if kind == 'instruction':
-                write_text(agents_path(self.home), raw_before)
-                self._restart_assistant()
-            elif kind == 'model' and self.model_switcher:
-                self.model_switcher(self.session['active_model']['model'])
-                self._restart_assistant()
+            self._restore_instruction(raw_before, raw_after)
             return
 
+        # Compare against REBASED practice baseline (current kept build)
         practice_comp = assistant_trial.compare(self.session['practice_baseline'], practice_retest)
-
-        # Did practice improve?
         practice_improved = len(practice_comp['gains']) >= 2 and not practice_comp['regressions']
 
         validation_comp = None
@@ -572,78 +768,89 @@ class Controller:
         decision_reason = ''
 
         if practice_improved:
-            # 3. Independent Held-out Validation!
+            # 3. Independent Fresh Held-Out Validation!
             self.session['phase'] = 'validate'
-            self.session['message'] = 'Practice showed gains. Verifying on independent held-out challenges…'
+            self.session['message'] = 'Practice showed gains. Verifying on fresh independent validation partition…'
             self._save_session()
 
-            validation_retest = self._run_task_suite('validation', self.validation_tasks, candidate['title'])
+            # Consume partition 1
+            self.session.setdefault('exposure_ledger', {}).setdefault('consumed_partitions', []).append(p1['id'])
+            self._save_session()
+
+            p1_baseline = p_baselines[p1['id']]
+            val1_retest = self._run_task_suite('validation', p1, candidate['title'])
             if self._should_stop():
-                if kind == 'instruction':
-                    write_text(agents_path(self.home), raw_before)
-                    self._restart_assistant()
-                elif kind == 'model' and self.model_switcher:
-                    self.model_switcher(self.session['active_model']['model'])
-                    self._restart_assistant()
+                self._restore_instruction(raw_before, raw_after)
                 return
 
-            validation_comp = assistant_trial.compare(self.session['validation_baseline'], validation_retest)
+            comp1 = assistant_trial.compare(p1_baseline, val1_retest)
+            val1_improved = len(comp1['gains']) >= 1 and not comp1['regressions']
 
-            validation_improved = len(validation_comp['gains']) >= 1 and not validation_comp['regressions']
-
-            if validation_improved:
-                verdict = 'kept'
-                decision_reason = 'Validated gain on both practice challenges and independent held-out checks.'
-            else:
+            if not val1_improved:
                 verdict = 'restored'
-                decision_reason = 'Practice showed potential gains, but held-out validation did not confirm generalization.'
+                decision_reason = 'Practice showed potential gains, but fresh validation partition 1 did not confirm generalization.'
+                validation_comp = comp1
+            else:
+                # 4. Confirmation on a SECOND disjoint fresh partition!
+                self.session.setdefault('exposure_ledger', {}).setdefault('consumed_partitions', []).append(p2['id'])
+                self._save_session()
+
+                p2_baseline = p_baselines[p2['id']]
+                val2_retest = self._run_task_suite('validation', p2, candidate['title'])
+                if self._should_stop():
+                    self._restore_instruction(raw_before, raw_after)
+                    return
+
+                comp2 = assistant_trial.compare(p2_baseline, val2_retest)
+                val2_improved = len(comp2['gains']) >= 1 and not comp2['regressions']
+
+                if val2_improved:
+                    verdict = 'kept'
+                    decision_reason = 'Confirmed gain on both disjoint fresh validation partitions.'
+                    validation_comp = comp2
+                else:
+                    verdict = 'restored'
+                    decision_reason = 'Validation partition 1 showed gains, but disjoint confirmation partition did not confirm.'
+                    validation_comp = comp2
         else:
             verdict = 'restored'
             decision_reason = (f'Practice challenges did not meet win threshold ({len(practice_comp["gains"])} gains, '
                                f'{len(practice_comp["regressions"])} regressions; needs ≥2 gains, 0 regressions).')
 
-        # 4. Keep or Restore
+        # 5. Keep or Restore
         self.session['phase'] = 'keep-or-restore'
         self.session['message'] = f'Decision: {verdict.upper()} ({decision_reason})'
         self._save_session()
 
         if verdict == 'kept':
-            # Kept: update raw_before to new kept content
-            self.session['raw_before'] = read_text(agents_path(self.home))
+            # Rebase practice baseline onto the newly verified kept build!
+            self.session['practice_baseline'] = practice_retest
+            p_baselines[p1['id']] = val1_retest
+            p_baselines[p2['id']] = val2_retest
+            self.session['current_kept_raw'] = read_text(agents_path(self.home))
+            self.session['raw_before'] = self.session['current_kept_raw']
             self.session['experiments_since_last_gain'] = 0
+            self.session.pop('mutation', None)
 
-            # Update current level
+            # Update current level metrics
             passed_practice = sum(1 for r in practice_retest if r['passed'])
-            passed_val = sum(1 for r in (validation_retest if validation_comp else self.session['validation_baseline']) if r['passed'])
+            passed_val = sum(1 for r in val2_retest if r['passed']) if 'val2_retest' in locals() else 0
             self.session['current_level'] = {
                 'practice_passed': passed_practice,
                 'practice_total': len(practice_retest),
                 'validation_passed': passed_val,
-                'validation_total': len(self.validation_tasks['tasks']),
-                'label': f'{passed_practice}/{len(practice_retest)} practice · {passed_val}/{len(self.validation_tasks["tasks"])} validation',
+                'validation_total': len(val2_retest) if 'val2_retest' in locals() else 8,
+                'label': f'{passed_practice}/{len(practice_retest)} practice · {passed_val}/8 validation',
             }
         else:
-            # Restore byte-for-byte
-            if kind == 'instruction':
-                write_text(agents_path(self.home), raw_before)
-                self._restart_assistant()
-                restored = read_text(agents_path(self.home))
-                if restored != raw_before:
-                    raise ValueError('Restoration could not be verified byte-for-byte')
-            elif kind == 'model':
-                if self.model_switcher:
-                    self.model_switcher(self.session['active_model']['model'])
-                    self._restart_assistant()
+            self._restore_instruction(raw_before, raw_after)
             self.session['experiments_since_last_gain'] = self.session.get('experiments_since_last_gain', 0) + 1
 
         # Record experiment record in session history
         budgets = self.session.setdefault('budgets_used', {})
-        budgets['completed_experiments'] = budgets.get('completed_experiments', 0) + 1
-        budgets['duration_seconds'] = int(self.clock() - session_start_time)
-
         self.session.setdefault('completed_candidates', []).append(candidate['id'])
         self.session.setdefault('history', []).append({
-            'experiment_index': budgets['completed_experiments'],
+            'experiment_index': budgets.get('completed_experiments', 0),
             'candidate': candidate,
             'verdict': verdict,
             'reason': decision_reason,
@@ -661,8 +868,37 @@ class Controller:
         })
         self._save_session()
 
+    def _restore_instruction(self, raw_before, raw_after):
+        """Guarded restoration checking for owner edits."""
+        agents = agents_path(self.home)
+        if not agents.exists():
+            return
+        current = read_text(agents)
+        clean_current = current.replace('\r\n', '\n') if isinstance(current, str) else ''
+        clean_after = raw_after.replace('\r\n', '\n') if isinstance(raw_after, str) else ''
+        clean_before = raw_before.replace('\r\n', '\n') if isinstance(raw_before, str) else ''
+
+        if clean_current == clean_after:
+            write_text(agents, raw_before)
+            restored = read_text(agents)
+            if (restored.replace('\r\n', '\n') if isinstance(restored, str) else '') != clean_before:
+                raise ValueError('Restoration could not be verified byte-for-byte')
+            self.session.pop('mutation', None)
+            self._restart_assistant()
+        elif clean_current == clean_before:
+            self.session.pop('mutation', None)
+        else:
+            # Owner edit detected! DO NOT overwrite!
+            self.session['phase'] = 'blocked'
+            self.session['failure_code'] = 'owner-edit-conflict'
+            self.session['message'] = 'Owner edit detected during experiment; preserved without overwriting. Session blocked.'
+            self._save_session()
+
     def _run_task_suite(self, side, suite, label):
         """Run tasks through OpenClaw runner turn-by-turn with live streaming progress."""
+        if self.runner is None or not hasattr(self.runner, 'turn'):
+            raise TrialTurnError('missing-runner')
+
         results = []
         passages = suite.get('passages', {})
         tasks = suite.get('tasks', [])
@@ -690,40 +926,42 @@ class Controller:
                 'current': current_item,
             }
 
-            reply_text = ''
-            elapsed = 0.0
             start_t = self.clock()
-            if self.runner and hasattr(self.runner, 'turn'):
-                reply_text = self.runner.turn(prompt_msg)
-            elapsed = round(self.clock() - start_t, 2)
+            try:
+                turn_res = self.runner.turn(prompt_msg)
+            except TrialTurnError as exc:
+                if self._should_stop() or (hasattr(exc, 'code') and exc.code == 'cancelled'):
+                    break
+                raise
+            if isinstance(turn_res, dict):
+                reply_text = turn_res.get('text', '')
+                elapsed = turn_res.get('elapsed_seconds', round(self.clock() - start_t, 2))
+            elif isinstance(turn_res, str):
+                reply_text = turn_res
+                elapsed = round(self.clock() - start_t, 2)
+            else:
+                raise TrialTurnError('invalid-reply')
+
+            if not reply_text or not reply_text.strip():
+                raise TrialTurnError('empty-reply')
 
             score_res = score(task, passages, reply_text)
-            outcome = {
+            receipt = {
                 'id': task['id'],
                 'kind': task['kind'],
                 'passed': score_res['passed'],
                 'checks': score_res['checks'],
-                'reply': reply_text,
+                'reply': {
+                    'text': reply_text,
+                    'elapsed_seconds': elapsed,
+                    'session_id': getattr(self.runner, 'session_id', None) or f'turn-{idx}',
+                },
                 'elapsed_seconds': elapsed,
             }
-            results.append(outcome)
-            self.current_receipts.append(outcome)
 
-            self.current_progress['latest'] = outcome
+            results.append(receipt)
+            self.current_receipts.append(receipt)
+            self.current_progress['latest'] = receipt
+            self.current_progress['done'] = idx + 1
 
         return results
-
-    def _restart_assistant(self):
-        """Restart OpenClaw assistant and wait for verified readiness."""
-        if hasattr(self.startup, 'stop'):
-            self.startup.stop()
-        if hasattr(self.startup, 'start'):
-            with self.startup.lock:
-                self.startup.start(_reserved=True)
-        # Bounded readiness check
-        deadline = self.clock() + 30.0
-        while self.clock() < deadline:
-            snap = self.startup.snapshot() if hasattr(self.startup, 'snapshot') else {'active': True}
-            if snap.get('active'):
-                return
-            self.sleep_fn(0.1)

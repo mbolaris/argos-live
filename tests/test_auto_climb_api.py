@@ -31,9 +31,13 @@ class FakeRunner:
     def __init__(self):
         self.gate = threading.Event()
         self.gate.set()
+        self.cancel_event = None
 
     def turn(self, prompt):
-        self.gate.wait(timeout=5)
+        while not self.gate.is_set():
+            if self.cancel_event and self.cancel_event.is_set():
+                raise auto_climb.assistant_trial.TrialTurnError('cancelled')
+            self.gate.wait(timeout=0.05)
         return 'Test response.'
 
 

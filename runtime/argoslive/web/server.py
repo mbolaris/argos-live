@@ -374,7 +374,7 @@ class Handler(BaseHTTPRequestHandler):
             auto = self.server.auto_climb
             action_name = path.removeprefix('/api/auto-climb/')
             from argoslive.auto_climb import Refused
-            if action_name in ('pause', 'resume', 'stop'):
+            if action_name in ('pause', 'resume', 'stop', 'undo'):
                 if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
                     self.reply(400, {'error': 'An empty request is required'})
                     return

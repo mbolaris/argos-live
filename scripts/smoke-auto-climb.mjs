@@ -144,12 +144,19 @@ try {
   // 3. Test Try now override
   await tryNowBtn.click();
 
+  // Wait for experiment to leave countdown
+  await page.waitForFunction(() => {
+    const badge = document.querySelector('#auto-climb-badge');
+    const b = badge ? badge.textContent.trim().toUpperCase() : '';
+    return b !== 'COUNTDOWN';
+  }, {timeout: 10000});
+
   // Wait for experiment to run and advance (to next proposal countdown, plateau, or completed)
   await page.waitForFunction(() => {
     const badge = document.querySelector('#auto-climb-badge');
     const b = badge ? badge.textContent.trim().toUpperCase() : '';
-    return ['COUNTDOWN', 'PAUSED', 'PLATEAU', 'COMPLETED', 'BUDGET-EXHAUSTED'].includes(b);
-  }, {timeout: 20000});
+    return ['COUNTDOWN', 'PAUSED', 'PLATEAU', 'COMPLETED', 'BUDGET-EXHAUSTED', 'OPTIONS-EXHAUSTED'].includes(b);
+  }, {timeout: 30000});
 
   await shot('04-experiment-advanced');
 
