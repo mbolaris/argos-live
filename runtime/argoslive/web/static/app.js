@@ -2775,6 +2775,10 @@ const commandActions = {
   reboot: () => focusSection('storage-title', 'reboot-check'),
   chat: () => document.getElementById('chat').click(),
   task: () => { const box = document.getElementById('cc-task-box'); box.open = true; focusSection('cc-task-box', 'cc-doc'); },
+  'auto-climb': () => {
+    focusSection('auto-climb');
+    if (autoClimb?.available && !autoClimb.active && autoClimb.phase === 'idle') autoClimbAction('start');
+  },
   restore: () => {
     if (!commandAction?.model) return focusSection('models-title');
     selectionTag = commandAction.model;
@@ -2782,7 +2786,21 @@ const commandActions = {
     document.getElementById('selection-confirm').disabled = false;
     document.getElementById('selection-review').showModal();
   }};
-function presentedNextAction(next, trial, report) {
+function presentedNextAction(next, trial, report, climb = autoClimb) {
+  if (climb?.available && (climb.active || ['countdown', 'paused'].includes(climb.phase))) {
+    if (climb.phase === 'countdown') {
+      return {...next, id: 'auto-climb', title: 'Next improvement: ' + (climb.proposal?.title || 'Idea'),
+        reason: '30-second countdown is running. Try now, skip, or pause.', action: 'auto-climb'};
+    }
+    if (climb.active) {
+      return {...next, id: 'auto-climb', title: 'Watch Auto Climb in progress',
+        reason: climb.message || 'Your AI is working on live challenges.', action: 'auto-climb'};
+    }
+    if (climb.phase === 'paused') {
+      return {...next, id: 'auto-climb', title: 'Resume Auto Climb',
+        reason: 'Auto Climb is paused. Resume whenever you are ready.', action: 'auto-climb'};
+    }
+  }
   if (!trial?.available) return next;
   if (!trial.active && ['none', 'kept'].includes(trial.status) &&
       ['failed', 'recovery-blocked', 'rolled-back', 'cancelled'].includes(trial.result_state)) {
@@ -2895,17 +2913,20 @@ async function refreshCommand() {
     }
     // If diagnostics are the backend recommendation, lead with the reviewed
     // reversible assistant trial when it is available. Approval remains explicit.
-    const next = presentedNextAction(value.next_action, assistantTrial, value.report);
+    const next = presentedNextAction(value.next_action, assistantTrial, value.report, autoClimb);
     commandAction = next;
-    document.getElementById('cc-next-label').textContent = next.action === 'assistant-trial'
-      ? (assistantTrial?.active ? 'Live improvement run' : 'Your next move') : 'Recommended next mission';
+    document.getElementById('cc-next-label').textContent = next.action === 'auto-climb'
+      ? (autoClimb?.active ? 'Auto Climb active' : 'Your next move')
+      : (next.action === 'assistant-trial' ? (assistantTrial?.active ? 'Live improvement run' : 'Your next move') : 'Recommended next mission');
     document.getElementById('cc-next-title').textContent = next.title;
     document.getElementById('cc-next-reason').textContent = next.reason;
     const go = document.getElementById('cc-next-go');
     go.hidden = !next.action;
-    const actionLabel = next.action === 'assistant-trial'
-      ? (assistantTrial?.active ? 'Watch live answers' : assistantTrial?.status === 'on-trial' ? 'Review the result' : 'Start improvement round')
-      : ({documents: 'Start reading challenge', baseline: 'Start quick check', chat: 'Open chat', review: 'Review results', wait: 'View progress'}[next.action] || next.title);
+    const actionLabel = next.action === 'auto-climb'
+      ? (autoClimb?.active ? 'Watch Auto Climb' : autoClimb?.phase === 'countdown' ? 'Review next idea' : autoClimb?.phase === 'paused' ? 'Resume Auto Climb' : 'Start Auto Climb')
+      : (next.action === 'assistant-trial'
+        ? (assistantTrial?.active ? 'Watch live answers' : assistantTrial?.status === 'on-trial' ? 'Review the result' : 'Start improvement round')
+        : ({documents: 'Start reading challenge', baseline: 'Start quick check', chat: 'Open chat', review: 'Review results', wait: 'View progress'}[next.action] || next.title));
     go.replaceChildren(document.createTextNode(actionLabel + ' '));
     const arrow = document.createElement('span'); arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '▶'; go.append(arrow);
     go.setAttribute('aria-label', actionLabel);
@@ -4223,3 +4244,207 @@ const handleRestoreRecipeClick = async () => {
 };
 document.getElementById('lab-recipe-restore')?.addEventListener('click', handleRestoreRecipeClick);
 document.getElementById('receipt-restore-recipe')?.addEventListener('click', handleRestoreRecipeClick);
+
+/* Auto Climb Coordinator client logic */
+let autoClimb = null;
+let autoClimbActionPending = false;
+let autoClimbCountdownTimer = null;
+let autoClimbCountdownSecs = 30;
+
+async function refreshAutoClimb() {
+  if (autoClimbActionPending) return;
+  try {
+    const val = await api('/api/auto-climb');
+    const prevPhase = autoClimb?.phase;
+    autoClimb = val;
+    renderAutoClimb();
+    if (prevPhase !== val.phase) await refreshCommand();
+  } catch (_) {}
+}
+
+async function autoClimbAction(action, body = null) {
+  if (autoClimbActionPending) return;
+  autoClimbActionPending = true;
+  try {
+    const opts = {method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'};
+    if (body) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    const res = await fetch('/api/auto-climb/' + action, opts);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Action failed');
+    autoClimb = data;
+    renderAutoClimb();
+    await refreshCommand();
+  } catch (err) {
+    const msg = document.getElementById('auto-climb-message');
+    if (msg) msg.textContent = err.message;
+  } finally {
+    autoClimbActionPending = false;
+    renderAutoClimb();
+  }
+}
+
+function renderAutoClimb() {
+  const card = document.getElementById('auto-climb');
+  if (!card) return;
+  const val = autoClimb;
+  card.hidden = !val?.available;
+  if (!val?.available) return;
+
+  const phase = val.phase || 'idle';
+  const badge = document.getElementById('auto-climb-badge');
+  if (badge) {
+    badge.textContent = phase.toUpperCase();
+    badge.className = 'auto-climb-badge ' + phase;
+  }
+  const msg = document.getElementById('auto-climb-message');
+  if (msg && val.message) msg.textContent = val.message;
+
+  const show = (id, visible) => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = !visible;
+  };
+
+  show('auto-climb-start-view', phase === 'idle');
+  show('auto-climb-countdown-view', phase === 'countdown');
+  show('auto-climb-watch-view', ['assess', 'stage', 'retest', 'validate', 'keep-or-restore'].includes(phase));
+  show('auto-climb-summary-view', ['paused', 'stopped', 'plateau', 'budget-exhausted'].includes(phase));
+
+  // Countdown view
+  if (phase === 'countdown' && val.countdown) {
+    const cd = val.countdown;
+    autoClimbCountdownSecs = cd.seconds_remaining;
+    const cdSecs = document.getElementById('auto-climb-countdown-secs');
+    if (cdSecs) cdSecs.textContent = autoClimbCountdownSecs;
+
+    if (!autoClimbCountdownTimer) {
+      autoClimbCountdownTimer = setInterval(() => {
+        if (autoClimbCountdownSecs > 0) {
+          autoClimbCountdownSecs--;
+          if (cdSecs) cdSecs.textContent = autoClimbCountdownSecs;
+        } else {
+          clearInterval(autoClimbCountdownTimer);
+          autoClimbCountdownTimer = null;
+          refreshAutoClimb();
+        }
+      }, 1000);
+    }
+
+    const prop = cd.proposal || val.proposal || {};
+    const propTitle = document.getElementById('auto-climb-prop-title');
+    if (propTitle) propTitle.textContent = prop.title || 'Candidate idea';
+    const propChange = document.getElementById('auto-climb-prop-change');
+    if (propChange) propChange.textContent = prop.change || '';
+    const propWhy = document.getElementById('auto-climb-prop-why');
+    if (propWhy) propWhy.textContent = prop.rationale || '';
+    const propCost = document.getElementById('auto-climb-prop-cost');
+    if (propCost) propCost.textContent = prop.cost || '';
+    const propCheck = document.getElementById('auto-climb-prop-check');
+    if (propCheck) propCheck.textContent = prop.verification || '';
+  } else {
+    if (autoClimbCountdownTimer) {
+      clearInterval(autoClimbCountdownTimer);
+      autoClimbCountdownTimer = null;
+    }
+  }
+
+  // Watch view
+  if (['assess', 'stage', 'retest', 'validate', 'keep-or-restore'].includes(phase)) {
+    const prog = val.progress;
+    const stageEl = document.getElementById('auto-climb-watch-stage');
+    if (stageEl) {
+      stageEl.textContent = phase === 'assess' ? 'Evaluating baseline' :
+        phase === 'stage' ? 'Staging candidate' :
+        phase === 'retest' ? 'Testing practice challenges' :
+        phase === 'validate' ? 'Running independent validation' : 'Resolving decision';
+    }
+    const tallyEl = document.getElementById('auto-climb-watch-tally');
+    if (tallyEl && prog) tallyEl.textContent = `${prog.done + 1} / ${prog.total} challenges`;
+
+    if (prog?.current) {
+      const cur = prog.current;
+      const kindEl = document.getElementById('auto-climb-watch-kind');
+      if (kindEl) kindEl.textContent = cur.kind || 'challenge';
+      const idEl = document.getElementById('auto-climb-watch-task-id');
+      if (idEl) idEl.textContent = cur.id || '';
+      const passText = document.getElementById('auto-climb-watch-passage-text');
+      if (passText) passText.textContent = cur.passage || '(None)';
+      const qText = document.getElementById('auto-climb-watch-question');
+      if (qText) qText.textContent = cur.question || '';
+    }
+    const replyEl = document.getElementById('auto-climb-watch-reply');
+    if (replyEl && prog?.latest) replyEl.textContent = prog.latest.reply || '(Awaiting reply)';
+
+    // Receipts
+    const receiptsList = document.getElementById('auto-climb-receipts-list');
+    if (receiptsList && val.receipts) {
+      receiptsList.replaceChildren(...val.receipts.map(r => {
+        const li = document.createElement('li');
+        li.className = 'receipt-chip ' + (r.passed ? 'passed' : 'missed');
+        li.textContent = `${r.passed ? '✓' : '○'} ${r.id}`;
+        return li;
+      }));
+    }
+  }
+
+  // Summary view
+  if (['paused', 'stopped', 'plateau', 'budget-exhausted'].includes(phase)) {
+    const vTitle = document.getElementById('auto-climb-verdict-title');
+    if (vTitle) {
+      vTitle.textContent = phase === 'plateau' ? 'Measured plateau reached' :
+        phase === 'budget-exhausted' ? 'Session budget limit reached' :
+        phase === 'paused' ? 'Auto Climb paused' : 'Auto Climb stopped';
+    }
+    const vReason = document.getElementById('auto-climb-verdict-reason');
+    if (vReason) vReason.textContent = val.stopping_reason || val.message || '';
+
+    const startLvl = document.getElementById('auto-climb-starting-level');
+    if (startLvl) startLvl.textContent = val.starting_level?.label || 'Not tested';
+    const curLvl = document.getElementById('auto-climb-current-level');
+    if (curLvl) curLvl.textContent = val.current_level?.label || 'Not tested';
+
+    show('auto-climb-resume-btn', phase === 'paused');
+    show('auto-climb-restart-btn', ['stopped', 'plateau', 'budget-exhausted'].includes(phase));
+
+    const histList = document.getElementById('auto-climb-history-list');
+    const histCount = document.getElementById('auto-climb-history-count');
+    if (histCount) histCount.textContent = (val.history || []).length;
+    if (histList && val.history) {
+      histList.replaceChildren(...val.history.map(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        const verdictClass = item.verdict || 'unknown';
+        const candTitle = item.candidate?.title || 'Experiment';
+        const rText = item.reason || '';
+        div.innerHTML = `
+          <div class="history-item-head">
+            <strong>${candTitle}</strong>
+            <span class="history-verdict ${verdictClass}">${item.verdict || ''}</span>
+          </div>
+          <p>${rText}</p>
+        `;
+        return div;
+      }));
+    }
+  }
+}
+
+document.getElementById('auto-climb-start-btn')?.addEventListener('click', () => autoClimbAction('start'));
+document.getElementById('auto-climb-try-now-btn')?.addEventListener('click', () => {
+  if (autoClimb?.countdown?.action_id) autoClimbAction('try-now', {action_id: autoClimb.countdown.action_id});
+});
+document.getElementById('auto-climb-skip-btn')?.addEventListener('click', () => {
+  if (autoClimb?.countdown?.action_id) autoClimbAction('skip', {action_id: autoClimb.countdown.action_id});
+});
+document.getElementById('auto-climb-pause-btn')?.addEventListener('click', () => autoClimbAction('pause'));
+document.getElementById('auto-climb-watch-pause-btn')?.addEventListener('click', () => autoClimbAction('pause'));
+document.getElementById('auto-climb-resume-btn')?.addEventListener('click', () => autoClimbAction('resume'));
+document.getElementById('auto-climb-stop-btn')?.addEventListener('click', () => autoClimbAction('stop'));
+document.getElementById('auto-climb-watch-stop-btn')?.addEventListener('click', () => autoClimbAction('stop'));
+document.getElementById('auto-climb-restart-btn')?.addEventListener('click', () => autoClimbAction('start'));
+
+setInterval(refreshAutoClimb, 2000);
+refreshAutoClimb();
+
