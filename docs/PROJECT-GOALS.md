@@ -1,5 +1,13 @@
 # Project goals
 
+October 11 direction: **Auto Climb** is the next product target. One button after
+boot assesses the current AI, tries eligible hardware-fitting model upgrades and
+reversible assistant improvements within an approved session, and continues until
+a measured scoped plateau or budget limit. Each next experiment has a 30-second
+preview with Try now, Skip and Pause. See [Auto Climb implementation handoff](AUTO-CLIMB-HANDOFF.md)
+for the current plan and bounded automatic decision policy extending the older
+manual Keep/Restore flow below. This target is not yet implemented.
+
 Product direction updated October 8, 2026. The implementation backlog is [BACKLOG.md](BACKLOG.md); this document says what we are building and why. The dated implementation snapshot below remains historical evidence.
 
 Argos Live is a bootable Debian live distribution for playing with local agents and models. Someone should be able to boot it, chat with a local model, try other models, and get trustworthy speed and ability numbers within minutes. The owner can also bring their own agent personalities (Argos, Nyx, Proteus) to a fresh install without cloning a whole machine's configuration.
