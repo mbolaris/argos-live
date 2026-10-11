@@ -1130,19 +1130,20 @@ Implementation on `feat/u10-assistant-trial` adds a reviewed starter set of inde
 
 The same change makes answer-wording-only diagnostics recommend reviewing misses rather than a larger model. Unscored summaries are excluded from advice, and quotation failures remain separate from wording diagnoses. No lab scores, suite rules or qualification thresholds change.
 
-### U13 One Go button for the improvement loop — `in progress` ([PR #86](https://github.com/mbolaris/argos-live/pull/86))
+### U13 One Go button for the improvement loop — `in progress` ([PR #88](https://github.com/mbolaris/argos-live/pull/88))
 
 Make the improvement loop feel like a short, watchable game rather than a setup
-dashboard. One prominent **GO** starts a disclosed, fixed-order campaign: one shared
-baseline, then all currently untried separately reviewed instruction ideas, each
-run against the same eight questions with a verified reset between ideas. Cap a
-full starter campaign at 32 assistant answers. The candidate list is human-reviewed and fixed; the model may
-comment on aggregate outcomes, but it cannot invent changes, edit the yardstick,
-or choose Keep/Restore. One GO click approves only the exact plan shown beside
-it. The agent reports progress and its opinion; the owner still chooses Keep or
-Restore. Keep records every idea tested in the campaign so one GO can reach the
-full starter set before the owner decides. After the set is exhausted, send the owner to a real chat
-task while gathering a new reviewed lead. During the run, show the baseline or
+dashboard. The merged interface work in PR #88 adds one prominent **GO** for a
+disclosed, fixed-order campaign: one shared baseline, then all currently untried
+separately reviewed instruction ideas, each run against the same eight questions
+with a verified reset between ideas. Cap a full starter campaign at 32 assistant
+answers. The candidate list is human-reviewed and fixed; the model may comment on
+aggregate outcomes, but it cannot invent changes, edit the yardstick, or choose
+Keep/Restore. One GO click approves only the exact plan shown beside it. The
+agent reports progress and its opinion; the owner still chooses Keep or Restore.
+Keep records every idea tested in the campaign so one GO can reach the full
+starter set before the owner decides. After the set is exhausted, send the owner
+to a real chat task while gathering a new reviewed lead. During the run, show the baseline or
 idea number, session-wide answer count, current question, latest answer and its
 limited checks as each assistant turn completes. Keep technical setup and full
 scoring details secondary, and test the full path in fixture browsers at phone
@@ -1163,6 +1164,14 @@ short reason. Keep per-question replies available under a disclosure. After Keep
 offer one direct next step to try the assistant in chat. For an earlier kept
 two-idea record, offer its untested idea before chat. On a phone, the verdict and
 decision controls should be visible without opening the breakdown.
+
+The first exact-image WHPX acceptance reached the first mission and improvement
+offer but did not produce an assistant-trial result: the test ended without trial
+answer progress, and its exact startup error was not captured. This follow-up
+allows GO to wait visibly for a warming local assistant, with a cancel control;
+no idea is applied until readiness is verified. A warm-up timeout or owner edit
+stops safely. Fixture and unit tests do not replace a real-model rerun on the
+next image.
 
 The completed screen has exactly one prominent next action; the alternative
 outcome is available under a clearly named disclosure. Any pending model switch

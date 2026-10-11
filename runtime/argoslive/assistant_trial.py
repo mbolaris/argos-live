@@ -516,7 +516,10 @@ class Controller:
     # ---- actions
     def start(self, approved_changes=None):
         with self.startup.lock, self.lock:
-            self.require_idle()
+            # One GO owns the whole bounded run. Queue it while the local
+            # assistant finishes warm-up instead of rejecting a transient
+            # "not ready" state.
+            self.require_idle(ready=False)
             status, prior = self.status()
             if status not in ('none', 'kept'):
                 raise Refused('Finish or restore the current assistant change before starting another round')
@@ -530,8 +533,11 @@ class Controller:
             previous = prior if status == 'kept' else None
             if previous is not None and not valid_record(previous, RECORD_SCHEMA):
                 raise Refused('The previous kept change needs review before another experiment')
+            approved_raw = raw_before
+            approved_fingerprint = fingerprint(self.home)
             self.session_result = None
-            self.begin('starting', lambda: self.execute(plan, previous))
+            self.begin('preparing', lambda: self.execute_when_ready(
+                plan, previous, approved_raw, approved_fingerprint))
             return self.snapshot()
 
     def keep(self):
@@ -626,9 +632,11 @@ class Controller:
                 raise ValueError('Assistant resources were not released')
             time.sleep(.1)
 
-    def wait_ready(self):
+    def wait_ready(self, *, cancelable=False):
         deadline = time.monotonic() + self.ready_timeout
         while True:
+            if cancelable and self.cancel_event.is_set():
+                raise ValueError('Cancelled')
             value = self.startup.snapshot()
             if value.get('phase') == 'ready' and value.get('model_reply_verified'):
                 return
@@ -636,15 +644,42 @@ class Controller:
                 raise ValueError('The assistant did not become ready')
             time.sleep(.1)
 
+    def execute_when_ready(self, plan, previous_record, approved_raw, approved_fingerprint):
+        """Keep the approved GO alive while the local assistant warms up."""
+        self.message = 'Warming up your local assistant. No instructions have changed.'
+        try:
+            startup = self.startup.snapshot()
+            if startup.get('phase') in ('idle', 'stopped') and not startup.get('active'):
+                self.start_assistant(cancelable=True)
+            else:
+                self.wait_ready(cancelable=True)
+            if self.cancel_event.is_set():
+                self.message = 'Warm-up stopped. No instructions were changed.'
+                return 'cancelled'
+            if (read_text(agents_path(self.home)) != approved_raw or
+                    fingerprint(self.home) != approved_fingerprint):
+                self.message = ('Your assistant changed while it warmed up. Nothing was tested or applied; '
+                                'review the updated ideas before pressing GO again.')
+                return 'failed'
+            self.message = None
+            return self.execute(plan, previous_record)
+        except Exception:
+            if self.cancel_event.is_set():
+                self.message = 'Warm-up stopped. No instructions were changed.'
+                return 'cancelled'
+            self.message = ('Your local assistant did not become ready, so no idea was tested or applied. '
+                            'Check its startup status, then press GO again.')
+            raise
+
     def restart(self):
         self.startup.stop()
         self.wait_stopped()
 
-    def start_assistant(self):
+    def start_assistant(self, *, cancelable=False):
         with self.startup.lock:
             self.startup.start(_reserved=True)
             self.startup.chat_claimed = True
-        self.wait_ready()
+        self.wait_ready(cancelable=cancelable)
 
     def run_tasks(self, side, *, experiment=None, experiment_index=0, experiment_count=0,
                   session_offset=0, session_total=8):
