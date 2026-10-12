@@ -99,14 +99,18 @@ same candidate ISO and the unchanged CPU-only, no-network setup:
 | [38203527669](https://github.com/mbolaris/argos-live/actions/runs/38203527669) | The guest returned from the Lab launch command but failed before the Lab view was recognized. The cropped screenshot again showed Mission Control. |
 | [38205119530](https://github.com/mbolaris/argos-live/actions/runs/38205119530) | Two chat 409s cleared; the guest returned from the Lab launch command, then failed with `ValueError` before a recognized Lab-view marker. No result record or active-trial screenshot was produced. The precise exception remains unconfirmed. |
 | [38208361541](https://github.com/mbolaris/argos-live/actions/runs/38208361541) | With continuous title stability inside the original launch deadline, the guest reached the visible-page and button-activation markers. The status API remained available but recorded `model-lab-baseline-not-started`; no baseline result was saved. Visual review shows a blank/loading frame at the title gate and enabled baseline controls after keyboard activation. This is a concrete browser-automation readiness/focus blocker, not a completed trial or proof that a normal user click fails. |
+| [38212323579](https://github.com/mbolaris/argos-live/actions/runs/38212323579) | With the isolated native Marionette profile, startup reached `ready` and a transient chat-destination 409 recovered. The Lab launcher command returned, then the guest reported `TimeoutError` after `model-lab-automated-profile`, before the visible-control or button-click markers. Diagnostics contain only the console and launch screenshot, with no completed result. Visual review shows Mission Control in the launch capture. The exact timed-out Firefox subcommand is unconfirmed; this is not Lab acceptance or proof that a normal user click fails. |
 
 The follow-up harness at `a20cfda` separates the launcher-command check from
 browser interaction. It uses the same shipped Firefox binary in an isolated,
 disposable Marionette profile, waits for the actual visible and enabled Lab
-control, and sends a native WebDriver element click. It does not start the trial
-through an API or JavaScript click. Run
+control, and is intended to send a native WebDriver element click. It does not
+start the trial through an API or JavaScript click. Run
 [38212323579](https://github.com/mbolaris/argos-live/actions/runs/38212323579)
-is pending; interaction with the original launcher tab is not claimed.
+failed before the visible-control and click markers. Interaction with the
+original launcher tab is not claimed. No automatic repeat or timeout increase
+was made. The bounded USB-update monitor is paused at this VM acceptance blocker;
+the verified fresh backup is retained and the USB is unchanged.
 
 The downloaded ISO was independently verified in full against `SHA256SUMS` and
 the build report: 4,077,649,920 bytes, SHA256
