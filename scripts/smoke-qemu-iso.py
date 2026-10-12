@@ -82,6 +82,16 @@ def screenshot_dashboard_content(qmp, path):
         private_path.unlink(missing_ok=True)
 
 
+def lab_progress_phase(line):
+    """Return only a recognized test phase; never surface guest text in host logs."""
+    try:
+        value = json.loads(line)
+    except (TypeError, ValueError):
+        return None
+    phase = value.get('phase') if isinstance(value, dict) else None
+    return phase if phase == 'ability' else None
+
+
 def guest_result(serial, *, setup_mode='interactive', guest=False):
     # Serial reads split anywhere, including after a nested JSON object's closing
     # brace. Only a complete newline-terminated record can establish acceptance.
@@ -205,6 +215,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
         started = time.monotonic()
         print('Starting offline CPU-emulated guest; acceptance timeout is 30 minutes.', flush=True)
         reported_stages = set()
+        reported_lab_phases = set()
         next_heartbeat = started + 60
         tail = ''
         login_sent = password_sent = payload_sent = False
@@ -226,6 +237,14 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                         if stage not in reported_stages:
                             reported_stages.add(stage)
                             print(f'Guest stage: {stage}', flush=True)
+                    for line in re.findall(r'ARGOS_C3_LAB (\{[^\r\n]+\})\r?\n', tail):
+                        phase = lab_progress_phase(line)
+                        if phase and phase not in reported_lab_phases:
+                            reported_lab_phases.add(phase)
+                            print(f'Guest Model Lab phase: {phase}', flush=True)
+                            if not (output / 'lab-progress.ppm').exists():
+                                screenshot_dashboard_content(qmp, output / 'lab-progress.ppm')
+                                graphical_frame(output / 'lab-progress.ppm')
                     if {'cpu-inference', 'managed-browser'} & reported_stages and not (output / 'desktop.ppm').exists():
                         # Native DOM readiness plus paint delay precede this
                         # stage. Capture startup, not the idle desktop after a
@@ -267,6 +286,9 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                         graphical_frame(output / 'desktop.ppm')
                         result['screenshot_stage'] = ('shipped Firefox after automatic gateway handoff; toolbar cropped before artifact'
                             if setup_mode == 'managed' else 'native Firefox dashboard before CPU benchmark')
+                        if (output / 'lab-progress.ppm').exists():
+                            result['lab_progress_screenshot_stage'] = (
+                                'shipped Firefox during a real Model Lab ability phase; toolbar cropped before artifact')
                         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
                         print(json.dumps(result, indent=2))
                         return result

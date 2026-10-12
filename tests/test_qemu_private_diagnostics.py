@@ -78,12 +78,16 @@ class DiagnosticFlagsTests(unittest.TestCase):
         x11.XKeysymToKeycode.side_effect = lambda display, symbol: symbol
         # Control press succeeds; typing the location shortcut fails.
         xtst.XTestFakeKeyEvent.side_effect = [1, 0, 1]
+        output = io.StringIO()
         with patch.object(module, 'firefox_model_lab_visible', return_value=True), \
-                patch.object(module.ctypes, 'CDLL', side_effect=[x11, xtst]):
+                patch.object(module.ctypes, 'CDLL', side_effect=[x11, xtst]), \
+                patch('sys.stdout', output):
             with self.assertRaisesRegex(ValueError, 'keyboard input failed'):
                 module.click_model_lab_baseline("http://127.0.0.1:49355", "fixture-token")
         self.assertEqual(xtst.XTestFakeKeyEvent.call_args.args, (123, 0xffe3, 0, 0))
         x11.XCloseDisplay.assert_called_once_with(123)
+        self.assertEqual(output.getvalue(), 'ARGOS_C3_INPUT_FAILURE focus-location-bar\n')
+        self.assertNotIn('fixture-token', output.getvalue())
 
     def test_probe_failure_only_emits_fixed_categories_not_private_error_text(self):
         self.assertEqual(module.probe_failure(TimeoutError('private token')), 'timeout')
