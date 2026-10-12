@@ -116,6 +116,34 @@ class StartupTests(unittest.TestCase):
         value.close()
         self.assertEqual(self.calls[-2:], ['gateway-stop', 'backend-stop'])
 
+    def test_owned_listener_survives_slow_http_only_during_workload(self):
+        from argoslive.owned_gateway import OwnedOrigin
+        process = unittest.mock.Mock()
+        process.poll.return_value = None
+        origin = OwnedOrigin('http://127.0.0.1:18789', process, 123, 18789)
+        probes = threading.Event()
+        count = []
+        def alive(url):
+            count.append(url)
+            if len(count) >= 3: probes.set()
+            return False
+        @contextmanager
+        def gateway(home, cancel=None):
+            self.calls.append('gateway-start')
+            try: yield origin
+            finally: self.calls.append('gateway-stop')
+        with patch('argoslive.owned_gateway.group_owns_port', return_value=True):
+            value = self.controller(ready=lambda url: False, alive=alive, gateway=gateway)
+            value.lab_active = True
+            value.start(_reserved=True)
+            self.assertTrue(probes.wait(9))
+            self.assertNotIn('gateway-stop', self.calls)
+            # An owned listener cannot mask sustained failure outside a trial.
+            value.lab_active = False
+            self.wait(value, 'failed', timeout=10)
+            value.close()
+            self.assertIn('gateway-stop', self.calls)
+
     def test_sustained_probe_failure_releases_owned_services(self):
         value = self.controller(ready=lambda origin: False)
         value.start()

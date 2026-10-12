@@ -7,7 +7,7 @@ import traceback
 
 from . import auto_setup, catalog, model_verify, starter, storage
 from .bench_speed import measurement
-from .owned_gateway import owned as gateway_owned, private_log
+from .owned_gateway import OwnedOrigin, owned as gateway_owned, private_log
 from .owned_ollama import owned as backend_owned
 from .web.status import chat_url, gateway_alive, gateway_ready, read_json
 
@@ -199,7 +199,8 @@ class Controller:
                             # Readiness is not liveness. A bounded owner workload
                             # may temporarily make readiness unavailable; do not
                             # kill its still-live gateway and abort its answer.
-                            workload_alive = self.lab_active and self.alive(origin)
+                            workload_alive = self.lab_active and (self.alive(origin) or
+                                (isinstance(origin, OwnedOrigin) and origin.owned_alive()))
                             missed_probes = 0 if workload_alive else missed_probes + 1
                             self.transition('reconnecting')
                             try:

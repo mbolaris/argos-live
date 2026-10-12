@@ -57,6 +57,18 @@ def settings(path):
     return origin, int(origin.rsplit(':', 1)[1])
 
 
+class OwnedOrigin(str):
+    """URL carrying the lifetime of this exact supervised gateway group."""
+    def __new__(cls, origin, process, group, port):
+        value = super().__new__(cls, origin)
+        value.process, value.group, value.port = process, group, port
+        return value
+
+    def owned_alive(self):
+        # A slow HTTP event loop does not prove that our owned listener died.
+        return self.process.poll() is None and group_owns_port(self.group, self.port)
+
+
 @contextmanager
 def owned(home=None, *, executable=None, config_path=None, timeout=600, cancel=None):
     if sys.platform != 'linux':
@@ -102,7 +114,7 @@ def owned(home=None, *, executable=None, config_path=None, timeout=600, cancel=N
             if process.poll() is not None:
                 raise ValueError('Owned gateway failed to start; inspect private gateway.log')
             if group_owns_port(group, port) and gateway_ready(origin):
-                yield origin
+                yield OwnedOrigin(origin, process, group, port)
                 return
             time.sleep(0.1)
         raise ValueError('Owned gateway startup timed out; inspect private gateway.log')

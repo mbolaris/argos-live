@@ -1225,6 +1225,9 @@ class Controller:
                                  candidate_id=candidate['id'],
                                  reason='reserved-before-baseline')
 
+        self.session['phase'] = 'assess'
+        self.session['message'] = 'Checking the current kept build before trying this change...'
+        self._save_session()
         p_baselines = self.session.setdefault('partition_baselines', {})
         p1_baseline = self._run_task_suite('baseline', p1, f'kept-{p1["id"]}', slice_start_time=slice_start_time)
         if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
