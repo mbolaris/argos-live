@@ -98,6 +98,24 @@ class StartupTests(unittest.TestCase):
         value.close()
         self.assertEqual(self.calls[-2:], ['gateway-stop', 'backend-stop'])
 
+    def test_live_gateway_is_not_killed_during_reserved_workload(self):
+        probes = threading.Event()
+        calls = []
+        def alive(origin):
+            calls.append(origin)
+            if len(calls) >= 3: probes.set()
+            return True
+        value = self.controller(ready=lambda origin: False, alive=alive)
+        value.lab_active = True
+        value.start(_reserved=True)
+        self.assertTrue(probes.wait(9))
+        self.assertEqual(value.snapshot()['phase'], 'reconnecting')
+        self.assertNotIn('gateway-stop', self.calls)
+        value.ready = lambda origin: True
+        self.wait(value, 'ready')
+        value.close()
+        self.assertEqual(self.calls[-2:], ['gateway-stop', 'backend-stop'])
+
     def test_sustained_probe_failure_releases_owned_services(self):
         value = self.controller(ready=lambda origin: False)
         value.start()
