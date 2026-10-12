@@ -169,7 +169,7 @@ def load_validation_partitions(path=VALIDATION_TASKS_PATH):
 
 
 def recommend_hardware_model(home, *, envelope=None, budgets=None,
-                             hardware_fn=hw.snapshot, catalog_data=None):
+                             hardware_fn=hw.snapshot, catalog_data=None, excluded_candidates=()):
     """Find the best eligible candidate model for this machine within approved budget."""
     envelope = envelope or DEFAULT_ENVELOPE
     budgets = budgets or {}
@@ -205,7 +205,7 @@ def recommend_hardware_model(home, *, envelope=None, budgets=None,
     eligible_candidates = []
     for entry in data['models']:
         tag = entry['tag']
-        if tag == current_model or '/' in tag:
+        if tag == current_model or '/' in tag or f'model-{tag}' in excluded_candidates:
             continue
         if not catalog.is_curated(tag):
             continue
@@ -1159,7 +1159,10 @@ class Controller:
         if self.model_recommender:
             envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
             budgets = self.session.get('budgets_used', {})
-            rec = self.model_recommender(self.home, envelope=envelope, budgets=budgets)
+            options = {'envelope': envelope, 'budgets': budgets}
+            if self.model_recommender is recommend_hardware_model:
+                options['excluded_candidates'] = completed
+            rec = self.model_recommender(self.home, **options)
             if rec and rec['id'] not in completed:
                 return rec
 

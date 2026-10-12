@@ -904,6 +904,17 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         self.assertIn('MB download', rec['cost'])
         self.assertEqual(rec['verification'], '8 practice challenges + 8 independent validation challenges')
 
+    def test_recommend_hardware_model_advances_after_completed_model(self):
+        (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
+        hardware = lambda: {'ram': {'available_bytes': 64 * 1024**3},
+                             'gpus': [{'vram_total_bytes': 32 * 1024**3, 'vram_used_bytes': 0}]}
+        first = auto_climb.recommend_hardware_model(self.home, hardware_fn=hardware)
+        self.assertIsNotNone(first)
+        second = auto_climb.recommend_hardware_model(
+            self.home, hardware_fn=hardware, excluded_candidates={first['id']})
+        self.assertIsNotNone(second)
+        self.assertNotEqual(first['id'], second['id'])
+
     def test_recommend_hardware_model_respects_download_budget(self):
         (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
         fake_hw = lambda: {'ram': {'available_bytes': 16 * 1024**3}, 'gpus': [{'vram_total_bytes': 8 * 1024**3, 'vram_used_bytes': 1024**3}]}
