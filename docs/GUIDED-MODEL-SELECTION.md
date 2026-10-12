@@ -10,7 +10,8 @@ and starts local inference and the OpenClaw gateway with the selected model.
 Only the primary model, its local provider model descriptor, and Argos model
 source change. Workspace, personality files, skills, gateway credentials and
 permissions stay intact. This control supports the reviewed single-agent
-conversation profile. Imported multi-agent profiles need separate review.
+improvement-agent profile, with file and benchmark tools retained. Imported
+multi-agent profiles need separate review.
 The bundled starter remains a selectable fallback without copying its weights.
 
 Failure or cancellation restores the original configuration bytes after owned

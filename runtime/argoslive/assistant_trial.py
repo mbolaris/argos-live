@@ -617,7 +617,9 @@ class OpenClawRunner:
         if self.expected_model and (agent_meta.get('provider') != 'ollama' or
                                     agent_meta.get('model') != self.expected_model):
             raise TrialTurnError('model-mismatch')
-        return {'text': reply, 'elapsed_seconds': round(time.monotonic() - started, 2), 'session_id': session}
+        return {'text': reply, 'elapsed_seconds': round(time.monotonic() - started, 2),
+                'session_id': session, 'provider': agent_meta.get('provider'),
+                'model': agent_meta.get('model')}
 
 
 class Controller:

@@ -86,6 +86,33 @@ class ResultsTests(unittest.TestCase):
         self.assertEqual(row[first['id']]['outcome'], 'pass')
         self.assertEqual(compared['rows'][0]['metric'], 'accuracy')
 
+    def test_comparison_reports_workspace_instruction_change(self):
+        first, second = ability_result(), ability_result('wrong')
+        first['id'], second['id'] = 'a' * 32, 'b' * 32
+        second['created'] = '2999-01-01T00:00:00+00:00'
+        first['prompt_fingerprint'] = {'workspace_agents_sha256': '1' * 64}
+        second['prompt_fingerprint'] = {'workspace_agents_sha256': '2' * 64}
+        compared = results.compare([first, second])
+        self.assertTrue(compared['workspace_agents_changed'])
+        self.assertEqual([row['prompt_fingerprint']['workspace_agents_sha256'] for row in compared['runs']],
+                         ['1' * 64, '2' * 64])
+        with self.assertRaisesRegex(ValueError, 'prompt fingerprint'):
+            results.validate(dict(first, prompt_fingerprint={'workspace_agents_sha256': 'not-a-hash'}))
+
+    def test_ability_comparison_allows_model_change_but_not_other_settings(self):
+        first, second = ability_result(), ability_result('wrong')
+        first['id'], second['id'] = 'a' * 32, 'b' * 32
+        second['created'] = '2999-01-01T00:00:00+00:00'
+        first['model'] = first['settings']['assistant_model'] = 'ollama/small'
+        second['model'] = second['settings']['assistant_model'] = 'ollama/large'
+        compared = results.compare([first, second])
+        self.assertEqual([row['model'] for row in compared['rows']], ['ollama/small', 'ollama/large'])
+        self.assertNotIn('assistant_model', compared['settings'])
+        changed = copy.deepcopy(second)
+        changed['settings']['temperature'] = 0.2
+        with self.assertRaisesRegex(ValueError, 'non-model settings'):
+            results.compare([first, changed])
+
     def test_matched_speed_details_need_every_run(self):
         speed = bench_speed.run(Backend(), 'fixture:latest', hardware=lambda: {})
         other = dict(copy.deepcopy(speed), id='c' * 32, created='2999-01-01T00:00:00+00:00')

@@ -23,6 +23,12 @@ test -f /usr/local/share/argos-live/package-lock.json
 cp /usr/local/share/argos-live/package-lock.json .
 EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
 npm ci
+# Install the reviewed improvement tools from the image's pinned local package.
+# The lockfile fixes its only dependency; the agent never installs this code.
+plugin=/usr/local/share/argos-live/plugins/argos-improve
+test -f "$plugin/openclaw.plugin.json"
+npm ci --prefix "$plugin" --omit=dev --ignore-scripts --no-audit --no-fund
+python3 /usr/local/lib/argos-live/refresh-plugin-manifest.py "$plugin"
 # The immutable runtime is installed; download cache is build-only overhead.
 rm -rf /root/.npm/_cacache
 ln -s /opt/argos/node_modules/.bin/openclaw /usr/local/bin/openclaw

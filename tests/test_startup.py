@@ -254,6 +254,30 @@ class StartupTests(unittest.TestCase):
         self.assertEqual(tag, state['model'])
         verify.assert_called_once()
         self.assertEqual(config, original)
+        filesystem_allowed = copy.deepcopy(config)
+        filesystem_allowed['tools']['alsoAllow'] = ['group:fs', 'argos_evaluate', 'argos_compare']
+        filesystem_allowed['tools']['deny'] = ['gateway', 'group:runtime', 'group:web', 'browser']
+        with patch('argoslive.startup.read_json', side_effect=[state, filesystem_allowed]), \
+                patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                patch('argoslive.startup.model_verify.verify') as verify:
+            startup.source(self.home)
+        verify.assert_called_once()
+        no_filesystem = copy.deepcopy(filesystem_allowed)
+        no_filesystem['tools']['alsoAllow'] = []
+        with patch('argoslive.startup.read_json', side_effect=[state, no_filesystem]), \
+                patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                patch('argoslive.startup.model_verify.verify') as verify:
+            with self.assertRaises(ValueError):
+                startup.source(self.home)
+        verify.assert_not_called()
+        unexpected_tool = copy.deepcopy(config)
+        unexpected_tool['tools']['alsoAllow'].append('group:runtime')
+        with patch('argoslive.startup.read_json', side_effect=[state, unexpected_tool]), \
+                patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                patch('argoslive.startup.model_verify.verify') as verify:
+            with self.assertRaises(ValueError):
+                startup.source(self.home)
+        verify.assert_not_called()
         for change in ('policy', 'shell', 'provider', 'channels', 'source'):
             proposed = copy.deepcopy(config)
             altered = copy.deepcopy(state)

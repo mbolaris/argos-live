@@ -90,7 +90,7 @@ def activation_smoke(cli, version, root):
     return True
 
 
-def smoke(cli, expected_version):
+def smoke(cli, expected_version, plugin_root):
     with tempfile.TemporaryDirectory(prefix='argos-pack-schema-') as directory:
         root = Path(directory)
         root.chmod(0o700)
@@ -153,10 +153,15 @@ def smoke(cli, expected_version):
         # Check the shared first-boot/interactive policy against actual pinned
         # OpenClaw, then restore the three-agent fixture before recovery checks.
         try:
-            fresh = conversation_config('qwen3:0.6b', state / 'fresh-workspace')
+            fresh = conversation_config('qwen3:0.6b', state / 'fresh-workspace', plugin_root=plugin_root)
             fresh['gateway']['auth']['token'] = 'fictional-ci-token-not-owner-data'
             config_path.write_text(json.dumps(fresh))
             run('config', 'validate')
+            loaded = json.loads(run('plugins', 'inspect', 'argos-improve', '--runtime', '--json'))
+            loaded_text = json.dumps(loaded)
+            if (loaded.get('plugin', {}).get('status') != 'loaded' or
+                    'argos_evaluate' not in loaded_text or 'argos_compare' not in loaded_text):
+                raise RuntimeError('Pinned OpenClaw did not register both Argos benchmark tools')
         finally:
             config_path.write_bytes(original_config)
         backup = root / 'verified-native-backup.tar.gz'
@@ -188,6 +193,8 @@ def smoke(cli, expected_version):
                 'valid_three_agent_config': True, 'legacy_default_rejected_before_migration': True,
                 'legacy_default_migrated': True,
                 'valid_fresh_conversation_config': True,
+                'improvement_plugin_runtime_loaded': True,
+                'improvement_tools_registered': ['argos_evaluate', 'argos_compare'],
                 'invalid_config_rejected': True,
                 'native_backup_verified': True, 'backup_sha256': backup_digest,
                 'fresh_restore_config_personas_byte_match': True,
@@ -201,6 +208,7 @@ if __name__ == '__main__':
     parser.add_argument('--version', required=True)
     parser.add_argument('--report', required=True)
     args = parser.parse_args()
-    report = smoke(str(Path(args.openclaw).resolve(strict=True)), args.version)
+    plugin_root = Path(__file__).resolve().parents[1] / 'openclaw-plugin/argos-improve'
+    report = smoke(str(Path(args.openclaw).resolve(strict=True)), args.version, str(plugin_root))
     Path(args.report).write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(report))

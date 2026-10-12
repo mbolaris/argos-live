@@ -154,7 +154,8 @@ class FirstSetupTests(unittest.TestCase):
             self.assertTrue(w.model_available(state))
             config = json.loads((app.argos.OC / 'openclaw.json').read_text())
             self.assertEqual(config['tools']['profile'], 'minimal')
-            self.assertIn('group:fs', config['tools']['deny'])
+            self.assertNotIn('group:fs', config['tools']['deny'])
+            self.assertIn('group:fs', config['tools']['alsoAllow'])
             self.assertFalse(config['tools']['elevated']['enabled'])
             self.assertNotIn(config['gateway']['auth']['token'], str(events))
 

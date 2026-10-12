@@ -1,6 +1,49 @@
 # Implementation backlog
 
-## Current product priority: Auto Climb — AC1–AC3 merged; live acceptance pending, October 11
+## Current product priority: lightweight OpenClaw improvement plugin — October 12
+
+The owner pivoted from a server-directed Auto Climb policy to an OpenClaw-led
+improvement loop. [Plan and live status](OPENCLAW-IMPROVEMENT-PLUGIN.md);
+[guide and operating instructions](SELF-IMPROVEMENT-GUIDE.md). The lightweight
+plugin prototype is installed on Toronado, but the one-button continuous loop,
+host-verified recovery and watch UI are still missing. The clean-image branch now
+packages the plugin and its guide, preserves reviewed file-tool access through the
+startup gate, and recommends the largest curated model estimated to fit measured
+GPU headroom. Matched benchmark results, not model size or fit estimates, must
+determine whether that candidate improves ability. Do not extend the legacy
+coordinator's candidate policy or add a second agent framework. Retain working
+recovery/evidence paths and preserve existing results and owner settings.
+
+- **LP1 — prototype implemented, acceptance in progress:** `argos_evaluate`
+  runs fixed 20-task quick or 70-task standard Argos ability suites through the
+  configured OpenClaw assistant; `argos_compare` compares compatible private
+  results. Toronado quick runs were 18/20 and 19/20 unchanged, while one prompt
+  experiment scored 16/20. These demonstrate the end-to-end tool path and a
+  candidate regression, not a stable estimate of general ability. A host-side
+  correction was required after the agent's claimed restore did not match the
+  saved prompt hash. Verify longer baselines and host-owned change/restore before
+  trusting further experiments.
+- **LP2 — planned:** one continuing agent-led experiment with a private host
+  snapshot, matched retest, independently verified keep/restore and Stop.
+- **LP3 — image integration in progress:** this branch packages the pinned
+  plugin, benchmark tools, skill and owner guide in fresh setup; keeps the
+  reviewed file/benchmark tool policy compatible with automatic startup; and
+  recommends the largest curated model estimated to fit measured GPU headroom.
+  Focused local tests pass, but the current Toronado services are stopped, the
+  new recommendation has not been exercised through its dashboard, and no image
+  has been built from this branch. CI, clean VM boot and physical acceptance are
+  still required. Actual watch progress/results remain planned.
+
+Acceptance details live in the replacement plan. Benchmark candidates are not
+installed or accepted merely because their documentation was reviewed.
+
+Transition evidence: draft [PR106](https://github.com/mbolaris/argos-live/pull/106)
+contains live reliability/watch fixes installed on Toronado. Real model trials
+and an instruction trial completed with restoration; no improvement was accepted.
+This is scoped legacy-loop evidence, not plugin or broader skill acceptance.
+Keep pending PR work separate from claims about merged releases and USB images.
+
+## Historical Auto Climb priority — AC1–AC3 merged; October 11 checkpoint
 
 Contract: [AUTO-CLIMB-SPEC.md](AUTO-CLIMB-SPEC.md). Current status and work order:
 [AUTO-CLIMB-WORKER.md](AUTO-CLIMB-WORKER.md). This extends U13's fixed campaign.
@@ -48,7 +91,7 @@ Each item is sized for one agent session and one pull request. Pick an item whos
 2. **Stdlib-only Python 3.11+** for everything under `runtime/`. No pip dependencies in the image. Tests use `unittest` and must pass with `bash scripts/check.sh` on Linux; keep them importable on Windows (skip, don't fail, for Linux-only behavior).
 3. **No live network or GPU in unit tests.** Mock Ollama HTTP responses, `nvidia-smi` output and `/proc` files with recorded fixtures under `tests/fixtures/`. Integration checks that need a real Ollama go in `scripts/smoke-*.sh` and are labeled as such.
 4. **Say how it was verified.** Every PR states which acceptance criteria were checked by unit test, by a real Ollama run, by a CI ISO boot, or by physical hardware, and which remain unverified. Never claim physical acceptance from a VM.
-5. **Keep protections.** Services bind to loopback; local web endpoints require a per-session token; the default agent permission stays conversation-only. Do not log tokens or credentials.
+5. **Keep protections.** Services bind to loopback; local web endpoints require a per-session token; the improvement-agent profile explicitly allows file and benchmark tools while denying shell, browser/web, gateway and runtime controls. Do not log tokens or credentials.
 6. **No private data in this repository.** The owner's personas, inventories, model choices, receipts and exports stay in private storage. Use the public sample packs and fixtures for tests.
 7. **Pinned upstream versions only.** Do not bump `versions.env` outside E6/E7 items. Validate OpenClaw and Ollama CLI flags and API fields against the pinned versions.
 
@@ -436,10 +479,10 @@ Depends on: MD4a.
 
 ### O1 Try-mode setup — `done ([PR #35](https://github.com/mbolaris/argos-live/pull/35))`
 Depends on: MD2, MD3.
-- New non-interactive `argos setup --auto`: no prompts. Detects persistence, chooses storage via MD2, uses the starter model, writes the same safe OpenClaw config as today (loopback, token, conversation-only tools), and records `mode: try` or `mode: persistent`.
+- New non-interactive `argos setup --auto`: no prompts. Detects persistence, chooses storage via MD2, uses the starter model, writes the reviewed OpenClaw config (loopback, token, file and benchmark tools; shell/browser/web/gateway/runtime controls denied), and records `mode: try` or `mode: persistent`.
 - Keep the interactive path for owners who want explicit choices.
 - Accept: unit tests for both modes; existing setup tests still pass; no prompt is printed in auto mode.
-- Implementation: explicit `argos setup --auto` creates private conversation-only
+- Implementation: explicit `argos setup --auto` creates private improvement-agent
   configuration and an identity-marked planned model store, uses the bundled
   image source, records settings persistence and model-storage encryption
   separately, and never replaces existing owner configuration. No service starts.
@@ -625,7 +668,7 @@ Depends on: P3.
 
 ### P4 Apply with rollback — `done ([PR #13](https://github.com/mbolaris/argos-live/pull/13))`
 Depends on: P3.
-- `argos pack apply STAGE_ID`: snapshots the current OpenClaw config and agent directories, creates or updates each agent with its own workspace and agentDir, writes persona files, assigns the resolved model or leaves the agent visibly pending a model, applies the default conversation-only tool policy, validates with `openclaw config validate`, and rolls back automatically if validation fails. `argos pack rollback SNAPSHOT_ID` restores a snapshot.
+- `argos pack apply STAGE_ID`: snapshots the current OpenClaw config and agent directories, creates or updates each agent with its own workspace and agentDir, writes persona files, assigns the resolved model or leaves the agent visibly pending a model, applies the reviewed improvement-agent tool policy, validates with `openclaw config validate`, and rolls back automatically if validation fails. `argos pack rollback SNAPSHOT_ID` restores a snapshot.
 - Accept: unit tests with a fake OpenClaw config; a smoke test with the pinned OpenClaw validates a three-agent sample pack, then rolls back and restores the original byte-for-byte.
 - Implementation: reviewed archive digest and fresh config/document baseline required; explicit stopped-gateway acknowledgment; verified native backup plus scoped originals; per-file atomic writes; candidate and active schema validation; automatic restoration on failure; rollback refuses later edits or damaged originals. Unmatched models stay pending outside the active roster; inventory CLI is explicit caller-supplied evidence until MD1 integration. Skills require a separate review acknowledgment. Encryption and gateway shutdown remain caller preconditions. Physical persona/model/tool acceptance remains P7/P5.
 - Evidence: 77 Windows tests passed (four platform skips) after integrating the merged F2/B1 foundations, including failure restoration, add/update, stale review, edits during backup, rollback drift/corruption and pending models. Pinned OpenClaw 2026.9.7 Linux smoke passed actual three-agent apply/schema validation and byte-exact rollback, with new workspace removal ([runtime run](https://github.com/mbolaris/argos-live/actions/runs/37168658979)). Fictional inventory only; no real inference, effective tool-denial or owner/physical acceptance claim. The installed-package CI fixture imports the activation module; ISO/physical acceptance remain pending.

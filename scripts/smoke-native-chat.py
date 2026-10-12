@@ -105,7 +105,8 @@ def run(cli, ollama, seed):
         state.mkdir(mode=0o700)
         workspace = state / 'workspace'
         workspace.mkdir(mode=0o700)
-        config = conversation_config(starter.TAG, workspace)
+        config = conversation_config(starter.TAG, workspace,
+                                     plugin_root=ROOT / 'openclaw-plugin/argos-improve')
         # A bounded CI response, not a change to the shipped assistant budget.
         config['models']['providers']['ollama']['models'][0]['maxTokens'] = 32
         config['gateway']['auth']['token'] = 'fictional-public-native-chat-fixture'

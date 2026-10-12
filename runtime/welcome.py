@@ -150,7 +150,7 @@ class Welcome:
             ttk.Button(row, text='Choose folder…', command=self.choose).pack(side='right', padx=(8, 0))
             ttk.Label(self.setup_frame, text='Uses the bundled model; no download. External folders need their own encryption.',
                       wraplength=680).pack(anchor='w')
-            ttk.Checkbutton(self.setup_frame, text='Allow conversation only. File access, shell and browser tools stay disabled.',
+            ttk.Checkbutton(self.setup_frame, text='Allow file tools and Argos benchmark tools. Shell, browser, web, gateway and runtime controls stay disabled.',
                             variable=self.accept).pack(anchor='w', pady=(12, 0))
         self.progress = ttk.Progressbar(frame, mode='indeterminate')
         self.progress.pack(fill='x', pady=(20, 8))
@@ -197,7 +197,7 @@ class Welcome:
             return
         setup_needed = not self.argos.STATE.exists()
         if setup_needed and not self.accept.get():
-            messagebox.showinfo('Conversation permissions', 'Select the conversation-only permission checkbox to continue.', parent=self.root)
+            messagebox.showinfo('Assistant permissions', 'Select the local workspace and benchmark tools checkbox to continue.', parent=self.root)
             return
         temporary = False
         if setup_needed and not self.argos.persistence_present():

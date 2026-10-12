@@ -1,12 +1,21 @@
 # Project goals
 
-October 11 direction: **Auto Climb** is the next product target. One button after
-boot assesses the current AI, tries eligible hardware-fitting model upgrades and
-reversible assistant improvements within an approved session, and continues until
-a measured scoped plateau or budget limit. Each next experiment has a 30-second
-preview with Try now, Skip and Pause. See [Auto Climb implementation handoff](AUTO-CLIMB-HANDOFF.md)
-for the current plan and bounded automatic decision policy extending the older
-manual Keep/Restore flow below. This target is not yet implemented.
+October 12 direction: **a lightweight OpenClaw improvement plugin** is the next
+product target. Boot Argos Live natively or in a VM with a configured OpenClaw
+assistant, benchmark tools, an improvement guide and operating instructions.
+One Start lets OpenClaw evaluate and optimize its setup while the owner watches
+real work and measured results, coaches it through chat and offers resources.
+OpenClaw chooses the experiments; Argos supplies evidence and a small watch view.
+See [the replacement plan](OPENCLAW-IMPROVEMENT-PLUGIN.md) and
+[draft guide and operating instructions](SELF-IMPROVEMENT-GUIDE.md).
+The plugin's first two benchmark tools are implemented and loaded on Toronado.
+The next image work packages the plugin and its guide into fresh setup, preserves
+file-tool access through the startup gate, and recommends the largest curated
+model estimated to fit measured GPU headroom. The fit estimate selects a candidate,
+not a quality winner; only matched benchmark results can establish a measured gain.
+A continuing agent-led loop and visible experiment timeline remain future work.
+The older coordinator/manual-flow descriptions below are historical context; they
+do not require further policy expansion.
 
 Product direction updated October 8, 2026. The implementation backlog is [BACKLOG.md](BACKLOG.md); this document says what we are building and why. The dated implementation snapshot below remains historical evidence.
 
@@ -80,7 +89,7 @@ backlog HA1–HA5. A Tamagotchi-style cultivation experience should let the owne
 grow a personal AI through suitable hardware, optional online compute, models,
 skills and software upgrades, with verified useful milestones and its own voice.
 
-1. **Delight first, safely.** Remove questions, not protections. Loopback-only services, gateway tokens and the conversation-only default permission stay; widening permissions is an explicit, visible choice.
+1. **Delight first, safely.** Remove questions, not protections. Loopback-only services and gateway tokens stay. The improvement-agent profile permits file tools and Argos benchmark tools so it can inspect and improve its setup; shell, browser/web, gateway and runtime controls remain denied by default. Any broader permission change is explicit and visible.
 2. **Measure, don't guess.** Speeds come from backend-reported timings, never character counts. Benchmarks are fixed, versioned and deterministic (temperature 0, fixed seed, thinking disabled unless the benchmark says otherwise). Unknown means "unavailable", not an estimate.
 3. **Separate image, personality and model lifecycles.** The image holds software plus a small licensed starter model. Personalities and conversations live in encrypted persistence when present. Large models use deliberately confirmed suitable storage, with encryption and reboot-retention evidence visible; a mounted drive is not automatically the model store. Changing a model or personality never requires rewriting the USB.
 4. **Current, pinned, tested.** Track stable Debian, OpenClaw, Ollama and Node; pin exact versions and hashes per image; promote only after CI and acceptance pass. Exception: the NVIDIA driver is not pinned to a specific version; it follows Debian's packaged driver for the build snapshot, recorded in the package manifest, with CPU fallback when it does not support the GPU. See [RELEASE-PROCESS.md](RELEASE-PROCESS.md).
