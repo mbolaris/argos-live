@@ -175,13 +175,22 @@ def report_http_failure(check, error):
     error.close()
 
 
-def assistant_chat_preconditions(home, session_origin):
+def assistant_chat_failure_is_transient(error):
+    """Only a temporary chat-readiness conflict is retried by managed startup."""
+    return isinstance(error, HTTPError) and error.code == 409
+
+
+def assistant_chat_conflict_retry_expired(first_seen, now):
+    """Bound retries for a chat conflict without extending the startup deadline."""
+    return first_seen is not None and now - first_seen >= 120
+
+
+def assistant_chat_preconditions(home):
     """Report only booleans used by the shipped chat-destination preflight."""
     from argoslive.web.status import gateway, gateway_ready, read_json
     result = {'config_readable': False, 'gateway_config_valid': False,
-              'origin_matches_session': False, 'token_mode': False,
-              'token_present': False, 'token_length_valid': False,
-              'gateway_ready': False}
+              'token_mode': False, 'token_present': False,
+              'token_length_valid': False, 'gateway_ready': False}
     try:
         config = read_json(home / '.openclaw/openclaw.json')
         result['config_readable'] = True
@@ -195,7 +204,6 @@ def assistant_chat_preconditions(home, session_origin):
         token = auth.get('token')
         result.update({
             'gateway_config_valid': True,
-            'origin_matches_session': configured_origin == session_origin,
             'token_mode': auth.get('mode', 'token') == 'token',
             'token_present': isinstance(token, str) and bool(token),
             'token_length_valid': isinstance(token, str) and 0 < len(token) <= 4096,
@@ -453,6 +461,8 @@ def managed_check(started, desktop_seconds):
     last_gateway = None
     last_gateway_at = 0
     last_gateway_phase = None
+    chat_conflict_reported = False
+    chat_conflict_since = None
     while time.monotonic() < deadline:
         if not descriptor.exists():
             time.sleep(2)
@@ -488,10 +498,27 @@ def managed_check(started, desktop_seconds):
                 with opener.open(chat_request, timeout=10) as response:
                     chat_target = urlsplit(json.load(response).get('url', ''))
             except HTTPError as error:
+                if assistant_chat_failure_is_transient(error):
+                    if not chat_conflict_reported:
+                        chat_conflict_since = time.monotonic()
+                        report_http_failure('assistant-chat-availability', error)
+                        print('ARGOS_C3_CHAT_PREFLIGHT ' + json.dumps(
+                            assistant_chat_preconditions(home)), flush=True)
+                        chat_conflict_reported = True
+                    else:
+                        error.close()
+                    if assistant_chat_conflict_retry_expired(chat_conflict_since, time.monotonic()):
+                        raise ValueError('Assistant chat destination remained unavailable during startup')
+                    time.sleep(2)
+                    continue
                 report_http_failure('assistant-chat-availability', error)
                 print('ARGOS_C3_CHAT_PREFLIGHT ' + json.dumps(
-                    assistant_chat_preconditions(home, origin)), flush=True)
+                    assistant_chat_preconditions(home)), flush=True)
                 raise
+            if chat_conflict_reported:
+                print('ARGOS_C3_STAGE chat-destination-recovered', flush=True)
+                chat_conflict_reported = False
+                chat_conflict_since = None
             chat_available = (chat_target.scheme == 'http' and chat_target.hostname == '127.0.0.1'
                               and chat_target.path == '/chat' and chat_target.fragment.startswith('token='))
             if (report['auto_open_chat'] is False and chat_available and firefox_model_lab_visible()):
@@ -504,6 +531,8 @@ def managed_check(started, desktop_seconds):
                 stable_since = None
         time.sleep(2)
     else:
+        if chat_conflict_reported:
+            raise ValueError('Assistant chat destination remained unavailable during startup')
         raise ValueError('Automatic browser/gateway startup exceeded the guest deadline')
     state = json.loads((home / '.config/argos-live/state.json').read_text())
     is_guest = globals().get('ARGOS_QEMU_GUEST_MODE', False)

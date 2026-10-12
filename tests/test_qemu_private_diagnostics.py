@@ -39,6 +39,22 @@ class DiagnosticFlagsTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue().split(' ', 1)[1]),
                          {'check': 'other', 'status': None})
 
+    def test_only_assistant_chat_readiness_conflict_is_retryable(self):
+        conflict = HTTPError('http://127.0.0.1/private-token/chat', 409,
+                             'private reason', {}, io.BytesIO(b'secret'))
+        unavailable = HTTPError('http://127.0.0.1/private-token/chat', 503,
+                                'private reason', {}, io.BytesIO(b'secret'))
+        self.assertTrue(module.assistant_chat_failure_is_transient(conflict))
+        self.assertFalse(module.assistant_chat_failure_is_transient(unavailable))
+        self.assertFalse(module.assistant_chat_failure_is_transient(ValueError('private reason')))
+        conflict.close()
+        unavailable.close()
+
+    def test_chat_conflict_retry_has_fixed_two_minute_bound(self):
+        self.assertFalse(module.assistant_chat_conflict_retry_expired(None, 1000))
+        self.assertFalse(module.assistant_chat_conflict_retry_expired(10, 129.9))
+        self.assertTrue(module.assistant_chat_conflict_retry_expired(10, 130))
+
     def test_assistant_chat_preflight_reports_only_configuration_booleans(self):
         with tempfile.TemporaryDirectory() as temp:
             config_dir = Path(temp) / '.openclaw'
@@ -47,10 +63,10 @@ class DiagnosticFlagsTests(unittest.TestCase):
                 'auth': {'mode': 'token', 'token': 'fictional-private-token'}}}
             (config_dir / 'openclaw.json').write_text(json.dumps(config))
             with patch('argoslive.web.status.gateway_ready', return_value=True):
-                value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+                value = module.assistant_chat_preconditions(Path(temp))
             self.assertEqual(value, {'config_readable': True, 'gateway_config_valid': True,
-                'origin_matches_session': True, 'token_mode': True, 'token_present': True,
-                'token_length_valid': True, 'gateway_ready': True})
+                'token_mode': True, 'token_present': True, 'token_length_valid': True,
+                'gateway_ready': True})
             self.assertNotIn('fictional-private-token', json.dumps(value))
 
     def test_assistant_chat_preflight_collapses_invalid_configuration(self):
@@ -59,7 +75,7 @@ class DiagnosticFlagsTests(unittest.TestCase):
             config_dir.mkdir()
             (config_dir / 'openclaw.json').write_text(json.dumps(
                 {'gateway': {'bind': '0.0.0.0', 'auth': {'token': 'secret'}}}))
-            value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+            value = module.assistant_chat_preconditions(Path(temp))
             self.assertTrue(value['config_readable'])
             self.assertFalse(value['gateway_config_valid'])
             self.assertFalse(value['token_present'])
