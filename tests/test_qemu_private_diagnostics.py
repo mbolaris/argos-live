@@ -17,6 +17,35 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_lab_launch_wait_resets_stability_after_transient_navigation(self):
+        clock = [0.0]
+        samples = []
+        def visible():
+            samples.append(clock[0])
+            return clock[0] < 1 or clock[0] >= 3
+        def sleep(seconds):
+            clock[0] += seconds
+        with patch.object(module.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(module.time, 'sleep', side_effect=sleep), \
+                patch.object(module, 'firefox_model_lab_visible', side_effect=visible):
+            module.wait_model_lab_visible()
+        self.assertEqual(clock[0], 8.0)
+        self.assertGreater(len(samples), 2)
+
+    def test_lab_launch_never_accepts_a_flickering_title_or_extends_deadline(self):
+        clock = [0.0]
+        def sleep(seconds):
+            clock[0] += seconds
+        output = io.StringIO()
+        with patch.object(module.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(module.time, 'sleep', side_effect=sleep), \
+                patch.object(module, 'firefox_model_lab_visible', side_effect=lambda: clock[0] % 2 < 1), \
+                patch('sys.stdout', output):
+            with self.assertRaisesRegex(ValueError, 'stable shipped Firefox view'):
+                module.wait_model_lab_visible()
+        self.assertEqual(clock[0], 30.0)
+        self.assertEqual(output.getvalue(), 'ARGOS_C3_STAGE model-lab-visibility-timeout\n')
+
     def test_assistant_chat_http_failure_reports_only_check_and_status(self):
         body = io.BytesIO(b'{"error":"private token and response body"}')
         error = HTTPError('http://127.0.0.1/private-token/chat', 409,
@@ -39,6 +68,33 @@ class DiagnosticFlagsTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue().split(' ', 1)[1]),
                          {'check': 'other', 'status': None})
 
+    def test_model_lab_status_http_failure_reports_only_check_and_status(self):
+        error = HTTPError('http://127.0.0.1/private-token/api/lab', 409,
+                          'private reason', {}, io.BytesIO(b'secret'))
+        output = io.StringIO()
+        with patch('sys.stdout', output):
+            module.report_http_failure('model-lab-status', error)
+        self.assertEqual(json.loads(output.getvalue().split(' ', 1)[1]),
+                         {'check': 'model-lab-status', 'status': 409})
+        for private in ('private-token', 'private reason', 'secret'):
+            self.assertNotIn(private, output.getvalue())
+
+    def test_only_assistant_chat_readiness_conflict_is_retryable(self):
+        conflict = HTTPError('http://127.0.0.1/private-token/chat', 409,
+                             'private reason', {}, io.BytesIO(b'secret'))
+        unavailable = HTTPError('http://127.0.0.1/private-token/chat', 503,
+                                'private reason', {}, io.BytesIO(b'secret'))
+        self.assertTrue(module.assistant_chat_failure_is_transient(conflict))
+        self.assertFalse(module.assistant_chat_failure_is_transient(unavailable))
+        self.assertFalse(module.assistant_chat_failure_is_transient(ValueError('private reason')))
+        conflict.close()
+        unavailable.close()
+
+    def test_chat_conflict_retry_has_fixed_two_minute_bound(self):
+        self.assertFalse(module.assistant_chat_conflict_retry_expired(None, 1000))
+        self.assertFalse(module.assistant_chat_conflict_retry_expired(10, 129.9))
+        self.assertTrue(module.assistant_chat_conflict_retry_expired(10, 130))
+
     def test_assistant_chat_preflight_reports_only_configuration_booleans(self):
         with tempfile.TemporaryDirectory() as temp:
             config_dir = Path(temp) / '.openclaw'
@@ -47,10 +103,10 @@ class DiagnosticFlagsTests(unittest.TestCase):
                 'auth': {'mode': 'token', 'token': 'fictional-private-token'}}}
             (config_dir / 'openclaw.json').write_text(json.dumps(config))
             with patch('argoslive.web.status.gateway_ready', return_value=True):
-                value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+                value = module.assistant_chat_preconditions(Path(temp))
             self.assertEqual(value, {'config_readable': True, 'gateway_config_valid': True,
-                'origin_matches_session': True, 'token_mode': True, 'token_present': True,
-                'token_length_valid': True, 'gateway_ready': True})
+                'token_mode': True, 'token_present': True, 'token_length_valid': True,
+                'gateway_ready': True})
             self.assertNotIn('fictional-private-token', json.dumps(value))
 
     def test_assistant_chat_preflight_collapses_invalid_configuration(self):
@@ -59,18 +115,22 @@ class DiagnosticFlagsTests(unittest.TestCase):
             config_dir.mkdir()
             (config_dir / 'openclaw.json').write_text(json.dumps(
                 {'gateway': {'bind': '0.0.0.0', 'auth': {'token': 'secret'}}}))
-            value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+            value = module.assistant_chat_preconditions(Path(temp))
             self.assertTrue(value['config_readable'])
             self.assertFalse(value['gateway_config_valid'])
             self.assertFalse(value['token_present'])
             self.assertNotIn('secret', json.dumps(value))
 
     def test_trial_keyboard_refuses_wrong_active_window(self):
+        output = io.StringIO()
         with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
+                patch('sys.stdout', output), \
                 patch.object(module.ctypes, 'CDLL') as library:
             with self.assertRaisesRegex(ValueError, 'active Firefox'):
                 module.click_model_lab_baseline("http://127.0.0.1:49355", "fixture-token")
             library.assert_not_called()
+        self.assertEqual(output.getvalue(), 'ARGOS_C3_INPUT_FAILURE verify-active-firefox\n')
+        self.assertNotIn('fixture-token', output.getvalue())
 
     def test_trial_keyboard_failure_releases_control_and_closes_display(self):
         x11, xtst = MagicMock(), MagicMock()

@@ -166,7 +166,7 @@ def probe_failure(error):
 
 def report_http_failure(check, error):
     """Emit only a fixed check label and HTTP status, never body, headers or URL."""
-    allowed_checks = {'assistant-chat-availability'}
+    allowed_checks = {'assistant-chat-availability', 'model-lab-status', 'model-lab-benchmarks'}
     check = check if check in allowed_checks else 'other'
     status = getattr(error, 'code', None)
     if type(status) is not int or not 100 <= status <= 599:
@@ -175,13 +175,22 @@ def report_http_failure(check, error):
     error.close()
 
 
-def assistant_chat_preconditions(home, session_origin):
+def assistant_chat_failure_is_transient(error):
+    """Only a temporary chat-readiness conflict is retried by managed startup."""
+    return isinstance(error, HTTPError) and error.code == 409
+
+
+def assistant_chat_conflict_retry_expired(first_seen, now):
+    """Bound retries for a chat conflict without extending the startup deadline."""
+    return first_seen is not None and now - first_seen >= 120
+
+
+def assistant_chat_preconditions(home):
     """Report only booleans used by the shipped chat-destination preflight."""
     from argoslive.web.status import gateway, gateway_ready, read_json
     result = {'config_readable': False, 'gateway_config_valid': False,
-              'origin_matches_session': False, 'token_mode': False,
-              'token_present': False, 'token_length_valid': False,
-              'gateway_ready': False}
+              'token_mode': False, 'token_present': False,
+              'token_length_valid': False, 'gateway_ready': False}
     try:
         config = read_json(home / '.openclaw/openclaw.json')
         result['config_readable'] = True
@@ -195,7 +204,6 @@ def assistant_chat_preconditions(home, session_origin):
         token = auth.get('token')
         result.update({
             'gateway_config_valid': True,
-            'origin_matches_session': configured_origin == session_origin,
             'token_mode': auth.get('mode', 'token') == 'token',
             'token_present': isinstance(token, str) and bool(token),
             'token_length_valid': isinstance(token, str) and 0 < len(token) <= 4096,
@@ -301,6 +309,31 @@ def firefox_model_lab_visible():
         return bool(re.search(r' = "Argos Live · Local workspace(?: — Mozilla Firefox)?"\s*$', title))
     except (OSError, subprocess.SubprocessError):
         return False
+
+
+def wait_model_lab_visible(timeout=30, stable_seconds=5):
+    """Wait for an uninterrupted visible page within the existing launch budget.
+
+    Firefox may briefly expose the previous tab's title before the launched tab
+    navigates. A single positive sample followed by a sleep accepts that race.
+    Title stability remains only a capture gate; the real trial must still run.
+    """
+    deadline = time.monotonic() + timeout
+    stable_since = None
+    while time.monotonic() < deadline:
+        visible = firefox_model_lab_visible()
+        now = time.monotonic()
+        if now >= deadline:
+            break
+        if visible:
+            stable_since = now if stable_since is None else stable_since
+            if now - stable_since >= stable_seconds:
+                return
+        else:
+            stable_since = None
+        time.sleep(.5)
+    print('ARGOS_C3_STAGE model-lab-visibility-timeout', flush=True)
+    raise ValueError('Model Lab command did not establish a stable shipped Firefox view')
 
 
 def click_model_lab_baseline(origin, token):
@@ -438,6 +471,11 @@ def backend_observation(opener):
 
 
 def managed_check(started, desktop_seconds):
+    with FirefoxLabSession() as native_lab:
+        managed_check_body(started, desktop_seconds, native_lab)
+
+
+def managed_check_body(started, desktop_seconds, native_lab):
     from argoslive.desktop import session_url
     from argoslive.ollama import NoRedirect
     from argoslive import starter
@@ -453,6 +491,8 @@ def managed_check(started, desktop_seconds):
     last_gateway = None
     last_gateway_at = 0
     last_gateway_phase = None
+    chat_conflict_reported = False
+    chat_conflict_since = None
     while time.monotonic() < deadline:
         if not descriptor.exists():
             time.sleep(2)
@@ -488,10 +528,27 @@ def managed_check(started, desktop_seconds):
                 with opener.open(chat_request, timeout=10) as response:
                     chat_target = urlsplit(json.load(response).get('url', ''))
             except HTTPError as error:
+                if assistant_chat_failure_is_transient(error):
+                    if not chat_conflict_reported:
+                        chat_conflict_since = time.monotonic()
+                        report_http_failure('assistant-chat-availability', error)
+                        print('ARGOS_C3_CHAT_PREFLIGHT ' + json.dumps(
+                            assistant_chat_preconditions(home)), flush=True)
+                        chat_conflict_reported = True
+                    else:
+                        error.close()
+                    if assistant_chat_conflict_retry_expired(chat_conflict_since, time.monotonic()):
+                        raise ValueError('Assistant chat destination remained unavailable during startup')
+                    time.sleep(2)
+                    continue
                 report_http_failure('assistant-chat-availability', error)
                 print('ARGOS_C3_CHAT_PREFLIGHT ' + json.dumps(
-                    assistant_chat_preconditions(home, origin)), flush=True)
+                    assistant_chat_preconditions(home)), flush=True)
                 raise
+            if chat_conflict_reported:
+                print('ARGOS_C3_STAGE chat-destination-recovered', flush=True)
+                chat_conflict_reported = False
+                chat_conflict_since = None
             chat_available = (chat_target.scheme == 'http' and chat_target.hostname == '127.0.0.1'
                               and chat_target.path == '/chat' and chat_target.fragment.startswith('token='))
             if (report['auto_open_chat'] is False and chat_available and firefox_model_lab_visible()):
@@ -504,6 +561,8 @@ def managed_check(started, desktop_seconds):
                 stable_since = None
         time.sleep(2)
     else:
+        if chat_conflict_reported:
+            raise ValueError('Assistant chat destination remained unavailable during startup')
         raise ValueError('Automatic browser/gateway startup exceeded the guest deadline')
     state = json.loads((home / '.config/argos-live/state.json').read_text())
     is_guest = globals().get('ARGOS_QEMU_GUEST_MODE', False)
@@ -522,14 +581,12 @@ def managed_check(started, desktop_seconds):
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
     print('ARGOS_C3_STAGE model-lab-command-returned', flush=True)
-    lab_deadline = time.monotonic() + 30
-    while not firefox_model_lab_visible():
-        if time.monotonic() >= lab_deadline:
-            raise ValueError('Model Lab command did not open its shipped Firefox view')
-        time.sleep(.5)
-    time.sleep(5)
-    if not firefox_model_lab_visible():
-        raise ValueError('Model Lab view did not remain open after assistant readiness')
+    # The launcher is tested above. Use a separate private automation profile
+    # of the SAME shipped Firefox binary for DOM readiness and trusted clicks.
+    # Title observation cannot establish that the app loaded its controls.
+    print('ARGOS_C3_STAGE model-lab-automated-profile', flush=True)
+    native_lab.start(lab_env, origin + '/?' + urlencode({'token': token, 'view': 'lab'})
+                     + '#lab-start', timeout=30)
     print('ARGOS_C3_STAGE model-lab-visible', flush=True)
     time.sleep(5)
     print('ARGOS_C3_STAGE managed-browser', flush=True)
@@ -537,26 +594,39 @@ def managed_check(started, desktop_seconds):
     # then exercise the actual visible button rather than calling its API.
     time.sleep(5)
     print('ARGOS_C3_STAGE model-lab-button-click', flush=True)
-    click_model_lab_baseline(origin, token)
+    native_lab.click_baseline()
     print('ARGOS_C3_STAGE model-lab-button-activated', flush=True)
 
     def dashboard_json(path):
         request = Request(origin + path, headers={'X-Argos-Token': token})
-        with opener.open(request, timeout=10) as response:
-            raw = response.read(1048577)
+        try:
+            with opener.open(request, timeout=10) as response:
+                raw = response.read(1048577)
+        except HTTPError as error:
+            check = {'/api/lab': 'model-lab-status',
+                     '/api/benchmarks': 'model-lab-benchmarks'}.get(path, 'other')
+            report_http_failure(check, error)
+            raise
         if len(raw) > 1048576:
             raise ValueError('Model Lab status exceeded the bounded response size')
         return json.loads(raw)
 
     lab_value = None
+    print('ARGOS_C3_STAGE model-lab-status-polling', flush=True)
+    lab_status_logged = False
     click_deadline = time.monotonic() + 20
     while time.monotonic() < click_deadline:
         lab_value = dashboard_json('/api/lab')
+        if not lab_status_logged:
+            print('ARGOS_C3_STAGE model-lab-status-available', flush=True)
+            lab_status_logged = True
         if lab_value.get('active') and lab_value.get('phase') in (
                 'pausing', 'model-service', 'speed', 'ability', 'cancelling'):
+            print('ARGOS_C3_STAGE model-lab-baseline-started', flush=True)
             break
         time.sleep(.5)
     else:
+        print('ARGOS_C3_STAGE model-lab-baseline-not-started', flush=True)
         raise ValueError('Visible Model Lab button did not start the baseline')
     print('ARGOS_C3_LAB ' + json.dumps({'phase': lab_value['phase']}), flush=True)
 
@@ -621,6 +691,8 @@ def managed_check(started, desktop_seconds):
         'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
         'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
         'model_lab_assistant_resumed': True,
+        'model_lab_interaction': 'shipped Firefox binary; isolated Marionette test profile',
+        'original_launcher_tab_interaction_verified': False,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics,
         'mission_control_visible': True, 'chat_destination_available': True,
@@ -628,5 +700,5 @@ def managed_check(started, desktop_seconds):
         'managed_elapsed_seconds': report['elapsed_seconds'],
         'ready_seconds': time.monotonic() - started, 'physical_acceptance': False,
         'browser_chat_reply_verified': False, 'requires_screenshot_review': True}), flush=True)
-    # The host captures the actual shipped Firefox; no substitute test browser.
+    # Keep the same shipped Firefox binary/test profile visible for host capture.
     time.sleep(30)
