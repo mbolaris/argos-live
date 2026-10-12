@@ -34,7 +34,7 @@ The owner has narrowed the next milestone to personality and reviewed skill tran
 
 ## Stable update maintenance
 
-Daily read-only GitHub Actions discovery is configured for OpenClaw, Ollama and Node. The current ISO/USB still runs OpenClaw 2026.9.7 and Ollama 0.35.0. An October 11 discovery found stable OpenClaw 2026.10.1; an OpenClaw-only candidate keeps Ollama 0.35.1 and Node 26.10.0 unchanged. Candidate pins, lock and addon metadata are staged for compatibility review, not installed or promoted. Its audit reports five transitive findings (three high, two moderate); Debian snapshots also need refreshing before a clean image build. See RELEASE-PROCESS.md and [the October 11 audit](RUNTIME-AUDIT-20261011.md).
+Daily read-only GitHub Actions discovery is configured for OpenClaw, Ollama and Node. The accepted USB still runs the older OpenClaw runtime. PR #99 proposes OpenClaw 2026.10.1 only, retaining Ollama 0.35.1 and Node 26.10.0. Its package lock and addon inventory are staged; the corrected compatibility CI is still running. The candidate's Debian and security snapshots are refreshed to 20261011T000000Z, with APT signature and package-manifest review still required in a clean image build. The npm audit reports five transitive findings (three high, two moderate); static review found the bundled npm tree is selected only for Bun, which Argos does not configure, while plugin/update npm paths remain relevant. This is not a clean audit or an installed upgrade. See RELEASE-PROCESS.md and [the October 11 audit](RUNTIME-AUDIT-20261011.md).
 
 ## Release follow-ups
 

@@ -36,11 +36,28 @@ or blanket `npm audit fix` were applied. Review supported upstream remediation
 and reachable code paths before promotion. Preserve the findings in release
 evidence; do not describe this candidate as having a clean audit.
 
-The candidate discovery also found Debian snapshots ten days old. Refresh both
-signed Debian snapshots and review the resolved package-manifest diff before a
-clean ISO build. This audit does not establish compatibility, image acceptance,
-or an installed upgrade. The prior OpenClaw 2026.9.8 audit remains at
+The candidate discovery found Debian snapshots ten days old. The candidate now
+pins both repositories to `20261011T000000Z`; the Debian and Debian-security
+Release endpoints were present when checked on October 12. The clean image build
+must still validate APT signatures and its resolved package-manifest diff. This
+audit does not establish image acceptance or an installed upgrade. The prior
+OpenClaw 2026.9.8 audit remains at
 [RUNTIME-AUDIT-20261004.md](RUNTIME-AUDIT-20261004.md).
+
+## npm advisory reachability review
+
+Static inspection of the exact 2026.10.1 package found `npm@12.1.0` as a direct
+dependency. The five audited packages are nested beneath that bundled npm. In
+`dist/npm-install-env-*.mjs`, OpenClaw selects its bundled `npm/bin/npm-cli.js`
+only when the JavaScript runtime is Bun; otherwise it executes the `npm` command
+from `PATH`. Argos pins and launches Node 26.10.0 and does not configure Bun, so
+the reviewed default Argos gateway/chat path does not select this bundled npm
+tree. Explicit plugin-install and package-update flows are the relevant npm
+entry points; a Bun-launched OpenClaw can select the bundled npm tree on those
+flows. This is a static call-path review, not exploit testing, and does not make
+the audit clean or prove every transitive package unreachable. Keep the five
+findings in the release record; do not add unsupported overrides. Recheck if the
+runtime changes to Bun or upstream publishes a supported dependency fix.
 
 ## Compatibility migration found during PR #99
 
@@ -55,7 +72,8 @@ backup/restore. Pack activation also preserves the sole implicit owner when it
 expands a single-agent roster, emits no retired marker, and refuses unmigrated
 legacy configs or channel rosters whose routes require Doctor's richer binding
 migration. Local Windows tests and the pinned 2026.10.1 schema/recovery smoke
-pass; the corrected Linux CI rerun and all other release gates remain pending.
+pass. The corrected Linux CI rerun is in progress; ISO package-manifest review,
+disposable VM acceptance and physical acceptance remain pending.
 
 This is not evidence that any persistent owner profile has been migrated. For
 an upgraded preserved profile, retain its original config and state backup, run
