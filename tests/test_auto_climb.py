@@ -733,7 +733,8 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
             snap = controller.snapshot()
             self.assertEqual(snap['phase'], 'budget-exhausted')
-            self.assertIn('Session limit reached: 1 experiments completed', snap['stopping_reason'])
+            self.assertIn('Session limit reached: 1 attempts used', snap['stopping_reason'])
+            self.assertEqual(len(snap['history']), 1, 'The final reserved attempt must actually finish')
         finally:
             controller.close()
 
@@ -1104,7 +1105,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         }
 
         controller = auto_climb.Controller(
-            self.startup, home=self.home, runner=self.runner,
+            self.startup, home=self.home, runner=self.runner, candidates=[],
             clock=clock.monotonic, sleep_fn=lambda s: None,
             model_recommender=lambda *a, **k: fake_model_cand if not switched else None,
             download_runner=lambda tag: False,  # Download fails!
@@ -1160,7 +1161,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
         # Baseline runner: fails practice retest, prompting restoration
         controller = auto_climb.Controller(
-            self.startup, home=self.home, runner=self.runner,
+            self.startup, home=self.home, runner=self.runner, candidates=[],
             clock=clock.monotonic, sleep_fn=lambda s: None,
             model_recommender=lambda *a, **k: fake_model_cand,
             model_switcher=lambda tag: True,
@@ -1468,3 +1469,31 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EvidenceProposalTests(unittest.TestCase):
+    def controller(self):
+        c = auto_climb.Controller.__new__(auto_climb.Controller)
+        c.home = Path('.')
+        c.candidate_pool = copy.deepcopy(auto_climb.INSTRUCTION_CANDIDATES)
+        c.model_recommender = mock.Mock(return_value={'id': 'bigger-model'})
+        c.session = {'practice_baseline': [
+            {'kind': 'answer', 'passed': False, 'checks': {
+                'answer_present': True, 'answer_first': True, 'exact_quote': False}}
+            for _ in range(3)]}
+        return c
+
+    def test_quote_only_misses_propose_instruction_before_download(self):
+        c = self.controller()
+        self.assertEqual(c._select_next_candidate()['id'], 'quote-evidence')
+        c.model_recommender.assert_not_called()
+
+    def test_mixed_misses_keep_normal_model_policy(self):
+        c = self.controller()
+        c.session['practice_baseline'][0]['checks']['answer_present'] = False
+        self.assertEqual(c._select_next_candidate()['id'], 'bigger-model')
+
+    def test_completed_quote_candidate_is_not_repeated(self):
+        c = self.controller()
+        c.session['completed_candidates'] = ['quote-evidence']
+        self.assertEqual(c._select_next_candidate()['id'], 'bigger-model')

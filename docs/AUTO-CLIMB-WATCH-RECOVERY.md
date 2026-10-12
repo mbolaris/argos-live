@@ -11,3 +11,12 @@ Watch fixes: render actual reply.text; suppress the previous answer while the cu
 Verification: Auto Climb coordinator tests, assistant-trial tests, Node presentation regressions and existing Chromium fixture browser smoke, including download and blocked mobile captures. Fixture results do not establish real model improvement, incremental streaming, physical GPU or Firefox acceptance.
 
 Remaining product work: persistent before/after scorecard throughout the run; visible ladder movement after validated gains; narrative transitions that explain each candidate; actual incremental assistant output if the gateway supplies it. Do not animate invented tokens.
+
+
+## Physical follow-up on Toronado
+
+The first patched live run completed its 14B practice retest: zero gains and two regressions, so the coordinator restored the original 4B model. The 8B acquisition again ended interrupted after its weight transfer; the cause is still unconfirmed. Private onboarding exception-chain diagnostics now preserve evidence for the next explicitly bounded test.
+
+The live run also exposed an attempt-accounting bug: the final reserved slot was treated as exhausted during its own checks. The cap now applies before choosing a new candidate, while the duration cap remains enforced during every turn and child operation. Failed attempts still consume slots. A regression verifies that a one-attempt session actually finishes exactly one attempt.
+
+Proposal selection now tries the reviewed quote instruction before a model download when at least two misses are all correct, direct answers missing exact source quotations. Mixed failures retain the existing model policy. This changes proposal order only; independent validation, gain thresholds, exposure tracking and Keep/Restore remain unchanged.

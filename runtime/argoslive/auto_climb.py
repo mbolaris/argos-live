@@ -963,7 +963,7 @@ class Controller:
             # Main experiment loop
             while not self._should_stop() and self.session.get('phase') not in ('budget-exhausted', 'blocked'):
                 # Check budgets before selecting candidate
-                if self._check_budget_exhaustion(slice_start_time):
+                if self._check_budget_exhaustion(slice_start_time, before_candidate=True):
                     break
 
                 # 2. Select next candidate
@@ -1091,15 +1091,17 @@ class Controller:
             return 'stopped' if self.stop_event.is_set() else 'paused'
         return 'proceed'
 
-    def _check_budget_exhaustion(self, slice_start_time):
+    def _check_budget_exhaustion(self, slice_start_time, *, before_candidate=False):
         envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
         budgets = self.session.get('budgets_used', {})
         current_slice = int(self.clock() - slice_start_time)
         total_duration = budgets.get('duration_seconds', 0) + current_slice
 
-        if budgets.get('completed_experiments', 0) >= envelope.get('max_experiments', 6):
+        # Slots are reserved before execution. Permit the final reserved attempt
+        # to finish; enforce the attempt cap before choosing the next candidate.
+        if before_candidate and budgets.get('completed_experiments', 0) >= envelope.get('max_experiments', 6):
             self.session['phase'] = 'budget-exhausted'
-            self.session['stopping_reason'] = f'Session limit reached: {envelope.get("max_experiments")} experiments completed.'
+            self.session['stopping_reason'] = f'Session limit reached: {envelope.get("max_experiments")} attempts used.'
             self.session['message'] = self.session['stopping_reason']
             self._save_session()
             return True
@@ -1122,6 +1124,19 @@ class Controller:
 
     def _select_next_candidate(self):
         completed = set(self.session.get('completed_candidates', []))
+
+        # Prefer the cheapest reviewed intervention when all observed misses
+        # have the same precise cause. Validation and promotion remain unchanged.
+        misses = [r for r in self.session.get('practice_baseline', []) if not r.get('passed')]
+        quote_only = len(misses) >= 2 and all(
+            r.get('kind') == 'answer' and r.get('checks', {}).get('exact_quote') is False and
+            r.get('checks', {}).get('answer_present') is True and
+            r.get('checks', {}).get('answer_first') is True for r in misses)
+        if quote_only:
+            for candidate in self.candidate_pool:
+                if candidate['id'] == 'quote-evidence' and candidate['id'] not in completed:
+                    return dict(candidate, rationale='The answers were correct, but supporting quotes were missing. '
+                                'Try the reviewed source-quote instruction before changing models.')
 
         # Check model recommendation candidate first if available (AC3)
         if self.model_recommender:
