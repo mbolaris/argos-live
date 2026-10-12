@@ -311,6 +311,31 @@ def firefox_model_lab_visible():
         return False
 
 
+def wait_model_lab_visible(timeout=30, stable_seconds=5):
+    """Wait for an uninterrupted visible page within the existing launch budget.
+
+    Firefox may briefly expose the previous tab's title before the launched tab
+    navigates. A single positive sample followed by a sleep accepts that race.
+    Title stability remains only a capture gate; the real trial must still run.
+    """
+    deadline = time.monotonic() + timeout
+    stable_since = None
+    while time.monotonic() < deadline:
+        visible = firefox_model_lab_visible()
+        now = time.monotonic()
+        if now >= deadline:
+            break
+        if visible:
+            stable_since = now if stable_since is None else stable_since
+            if now - stable_since >= stable_seconds:
+                return
+        else:
+            stable_since = None
+        time.sleep(.5)
+    print('ARGOS_C3_STAGE model-lab-visibility-timeout', flush=True)
+    raise ValueError('Model Lab command did not establish a stable shipped Firefox view')
+
+
 def click_model_lab_baseline(origin, token):
     """Navigate to the button's fragment, then use normal keyboard activation.
 
@@ -551,15 +576,7 @@ def managed_check(started, desktop_seconds):
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
     print('ARGOS_C3_STAGE model-lab-command-returned', flush=True)
-    lab_deadline = time.monotonic() + 30
-    while not firefox_model_lab_visible():
-        if time.monotonic() >= lab_deadline:
-            print('ARGOS_C3_STAGE model-lab-visibility-timeout', flush=True)
-            raise ValueError('Model Lab command did not open its shipped Firefox view')
-        time.sleep(.5)
-    time.sleep(5)
-    if not firefox_model_lab_visible():
-        raise ValueError('Model Lab view did not remain open after assistant readiness')
+    wait_model_lab_visible()
     print('ARGOS_C3_STAGE model-lab-visible', flush=True)
     time.sleep(5)
     print('ARGOS_C3_STAGE managed-browser', flush=True)

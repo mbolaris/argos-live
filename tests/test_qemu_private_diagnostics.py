@@ -17,6 +17,35 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_lab_launch_wait_resets_stability_after_transient_navigation(self):
+        clock = [0.0]
+        samples = []
+        def visible():
+            samples.append(clock[0])
+            return clock[0] < 1 or clock[0] >= 3
+        def sleep(seconds):
+            clock[0] += seconds
+        with patch.object(module.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(module.time, 'sleep', side_effect=sleep), \
+                patch.object(module, 'firefox_model_lab_visible', side_effect=visible):
+            module.wait_model_lab_visible()
+        self.assertEqual(clock[0], 8.0)
+        self.assertGreater(len(samples), 2)
+
+    def test_lab_launch_never_accepts_a_flickering_title_or_extends_deadline(self):
+        clock = [0.0]
+        def sleep(seconds):
+            clock[0] += seconds
+        output = io.StringIO()
+        with patch.object(module.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(module.time, 'sleep', side_effect=sleep), \
+                patch.object(module, 'firefox_model_lab_visible', side_effect=lambda: clock[0] % 2 < 1), \
+                patch('sys.stdout', output):
+            with self.assertRaisesRegex(ValueError, 'stable shipped Firefox view'):
+                module.wait_model_lab_visible()
+        self.assertEqual(clock[0], 30.0)
+        self.assertEqual(output.getvalue(), 'ARGOS_C3_STAGE model-lab-visibility-timeout\n')
+
     def test_assistant_chat_http_failure_reports_only_check_and_status(self):
         body = io.BytesIO(b'{"error":"private token and response body"}')
         error = HTTPError('http://127.0.0.1/private-token/chat', 409,
