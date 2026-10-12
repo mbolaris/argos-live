@@ -34,14 +34,15 @@ The owner has narrowed the next milestone to personality and reviewed skill tran
 
 ## Stable update maintenance
 
-Daily read-only GitHub Actions discovery is configured for OpenClaw, Ollama and Node. The October 3 upstream check found OpenClaw 2026.9.8 and Ollama 0.35.1; the current ISO/USB still runs 2026.9.7 and 0.35.0. Candidate pins and metadata were generated, not promoted. Four discovery tests and Linux shell syntax checks pass. Debian security/stable-update repositories are now enabled in the build source with a separately pinned security snapshot, but this requires a clean candidate build and package audit. See RELEASE-PROCESS.md.
+Daily read-only GitHub Actions discovery is configured for OpenClaw, Ollama and Node. The accepted USB still runs the older OpenClaw runtime. PR #99 proposes OpenClaw 2026.10.1 only, retaining Ollama 0.35.1 and Node 26.10.0. Its package lock and addon inventory are staged; the corrected compatibility CI is still running. The candidate's Debian and security snapshots are refreshed to 20261011T000000Z, with APT signature and package-manifest review still required in a clean image build. The npm audit reports five transitive findings (three high, two moderate); static review found the bundled npm tree is selected only for Bun, which Argos does not configure, while plugin/update npm paths remain relevant. This is not a clean audit or an installed upgrade. See RELEASE-PROCESS.md and [the October 11 audit](RUNTIME-AUDIT-20261011.md).
 
 ## Release follow-ups
 
 The earlier runtime audit recorded 25 findings. The October 4 OpenClaw 2026.9.8
-candidate audit reports four vulnerable packages: three high, one moderate, zero
-critical, all under npm's dependency subtree. See
-[the path/exposure review](RUNTIME-AUDIT-20261004.md). Remediation and effective
+candidate audit reported four vulnerable packages, and the October 11 2026.10.1
+candidate audit reports five (three high, two moderate), all under npm's
+dependency subtree. See the [October 4 path/exposure review](RUNTIME-AUDIT-20261004.md)
+and [October 11 audit](RUNTIME-AUDIT-20261011.md). Remediation and effective
 policy/invocation acceptance remain open; successful inference/configuration
 tests do not resolve these findings. The physical USB remains on the older pins.
 

@@ -30,7 +30,7 @@ def activation_smoke(cli, version, root):
     config = {'gateway': {'mode': 'local', 'bind': 'loopback',
                          'auth': {'mode': 'token', 'token': 'fictional-ci-token-not-owner-data'}},
               'agents': {'defaults': {'workspace': str(workspace)},
-                         'entries': {'guide': {'default': True, 'workspace': str(workspace),
+                         'entries': {'guide': {'workspace': str(workspace),
                                               'identity': {'name': 'Guide'}, 'model': 'ollama/qwen3:0.6b'}}},
               'tools': {'profile': 'minimal'},
               'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434',
@@ -68,6 +68,16 @@ def activation_smoke(cli, version, root):
     assert result['activation'] and len(result['activated']) == 3
     after = json.loads(config_path.read_bytes())
     assert len(after['agents']['entries']) == 3
+    assert after['agents']['ownership'] == 'explicit'
+    assert after['agents']['defaults']['systemAgent']['agentId'] == 'guide'
+    assert after['agents']['defaults']['heartbeat']['agentId'] == 'guide'
+    assert after['agents']['defaults']['authInheritance']['agentId'] == 'guide'
+    assert after['talk']['agentId'] == 'guide'
+    assert all('default' not in entry for entry in after['agents']['entries'].values())
+    agents = json.loads(subprocess.run([cli, 'agents', 'list', '--json'], env=runtime.env,
+                                       capture_output=True, text=True, timeout=120,
+                                       check=True).stdout)
+    assert next(agent for agent in agents if agent['id'] == 'guide')['isDefault'] is True
     for ident in result['activated']:
         entry = after['agents']['entries'][ident]
         assert entry['tools'] == pack_apply.CHAT
@@ -92,7 +102,7 @@ def smoke(cli, expected_version):
             workspace = state / ('workspace-' + ident)
             workspace.mkdir(mode=0o700)
             persona = 'Original fictional fixture identity: ' + ident + '\n'
-            (workspace / 'SOUL.md').write_text(persona, encoding='utf-8')
+            (workspace / 'SOUL.md').write_bytes(persona.encode('utf-8'))
             expected_personas.append(persona.encode())
             entries[ident] = {'identity': {'name': ident.title()}, 'workspace': str(workspace),
                              'agentDir': str(state / 'agents' / ident / 'agent'),
@@ -105,14 +115,14 @@ def smoke(cli, expected_version):
                             'deny': ['group:runtime', 'group:fs', 'group:web', 'browser'],
                             'elevated': {'enabled': False}}}
         config_path = state / 'openclaw.json'
-        original_config = (json.dumps(config, indent=2) + '\n').encode()
-        config_path.write_bytes(original_config)
+        legacy_config = (json.dumps(config, indent=2) + '\n').encode()
+        config_path.write_bytes(legacy_config)
         config_path.chmod(0o600)
         env = dict(os.environ, OPENCLAW_STATE_DIR=str(state),
                    OPENCLAW_CONFIG_PATH=str(config_path), NO_COLOR='1')
         def run(*args):
             result = subprocess.run([cli, *args], cwd=root, env=env,
-                                    capture_output=True, text=True, timeout=120)
+                                    capture_output=True, text=True, timeout=300)
             if result.returncode:
                 # This process sees fictional fixtures only; redact even their token.
                 detail = (result.stdout + result.stderr)[-6000:].replace(
@@ -123,6 +133,21 @@ def smoke(cli, expected_version):
         version = run('--version')
         if expected_version not in re.findall(r'\d{4}\.\d+\.\d+', version):
             raise RuntimeError('Installed OpenClaw differs from required version')
+        legacy_validation = subprocess.run([cli, 'config', 'validate'], cwd=root, env=env,
+                                           capture_output=True, text=True, timeout=120)
+        if legacy_validation.returncode == 0:
+            raise RuntimeError('Retired default-agent marker unexpectedly passed validation')
+        run('doctor', '--fix', '--non-interactive', '--no-workspace-suggestions')
+        config = json.loads(config_path.read_bytes())
+        agents = config.get('agents', {})
+        if (agents.get('ownership') != 'explicit'
+                or any('default' in entry for entry in agents.get('entries', {}).values())
+                or agents.get('defaults', {}).get('systemAgent', {}).get('agentId') != 'guide'
+                or agents.get('defaults', {}).get('heartbeat', {}).get('agentId') != 'guide'
+                or agents.get('defaults', {}).get('authInheritance', {}).get('agentId') != 'guide'
+                or config.get('talk', {}).get('agentId') != 'guide'):
+            raise RuntimeError('OpenClaw Doctor did not preserve legacy default ownership explicitly')
+        original_config = config_path.read_bytes()
         run('config', 'validate')
         run('agents', 'list', '--json')
         # Check the shared first-boot/interactive policy against actual pinned
@@ -139,7 +164,7 @@ def smoke(cli, expected_version):
         run('backup', 'verify', str(backup))
         backup_digest = hashlib.sha256(backup.read_bytes()).hexdigest()
         # Mutate only disposable fixtures to establish the recovery source is distinct.
-        (state / 'workspace-guide/SOUL.md').write_text('Changed fixture\n', encoding='utf-8')
+        (state / 'workspace-guide/SOUL.md').write_bytes(b'Changed fixture\n')
         config['agents']['entries']['guide']['identity']['name'] = 'Changed fixture'
         config_path.write_text(json.dumps(config), encoding='utf-8')
         run('config', 'validate')
@@ -160,7 +185,9 @@ def smoke(cli, expected_version):
         if invalid.returncode == 0:
             raise RuntimeError('Invalid fixture unexpectedly passed validation')
         return {'schema': 'argos-pack-runtime-smoke/1', 'openclaw_version': expected_version,
-                'valid_three_agent_config': True, 'valid_fresh_conversation_config': True,
+                'valid_three_agent_config': True, 'legacy_default_rejected_before_migration': True,
+                'legacy_default_migrated': True,
+                'valid_fresh_conversation_config': True,
                 'invalid_config_rejected': True,
                 'native_backup_verified': True, 'backup_sha256': backup_digest,
                 'fresh_restore_config_personas_byte_match': True,

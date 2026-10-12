@@ -1,14 +1,14 @@
 # Software selection and redistribution
 
-Upstream checked October 4, 2026. Exact primary runtime pins are in `versions.env`.
+Upstream checked October 12, 2026. Exact primary runtime pins are in `versions.env`.
 These are development build pins; physical media acceptance is recorded separately
 in STATUS.md.
 
 | Component | Pin | License / status | Primary source |
 |---|---|---|---|
-| Debian | trixie, snapshot 20261001T000000Z | Per-package licenses, image copyright archive | https://www.debian.org/releases/ |
+| Debian | trixie, snapshot 20261011T000000Z (development candidate) | Per-package licenses, image copyright archive | https://www.debian.org/releases/ |
 | live-build | Builder version recorded by dpkg; target packages snapshot-pinned | GPL-2+ | https://packages.debian.org/trixie/live-build |
-| OpenClaw | 2026.9.8, npm sha512 integrity + transitive lock | MIT; dependencies have separate licenses | https://github.com/openclaw/openclaw/tree/v2026.9.8 |
+| OpenClaw | 2026.10.1 (candidate), npm sha512 integrity + transitive lock | MIT; dependencies have separate licenses | https://github.com/openclaw/openclaw/tree/v2026.10.1 |
 | Node | 26.10.0, upstream SHA256 | MIT with bundled third-party notices | https://nodejs.org/dist/v26.10.0/ |
 | Ollama | 0.35.1, GitHub release SHA256 | MIT application; bundled CUDA libraries have NVIDIA terms | https://github.com/ollama/ollama/releases/tag/v0.35.1 |
 | NVIDIA Debian driver | 550.163.01-2 | Proprietary NVIDIA components + separately licensed packaging/kernel code | https://packages.debian.org/trixie/nvidia-driver |
