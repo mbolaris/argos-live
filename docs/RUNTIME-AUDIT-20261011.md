@@ -37,11 +37,11 @@ and reachable code paths before promotion. Preserve the findings in release
 evidence; do not describe this candidate as having a clean audit.
 
 The candidate discovery found Debian snapshots ten days old. The candidate now
-pins both repositories to `20261011T000000Z`; the Debian and Debian-security
-Release endpoints were present when checked on October 12. The clean image build
-must still validate APT signatures and its resolved package-manifest diff. This
-audit does not establish image acceptance or an installed upgrade. The prior
-OpenClaw 2026.9.8 audit remains at
+pins both repositories to `20261011T000000Z`; the candidate check observed the
+Debian and Debian-security Release endpoints for that snapshot. The clean image
+build completed, and its resolved package manifest and runtime pins were verified
+against the build report. This audit does not establish VM acceptance or an
+installed upgrade. The prior OpenClaw 2026.9.8 audit remains at
 [RUNTIME-AUDIT-20261004.md](RUNTIME-AUDIT-20261004.md).
 
 ## npm advisory reachability review
@@ -72,11 +72,37 @@ backup/restore. Pack activation also preserves the sole implicit owner when it
 expands a single-agent roster, emits no retired marker, and refuses unmigrated
 legacy configs or channel rosters whose routes require Doctor's richer binding
 migration. Local Windows tests and the pinned 2026.10.1 schema/recovery smoke
-pass. The corrected Linux CI rerun is in progress; ISO package-manifest review,
-disposable VM acceptance and physical acceptance remain pending.
+pass. PR #99 merged as `4fd900a119fcd43c18cc8f095223fda11dca36b3`; it updates
+OpenClaw only, leaving Node 26.10.0 and Ollama 0.35.1 pinned.
 
 This is not evidence that any persistent owner profile has been migrated. For
 an upgraded preserved profile, retain its original config and state backup, run
 the release's Doctor migration before starting the gateway, verify the
 resulting owners and bindings, then validate the config. Do not remove
 `default` markers by hand.
+
+## Candidate image and disposable VM acceptance
+
+The exact merged candidate built successfully in ISO workflow run
+[38187784719](https://github.com/mbolaris/argos-live/actions/runs/38187784719).
+The build and artifact verification checked the pinned runtime and package
+manifest, and the ISO's persistent desktop default and explicit temporary guest
+entry were reviewed. This confirms a built candidate, not an installed upgrade.
+
+Managed, offline QEMU acceptance did **not** pass. The runs below all used the
+same candidate ISO and the unchanged CPU-only, no-network setup:
+
+| Run | Observed result |
+|---|---|
+| [38200442248](https://github.com/mbolaris/argos-live/actions/runs/38200442248) | Startup reached `ready`, but `/api/assistant/chat` returned HTTP 409. A follow-up showed valid loopback configuration and token fields and a ready gateway. The guest failed before opening Model Lab. |
+| [38202208359](https://github.com/mbolaris/argos-live/actions/runs/38202208359) | The chat 409 cleared. The guest reached the Lab launch command and baseline-button activation, but no Lab phase or saved run was recorded. The cropped launch screenshot still showed Mission Control. |
+| [38203527669](https://github.com/mbolaris/argos-live/actions/runs/38203527669) | The guest returned from the Lab launch command but failed before the Lab view was recognized. The cropped screenshot again showed Mission Control. |
+| [38205119530](https://github.com/mbolaris/argos-live/actions/runs/38205119530) | Two chat 409s cleared; the guest returned from the Lab launch command, then failed with `ValueError` before a recognized Lab-view marker. No result record or active-trial screenshot was produced. The precise exception remains unconfirmed. |
+
+The focused QEMU harness tests pass locally (31 tests, two owner-only Linux
+diagnostic tests skipped on Windows). These checks validate the harness, not the
+candidate's full managed Lab journey. Do not call the candidate VM-accepted or
+ship it as a proven upgrade until a disposable VM run completes the visible Lab
+baseline and saves both expected results. The candidate is not installed on
+Toronado; no USB write, persistent profile migration, physical GPU test, or
+reboot-persistence test occurred.
