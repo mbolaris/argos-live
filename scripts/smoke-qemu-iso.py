@@ -82,6 +82,17 @@ def screenshot_dashboard_content(qmp, path):
         private_path.unlink(missing_ok=True)
 
 
+def try_dashboard_capture(qmp, path):
+    """Keep a valid cropped frame when available without masking VM progress."""
+    try:
+        screenshot_dashboard_content(qmp, path)
+        graphical_frame(path)
+    except (OSError, ValueError):
+        Path(path).unlink(missing_ok=True)
+        return False
+    return True
+
+
 def lab_progress_phase(line):
     """Return only a recognized test phase; never surface guest text in host logs."""
     try:
@@ -216,6 +227,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
         print('Starting offline CPU-emulated guest; acceptance timeout is 30 minutes.', flush=True)
         reported_stages = set()
         reported_lab_phases = set()
+        lab_launch_capture_attempted = False
         next_heartbeat = started + 60
         tail = ''
         login_sent = password_sent = payload_sent = False
@@ -245,6 +257,20 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                             if not (output / 'lab-progress.ppm').exists():
                                 screenshot_dashboard_content(qmp, output / 'lab-progress.ppm')
                                 graphical_frame(output / 'lab-progress.ppm')
+                    if ('model-lab-command-returned' in reported_stages and
+                            not lab_launch_capture_attempted):
+                        # Preserve a toolbar-cropped frame even when Firefox
+                        # fails the subsequent window-visibility check. A
+                        # transient/blank frame is discarded and does not
+                        # replace the original guest failure.
+                        lab_launch_capture_attempted = True
+                        launch_frame = output / 'lab-launch.ppm'
+                        if not try_dashboard_capture(qmp, launch_frame):
+                            print('Firefox Lab launch capture unavailable; continuing bounded visibility check.',
+                                  flush=True)
+                        else:
+                            print('Captured toolbar-cropped Firefox frame after the Model Lab command returned.',
+                                  flush=True)
                     if {'cpu-inference', 'managed-browser'} & reported_stages and not (output / 'desktop.ppm').exists():
                         # Native DOM readiness plus paint delay precede this
                         # stage. Capture startup, not the idle desktop after a

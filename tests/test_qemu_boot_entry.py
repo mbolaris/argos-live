@@ -7,6 +7,7 @@ import re
 import zlib
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('qemu_smoke', ROOT / 'scripts/smoke-qemu-iso.py')
@@ -36,6 +37,20 @@ class BootEntryTests(unittest.TestCase):
             '{"token":"private","phase":"ability"}'), 'ability')
         for line in ('{"phase":"model-service"}', '{"phase":"completed"}', 'not json'):
             self.assertIsNone(module.lab_progress_phase(line))
+
+    def test_optional_lab_launch_capture_discards_invalid_frame_without_failing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'lab-launch.ppm'
+            def write_frame(_qmp, destination):
+                Path(destination).write_bytes(b'cropped frame')
+            with patch.object(module, 'screenshot_dashboard_content', side_effect=write_frame), \
+                    patch.object(module, 'graphical_frame', side_effect=ValueError('blank frame')):
+                self.assertFalse(module.try_dashboard_capture(Path(temp) / 'qmp.sock', path))
+            self.assertFalse(path.exists())
+            with patch.object(module, 'screenshot_dashboard_content', side_effect=write_frame), \
+                    patch.object(module, 'graphical_frame'):
+                self.assertTrue(module.try_dashboard_capture(Path(temp) / 'qmp.sock', path))
+            self.assertEqual(path.read_bytes(), b'cropped frame')
 
     def test_guest_entry_refuses_persistence_arguments(self):
         entry = ('menuentry "Argos guest - resets on reboot, no passphrase" {\n'

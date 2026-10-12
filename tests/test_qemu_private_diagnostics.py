@@ -66,11 +66,15 @@ class DiagnosticFlagsTests(unittest.TestCase):
             self.assertNotIn('secret', json.dumps(value))
 
     def test_trial_keyboard_refuses_wrong_active_window(self):
+        output = io.StringIO()
         with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
+                patch('sys.stdout', output), \
                 patch.object(module.ctypes, 'CDLL') as library:
             with self.assertRaisesRegex(ValueError, 'active Firefox'):
                 module.click_model_lab_baseline("http://127.0.0.1:49355", "fixture-token")
             library.assert_not_called()
+        self.assertEqual(output.getvalue(), 'ARGOS_C3_INPUT_FAILURE verify-active-firefox\n')
+        self.assertNotIn('fixture-token', output.getvalue())
 
     def test_trial_keyboard_failure_releases_control_and_closes_display(self):
         x11, xtst = MagicMock(), MagicMock()
