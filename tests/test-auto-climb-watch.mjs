@@ -34,3 +34,10 @@ test('keeps the completed answer paired with its own question while next turn ru
  assert.equal(oldSchema.current.id, 'next');
  assert.match(oldSchema.reply, /Waiting/);
 });
+
+test('only a locally requested model action can move the viewport', () => {
+ vm.runInContext(s.slice(s.indexOf('function shouldRevealModelProgress('), s.indexOf('async function refreshSelection(')), c);
+ assert.equal(c.shouldRevealModelProgress(null, false), false);
+ assert.equal(c.shouldRevealModelProgress({kind:'switch'}, false), true);
+ assert.equal(c.shouldRevealModelProgress({kind:'switch'}, true), false);
+});

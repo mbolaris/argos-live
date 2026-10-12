@@ -1607,6 +1607,9 @@ let currentModelName = null;
 let commandModelName = null;
 let activeModelMonitoring = null;
 let selectionProgressRevealed = false;
+function shouldRevealModelProgress(pending, alreadyRevealed) {
+  return Boolean(pending) && !alreadyRevealed;
+}
 async function refreshSelection() {
   if (selectionRefreshing) return;
   selectionRefreshing = true;
@@ -1619,7 +1622,7 @@ async function refreshSelection() {
     currentModelName = value.model || null;
     const pending = getPendingModelAction();
     document.getElementById('selection-controls').hidden = (!selectionAvailable || value.phase === 'idle') && !pending;
-    if ((pending || selectionActive) && !selectionProgressRevealed) {
+    if (shouldRevealModelProgress(pending, selectionProgressRevealed)) {
       focusSection('selection-controls');
       selectionProgressRevealed = true;
     } else if (!pending && !selectionActive) {
