@@ -98,8 +98,9 @@ same candidate ISO and the unchanged CPU-only, no-network setup:
 | [38202208359](https://github.com/mbolaris/argos-live/actions/runs/38202208359) | The chat 409 cleared. The guest reached the Lab launch command and baseline-button activation, but no Lab phase or saved run was recorded. The cropped launch screenshot still showed Mission Control. |
 | [38203527669](https://github.com/mbolaris/argos-live/actions/runs/38203527669) | The guest returned from the Lab launch command but failed before the Lab view was recognized. The cropped screenshot again showed Mission Control. |
 | [38205119530](https://github.com/mbolaris/argos-live/actions/runs/38205119530) | Two chat 409s cleared; the guest returned from the Lab launch command, then failed with `ValueError` before a recognized Lab-view marker. No result record or active-trial screenshot was produced. The precise exception remains unconfirmed. |
+| [38208361541](https://github.com/mbolaris/argos-live/actions/runs/38208361541) | With continuous title stability inside the original launch deadline, the guest reached the visible-page and button-activation markers. The status API remained available but recorded `model-lab-baseline-not-started`; no baseline result was saved. Visual review shows a blank/loading frame at the title gate and enabled baseline controls after keyboard activation. This is a concrete browser-automation readiness/focus blocker, not a completed trial or proof that a normal user click fails. |
 
-The focused QEMU harness tests pass locally (31 tests, two owner-only Linux
+The focused QEMU harness tests pass locally (33 tests, two owner-only Linux
 diagnostic tests skipped on Windows). These checks validate the harness, not the
 candidate's full managed Lab journey. Do not call the candidate VM-accepted or
 ship it as a proven upgrade until a disposable VM run completes the visible Lab
