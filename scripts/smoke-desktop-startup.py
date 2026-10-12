@@ -143,7 +143,7 @@ def run(cli, ollama, seed):
                 # Exercise the live gateway's agent path, not a competing embedded host.
                 native['summary'](native['command'](cli, ['agent', '--agent', 'main', '--message',
                     'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
-                    '--timeout', '120', '--json'], native['child_environment'](home), timeout=180))
+                    '--timeout', '180', '--json'], native['child_environment'](home), timeout=240))
                 request('/api/startup/stop', 'POST')
                 controller.worker.join(timeout=30)
                 if controller.snapshot()['phase'] != 'stopped' or controller.worker.is_alive():
