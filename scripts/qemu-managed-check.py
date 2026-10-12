@@ -303,41 +303,6 @@ def firefox_model_lab_visible():
         return False
 
 
-def fullscreen_capture():
-    """Test-only F11 on the verified Firefox window hides tokenized browser chrome."""
-    env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(Path.home() / '.Xauthority'))
-    def property_text(window, name):
-        return subprocess.check_output(['xprop', '-id', window, name], env=env, text=True, timeout=10)
-    active = subprocess.check_output(['xprop', '-root', '_NET_ACTIVE_WINDOW'], env=env, text=True, timeout=10)
-    match = re.search(r'0x[0-9a-fA-F]+', active)
-    if not match or 'firefox' not in property_text(match[0], 'WM_CLASS').lower():
-        raise ValueError('Shipped Firefox is not the active capture window')
-    window = match[0]
-    if '_NET_WM_STATE_FULLSCREEN' not in property_text(window, '_NET_WM_STATE'):
-        x11 = ctypes.CDLL('libX11.so.6')
-        xtst = ctypes.CDLL('libXtst.so.6')
-        x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
-        x11.XKeysymToKeycode.argtypes, x11.XKeysymToKeycode.restype = [ctypes.c_void_p, ctypes.c_ulong], ctypes.c_ubyte
-        x11.XFlush.argtypes = x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
-        xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
-        display = x11.XOpenDisplay(b':0')
-        if not display:
-            raise ValueError('Guest capture display is unavailable')
-        try:
-            key = x11.XKeysymToKeycode(display, 0xffc8)
-            if not key or not xtst.XTestFakeKeyEvent(display, key, 1, 0) or not xtst.XTestFakeKeyEvent(display, key, 0, 0):
-                raise ValueError('Guest fullscreen capture key failed')
-            x11.XFlush(display)
-        finally:
-            x11.XCloseDisplay(display)
-        deadline = time.monotonic() + 15
-        while '_NET_WM_STATE_FULLSCREEN' not in property_text(window, '_NET_WM_STATE'):
-            if time.monotonic() >= deadline:
-                raise ValueError('Firefox browser chrome was not hidden for capture')
-            time.sleep(.5)
-    time.sleep(5)
-
-
 def click_model_lab_baseline(origin, token):
     """Navigate to the button's fragment, then use normal keyboard activation.
 
@@ -546,7 +511,7 @@ def managed_check(started, desktop_seconds):
     if not firefox_model_lab_visible():
         raise ValueError('Model Lab view did not remain open after assistant readiness')
     print('ARGOS_C3_STAGE model-lab-visible', flush=True)
-    fullscreen_capture()
+    time.sleep(5)
     print('ARGOS_C3_STAGE managed-browser', flush=True)
     # Give the host-side QMP capture a moment to save the idle Lab screen,
     # then exercise the actual visible button rather than calling its API.

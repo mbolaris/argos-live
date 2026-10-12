@@ -15,6 +15,21 @@ spec.loader.exec_module(module)
 
 
 class BootEntryTests(unittest.TestCase):
+    def test_dashboard_capture_removes_token_bearing_toolbar_rows(self):
+        width, height, crop = 800, 760, 160
+        toolbar = b'\xff\x00\x00' * width * crop
+        content = b'\x01\x02\x03' * width * (height - crop)
+        raw = f'P6\n{width} {height}\n255\n'.encode() + toolbar + content
+        value = module.crop_ppm_top(raw, crop)
+        header = f'P6\n{width} {height - crop}\n255\n'.encode()
+        self.assertTrue(value.startswith(header))
+        self.assertEqual(value[len(header):], content)
+
+    def test_dashboard_capture_refuses_unredactable_frame(self):
+        raw = b'P6\n800 700\n255\n' + b'\0' * (800 * 700 * 3)
+        with self.assertRaisesRegex(ValueError, 'safely crop'):
+            module.crop_ppm_top(raw, 160)
+
     def test_guest_entry_refuses_persistence_arguments(self):
         entry = ('menuentry "Argos guest - resets on reboot, no passphrase" {\n'
                  ' linux /live/vmlinuz boot=live console=tty0 nopersistence argos.guest=1\n'
