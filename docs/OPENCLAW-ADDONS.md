@@ -36,6 +36,19 @@ Inspect registration and exercise the running gateway separately. Pin/review cod
 ## Release gate
 
 Each claimed feature must have a capability smoke test and a documented offline/online boundary. Run addon inventory, dependency and license audits alongside core runtime update checks. Exercise supported capabilities against the candidate OpenClaw release, then restore a known-good target profile. Retain exact package/backend/asset versions in release manifests. Physical audio, GPU and browser acceptance stays separate from fixture success. Unsupported features remain visibly pending, not advertised as ready.
+
+### Agent roster migration
+
+OpenClaw 2026.10.1 retires `agents.entries.<id>.default`. On an upgraded
+preserved profile, run the official Doctor migration on a verified backup before
+starting the gateway; validate the migrated config and review all explicit
+owners. Argos pack activation refuses a legacy marker rather than deleting it.
+When expanding a valid single-agent local roster, it records that sole agent as
+the explicit system, heartbeat, auth-inheritance and Talk owner. If channel
+routing is configured, pack activation stops and requires Doctor to materialize
+the channel/account bindings instead of guessing. The pinned compatibility
+smoke exercises the actual migration and the later pack apply/rollback in
+fictional disposable state only; it does not migrate a personal profile.
 # Pinned inventory implementation
 
 `argos addons --json` exposes ten conservative capability rows. The inert catalog

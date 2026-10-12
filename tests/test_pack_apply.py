@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
@@ -37,7 +38,7 @@ class ApplyTests(unittest.TestCase):
         (workspace / 'SOUL.md').write_bytes(b'Original fictional identity\n')
         (workspace / 'MEMORY.md').write_bytes(b'Untouched fictional memory\n')
         config = {'agents': {'entries': {'guide': {'identity': {'name': 'Guide'},
-                   'workspace': str(workspace), 'default': True,
+                   'workspace': str(workspace),
                    'model': 'ollama/qwen3:0.6b', 'tools': {'profile': 'full'}}}},
                   'models': {'providers': {'ollama': {'api': 'ollama',
                              'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'fixture-only',
@@ -65,7 +66,8 @@ class ApplyTests(unittest.TestCase):
             result = self.activate(f)
             self.assertTrue(result['activation'])
             self.assertFalse(result['model_capability_verified'])
-            entry = json.loads((home / 'openclaw.json').read_bytes())['agents']['entries']['guide']
+            applied = json.loads((home / 'openclaw.json').read_bytes())
+            entry = applied['agents']['entries']['guide']
             self.assertEqual(entry['tools'], pack_apply.CHAT)
             self.assertEqual((workspace / 'SOUL.md').read_bytes(), b'Fictional helpful guide.\n')
             self.assertEqual((workspace / 'MEMORY.md').read_bytes(), b'Untouched fictional memory\n')
@@ -132,6 +134,66 @@ class ApplyTests(unittest.TestCase):
                                  installed=inventory, reviewed_skills=True, gateway_stopped=True)
             self.assertEqual((home / 'openclaw.json').read_bytes(), original)
             self.assertFalse((workspace / 'skills').exists())
+
+    def test_legacy_default_marker_requires_doctor_before_activation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            f = self.fixture(Path(directory))
+            config = json.loads(f[-1])
+            config['agents']['entries']['guide']['default'] = True
+            original = json.dumps(config).encode()
+            (f[1] / 'openclaw.json').write_bytes(original)
+            stage = pack_import.stage(f[0] / 'reference.zip', f[0].parent, f[1], stage_id='legacy')
+            f = (f[0].parent / 'legacy', *f[1:])
+            with self.assertRaisesRegex(ValueError, 'doctor --fix'):
+                self.activate(f)
+            self.assertEqual((f[1] / 'openclaw.json').read_bytes(), original)
+            self.assertEqual(list(f[2].iterdir()), [])
+
+    def test_expanding_single_agent_preserves_implicit_owner_without_legacy_marker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            f = self.fixture(Path(directory))
+            root = f[0].parent.parent
+            source_archive = f[0] / 'reference.zip'
+            expanded_archive = root / 'expanded-pack.zip'
+            with zipfile.ZipFile(source_archive) as source:
+                manifest = json.loads(source.read('manifest.json'))
+                payload = {name: source.read(name) for name in source.namelist() if name != 'manifest.json'}
+            name = 'agents/discussion/persona/SOUL.md'
+            payload[name] = b'Fictional discussion identity\n'
+            manifest['agents'].append({'id': 'discussion', 'name': 'Discussion',
+                                       'persona_files': [name], 'skill_files': [],
+                                       'model_preference': {'name': 'qwen3:0.6b'}})
+            manifest['files'].append({'path': name, 'bytes': len(payload[name]),
+                                      'sha256': hashlib.sha256(payload[name]).hexdigest()})
+            with zipfile.ZipFile(expanded_archive, 'w') as bundle:
+                bundle.writestr('manifest.json', json.dumps(manifest))
+                for path, data in payload.items():
+                    bundle.writestr(path, data)
+            staged = pack_import.stage(expanded_archive, f[0].parent, f[1], stage_id='expanded')
+            f = (f[0].parent / 'expanded', f[1], f[2], f[3],
+                 staged['archive_sha256'], f[5], f[6])
+            result = self.activate(f)
+            self.assertEqual(set(result['activated']), {'guide', 'discussion'})
+            applied = json.loads((f[1] / 'openclaw.json').read_bytes())
+            self.assertEqual(applied['agents']['ownership'], 'explicit')
+            self.assertEqual(applied['agents']['defaults']['systemAgent']['agentId'], 'guide')
+            self.assertEqual(applied['agents']['defaults']['heartbeat']['agentId'], 'guide')
+            self.assertEqual(applied['agents']['defaults']['authInheritance']['agentId'], 'guide')
+            self.assertEqual(applied['talk']['agentId'], 'guide')
+            self.assertTrue(all('default' not in item for item in applied['agents']['entries'].values()))
+            pack_apply.rollback(f[2] / result['snapshot_id'], f[1], FixtureRuntime(f[1]), gateway_stopped=True)
+            self.assertEqual((f[1] / 'openclaw.json').read_bytes(), f[-1])
+            channel_config = json.loads(f[-1])
+            channel_config['channels'] = {'telegram': {'enabled': True}}
+            (f[1] / 'openclaw.json').write_bytes(json.dumps(channel_config).encode())
+            channel_before = (f[1] / 'openclaw.json').read_bytes()
+            channel_stage = pack_import.stage(expanded_archive, f[0].parent, f[1],
+                                              stage_id='channel-expanded')
+            channel_fixture = (f[0].parent / 'channel-expanded', f[1], f[2], f[3],
+                               channel_stage['archive_sha256'], f[5], f[6])
+            with self.assertRaisesRegex(ValueError, 'channel roster'):
+                self.activate(channel_fixture)
+            self.assertEqual((f[1] / 'openclaw.json').read_bytes(), channel_before)
 
     def test_add_agent_and_rollback_removes_only_created_workspace(self):
         with tempfile.TemporaryDirectory() as directory:

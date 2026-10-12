@@ -41,3 +41,24 @@ signed Debian snapshots and review the resolved package-manifest diff before a
 clean ISO build. This audit does not establish compatibility, image acceptance,
 or an installed upgrade. The prior OpenClaw 2026.9.8 audit remains at
 [RUNTIME-AUDIT-20261004.md](RUNTIME-AUDIT-20261004.md).
+
+## Compatibility migration found during PR #99
+
+The first pinned compatibility run failed because its legacy fixture used
+`agents.entries.<id>.default: true`. OpenClaw 2026.10.1 retires that marker and
+requires the old owner to be made explicit. The official migration is
+`openclaw doctor --fix --non-interactive`; it preserves the prior owner in
+surface-specific fields and records `agents.ownership: "explicit"`. The
+candidate smoke now runs that migration only in disposable fictional state,
+checks the preserved owners, validates the migrated config, and then exercises
+backup/restore. Pack activation also preserves the sole implicit owner when it
+expands a single-agent roster, emits no retired marker, and refuses unmigrated
+legacy configs or channel rosters whose routes require Doctor's richer binding
+migration. Local Windows tests and the pinned 2026.10.1 schema/recovery smoke
+pass; the corrected Linux CI rerun and all other release gates remain pending.
+
+This is not evidence that any persistent owner profile has been migrated. For
+an upgraded preserved profile, retain its original config and state backup, run
+the release's Doctor migration before starting the gateway, verify the
+resulting owners and bindings, then validate the config. Do not remove
+`default` markers by hand.

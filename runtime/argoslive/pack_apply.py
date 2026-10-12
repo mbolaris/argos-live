@@ -172,11 +172,19 @@ def apply(stage, home, snapshots, reviewed_sha256, runtime, *, installed=None,
                 [a['files'] for a in report['agents']] != [a['files'] for a in receipt['agents']]):
             raise ValueError('Active state changed since staging; import and review a fresh stage')
         config = packs.decode(config_bytes)
+        agents_config = config.get('agents', {})
+        configured_entries = agents_config.get('entries', {})
+        if isinstance(configured_entries, dict) and any(
+                isinstance(entry, dict) and 'default' in entry
+                for entry in configured_entries.values()):
+            raise ValueError('Run openclaw doctor --fix --non-interactive before pack activation')
         runtime.validate(config_path)
         # Native pinned schema uses entries; refuse lossy conversion of legacy list.
         if 'list' in config.get('agents', {}):
             raise ValueError('Normalize the Live roster to the pinned entries schema first')
         entries = config.setdefault('agents', {}).setdefault('entries', {})
+        previous_entry_count = len(entries)
+        previous_default_owner = next(iter(entries)) if previous_entry_count == 1 else None
         writes, activated, pending, agent_directories = [], [], [], []
         expected_before = {}
         provider = config.get('models', {}).get('providers', {}).get('ollama', {})
@@ -216,8 +224,6 @@ def apply(stage, home, snapshots, reviewed_sha256, runtime, *, installed=None,
                 entry.update(identity=dict(entry.get('identity', {}), name=agent['name']),
                              workspace=str(workspace), agentDir=str(agent_dir),
                              model='ollama/' + model['model'], tools=json.loads(json.dumps(CHAT)))
-                if active and active.get('default') is True:
-                    entry['default'] = True
                 # Source grants/fallbacks/helpers are not copied. Live credentials stay in agentDir.
                 entries[ident] = entry
                 for name in agent['persona_files'] + agent['skill_files']:
@@ -230,6 +236,20 @@ def apply(stage, home, snapshots, reviewed_sha256, runtime, *, installed=None,
                 activated.append(ident)
         if not activated:
             return {'activation': False, 'activated': [], 'pending': pending, 'snapshot_id': None}
+        if previous_entry_count == 1 and len(entries) > 1:
+            # A sole configured agent is the implicit owner on a single-agent
+            # roster. Make that ownership explicit before adding agents so the
+            # former default remains the system, heartbeat, auth and Talk owner.
+            # Channel routing has more detailed account/peer semantics; require
+            # OpenClaw Doctor to materialize those bindings instead of guessing.
+            if config.get('channels'):
+                raise ValueError('Run openclaw doctor --fix --non-interactive before expanding a channel roster')
+            agents_config = config.setdefault('agents', {})
+            agents_config['ownership'] = 'explicit'
+            defaults = agents_config.setdefault('defaults', {})
+            for surface in ('systemAgent', 'heartbeat', 'authInheritance'):
+                defaults.setdefault(surface, {}).setdefault('agentId', previous_default_owner)
+            config.setdefault('talk', {}).setdefault('agentId', previous_default_owner)
         writes.append((config_path, (json.dumps(config, indent=2) + '\n').encode()))
         expected_before[str(config_path)] = digest(config_bytes)
         if len({str(p).casefold() for p, _ in writes}) != len(writes):
