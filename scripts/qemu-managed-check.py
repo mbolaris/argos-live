@@ -175,6 +175,37 @@ def report_http_failure(check, error):
     error.close()
 
 
+def assistant_chat_preconditions(home, session_origin):
+    """Report only booleans used by the shipped chat-destination preflight."""
+    from argoslive.web.status import gateway, gateway_ready, read_json
+    result = {'config_readable': False, 'gateway_config_valid': False,
+              'origin_matches_session': False, 'token_mode': False,
+              'token_present': False, 'token_length_valid': False,
+              'gateway_ready': False}
+    try:
+        config = read_json(home / '.openclaw/openclaw.json')
+        result['config_readable'] = True
+        config_gateway = config.get('gateway', {})
+        if not isinstance(config_gateway, dict):
+            return result
+        configured_origin = gateway(config)
+        auth = config_gateway.get('auth', {})
+        if not isinstance(auth, dict):
+            return result
+        token = auth.get('token')
+        result.update({
+            'gateway_config_valid': True,
+            'origin_matches_session': configured_origin == session_origin,
+            'token_mode': auth.get('mode', 'token') == 'token',
+            'token_present': isinstance(token, str) and bool(token),
+            'token_length_valid': isinstance(token, str) and 0 < len(token) <= 4096,
+            'gateway_ready': gateway_ready(configured_origin),
+        })
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return result
+
+
 def gateway_observation(home, opener):
     from argoslive.web.status import gateway, read_json
     try:
@@ -473,6 +504,8 @@ def managed_check(started, desktop_seconds):
                     chat_target = urlsplit(json.load(response).get('url', ''))
             except HTTPError as error:
                 report_http_failure('assistant-chat-availability', error)
+                print('ARGOS_C3_CHAT_PREFLIGHT ' + json.dumps(
+                    assistant_chat_preconditions(home, origin)), flush=True)
                 raise
             chat_available = (chat_target.scheme == 'http' and chat_target.hostname == '127.0.0.1'
                               and chat_target.path == '/chat' and chat_target.fragment.startswith('token='))
