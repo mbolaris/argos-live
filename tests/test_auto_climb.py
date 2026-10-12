@@ -258,6 +258,30 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
+    def test_restart_waits_for_asynchronous_shutdown_before_start(self):
+        class AsyncStartup(FakeStartup):
+            polls = 0
+            def stop(self):
+                self.phase = 'stopping'
+                self.polls = 3
+            def snapshot(self):
+                if self.polls:
+                    self.polls -= 1
+                    self.active = self.polls > 0
+                return super().snapshot()
+            def start(self, **kwargs):
+                if self.active:
+                    raise AssertionError('Start attempted before shutdown finished')
+                return super().start(**kwargs)
+        startup = AsyncStartup(self.home)
+        controller = auto_climb.Controller(startup, home=self.home, runner=self.runner)
+        try:
+            controller._restart_assistant(timeout=5)
+            self.assertEqual(startup.phase, 'ready')
+            self.assertTrue(startup.active)
+        finally:
+            controller.close()
+
     # -------------------------------------------------------------------------
     # R3 / AC1-2, AC1-3: Envelope Validation, Single Worker & Budgets
     # -------------------------------------------------------------------------
@@ -733,7 +757,8 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
             snap = controller.snapshot()
             self.assertEqual(snap['phase'], 'budget-exhausted')
-            self.assertIn('Session limit reached: 1 experiments completed', snap['stopping_reason'])
+            self.assertIn('Session limit reached: 1 attempts used', snap['stopping_reason'])
+            self.assertEqual(len(snap['history']), 1, 'The final reserved attempt must actually finish')
         finally:
             controller.close()
 
@@ -860,6 +885,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             self.startup, home=self.home, runner=failing_runner,
             clock=clock.monotonic, sleep_fn=lambda s: None,
         )
+        # Exercise exhaustion of an explicitly bounded four-pack fixture even
+        # when production adds fresh, disjoint validation packs.
+        new_controller.validation_partitions = new_controller.validation_partitions[:4]
         try:
             new_controller.start()
             deadline = time.time() + 5.0
@@ -881,6 +909,10 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
             snap = new_controller.snapshot()
             self.assertIn('Fresh validation inventory exhausted', snap['stopping_reason'])
+            new_controller.worker.join(timeout=1)
+            self.assertFalse(new_controller.worker.is_alive())
+            self.assertFalse(self.startup.lab_active)
+            self.assertEqual(new_controller.snapshot()['budgets_used']['completed_experiments'], 1)
         finally:
             new_controller.close()
 
@@ -899,6 +931,17 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         self.assertTrue(rec['needs_download'])
         self.assertIn('MB download', rec['cost'])
         self.assertEqual(rec['verification'], '8 practice challenges + 8 independent validation challenges')
+
+    def test_recommend_hardware_model_advances_after_completed_model(self):
+        (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
+        hardware = lambda: {'ram': {'available_bytes': 64 * 1024**3},
+                             'gpus': [{'vram_total_bytes': 32 * 1024**3, 'vram_used_bytes': 0}]}
+        first = auto_climb.recommend_hardware_model(self.home, hardware_fn=hardware)
+        self.assertIsNotNone(first)
+        second = auto_climb.recommend_hardware_model(
+            self.home, hardware_fn=hardware, excluded_candidates={first['id']})
+        self.assertIsNotNone(second)
+        self.assertNotEqual(first['id'], second['id'])
 
     def test_recommend_hardware_model_respects_download_budget(self):
         (self.home / '.config/argos-live/state.json').write_text('{"model": "qwen3:0.6b"}')
@@ -1063,7 +1106,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             model_restorer=lambda: restored.append(True),
         )
         try:
-            controller.start()
+            controller.start({'max_experiments': 1})
             deadline = time.time() + 5.0
             while time.time() < deadline:
                 snap = controller.snapshot()
@@ -1082,6 +1125,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             snap = controller.snapshot()
             self.assertTrue(len(restored) > 0)
             self.assertEqual(snap['history'][0]['verdict'], 'restored')
+            self.assertNotIn('mutation', controller.session)
+            recovered = controller._load_or_recover_session()
+            self.assertEqual(recovered['phase'], snap['phase'])
         finally:
             controller.close()
 
@@ -1104,7 +1150,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         }
 
         controller = auto_climb.Controller(
-            self.startup, home=self.home, runner=self.runner,
+            self.startup, home=self.home, runner=self.runner, candidates=[],
             clock=clock.monotonic, sleep_fn=lambda s: None,
             model_recommender=lambda *a, **k: fake_model_cand if not switched else None,
             download_runner=lambda tag: False,  # Download fails!
@@ -1160,7 +1206,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
         # Baseline runner: fails practice retest, prompting restoration
         controller = auto_climb.Controller(
-            self.startup, home=self.home, runner=self.runner,
+            self.startup, home=self.home, runner=self.runner, candidates=[],
             clock=clock.monotonic, sleep_fn=lambda s: None,
             model_recommender=lambda *a, **k: fake_model_cand,
             model_switcher=lambda tag: True,
@@ -1468,3 +1514,59 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EvidenceProposalTests(unittest.TestCase):
+    def controller(self):
+        c = auto_climb.Controller.__new__(auto_climb.Controller)
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        c.home = Path(temp.name)
+        (c.home / '.openclaw').mkdir()
+        (c.home / '.openclaw/openclaw.json').write_text('{}')
+        c.candidate_pool = copy.deepcopy(auto_climb.INSTRUCTION_CANDIDATES)
+        c.model_recommender = mock.Mock(return_value={'id': 'bigger-model'})
+        c.session = {'practice_baseline': [
+            {'kind': 'answer', 'passed': False, 'checks': {
+                'answer_present': True, 'answer_first': True, 'exact_quote': False}}
+            for _ in range(3)]}
+        return c
+
+    def test_quote_only_misses_propose_instruction_before_download(self):
+        c = self.controller()
+        self.assertEqual(c._select_next_candidate()['id'], 'quote-evidence')
+        c.model_recommender.assert_not_called()
+
+    def test_mixed_misses_keep_normal_model_policy(self):
+        c = self.controller()
+        c.session['practice_baseline'][0]['checks']['answer_present'] = False
+        self.assertEqual(c._select_next_candidate()['id'], 'bigger-model')
+
+    def test_existing_instruction_is_not_proposed_again(self):
+        c = self.controller()
+        with mock.patch.object(auto_climb, 'read_text', return_value=assistant_trial.CHANGE_BY_ID['quote-evidence']['block']):
+            self.assertEqual(c._select_next_candidate()['id'], 'bigger-model')
+
+    def test_completed_quote_candidate_is_not_repeated(self):
+        c = self.controller()
+        c.session['completed_candidates'] = ['quote-evidence']
+        self.assertEqual(c._select_next_candidate()['id'], 'bigger-model')
+
+
+class FreshValidationPackTests(unittest.TestCase):
+    def test_new_packs_are_disjoint_and_retain_scoring_contract(self):
+        packs = auto_climb.load_validation_partitions(auto_climb.VALIDATION_TASKS_PATH)
+        ids = [t['id'] for p in packs for t in p['tasks']]
+        self.assertEqual(len(ids), len(set(ids)))
+        passages = [v for p in packs for v in p['passages'].values()]
+        self.assertEqual(len(passages), len(set(passages)))
+        for pack in packs[4:]:
+            self.assertEqual(len(pack['tasks']), 8)
+            for task in pack['tasks']:
+                if task['kind'] != 'answer': continue
+                source = pack['passages'][task['passage']]
+                answer = task['accepted'][0]
+                # The unchanged scorer still requires both an answer and quote.
+                reply = answer + '. "' + source + '"'
+                self.assertTrue(assistant_trial.score(task, pack['passages'], reply)['passed'])
+                self.assertFalse(assistant_trial.score(task, pack['passages'], answer)['passed'])

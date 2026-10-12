@@ -7,9 +7,9 @@ import traceback
 
 from . import auto_setup, catalog, model_verify, starter, storage
 from .bench_speed import measurement
-from .owned_gateway import owned as gateway_owned, private_log
+from .owned_gateway import OwnedOrigin, owned as gateway_owned, private_log
 from .owned_ollama import owned as backend_owned
-from .web.status import chat_url, gateway_ready, read_json
+from .web.status import chat_url, gateway_alive, gateway_ready, read_json
 
 PHASES = {'idle': 'Start your local assistant.', 'setup': 'Preparing your workspace…',
     'verify-starter': 'Checking the bundled model…', 'select-storage': 'Choosing space for future models…',
@@ -58,10 +58,11 @@ def source(home):
 class Controller:
     def __init__(self, home=None, *, configure=auto_setup.configure, resolve_source=source,
                  backend=backend_owned, gateway=gateway_owned, ready=gateway_ready,
-                 conversation=chat_url, clock=time.monotonic, auto_open_chat=True):
+                 conversation=chat_url, clock=time.monotonic, auto_open_chat=True, alive=gateway_alive):
         self.home = storage.safe_local(Path.home() if home is None else Path(home))
         self.configure, self.resolve_source = configure, resolve_source
         self.backend, self.gateway, self.ready, self.conversation = backend, gateway, ready, conversation
+        self.alive = alive
         self.clock = clock
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
@@ -195,8 +196,20 @@ class Controller:
                     missed_probes = 0
                     while not self.stop_event.wait(2):
                         if not self.ready(origin):
-                            missed_probes += 1
+                            # Readiness is not liveness. A bounded owner workload
+                            # may temporarily make readiness unavailable; do not
+                            # kill its still-live gateway and abort its answer.
+                            workload_alive = self.lab_active and (self.alive(origin) or
+                                (isinstance(origin, OwnedOrigin) and origin.owned_alive()))
+                            missed_probes = 0 if workload_alive else missed_probes + 1
                             self.transition('reconnecting')
+                            try:
+                                root = storage.safe_local(self.home / '.local/state/argos-live')
+                                root.mkdir(mode=0o700, parents=True, exist_ok=True)
+                                with private_log(root / 'gateway-probes.log') as log:
+                                    log.write(f'Readiness failed; active-workload-live={bool(workload_alive)}\n'.encode())
+                            except (OSError, ValueError):
+                                pass
                             if missed_probes >= 3:
                                 raise ValueError('Owned gateway stopped responding')
                         else:

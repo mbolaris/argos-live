@@ -93,10 +93,12 @@ class GatewayProcessTests(unittest.TestCase):
                 self.assertTrue(group_owns_port(leader, self.port))
                 self.assertFalse(group_owns_port(os.getpgrp(), self.port))
                 self.assertEqual(origin, f'http://127.0.0.1:{self.port}')
+                self.assertTrue(origin.owned_alive())
                 log = self.home / '.local/state/argos-live/gateway.log'
                 self.assertEqual(log.stat().st_mode & 0o777, 0o600)
                 self.assertIn('fictional private', log.read_text())
                 raise ValueError('fixture body')
+        self.assertFalse(origin.owned_alive())
         self.assertTrue(self.stopped(leader))
         self.assertTrue(self.stopped(worker))
         self.assertEqual(self.config.read_bytes(), original)

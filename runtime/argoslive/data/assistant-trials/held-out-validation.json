@@ -1,7 +1,7 @@
 {
   "schema": "argos-assistant-tasks/1",
   "change": "held-out-validation",
-  "version": "1.1.0",
+  "version": "1.4.0",
   "license": "MIT",
   "source": "original-argos-live",
   "note": "Independent held-out validation suite: partitioned disjoint passages, questions, and checks. Kept out of prompts and reflection.",
@@ -16,21 +16,32 @@
       "kind": "answer",
       "passage": "aquarium",
       "question": "How much is general admission for adults?",
-      "accepted": ["$18", "18 dollars", "eighteen dollars"]
+      "accepted": [
+        "$18",
+        "18 dollars",
+        "eighteen dollars"
+      ]
     },
     {
       "id": "workshop-answer",
       "kind": "answer",
       "passage": "workshop",
       "question": "How much are monthly dues?",
-      "accepted": ["$35", "35 dollars", "thirty-five dollars"]
+      "accepted": [
+        "$35",
+        "35 dollars",
+        "thirty-five dollars"
+      ]
     },
     {
       "id": "shuttle-answer",
       "kind": "answer",
       "passage": "shuttle",
       "question": "How often does the downtown connector shuttle depart?",
-      "accepted": ["every 20 minutes", "20 minutes"]
+      "accepted": [
+        "every 20 minutes",
+        "20 minutes"
+      ]
     },
     {
       "id": "aquarium-missing",
@@ -75,21 +86,32 @@
           "kind": "answer",
           "passage": "aquarium",
           "question": "How much is general admission for adults?",
-          "accepted": ["$18", "18 dollars", "eighteen dollars"]
+          "accepted": [
+            "$18",
+            "18 dollars",
+            "eighteen dollars"
+          ]
         },
         {
           "id": "workshop-answer",
           "kind": "answer",
           "passage": "workshop",
           "question": "How much are monthly dues?",
-          "accepted": ["$35", "35 dollars", "thirty-five dollars"]
+          "accepted": [
+            "$35",
+            "35 dollars",
+            "thirty-five dollars"
+          ]
         },
         {
           "id": "shuttle-answer",
           "kind": "answer",
           "passage": "shuttle",
           "question": "How often does the downtown connector shuttle depart?",
-          "accepted": ["every 20 minutes", "20 minutes"]
+          "accepted": [
+            "every 20 minutes",
+            "20 minutes"
+          ]
         },
         {
           "id": "aquarium-missing",
@@ -134,21 +156,32 @@
           "kind": "answer",
           "passage": "bakery",
           "question": "How much does a sourdough loaf cost?",
-          "accepted": ["$8", "8 dollars", "eight dollars"]
+          "accepted": [
+            "$8",
+            "8 dollars",
+            "eight dollars"
+          ]
         },
         {
           "id": "clinic-answer",
           "kind": "answer",
           "passage": "clinic",
           "question": "How much is the copay for insured patients?",
-          "accepted": ["$15", "15 dollars", "fifteen dollars"]
+          "accepted": [
+            "$15",
+            "15 dollars",
+            "fifteen dollars"
+          ]
         },
         {
           "id": "library-answer",
           "kind": "answer",
           "passage": "library",
           "question": "How long can laptops be loaned for?",
-          "accepted": ["three hours", "3 hours"]
+          "accepted": [
+            "three hours",
+            "3 hours"
+          ]
         },
         {
           "id": "bakery-missing",
@@ -193,21 +226,32 @@
           "kind": "answer",
           "passage": "museum",
           "question": "How much does an adult ticket cost?",
-          "accepted": ["$12", "12 dollars", "twelve dollars"]
+          "accepted": [
+            "$12",
+            "12 dollars",
+            "twelve dollars"
+          ]
         },
         {
           "id": "gym-answer",
           "kind": "answer",
           "passage": "gym",
           "question": "How much does a guest pass cost per day?",
-          "accepted": ["$10", "10 dollars", "ten dollars"]
+          "accepted": [
+            "$10",
+            "10 dollars",
+            "ten dollars"
+          ]
         },
         {
           "id": "ferry-answer",
           "kind": "answer",
           "passage": "ferry",
           "question": "How often does the harbor ferry run?",
-          "accepted": ["every 30 minutes", "30 minutes"]
+          "accepted": [
+            "every 30 minutes",
+            "30 minutes"
+          ]
         },
         {
           "id": "museum-missing",
@@ -252,21 +296,33 @@
           "kind": "answer",
           "passage": "theater",
           "question": "How much are student rush tickets?",
-          "accepted": ["$20", "20 dollars", "twenty dollars"]
+          "accepted": [
+            "$20",
+            "20 dollars",
+            "twenty dollars"
+          ]
         },
         {
           "id": "park-answer",
           "kind": "answer",
           "passage": "park",
           "question": "How much does a pavilion rental cost per afternoon block?",
-          "accepted": ["$50", "50 dollars", "fifty dollars"]
+          "accepted": [
+            "$50",
+            "50 dollars",
+            "fifty dollars"
+          ]
         },
         {
           "id": "hotel-answer",
           "kind": "answer",
           "passage": "hotel",
           "question": "How much is overnight valet parking per vehicle?",
-          "accepted": ["$30", "30 dollars", "thirty dollars"]
+          "accepted": [
+            "$30",
+            "30 dollars",
+            "thirty dollars"
+          ]
         },
         {
           "id": "theater-missing",
@@ -295,6 +351,1887 @@
           "id": "control-coffee",
           "kind": "control",
           "message": "Name one type of brewed coffee drink, in one short sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p5",
+      "passages": {
+        "pottery": "The clay studio runs beginner workshops on Sunday afternoons. Each workshop lasts 75 minutes. Participants collect fired pieces the following week. Aprons are provided, and closed shoes are required.",
+        "repair": "The neighborhood repair cafe meets in the East Hall on the first Saturday of each month. Volunteers can inspect small appliances and mend clothing. Visitors bring their own replacement parts. Entry is free.",
+        "archive": "The county archive offers reading-room appointments from Tuesday through Friday. Researchers must bring photo identification. Document scans cost $3 per page. Bags stay in the lockers outside the reading room."
+      },
+      "tasks": [
+        {
+          "id": "pottery-answer",
+          "kind": "answer",
+          "passage": "pottery",
+          "question": "How long does each beginner workshop last?",
+          "accepted": [
+            "75 minutes",
+            "seventy-five minutes"
+          ]
+        },
+        {
+          "id": "repair-answer",
+          "kind": "answer",
+          "passage": "repair",
+          "question": "Where does the repair cafe meet?",
+          "accepted": [
+            "East Hall"
+          ]
+        },
+        {
+          "id": "archive-answer",
+          "kind": "answer",
+          "passage": "archive",
+          "question": "How much does a document scan cost per page?",
+          "accepted": [
+            "$3",
+            "3 dollars",
+            "three dollars"
+          ]
+        },
+        {
+          "id": "pottery-missing",
+          "kind": "not_stated",
+          "passage": "pottery",
+          "question": "Who teaches the beginner workshops?"
+        },
+        {
+          "id": "repair-missing",
+          "kind": "not_stated",
+          "passage": "repair",
+          "question": "How many volunteers work at the repair cafe?"
+        },
+        {
+          "id": "archive-missing",
+          "kind": "not_stated",
+          "passage": "archive",
+          "question": "Who designed the archive building?"
+        },
+        {
+          "id": "val-p5-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a pet rabbit, in one sentence."
+        },
+        {
+          "id": "val-p5-control-1",
+          "kind": "control",
+          "message": "Name one item useful on a rainy walk, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p6",
+      "passages": {
+        "rowing": "The rowing club holds introductory sessions at South Dock. Life jackets are provided to every participant. Sessions last 50 minutes and begin at 9:00 a.m. on Saturdays. Advance booking is required.",
+        "observatory": "The hilltop observatory opens to visitors on clear Friday evenings. Admission costs $12 per adult. Children must remain with an adult near the telescope platforms. Visitors may borrow a red-light flashlight at reception.",
+        "seedbank": "The community seed bank is inside the North Library. Members may borrow four packets each month. Returned seeds must be dry and labeled with the plant variety. Membership is free for town residents."
+      },
+      "tasks": [
+        {
+          "id": "rowing-answer",
+          "kind": "answer",
+          "passage": "rowing",
+          "question": "Where are introductory rowing sessions held?",
+          "accepted": [
+            "South Dock"
+          ]
+        },
+        {
+          "id": "observatory-answer",
+          "kind": "answer",
+          "passage": "observatory",
+          "question": "How much is adult admission?",
+          "accepted": [
+            "$12",
+            "12 dollars",
+            "twelve dollars"
+          ]
+        },
+        {
+          "id": "seedbank-answer",
+          "kind": "answer",
+          "passage": "seedbank",
+          "question": "How many packets may a member borrow each month?",
+          "accepted": [
+            "four packets",
+            "4 packets"
+          ]
+        },
+        {
+          "id": "rowing-missing",
+          "kind": "not_stated",
+          "passage": "rowing",
+          "question": "Who founded the rowing club?"
+        },
+        {
+          "id": "observatory-missing",
+          "kind": "not_stated",
+          "passage": "observatory",
+          "question": "What brand are the observatory telescopes?"
+        },
+        {
+          "id": "seedbank-missing",
+          "kind": "not_stated",
+          "passage": "seedbank",
+          "question": "How many members does the seed bank have?"
+        },
+        {
+          "id": "val-p6-control-0",
+          "kind": "control",
+          "message": "Name one vegetable that can be eaten raw, in one short sentence."
+        },
+        {
+          "id": "val-p6-control-1",
+          "kind": "control",
+          "message": "Give one simple tip for keeping a desk tidy, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p7",
+      "passages": {
+        "sailing": "The sailing school issues rental boats from West Pier. Rentals include a waterproof map and a buoyancy aid. Boats must be returned before 5:00 p.m. Beginners need to complete the shore briefing first.",
+        "cinema": "The neighborhood cinema sells matinee tickets for $9. Doors open 25 minutes before the film begins. Outside food is not permitted. Bicycle parking is available behind the entrance.",
+        "orchard": "The cooperative orchard offers guided tours on Wednesdays. Each tour lasts 40 minutes. Visitors must stay on the marked paths and may sample fruit only when invited by the guide. Tours meet at the wooden gate."
+      },
+      "tasks": [
+        {
+          "id": "sailing-answer",
+          "kind": "answer",
+          "passage": "sailing",
+          "question": "Where are rental boats issued?",
+          "accepted": [
+            "West Pier"
+          ]
+        },
+        {
+          "id": "cinema-answer",
+          "kind": "answer",
+          "passage": "cinema",
+          "question": "How much does a matinee ticket cost?",
+          "accepted": [
+            "$9",
+            "9 dollars",
+            "nine dollars"
+          ]
+        },
+        {
+          "id": "orchard-answer",
+          "kind": "answer",
+          "passage": "orchard",
+          "question": "How long does each guided tour last?",
+          "accepted": [
+            "40 minutes",
+            "forty minutes"
+          ]
+        },
+        {
+          "id": "sailing-missing",
+          "kind": "not_stated",
+          "passage": "sailing",
+          "question": "Who owns the sailing school?"
+        },
+        {
+          "id": "cinema-missing",
+          "kind": "not_stated",
+          "passage": "cinema",
+          "question": "What film is scheduled next Wednesday?"
+        },
+        {
+          "id": "orchard-missing",
+          "kind": "not_stated",
+          "passage": "orchard",
+          "question": "What is the guide’s name?"
+        },
+        {
+          "id": "val-p7-control-0",
+          "kind": "control",
+          "message": "Name one percussion instrument, in one sentence."
+        },
+        {
+          "id": "val-p7-control-1",
+          "kind": "control",
+          "message": "Suggest one snack for a train ride, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p8",
+      "passages": {
+        "weaving": "The weaving room is on the second floor of the craft center. Loom reservations cost $6 per hour. Beginners must attend an orientation before reserving a loom. Yarn may be purchased at the front desk.",
+        "aquatics": "The aquatics center offers lane swimming in the Cedar Pool. Swimmers bring their own towels and must shower before entering. Morning sessions end at 8:30 a.m. Locker keys are returned at reception.",
+        "cooking": "The cooking cooperative holds bread classes on Thursday evenings. Classes last 80 minutes. Ingredients and mixing bowls are supplied. Participants bring a container to take home their bread."
+      },
+      "tasks": [
+        {
+          "id": "weaving-answer",
+          "kind": "answer",
+          "passage": "weaving",
+          "question": "How much does a loom reservation cost per hour?",
+          "accepted": [
+            "$6",
+            "6 dollars",
+            "six dollars"
+          ]
+        },
+        {
+          "id": "aquatics-answer",
+          "kind": "answer",
+          "passage": "aquatics",
+          "question": "Which pool is used for lane swimming?",
+          "accepted": [
+            "Cedar Pool"
+          ]
+        },
+        {
+          "id": "cooking-answer",
+          "kind": "answer",
+          "passage": "cooking",
+          "question": "How long does a bread class last?",
+          "accepted": [
+            "80 minutes",
+            "eighty minutes"
+          ]
+        },
+        {
+          "id": "weaving-missing",
+          "kind": "not_stated",
+          "passage": "weaving",
+          "question": "How many looms are in the weaving room?"
+        },
+        {
+          "id": "aquatics-missing",
+          "kind": "not_stated",
+          "passage": "aquatics",
+          "question": "Who coaches the morning swimmers?"
+        },
+        {
+          "id": "cooking-missing",
+          "kind": "not_stated",
+          "passage": "cooking",
+          "question": "What brand of flour is used?"
+        },
+        {
+          "id": "val-p8-control-0",
+          "kind": "control",
+          "message": "Name one herb commonly used in cooking, in one sentence."
+        },
+        {
+          "id": "val-p8-control-1",
+          "kind": "control",
+          "message": "Suggest one way to remember an appointment, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p9",
+      "passages": {
+        "printshop": "The printmaking studio offers screen-printing sessions lasting 55 minutes. Ink and protective gloves are provided. Visitors reserve a table online and collect dried prints after lunch.",
+        "birdhide": "The wetland bird hide is beside Willow Pond. Visitors enter quietly and keep dogs outside the reserve. Binoculars may be borrowed from the visitor desk before 4:00 p.m.",
+        "costume": "The costume library charges $7 for a weekend rental. Items must be returned clean on Monday morning. Members show their library card at collection and report any damage to staff."
+      },
+      "tasks": [
+        {
+          "id": "printshop-answer",
+          "kind": "answer",
+          "passage": "printshop",
+          "question": "How long does a screen-printing session last?",
+          "accepted": [
+            "55 minutes",
+            "fifty-five minutes"
+          ]
+        },
+        {
+          "id": "birdhide-answer",
+          "kind": "answer",
+          "passage": "birdhide",
+          "question": "Where is the wetland bird hide?",
+          "accepted": [
+            "Willow Pond"
+          ]
+        },
+        {
+          "id": "costume-answer",
+          "kind": "answer",
+          "passage": "costume",
+          "question": "How much is a weekend costume rental?",
+          "accepted": [
+            "$7",
+            "7 dollars",
+            "seven dollars"
+          ]
+        },
+        {
+          "id": "printshop-missing",
+          "kind": "not_stated",
+          "passage": "printshop",
+          "question": "What brand of ink does the studio use?"
+        },
+        {
+          "id": "birdhide-missing",
+          "kind": "not_stated",
+          "passage": "birdhide",
+          "question": "Who built the bird hide?"
+        },
+        {
+          "id": "costume-missing",
+          "kind": "not_stated",
+          "passage": "costume",
+          "question": "How many costumes does the library hold?"
+        },
+        {
+          "id": "val-p9-control-0",
+          "kind": "control",
+          "message": "Name one fruit that grows on a tree, in one sentence."
+        },
+        {
+          "id": "val-p9-control-1",
+          "kind": "control",
+          "message": "Suggest one way to keep a notebook organized, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p10",
+      "passages": {
+        "bakerycourse": "The community bakery holds pastry lessons lasting 95 minutes. Ingredients are weighed before class. Participants wear closed shoes and take their pastries home in a reusable box.",
+        "naturedesk": "The nature center lends trail maps at Birch Lodge. Visitors return borrowed compasses before closing. Rangers recommend bringing drinking water and staying on marked routes.",
+        "skate": "The skating pavilion charges $11 for an evening entry pass. Helmet rental is included. Sessions start on the hour, and children remain with an adult off the ice."
+      },
+      "tasks": [
+        {
+          "id": "bakerycourse-answer",
+          "kind": "answer",
+          "passage": "bakerycourse",
+          "question": "How long is a pastry lesson?",
+          "accepted": [
+            "95 minutes",
+            "ninety-five minutes"
+          ]
+        },
+        {
+          "id": "naturedesk-answer",
+          "kind": "answer",
+          "passage": "naturedesk",
+          "question": "Where can visitors borrow trail maps?",
+          "accepted": [
+            "Birch Lodge"
+          ]
+        },
+        {
+          "id": "skate-answer",
+          "kind": "answer",
+          "passage": "skate",
+          "question": "How much is an evening entry pass?",
+          "accepted": [
+            "$11",
+            "11 dollars",
+            "eleven dollars"
+          ]
+        },
+        {
+          "id": "bakerycourse-missing",
+          "kind": "not_stated",
+          "passage": "bakerycourse",
+          "question": "Who teaches the pastry lessons?"
+        },
+        {
+          "id": "naturedesk-missing",
+          "kind": "not_stated",
+          "passage": "naturedesk",
+          "question": "How many rangers work at the nature center?"
+        },
+        {
+          "id": "skate-missing",
+          "kind": "not_stated",
+          "passage": "skate",
+          "question": "Who manages the skating pavilion?"
+        },
+        {
+          "id": "val-p10-control-0",
+          "kind": "control",
+          "message": "Name one wind instrument, in one sentence."
+        },
+        {
+          "id": "val-p10-control-1",
+          "kind": "control",
+          "message": "Give one tip for packing a picnic, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p11",
+      "passages": {
+        "ceramics": "The ceramics club charges $16 for a glazing workshop. Participants bring their own bisque-fired pieces. Protective aprons are supplied, and the sink is for cleaning brushes only.",
+        "cycling": "The beginner cycling group meets at Maple Gate. Riders check their brakes before departure. The route avoids major roads, and everyone wears a helmet.",
+        "choir": "The neighborhood choir rehearses for 85 minutes on Mondays. New members may attend a free introductory rehearsal. Sheet music is collected at the end, and water bottles are allowed."
+      },
+      "tasks": [
+        {
+          "id": "ceramics-answer",
+          "kind": "answer",
+          "passage": "ceramics",
+          "question": "How much is a glazing workshop?",
+          "accepted": [
+            "$16",
+            "16 dollars",
+            "sixteen dollars"
+          ]
+        },
+        {
+          "id": "cycling-answer",
+          "kind": "answer",
+          "passage": "cycling",
+          "question": "Where does the beginner cycling group meet?",
+          "accepted": [
+            "Maple Gate"
+          ]
+        },
+        {
+          "id": "choir-answer",
+          "kind": "answer",
+          "passage": "choir",
+          "question": "How long is a choir rehearsal?",
+          "accepted": [
+            "85 minutes",
+            "eighty-five minutes"
+          ]
+        },
+        {
+          "id": "ceramics-missing",
+          "kind": "not_stated",
+          "passage": "ceramics",
+          "question": "What brand of glaze does the club use?"
+        },
+        {
+          "id": "cycling-missing",
+          "kind": "not_stated",
+          "passage": "cycling",
+          "question": "Who founded the cycling group?"
+        },
+        {
+          "id": "choir-missing",
+          "kind": "not_stated",
+          "passage": "choir",
+          "question": "How many singers are in the choir?"
+        },
+        {
+          "id": "val-p11-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a goldfish, in one sentence."
+        },
+        {
+          "id": "val-p11-control-1",
+          "kind": "control",
+          "message": "Name one item used for sewing, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p12",
+      "passages": {
+        "science": "The science room offers microscope sessions lasting 35 minutes. Prepared slides are supplied. Visitors clean the eyepieces with the provided cloth and leave food outside.",
+        "boatdesk": "The lake safety briefing takes place at Reed Shelter. Participants wear their buoyancy aids throughout the briefing. Boats are launched only after the instructor gives permission.",
+        "boardgames": "The board-game cafe charges $4 per person for an afternoon play pass. Hot drinks are ordered separately. Visitors return all pieces to their labeled bags before leaving."
+      },
+      "tasks": [
+        {
+          "id": "science-answer",
+          "kind": "answer",
+          "passage": "science",
+          "question": "How long is a microscope session?",
+          "accepted": [
+            "35 minutes",
+            "thirty-five minutes"
+          ]
+        },
+        {
+          "id": "boatdesk-answer",
+          "kind": "answer",
+          "passage": "boatdesk",
+          "question": "Where does the lake safety briefing take place?",
+          "accepted": [
+            "Reed Shelter"
+          ]
+        },
+        {
+          "id": "boardgames-answer",
+          "kind": "answer",
+          "passage": "boardgames",
+          "question": "How much is an afternoon play pass per person?",
+          "accepted": [
+            "$4",
+            "4 dollars",
+            "four dollars"
+          ]
+        },
+        {
+          "id": "science-missing",
+          "kind": "not_stated",
+          "passage": "science",
+          "question": "What brand are the microscopes?"
+        },
+        {
+          "id": "boatdesk-missing",
+          "kind": "not_stated",
+          "passage": "boatdesk",
+          "question": "What is the instructor’s name?"
+        },
+        {
+          "id": "boardgames-missing",
+          "kind": "not_stated",
+          "passage": "boardgames",
+          "question": "How many games does the cafe own?"
+        },
+        {
+          "id": "val-p12-control-0",
+          "kind": "control",
+          "message": "Name one season of the year, in one sentence."
+        },
+        {
+          "id": "val-p12-control-1",
+          "kind": "control",
+          "message": "Suggest one simple way to save water at home, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p13",
+      "passages": {
+        "glass": "The glass studio offers demonstrations lasting 25 minutes. Visitors watch from behind the marked line. Safety glasses are supplied, and photography is allowed without flash.",
+        "ramble": "The history ramble begins at Copper Square. Participants receive a printed route card. Comfortable footwear is recommended, and the walk continues in light rain.",
+        "puppet": "The puppet theater charges $13 for an adult seat. Children sit with their accompanying adults. Doors open half an hour before the performance, and aisle seats remain clear."
+      },
+      "tasks": [
+        {
+          "id": "glass-answer",
+          "kind": "answer",
+          "passage": "glass",
+          "question": "How long is a glass demonstration?",
+          "accepted": [
+            "25 minutes",
+            "twenty-five minutes"
+          ]
+        },
+        {
+          "id": "ramble-answer",
+          "kind": "answer",
+          "passage": "ramble",
+          "question": "Where does the history ramble begin?",
+          "accepted": [
+            "Copper Square"
+          ]
+        },
+        {
+          "id": "puppet-answer",
+          "kind": "answer",
+          "passage": "puppet",
+          "question": "How much is an adult seat?",
+          "accepted": [
+            "$13",
+            "13 dollars",
+            "thirteen dollars"
+          ]
+        },
+        {
+          "id": "glass-missing",
+          "kind": "not_stated",
+          "passage": "glass",
+          "question": "Who owns the glass studio?"
+        },
+        {
+          "id": "ramble-missing",
+          "kind": "not_stated",
+          "passage": "ramble",
+          "question": "How many people joined last week’s ramble?"
+        },
+        {
+          "id": "puppet-missing",
+          "kind": "not_stated",
+          "passage": "puppet",
+          "question": "Who wrote the next puppet show?"
+        },
+        {
+          "id": "val-p13-control-0",
+          "kind": "control",
+          "message": "Name one common breakfast food, in one sentence."
+        },
+        {
+          "id": "val-p13-control-1",
+          "kind": "control",
+          "message": "Give one tip for carrying groceries, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p14",
+      "passages": {
+        "bookbinding": "The bookbinding room charges $19 for a materials kit. Each kit includes paper, thread and a cover board. Participants bring a pencil, and sharp tools stay at the supervised table.",
+        "dance": "The folk-dance group meets in Oak Room. Beginners join the first circle before choosing a partner. Water is available at the back, and street shoes are left by the door.",
+        "codingclub": "The public coding club runs sessions lasting 65 minutes. Laptops can be borrowed at reception. Participants save their work before signing out, and headphones are required for audio."
+      },
+      "tasks": [
+        {
+          "id": "bookbinding-answer",
+          "kind": "answer",
+          "passage": "bookbinding",
+          "question": "How much does a materials kit cost?",
+          "accepted": [
+            "$19",
+            "19 dollars",
+            "nineteen dollars"
+          ]
+        },
+        {
+          "id": "dance-answer",
+          "kind": "answer",
+          "passage": "dance",
+          "question": "Which room does the folk-dance group use?",
+          "accepted": [
+            "Oak Room"
+          ]
+        },
+        {
+          "id": "codingclub-answer",
+          "kind": "answer",
+          "passage": "codingclub",
+          "question": "How long is a coding-club session?",
+          "accepted": [
+            "65 minutes",
+            "sixty-five minutes"
+          ]
+        },
+        {
+          "id": "bookbinding-missing",
+          "kind": "not_stated",
+          "passage": "bookbinding",
+          "question": "What brand of thread is included?"
+        },
+        {
+          "id": "dance-missing",
+          "kind": "not_stated",
+          "passage": "dance",
+          "question": "Who leads the folk-dance group?"
+        },
+        {
+          "id": "codingclub-missing",
+          "kind": "not_stated",
+          "passage": "codingclub",
+          "question": "How many laptops does the club have?"
+        },
+        {
+          "id": "val-p14-control-0",
+          "kind": "control",
+          "message": "Name one material used to make a chair, in one sentence."
+        },
+        {
+          "id": "val-p14-control-1",
+          "kind": "control",
+          "message": "Suggest one way to keep a kitchen counter tidy, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p15",
+      "passages": {
+        "tapestry": "The tapestry class lasts 105 minutes. Beginners use a small practice frame. Thread is sorted by color before class, and scissors are returned to the supply shelf.",
+        "repairdesk": "Bicycle repair appointments are checked in at Elm Booth. Riders remove bags from their bicycles before inspection. Mechanics explain any proposed repair before beginning work.",
+        "photowalk": "The photography club charges $14 for a guided evening walk. Participants bring their own camera. Tripods are allowed where they do not obstruct the footpath."
+      },
+      "tasks": [
+        {
+          "id": "tapestry-answer",
+          "kind": "answer",
+          "passage": "tapestry",
+          "question": "How long does the tapestry class last?",
+          "accepted": [
+            "105 minutes",
+            "one hundred five minutes",
+            "one hundred and five minutes"
+          ]
+        },
+        {
+          "id": "repairdesk-answer",
+          "kind": "answer",
+          "passage": "repairdesk",
+          "question": "Where are bicycle repair appointments checked in?",
+          "accepted": [
+            "Elm Booth"
+          ]
+        },
+        {
+          "id": "photowalk-answer",
+          "kind": "answer",
+          "passage": "photowalk",
+          "question": "How much is a guided evening photography walk?",
+          "accepted": [
+            "$14",
+            "14 dollars",
+            "fourteen dollars"
+          ]
+        },
+        {
+          "id": "tapestry-missing",
+          "kind": "not_stated",
+          "passage": "tapestry",
+          "question": "Who designed the practice pattern?"
+        },
+        {
+          "id": "repairdesk-missing",
+          "kind": "not_stated",
+          "passage": "repairdesk",
+          "question": "How many mechanics work there?"
+        },
+        {
+          "id": "photowalk-missing",
+          "kind": "not_stated",
+          "passage": "photowalk",
+          "question": "What camera brand does the guide use?"
+        },
+        {
+          "id": "val-p15-control-0",
+          "kind": "control",
+          "message": "Name one shape with four sides, in one sentence."
+        },
+        {
+          "id": "val-p15-control-1",
+          "kind": "control",
+          "message": "Give one tip for remembering a birthday, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p16",
+      "passages": {
+        "wildlife": "The wildlife center offers talks lasting 45 minutes. Visitors remain seated during animal demonstrations. Hand-washing stations are beside the exit, and food stays in bags.",
+        "languages": "The conversation exchange meets at Linden Hall. Participants choose a language table on arrival. Volunteers provide topic cards, and everyone is encouraged to take turns speaking.",
+        "climbing": "The climbing wall charges $17 for a supervised beginner visit. Harnesses are included. Participants complete a safety briefing before climbing and tie back long hair."
+      },
+      "tasks": [
+        {
+          "id": "wildlife-answer",
+          "kind": "answer",
+          "passage": "wildlife",
+          "question": "How long is a wildlife talk?",
+          "accepted": [
+            "45 minutes",
+            "forty-five minutes"
+          ]
+        },
+        {
+          "id": "languages-answer",
+          "kind": "answer",
+          "passage": "languages",
+          "question": "Where does the conversation exchange meet?",
+          "accepted": [
+            "Linden Hall"
+          ]
+        },
+        {
+          "id": "climbing-answer",
+          "kind": "answer",
+          "passage": "climbing",
+          "question": "How much is a supervised beginner visit?",
+          "accepted": [
+            "$17",
+            "17 dollars",
+            "seventeen dollars"
+          ]
+        },
+        {
+          "id": "wildlife-missing",
+          "kind": "not_stated",
+          "passage": "wildlife",
+          "question": "Who founded the wildlife center?"
+        },
+        {
+          "id": "languages-missing",
+          "kind": "not_stated",
+          "passage": "languages",
+          "question": "How many languages are offered?"
+        },
+        {
+          "id": "climbing-missing",
+          "kind": "not_stated",
+          "passage": "climbing",
+          "question": "Who manufactures the harnesses?"
+        },
+        {
+          "id": "val-p16-control-0",
+          "kind": "control",
+          "message": "Name one indoor plant, in one sentence."
+        },
+        {
+          "id": "val-p16-control-1",
+          "kind": "control",
+          "message": "Suggest one way to make a walk comfortable, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p17",
+      "passages": {
+        "jewelry": "The jewelry workshop charges $21 for a basic bead kit. Tools remain on the shared benches. Participants wear protective glasses while cutting wire and take unused beads home.",
+        "trailcrew": "The trail volunteer crew gathers at Fern Bridge. Gloves and litter bags are provided. Volunteers work in pairs and leave unfamiliar plants untouched.",
+        "animation": "The animation room offers stop-motion lessons lasting 70 minutes. Cameras are mounted before class. Participants use the supplied clay and save their films before leaving."
+      },
+      "tasks": [
+        {
+          "id": "jewelry-answer",
+          "kind": "answer",
+          "passage": "jewelry",
+          "question": "How much is a basic bead kit?",
+          "accepted": [
+            "$21",
+            "21 dollars",
+            "twenty-one dollars"
+          ]
+        },
+        {
+          "id": "trailcrew-answer",
+          "kind": "answer",
+          "passage": "trailcrew",
+          "question": "Where does the trail volunteer crew gather?",
+          "accepted": [
+            "Fern Bridge"
+          ]
+        },
+        {
+          "id": "animation-answer",
+          "kind": "answer",
+          "passage": "animation",
+          "question": "How long is a stop-motion lesson?",
+          "accepted": [
+            "70 minutes",
+            "seventy minutes"
+          ]
+        },
+        {
+          "id": "jewelry-missing",
+          "kind": "not_stated",
+          "passage": "jewelry",
+          "question": "How many tools are on each bench?"
+        },
+        {
+          "id": "trailcrew-missing",
+          "kind": "not_stated",
+          "passage": "trailcrew",
+          "question": "Who coordinates the volunteer crew?"
+        },
+        {
+          "id": "animation-missing",
+          "kind": "not_stated",
+          "passage": "animation",
+          "question": "What camera brand does the animation room use?"
+        },
+        {
+          "id": "val-p17-control-0",
+          "kind": "control",
+          "message": "Name one warm beverage, in one sentence."
+        },
+        {
+          "id": "val-p17-control-1",
+          "kind": "control",
+          "message": "Give one tip for storing a bicycle, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p18",
+      "passages": {
+        "embroidery": "The embroidery circle runs for 100 minutes on Tuesday evenings. Members bring their own fabric. Needles are counted at the end, and beginners can borrow a hoop.",
+        "tourdock": "The canal tour boards at Stone Landing. Passengers wait behind the painted line. Pushchairs are folded before boarding, and children remain with their accompanying adult.",
+        "astronomy": "The astronomy club charges $8 for a visitor observation pass. Members help visitors adjust the eyepieces. White-light torches are switched off near the telescopes."
+      },
+      "tasks": [
+        {
+          "id": "embroidery-answer",
+          "kind": "answer",
+          "passage": "embroidery",
+          "question": "How long does the embroidery circle run?",
+          "accepted": [
+            "100 minutes",
+            "one hundred minutes"
+          ]
+        },
+        {
+          "id": "tourdock-answer",
+          "kind": "answer",
+          "passage": "tourdock",
+          "question": "Where does the canal tour board?",
+          "accepted": [
+            "Stone Landing"
+          ]
+        },
+        {
+          "id": "astronomy-answer",
+          "kind": "answer",
+          "passage": "astronomy",
+          "question": "How much is a visitor observation pass?",
+          "accepted": [
+            "$8",
+            "8 dollars",
+            "eight dollars"
+          ]
+        },
+        {
+          "id": "embroidery-missing",
+          "kind": "not_stated",
+          "passage": "embroidery",
+          "question": "How many members attend the circle?"
+        },
+        {
+          "id": "tourdock-missing",
+          "kind": "not_stated",
+          "passage": "tourdock",
+          "question": "Who captains the tour boat?"
+        },
+        {
+          "id": "astronomy-missing",
+          "kind": "not_stated",
+          "passage": "astronomy",
+          "question": "How many telescopes does the club own?"
+        },
+        {
+          "id": "val-p18-control-0",
+          "kind": "control",
+          "message": "Name one item of winter clothing, in one sentence."
+        },
+        {
+          "id": "val-p18-control-1",
+          "kind": "control",
+          "message": "Suggest one way to organize a bookshelf, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p19",
+      "passages": {
+        "leather": "The leathercraft studio charges $23 for a beginner belt kit. Participants choose a buckle at reception. Hole punches stay at the supervised bench, and offcuts go in the reuse bin.",
+        "canoe": "The canoe orientation takes place at Ash Shelter. Instructors demonstrate how to fit buoyancy aids before launching. Participants keep footwear on while entering the water.",
+        "drama": "The improv group runs warm-up sessions lasting 30 minutes. Beginners may watch the first exercise. Participants respect personal space and ask before making physical contact."
+      },
+      "tasks": [
+        {
+          "id": "leather-answer",
+          "kind": "answer",
+          "passage": "leather",
+          "question": "How much is a beginner belt kit?",
+          "accepted": [
+            "$23",
+            "23 dollars",
+            "twenty-three dollars"
+          ]
+        },
+        {
+          "id": "canoe-answer",
+          "kind": "answer",
+          "passage": "canoe",
+          "question": "Where does the canoe orientation take place?",
+          "accepted": [
+            "Ash Shelter"
+          ]
+        },
+        {
+          "id": "drama-answer",
+          "kind": "answer",
+          "passage": "drama",
+          "question": "How long is an improv warm-up session?",
+          "accepted": [
+            "30 minutes",
+            "thirty minutes"
+          ]
+        },
+        {
+          "id": "leather-missing",
+          "kind": "not_stated",
+          "passage": "leather",
+          "question": "What supplier provides the leather?"
+        },
+        {
+          "id": "canoe-missing",
+          "kind": "not_stated",
+          "passage": "canoe",
+          "question": "What is the instructor’s name?"
+        },
+        {
+          "id": "drama-missing",
+          "kind": "not_stated",
+          "passage": "drama",
+          "question": "Who founded the improv group?"
+        },
+        {
+          "id": "val-p19-control-0",
+          "kind": "control",
+          "message": "Name one animal with wings, in one sentence."
+        },
+        {
+          "id": "val-p19-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping a reusable bottle clean, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p20",
+      "passages": {
+        "origami": "The origami club offers lessons lasting 60 minutes. Paper is included. Participants clear their tables before leaving and may take a copy of the instruction sheet home.",
+        "rowingdesk": "The adaptive rowing group checks in at Alder Cabin. Volunteers help participants adjust their seats. Personal belongings stay in labeled lockers during the outing.",
+        "puzzle": "The puzzle exchange charges $2 for a monthly borrowing card. Members return puzzles with all pieces in the bag. Damaged boxes are reported at the front desk."
+      },
+      "tasks": [
+        {
+          "id": "origami-answer",
+          "kind": "answer",
+          "passage": "origami",
+          "question": "How long is an origami lesson?",
+          "accepted": [
+            "60 minutes",
+            "sixty minutes"
+          ]
+        },
+        {
+          "id": "rowingdesk-answer",
+          "kind": "answer",
+          "passage": "rowingdesk",
+          "question": "Where does the adaptive rowing group check in?",
+          "accepted": [
+            "Alder Cabin"
+          ]
+        },
+        {
+          "id": "puzzle-answer",
+          "kind": "answer",
+          "passage": "puzzle",
+          "question": "How much is a monthly borrowing card?",
+          "accepted": [
+            "$2",
+            "2 dollars",
+            "two dollars"
+          ]
+        },
+        {
+          "id": "origami-missing",
+          "kind": "not_stated",
+          "passage": "origami",
+          "question": "What brand of paper is used?"
+        },
+        {
+          "id": "rowingdesk-missing",
+          "kind": "not_stated",
+          "passage": "rowingdesk",
+          "question": "How many volunteers support the rowing group?"
+        },
+        {
+          "id": "puzzle-missing",
+          "kind": "not_stated",
+          "passage": "puzzle",
+          "question": "Who manages the puzzle exchange?"
+        },
+        {
+          "id": "val-p20-control-0",
+          "kind": "control",
+          "message": "Name one board game, in one sentence."
+        },
+        {
+          "id": "val-p20-control-1",
+          "kind": "control",
+          "message": "Suggest one way to care for a houseplant, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p21",
+      "passages": {
+        "linocut": "Linocut lessons last 45 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "paddleclub": "The paddle club meets at Otter Quay. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "lanternloan": "The equipment desk charges $6 for a weekend lantern rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "linocut-answer",
+          "kind": "answer",
+          "passage": "linocut",
+          "question": "How long do the linocut lessons last?",
+          "accepted": [
+            "45 minutes"
+          ]
+        },
+        {
+          "id": "paddleclub-answer",
+          "kind": "answer",
+          "passage": "paddleclub",
+          "question": "Where does the paddle club meet?",
+          "accepted": [
+            "Otter Quay"
+          ]
+        },
+        {
+          "id": "lanternloan-answer",
+          "kind": "answer",
+          "passage": "lanternloan",
+          "question": "How much is a weekend lantern rental?",
+          "accepted": [
+            "$6",
+            "6 dollars"
+          ]
+        },
+        {
+          "id": "linocut-missing",
+          "kind": "not_stated",
+          "passage": "linocut",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "paddleclub-missing",
+          "kind": "not_stated",
+          "passage": "paddleclub",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "lanternloan-missing",
+          "kind": "not_stated",
+          "passage": "lanternloan",
+          "question": "What brand is the lantern?"
+        },
+        {
+          "id": "val-p21-control-0",
+          "kind": "control",
+          "message": "Suggest one label for a box of old postcards, in one sentence."
+        },
+        {
+          "id": "val-p21-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping a desk lamp clean, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p22",
+      "passages": {
+        "feltmaking": "Feltmaking lessons last 75 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "kiteclub": "The kite club meets at Gull Meadow. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "easelloan": "The equipment desk charges $11 for a weekend easel rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "feltmaking-answer",
+          "kind": "answer",
+          "passage": "feltmaking",
+          "question": "How long do the feltmaking lessons last?",
+          "accepted": [
+            "75 minutes"
+          ]
+        },
+        {
+          "id": "kiteclub-answer",
+          "kind": "answer",
+          "passage": "kiteclub",
+          "question": "Where does the kite club meet?",
+          "accepted": [
+            "Gull Meadow"
+          ]
+        },
+        {
+          "id": "easelloan-answer",
+          "kind": "answer",
+          "passage": "easelloan",
+          "question": "How much is a weekend easel rental?",
+          "accepted": [
+            "$11",
+            "11 dollars"
+          ]
+        },
+        {
+          "id": "feltmaking-missing",
+          "kind": "not_stated",
+          "passage": "feltmaking",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "kiteclub-missing",
+          "kind": "not_stated",
+          "passage": "kiteclub",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "easelloan-missing",
+          "kind": "not_stated",
+          "passage": "easelloan",
+          "question": "What brand is the easel?"
+        },
+        {
+          "id": "val-p22-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a fictional bakery, in one sentence."
+        },
+        {
+          "id": "val-p22-control-1",
+          "kind": "control",
+          "message": "Give one tip for carrying a folded umbrella, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p23",
+      "passages": {
+        "mosaic": "Mosaic lessons last 65 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "orchideers": "The orchid society meets at Cedar Lodge. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "picnicloan": "The equipment desk charges $4 for a weekend picnic basket rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "mosaic-answer",
+          "kind": "answer",
+          "passage": "mosaic",
+          "question": "How long do the mosaic lessons last?",
+          "accepted": [
+            "65 minutes"
+          ]
+        },
+        {
+          "id": "orchideers-answer",
+          "kind": "answer",
+          "passage": "orchideers",
+          "question": "Where does the orchid society meet?",
+          "accepted": [
+            "Cedar Lodge"
+          ]
+        },
+        {
+          "id": "picnicloan-answer",
+          "kind": "answer",
+          "passage": "picnicloan",
+          "question": "How much is a weekend picnic basket rental?",
+          "accepted": [
+            "$4",
+            "4 dollars"
+          ]
+        },
+        {
+          "id": "mosaic-missing",
+          "kind": "not_stated",
+          "passage": "mosaic",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "orchideers-missing",
+          "kind": "not_stated",
+          "passage": "orchideers",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "picnicloan-missing",
+          "kind": "not_stated",
+          "passage": "picnicloan",
+          "question": "What brand is the picnic basket?"
+        },
+        {
+          "id": "val-p23-control-0",
+          "kind": "control",
+          "message": "Suggest one title for a photo of fog, in one sentence."
+        },
+        {
+          "id": "val-p23-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping a shopping list readable, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p24",
+      "passages": {
+        "basketry": "Basketry lessons last 85 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "stargazers": "The stargazing club meets at Beacon Ridge. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "marionetteloan": "The equipment desk charges $9 for a weekend marionette rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "basketry-answer",
+          "kind": "answer",
+          "passage": "basketry",
+          "question": "How long do the basketry lessons last?",
+          "accepted": [
+            "85 minutes"
+          ]
+        },
+        {
+          "id": "stargazers-answer",
+          "kind": "answer",
+          "passage": "stargazers",
+          "question": "Where does the stargazing club meet?",
+          "accepted": [
+            "Beacon Ridge"
+          ]
+        },
+        {
+          "id": "marionetteloan-answer",
+          "kind": "answer",
+          "passage": "marionetteloan",
+          "question": "How much is a weekend marionette rental?",
+          "accepted": [
+            "$9",
+            "9 dollars"
+          ]
+        },
+        {
+          "id": "basketry-missing",
+          "kind": "not_stated",
+          "passage": "basketry",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "stargazers-missing",
+          "kind": "not_stated",
+          "passage": "stargazers",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "marionetteloan-missing",
+          "kind": "not_stated",
+          "passage": "marionetteloan",
+          "question": "What brand is the marionette?"
+        },
+        {
+          "id": "val-p24-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a fictional mountain, in one sentence."
+        },
+        {
+          "id": "val-p24-control-1",
+          "kind": "control",
+          "message": "Give one tip for storing spare buttons, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p25",
+      "passages": {
+        "papercut": "Paper-cutting lessons last 50 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "chesscircle": "The chess circle meets at Maple Arcade. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "musicstandloan": "The equipment desk charges $3 for a weekend music stand rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "papercut-answer",
+          "kind": "answer",
+          "passage": "papercut",
+          "question": "How long do the paper-cutting lessons last?",
+          "accepted": [
+            "50 minutes"
+          ]
+        },
+        {
+          "id": "chesscircle-answer",
+          "kind": "answer",
+          "passage": "chesscircle",
+          "question": "Where does the chess circle meet?",
+          "accepted": [
+            "Maple Arcade"
+          ]
+        },
+        {
+          "id": "musicstandloan-answer",
+          "kind": "answer",
+          "passage": "musicstandloan",
+          "question": "How much is a weekend music stand rental?",
+          "accepted": [
+            "$3",
+            "3 dollars"
+          ]
+        },
+        {
+          "id": "papercut-missing",
+          "kind": "not_stated",
+          "passage": "papercut",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "chesscircle-missing",
+          "kind": "not_stated",
+          "passage": "chesscircle",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "musicstandloan-missing",
+          "kind": "not_stated",
+          "passage": "musicstandloan",
+          "question": "What brand is the music stand?"
+        },
+        {
+          "id": "val-p25-control-0",
+          "kind": "control",
+          "message": "Suggest one title for a poem about rain, in one sentence."
+        },
+        {
+          "id": "val-p25-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping keys easy to find, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p26",
+      "passages": {
+        "cyanotype": "Cyanotype lessons last 95 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "sailmakers": "The sailmaking club meets at Coral Yard. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "compassloan": "The equipment desk charges $8 for a weekend compass rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "cyanotype-answer",
+          "kind": "answer",
+          "passage": "cyanotype",
+          "question": "How long do the cyanotype lessons last?",
+          "accepted": [
+            "95 minutes"
+          ]
+        },
+        {
+          "id": "sailmakers-answer",
+          "kind": "answer",
+          "passage": "sailmakers",
+          "question": "Where does the sailmaking club meet?",
+          "accepted": [
+            "Coral Yard"
+          ]
+        },
+        {
+          "id": "compassloan-answer",
+          "kind": "answer",
+          "passage": "compassloan",
+          "question": "How much is a weekend compass rental?",
+          "accepted": [
+            "$8",
+            "8 dollars"
+          ]
+        },
+        {
+          "id": "cyanotype-missing",
+          "kind": "not_stated",
+          "passage": "cyanotype",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "sailmakers-missing",
+          "kind": "not_stated",
+          "passage": "sailmakers",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "compassloan-missing",
+          "kind": "not_stated",
+          "passage": "compassloan",
+          "question": "What brand is the compass?"
+        },
+        {
+          "id": "val-p26-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a fictional sailboat, in one sentence."
+        },
+        {
+          "id": "val-p26-control-1",
+          "kind": "control",
+          "message": "Give one tip for packing a reusable shopping bag, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p27",
+      "passages": {
+        "stonecarve": "Stone-carving lessons last 105 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "historycircle": "The history circle meets at Walnut Hall. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "tripodloan": "The equipment desk charges $13 for a weekend tripod rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "stonecarve-answer",
+          "kind": "answer",
+          "passage": "stonecarve",
+          "question": "How long do the stone-carving lessons last?",
+          "accepted": [
+            "105 minutes"
+          ]
+        },
+        {
+          "id": "historycircle-answer",
+          "kind": "answer",
+          "passage": "historycircle",
+          "question": "Where does the history circle meet?",
+          "accepted": [
+            "Walnut Hall"
+          ]
+        },
+        {
+          "id": "tripodloan-answer",
+          "kind": "answer",
+          "passage": "tripodloan",
+          "question": "How much is a weekend tripod rental?",
+          "accepted": [
+            "$13",
+            "13 dollars"
+          ]
+        },
+        {
+          "id": "stonecarve-missing",
+          "kind": "not_stated",
+          "passage": "stonecarve",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "historycircle-missing",
+          "kind": "not_stated",
+          "passage": "historycircle",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "tripodloan-missing",
+          "kind": "not_stated",
+          "passage": "tripodloan",
+          "question": "What brand is the tripod?"
+        },
+        {
+          "id": "val-p27-control-0",
+          "kind": "control",
+          "message": "Suggest one label for a box of craft paper, in one sentence."
+        },
+        {
+          "id": "val-p27-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping a pencil case tidy, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p28",
+      "passages": {
+        "quilling": "Quilling lessons last 70 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "railwayclub": "The railway club meets at Moss Pavilion. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "racquetloan": "The equipment desk charges $5 for a weekend racquet rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "quilling-answer",
+          "kind": "answer",
+          "passage": "quilling",
+          "question": "How long do the quilling lessons last?",
+          "accepted": [
+            "70 minutes"
+          ]
+        },
+        {
+          "id": "railwayclub-answer",
+          "kind": "answer",
+          "passage": "railwayclub",
+          "question": "Where does the railway club meet?",
+          "accepted": [
+            "Moss Pavilion"
+          ]
+        },
+        {
+          "id": "racquetloan-answer",
+          "kind": "answer",
+          "passage": "racquetloan",
+          "question": "How much is a weekend racquet rental?",
+          "accepted": [
+            "$5",
+            "5 dollars"
+          ]
+        },
+        {
+          "id": "quilling-missing",
+          "kind": "not_stated",
+          "passage": "quilling",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "railwayclub-missing",
+          "kind": "not_stated",
+          "passage": "railwayclub",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "racquetloan-missing",
+          "kind": "not_stated",
+          "passage": "racquetloan",
+          "question": "What brand is the racquet?"
+        },
+        {
+          "id": "val-p28-control-0",
+          "kind": "control",
+          "message": "Suggest one title for a drawing of a train, in one sentence."
+        },
+        {
+          "id": "val-p28-control-1",
+          "kind": "control",
+          "message": "Give one tip for storing a wool scarf, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p29",
+      "passages": {
+        "calligraphy": "Calligraphy lessons last 80 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "woodturners": "The woodturning club meets at Ash Courtyard. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "metronomeloan": "The equipment desk charges $12 for a weekend metronome rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "calligraphy-answer",
+          "kind": "answer",
+          "passage": "calligraphy",
+          "question": "How long do the calligraphy lessons last?",
+          "accepted": [
+            "80 minutes"
+          ]
+        },
+        {
+          "id": "woodturners-answer",
+          "kind": "answer",
+          "passage": "woodturners",
+          "question": "Where does the woodturning club meet?",
+          "accepted": [
+            "Ash Courtyard"
+          ]
+        },
+        {
+          "id": "metronomeloan-answer",
+          "kind": "answer",
+          "passage": "metronomeloan",
+          "question": "How much is a weekend metronome rental?",
+          "accepted": [
+            "$12",
+            "12 dollars"
+          ]
+        },
+        {
+          "id": "calligraphy-missing",
+          "kind": "not_stated",
+          "passage": "calligraphy",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "woodturners-missing",
+          "kind": "not_stated",
+          "passage": "woodturners",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "metronomeloan-missing",
+          "kind": "not_stated",
+          "passage": "metronomeloan",
+          "question": "What brand is the metronome?"
+        },
+        {
+          "id": "val-p29-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a fictional garden cafe, in one sentence."
+        },
+        {
+          "id": "val-p29-control-1",
+          "kind": "control",
+          "message": "Give one tip for protecting a paperback cover, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p30",
+      "passages": {
+        "beadwork": "Beadwork lessons last 60 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "jugglingclub": "The juggling club meets at Juniper Green. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "magnifierloan": "The equipment desk charges $2 for a weekend magnifier rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "beadwork-answer",
+          "kind": "answer",
+          "passage": "beadwork",
+          "question": "How long do the beadwork lessons last?",
+          "accepted": [
+            "60 minutes"
+          ]
+        },
+        {
+          "id": "jugglingclub-answer",
+          "kind": "answer",
+          "passage": "jugglingclub",
+          "question": "Where does the juggling club meet?",
+          "accepted": [
+            "Juniper Green"
+          ]
+        },
+        {
+          "id": "magnifierloan-answer",
+          "kind": "answer",
+          "passage": "magnifierloan",
+          "question": "How much is a weekend magnifier rental?",
+          "accepted": [
+            "$2",
+            "2 dollars"
+          ]
+        },
+        {
+          "id": "beadwork-missing",
+          "kind": "not_stated",
+          "passage": "beadwork",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "jugglingclub-missing",
+          "kind": "not_stated",
+          "passage": "jugglingclub",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "magnifierloan-missing",
+          "kind": "not_stated",
+          "passage": "magnifierloan",
+          "question": "What brand is the magnifier?"
+        },
+        {
+          "id": "val-p30-control-0",
+          "kind": "control",
+          "message": "Suggest one title for a sketch of a bridge, in one sentence."
+        },
+        {
+          "id": "val-p30-control-1",
+          "kind": "control",
+          "message": "Give one tip for storing reusable lunch containers, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p31",
+      "passages": {
+        "silkpaint": "Silk-painting lessons last 100 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "shellclub": "The shell collectors club meets at Pearl Lodge. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "telescopeloan": "The equipment desk charges $14 for a weekend telescope rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "silkpaint-answer",
+          "kind": "answer",
+          "passage": "silkpaint",
+          "question": "How long do the silk-painting lessons last?",
+          "accepted": [
+            "100 minutes"
+          ]
+        },
+        {
+          "id": "shellclub-answer",
+          "kind": "answer",
+          "passage": "shellclub",
+          "question": "Where does the shell collectors club meet?",
+          "accepted": [
+            "Pearl Lodge"
+          ]
+        },
+        {
+          "id": "telescopeloan-answer",
+          "kind": "answer",
+          "passage": "telescopeloan",
+          "question": "How much is a weekend telescope rental?",
+          "accepted": [
+            "$14",
+            "14 dollars"
+          ]
+        },
+        {
+          "id": "silkpaint-missing",
+          "kind": "not_stated",
+          "passage": "silkpaint",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "shellclub-missing",
+          "kind": "not_stated",
+          "passage": "shellclub",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "telescopeloan-missing",
+          "kind": "not_stated",
+          "passage": "telescopeloan",
+          "question": "What brand is the telescope?"
+        },
+        {
+          "id": "val-p31-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a fictional observatory, in one sentence."
+        },
+        {
+          "id": "val-p31-control-1",
+          "kind": "control",
+          "message": "Give one tip for carrying a rolled poster, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p32",
+      "passages": {
+        "enameling": "Enameling lessons last 90 minutes. Materials are supplied at the front desk. Learners clean their tools before leaving and collect their finished work the following day.",
+        "storycircle": "The storytelling circle meets at Birch Terrace. Members sign in before the meeting and bring their own notebook. New visitors may attend one meeting before joining.",
+        "binloan": "The equipment desk charges $10 for a weekend storage bin rental. Borrowers show a membership card and return the item on Monday morning. Staff check each item at collection and return."
+      },
+      "tasks": [
+        {
+          "id": "enameling-answer",
+          "kind": "answer",
+          "passage": "enameling",
+          "question": "How long do the enameling lessons last?",
+          "accepted": [
+            "90 minutes"
+          ]
+        },
+        {
+          "id": "storycircle-answer",
+          "kind": "answer",
+          "passage": "storycircle",
+          "question": "Where does the storytelling circle meet?",
+          "accepted": [
+            "Birch Terrace"
+          ]
+        },
+        {
+          "id": "binloan-answer",
+          "kind": "answer",
+          "passage": "binloan",
+          "question": "How much is a weekend storage bin rental?",
+          "accepted": [
+            "$10",
+            "10 dollars"
+          ]
+        },
+        {
+          "id": "enameling-missing",
+          "kind": "not_stated",
+          "passage": "enameling",
+          "question": "Who teaches these lessons?"
+        },
+        {
+          "id": "storycircle-missing",
+          "kind": "not_stated",
+          "passage": "storycircle",
+          "question": "How many members belong to this club?"
+        },
+        {
+          "id": "binloan-missing",
+          "kind": "not_stated",
+          "passage": "binloan",
+          "question": "What brand is the storage bin?"
+        },
+        {
+          "id": "val-p32-control-0",
+          "kind": "control",
+          "message": "Suggest one title for a story about a lighthouse, in one sentence."
+        },
+        {
+          "id": "val-p32-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping a drawer of receipts tidy, in one sentence."
         }
       ]
     }

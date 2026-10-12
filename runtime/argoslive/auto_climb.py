@@ -22,6 +22,7 @@ from pathlib import Path
 import re
 import threading
 import time
+import traceback
 import uuid
 
 from . import assistant_trial, catalog, hw, model_selection, model_verify, starter, storage
@@ -168,7 +169,7 @@ def load_validation_partitions(path=VALIDATION_TASKS_PATH):
 
 
 def recommend_hardware_model(home, *, envelope=None, budgets=None,
-                             hardware_fn=hw.snapshot, catalog_data=None):
+                             hardware_fn=hw.snapshot, catalog_data=None, excluded_candidates=()):
     """Find the best eligible candidate model for this machine within approved budget."""
     envelope = envelope or DEFAULT_ENVELOPE
     budgets = budgets or {}
@@ -204,7 +205,7 @@ def recommend_hardware_model(home, *, envelope=None, budgets=None,
     eligible_candidates = []
     for entry in data['models']:
         tag = entry['tag']
-        if tag == current_model or '/' in tag:
+        if tag == current_model or '/' in tag or f'model-{tag}' in excluded_candidates:
             continue
         if not catalog.is_curated(tag):
             continue
@@ -539,20 +540,27 @@ class Controller:
                             raise
                         time.sleep(0.05)
 
-    def _restart_assistant(self, timeout=30, expected_model=None):
-        """Restart local assistant via startup controller and wait until verified ready."""
+    def _restart_assistant(self, timeout=900, expected_model=None):
+        """Wait for owned shutdown, then use the established assistant startup budget."""
         if not self.startup:
             return
-        try:
-            self.startup.stop()
-        except Exception:
-            pass
+        # Match the existing assistant-trial/model-selection readiness budget;
+        # a live experiment remains bounded by its approved session envelope.
+        if self._active_slice_start is not None and not self._should_stop() and self.session.get('phase') not in (
+                'budget-exhausted', 'blocked', 'stopped'):
+            timeout = min(timeout, self._remaining_duration(self._active_slice_start))
+        deadline = self.clock() + timeout
+        self.startup.stop()
+        stop_deadline = min(deadline, self.clock() + 180)
+        while self.startup.snapshot().get('active'):
+            if self.clock() >= stop_deadline:
+                raise TimeoutError('Assistant resources were not released before restart')
+            self.sleep_fn(0.1)
         try:
             self.startup.start(_reserved=True)
         except TypeError:
             self.startup.start()
-        start_t = self.clock()
-        while self.clock() - start_t < timeout:
+        while self.clock() < deadline:
             snap = self.startup.snapshot()
             if snap.get('phase') == 'failed':
                 raise RuntimeError(f'Assistant startup failed: {snap.get("failure")}')
@@ -961,9 +969,10 @@ class Controller:
                 self._save_session()
 
             # Main experiment loop
-            while not self._should_stop() and self.session.get('phase') not in ('budget-exhausted', 'blocked'):
+            while not self._should_stop() and self.session.get('phase') not in (
+                    'budget-exhausted', 'blocked', 'options-exhausted', 'plateau', 'stopped'):
                 # Check budgets before selecting candidate
-                if self._check_budget_exhaustion(slice_start_time):
+                if self._check_budget_exhaustion(slice_start_time, before_candidate=True):
                     break
 
                 # 2. Select next candidate
@@ -1026,6 +1035,16 @@ class Controller:
                         break
 
         except Exception as error:
+            # Preserve the cause privately without putting paths/configuration
+            # into the public coordinator message.
+            from .private_files import private_log
+            try:
+                root = storage.safe_local(self.home / '.local/state/argos-live')
+                root.mkdir(mode=0o700, parents=True, exist_ok=True)
+                with private_log(root / 'auto-climb-failure.log') as log:
+                    log.write(traceback.format_exc().encode()[-65536:])
+            except (OSError, ValueError):
+                pass
             with self.lock:
                 if self.session.get('failure_code') in ('restore-failed', 'owner-edit-conflict', 'corrupt-inventory'):
                     return
@@ -1091,15 +1110,17 @@ class Controller:
             return 'stopped' if self.stop_event.is_set() else 'paused'
         return 'proceed'
 
-    def _check_budget_exhaustion(self, slice_start_time):
+    def _check_budget_exhaustion(self, slice_start_time, *, before_candidate=False):
         envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
         budgets = self.session.get('budgets_used', {})
         current_slice = int(self.clock() - slice_start_time)
         total_duration = budgets.get('duration_seconds', 0) + current_slice
 
-        if budgets.get('completed_experiments', 0) >= envelope.get('max_experiments', 6):
+        # Slots are reserved before execution. Permit the final reserved attempt
+        # to finish; enforce the attempt cap before choosing the next candidate.
+        if before_candidate and budgets.get('completed_experiments', 0) >= envelope.get('max_experiments', 6):
             self.session['phase'] = 'budget-exhausted'
-            self.session['stopping_reason'] = f'Session limit reached: {envelope.get("max_experiments")} experiments completed.'
+            self.session['stopping_reason'] = f'Session limit reached: {envelope.get("max_experiments")} attempts used.'
             self.session['message'] = self.session['stopping_reason']
             self._save_session()
             return True
@@ -1122,12 +1143,34 @@ class Controller:
 
     def _select_next_candidate(self):
         completed = set(self.session.get('completed_candidates', []))
+        # A kept/owner-existing instruction is part of the starting build, not
+        # a new candidate. Never append its managed block a second time.
+        existing = read_text(agents_path(self.home)) or ''
+        completed.update(c['id'] for c in self.candidate_pool
+                         if c.get('kind') == 'instruction' and
+                         'argos-trial:' + c.get('change_id', c['id']) + ' ' in existing)
+
+        # Prefer the cheapest reviewed intervention when all observed misses
+        # have the same precise cause. Validation and promotion remain unchanged.
+        misses = [r for r in self.session.get('practice_baseline', []) if not r.get('passed')]
+        quote_only = len(misses) >= 2 and all(
+            r.get('kind') == 'answer' and r.get('checks', {}).get('exact_quote') is False and
+            r.get('checks', {}).get('answer_present') is True and
+            r.get('checks', {}).get('answer_first') is True for r in misses)
+        if quote_only:
+            for candidate in self.candidate_pool:
+                if candidate['id'] == 'quote-evidence' and candidate['id'] not in completed:
+                    return dict(candidate, rationale='The answers were correct, but supporting quotes were missing. '
+                                'Try the reviewed source-quote instruction before changing models.')
 
         # Check model recommendation candidate first if available (AC3)
         if self.model_recommender:
             envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
             budgets = self.session.get('budgets_used', {})
-            rec = self.model_recommender(self.home, envelope=envelope, budgets=budgets)
+            options = {'envelope': envelope, 'budgets': budgets}
+            if self.model_recommender is recommend_hardware_model:
+                options['excluded_candidates'] = completed
+            rec = self.model_recommender(self.home, **options)
             if rec and rec['id'] not in completed:
                 return rec
 
@@ -1193,6 +1236,9 @@ class Controller:
                                  candidate_id=candidate['id'],
                                  reason='reserved-before-baseline')
 
+        self.session['phase'] = 'assess'
+        self.session['message'] = 'Checking the current kept build before trying this change...'
+        self._save_session()
         p_baselines = self.session.setdefault('partition_baselines', {})
         p1_baseline = self._run_task_suite('baseline', p1, f'kept-{p1["id"]}', slice_start_time=slice_start_time)
         if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
@@ -1557,6 +1603,7 @@ class Controller:
             self._ensure_assistant_ready(expected_model=prev_model)
             if hasattr(self.runner, 'expected_model') and prev_model:
                 self.runner.expected_model = prev_model
+            self.session.pop('mutation', None)
             return
 
         if self.selection:
@@ -1574,6 +1621,7 @@ class Controller:
             self._ensure_assistant_ready(expected_model=prev_model)
             if hasattr(self.runner, 'expected_model') and prev_model:
                 self.runner.expected_model = prev_model
+            self.session.pop('mutation', None)
             return
 
         ok = model_selection.restore(self.home)
@@ -1583,6 +1631,7 @@ class Controller:
         self._ensure_assistant_ready(expected_model=prev_model)
         if hasattr(self.runner, 'expected_model') and prev_model:
             self.runner.expected_model = prev_model
+        self.session.pop('mutation', None)
 
     def _run_model_keep(self):
         """Finalize model keep transaction; propagate errors."""
@@ -1686,6 +1735,8 @@ class Controller:
             receipt = {
                 'id': task['id'],
                 'kind': task['kind'],
+                'question': current_item['question'],
+                'passage': current_item['passage'],
                 'passed': score_res['passed'],
                 'checks': score_res['checks'],
                 'reply': {

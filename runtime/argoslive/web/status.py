@@ -42,6 +42,18 @@ def gateway_ready(origin):
         return False
 
 
+def gateway_alive(origin):
+    """Liveness only; never use this to qualify startup or open chat."""
+    try:
+        opener = build_opener(ProxyHandler({}), NoRedirect())
+        with opener.open(origin + '/healthz', timeout=2) as response:
+            raw = response.read(16385)
+        value = json.loads(raw) if len(raw) <= 16384 else {}
+        return value.get('ok') is True and value.get('status') == 'live'
+    except (OSError, HTTPException, ValueError, TypeError, AttributeError):
+        return False
+
+
 def chat_url(config_path, *, ready=gateway_ready):
     config = read_json(config_path)
     origin = gateway(config)
