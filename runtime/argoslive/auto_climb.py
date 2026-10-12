@@ -1043,8 +1043,16 @@ class Controller:
                         self._save_session()
                         return
                 self.session['phase'] = 'blocked'
-                self.session['failure_code'] = 'coordinator-error'
-                self.session['message'] = f'Auto Climb stopped due to an error: {type(error).__name__}: {error}'
+                self.session['failure_code'] = error.code if isinstance(error, TrialTurnError) else 'coordinator-error'
+                self.session['message'] = ('The assistant could not finish a test answer. No gain was accepted. '
+                                           'The previous kept build was restored.' if mutation else
+                                           'The climb could not finish its checks. No gain was accepted.')
+                if self.session.get('proposal'):
+                    self.session.setdefault('history', []).append({
+                        'candidate': self.session['proposal'], 'verdict': 'failed',
+                        'reason': self.session['message'],
+                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                    })
                 self._save_session()
         finally:
             with self.lock:
@@ -1159,7 +1167,7 @@ class Controller:
                     'experiment_index': self.session.get('budgets_used', {}).get('completed_experiments', 0),
                     'candidate': candidate,
                     'verdict': 'failed',
-                    'reason': f'Download failed for {candidate["tag"]}.',
+                    'reason': f'Download failed for {candidate["tag"]}. ' + self.session.get('download_failure', 'No model change was made.'),
                     'timestamp': datetime.now(timezone.utc).isoformat(),
                 })
                 self._save_session()
@@ -1444,6 +1452,7 @@ class Controller:
         return not interrupted
 
     def _run_model_download(self, candidate):
+        self.session.pop('download_failure', None)
         tag = candidate['tag']
         download_bytes = candidate.get('download_bytes', 0)
         budgets = self.session.setdefault('budgets_used', {})
@@ -1474,6 +1483,7 @@ class Controller:
                     settled = self._settle_child(self.downloads.worker, cancel_fn=cancel_fn,
                                                  timeout=min(300.0, remaining))
                     if not settled:
+                        self.session['download_failure'] = 'Download stopped at the operation time limit; partial download retained. No model change was made.'
                         return False
                 snap = self.downloads.snapshot()
                 return snap.get('phase') == 'completed'

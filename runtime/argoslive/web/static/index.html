@@ -309,6 +309,7 @@
 
             <!-- Result / Summary / Stopping View -->
             <div id="auto-climb-summary-view" class="auto-climb-panel" hidden>
+              <p id="auto-climb-active-model" class="count-note"></p>
               <div id="auto-climb-verdict-banner" class="verdict-banner">
                 <h5 id="auto-climb-verdict-title">Experiment decision</h5>
                 <p id="auto-climb-verdict-reason"></p>
@@ -324,7 +325,7 @@
                 </div>
               </div>
               <details id="auto-climb-history-details" class="auto-climb-history" open>
-                <summary>Completed experiments (<span id="auto-climb-history-count">0</span>)</summary>
+                <summary>Attempts and results (<span id="auto-climb-history-count">0</span>)</summary>
                 <div id="auto-climb-history-list" class="history-list"></div>
               </details>
               <div class="auto-climb-summary-actions">

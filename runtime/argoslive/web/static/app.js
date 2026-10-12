@@ -4255,6 +4255,7 @@ async function refreshAutoClimb() {
   if (autoClimbActionPending) return;
   try {
     const val = await api('/api/auto-climb');
+    if (val.phase === 'acquire') { try { val.download = await api('/api/models/control'); } catch {} }
     const prevPhase = autoClimb?.phase;
     autoClimb = val;
     renderAutoClimb();
@@ -4286,6 +4287,25 @@ async function autoClimbAction(action, body = null) {
   }
 }
 
+function autoClimbAnswer(progress) {
+  const latest = progress?.latest;
+  if (!latest || latest.id !== progress.current?.id) return 'Waiting for this answer…';
+  return typeof latest.reply === 'string' ? latest.reply : latest.reply?.text || 'Waiting for this answer…';
+}
+function autoClimbTally(value) {
+  if (value.phase === 'acquire') {
+    const p = value.download?.progress;
+    return p?.bytes_total > 0 ? `${Math.min(100, Math.floor(100 * p.bytes_done / p.bytes_total))}% downloaded` : 'Preparing download…';
+  }
+  const p = value.progress;
+  return p ? `${Math.min(p.done, p.total)} / ${p.total} answers finished` : '';
+}
+function autoClimbReceipt(receipt) {
+  if (receipt.passed) return ({answer: 'Answer and quote correct', not_stated: 'Recognized missing information', control: 'Everyday reply passed'})[receipt.kind] || 'Passed';
+  if (receipt.checks?.answer_present && receipt.checks?.exact_quote === false) return 'Correct answer, missing quote';
+  return 'Needs work';
+}
+
 function renderAutoClimb() {
   const card = document.getElementById('auto-climb');
   if (!card) return;
@@ -4296,11 +4316,15 @@ function renderAutoClimb() {
   const phase = val.phase || 'idle';
   const badge = document.getElementById('auto-climb-badge');
   if (badge) {
-    badge.textContent = phase.toUpperCase();
+    badge.textContent = ({acquire: 'Downloading', assess: 'Finding your level', retest: 'Trying the change', validate: 'Checking the gain', blocked: 'Needs attention'})[phase] || phase.replaceAll('-', ' ');
     badge.className = 'auto-climb-badge ' + phase;
+    badge.dataset.phase = phase;
   }
   const msg = document.getElementById('auto-climb-message');
-  if (msg && val.message) msg.textContent = val.message;
+  if (msg) {
+    msg.textContent = val.message || '';
+    msg.hidden = ['blocked', 'stopped', 'plateau', 'budget-exhausted', 'options-exhausted'].includes(phase);
+  }
 
   const show = (id, visible) => {
     const el = document.getElementById(id);
@@ -4310,7 +4334,7 @@ function renderAutoClimb() {
   show('auto-climb-start-view', phase === 'idle');
   show('auto-climb-countdown-view', phase === 'countdown');
   show('auto-climb-watch-view', ['assess', 'acquire', 'stage', 'retest', 'validate', 'keep-or-restore'].includes(phase));
-  show('auto-climb-summary-view', ['paused', 'stopped', 'plateau', 'budget-exhausted'].includes(phase));
+  show('auto-climb-summary-view', ['paused', 'stopped', 'plateau', 'budget-exhausted', 'blocked', 'options-exhausted'].includes(phase));
 
   // Countdown view
   if (phase === 'countdown' && val.countdown) {
@@ -4364,7 +4388,9 @@ function renderAutoClimb() {
         phase === 'validate' ? 'Running independent validation' : 'Resolving decision';
     }
     const tallyEl = document.getElementById('auto-climb-watch-tally');
-    if (tallyEl && prog) tallyEl.textContent = `${prog.done + 1} / ${prog.total} challenges`;
+    if (tallyEl) tallyEl.textContent = autoClimbTally(val);
+    const taskCard = card.querySelector('.auto-climb-watch-card');
+    if (taskCard) taskCard.hidden = ['acquire', 'stage'].includes(phase);
 
     if (prog?.current) {
       const cur = prog.current;
@@ -4378,7 +4404,7 @@ function renderAutoClimb() {
       if (qText) qText.textContent = cur.question || '';
     }
     const replyEl = document.getElementById('auto-climb-watch-reply');
-    if (replyEl && prog?.latest) replyEl.textContent = prog.latest.reply || '(Awaiting reply)';
+    if (replyEl) replyEl.textContent = autoClimbAnswer(prog);
 
     // Receipts
     const receiptsList = document.getElementById('auto-climb-receipts-list');
@@ -4386,17 +4412,22 @@ function renderAutoClimb() {
       receiptsList.replaceChildren(...val.receipts.map(r => {
         const li = document.createElement('li');
         li.className = 'receipt-chip ' + (r.passed ? 'passed' : 'missed');
-        li.textContent = `${r.passed ? '✓' : '○'} ${r.id}`;
+        li.textContent = `${r.passed ? '✓' : '○'} ${autoClimbReceipt(r)}`;
+        li.title = r.id;
         return li;
       }));
     }
   }
 
   // Summary view
-  if (['paused', 'stopped', 'plateau', 'budget-exhausted'].includes(phase)) {
+  if (['paused', 'stopped', 'plateau', 'budget-exhausted', 'blocked', 'options-exhausted'].includes(phase)) {
+    const modelEl = document.getElementById('auto-climb-active-model');
+    if (modelEl) modelEl.textContent = val.active_model?.model ? `Current kept model: ${val.active_model.model}` : 'Current model not confirmed';
     const vTitle = document.getElementById('auto-climb-verdict-title');
     if (vTitle) {
-      vTitle.textContent = phase === 'plateau' ? 'Measured plateau reached' :
+      vTitle.textContent = phase === 'blocked' ? 'The climb hit a problem' :
+        phase === 'options-exhausted' ? 'Tested the available ideas' :
+        phase === 'plateau' ? 'No further gain in the tested options' :
         phase === 'budget-exhausted' ? 'Session budget limit reached' :
         phase === 'paused' ? 'Auto Climb paused' : 'Auto Climb stopped';
     }
@@ -4409,7 +4440,7 @@ function renderAutoClimb() {
     if (curLvl) curLvl.textContent = val.current_level?.label || 'Not tested';
 
     show('auto-climb-resume-btn', phase === 'paused');
-    show('auto-climb-restart-btn', ['stopped', 'plateau', 'budget-exhausted'].includes(phase));
+    show('auto-climb-restart-btn', ['stopped', 'plateau', 'budget-exhausted', 'blocked', 'options-exhausted'].includes(phase));
 
     const histList = document.getElementById('auto-climb-history-list');
     const histCount = document.getElementById('auto-climb-history-count');

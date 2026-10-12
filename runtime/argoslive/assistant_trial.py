@@ -583,6 +583,17 @@ class OpenClawRunner:
                 except subprocess.TimeoutExpired:
                     continue
         if process.returncode or len(stdout) > 1024**2:
+            # Keep CLI evidence private rather than discarding the cause behind
+            # assistant-error. Never return stderr/configuration to the browser.
+            from .owned_gateway import private_log
+            root = storage.safe_local(self.home / '.local/state/argos-live')
+            root.mkdir(mode=0o700, parents=True, exist_ok=True)
+            try:
+                with private_log(root / 'trial-turn-failure.log') as log:
+                    log.write(('CLI exit: ' + str(process.returncode) + '\n').encode())
+                    log.write(stderr[-65536:])
+            except (OSError, ValueError):
+                pass  # Diagnostic availability must not change failure handling.
             diagnostic = (stdout + stderr).decode('utf-8', errors='replace').lower()
             timed_out = any(term in diagnostic for term in ('timed out', 'timeout', 'deadline exceeded'))
             raise TrialTurnError('turn-timeout' if timed_out else 'assistant-error')
