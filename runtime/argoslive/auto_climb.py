@@ -969,7 +969,8 @@ class Controller:
                 self._save_session()
 
             # Main experiment loop
-            while not self._should_stop() and self.session.get('phase') not in ('budget-exhausted', 'blocked'):
+            while not self._should_stop() and self.session.get('phase') not in (
+                    'budget-exhausted', 'blocked', 'options-exhausted', 'plateau', 'stopped'):
                 # Check budgets before selecting candidate
                 if self._check_budget_exhaustion(slice_start_time, before_candidate=True):
                     break

@@ -909,6 +909,10 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
             snap = new_controller.snapshot()
             self.assertIn('Fresh validation inventory exhausted', snap['stopping_reason'])
+            new_controller.worker.join(timeout=1)
+            self.assertFalse(new_controller.worker.is_alive())
+            self.assertFalse(self.startup.lab_active)
+            self.assertEqual(new_controller.snapshot()['budgets_used']['completed_experiments'], 1)
         finally:
             new_controller.close()
 
