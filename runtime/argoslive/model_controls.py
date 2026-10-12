@@ -1,4 +1,6 @@
 """Guided catalog acquisition using the existing verified Ollama pipeline."""
+from pathlib import Path
+
 from . import catalog, storage, storage_view
 from .lab import Controller as Workload
 from .model_onboarding import OnboardingQueue
@@ -12,6 +14,27 @@ def queue(home):
     storage.validate_configured(configured)
     OnboardingQueue.initialize(root / 'pull-jobs')
     return OnboardingQueue(root / 'pull-jobs', configured)
+
+
+def retained_job(queue, tag):
+    """Reuse one interrupted acquisition only after current catalog/store checks.
+
+    The new approved climb supplies one retry, never an in-session retry loop.
+    Failed integrity jobs and owner-cancelled jobs are deliberately excluded.
+    """
+    root = getattr(queue, 'root', None)
+    if not isinstance(root, Path):
+        return None
+    valid = []
+    for path in root.glob('*.json'):
+        try:
+            value = queue.get(path.stem)
+            if value.get('tag') == tag and value.get('state') in {'paused', 'interrupted'}:
+                queue.check(value)
+                valid.append(value)
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return max(valid, key=lambda value: value.get('updated', ''), default=None)
 
 
 class Controller(Workload):
@@ -61,7 +84,8 @@ class Controller(Workload):
             self.storage_gate(self.startup.home)
             self.queue = self.queue_factory(self.startup.home)
             if tag is not None:
-                value = self.queue.create(tag)
+                retained = retained_job(self.queue, tag) if _delegated else None
+                value = self.queue.retry(retained['id']) if retained else self.queue.create(tag)
             else:
                 value = self.queue.get(job)
                 self.queue.check(value)

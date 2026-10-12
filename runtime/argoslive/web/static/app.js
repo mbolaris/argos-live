@@ -4294,6 +4294,10 @@ function autoClimbAnswer(progress) {
 }
 function autoClimbTally(value) {
   if (value.phase === 'acquire') {
+    const stage = value.download?.phase;
+    const stages = {verifying: 'Checking downloaded files…', loading: 'Loading the new model…',
+      testing: 'Checking a real reply…', publishing: 'Finishing installation…'};
+    if (stages[stage]) return stages[stage];
     const p = value.download?.progress;
     return p?.bytes_total > 0 ? `${Math.min(100, Math.floor(100 * p.bytes_done / p.bytes_total))}% downloaded` : 'Preparing download…';
   }

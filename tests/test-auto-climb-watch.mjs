@@ -16,3 +16,7 @@ test('bounded completed count and separate download progress', () => {
 test('missing quote is explained without changing score', () => {
  assert.equal(c.autoClimbReceipt({passed:false,checks:{answer_present:true,exact_quote:false}}), 'Correct answer, missing quote');
 });
+
+test('file verification is not presented as a completed download', () => {
+ assert.equal(c.autoClimbTally({phase:'acquire',download:{phase:'verifying',progress:{bytes_done:100,bytes_total:100}}}), 'Checking downloaded files…');
+});

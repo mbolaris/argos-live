@@ -70,6 +70,24 @@ class ModelControlsTests(unittest.TestCase):
         self.finish()
         self.assertTrue(self.assistant.lab_active)
         self.assertTrue(self.controller.snapshot()['resume_requested'])
+    def test_delegated_download_resumes_checked_retained_job(self):
+        self.queue.root = self.assistant.home / 'jobs'
+        self.queue.root.mkdir()
+        (self.queue.root / (self.queue.job['id'] + '.json')).write_text('{}')
+        self.controller.start(tag='qwen3:0.6b', _delegated=True)
+        self.finish()
+        self.assertEqual(self.queue.calls, ['retry'])
+
+    def test_cancelled_or_changed_store_is_not_automatically_retried(self):
+        self.queue.root = self.assistant.home / 'jobs'
+        self.queue.root.mkdir()
+        (self.queue.root / (self.queue.job['id'] + '.json')).write_text('{}')
+        self.queue.job['state'] = 'cancelled'
+        self.assertIsNone(model_controls.retained_job(self.queue, 'qwen3:0.6b'))
+        self.queue.job['state'] = 'interrupted'
+        with mock.patch.object(self.queue, 'check', side_effect=ValueError('Store changed')):
+            self.assertIsNone(model_controls.retained_job(self.queue, 'qwen3:0.6b'))
+
     def test_unconfirmed_or_failing_storage_stops_download_before_any_job(self):
         for failure in (ValueError('Choose where models are stored before downloading'), OSError('read-only')):
             def gate(home, failure=failure):
