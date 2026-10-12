@@ -554,6 +554,7 @@ def managed_check(started, desktop_seconds):
     lab_deadline = time.monotonic() + 30
     while not firefox_model_lab_visible():
         if time.monotonic() >= lab_deadline:
+            print('ARGOS_C3_STAGE model-lab-visibility-timeout', flush=True)
             raise ValueError('Model Lab command did not open its shipped Firefox view')
         time.sleep(.5)
     time.sleep(5)

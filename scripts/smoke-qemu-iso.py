@@ -250,6 +250,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                             reported_stages.add(stage)
                             print(f'Guest stage: {stage}', flush=True)
                             capture_name = {
+                                'model-lab-visibility-timeout': 'lab-visibility-timeout.ppm',
                                 'model-lab-visible': 'lab-visible.ppm',
                                 'model-lab-button-activated': 'lab-button-activated.ppm',
                             }.get(stage)
