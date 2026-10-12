@@ -1067,7 +1067,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             model_restorer=lambda: restored.append(True),
         )
         try:
-            controller.start()
+            controller.start({'max_experiments': 1})
             deadline = time.time() + 5.0
             while time.time() < deadline:
                 snap = controller.snapshot()
