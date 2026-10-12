@@ -49,6 +49,91 @@ class FirefoxDriver:
         return response[3]
 
 
+class FirefoxLabSession:
+    """Drive the shipped Firefox binary in an isolated disposable VM profile.
+
+    This tests real dashboard events and services, not a simulated page. It does
+    not establish interaction with the normal launcher's original browser tab.
+    """
+    def __init__(self):
+        self.browser = self.connection = self.profile = self.driver = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *error):
+        if self.connection is not None:
+            self.connection.close()
+        if self.browser is not None:
+            self.browser.terminate()
+            try:
+                self.browser.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.browser.kill()
+                self.browser.wait(timeout=10)
+        if self.profile is not None:
+            self.profile.cleanup()
+
+    def start(self, env, url, timeout=30):
+        deadline = time.monotonic() + timeout
+        self.profile = tempfile.TemporaryDirectory(prefix='argos-ci-lab-firefox-')
+        with socket.socket() as reservation:
+            reservation.bind(('127.0.0.1', 0))
+            port = reservation.getsockname()[1]
+        (Path(self.profile.name) / 'user.js').write_text('\n'.join([
+            'user_pref("browser.shell.checkDefaultBrowser", false);',
+            'user_pref("browser.aboutwelcome.enabled", false);',
+            'user_pref("browser.startup.homepage_override.mstone", "ignore");',
+            'user_pref("gfx.webrender.software", true);',
+            f'user_pref("marionette.port", {port});']), encoding='utf-8')
+        self.browser = subprocess.Popen(['firefox', '--no-remote', '--marionette', '--kiosk',
+            '--profile', self.profile.name, 'about:blank'], env=env,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        while time.monotonic() < deadline:
+            if self.browser.poll() is not None:
+                raise ValueError('Disposable Firefox exited before the Lab test')
+            try:
+                self.connection = socket.create_connection(('127.0.0.1', port), timeout=1)
+                break
+            except OSError:
+                time.sleep(.5)
+        if self.connection is None:
+            raise ValueError('Disposable Firefox control connection unavailable')
+        self.connection.settimeout(max(.1, deadline - time.monotonic()))
+        self.driver = FirefoxDriver(self.connection)
+        self.driver.command('WebDriver:NewSession',
+                            {'acceptInsecureCerts': False, 'pageLoadStrategy': 'none'})
+        self.driver.command('WebDriver:Navigate', {'url': url})
+        self.wait_ready(deadline)
+
+    def wait_ready(self, deadline):
+        probe = '''const b = document.getElementById('lab-start');
+            const workbench = document.getElementById('workbench');
+            return document.readyState === 'complete' && workbench?.open === true &&
+                b?.disabled === false && b.getClientRects().length > 0 &&
+                getComputedStyle(b).visibility === 'visible';'''
+        while time.monotonic() < deadline:
+            self.connection.settimeout(max(.1, deadline - time.monotonic()))
+            reply = self.driver.command('WebDriver:ExecuteScript', {'script': probe,
+                'args': [], 'newSandbox': True, 'sandbox': 'default', 'line': 1,
+                'filename': 'public-argos-ci-lab-ready.js'})
+            if time.monotonic() < deadline and reply.get('value') is True:
+                return
+            time.sleep(.5)
+        raise ValueError('Actual Firefox Lab controls did not become ready within launch budget')
+
+    def click_baseline(self):
+        # WebDriver performs the browser's normal interactability checks and
+        # trusted click. Never invoke JS .click() or POST to the start API here.
+        self.connection.settimeout(20)
+        element = self.driver.command('WebDriver:FindElement',
+                                     {'using': 'css selector', 'value': '#lab-start'})
+        identifier = element.get('value', {}).get('element-6066-11e4-a52e-4f735466cecf')
+        if not isinstance(identifier, str) or not identifier:
+            raise ValueError('Firefox baseline button handle missing')
+        self.driver.command('WebDriver:ElementClick', {'id': identifier})
+
+
 def ready_firefox(env, url, timeout=240):
     def stage(name):
         print('ARGOS_C3_STAGE firefox-' + name, flush=True)

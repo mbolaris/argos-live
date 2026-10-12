@@ -323,7 +323,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                         if not (output / 'desktop.ppm').exists():
                             raise ValueError('Native dashboard startup screenshot missing')
                         graphical_frame(output / 'desktop.ppm')
-                        result['screenshot_stage'] = ('shipped Firefox after automatic gateway handoff; toolbar cropped before artifact'
+                        result['screenshot_stage'] = ('shipped Firefox binary in an isolated Marionette test profile after observed automatic startup; toolbar cropped before artifact'
                             if setup_mode == 'managed' else 'native Firefox dashboard before CPU benchmark')
                         if (output / 'lab-progress.ppm').exists():
                             result['lab_progress_screenshot_stage'] = (

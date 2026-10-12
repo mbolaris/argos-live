@@ -471,6 +471,11 @@ def backend_observation(opener):
 
 
 def managed_check(started, desktop_seconds):
+    with FirefoxLabSession() as native_lab:
+        managed_check_body(started, desktop_seconds, native_lab)
+
+
+def managed_check_body(started, desktop_seconds, native_lab):
     from argoslive.desktop import session_url
     from argoslive.ollama import NoRedirect
     from argoslive import starter
@@ -576,7 +581,12 @@ def managed_check(started, desktop_seconds):
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
     print('ARGOS_C3_STAGE model-lab-command-returned', flush=True)
-    wait_model_lab_visible()
+    # The launcher is tested above. Use a separate private automation profile
+    # of the SAME shipped Firefox binary for DOM readiness and trusted clicks.
+    # Title observation cannot establish that the app loaded its controls.
+    print('ARGOS_C3_STAGE model-lab-automated-profile', flush=True)
+    native_lab.start(lab_env, origin + '/?' + urlencode({'token': token, 'view': 'lab'})
+                     + '#lab-start', timeout=30)
     print('ARGOS_C3_STAGE model-lab-visible', flush=True)
     time.sleep(5)
     print('ARGOS_C3_STAGE managed-browser', flush=True)
@@ -584,7 +594,7 @@ def managed_check(started, desktop_seconds):
     # then exercise the actual visible button rather than calling its API.
     time.sleep(5)
     print('ARGOS_C3_STAGE model-lab-button-click', flush=True)
-    click_model_lab_baseline(origin, token)
+    native_lab.click_baseline()
     print('ARGOS_C3_STAGE model-lab-button-activated', flush=True)
 
     def dashboard_json(path):
@@ -681,6 +691,8 @@ def managed_check(started, desktop_seconds):
         'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
         'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
         'model_lab_assistant_resumed': True,
+        'model_lab_interaction': 'shipped Firefox binary; isolated Marionette test profile',
+        'original_launcher_tab_interaction_verified': False,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics,
         'mission_control_visible': True, 'chat_destination_available': True,
@@ -688,5 +700,5 @@ def managed_check(started, desktop_seconds):
         'managed_elapsed_seconds': report['elapsed_seconds'],
         'ready_seconds': time.monotonic() - started, 'physical_acceptance': False,
         'browser_chat_reply_verified': False, 'requires_screenshot_review': True}), flush=True)
-    # The host captures the actual shipped Firefox; no substitute test browser.
+    # Keep the same shipped Firefox binary/test profile visible for host capture.
     time.sleep(30)
