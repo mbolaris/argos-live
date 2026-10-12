@@ -861,6 +861,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             self.startup, home=self.home, runner=failing_runner,
             clock=clock.monotonic, sleep_fn=lambda s: None,
         )
+        # Exercise exhaustion of an explicitly bounded four-pack fixture even
+        # when production adds fresh, disjoint validation packs.
+        new_controller.validation_partitions = new_controller.validation_partitions[:4]
         try:
             new_controller.start()
             deadline = time.time() + 5.0
@@ -1497,3 +1500,22 @@ class EvidenceProposalTests(unittest.TestCase):
         c = self.controller()
         c.session['completed_candidates'] = ['quote-evidence']
         self.assertEqual(c._select_next_candidate()['id'], 'bigger-model')
+
+
+class FreshValidationPackTests(unittest.TestCase):
+    def test_new_packs_are_disjoint_and_retain_scoring_contract(self):
+        packs = auto_climb.load_validation_partitions(auto_climb.VALIDATION_TASKS_PATH)
+        ids = [t['id'] for p in packs for t in p['tasks']]
+        self.assertEqual(len(ids), len(set(ids)))
+        passages = [v for p in packs for v in p['passages'].values()]
+        self.assertEqual(len(passages), len(set(passages)))
+        for pack in packs[4:]:
+            self.assertEqual(len(pack['tasks']), 8)
+            for task in pack['tasks']:
+                if task['kind'] != 'answer': continue
+                source = pack['passages'][task['passage']]
+                answer = task['accepted'][0]
+                # The unchanged scorer still requires both an answer and quote.
+                reply = answer + '. "' + source + '"'
+                self.assertTrue(assistant_trial.score(task, pack['passages'], reply)['passed'])
+                self.assertFalse(assistant_trial.score(task, pack['passages'], answer)['passed'])

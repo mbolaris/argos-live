@@ -1,7 +1,7 @@
 {
   "schema": "argos-assistant-tasks/1",
   "change": "held-out-validation",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "MIT",
   "source": "original-argos-live",
   "note": "Independent held-out validation suite: partitioned disjoint passages, questions, and checks. Kept out of prompts and reflection.",
@@ -16,21 +16,32 @@
       "kind": "answer",
       "passage": "aquarium",
       "question": "How much is general admission for adults?",
-      "accepted": ["$18", "18 dollars", "eighteen dollars"]
+      "accepted": [
+        "$18",
+        "18 dollars",
+        "eighteen dollars"
+      ]
     },
     {
       "id": "workshop-answer",
       "kind": "answer",
       "passage": "workshop",
       "question": "How much are monthly dues?",
-      "accepted": ["$35", "35 dollars", "thirty-five dollars"]
+      "accepted": [
+        "$35",
+        "35 dollars",
+        "thirty-five dollars"
+      ]
     },
     {
       "id": "shuttle-answer",
       "kind": "answer",
       "passage": "shuttle",
       "question": "How often does the downtown connector shuttle depart?",
-      "accepted": ["every 20 minutes", "20 minutes"]
+      "accepted": [
+        "every 20 minutes",
+        "20 minutes"
+      ]
     },
     {
       "id": "aquarium-missing",
@@ -75,21 +86,32 @@
           "kind": "answer",
           "passage": "aquarium",
           "question": "How much is general admission for adults?",
-          "accepted": ["$18", "18 dollars", "eighteen dollars"]
+          "accepted": [
+            "$18",
+            "18 dollars",
+            "eighteen dollars"
+          ]
         },
         {
           "id": "workshop-answer",
           "kind": "answer",
           "passage": "workshop",
           "question": "How much are monthly dues?",
-          "accepted": ["$35", "35 dollars", "thirty-five dollars"]
+          "accepted": [
+            "$35",
+            "35 dollars",
+            "thirty-five dollars"
+          ]
         },
         {
           "id": "shuttle-answer",
           "kind": "answer",
           "passage": "shuttle",
           "question": "How often does the downtown connector shuttle depart?",
-          "accepted": ["every 20 minutes", "20 minutes"]
+          "accepted": [
+            "every 20 minutes",
+            "20 minutes"
+          ]
         },
         {
           "id": "aquarium-missing",
@@ -134,21 +156,32 @@
           "kind": "answer",
           "passage": "bakery",
           "question": "How much does a sourdough loaf cost?",
-          "accepted": ["$8", "8 dollars", "eight dollars"]
+          "accepted": [
+            "$8",
+            "8 dollars",
+            "eight dollars"
+          ]
         },
         {
           "id": "clinic-answer",
           "kind": "answer",
           "passage": "clinic",
           "question": "How much is the copay for insured patients?",
-          "accepted": ["$15", "15 dollars", "fifteen dollars"]
+          "accepted": [
+            "$15",
+            "15 dollars",
+            "fifteen dollars"
+          ]
         },
         {
           "id": "library-answer",
           "kind": "answer",
           "passage": "library",
           "question": "How long can laptops be loaned for?",
-          "accepted": ["three hours", "3 hours"]
+          "accepted": [
+            "three hours",
+            "3 hours"
+          ]
         },
         {
           "id": "bakery-missing",
@@ -193,21 +226,32 @@
           "kind": "answer",
           "passage": "museum",
           "question": "How much does an adult ticket cost?",
-          "accepted": ["$12", "12 dollars", "twelve dollars"]
+          "accepted": [
+            "$12",
+            "12 dollars",
+            "twelve dollars"
+          ]
         },
         {
           "id": "gym-answer",
           "kind": "answer",
           "passage": "gym",
           "question": "How much does a guest pass cost per day?",
-          "accepted": ["$10", "10 dollars", "ten dollars"]
+          "accepted": [
+            "$10",
+            "10 dollars",
+            "ten dollars"
+          ]
         },
         {
           "id": "ferry-answer",
           "kind": "answer",
           "passage": "ferry",
           "question": "How often does the harbor ferry run?",
-          "accepted": ["every 30 minutes", "30 minutes"]
+          "accepted": [
+            "every 30 minutes",
+            "30 minutes"
+          ]
         },
         {
           "id": "museum-missing",
@@ -252,21 +296,33 @@
           "kind": "answer",
           "passage": "theater",
           "question": "How much are student rush tickets?",
-          "accepted": ["$20", "20 dollars", "twenty dollars"]
+          "accepted": [
+            "$20",
+            "20 dollars",
+            "twenty dollars"
+          ]
         },
         {
           "id": "park-answer",
           "kind": "answer",
           "passage": "park",
           "question": "How much does a pavilion rental cost per afternoon block?",
-          "accepted": ["$50", "50 dollars", "fifty dollars"]
+          "accepted": [
+            "$50",
+            "50 dollars",
+            "fifty dollars"
+          ]
         },
         {
           "id": "hotel-answer",
           "kind": "answer",
           "passage": "hotel",
           "question": "How much is overnight valet parking per vehicle?",
-          "accepted": ["$30", "30 dollars", "thirty dollars"]
+          "accepted": [
+            "$30",
+            "30 dollars",
+            "thirty dollars"
+          ]
         },
         {
           "id": "theater-missing",
@@ -295,6 +351,278 @@
           "id": "control-coffee",
           "kind": "control",
           "message": "Name one type of brewed coffee drink, in one short sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p5",
+      "passages": {
+        "pottery": "The clay studio runs beginner workshops on Sunday afternoons. Each workshop lasts 75 minutes. Participants collect fired pieces the following week. Aprons are provided, and closed shoes are required.",
+        "repair": "The neighborhood repair cafe meets in the East Hall on the first Saturday of each month. Volunteers can inspect small appliances and mend clothing. Visitors bring their own replacement parts. Entry is free.",
+        "archive": "The county archive offers reading-room appointments from Tuesday through Friday. Researchers must bring photo identification. Document scans cost $3 per page. Bags stay in the lockers outside the reading room."
+      },
+      "tasks": [
+        {
+          "id": "pottery-answer",
+          "kind": "answer",
+          "passage": "pottery",
+          "question": "How long does each beginner workshop last?",
+          "accepted": [
+            "75 minutes",
+            "seventy-five minutes"
+          ]
+        },
+        {
+          "id": "repair-answer",
+          "kind": "answer",
+          "passage": "repair",
+          "question": "Where does the repair cafe meet?",
+          "accepted": [
+            "East Hall"
+          ]
+        },
+        {
+          "id": "archive-answer",
+          "kind": "answer",
+          "passage": "archive",
+          "question": "How much does a document scan cost per page?",
+          "accepted": [
+            "$3",
+            "3 dollars",
+            "three dollars"
+          ]
+        },
+        {
+          "id": "pottery-missing",
+          "kind": "not_stated",
+          "passage": "pottery",
+          "question": "Who teaches the beginner workshops?"
+        },
+        {
+          "id": "repair-missing",
+          "kind": "not_stated",
+          "passage": "repair",
+          "question": "How many volunteers work at the repair cafe?"
+        },
+        {
+          "id": "archive-missing",
+          "kind": "not_stated",
+          "passage": "archive",
+          "question": "Who designed the archive building?"
+        },
+        {
+          "id": "val-p5-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a pet rabbit, in one sentence."
+        },
+        {
+          "id": "val-p5-control-1",
+          "kind": "control",
+          "message": "Name one item useful on a rainy walk, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p6",
+      "passages": {
+        "rowing": "The rowing club holds introductory sessions at South Dock. Life jackets are provided to every participant. Sessions last 50 minutes and begin at 9:00 a.m. on Saturdays. Advance booking is required.",
+        "observatory": "The hilltop observatory opens to visitors on clear Friday evenings. Admission costs $12 per adult. Children must remain with an adult near the telescope platforms. Visitors may borrow a red-light flashlight at reception.",
+        "seedbank": "The community seed bank is inside the North Library. Members may borrow four packets each month. Returned seeds must be dry and labeled with the plant variety. Membership is free for town residents."
+      },
+      "tasks": [
+        {
+          "id": "rowing-answer",
+          "kind": "answer",
+          "passage": "rowing",
+          "question": "Where are introductory rowing sessions held?",
+          "accepted": [
+            "South Dock"
+          ]
+        },
+        {
+          "id": "observatory-answer",
+          "kind": "answer",
+          "passage": "observatory",
+          "question": "How much is adult admission?",
+          "accepted": [
+            "$12",
+            "12 dollars",
+            "twelve dollars"
+          ]
+        },
+        {
+          "id": "seedbank-answer",
+          "kind": "answer",
+          "passage": "seedbank",
+          "question": "How many packets may a member borrow each month?",
+          "accepted": [
+            "four packets",
+            "4 packets"
+          ]
+        },
+        {
+          "id": "rowing-missing",
+          "kind": "not_stated",
+          "passage": "rowing",
+          "question": "Who founded the rowing club?"
+        },
+        {
+          "id": "observatory-missing",
+          "kind": "not_stated",
+          "passage": "observatory",
+          "question": "What brand are the observatory telescopes?"
+        },
+        {
+          "id": "seedbank-missing",
+          "kind": "not_stated",
+          "passage": "seedbank",
+          "question": "How many members does the seed bank have?"
+        },
+        {
+          "id": "val-p6-control-0",
+          "kind": "control",
+          "message": "Name one vegetable that can be eaten raw, in one short sentence."
+        },
+        {
+          "id": "val-p6-control-1",
+          "kind": "control",
+          "message": "Give one simple tip for keeping a desk tidy, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p7",
+      "passages": {
+        "sailing": "The sailing school issues rental boats from West Pier. Rentals include a waterproof map and a buoyancy aid. Boats must be returned before 5:00 p.m. Beginners need to complete the shore briefing first.",
+        "cinema": "The neighborhood cinema sells matinee tickets for $9. Doors open 25 minutes before the film begins. Outside food is not permitted. Bicycle parking is available behind the entrance.",
+        "orchard": "The cooperative orchard offers guided tours on Wednesdays. Each tour lasts 40 minutes. Visitors must stay on the marked paths and may sample fruit only when invited by the guide. Tours meet at the wooden gate."
+      },
+      "tasks": [
+        {
+          "id": "sailing-answer",
+          "kind": "answer",
+          "passage": "sailing",
+          "question": "Where are rental boats issued?",
+          "accepted": [
+            "West Pier"
+          ]
+        },
+        {
+          "id": "cinema-answer",
+          "kind": "answer",
+          "passage": "cinema",
+          "question": "How much does a matinee ticket cost?",
+          "accepted": [
+            "$9",
+            "9 dollars",
+            "nine dollars"
+          ]
+        },
+        {
+          "id": "orchard-answer",
+          "kind": "answer",
+          "passage": "orchard",
+          "question": "How long does each guided tour last?",
+          "accepted": [
+            "40 minutes",
+            "forty minutes"
+          ]
+        },
+        {
+          "id": "sailing-missing",
+          "kind": "not_stated",
+          "passage": "sailing",
+          "question": "Who owns the sailing school?"
+        },
+        {
+          "id": "cinema-missing",
+          "kind": "not_stated",
+          "passage": "cinema",
+          "question": "What film is scheduled next Wednesday?"
+        },
+        {
+          "id": "orchard-missing",
+          "kind": "not_stated",
+          "passage": "orchard",
+          "question": "What is the guide’s name?"
+        },
+        {
+          "id": "val-p7-control-0",
+          "kind": "control",
+          "message": "Name one percussion instrument, in one sentence."
+        },
+        {
+          "id": "val-p7-control-1",
+          "kind": "control",
+          "message": "Suggest one snack for a train ride, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "val-p8",
+      "passages": {
+        "weaving": "The weaving room is on the second floor of the craft center. Loom reservations cost $6 per hour. Beginners must attend an orientation before reserving a loom. Yarn may be purchased at the front desk.",
+        "aquatics": "The aquatics center offers lane swimming in the Cedar Pool. Swimmers bring their own towels and must shower before entering. Morning sessions end at 8:30 a.m. Locker keys are returned at reception.",
+        "cooking": "The cooking cooperative holds bread classes on Thursday evenings. Classes last 80 minutes. Ingredients and mixing bowls are supplied. Participants bring a container to take home their bread."
+      },
+      "tasks": [
+        {
+          "id": "weaving-answer",
+          "kind": "answer",
+          "passage": "weaving",
+          "question": "How much does a loom reservation cost per hour?",
+          "accepted": [
+            "$6",
+            "6 dollars",
+            "six dollars"
+          ]
+        },
+        {
+          "id": "aquatics-answer",
+          "kind": "answer",
+          "passage": "aquatics",
+          "question": "Which pool is used for lane swimming?",
+          "accepted": [
+            "Cedar Pool"
+          ]
+        },
+        {
+          "id": "cooking-answer",
+          "kind": "answer",
+          "passage": "cooking",
+          "question": "How long does a bread class last?",
+          "accepted": [
+            "80 minutes",
+            "eighty minutes"
+          ]
+        },
+        {
+          "id": "weaving-missing",
+          "kind": "not_stated",
+          "passage": "weaving",
+          "question": "How many looms are in the weaving room?"
+        },
+        {
+          "id": "aquatics-missing",
+          "kind": "not_stated",
+          "passage": "aquatics",
+          "question": "Who coaches the morning swimmers?"
+        },
+        {
+          "id": "cooking-missing",
+          "kind": "not_stated",
+          "passage": "cooking",
+          "question": "What brand of flour is used?"
+        },
+        {
+          "id": "val-p8-control-0",
+          "kind": "control",
+          "message": "Name one herb commonly used in cooking, in one sentence."
+        },
+        {
+          "id": "val-p8-control-1",
+          "kind": "control",
+          "message": "Suggest one way to remember an appointment, in one sentence."
         }
       ]
     }
