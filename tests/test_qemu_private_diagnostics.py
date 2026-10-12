@@ -10,6 +10,7 @@ from urllib.error import HTTPError
 from unittest.mock import patch, MagicMock
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'runtime'))
 spec = importlib.util.spec_from_file_location('managed_check', ROOT / 'scripts/qemu-managed-check.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -37,6 +38,32 @@ class DiagnosticFlagsTests(unittest.TestCase):
             module.report_http_failure('private-route', error)
         self.assertEqual(json.loads(output.getvalue().split(' ', 1)[1]),
                          {'check': 'other', 'status': None})
+
+    def test_assistant_chat_preflight_reports_only_configuration_booleans(self):
+        with tempfile.TemporaryDirectory() as temp:
+            config_dir = Path(temp) / '.openclaw'
+            config_dir.mkdir()
+            config = {'gateway': {'mode': 'local', 'bind': 'loopback', 'port': 18789,
+                'auth': {'mode': 'token', 'token': 'fictional-private-token'}}}
+            (config_dir / 'openclaw.json').write_text(json.dumps(config))
+            with patch('argoslive.web.status.gateway_ready', return_value=True):
+                value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+            self.assertEqual(value, {'config_readable': True, 'gateway_config_valid': True,
+                'origin_matches_session': True, 'token_mode': True, 'token_present': True,
+                'token_length_valid': True, 'gateway_ready': True})
+            self.assertNotIn('fictional-private-token', json.dumps(value))
+
+    def test_assistant_chat_preflight_collapses_invalid_configuration(self):
+        with tempfile.TemporaryDirectory() as temp:
+            config_dir = Path(temp) / '.openclaw'
+            config_dir.mkdir()
+            (config_dir / 'openclaw.json').write_text(json.dumps(
+                {'gateway': {'bind': '0.0.0.0', 'auth': {'token': 'secret'}}}))
+            value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+            self.assertTrue(value['config_readable'])
+            self.assertFalse(value['gateway_config_valid'])
+            self.assertFalse(value['token_present'])
+            self.assertNotIn('secret', json.dumps(value))
 
     def test_trial_keyboard_refuses_wrong_active_window(self):
         with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
