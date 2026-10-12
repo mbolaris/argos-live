@@ -89,8 +89,8 @@ The build and artifact verification checked the pinned runtime and package
 manifest, and the ISO's persistent desktop default and explicit temporary guest
 entry were reviewed. This confirms a built candidate, not an installed upgrade.
 
-Managed, offline QEMU acceptance did **not** pass. The runs below all used the
-same candidate ISO and the unchanged CPU-only, no-network setup:
+Hosted managed, offline QEMU acceptance did **not** pass. The runs below all used
+the same candidate ISO and the unchanged CPU-only, no-network setup:
 
 | Run | Observed result |
 |---|---|
@@ -109,8 +109,23 @@ start the trial through an API or JavaScript click. Run
 [38212323579](https://github.com/mbolaris/argos-live/actions/runs/38212323579)
 failed before the visible-control and click markers. Interaction with the
 original launcher tab is not claimed. No automatic repeat or timeout increase
-was made. The bounded USB-update monitor is paused at this VM acceptance blocker;
-the verified fresh backup is retained and the USB is unchanged.
+was made before the owner resumed investigation.
+
+The owner-resumed local WHPX run with harness `727aa22` completed successfully
+against the same fully verified ISO. Safe stage markers show connection,
+protocol handshake, session creation, navigation, visible enabled controls and
+the native button click. The real CPU baseline completed all 20 challenges,
+saved both speed and ability records, and resumed the assistant. The local
+adapter uses the current guest scripts verbatim and the current host result
+validator; network, host disks and the existing time budgets remain unchanged.
+Cropped shipped-Firefox captures were visually reviewed, including the Lab
+controls and the completed 20-response answer view. The latter was captured
+while the unscored opinion was being written; it does not prove a visually
+captured incremental challenge answer. This establishes scoped local baseline
+acceptance, not hosted CI acceptance or an identified cause of the hosted
+Firefox timeout. The original launcher tab, document mission, Auto Climb,
+browser-submitted chat, physical GPU, firmware and reboot persistence remain
+outside this run's evidence. The USB has not yet been written.
 
 The downloaded ISO was independently verified in full against `SHA256SUMS` and
 the build report: 4,077,649,920 bytes, SHA256
@@ -121,10 +136,10 @@ defaults in GRUB and BIOS menus and separate explicit temporary guest entries.
 All three candidate EFI files match the connected Kingston and its new backup.
 These file checks do not establish VM or physical acceptance.
 
-The focused QEMU harness tests pass locally (38 tests, two owner-only Linux
+The focused QEMU harness tests pass locally (39 tests run, two owner-only Linux
 diagnostic tests skipped on Windows). These checks validate the harness, not the
-candidate's full managed Lab journey. Do not call the candidate VM-accepted or
-ship it as a proven upgrade until a disposable VM run completes the visible Lab
-baseline and saves both expected results. The candidate is not installed on
+candidate's full managed Lab journey. The local disposable VM run now completes
+the visible Lab baseline and saves both expected results; its remaining scope
+limits above still apply. The candidate is not installed on
 Toronado; no USB write, persistent profile migration, physical GPU test, or
 reboot-persistence test occurred.
