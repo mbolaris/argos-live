@@ -1086,6 +1086,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             snap = controller.snapshot()
             self.assertTrue(len(restored) > 0)
             self.assertEqual(snap['history'][0]['verdict'], 'restored')
+            self.assertNotIn('mutation', controller.session)
+            recovered = controller._load_or_recover_session()
+            self.assertEqual(recovered['phase'], snap['phase'])
         finally:
             controller.close()
 

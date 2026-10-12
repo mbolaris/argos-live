@@ -1589,6 +1589,7 @@ class Controller:
             self._ensure_assistant_ready(expected_model=prev_model)
             if hasattr(self.runner, 'expected_model') and prev_model:
                 self.runner.expected_model = prev_model
+            self.session.pop('mutation', None)
             return
 
         if self.selection:
@@ -1606,6 +1607,7 @@ class Controller:
             self._ensure_assistant_ready(expected_model=prev_model)
             if hasattr(self.runner, 'expected_model') and prev_model:
                 self.runner.expected_model = prev_model
+            self.session.pop('mutation', None)
             return
 
         ok = model_selection.restore(self.home)
@@ -1615,6 +1617,7 @@ class Controller:
         self._ensure_assistant_ready(expected_model=prev_model)
         if hasattr(self.runner, 'expected_model') and prev_model:
             self.runner.expected_model = prev_model
+        self.session.pop('mutation', None)
 
     def _run_model_keep(self):
         """Finalize model keep transaction; propagate errors."""
