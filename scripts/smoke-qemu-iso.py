@@ -59,6 +59,29 @@ def screenshot(qmp, path):
                     break
 
 
+def crop_ppm_top(raw, rows):
+    """Remove browser chrome rows before any dashboard frame is saved."""
+    header = re.match(rb'P6\s+(\d+)\s+(\d+)\s+255\s', raw)
+    if not header:
+        raise ValueError('Unexpected QEMU screenshot format')
+    width, height = int(header[1]), int(header[2])
+    pixels = raw[header.end():]
+    if (width < 800 or height < 600 or rows < 0 or height - rows < 600 or
+            len(pixels) != width * height * 3):
+        raise ValueError('Cannot safely crop the QEMU browser frame')
+    return f'P6\n{width} {height - rows}\n255\n'.encode() + pixels[width * rows * 3:]
+
+
+def screenshot_dashboard_content(qmp, path):
+    """Capture privately, strip Firefox's token-bearing toolbar, then publish pixels."""
+    private_path = qmp.parent / ('capture-' + secrets.token_hex(8) + '.ppm')
+    try:
+        screenshot(qmp, private_path)
+        path.write_bytes(crop_ppm_top(private_path.read_bytes(), 160))
+    finally:
+        private_path.unlink(missing_ok=True)
+
+
 def guest_result(serial, *, setup_mode='interactive', guest=False):
     # Serial reads split anywhere, including after a nested JSON object's closing
     # brace. Only a complete newline-terminated record can establish acceptance.
@@ -207,7 +230,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                         # Native DOM readiness plus paint delay precede this
                         # stage. Capture startup, not the idle desktop after a
                         # several-minute CPU emulation workload.
-                        screenshot(qmp, output / 'desktop.ppm')
+                        screenshot_dashboard_content(qmp, output / 'desktop.ppm')
                         graphical_frame(output / 'desktop.ppm')
                     if time.monotonic() >= next_heartbeat:
                         print(f'Guest running: {int(time.monotonic() - started)} seconds; '
@@ -242,7 +265,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                         if not (output / 'desktop.ppm').exists():
                             raise ValueError('Native dashboard startup screenshot missing')
                         graphical_frame(output / 'desktop.ppm')
-                        result['screenshot_stage'] = ('shipped Firefox after automatic gateway handoff; test-only fullscreen'
+                        result['screenshot_stage'] = ('shipped Firefox after automatic gateway handoff; toolbar cropped before artifact'
                             if setup_mode == 'managed' else 'native Firefox dashboard before CPU benchmark')
                         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
                         print(json.dumps(result, indent=2))
@@ -251,7 +274,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
         finally:
             if setup_mode != 'managed' and qmp.exists() and not (output / 'desktop.ppm').exists():
                 try:
-                    screenshot(qmp, output / 'desktop.ppm')
+                    screenshot_dashboard_content(qmp, output / 'desktop.ppm')
                 except (OSError, ValueError):
                     pass  # Preserve the original failure and console evidence.
             process.terminate()
