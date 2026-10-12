@@ -100,7 +100,24 @@ same candidate ISO and the unchanged CPU-only, no-network setup:
 | [38205119530](https://github.com/mbolaris/argos-live/actions/runs/38205119530) | Two chat 409s cleared; the guest returned from the Lab launch command, then failed with `ValueError` before a recognized Lab-view marker. No result record or active-trial screenshot was produced. The precise exception remains unconfirmed. |
 | [38208361541](https://github.com/mbolaris/argos-live/actions/runs/38208361541) | With continuous title stability inside the original launch deadline, the guest reached the visible-page and button-activation markers. The status API remained available but recorded `model-lab-baseline-not-started`; no baseline result was saved. Visual review shows a blank/loading frame at the title gate and enabled baseline controls after keyboard activation. This is a concrete browser-automation readiness/focus blocker, not a completed trial or proof that a normal user click fails. |
 
-The focused QEMU harness tests pass locally (33 tests, two owner-only Linux
+The follow-up harness at `a20cfda` separates the launcher-command check from
+browser interaction. It uses the same shipped Firefox binary in an isolated,
+disposable Marionette profile, waits for the actual visible and enabled Lab
+control, and sends a native WebDriver element click. It does not start the trial
+through an API or JavaScript click. Run
+[38212323579](https://github.com/mbolaris/argos-live/actions/runs/38212323579)
+is pending; interaction with the original launcher tab is not claimed.
+
+The downloaded ISO was independently verified in full against `SHA256SUMS` and
+the build report: 4,077,649,920 bytes, SHA256
+`5a31e0f019c6aae1e499b44dd1e63ac4d8efd1a8557c7d6481a382023e30e3d8`.
+Its package-manifest hash, exact source commit, runtime lock and all runtime
+pins match the report. Inspection of the actual ISO confirms persistent desktop
+defaults in GRUB and BIOS menus and separate explicit temporary guest entries.
+All three candidate EFI files match the connected Kingston and its new backup.
+These file checks do not establish VM or physical acceptance.
+
+The focused QEMU harness tests pass locally (38 tests, two owner-only Linux
 diagnostic tests skipped on Windows). These checks validate the harness, not the
 candidate's full managed Lab journey. Do not call the candidate VM-accepted or
 ship it as a proven upgrade until a disposable VM run completes the visible Lab
