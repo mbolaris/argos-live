@@ -33,7 +33,8 @@ def run(cli):
         with socket.socket() as reservation:
             reservation.bind(('127.0.0.1', 0))
             port = reservation.getsockname()[1]
-        config = conversation_config('qwen3:0.6b', workspace)
+        config = conversation_config('qwen3:0.6b', workspace,
+                                     plugin_root=ROOT / 'openclaw-plugin/argos-improve')
         config['gateway']['port'] = port
         config['gateway']['auth']['token'] = 'fictional-public-gateway-health-fixture'
         path = state / 'openclaw.json'

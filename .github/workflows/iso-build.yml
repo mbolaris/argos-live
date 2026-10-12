@@ -9,6 +9,8 @@ on:
       - 'scripts/**'
       - 'runtime/**'
       - 'live/**'
+      - 'openclaw-plugin/**'
+      - 'docs/SELF-IMPROVEMENT-GUIDE.md'
       - 'versions.env'
 permissions:
   contents: read

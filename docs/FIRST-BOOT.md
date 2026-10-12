@@ -9,8 +9,8 @@ budget separately. The command does not mount/unlock a disk, download a model,
 start a daemon or open a browser.
 
 The generated OpenClaw configuration keeps loopback/token authentication,
-conversation-only tools, denied shell/files/browser/web/update controls and no
-elevated tools. Account credentials are not requested. Configuration and workspace
+file tools and the Argos benchmark tools available, while denying shell, browser,
+web, gateway and runtime controls; elevated tools stay off. Account credentials are not requested. Configuration and workspace
 stay under the desktop user's home, outside the model store; files are private.
 Settings mode (`try` or `persistent`), observed persistence encryption and model
 store encryption are distinct. Unknown encryption remains unknown. Public model
@@ -52,9 +52,11 @@ rate; unavailable measurements remain unknown. It opens the conversation once
 ready. Reopening the workspace reuses its verified session rather than starting
 another service. Start/Stop actions control only this launcher's owned job.
 
-The launcher accepts the reviewed local conversation profile. An existing broader
-or changed policy, channel configuration, unresolved model or unavailable storage
-stops automatic startup for review; nothing is reset or silently reconfigured.
+The launcher accepts the reviewed local improvement-agent policy: file tools and
+the two Argos benchmark tools are allowed, while shell, browser/web, gateway and
+runtime controls are denied. Extra tools, channel configuration, an unresolved
+model or unavailable storage stop automatic startup for review; nothing is reset
+or silently reconfigured.
 Stop during model/gateway startup cancels the job and releases owned services.
 Filesystem hashing and initial health probes can take time before cancellation
 returns; the page stays at Stopping until cleanup finishes. Cold model service

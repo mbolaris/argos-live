@@ -4,6 +4,7 @@ artifacts/
 /local/
 *.log
 __pycache__/
+node_modules/
 .env
 *.key
 local-*.json

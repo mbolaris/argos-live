@@ -51,6 +51,18 @@ def validate(value):
             or not isinstance(value.get('restoration'), dict)
             or type(value['restoration'].get('succeeded')) is not bool):
         raise ValueError('Invalid benchmark metadata')
+    suite_hash = value['settings'].get('suite_sha256')
+    if suite_hash is not None and (not isinstance(suite_hash, str) or not re.fullmatch(r'[a-f0-9]{64}', suite_hash)):
+        raise ValueError('Invalid benchmark suite fingerprint')
+    prompt_fingerprint = value.get('prompt_fingerprint')
+    if prompt_fingerprint is not None:
+        digest_value = (prompt_fingerprint.get('workspace_agents_sha256')
+                        if isinstance(prompt_fingerprint, dict) else None)
+        if (not isinstance(prompt_fingerprint, dict)
+                or set(prompt_fingerprint) != {'workspace_agents_sha256'}
+                or (digest_value is not None and
+                    (not isinstance(digest_value, str) or not re.fullmatch(r'[a-f0-9]{64}', digest_value)))):
+            raise ValueError('Invalid prompt fingerprint')
     try:
         created = datetime.fromisoformat(value['created'])
         if created.tzinfo is None:
@@ -58,7 +70,7 @@ def validate(value):
     except (ValueError, TypeError, KeyError):
         raise ValueError('Invalid benchmark timestamp') from None
     if value['kind'] == 'ability':
-        if (value.get('state') not in ('completed', 'cancelled')
+        if (value.get('state') not in ('completed', 'cancelled', 'failed')
                 or not isinstance(value.get('coverage'), dict)
                 or not isinstance(value.get('items'), list)
                 or not isinstance(value.get('summary'), dict)):
@@ -168,10 +180,18 @@ def compare(values):
     if len({v['id'] for v in values}) != len(values):
         raise ValueError('Choose distinct runs')
     first = values[0]
+    def comparison_settings(value):
+        # The model is the thing an ability comparison is meant to vary. It
+        # already has a dedicated top-level field, so keep all other settings
+        # identical while allowing `assistant_model` to differ.
+        return {key: setting for key, setting in value['settings'].items()
+                if key not in ('assistant_model', 'model')}
+
+    first_settings = comparison_settings(first)
     for value in values:
-        if (value['kind'], value['suite_version'], value['settings']) != (
-                first['kind'], first['suite_version'], first['settings']):
-            raise ValueError('Comparison requires the same benchmark kind, suite version and settings')
+        if (value['kind'], value['suite_version'], comparison_settings(value)) != (
+                first['kind'], first['suite_version'], first_settings):
+            raise ValueError('Comparison requires the same benchmark kind, suite version and non-model settings')
         if value.get('recipe') != first.get('recipe'):
             raise ValueError('Comparison requires matching recipes')
         if not value['restoration']['succeeded']:
@@ -206,7 +226,10 @@ def compare(values):
                                  value=rate, format_errors=None))
     rows.sort(key=lambda row: (row['metric'], row['value'] is None,
                               -(row['value'] or 0), row['id']))
-    return {'kind': first['kind'], 'suite_version': first['suite_version'], 'settings': first['settings'],
+    prompt_hashes = [value.get('prompt_fingerprint', {}).get('workspace_agents_sha256')
+                     if isinstance(value.get('prompt_fingerprint'), dict) else None for value in values]
+    return {'kind': first['kind'], 'suite_version': first['suite_version'], 'settings': first_settings,
+            'workspace_agents_changed': len(set(prompt_hashes)) > 1,
             'rows': rows, **matched_details(values), 'limitations': 'Hardware and runtime versions can differ; inspect original runs. '
             'Missing measurements are unranked. Tool formatting is not tool execution.'}
 
@@ -234,7 +257,8 @@ def matched_details(values):
     runs = []
     for value in ordered:
         entry = {'id': value['id'], 'model': value['model'], 'created': value['created'],
-                 'manifest_digest': value.get('manifest_digest'), 'kind': value['kind'],
+                 'manifest_digest': value.get('manifest_digest'),
+                 'prompt_fingerprint': value.get('prompt_fingerprint'), 'kind': value['kind'],
                  'suite_version': value['suite_version']}
         if value['kind'] == 'ability':
             summary = value['summary']
