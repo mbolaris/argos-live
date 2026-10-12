@@ -166,7 +166,7 @@ def probe_failure(error):
 
 def report_http_failure(check, error):
     """Emit only a fixed check label and HTTP status, never body, headers or URL."""
-    allowed_checks = {'assistant-chat-availability'}
+    allowed_checks = {'assistant-chat-availability', 'model-lab-status', 'model-lab-benchmarks'}
     check = check if check in allowed_checks else 'other'
     status = getattr(error, 'code', None)
     if type(status) is not int or not 100 <= status <= 599:
@@ -571,21 +571,34 @@ def managed_check(started, desktop_seconds):
 
     def dashboard_json(path):
         request = Request(origin + path, headers={'X-Argos-Token': token})
-        with opener.open(request, timeout=10) as response:
-            raw = response.read(1048577)
+        try:
+            with opener.open(request, timeout=10) as response:
+                raw = response.read(1048577)
+        except HTTPError as error:
+            check = {'/api/lab': 'model-lab-status',
+                     '/api/benchmarks': 'model-lab-benchmarks'}.get(path, 'other')
+            report_http_failure(check, error)
+            raise
         if len(raw) > 1048576:
             raise ValueError('Model Lab status exceeded the bounded response size')
         return json.loads(raw)
 
     lab_value = None
+    print('ARGOS_C3_STAGE model-lab-status-polling', flush=True)
+    lab_status_logged = False
     click_deadline = time.monotonic() + 20
     while time.monotonic() < click_deadline:
         lab_value = dashboard_json('/api/lab')
+        if not lab_status_logged:
+            print('ARGOS_C3_STAGE model-lab-status-available', flush=True)
+            lab_status_logged = True
         if lab_value.get('active') and lab_value.get('phase') in (
                 'pausing', 'model-service', 'speed', 'ability', 'cancelling'):
+            print('ARGOS_C3_STAGE model-lab-baseline-started', flush=True)
             break
         time.sleep(.5)
     else:
+        print('ARGOS_C3_STAGE model-lab-baseline-not-started', flush=True)
         raise ValueError('Visible Model Lab button did not start the baseline')
     print('ARGOS_C3_LAB ' + json.dumps({'phase': lab_value['phase']}), flush=True)
 

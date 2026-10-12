@@ -39,6 +39,17 @@ class DiagnosticFlagsTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue().split(' ', 1)[1]),
                          {'check': 'other', 'status': None})
 
+    def test_model_lab_status_http_failure_reports_only_check_and_status(self):
+        error = HTTPError('http://127.0.0.1/private-token/api/lab', 409,
+                          'private reason', {}, io.BytesIO(b'secret'))
+        output = io.StringIO()
+        with patch('sys.stdout', output):
+            module.report_http_failure('model-lab-status', error)
+        self.assertEqual(json.loads(output.getvalue().split(' ', 1)[1]),
+                         {'check': 'model-lab-status', 'status': 409})
+        for private in ('private-token', 'private reason', 'secret'):
+            self.assertNotIn(private, output.getvalue())
+
     def test_only_assistant_chat_readiness_conflict_is_retryable(self):
         conflict = HTTPError('http://127.0.0.1/private-token/chat', 409,
                              'private reason', {}, io.BytesIO(b'secret'))

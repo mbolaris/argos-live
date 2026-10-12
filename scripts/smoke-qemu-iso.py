@@ -249,6 +249,18 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                         if stage not in reported_stages:
                             reported_stages.add(stage)
                             print(f'Guest stage: {stage}', flush=True)
+                            capture_name = {
+                                'model-lab-visible': 'lab-visible.ppm',
+                                'model-lab-button-activated': 'lab-button-activated.ppm',
+                            }.get(stage)
+                            if capture_name:
+                                capture_path = output / capture_name
+                                if not try_dashboard_capture(qmp, capture_path):
+                                    print(f'Firefox {stage} capture unavailable; continuing acceptance.',
+                                          flush=True)
+                                else:
+                                    print(f'Captured toolbar-cropped Firefox frame at {stage}.',
+                                          flush=True)
                     for line in re.findall(r'ARGOS_C3_LAB (\{[^\r\n]+\})\r?\n', tail):
                         phase = lab_progress_phase(line)
                         if phase and phase not in reported_lab_phases:
