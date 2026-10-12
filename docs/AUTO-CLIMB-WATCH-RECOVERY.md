@@ -23,3 +23,6 @@ Proposal selection now tries the reviewed quote instruction before a model downl
 
 
 Four additional authored validation packs (val-p5 through val-p8) provide disjoint passages and questions after the first four packs were consumed on Toronado. Original packs, scorers, acceptance thresholds and exposure history are retained without resets. New packs use the same three answer, three missing-information and two everyday-control checks. This is still a finite reading/grounding curriculum, not evidence of broad ability or unlimited climbing.
+
+
+A new approved climb can resume one retained paused/interrupted job for the same exact catalog tag and freshly checked store. Cancelled and failed integrity jobs are excluded. The normal verified acquisition pipeline is retained, and failed attempts continue to consume the session budget. Acquisition UI distinguishes transfer, verification, loading, reply check and publishing; it does not call downloaded bytes a ready model.
