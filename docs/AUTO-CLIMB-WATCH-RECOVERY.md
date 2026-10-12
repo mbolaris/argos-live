@@ -20,3 +20,6 @@ The first patched live run completed its 14B practice retest: zero gains and two
 The live run also exposed an attempt-accounting bug: the final reserved slot was treated as exhausted during its own checks. The cap now applies before choosing a new candidate, while the duration cap remains enforced during every turn and child operation. Failed attempts still consume slots. A regression verifies that a one-attempt session actually finishes exactly one attempt.
 
 Proposal selection now tries the reviewed quote instruction before a model download when at least two misses are all correct, direct answers missing exact source quotations. Mixed failures retain the existing model policy. This changes proposal order only; independent validation, gain thresholds, exposure tracking and Keep/Restore remain unchanged.
+
+
+Four additional authored validation packs (val-p5 through val-p8) provide disjoint passages and questions after the first four packs were consumed on Toronado. Original packs, scorers, acceptance thresholds and exposure history are retained without resets. New packs use the same three answer, three missing-information and two everyday-control checks. This is still a finite reading/grounding curriculum, not evidence of broad ability or unlimited climbing.
