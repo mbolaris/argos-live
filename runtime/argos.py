@@ -72,7 +72,7 @@ def setup(ask=input):
         if ask('Continue for a temporary test? Type TEMPORARY: ') != 'TEMPORARY':
             return
     print('Argos uses a local model. GitHub and cloud accounts are optional.')
-    print('Default permissions: conversation and session status; shell, file tools, browser, and updates denied.')
+    print('Default permissions: file tools and Argos benchmark tools. Shell, browser, remote web, gateway and runtime controls stay denied.')
     if ask('Accept these permissions? [yes/no]: ').strip().lower() != 'yes':
         raise ValueError('Permission setup cancelled. Broader permissions require deliberate configuration and review.')
     print('Model files on external storage are not encrypted by Argos. Use an encrypted volume if needed.')
@@ -107,10 +107,24 @@ def setup(ask=input):
     if not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or 'cloud' in model.split(':')[-1]:
         raise ValueError('Invalid local model tag.')
     from argoslive.auto_setup import conversation_config
-    config = conversation_config(model, OC / 'workspace')
+    workspace = OC / 'workspace'
+    config = conversation_config(model, workspace)
+    workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
+    instructions = workspace / 'AGENTS.md'
+    if not instructions.exists():
+        prompt = (Path(argoslive.__file__).resolve().parent / 'data/SELF-IMPROVEMENT-AGENTS.md').read_bytes()
+        try:
+            descriptor = os.open(instructions, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            # Preserve an owner file created after the existence check.
+            pass
+        else:
+            with os.fdopen(descriptor, 'wb') as stream:
+                stream.write(prompt)
+                stream.flush()
+                os.fsync(stream.fileno())
     save(OC / 'openclaw.json', config)
-    (OC / 'workspace').mkdir(exist_ok=True, mode=0o700)
-    save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'conversation-only'})
+    save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'file-tools-and-benchmarks'})
     print('Setup saved. Bundled Qwen3 0.6B supports offline conversation after setup. Other models need a download.')
     print('Optional providers: openclaw onboard. Keep the configured limited tool policy; enter keys only in its local prompt.')
 
@@ -254,6 +268,7 @@ def command_parser():
     benchmarks = bench.add_subparsers(dest='operation', required=True)
     benchmarks.add_parser('speed', help='Measure Ollama speed', add_help=False).set_defaults(delegate='argoslive.bench_speed')
     benchmarks.add_parser('ability', help='Measure original ability probes', add_help=False).set_defaults(delegate='argoslive.bench_ability')
+    benchmarks.add_parser('openclaw', help='Measure the configured OpenClaw assistant on the fixed ability suite', add_help=False).set_defaults(delegate='argoslive.bench_openclaw')
     benchmarks.add_parser('documents', help='Run the short-document trial', add_help=False).set_defaults(delegate='argoslive.doc_trial')
     benchmarks.add_parser('results', help='Inspect and compare saved runs', add_help=False).set_defaults(delegate='argoslive.results')
     benchmarks.add_parser('all', help='Run speed and ability sequentially', add_help=False).set_defaults(delegate='argoslive.bench_all')
@@ -376,7 +391,7 @@ def main(argv=None):
                 names = [x['name'] for x in json.load(response)['models']]
             if state['model'] not in names:
                 raise ValueError('Model weights are unavailable. Run argos download while online.')
-            print('Conversation-only permissions. Local model; internet is not required.')
+            print('File and benchmark tools are enabled; shell, browser/web, gateway and runtime controls stay disabled. Local model; internet is not required.')
             run('openclaw', 'gateway', 'run')
     finally:
         daemon.terminate()

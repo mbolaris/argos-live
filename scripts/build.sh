@@ -16,6 +16,12 @@ mkdir -p "$work/config/includes.chroot/usr/local/bin"
 cp "$src/versions.env" "$work/config/includes.chroot/usr/local/share/argos-live/versions.env"
 cp "$src/runtime/argos.py" "$work/config/includes.chroot/usr/local/bin/argos"
 bash "$src/scripts/install-runtime-package.sh" "$work/config/includes.chroot/usr/local/lib/argos-live"
+plugin="$work/config/includes.chroot/usr/local/share/argos-live/plugins/argos-improve"
+mkdir -p "$plugin"
+tar -C "$src/openclaw-plugin/argos-improve" --exclude='node_modules' --exclude='runtime' \
+  --exclude='__pycache__' --exclude='*.pyc' -cf - . | tar -C "$plugin" -xf -
+install -D -m 644 "$src/scripts/refresh-plugin-manifest.py" \
+  "$work/config/includes.chroot/usr/local/lib/argos-live/refresh-plugin-manifest.py"
 chmod +x "$work/config/includes.chroot/usr/local/bin/argos"
 cp "$src/runtime/launch.sh" "$work/config/includes.chroot/usr/local/bin/argos-launch"
 chmod +x "$work/config/includes.chroot/usr/local/bin/argos-launch"

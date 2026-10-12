@@ -158,25 +158,22 @@ def snapshot(home=None, *, data=None, hardware=hw.snapshot, validate=storage.val
     result['curated_models'] = [m for m in result['catalog'] if m.get('curated')]
     result['legacy_models'] = [m for m in result['catalog'] if not m.get('curated')]
     current = next((e for e in data['models'] if e['tag'] == result.get('selected_model')), None)
-    # Conservative next-size suggestion; prioritize reviewed curated lineup with confirmed headroom
-    curated_candidates = [e for e in result['curated_models'] if (not current or e['weight_bytes'] > current['weight_bytes'])
-                          and e.get('downloadable')
-                          and (e['gpu_fit']['status'] == 'fits' or e['cpu_fit']['status'] == 'fits')]
-    if curated_candidates:
-        next_model = min(curated_candidates, key=lambda e: e['weight_bytes'])
-    else:
-        candidates = [e for e in result['catalog'] if (not current or e['weight_bytes'] > current['weight_bytes'])
-                      and '/' not in e['tag'] and 'text' in e['capabilities']
-                      and e['context_tokens'] >= 32768
-                      and (e['gpu_fit']['status'] == 'fits' or e['cpu_fit']['status'] == 'fits')]
-        next_model = min(candidates, key=lambda e: e['weight_bytes'], default=None)
+    # Prefer the strongest reviewed candidate on the primary accelerator when
+    # one is present. CPU-only fallback is reserved for machines without a
+    # measurable GPU; never recommend a CPU-fit model that misses GPU headroom.
+    fit_key = 'gpu_fit' if vram is not None else 'cpu_fit'
+    curated_candidates = [e for e in result['curated_models']
+                          if (not current or e['weight_bytes'] > current['weight_bytes'])
+                          and e.get('downloadable') and e[fit_key]['status'] == 'fits']
+    next_model = max(curated_candidates, key=lambda e: e['weight_bytes'], default=None)
     rec_meta = catalog.curated_info(next_model['tag']) if next_model else None
     role_desc = f" ({rec_meta['role']}: {rec_meta['rationale']})" if rec_meta else ""
     result['guidance'] = {'next_model': next_model['tag'] if next_model else None,
         'role': rec_meta['role'] if rec_meta else None,
         'rationale': rec_meta['rationale'] if rec_meta else None,
         'available_ram_bytes': ram, 'available_gpu_bytes': vram,
-        'message': ('Try ' + next_model['tag'] + role_desc + ' next: a curated upgrade with estimated memory headroom. Save a baseline, then compare the same speed and ability tests.'
-                    if next_model else 'Save a baseline for your current model. No larger standard model has measured comfortable memory headroom; inspect hardware and catalog estimates before upgrading.'),
-        'estimate': True, 'quality_improvement_verified': False}
+        'message': ('Try ' + next_model['tag'] + role_desc + ' next: it is the largest reviewed model estimated to fit this device with headroom. Save a baseline, then compare the same speed and ability tests; fit is not proof of better answers.'
+                    if next_model else 'Save a baseline for your current model. No larger reviewed model is estimated to fit the available ' + ('GPU' if vram is not None else 'memory') + ' with headroom; this is a fit estimate, not a quality ceiling.'),
+        'estimate': True, 'fit_device': 'gpu' if vram is not None else 'cpu',
+        'quality_improvement_verified': False}
     return result

@@ -1,0 +1,42 @@
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('refresh_plugin_manifest', ROOT / 'scripts/refresh-plugin-manifest.py')
+refresh = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(refresh)
+
+
+class ImprovementPluginBundleTests(unittest.TestCase):
+    def test_package_versions_and_pinned_dependency_lock_match(self):
+        package = json.loads((ROOT / 'openclaw-plugin/argos-improve/package.json').read_text())
+        lock = json.loads((ROOT / 'openclaw-plugin/argos-improve/package-lock.json').read_text())
+        manifest = json.loads((ROOT / 'openclaw-plugin/argos-improve/openclaw.plugin.json').read_text())
+        self.assertEqual(package['version'], lock['version'])
+        self.assertEqual(package['version'], lock['packages']['']['version'])
+        self.assertEqual(lock['packages']['node_modules/typebox']['version'], package['dependencies']['typebox'])
+        self.assertEqual(manifest['id'], 'argos-improve')
+        self.assertEqual(manifest['contracts']['tools'], ['argos_evaluate', 'argos_compare'])
+        self.assertTrue((ROOT / 'runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md').is_file())
+        self.assertFalse((ROOT / 'openclaw-plugin/argos-improve/runtime').exists())
+
+    def test_generated_manifest_covers_the_code_bundle_and_detects_drift(self):
+        source = ROOT / 'openclaw-plugin/argos-improve'
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / 'plugin'
+            shutil.copytree(source, target, ignore=shutil.ignore_patterns('node_modules', 'files.sha256.json'))
+            actual = refresh.inventory(target)
+            self.assertIn('skills/argos-improvement/SKILL.md', actual)
+            self.assertFalse(any(name.startswith('node_modules/') for name in actual))
+            self.assertFalse(any(name.startswith('runtime/') for name in actual))
+            (target / 'index.js').write_text('changed')
+            changed = refresh.inventory(target)
+            self.assertNotEqual(actual['index.js'], changed['index.js'])
+
+
+if __name__ == '__main__':
+    unittest.main()

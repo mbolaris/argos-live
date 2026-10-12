@@ -13,6 +13,8 @@ on:
       - 'runtime/argoslive/model_selection.py'
       - 'runtime/argoslive/owned_gateway.py'
       - 'runtime/argoslive/auto_setup.py'
+      - 'runtime/argoslive/startup.py'
+      - 'openclaw-plugin/**'
       - 'runtime/argoslive/starter.py'
       - 'runtime/argoslive/owned_ollama.py'
       - 'versions.env'
@@ -44,6 +46,8 @@ jobs:
           printf '{"name":"argos-live-runtime","version":"0.1.0","private":true,"dependencies":{"openclaw":"%s"}}\n' "$OPENCLAW_VERSION" > work/native-runtime/package.json
           EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./work/native-runtime/package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
           npm ci --ignore-scripts --no-audit --no-fund --prefix work/native-runtime
+          npm ci --ignore-scripts --no-audit --no-fund --prefix openclaw-plugin/argos-improve
+          python3 scripts/refresh-plugin-manifest.py openclaw-plugin/argos-improve
           curl --fail --location --retry 3 -o "$RUNNER_TEMP/argos-ollama.tar.zst" "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
           echo "$OLLAMA_SHA256  $RUNNER_TEMP/argos-ollama.tar.zst" | sha256sum -c -
           tar --zstd -xf "$RUNNER_TEMP/argos-ollama.tar.zst" -C "$RUNNER_TEMP/argos-ollama"

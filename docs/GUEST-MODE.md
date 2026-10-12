@@ -8,7 +8,8 @@ persistence boot arguments. An existing encrypted partition is not unlocked
 or loaded by this entry. A basic-graphics guest entry is also available.
 
 Guest sessions start from the image defaults, including the bundled Qwen3
-0.6B model, conversation-only permissions, and a new local gateway token.
+0.6B model, file and benchmark tools, and a new local gateway token. Shell,
+browser, web, gateway and runtime controls remain disabled.
 Profiles, conversations, settings, trials and downloaded models use RAM.
 Argos refuses disk model stores and persistence-retention checks in guest
 mode. Automatic setup checks RAM backing before writing its workspace.

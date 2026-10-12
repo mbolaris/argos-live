@@ -7,8 +7,10 @@ import secrets
 from . import starter, storage, session_mode
 from .pull_jobs import read_json
 
+PLUGIN_ROOT = '/usr/local/share/argos-live/plugins/argos-improve'
 
-def conversation_config(model, workspace):
+
+def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
     return {
         'gateway': {'mode': 'local', 'bind': 'loopback', 'auth': {'mode': 'token', 'token': secrets.token_hex(32)}},
         'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(workspace)}},
@@ -16,8 +18,11 @@ def conversation_config(model, workspace):
             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,
                         'contextWindow': 32768, 'maxTokens': 4096,
                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
-        'tools': {'profile': 'minimal', 'deny': ['gateway', 'group:runtime', 'group:fs', 'group:web', 'browser'],
+        'tools': {'profile': 'minimal', 'alsoAllow': ['group:fs', 'argos_evaluate', 'argos_compare'],
+                  'deny': ['gateway', 'group:runtime', 'group:web', 'browser'],
                   'elevated': {'enabled': False}},
+        'plugins': {'enabled': True, 'load': {'paths': [str(plugin_root)]},
+                    'entries': {'argos-improve': {'enabled': True}}},
         'commands': {'bash': False, 'restart': False}}
 
 
@@ -30,7 +35,7 @@ def persistence():
 def publish_new(path, value, journal):
     """Publish a private complete file without replacing a racing owner file."""
     path = storage.safe_local(path)
-    raw = (json.dumps(value, indent=2) + '\n').encode()
+    raw = value if isinstance(value, bytes) else (json.dumps(value, indent=2) + '\n').encode()
     temp = path.parent / ('.setup-' + secrets.token_hex(16))
     try:
         descriptor = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -89,7 +94,7 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
     if is_guest and observed['active']:
         raise ValueError('Guest mode cannot use live persistence; reboot using the guest entry')
     state = {'storage': str(models), 'storage_id': secrets.token_hex(24),
-             'model': starter.TAG, 'model_source': 'bundled', 'permissions': 'conversation-only',
+             'model': starter.TAG, 'model_source': 'bundled', 'permissions': 'file-tools-and-benchmarks',
              'mode': 'guest' if is_guest else ('persistent' if observed['active'] else 'try'),
              'storage_temporary': selected['kind'] == 'ram', 'storage_encrypted': selected.get('encrypted'),
              'persistence_encrypted': observed.get('encrypted'), 'starter': identity}
@@ -117,7 +122,11 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
         journal.append((marker, os.fstat(descriptor).st_ino, raw))
         with os.fdopen(descriptor, 'wb') as stream:
             stream.write(raw); stream.flush(); os.fsync(stream.fileno())
-        publish_new(config_path, conversation_config(starter.TAG, config_path.parent / 'workspace'), journal)
+        workspace = config_path.parent / 'workspace'
+        prompt_path = Path(__file__).resolve().parent / 'data' / 'SELF-IMPROVEMENT-AGENTS.md'
+        prompt = prompt_path.read_bytes()
+        publish_new(workspace / 'AGENTS.md', prompt, journal)
+        publish_new(config_path, conversation_config(starter.TAG, workspace), journal)
         publish_new(state_path, state, journal)
     except BaseException:
         # Remove only files this transaction published, still matching its bytes

@@ -30,14 +30,22 @@ def source(home):
     provider = config.get('models', {}).get('providers', {}).get('ollama', {})
     primary = config.get('agents', {}).get('defaults', {}).get('model', {}).get('primary')
     tools = config.get('tools', {})
+    allowed = set()
+    for field in ('allow', 'alsoAllow'):
+        values = tools.get(field)
+        if isinstance(values, list):
+            allowed.update(value for value in values if isinstance(value, str))
+    denied = set(tools.get('deny', [])) if isinstance(tools.get('deny'), list) else set()
+    reviewed_tools = {'group:fs', 'argos_evaluate', 'argos_compare'}
     if (not isinstance(provider, dict) or provider.get('baseUrl') != 'http://127.0.0.1:11434' or
             provider.get('api') != 'ollama' or primary != 'ollama/' + str(model) or
             tools.get('profile') != 'minimal' or not isinstance(tools.get('deny'), list) or
-            not {'gateway', 'group:runtime', 'group:fs', 'group:web', 'browser'} <= set(tools['deny']) or
+            not {'gateway', 'group:runtime', 'group:web', 'browser'} <= denied or
+            'group:fs' in denied or allowed != reviewed_tools or
             tools.get('elevated', {}).get('enabled') is not False or
             config.get('commands', {}).get('bash') is not False or
             config.get('commands', {}).get('restart') is not False or config.get('channels')):
-        raise ValueError('Automatic startup requires the reviewed local conversation profile')
+        raise ValueError('Automatic startup requires the reviewed local improvement-agent tool policy')
     entry = next((item for item in catalog.load()['models'] if item['tag'] == model), None)
     if entry is None:
         raise ValueError('Selected model is not resolved to the reviewed public catalog')

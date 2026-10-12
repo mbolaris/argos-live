@@ -21,7 +21,8 @@ from .pack_export import bounded, private_directory, unlinked
 from .pack_import import active_roster, preview
 
 CHAT = {'profile': 'minimal',
-        'deny': ['gateway', 'group:runtime', 'group:fs', 'group:web', 'browser'],
+        'alsoAllow': ['group:fs', 'argos_evaluate', 'argos_compare'],
+        'deny': ['gateway', 'group:runtime', 'group:web', 'browser'],
         'elevated': {'enabled': False}}
 
 
