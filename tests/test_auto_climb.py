@@ -258,6 +258,30 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
+    def test_restart_waits_for_asynchronous_shutdown_before_start(self):
+        class AsyncStartup(FakeStartup):
+            polls = 0
+            def stop(self):
+                self.phase = 'stopping'
+                self.polls = 3
+            def snapshot(self):
+                if self.polls:
+                    self.polls -= 1
+                    self.active = self.polls > 0
+                return super().snapshot()
+            def start(self, **kwargs):
+                if self.active:
+                    raise AssertionError('Start attempted before shutdown finished')
+                return super().start(**kwargs)
+        startup = AsyncStartup(self.home)
+        controller = auto_climb.Controller(startup, home=self.home, runner=self.runner)
+        try:
+            controller._restart_assistant(timeout=5)
+            self.assertEqual(startup.phase, 'ready')
+            self.assertTrue(startup.active)
+        finally:
+            controller.close()
+
     # -------------------------------------------------------------------------
     # R3 / AC1-2, AC1-3: Envelope Validation, Single Worker & Budgets
     # -------------------------------------------------------------------------

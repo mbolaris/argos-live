@@ -540,20 +540,27 @@ class Controller:
                             raise
                         time.sleep(0.05)
 
-    def _restart_assistant(self, timeout=30, expected_model=None):
-        """Restart local assistant via startup controller and wait until verified ready."""
+    def _restart_assistant(self, timeout=900, expected_model=None):
+        """Wait for owned shutdown, then use the established assistant startup budget."""
         if not self.startup:
             return
-        try:
-            self.startup.stop()
-        except Exception:
-            pass
+        # Match the existing assistant-trial/model-selection readiness budget;
+        # a live experiment remains bounded by its approved session envelope.
+        if self._active_slice_start is not None and not self._should_stop() and self.session.get('phase') not in (
+                'budget-exhausted', 'blocked', 'stopped'):
+            timeout = min(timeout, self._remaining_duration(self._active_slice_start))
+        deadline = self.clock() + timeout
+        self.startup.stop()
+        stop_deadline = min(deadline, self.clock() + 180)
+        while self.startup.snapshot().get('active'):
+            if self.clock() >= stop_deadline:
+                raise TimeoutError('Assistant resources were not released before restart')
+            self.sleep_fn(0.1)
         try:
             self.startup.start(_reserved=True)
         except TypeError:
             self.startup.start()
-        start_t = self.clock()
-        while self.clock() - start_t < timeout:
+        while self.clock() < deadline:
             snap = self.startup.snapshot()
             if snap.get('phase') == 'failed':
                 raise RuntimeError(f'Assistant startup failed: {snap.get("failure")}')
@@ -1727,6 +1734,8 @@ class Controller:
             receipt = {
                 'id': task['id'],
                 'kind': task['kind'],
+                'question': current_item['question'],
+                'passage': current_item['passage'],
                 'passed': score_res['passed'],
                 'checks': score_res['checks'],
                 'reply': {
