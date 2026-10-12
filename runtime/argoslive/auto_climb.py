@@ -22,6 +22,7 @@ from pathlib import Path
 import re
 import threading
 import time
+import traceback
 import uuid
 
 from . import assistant_trial, catalog, hw, model_selection, model_verify, starter, storage
@@ -1026,6 +1027,16 @@ class Controller:
                         break
 
         except Exception as error:
+            # Preserve the cause privately without putting paths/configuration
+            # into the public coordinator message.
+            from .private_files import private_log
+            try:
+                root = storage.safe_local(self.home / '.local/state/argos-live')
+                root.mkdir(mode=0o700, parents=True, exist_ok=True)
+                with private_log(root / 'auto-climb-failure.log') as log:
+                    log.write(traceback.format_exc().encode()[-65536:])
+            except (OSError, ValueError):
+                pass
             with self.lock:
                 if self.session.get('failure_code') in ('restore-failed', 'owner-edit-conflict', 'corrupt-inventory'):
                     return
@@ -1124,6 +1135,12 @@ class Controller:
 
     def _select_next_candidate(self):
         completed = set(self.session.get('completed_candidates', []))
+        # A kept/owner-existing instruction is part of the starting build, not
+        # a new candidate. Never append its managed block a second time.
+        existing = read_text(agents_path(self.home)) or ''
+        completed.update(c['id'] for c in self.candidate_pool
+                         if c.get('kind') == 'instruction' and
+                         'argos-trial:' + c.get('change_id', c['id']) + ' ' in existing)
 
         # Prefer the cheapest reviewed intervention when all observed misses
         # have the same precise cause. Validation and promotion remain unchanged.

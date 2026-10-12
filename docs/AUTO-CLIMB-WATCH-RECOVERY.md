@@ -26,3 +26,6 @@ Four additional authored validation packs (val-p5 through val-p8) provide disjoi
 
 
 A new approved climb can resume one retained paused/interrupted job for the same exact catalog tag and freshly checked store. Cancelled and failed integrity jobs are excluded. The normal verified acquisition pipeline is retained, and failed attempts continue to consume the session budget. Acquisition UI distinguishes transfer, verification, loading, reply check and publishing; it does not call downloaded bytes a ready model.
+
+
+The next physical run exposed a duplicate-instruction proposal: the reviewed quote block was already installed. Selection now excludes instructions already present in AGENTS.md. A direct isolated OpenClaw probe confirmed AGENTS.md was fully injected without truncation, while the 4B answer still omitted a quote. This is behavior evidence, not a missing-bootstrap-file diagnosis. No validation pack was consumed and no mutation occurred in that blocked attempt. Coordinator exception chains are now retained privately for future failures.

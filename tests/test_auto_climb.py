@@ -1477,7 +1477,11 @@ if __name__ == '__main__':
 class EvidenceProposalTests(unittest.TestCase):
     def controller(self):
         c = auto_climb.Controller.__new__(auto_climb.Controller)
-        c.home = Path('.')
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        c.home = Path(temp.name)
+        (c.home / '.openclaw').mkdir()
+        (c.home / '.openclaw/openclaw.json').write_text('{}')
         c.candidate_pool = copy.deepcopy(auto_climb.INSTRUCTION_CANDIDATES)
         c.model_recommender = mock.Mock(return_value={'id': 'bigger-model'})
         c.session = {'practice_baseline': [
@@ -1495,6 +1499,11 @@ class EvidenceProposalTests(unittest.TestCase):
         c = self.controller()
         c.session['practice_baseline'][0]['checks']['answer_present'] = False
         self.assertEqual(c._select_next_candidate()['id'], 'bigger-model')
+
+    def test_existing_instruction_is_not_proposed_again(self):
+        c = self.controller()
+        with mock.patch.object(auto_climb, 'read_text', return_value=assistant_trial.CHANGE_BY_ID['quote-evidence']['block']):
+            self.assertEqual(c._select_next_candidate()['id'], 'bigger-model')
 
     def test_completed_quote_candidate_is_not_repeated(self):
         c = self.controller()
