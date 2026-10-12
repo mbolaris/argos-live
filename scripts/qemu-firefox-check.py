@@ -75,7 +75,22 @@ class FirefoxLabSession:
             self.profile.cleanup()
 
     def start(self, env, url, timeout=30):
+        try:
+            self._start(env, url, timeout)
+        except (OSError, ValueError) as error:
+            # Only a fixed stage name and exception category may leave the guest.
+            # Browser errors and the navigation URL can contain the session token.
+            print('ARGOS_C3_INPUT_FAILURE ' + json.dumps({
+                'stage': self.stage, 'category': type(error).__name__}), flush=True)
+            raise
+
+    def mark(self, stage):
+        self.stage = stage
+        print('ARGOS_C3_STAGE lab-firefox-' + stage, flush=True)
+
+    def _start(self, env, url, timeout):
         deadline = time.monotonic() + timeout
+        self.mark('starting')
         self.profile = tempfile.TemporaryDirectory(prefix='argos-ci-lab-firefox-')
         with socket.socket() as reservation:
             reservation.bind(('127.0.0.1', 0))
@@ -99,12 +114,17 @@ class FirefoxLabSession:
                 time.sleep(.5)
         if self.connection is None:
             raise ValueError('Disposable Firefox control connection unavailable')
+        self.mark('connected')
         self.connection.settimeout(max(.1, deadline - time.monotonic()))
         self.driver = FirefoxDriver(self.connection)
+        self.mark('protocol-ready')
         self.driver.command('WebDriver:NewSession',
                             {'acceptInsecureCerts': False, 'pageLoadStrategy': 'none'})
+        self.mark('session-created')
         self.driver.command('WebDriver:Navigate', {'url': url})
+        self.mark('navigated')
         self.wait_ready(deadline)
+        self.mark('controls-ready')
 
     def wait_ready(self, deadline):
         probe = '''const b = document.getElementById('lab-start');

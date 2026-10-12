@@ -1,4 +1,6 @@
 import importlib.util
+import io
+from contextlib import redirect_stdout
 import json
 from pathlib import Path
 import unittest
@@ -30,6 +32,22 @@ class Connection:
 
 
 class FirefoxProtocolTests(unittest.TestCase):
+    def test_lab_failure_stage_is_safe_and_does_not_change_timeout(self):
+        session = module.FirefoxLabSession()
+        output = io.StringIO()
+        def fail(env, url, timeout):
+            self.assertEqual(timeout, 30)
+            session.mark('protocol-ready')
+            raise TimeoutError('fictional private URL token')
+        with patch.object(session, '_start', side_effect=fail), redirect_stdout(output):
+            with self.assertRaises(TimeoutError):
+                session.start({}, 'fictional private URL token')
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[0], 'ARGOS_C3_STAGE lab-firefox-protocol-ready')
+        record = json.loads(lines[1].split(' ', 1)[1])
+        self.assertEqual(record, {'stage': 'protocol-ready', 'category': 'TimeoutError'})
+        self.assertNotIn('private', output.getvalue())
+
     def test_lab_readiness_waits_for_true_dom_gate_and_stops_at_deadline(self):
         session = module.FirefoxLabSession()
         session.connection = MagicMock()
