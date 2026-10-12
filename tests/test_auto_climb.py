@@ -262,6 +262,22 @@ class TestAutoClimbCoordinator(unittest.TestCase):
     # R3 / AC1-2, AC1-3: Envelope Validation, Single Worker & Budgets
     # -------------------------------------------------------------------------
 
+    def test_answer_error_blocks_with_safe_explanation_and_specific_code(self):
+        controller = auto_climb.Controller(self.startup, home=self.home, runner=self.runner,
+                                            clock=self.clock.monotonic, sleep_fn=lambda s: None)
+        try:
+            with mock.patch.object(controller, '_run_task_suite',
+                                   side_effect=assistant_trial.TrialTurnError('assistant-error')):
+                controller.start()
+                controller.worker.join(timeout=3)
+            snap = controller.snapshot()
+            self.assertEqual(snap['phase'], 'blocked')
+            self.assertEqual(snap['failure_code'], 'assistant-error')
+            self.assertIn('No gain was accepted', snap['message'])
+            self.assertNotIn('TrialTurnError', snap['message'])
+        finally:
+            controller.close()
+
     def test_envelope_strict_validation(self):
         """Envelope validation strictly enforces limits and permissions."""
         with self.assertRaises(auto_climb.Refused):

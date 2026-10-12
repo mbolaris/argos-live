@@ -685,6 +685,20 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 'turn-timeout')
         self.assertNotIn('/private/path', str(raised.exception))
 
+    def test_failed_cli_evidence_is_retained_only_in_private_log(self):
+        with patch.object(at.subprocess, 'Popen') as spawn, patch(
+                'argoslive.owned_gateway.private_log', side_effect=lambda path: path.open('wb')):
+            process = spawn.return_value.__enter__.return_value
+            process.returncode = 7
+            process.communicate.return_value = (b'', b'Private failure details')
+            with self.assertRaises(at.TrialTurnError) as raised:
+                at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
+        self.assertEqual(raised.exception.code, 'assistant-error')
+        self.assertNotIn('Private failure details', str(raised.exception))
+        log = self.home / '.local/state/argos-live/trial-turn-failure.log'
+        self.assertIn(b'CLI exit: 7', log.read_bytes())
+        self.assertIn(b'Private failure details', log.read_bytes())
+
     def test_reviewed_profile_refuses_agent_behavior_overrides(self):
         config = self.home / '.openclaw/openclaw.json'
         value = json.loads(config.read_text())

@@ -120,7 +120,7 @@ try {
   // Wait for session to start: badge updates to ASSESS or COUNTDOWN
   await page.waitForFunction(() => {
     const badge = document.querySelector('#auto-climb-badge');
-    return badge && ['ASSESS', 'COUNTDOWN', 'STAGE', 'RETEST'].includes(badge.textContent.trim().toUpperCase());
+    return badge && ['ASSESS', 'COUNTDOWN', 'STAGE', 'RETEST'].includes(badge.dataset.phase.toUpperCase());
   }, {timeout: 15000});
 
   await shot('02-running-or-countdown');
@@ -147,14 +147,14 @@ try {
   // Wait for experiment to leave countdown
   await page.waitForFunction(() => {
     const badge = document.querySelector('#auto-climb-badge');
-    const b = badge ? badge.textContent.trim().toUpperCase() : '';
+    const b = badge ? badge.dataset.phase.toUpperCase() : '';
     return b !== 'COUNTDOWN';
   }, {timeout: 10000});
 
   // Wait for experiment to run and advance (to next proposal countdown, plateau, or completed)
   await page.waitForFunction(() => {
     const badge = document.querySelector('#auto-climb-badge');
-    const b = badge ? badge.textContent.trim().toUpperCase() : '';
+    const b = badge ? badge.dataset.phase.toUpperCase() : '';
     return ['COUNTDOWN', 'PAUSED', 'PLATEAU', 'COMPLETED', 'BUDGET-EXHAUSTED', 'OPTIONS-EXHAUSTED'].includes(b);
   }, {timeout: 30000});
 
@@ -170,7 +170,7 @@ try {
 
   await page.waitForFunction(() => {
     const badge = document.querySelector('#auto-climb-badge');
-    return badge && badge.textContent.trim().toUpperCase() === 'PAUSED';
+    return badge && badge.dataset.phase.toUpperCase() === 'PAUSED';
   }, {timeout: 10000});
   await shot('05-paused');
 
@@ -183,7 +183,7 @@ try {
 
   await page.waitForFunction(() => {
     const badge = document.querySelector('#auto-climb-badge');
-    return badge && badge.textContent.trim().toUpperCase() !== 'PAUSED';
+    return badge && badge.dataset.phase.toUpperCase() !== 'PAUSED';
   }, {timeout: 10000});
   await shot('06-resumed');
 
@@ -196,11 +196,27 @@ try {
     await stopBtnToClick.click();
     await page.waitForFunction(() => {
       const badge = document.querySelector('#auto-climb-badge');
-      return badge && ['STOPPED', 'COMPLETED', 'PLATEAU', 'BUDGET-EXHAUSTED'].includes(badge.textContent.trim().toUpperCase());
+      return badge && ['STOPPED', 'COMPLETED', 'PLATEAU', 'BUDGET-EXHAUSTED'].includes(badge.dataset.phase.toUpperCase());
     }, {timeout: 10000});
     await shot('07-stopped');
   }
 
+  // Presentation-only snapshots retain backend scoring and session behavior.
+  await page.evaluate(() => {
+    autoClimb = {available: true, phase: 'acquire', download: {progress: {bytes_done: 75, bytes_total: 100}}, progress: {done:8,total:8}, receipts: []};
+    renderAutoClimb();
+  });
+  assert.equal(await page.locator('#auto-climb-watch-tally').textContent(), '75% downloaded');
+  assert.ok(await page.locator('.auto-climb-watch-card').isHidden());
+  await shot('08-download-progress');
+  await page.evaluate(() => {
+    autoClimb = {available:true,phase:'blocked',message:'The assistant could not finish a test answer. No gain was accepted. The previous kept build was restored.',history:[{candidate:{title:'Try another model'},verdict:'failed',reason:'No gain was accepted; previous model restored.'}],starting_level:{label:'5/8 practice'},current_level:{label:'5/8 practice'}};
+    renderAutoClimb();
+  });
+  assert.ok(await page.locator('#auto-climb-summary-view').isVisible());
+  assert.equal(await page.locator('#auto-climb-verdict-title').textContent(), 'The climb hit a problem');
+  assert.ok(await page.locator('#auto-climb-restart-btn').isVisible());
+  await shot('09-blocked-summary');
   assert.equal(errors.length, 0, `Browser errors encountered: ${errors.join('; ')}`);
   console.log('PASS: Auto Climb browser smoke test completed successfully.');
 } finally {
