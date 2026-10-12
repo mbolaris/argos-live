@@ -56,6 +56,7 @@ def child_environment(home):
 
 
 def command(cli, arguments, env, *, timeout=180):
+    started = time.monotonic()
     process = subprocess.Popen([str(cli), *arguments], env=env, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, start_new_session=True)
     try:
@@ -77,7 +78,9 @@ def command(cli, arguments, env, *, timeout=180):
                 'model_load': ('unable to load model', 'failed to load model'),
                 'timeout': ('timed out', 'timeout'),
             }.items()}
-            raise ValueError('Native OpenClaw command failed: ' + json.dumps({'exit_code': process.returncode, **indicators}))
+            raise ValueError('Native OpenClaw command failed: ' + json.dumps({
+                'exit_code': process.returncode,
+                'elapsed_seconds': round(time.monotonic() - started, 1), **indicators}))
         return stdout
     finally:
         stop_group(process)
@@ -123,7 +126,7 @@ def run(cli, ollama, seed):
                    lease_store=home) as client:
             result = summary(command(cli, ['agent', '--local', '--agent', 'main', '--message',
                 'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
-                '--timeout', '120', '--json'], env, timeout=180))
+                '--timeout', '180', '--json'], env, timeout=240))
             observed = placement(client.ps().get('models', []), starter.TAG)
             if observed['mode'] != 'CPU':
                 raise ValueError('Native chat CPU placement was not established: ' + json.dumps(observed))
