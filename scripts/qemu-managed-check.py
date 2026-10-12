@@ -311,36 +311,47 @@ def click_model_lab_baseline(origin, token):
     Find result received focus. Space preserves normal disabled/click behavior.
     The caller still requires an active Lab job and saved results.
     """
-    if not firefox_model_lab_visible():
-        raise ValueError('Model Lab is not the active Firefox page')
-    destination = origin + '/?' + urlencode({'token': token, 'view': 'lab'}) + '#lab-start'
-    x11 = ctypes.CDLL('libX11.so.6')
-    xtst = ctypes.CDLL('libXtst.so.6')
-    x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
-    x11.XKeysymToKeycode.argtypes, x11.XKeysymToKeycode.restype = [ctypes.c_void_p, ctypes.c_ulong], ctypes.c_ubyte
-    x11.XkbKeycodeToKeysym.argtypes, x11.XkbKeycodeToKeysym.restype = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_int, ctypes.c_int], ctypes.c_ulong
-    x11.XFlush.argtypes = x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
-    xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
-    display = x11.XOpenDisplay(b':0')
-    if not display:
-        raise ValueError('Model Lab input display is unavailable')
-    def key(symbol, pressed):
-        code = x11.XKeysymToKeycode(display, symbol)
-        if not code or not xtst.XTestFakeKeyEvent(display, code, pressed, 0):
-            raise ValueError('Model Lab keyboard input failed')
-        x11.XFlush(display)
-    def tap(symbol):
-        key(symbol, 1)
-        key(symbol, 0)
-        time.sleep(.03)
-    def modified(modifier, symbol):
-        key(modifier, 1)
-        try:
-            tap(symbol)
-        finally:
-            key(modifier, 0)
+    stage = 'verify-active-firefox'
+    x11 = None
+    display = None
     try:
+        if not firefox_model_lab_visible():
+            raise ValueError('Model Lab is not the active Firefox page')
+        destination = origin + '/?' + urlencode({'token': token, 'view': 'lab'}) + '#lab-start'
+        stage = 'load-keyboard-libraries'
+        x11 = ctypes.CDLL('libX11.so.6')
+        xtst = ctypes.CDLL('libXtst.so.6')
+        x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
+        x11.XKeysymToKeycode.argtypes, x11.XKeysymToKeycode.restype = [ctypes.c_void_p, ctypes.c_ulong], ctypes.c_ubyte
+        x11.XkbKeycodeToKeysym.argtypes, x11.XkbKeycodeToKeysym.restype = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_int, ctypes.c_int], ctypes.c_ulong
+        x11.XFlush.argtypes = x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+        xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
+        stage = 'open-input-display'
+        display = x11.XOpenDisplay(b':0')
+        if not display:
+            raise ValueError('Model Lab input display is unavailable')
+
+        def key(symbol, pressed):
+            code = x11.XKeysymToKeycode(display, symbol)
+            if not code or not xtst.XTestFakeKeyEvent(display, code, pressed, 0):
+                raise ValueError('Model Lab keyboard input failed')
+            x11.XFlush(display)
+
+        def tap(symbol):
+            key(symbol, 1)
+            key(symbol, 0)
+            time.sleep(.03)
+
+        def modified(modifier, symbol):
+            key(modifier, 1)
+            try:
+                tap(symbol)
+            finally:
+                key(modifier, 0)
+
+        stage = 'focus-location-bar'
         modified(0xffe3, ord('l'))  # Control-L selects the location bar.
+        stage = 'type-dashboard-url'
         for character in destination:
             symbol = ord(character)
             code = x11.XKeysymToKeycode(display, symbol)
@@ -350,13 +361,22 @@ def click_model_lab_baseline(origin, token):
                 modified(0xffe1, symbol)  # Shift for URL punctuation/case.
             else:
                 tap(symbol)
+        stage = 'navigate-dashboard'
         tap(0xff0d)  # Return navigates through the ordinary Firefox UI.
         time.sleep(5)
+        stage = 'focus-baseline-button'
         tap(0xff09)  # Tab from the fragment's focus starting point.
         modified(0xffe1, 0xff09)  # Shift-Tab returns to the baseline button.
+        stage = 'activate-baseline-button'
         tap(0x20)
+    except ValueError:
+        # Report only a fixed phase. Never include the URL, session token, or
+        # response content in VM diagnostics.
+        print('ARGOS_C3_INPUT_FAILURE ' + stage, flush=True)
+        raise
     finally:
-        x11.XCloseDisplay(display)
+        if x11 is not None and display:
+            x11.XCloseDisplay(display)
 
 
 def firefox_connected(port):
@@ -518,6 +538,7 @@ def managed_check(started, desktop_seconds):
     time.sleep(5)
     print('ARGOS_C3_STAGE model-lab-button-click', flush=True)
     click_model_lab_baseline(origin, token)
+    print('ARGOS_C3_STAGE model-lab-button-activated', flush=True)
 
     def dashboard_json(path):
         request = Request(origin + path, headers={'X-Argos-Token': token})

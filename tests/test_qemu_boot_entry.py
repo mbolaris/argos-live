@@ -30,6 +30,13 @@ class BootEntryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'safely crop'):
             module.crop_ppm_top(raw, 160)
 
+    def test_lab_progress_capture_only_accepts_ability_phase(self):
+        self.assertEqual(module.lab_progress_phase('{"phase":"ability"}'), 'ability')
+        self.assertEqual(module.lab_progress_phase(
+            '{"token":"private","phase":"ability"}'), 'ability')
+        for line in ('{"phase":"model-service"}', '{"phase":"completed"}', 'not json'):
+            self.assertIsNone(module.lab_progress_phase(line))
+
     def test_guest_entry_refuses_persistence_arguments(self):
         entry = ('menuentry "Argos guest - resets on reboot, no passphrase" {\n'
                  ' linux /live/vmlinuz boot=live console=tty0 nopersistence argos.guest=1\n'
