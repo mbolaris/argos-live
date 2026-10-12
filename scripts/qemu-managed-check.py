@@ -164,6 +164,17 @@ def probe_failure(error):
     return 'invalid-response'
 
 
+def report_http_failure(check, error):
+    """Emit only a fixed check label and HTTP status, never body, headers or URL."""
+    allowed_checks = {'assistant-chat-availability'}
+    check = check if check in allowed_checks else 'other'
+    status = getattr(error, 'code', None)
+    if type(status) is not int or not 100 <= status <= 599:
+        status = None
+    print('ARGOS_C3_HTTP_FAILURE ' + json.dumps({'check': check, 'status': status}), flush=True)
+    error.close()
+
+
 def gateway_observation(home, opener):
     from argoslive.web.status import gateway, read_json
     try:
@@ -457,8 +468,12 @@ def managed_check(started, desktop_seconds):
             if not report['model_reply_verified'] or metrics['backend']['mode'] != 'CPU':
                 raise ValueError('Automatic startup did not establish a measured CPU reply')
             chat_request = Request(origin + '/api/assistant/chat', headers={'X-Argos-Token': token})
-            with opener.open(chat_request, timeout=10) as response:
-                chat_target = urlsplit(json.load(response).get('url', ''))
+            try:
+                with opener.open(chat_request, timeout=10) as response:
+                    chat_target = urlsplit(json.load(response).get('url', ''))
+            except HTTPError as error:
+                report_http_failure('assistant-chat-availability', error)
+                raise
             chat_available = (chat_target.scheme == 'http' and chat_target.hostname == '127.0.0.1'
                               and chat_target.path == '/chat' and chat_target.fragment.startswith('token='))
             if (report['auto_open_chat'] is False and chat_available and firefox_model_lab_visible()):

@@ -1,10 +1,12 @@
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from urllib.error import HTTPError
 from unittest.mock import patch, MagicMock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +16,28 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_assistant_chat_http_failure_reports_only_check_and_status(self):
+        body = io.BytesIO(b'{"error":"private token and response body"}')
+        error = HTTPError('http://127.0.0.1/private-token/chat', 409,
+                          'private reason', {'X-Private': 'secret'}, body)
+        output = io.StringIO()
+        with patch('sys.stdout', output):
+            module.report_http_failure('assistant-chat-availability', error)
+        self.assertEqual(json.loads(output.getvalue().split(' ', 1)[1]),
+                         {'check': 'assistant-chat-availability', 'status': 409})
+        for private in ('private-token', 'private reason', 'private response body', 'secret'):
+            self.assertNotIn(private, output.getvalue())
+        self.assertTrue(body.closed)
+
+    def test_unknown_http_failure_check_is_collapsed_to_other(self):
+        error = HTTPError('http://127.0.0.1/private-token', 700,
+                          'private reason', {}, io.BytesIO(b'secret'))
+        output = io.StringIO()
+        with patch('sys.stdout', output):
+            module.report_http_failure('private-route', error)
+        self.assertEqual(json.loads(output.getvalue().split(' ', 1)[1]),
+                         {'check': 'other', 'status': None})
+
     def test_trial_keyboard_refuses_wrong_active_window(self):
         with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
                 patch.object(module.ctypes, 'CDLL') as library:
