@@ -575,6 +575,10 @@ try {
     const modal = document.getElementById('download-review');
     const recCard = modal.querySelector('.destination-card.recommended');
     if (!recCard) return { valid: false, reason: 'No recommended destination card found' };
+    if (!recCard.textContent.includes('Encrypted boot card') ||
+        !recCard.textContent.includes('Encrypted · retained on reboot')) {
+      return { valid: false, reason: 'Encrypted boot-card persistence is not identified in the model-download choice' };
+    }
 
     // Compact strip with drive name, space, and button together
     const strip = recCard.querySelector('.dest-compact-strip');

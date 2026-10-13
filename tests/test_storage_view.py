@@ -41,7 +41,7 @@ class Base(unittest.TestCase):
         for path in (self.home / '.config/argos-live', self.data, self.persist / 'rw', self.tmpfs):
             path.mkdir(parents=True)
         self.mounts_text = '\n'.join([
-            f'20 1 8:17 / {self.root}/medium ro - iso9660 /dev/sdb1 ro',
+            f'20 1 8:17 / {self.root / "medium"} ro - iso9660 /dev/sdb1 ro',
             f'21 1 8:1 / {self.data} rw - ntfs3 /dev/sda1 rw',
             f'22 1 253:0 / {self.persist} rw - ext4 /dev/mapper/persist rw',
             f'23 1 0:40 / {self.home} rw - overlay overlay rw,lowerdir=/x,upperdir={self.persist}/rw,workdir=/w',

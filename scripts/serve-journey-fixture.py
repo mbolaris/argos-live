@@ -156,19 +156,35 @@ def main():
     temp = tempfile.TemporaryDirectory(prefix='argos-journey-')
     root = Path(temp.name).resolve()
     home, volume, medium, initial = root / 'home', root / 'volume', root / 'medium', root / 'initial'
-    for path in (home / '.config/argos-live', volume, medium, initial):
+    persist = root / 'run/live/persistence/sdb2'
+    for path in (home / '.config/argos-live', volume, medium, initial, persist):
         path.mkdir(parents=True)
+    (persist / 'persistence.conf').write_text('/ union\n')
     (initial / '.argos-storage-id').write_text('initial\n')
     (home / '.config/argos-live/state.json').write_text(json.dumps(
         {'storage': str(initial), 'storage_id': 'initial', 'model': 'fixture:latest'}))
-    mountinfo = '\n'.join([f'20 1 8:17 / {medium} ro - iso9660 /dev/sdb1 ro', f'30 1 8:1 / {volume} rw - ext4 /dev/sda1 rw'])
+    mountinfo = '\n'.join([
+        f'20 1 8:17 / {medium} ro - iso9660 /dev/sdb1 ro',
+        f'21 1 253:0 / {persist} rw - ext4 /dev/mapper/persist rw',
+        f'22 1 0:40 / {home} rw - overlay overlay rw,lowerdir=/fixture/lower,upperdir={persist}/rw,workdir={persist}/work',
+        f'30 1 8:1 / {volume} rw - ext4 /dev/sda1 rw'])
     lsblk = json.dumps({'blockdevices': [
         {'name': '/dev/sda', 'type': 'disk', 'fstype': None, 'uuid': None, 'label': None, 'tran': 'sata', 'maj:min': '8:0',
          'children': [{'name': '/dev/sda1', 'type': 'part', 'fstype': 'ext4', 'uuid': 'fixture-volume', 'label': 'DATA', 'maj:min': '8:1'}]},
         {'name': '/dev/sdb', 'type': 'disk', 'fstype': None, 'uuid': None, 'label': None, 'tran': 'usb', 'maj:min': '8:16',
-         'children': [{'name': '/dev/sdb1', 'type': 'part', 'fstype': 'iso9660', 'uuid': 'fixture-boot', 'label': 'ARGOS', 'maj:min': '8:17'}]}]})
+         'children': [
+             {'name': '/dev/sdb1', 'type': 'part', 'fstype': 'iso9660', 'uuid': 'fixture-boot', 'label': 'ARGOS', 'maj:min': '8:17'},
+             {'name': '/dev/sdb2', 'type': 'part', 'fstype': 'crypto_LUKS', 'uuid': 'fixture-luks', 'label': None, 'maj:min': '8:18',
+              'children': [{'name': '/dev/mapper/persist', 'type': 'crypt', 'fstype': 'ext4', 'uuid': 'fixture-persistence',
+                            'label': 'ArgosPersistence', 'maj:min': '253:0'}]}]}]})
     real_read, real_command = storage.read, storage.command
+    def fixture_capacity(_path):
+        return {'total_bytes': 500 * 1024**3, 'free_bytes': 200 * 1024**3}
+    persistence_roots = (str(root / 'run/live/persistence').rstrip('\\/') + os.sep,)
     for patch in (mock.patch.object(storage, 'LIVE_MEDIA', {str(medium)}),
+                  mock.patch.object(storage, 'PERSISTENCE_ROOTS', persistence_roots),
+                  mock.patch.object(storage_view, 'PERSISTENCE_ROOTS', persistence_roots),
+                  mock.patch.object(storage, 'capacity', fixture_capacity),
                   mock.patch.object(storage, 'read', lambda p, *a, **k: mountinfo if str(p) == '/proc/self/mountinfo' else real_read(p, *a, **k)),
                   mock.patch.object(storage, 'command', lambda c, *a, **k: lsblk if c == storage.LSBLK else real_command(c, *a, **k))):
         patch.start()
@@ -237,9 +253,11 @@ def main():
     assistant.backend = provide
     store = Store(home / '.local/share/argos-live/results')
     lab = lab_module.Controller(assistant, store=store)
-    view = partial(storage_view.snapshot, topology=topology, boot='11111111-1111-4111-8111-111111111111')
+    view = partial(storage_view.snapshot, topology=topology, probe=fixture_capacity,
+                    boot='11111111-1111-4111-8111-111111111111')
     storage_controller = storage_view.Controller(assistant, home=home, view=view,
-                                                 chooser=partial(storage_view.choose, topology=topology))
+                                                 chooser=partial(storage_view.choose, topology=topology,
+                                                                 probe=fixture_capacity))
     # The fixture store holds no real manifest, so its identity is supplied; the backend reports the same digest.
     command = command_center.Controller(home, store, lab=lab, storage=storage_controller,
                                         identity=lambda _: {'model': 'fixture:latest', 'digest': 'a' * 64})
