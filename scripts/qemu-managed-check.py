@@ -115,6 +115,13 @@ def private_log_observation(path):
         os.close(fd)
 
 
+def gateway_log_observations(root):
+    """Classify the private startup traceback alongside gateway subprocess logs."""
+    return {'startup_log': private_log_observation(root / 'startup.log'),
+            'gateway_log': private_log_observation(root / 'gateway.log'),
+            'supervisor_log': private_log_observation(root / 'gateway-supervisor.log')}
+
+
 def resource_observation(proc=Path('/proc')):
     """Fixed numeric guest facts; no paths, arguments or environment values."""
     memory = {key: None for key in ('MemAvailable', 'SwapTotal', 'SwapFree')}
@@ -251,8 +258,7 @@ def gateway_observation(home, opener):
     return {'same_user_node_processes': min(node_count, 32),
         'same_user_gateway_listener': listener, 'health': health,
         'node_activity': nodes, 'guest_resources': resource_observation(),
-        'gateway_log': private_log_observation(root / 'gateway.log'),
-        'supervisor_log': private_log_observation(root / 'gateway-supervisor.log')}
+        **gateway_log_observations(root)}
 
 
 def firefox_control_page_visible():
