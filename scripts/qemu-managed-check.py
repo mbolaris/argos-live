@@ -22,7 +22,8 @@ def log_flags(raw):
         'configuration_error': ('invalid config', 'config invalid', 'unrecognized key'),
         'address_in_use': ('eaddrinuse', 'address already in use'),
         'permission_error': ('eacces', 'permission denied'),
-        'missing_dependency': ('cannot find module', 'module not found', 'err_module_not_found'),
+        'missing_dependency': ('cannot find module', 'module not found', 'err_module_not_found',
+                               'modulenotfounderror'),
         'memory_failure': ('out of memory', 'heap limit', 'allocation failed'),
         'instruction_failure': ('illegal instruction', 'sigill'),
         'error_reported': ('"level":"error"', '"level":"fatal"', 'unhandled', 'error:'),
@@ -113,6 +114,13 @@ def private_log_observation(path):
                 'owned_exit_code': owned_exit(raw)}
     finally:
         os.close(fd)
+
+
+def gateway_log_observations(root):
+    """Classify the private startup traceback alongside gateway subprocess logs."""
+    return {'startup_log': private_log_observation(root / 'startup.log'),
+            'gateway_log': private_log_observation(root / 'gateway.log'),
+            'supervisor_log': private_log_observation(root / 'gateway-supervisor.log')}
 
 
 def resource_observation(proc=Path('/proc')):
@@ -251,8 +259,7 @@ def gateway_observation(home, opener):
     return {'same_user_node_processes': min(node_count, 32),
         'same_user_gateway_listener': listener, 'health': health,
         'node_activity': nodes, 'guest_resources': resource_observation(),
-        'gateway_log': private_log_observation(root / 'gateway.log'),
-        'supervisor_log': private_log_observation(root / 'gateway-supervisor.log')}
+        **gateway_log_observations(root)}
 
 
 def firefox_control_page_visible():

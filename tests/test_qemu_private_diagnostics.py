@@ -226,3 +226,18 @@ class DiagnosticFlagsTests(unittest.TestCase):
             report = module.private_log_observation(log)
             self.assertTrue(report['nonempty'])
             self.assertFalse(report['flags']['permission_error'])
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Owner-only Linux diagnostic reads')
+    def test_gateway_observation_includes_sanitized_startup_traceback(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            startup = root / 'startup.log'
+            startup.write_bytes(b'Traceback: ModuleNotFoundError: private-token-123\n')
+            startup.chmod(0o600)
+            reports = module.gateway_log_observations(root)
+            self.assertEqual(set(reports), {'startup_log', 'gateway_log', 'supervisor_log'})
+            self.assertEqual(reports['startup_log']['state'], 'readable')
+            self.assertTrue(reports['startup_log']['flags']['missing_dependency'])
+            serialized = json.dumps(reports)
+            self.assertNotIn('private-token-123', serialized)
+            self.assertNotIn('ModuleNotFoundError', serialized)
