@@ -1,6 +1,6 @@
 {
   "schema": "argos-catalog/1",
-  "updated": "2026-10-04T02:27:24.643224+00:00",
+  "updated": "2026-10-13T00:12:49.311054+00:00",
   "models": [
     {
       "tag": "qwen3:0.6b",
@@ -23,6 +23,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 28,
+        "attention_layers": 28,
         "kv_heads": 8,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -81,6 +82,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 28,
+        "attention_layers": 28,
         "kv_heads": 8,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -138,6 +140,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 36,
+        "attention_layers": 36,
         "kv_heads": 8,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -195,6 +198,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 36,
+        "attention_layers": 36,
         "kv_heads": 8,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -253,6 +257,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 36,
+        "attention_layers": 36,
         "kv_heads": 8,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -311,6 +316,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 40,
+        "attention_layers": 40,
         "kv_heads": 8,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -349,6 +355,66 @@
       "weight_bytes": 9276184896
     },
     {
+      "tag": "qwen3.8:27b",
+      "family": "qwen35",
+      "quantization": "Q4_K_M",
+      "parameter_count": 27300000000,
+      "parameter_label": "27.3B",
+      "license": "Apache-2.0",
+      "license_digests": [
+        "sha256:4c6a8e842ef0d8504549facfb03f1273a8d0022991519bc1888522cc1a5517d1"
+      ],
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking",
+        "vision"
+      ],
+      "capability_verified": false,
+      "description": "High-capacity hybrid reasoning and vision model; verify hardware fit and speed locally.",
+      "publisher_url": "https://ollama.com/library/qwen3.8",
+      "context_tokens": 32768,
+      "kv_cache": {
+        "layers": 64,
+        "attention_layers": 16,
+        "kv_heads": 4,
+        "head_dim": 256,
+        "bytes_per_element": 2,
+        "source_url": "https://huggingface.co/Qwen/Qwen3.8-27B/resolve/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/config.json",
+        "source_sha256": "191e0af232104ed8b65258cf3fb2b842e288008baca7633c11b82a1ac7203aab"
+      },
+      "manifest_digest": "sha256:aaee06c39dcf2437cde036998d960e1fc1494b8191be7cc9657d01e509097813",
+      "artifacts": [
+        {
+          "digest": "sha256:492b2922d38e553cabc2d319345644ed482874fbf5e5c9e4495cbf8e17b0cf5f",
+          "size": 215,
+          "media_type": "application/vnd.docker.container.image.v1+json"
+        },
+        {
+          "digest": "sha256:ac3714bfdddeca31351f2752bf1a63f266f4df87c0b68c895e44945ca704448e",
+          "size": 931146016,
+          "media_type": "application/vnd.ollama.image.projector"
+        },
+        {
+          "digest": "sha256:f5f1dd8920d417aac2718b0bda3403da274301efdd6760b4f0f4b864ff2ad57d",
+          "size": 16810714464,
+          "media_type": "application/vnd.ollama.image.model"
+        },
+        {
+          "digest": "sha256:4c6a8e842ef0d8504549facfb03f1273a8d0022991519bc1888522cc1a5517d1",
+          "size": 11345,
+          "media_type": "application/vnd.ollama.image.license"
+        },
+        {
+          "digest": "sha256:906ee87bde6cff7bf3c3b1550f55cbbec261e027187fbb9f511f908ffc418334",
+          "size": 114,
+          "media_type": "application/vnd.ollama.image.params"
+        }
+      ],
+      "total_download_bytes": 17741872154,
+      "weight_bytes": 17741860480
+    },
+    {
       "tag": "qwen3:30b",
       "family": "qwen3moe",
       "quantization": "Q4_K_M",
@@ -368,6 +434,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 48,
+        "attention_layers": 48,
         "kv_heads": 4,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -427,6 +494,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 36,
+        "attention_layers": 36,
         "kv_heads": 8,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -479,6 +547,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 28,
+        "attention_layers": 28,
         "kv_heads": 4,
         "head_dim": 128,
         "bytes_per_element": 2,
@@ -537,6 +606,7 @@
       "context_tokens": 32768,
       "kv_cache": {
         "layers": 36,
+        "attention_layers": 36,
         "kv_heads": 8,
         "head_dim": 128,
         "bytes_per_element": 2,

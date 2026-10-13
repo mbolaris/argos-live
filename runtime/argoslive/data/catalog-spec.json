@@ -78,6 +78,20 @@
       "publisher_url": "https://ollama.com/library/qwen3"
     },
     {
+      "tag": "qwen3.8:27b",
+      "family": "qwen35",
+      "quantization": "Q4_K_M",
+      "architecture_source": "https://huggingface.co/Qwen/Qwen3.8-27B/resolve/main/config.json",
+      "capabilities": [
+        "text",
+        "tools",
+        "thinking",
+        "vision"
+      ],
+      "description": "High-capacity hybrid reasoning and vision model; verify hardware fit and speed locally.",
+      "publisher_url": "https://ollama.com/library/qwen3.8"
+    },
+    {
       "tag": "qwen3:30b",
       "family": "qwen3moe",
       "quantization": "Q4_K_M",

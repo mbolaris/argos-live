@@ -52,10 +52,10 @@ class ModelViewTests(unittest.TestCase):
         self.hardware = lambda: {'ram': {'available_bytes': 128 * 1024**3}, 'gpus': [
             {'vram_total_bytes': 24 * 1024**3, 'vram_used_bytes': 0}]}
         guidance = self.snapshot()['guidance']
-        self.assertEqual(guidance['next_model'], 'qwen3:14b')
+        self.assertEqual(guidance['next_model'], 'qwen3.8:27b')
         self.assertEqual(guidance['fit_device'], 'gpu')
         self.assertFalse(guidance['quality_improvement_verified'])
-        self.configured['model'] = 'qwen3:14b'
+        self.configured['model'] = 'qwen3.8:27b'
         self.state.write_text(json.dumps(self.configured))
         self.assertIsNone(self.snapshot()['guidance']['next_model'])
 

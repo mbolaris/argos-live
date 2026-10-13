@@ -116,7 +116,14 @@ def build(spec, get=fetch):
             if not catalog.positive(hidden) or not catalog.positive(heads) or hidden % heads:
                 raise ValueError('Missing explicit or exactly derivable attention head dimension')
             head_dim = hidden // heads
-        kv = {'layers': architecture.get('num_hidden_layers'),
+        layer_types = architecture.get('layer_types')
+        attention_layers = (layer_types.count('full_attention') if isinstance(layer_types, list)
+                            and layer_types and all(isinstance(item, str) for item in layer_types)
+                            else architecture.get('num_hidden_layers'))
+        if (not catalog.positive(attention_layers) or
+                (isinstance(layer_types, list) and len(layer_types) != architecture.get('num_hidden_layers'))):
+            raise ValueError('Missing or inconsistent full-attention layer metadata')
+        kv = {'layers': architecture.get('num_hidden_layers'), 'attention_layers': attention_layers,
               'kv_heads': architecture.get('num_key_value_heads'), 'head_dim': head_dim,
               'bytes_per_element': 2, 'source_url': pinned_source,
               'source_sha256': hashlib.sha256(pinned_raw).hexdigest()}

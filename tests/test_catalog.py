@@ -22,7 +22,7 @@ class CatalogTests(unittest.TestCase):
         self.model = self.data['models'][0]
 
     def test_bundled_catalog_and_licenses_are_valid_and_exact_preferences_only(self):
-        self.assertEqual(len(self.data['models']), 10)
+        self.assertEqual(len(self.data['models']), 11)
         inventory = catalog.inventory(self.data)
         result = pack_import.model_resolution({'name': 'ollama/' + self.model['tag']}, inventory)
         self.assertEqual(result['status'], 'in catalog')
@@ -43,6 +43,17 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(unknown['kv_cache_bytes'], small['kv_cache_bytes'] * 8)
         with self.assertRaises(ValueError):
             catalog.fit(self.model, comfortable, context_tokens=0)
+
+    def test_hybrid_attention_uses_only_full_attention_layers_for_context_cache(self):
+        model = next(m for m in self.data['models'] if m['tag'] == 'qwen3.8:27b')
+        estimate = catalog.fit(model, None)
+        expected = 2 * 16 * 4 * 256 * 2 * 32768
+        all_layers = 2 * 64 * 4 * 256 * 2 * 32768
+        self.assertEqual(estimate['attention_layers'], 16)
+        self.assertEqual(estimate['kv_cache_bytes'], expected)
+        self.assertEqual(estimate['kv_cache_bytes'] * 4, all_layers)
+        self.assertIn('no recurrent-state', estimate['method'])
+        self.assertFalse(estimate['inference_ready'])
 
     def test_vision_overhead_and_moe_all_weight_size_are_counted(self):
         vision = copy.deepcopy(self.model)
@@ -68,10 +79,10 @@ class CatalogTests(unittest.TestCase):
             catalog.validate(data)
 
     def test_bounded_catalog_policy_and_curated_lineup(self):
-        # Curated small lineup (4 models) is valid
+        # Curated upgrade ladder (5 models) is valid
         curated_data = copy.deepcopy(self.data)
         curated_data['models'] = [m for m in self.data['models'] if catalog.is_curated(m['tag'])]
-        self.assertEqual(len(curated_data['models']), 4)
+        self.assertEqual(len(curated_data['models']), 5)
         self.assertEqual(catalog.validate(curated_data), curated_data)
 
         # Single-model catalog is valid
@@ -101,6 +112,7 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(catalog.is_curated('qwen3:4b-instruct-2507-q4_K_M'))
         self.assertTrue(catalog.is_curated('qwen3:8b'))
         self.assertTrue(catalog.is_curated('qwen3:14b'))
+        self.assertTrue(catalog.is_curated('qwen3.8:27b'))
         self.assertFalse(catalog.is_curated('qwen3:4b'))
         self.assertFalse(catalog.is_curated('qwen3:1.7b'))
         self.assertFalse(catalog.is_curated('qwen3:30b'))
@@ -133,8 +145,13 @@ class CatalogTests(unittest.TestCase):
             responses[base + '/blobs/' + config_descriptor['digest']] = (config, {})
             responses[base + '/blobs/' + key] = (license_text, {})
             kv = model['kv_cache']
-            architecture = json.dumps({'num_hidden_layers': kv['layers'], 'num_key_value_heads': kv['kv_heads'],
-                                       'hidden_size': kv['head_dim'] * 8, 'num_attention_heads': 8}).encode()
+            architecture_data = {'num_hidden_layers': kv['layers'], 'num_key_value_heads': kv['kv_heads'],
+                                 'hidden_size': kv['head_dim'] * 8, 'num_attention_heads': 8}
+            if kv.get('attention_layers', kv['layers']) < kv['layers']:
+                architecture_data['layer_types'] = (['linear_attention'] *
+                                                    (kv['layers'] - kv['attention_layers']) +
+                                                    ['full_attention'] * kv['attention_layers'])
+            architecture = json.dumps(architecture_data).encode()
             source = choice['architecture_source']
             responses[source] = (architecture, {'X-Repo-Commit': 'b' * 40})
             responses[source.replace('/main/', '/' + 'b' * 40 + '/')] = (architecture, {})
@@ -147,7 +164,7 @@ class CatalogTests(unittest.TestCase):
             calls.append(url)
             return responses[url]
         data, licenses = refresh.build(choices, get)
-        self.assertEqual(len(data['models']), 10)
+        self.assertEqual(len(data['models']), 11)
         self.assertTrue(licenses)
         self.assertFalse(any(url.endswith('sha256:' + 'a' * 64) for url in calls))
         self.assertEqual(len(data['models'][0]['license_digests']), 1)
