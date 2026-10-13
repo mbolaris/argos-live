@@ -9,7 +9,8 @@ TAG = re.compile(r'(?:[a-z0-9][a-z0-9_-]*/)?[a-z0-9][a-z0-9_.-]*:[a-zA-Z0-9][a-z
 DIGEST = re.compile(r'sha256:[a-f0-9]{64}')
 LICENSE_DIGESTS = {'sha256:d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12',
                    'sha256:7339fa418c9ad3e8e12e74ad0fd26a9cc4be8703f9c110728a992b193be85cb2',
-                   'sha256:832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e'}
+                   'sha256:832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e',
+                   'sha256:4c6a8e842ef0d8504549facfb03f1273a8d0022991519bc1888522cc1a5517d1'}
 
 
 MIN_CATALOG_MODELS = 1
@@ -38,6 +39,12 @@ CURATED_LINEUP = {
         'role': 'More capacity',
         'short_label': 'More capacity',
         'rationale': 'Larger candidate to evaluate when memory and latency allow; compare quality and speed locally',
+        'downloadable': True,
+    },
+    'qwen3.8:27b': {
+        'role': 'High capacity',
+        'short_label': 'High capacity',
+        'rationale': 'Largest curated local candidate; check free VRAM and download space before trying',
         'downloadable': True,
     },
 }
@@ -103,6 +110,9 @@ def validate(data):
         architecture = entry.get('kv_cache')
         if (not isinstance(architecture, dict) or
                 any(not positive(architecture.get(k)) for k in ('layers', 'kv_heads', 'head_dim'))
+                or ('attention_layers' in architecture and
+                    (not positive(architecture['attention_layers']) or
+                     architecture['attention_layers'] > architecture['layers']))
                 or architecture.get('bytes_per_element') != 2
                 or not re.fullmatch(r'[a-f0-9]{64}', architecture.get('source_sha256', ''))
                 or not re.fullmatch(r'https://huggingface.co/[^/]+/[^/]+/resolve/[a-f0-9]{40}/config.json',
@@ -136,7 +146,11 @@ def fit(entry, available_bytes, *, context_tokens=None, device='gpu'):
     if not positive(context):
         raise ValueError('Use a positive context-token count')
     cache = entry['kv_cache']
-    kv = 2 * cache['layers'] * cache['kv_heads'] * cache['head_dim'] * cache['bytes_per_element'] * context
+    # Hybrid models can have recurrent/linear layers that do not retain a
+    # context-sized K/V cache. The catalog refresh records the full-attention
+    # layer count when the source config exposes it; legacy models use all layers.
+    attention_layers = cache.get('attention_layers', cache['layers'])
+    kv = 2 * attention_layers * cache['kv_heads'] * cache['head_dim'] * cache['bytes_per_element'] * context
     overhead = max(512 * 1024**2, math.ceil(entry['weight_bytes'] * 0.10))
     if 'vision' in entry['capabilities']:
         overhead += 512 * 1024**2
@@ -156,4 +170,5 @@ def fit(entry, available_bytes, *, context_tokens=None, device='gpu'):
             'weight_bytes': entry['weight_bytes'], 'kv_cache_bytes': kv, 'overhead_bytes': overhead,
             'estimated_required_bytes': required, 'comfortable_bytes': comfortable,
             'context_tokens': context, 'estimate': True, 'inference_ready': False,
-            'method': 'All weights plus full f16 K/V cache plus overhead; no split-offload prediction'}
+            'attention_layers': attention_layers,
+            'method': 'All weights plus f16 K/V cache for full-attention layers plus overhead; no recurrent-state or split-offload prediction'}
