@@ -5,6 +5,13 @@ description: Measure the configured OpenClaw assistant with Argos benchmarks and
 
 # Improve with evidence
 
+When the owner says go, run a baseline and pursue useful reversible local
+experiments. Use the workspace AGENTS.md for the installed operating guide.
+Prefer a comfortably fitting stronger model early; inspect `argos hw --json`,
+`argos catalog --json`, and `argos storage --json` first. Use ordinary OpenClaw
+tools and Argos's existing managed download/switch flow, without a second planner.
+Keep a private workspace journal linking snapshots and before/after run IDs.
+
 Use `argos_evaluate` to measure the configured assistant. Start with `quick`;
 use `standard` when the owner wants the longer evaluation. The tool creates a
 fresh ordinary OpenClaw session for each fixed task and saves a private result.

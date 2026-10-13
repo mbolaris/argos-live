@@ -209,6 +209,8 @@ class StartupTests(unittest.TestCase):
         verify.assert_called_once()
         self.assertEqual(config, original)
         filesystem_allowed = copy.deepcopy(config)
+        filesystem_allowed['tools']['profile'] = 'minimal'
+        filesystem_allowed['tools'].pop('exec')
         filesystem_allowed['tools']['alsoAllow'] = ['group:fs', 'argos_evaluate', 'argos_compare']
         filesystem_allowed['tools']['deny'] = ['gateway', 'group:runtime', 'group:web', 'browser']
         with patch('argoslive.startup.read_json', side_effect=[state, filesystem_allowed]), \
@@ -232,14 +234,16 @@ class StartupTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 startup.source(self.home)
         verify.assert_not_called()
-        for change in ('policy', 'shell', 'provider', 'channels', 'source'):
+        for change in ('policy', 'shell', 'provider', 'channels', 'source', 'elevated', 'exec'):
             proposed = copy.deepcopy(config)
             altered = copy.deepcopy(state)
-            if change == 'policy': proposed['tools']['profile'] = 'full'
+            if change == 'policy': proposed['tools']['profile'] = 'messaging'
             if change == 'shell': proposed['commands']['bash'] = True
             if change == 'provider': proposed['models']['providers']['ollama']['baseUrl'] = 'http://remote.invalid'
             if change == 'channels': proposed['channels'] = {'fixture': {'enabled': True}}
             if change == 'source': altered['model_source'] = 'unknown'
+            if change == 'elevated': proposed['tools']['elevated']['enabled'] = True
+            if change == 'exec': proposed['tools']['exec']['host'] = 'node'
             with patch('argoslive.startup.read_json', side_effect=[altered, proposed]), \
                     patch('argoslive.startup.storage.validate_configured', return_value=target), \
                     patch('argoslive.startup.model_verify.verify') as verify:

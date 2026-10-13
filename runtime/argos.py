@@ -124,9 +124,9 @@ def setup(ask=input):
                 stream.flush()
                 os.fsync(stream.fileno())
     save(OC / 'openclaw.json', config)
-    save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'file-tools-and-benchmarks'})
+    save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'local-tools-and-benchmarks'})
     print('Setup saved. Bundled Qwen3 0.6B supports offline conversation after setup. Other models need a download.')
-    print('Optional providers: openclaw onboard. Keep the configured limited tool policy; enter keys only in its local prompt.')
+    print('Optional providers: openclaw onboard. Enter keys only in its local prompt.')
 
 def load():
     if not STATE.exists():

@@ -1,5 +1,21 @@
 # Implementation backlog
 
+## Fresh self-improvement image — October 13 delivery checkpoint
+
+Deliver the lightweight OpenClaw plugin, installed operating guide and ordinary
+local tools on a fresh boot; prove benchmark/compare through the actual assistant,
+then prepare and verify the owner's SD card. Do not build another coordinator.
+This branch enables ordinary OpenClaw tools and local execution in new workspaces,
+retains the legacy policy without changing owner files, and teaches the agent what
+to do when the owner says go. No root elevation is enabled by OpenClaw.
+The earlier ISO build 38343934959 is checksum-verified but does not contain these
+new profile changes. Its full VM baseline acceptance remains failed; neither that
+failure nor configuration tests demonstrate an improvement. No SD write has occurred.
+Still required: pinned-runtime validation, a real benchmark and comparison on the
+fresh configuration, suitable boot acceptance, a new image from the accepted source,
+and the SD writer's exact-device/backup/readback checks. Storage passphrase setup
+is a supporting delivery step and must not replace this acceptance work.
+
 ## Current product priority: lightweight OpenClaw improvement plugin — October 12
 
 The owner pivoted from a server-directed Auto Climb policy to an OpenClaw-led

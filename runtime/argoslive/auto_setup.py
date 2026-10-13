@@ -18,8 +18,8 @@ def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,
                         'contextWindow': 32768, 'maxTokens': 4096,
                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
-        'tools': {'profile': 'minimal', 'alsoAllow': ['group:fs', 'argos_evaluate', 'argos_compare'],
-                  'deny': ['gateway', 'group:runtime', 'group:web', 'browser'],
+        'tools': {'profile': 'full', 'alsoAllow': ['argos_evaluate', 'argos_compare'],
+                  'deny': [], 'exec': {'host': 'gateway', 'security': 'full', 'ask': 'off'},
                   'elevated': {'enabled': False}},
         'plugins': {'enabled': True, 'load': {'paths': [str(plugin_root)]},
                     'entries': {'argos-improve': {'enabled': True}}},
@@ -94,7 +94,7 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
     if is_guest and observed['active']:
         raise ValueError('Guest mode cannot use live persistence; reboot using the guest entry')
     state = {'storage': str(models), 'storage_id': secrets.token_hex(24),
-             'model': starter.TAG, 'model_source': 'bundled', 'permissions': 'file-tools-and-benchmarks',
+             'model': starter.TAG, 'model_source': 'bundled', 'permissions': 'local-tools-and-benchmarks',
              'mode': 'guest' if is_guest else ('persistent' if observed['active'] else 'try'),
              'storage_temporary': selected['kind'] == 'ram', 'storage_encrypted': selected.get('encrypted'),
              'persistence_encrypted': observed.get('encrypted'), 'starter': identity}
