@@ -19,6 +19,8 @@ The canonical installed text is
 It explains what to do when the owner says go, early hardware/model inspection,
 managed downloads, private snapshots, a workspace journal and verified restoration.
 Tool availability is not proof that a model uses those tools successfully.
+Fresh setup also sets OpenClaw's supported `skipBootstrap: true`: it loads the
+installed guide without generating the generic first-run identity interview.
 
 Argos Live installs this text as `AGENTS.md` only in a fresh workspace. Existing
 owner files are reused without replacement. The bundled plugin provides

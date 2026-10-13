@@ -13,7 +13,8 @@ PLUGIN_ROOT = '/usr/local/share/argos-live/plugins/argos-improve'
 def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
     return {
         'gateway': {'mode': 'local', 'bind': 'loopback', 'auth': {'mode': 'token', 'token': secrets.token_hex(32)}},
-        'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(workspace)}},
+        'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(workspace),
+                                'skipBootstrap': True}},
         'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama',
             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,
                         'contextWindow': 32768, 'maxTokens': 4096,

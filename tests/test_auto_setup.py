@@ -70,6 +70,8 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertEqual(config['plugins']['load']['paths'], [auto_setup.PLUGIN_ROOT])
                 self.assertTrue((self.home / '.openclaw/workspace/AGENTS.md').is_file())
                 self.assertIn('argos_evaluate', (self.home / '.openclaw/workspace/AGENTS.md').read_text())
+                self.assertTrue(config['agents']['defaults']['skipBootstrap'])
+                self.assertFalse((self.home / '.openclaw/workspace/BOOTSTRAP.md').exists())
                 self.assertFalse(config['commands']['bash'])
                 self.assertNotIn('token', json.dumps(result))
                 self.assertEqual(events[-1]['phase'], 'configured')
