@@ -18,6 +18,12 @@ fresh ordinary OpenClaw session for each fixed task and saves a private result.
 Explain that the score describes this suite and configuration, not general
 intelligence.
 
+If a plugin tool is unavailable, the equivalent assistant command is
+`argos bench openclaw --suite quick --json`. The raw-model `argos bench ability`
+command does not test workspace instructions. Check the receipt's `openclaw-quick`
+suite and `openclaw gateway; fresh session per task` execution path. Each retest
+needs a new run ID; an old result or an unsaved claim is not a new measurement.
+
 Before proposing a change, inspect the task-level misses and ask what useful
 behavior they represent. State one hypothesis and one reversible change. Preserve
 the current settings and owner instructions before editing. Do not change the

@@ -34,6 +34,13 @@ Verify restored bytes or settings before reporting a successful restore.
 - Use `argos_evaluate` to run the fixed Argos ability suite. Start with `quick`;
   use `standard` when a fuller check is useful. Explain that the result measures
   this suite and setup, not general intelligence.
+- If the plugin tool is unavailable, use `argos bench openclaw --suite quick --json`
+  through `exec`. `argos bench ability` tests the raw model and bypasses your
+  workspace instructions; it cannot establish an assistant improvement.
+- Verify every assistant receipt has suite `openclaw-quick` (or
+  `openclaw-standard`) and settings.execution_path `openclaw gateway; fresh session
+  per task`. Every retest requires a new saved run ID. Do not substitute a past
+  score or claim a tool ran without its actual result.
 - Use `argos_compare` with the saved run IDs to compare compatible results.
   Report actual gains, regressions, elapsed time and uncertainty. Separate
   infrastructure failures from wrong answers.
