@@ -108,6 +108,10 @@ def run(cli, ollama, seed):
         state.mkdir(mode=0o700)
         workspace = state / 'workspace'
         workspace.mkdir(mode=0o700)
+        # Exercise the shipped workspace instructions, as fresh auto-setup does,
+        # rather than OpenClaw's generic first-run AGENTS template.
+        instructions = (ROOT / 'runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md').read_bytes()
+        (workspace / 'AGENTS.md').write_bytes(instructions)
         config = conversation_config(starter.TAG, workspace,
                                      plugin_root=ROOT / 'openclaw-plugin/argos-improve')
         # A bounded CI response, not a change to the shipped assistant budget.
@@ -133,9 +137,11 @@ def run(cli, ollama, seed):
             client.unload(starter.TAG)
         if starter.verify(seed) != identity:
             raise ValueError('Native chat changed the image starter identity')
+        if (workspace / 'AGENTS.md').read_bytes() != instructions:
+            raise ValueError('Native chat changed the installed improvement guide')
         return {'schema': 'argos-native-chat-smoke/1', **result, 'host_version': pins['OPENCLAW_VERSION'],
                 'backend_version': PIN, 'backend': 'CPU', 'elapsed_seconds': time.monotonic() - started,
-                'seed_unchanged': True, 'weights_copied': False, 'generation_budget': 32,
+                'seed_unchanged': True, 'guide_unchanged': True, 'weights_copied': False, 'generation_budget': 32,
                 'gateway_ui_verified': False, 'physical_acceptance': False}
 
 
