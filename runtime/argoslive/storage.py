@@ -71,7 +71,7 @@ def mount_table(text):
                            'device': fields[2], 'root': unescape(fields[3]),
                            'target': unescape(fields[4]), 'options': fields[5].split(','),
                            'fstype': fields[split + 1], 'source': unescape(fields[split + 2]),
-                           'super_options': fields[split + 3].split(',')})
+                           'super_options': [unescape(value) for value in fields[split + 3].split(',')]})
         except (ValueError, IndexError):
             raise ValueError('Cannot safely parse mount table') from None
     return result

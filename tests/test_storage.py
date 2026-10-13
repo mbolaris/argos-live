@@ -275,6 +275,10 @@ class SelectionTests(unittest.TestCase):
 
     def test_parser_and_budget_reject_ambiguous_input(self):
         self.assertEqual(self.mounts[2]['target'], '/mnt/big disk')
+        escaped = storage.mount_table(
+            '21 1 8:18 / /mnt/persist\\040card rw - ext4 /dev/sdb2 '
+            'rw,upperdir=/mnt/persist\\040card/rw,workdir=/mnt/persist\\040card/work')[0]
+        self.assertIn('upperdir=/mnt/persist card/rw', escaped['super_options'])
         with self.assertRaises(ValueError):
             storage.mount_table('malformed')
         with self.assertRaises(ValueError):
