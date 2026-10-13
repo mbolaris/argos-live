@@ -140,21 +140,21 @@ def topology(run=hw.command, proc=Path('/proc')):
     return mounts, blocks, ram
 
 
-def candidates(mounts, blocks, ram_available, *, probe=storage.capacity):
-    rows = storage.eligible(mounts, blocks, 1, ram_available=ram_available, probe=probe)
+def candidates(mounts, blocks, ram_available, *, probe=storage.capacity, home=None):
+    rows = storage.eligible(mounts, blocks, 1, ram_available=ram_available, probe=probe, home=home)
     for row in rows:
         row['id'] = candidate_id(row['path'])
         row['temporary'] = row['kind'] == 'ram'
     return rows
 
 
-def storage_choices(configured, mounts, blocks, ram_available, *, probe=storage.capacity):
+def storage_choices(configured, mounts, blocks, ram_available, *, probe=storage.capacity, home=None):
     """Fresh destinations plus confirmation of the identity-checked current store.
 
     Existing files prevent migration, not confirmation of a store already owned
     by this configuration. Never infer the current store from a fresh folder.
     """
-    rows = candidates(mounts, blocks, ram_available, probe=probe)
+    rows = candidates(mounts, blocks, ram_available, probe=probe, home=home)
     if configured is not None:
         current = storage.validate_configured(configured, mounts=mounts, blocks=blocks)
         if not any(row['path'] == str(current) for row in rows):
@@ -283,7 +283,7 @@ def snapshot(home=None, *, topology=topology, probe=storage.capacity, boot=None)
     if mounts is not None:
         try:
             rows = storage_choices(configured if result['state'] == 'available' else None,
-                                   mounts, blocks, ram, probe=probe)
+                                   mounts, blocks, ram, probe=probe, home=home)
         except (OSError, ValueError, TypeError, KeyError):
             rows = []
         current_path = result['configured']['path'] if result['configured'] else None
@@ -308,7 +308,7 @@ def choose(home, candidate, *, topology=topology, probe=storage.capacity, check=
     if not isinstance(candidate, str) or len(candidate) != 20:
         raise ValueError('Choose a listed storage location')
     mounts, blocks, ram = topology()
-    rows = storage_choices(configured, mounts, blocks, ram, probe=probe)
+    rows = storage_choices(configured, mounts, blocks, ram, probe=probe, home=home)
     row = next((r for r in rows if r['id'] == candidate), None)
     current = storage.validate_configured(configured, mounts=mounts, blocks=blocks)
     if row is None:
