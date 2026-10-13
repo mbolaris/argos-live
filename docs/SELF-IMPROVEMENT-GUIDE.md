@@ -8,8 +8,9 @@ the current tools; a continuing Start/watch/recovery loop is not yet implemented
 
 ## Operating instructions to install
 
-Fresh-image implementation update: new workspaces select OpenClaw's `full` tool
-profile and local `exec` (`host: gateway`, `security: full`, `ask: off`) under the
+Fresh-image implementation update: new workspaces select file/runtime tools,
+`web_fetch` and benchmark tools using OpenClaw's `minimal` base profile, with
+local `exec` (`host: gateway`, `security: full`, `ask: off`) under the
 desktop Linux user, with OpenClaw elevated mode disabled. This is the owner's
 authorized agent-led improvement setup. Existing configurations are not silently
 expanded; automatic startup still accepts the earlier file/benchmark profile.

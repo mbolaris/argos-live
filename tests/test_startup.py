@@ -227,7 +227,7 @@ class StartupTests(unittest.TestCase):
                 startup.source(self.home)
         verify.assert_not_called()
         unexpected_tool = copy.deepcopy(config)
-        unexpected_tool['tools']['alsoAllow'].append('group:runtime')
+        unexpected_tool['tools']['alsoAllow'].append('browser')
         with patch('argoslive.startup.read_json', side_effect=[state, unexpected_tool]), \
                 patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
                 patch('argoslive.startup.model_verify.verify') as verify:

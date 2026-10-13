@@ -5,7 +5,7 @@
 Deliver the lightweight OpenClaw plugin, installed operating guide and ordinary
 local tools on a fresh boot; prove benchmark/compare through the actual assistant,
 then prepare and verify the owner's SD card. Do not build another coordinator.
-This branch enables ordinary OpenClaw tools and local execution in new workspaces,
+This branch enables file/runtime tools, reference fetching and local execution in new workspaces,
 retains the legacy policy without changing owner files, and teaches the agent what
 to do when the owner says go. No root elevation is enabled by OpenClaw.
 The earlier ISO build 38343934959 is checksum-verified but does not contain these

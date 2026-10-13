@@ -40,8 +40,8 @@ def source(home):
     legacy_policy = (tools.get('profile') == 'minimal' and
                      {'gateway', 'group:runtime', 'group:web', 'browser'} <= denied and
                      'group:fs' not in denied and allowed == reviewed_tools)
-    improvement_policy = (tools.get('profile') == 'full' and not denied and
-                          allowed == {'argos_evaluate', 'argos_compare'} and
+    improvement_policy = (tools.get('profile') == 'minimal' and denied == {'gateway', 'browser'} and
+                          allowed == {'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'} and
                           tools.get('exec') == {'host': 'gateway', 'security': 'full', 'ask': 'off'})
     if (not isinstance(provider, dict) or provider.get('baseUrl') != 'http://127.0.0.1:11434' or
             provider.get('api') != 'ollama' or primary != 'ollama/' + str(model) or

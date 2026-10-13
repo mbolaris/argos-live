@@ -7,8 +7,9 @@ coordinator as the next development target. Progress belongs in
 ## Implementation status — October 12, 2026
 
 October 13 fresh-image update (this branch, not deployed): new setup now uses
-OpenClaw's ordinary `full` tool profile and local execution, with elevated mode
-disabled, rather than blocking runtime tools. Existing profiles remain intact and
+OpenClaw file/runtime tools, reference fetching and local execution, with elevated
+mode disabled, rather than blocking runtime tools. The tool list is kept small
+for the CPU starter. Existing profiles remain intact and
 the prior minimal profile still starts. The installed guide now describes how to
 begin on "go", prioritize measured hardware/model fit, preserve snapshots and
 journal matched trials. This enables local operations; it is not acceptance of an

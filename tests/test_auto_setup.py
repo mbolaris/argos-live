@@ -60,8 +60,10 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertEqual(config['gateway']['bind'], 'loopback')
                 self.assertEqual(len(config['gateway']['auth']['token']), 64)
                 self.assertFalse(config['tools']['elevated']['enabled'])
-                self.assertEqual(config['tools']['profile'], 'full')
-                self.assertEqual(config['tools']['deny'], [])
+                self.assertEqual(config['tools']['profile'], 'minimal')
+                self.assertEqual(config['tools']['deny'], ['gateway', 'browser'])
+                self.assertIn('group:runtime', config['tools']['alsoAllow'])
+                self.assertIn('web_fetch', config['tools']['alsoAllow'])
                 self.assertEqual(config['tools']['exec'],
                                  {'host': 'gateway', 'security': 'full', 'ask': 'off'})
                 self.assertEqual(config['plugins']['entries']['argos-improve']['enabled'], True)
