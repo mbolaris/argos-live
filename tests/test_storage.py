@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -41,6 +42,95 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(result['volume_uuid'], 'fixture-big')
         self.assertTrue(result['selection_only'])
         self.assertFalse(result['write_verified'])
+
+    def live_encrypted_overlay(self, root):
+        home = root / 'home/argos'
+        persist = root / 'run/live/persistence/sdb2'
+        medium = root / 'run/live/medium'
+        home.mkdir(parents=True)
+        persist.mkdir(parents=True)
+        medium.mkdir(parents=True)
+        (persist / 'persistence.conf').write_text('/ union\n')
+        mounts = storage.mount_table('\n'.join([
+            f'20 1 8:17 / {medium} ro - iso9660 /dev/sdb1 ro',
+            f'21 1 253:0 / {persist} rw - ext4 /dev/mapper/persist rw',
+            f'22 1 0:40 / {home} rw - overlay overlay rw,upperdir={persist}/upper,workdir={persist}/work',
+            f'23 1 8:1 / /mnt/small rw - ext4 /dev/sda1 rw',
+            f'24 1 8:2 / /mnt/big rw - ntfs3 /dev/sda2 rw']))
+        blocks = storage.block_table(json.dumps({'blockdevices': [
+            {'name': '/dev/sda', 'type': 'disk', 'maj:min': '8:0', 'children': [
+                {'name': '/dev/sda1', 'type': 'part', 'fstype': 'ext4', 'uuid': 'small', 'maj:min': '8:1'},
+                {'name': '/dev/sda2', 'type': 'part', 'fstype': 'ntfs', 'uuid': 'big', 'maj:min': '8:2'}]},
+            {'name': '/dev/sdb', 'type': 'disk', 'tran': 'usb', 'maj:min': '8:16', 'children': [
+                {'name': '/dev/sdb1', 'type': 'part', 'fstype': 'iso9660', 'uuid': 'boot', 'maj:min': '8:17'},
+                {'name': '/dev/sdb2', 'type': 'part', 'fstype': 'crypto_LUKS', 'uuid': 'luks', 'maj:min': '8:18',
+                 'children': [{'name': '/dev/mapper/persist', 'type': 'crypt', 'fstype': 'ext4',
+                               'uuid': 'persist-uuid', 'maj:min': '253:0'}]}]}]}))
+        return home, persist, medium, mounts, blocks
+
+    def test_encrypted_full_root_boot_persistence_is_stable_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home, _, medium, mounts, blocks = self.live_encrypted_overlay(root)
+            metrics = {'total_bytes': 58 * GIB, 'free_bytes': 48 * GIB}
+            with patch('argoslive.storage.Path.home', return_value=home), \
+                    patch.object(storage, 'LIVE_MEDIA', {str(medium)}), \
+                    patch.object(storage, 'PERSISTENCE_ROOTS', (str(root / 'run/live/persistence').rstrip('\\/') + os.sep,)):
+                result = storage.select(mounts, blocks, 4 * GIB,
+                    probe=lambda path: metrics, ram_available=64 * GIB, uid=1000)
+                self.assertEqual(result['kind'], 'persistence')
+                self.assertEqual(result['path'], str(home / '.local/share/argos-live/models'))
+                self.assertEqual(result['volume_uuid'], 'persist-uuid')
+                self.assertIs(result['encrypted'], True)
+                self.assertTrue(result['live_persistence'])
+                self.assertEqual(result['filesystem'], 'overlay')
+
+    def test_unverified_or_small_boot_persistence_falls_back_to_other_drive(self):
+        for change in ('missing-file', 'not-full-root', 'unencrypted', 'readonly', 'too-small', 'not-boot-card'):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                home, persist, medium, mounts, blocks = self.live_encrypted_overlay(root)
+                if change == 'missing-file':
+                    (persist / 'persistence.conf').unlink()
+                elif change == 'not-full-root':
+                    (persist / 'persistence.conf').write_text('/home union\n')
+                elif change == 'unencrypted':
+                    luks = blocks['253:0']
+                    luks['encrypted_paths'] = [False]
+                elif change == 'readonly':
+                    next(m for m in mounts if m['target'] == str(persist))['super_options'] = ['ro']
+                if change == 'not-boot-card':
+                    blocks['253:0']['ancestors'] = {'8:32', '8:33', '253:0'}
+                def probe(path):
+                    small = change == 'too-small' and str(path).startswith(str(home))
+                    return {'total_bytes': 58 * GIB, 'free_bytes': 4 * GIB if small else 48 * GIB}
+                with patch('argoslive.storage.Path.home', return_value=home), \
+                        patch.object(storage, 'LIVE_MEDIA', {str(medium)}), \
+                        patch.object(storage, 'PERSISTENCE_ROOTS', (str(root / 'run/live/persistence').rstrip('\\/') + os.sep,)):
+                    result = storage.select(mounts, blocks, 4 * GIB,
+                        probe=probe, ram_available=64 * GIB, uid=1000)
+                    self.assertEqual(result['kind'], 'disk')
+                    self.assertEqual(result['volume_uuid'], 'big')
+
+    def test_configured_model_store_tracks_the_encrypted_volume_not_device_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home, persist, medium, mounts, blocks = self.live_encrypted_overlay(root)
+            models = home / '.local/share/argos-live/models'
+            models.mkdir(parents=True)
+            (models / '.argos-storage-id').write_text('owner-id\n')
+            config = {'storage': str(models), 'storage_id': 'owner-id', 'storage_uuid': 'persist-uuid'}
+            with patch('argoslive.storage.Path.home', return_value=home), \
+                    patch.object(storage, 'LIVE_MEDIA', {str(medium)}), \
+                    patch.object(storage, 'PERSISTENCE_ROOTS', (str(root / 'run/live/persistence').rstrip('\\/') + os.sep,)):
+                selected = storage.select(mounts, blocks, GIB, configured=config,
+                    probe=lambda path: {'total_bytes': 58 * GIB, 'free_bytes': 48 * GIB})
+                self.assertEqual(selected['kind'], 'persistence')
+                self.assertIs(selected['encrypted'], True)
+                blocks['253:0']['uuid'] = 'replacement-volume'
+                with self.assertRaisesRegex(ValueError, 'UUID differs'):
+                    storage.select(mounts, blocks, GIB, configured=config,
+                        probe=lambda path: {'total_bytes': 58 * GIB, 'free_bytes': 48 * GIB})
 
     def test_readonly_and_insufficient_capacity_are_skipped(self):
         self.mounts[2]['super_options'] = ['ro']

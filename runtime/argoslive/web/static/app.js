@@ -1222,7 +1222,7 @@ async function reviewDownload(choice, tag) {
         const view = await api('/api/storage');
         if (view && view.candidates) {
           const needed = model?.total_download_bytes || 0;
-          const disks = view.candidates.filter(c => c.kind === 'disk');
+          const disks = view.candidates.filter(c => c.kind === 'disk' || c.kind === 'persistence');
           const rams = view.candidates.filter(c => c.kind === 'ram');
 
           // Recommend strictly only a selectable destination
@@ -1235,7 +1235,8 @@ async function reviewDownload(choice, tag) {
             diskGroup.className = 'storage-group-persistent';
             const grpTitle = document.createElement('div');
             grpTitle.className = 'storage-group-title';
-            grpTitle.textContent = 'Recommended Persistent Drive';
+            grpTitle.textContent = selectableDisks[0].kind === 'persistence' ?
+              'Recommended · Encrypted boot card' : 'Recommended Persistent Drive';
             diskGroup.append(grpTitle);
 
             const recItem = selectableDisks[0];
@@ -1252,10 +1253,12 @@ async function reviewDownload(choice, tag) {
             nameRow.className = 'dest-name-row';
             const nameEl = document.createElement('strong');
             nameEl.className = 'dest-name-title';
-            nameEl.textContent = recItem.volume_label || (recItem.device ? recItem.device.split('/').pop() : 'Persistent Drive');
+            nameEl.textContent = recItem.kind === 'persistence' ? 'Encrypted boot card' :
+              recItem.volume_label || (recItem.device ? recItem.device.split('/').pop() : 'Persistent Drive');
             const badge = document.createElement('span');
             badge.className = 'dest-badge-rec';
-            badge.textContent = 'Recommended · Retained on reboot';
+            badge.textContent = recItem.kind === 'persistence' ? 'Encrypted · retained on reboot' :
+              'Recommended · Retained on reboot';
             nameRow.append(nameEl, badge);
 
             const spaceRow = document.createElement('div');
@@ -1284,7 +1287,7 @@ async function reviewDownload(choice, tag) {
                 inlineSec.hidden = true;
                 document.getElementById('download-confirm').disabled = false;
                 document.getElementById('download-review-details').textContent =
-                  `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Confirmed destination: ${recItem.path} (Persistent disk).`;
+                  `${tag} · ${byteSize(model?.total_download_bytes || 0)} download · Confirmed destination: ${recItem.path} (${recItem.kind === 'persistence' ? 'Encrypted boot card' : 'Persistent disk'}).`;
               } catch (_) {
                 btn.disabled = false;
                 btn.textContent = 'Use this drive (Recommended)';
@@ -1309,7 +1312,7 @@ async function reviewDownload(choice, tag) {
               <div class="dest-path-box"><code>${recItem.path}</code></div>
               <div class="dest-meta-grid">
                 <div class="meta-field"><div class="field-lbl">Mountpoint</div><div class="field-val">${recItem.mountpoint}</div></div>
-                <div class="meta-field"><div class="field-lbl">Persistence</div><div class="field-val">Persistent disk · retained across reboots</div></div>
+                <div class="meta-field"><div class="field-lbl">Persistence</div><div class="field-val">${recItem.kind === 'persistence' ? 'Encrypted boot-card persistence · stable across reboots' : 'Persistent disk · retained across reboots'}</div></div>
                 <div class="meta-field"><div class="field-lbl">Encryption</div><div class="field-val">${encrypted(recItem.encrypted)}</div></div>
               </div>
             `;
@@ -2665,15 +2668,17 @@ async function refreshStorage() {
     if (!view.boot_id_available) status.textContent += ' Boot identity is unavailable, so reboot checks cannot run.';
     for (const item of view.candidates) {
       const detail = `${item.volume_label || item.mountpoint} · ${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
+        (item.kind === 'persistence' ? ' · Saved on this encrypted boot card' : '') +
         (item.temporary ? ' · Temporary: models are lost at reboot' : '') + (item.current ? ' · In use' : '') +
         (item.contains_data ? ' · Folder already has files; it cannot be used' : '');
-      card(choices, item.kind === 'ram' ? 'Temporary memory' : 'Drive', detail);
+      card(choices, item.kind === 'persistence' ? 'Encrypted boot card' : item.kind === 'ram' ? 'Temporary memory' : 'Drive', detail);
       const button = document.createElement('button'); button.type = 'button';
       button.textContent = item.current ? (storageConfirmed ? 'Confirmed' : 'Confirm this location') : 'Review this location';
       button.disabled = item.contains_data || (!item.current && !view.can_change) || (item.current && storageConfirmed);
       button.addEventListener('click', () => {
         storageChoice = item.id;
         document.getElementById('storage-review-details').textContent = `${item.path} · ${gib(item.free_bytes)} free · ${encrypted(item.encrypted)}` +
+          (item.kind === 'persistence' ? '. Model downloads will stay on this encrypted boot card.' : '') +
           (item.temporary ? '. Temporary: downloaded models will be lost at reboot.' : '.') +
           (view.change_blocked_reason ? ' ' + view.change_blocked_reason : '');
         document.getElementById('storage-confirm').disabled = false;

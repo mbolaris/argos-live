@@ -10,6 +10,7 @@ from . import session_mode
 
 DISK_FILESYSTEMS = {'ext4', 'xfs', 'btrfs', 'ntfs', 'ntfs3', 'fuseblk', 'exfat', 'vfat'}
 LIVE_MEDIA = {'/run/live/medium', '/lib/live/mount/medium'}
+PERSISTENCE_ROOTS = ('/run/live/persistence/', '/lib/live/mount/persistence/')
 LSBLK = ['lsblk', '--json', '--paths', '--output', 'NAME,TYPE,FSTYPE,UUID,LABEL,TRAN,MAJ:MIN']
 
 
@@ -44,6 +45,11 @@ def validate_configured(configured, *, mounts=None, blocks=None):
             blocks = block_table(output) if output else {}
         mount = covering(path, mounts)
         block = block_for(mount, blocks or {}) if mount else None
+        if mount and mount['fstype'] == 'overlay':
+            boot = boot_devices(mounts, blocks or {})
+            persistent = persistent_overlay(mounts, blocks or {}, boot) if boot else None
+            if persistent and persistent[0] is mount:
+                block = persistent[2]
         if not block or block['uuid'] != configured['storage_uuid']:
             raise ValueError('Configured filesystem UUID differs; no fallback writes occur')
     return path
@@ -147,7 +153,7 @@ def capacity(path):
 
 
 def select(mounts, blocks, required_bytes, *, configured=None, ram_available=None,
-           safety_bytes=1024**3, probe=capacity, uid=None):
+           safety_bytes=1024**3, probe=capacity, uid=None, home=None):
     if (type(required_bytes) is not int or required_bytes <= 0 or
             type(safety_bytes) is not int or safety_bytes < 0):
         raise ValueError('Use a positive byte budget and nonnegative safety margin')
@@ -159,6 +165,13 @@ def select(mounts, blocks, required_bytes, *, configured=None, ram_available=Non
         path = validate_configured(configured, mounts=mounts, blocks=blocks)
         mount = covering(path, mounts)
         block = block_for(mount, blocks) if mount else None
+        kind = 'ram' if mount and mount['fstype'] == 'tmpfs' else 'configured'
+        if mount and mount['fstype'] == 'overlay' and configured.get('storage_uuid'):
+            boot = boot_devices(mounts, blocks)
+            persistent = persistent_overlay(mounts, blocks, boot) if boot else None
+            if persistent and persistent[0] is mount:
+                block = persistent[2]
+                kind = 'persistence'
         if configured.get('storage_uuid') and (not block or block['uuid'] != configured['storage_uuid']):
             raise ValueError('Configured filesystem UUID differs; no fallback writes occur')
         try:
@@ -168,14 +181,14 @@ def select(mounts, blocks, required_bytes, *, configured=None, ram_available=Non
         if (not metrics or metrics['free_bytes'] < budget or (mount and
                 ('ro' in mount['options'] or 'ro' in mount['super_options']))):
             raise ValueError('Configured storage is unavailable, read-only or too small; no fallback writes occur')
-        kind = 'ram' if mount and mount['fstype'] == 'tmpfs' else 'configured'
         if kind == 'ram' and (ram_available is None or ram_available < budget):
             raise ValueError('Configured RAM storage lacks the required available memory; no fallback writes occur')
         return result(path, mount, metrics, 'Owner-configured storage identity matched', kind, block)
     candidates = eligible(mounts, blocks, required_bytes, ram_available=ram_available,
-                          safety_bytes=safety_bytes, probe=probe, uid=uid, _result=result)
+                          safety_bytes=safety_bytes, probe=probe, uid=uid, home=home, _result=result)
+    persistence = [c for c in candidates if c['kind'] == 'persistence']
     disks = [c for c in candidates if c['kind'] == 'disk']
-    candidates = disks or candidates
+    candidates = persistence or disks or candidates
     if not candidates:
         detail = '' if boot_devices(mounts, blocks) else ' Live boot device identity unavailable; automatic disk selection is blocked.'
         raise ValueError('No suitable model storage with sufficient space.' + detail)
@@ -192,20 +205,70 @@ def boot_devices(mounts, blocks):
     return boot
 
 
-def eligible(mounts, blocks, required_bytes, *, ram_available=None, safety_bytes=1024**3,
-             probe=capacity, uid=None, _result=None):
-    """Every candidate the automatic selector would consider, largest first.
+def mount_option(mount, name):
+    for item in mount.get('super_options', []):
+        if item.startswith(name + '='):
+            return item.split('=', 1)[1]
+    return None
 
-    Disks exclude every device sharing the live boot medium's ancestry. RAM
-    candidates are temporary and listed only when RAM covers the budget.
-    """
+
+def persistent_overlay(mounts, blocks, boot):
+    """Return the verified encrypted live-persistence backing the root overlay."""
+    for overlay in mounts:
+        if overlay['fstype'] != 'overlay':
+            continue
+        upper = mount_option(overlay, 'upperdir')
+        if not upper or not upper.startswith(PERSISTENCE_ROOTS):
+            continue
+        try:
+            backing = covering(upper, mounts)
+        except ValueError:
+            continue
+        if (backing is None or not backing['target'].startswith(PERSISTENCE_ROOTS)
+                or backing['root'] != '/' or backing['fstype'] not in DISK_FILESYSTEMS
+                or 'ro' in backing['options'] or 'ro' in backing['super_options']):
+            continue
+        conf = Path(backing['target']) / 'persistence.conf'
+        if not conf.is_file():
+            continue
+        try:
+            rules = {line.strip() for line in conf.read_text(encoding='utf-8').splitlines()}
+        except (OSError, UnicodeError):
+            continue
+        if '/ union' not in rules:
+            continue
+        block = block_for(backing, blocks)
+        if (not block or block.get('uuid') is None
+                or not boot.intersection(block['ancestors'])
+                or set(block['encrypted_paths']) != {True}):
+            continue
+        return overlay, backing, block
+    return None
+
+
+def eligible(mounts, blocks, required_bytes, *, ram_available=None, safety_bytes=1024**3,
+             probe=capacity, uid=None, home=None, _result=None):
+    """List safe model stores, preferring verified encrypted boot persistence."""
     if _result is None:
         def _result(path, mount, metrics, reason, kind, block=None):
             return select_result(path, mount, metrics, reason, kind, block, required_bytes, safety_bytes)
     budget = required_bytes + safety_bytes
     uid = os.getuid() if uid is None and hasattr(os, 'getuid') else (uid or 0)
+    home = Path.home() if home is None else Path(home)
     boot = boot_devices(mounts, blocks)
-    disks, ram = [], []
+    disks, persistent, ram = [], [], []
+    backing = persistent_overlay(mounts, blocks, boot) if boot and not session_mode.guest() else None
+    if backing:
+        overlay, persistence_mount, block = backing
+        path = home / '.local/share/argos-live/models'
+        try:
+            metrics = probe(path) if covering(path, mounts) is overlay else None
+        except (OSError, ValueError):
+            metrics = None
+        if metrics and metrics['free_bytes'] >= budget:
+            persistent.append(_result(path, overlay, metrics,
+                'Encrypted full-root live persistence on the boot card; stable path across boots',
+                'persistence', block))
     for mount in mounts:
         if 'ro' in mount['options'] or 'ro' in mount['super_options'] or mount['root'] != '/':
             continue
@@ -233,7 +296,7 @@ def eligible(mounts, blocks, required_bytes, *, ram_available=None, safety_bytes
             if metrics and metrics['free_bytes'] >= budget:
                 ram.append(_result(path, mount, metrics, 'No eligible disk; mounted tmpfs and available RAM cover budget', 'ram'))
     order = lambda c: (-c['total_bytes'], -c['free_bytes'], c['path'])
-    return sorted(disks, key=order) + sorted(ram, key=order)
+    return sorted(persistent, key=order) + sorted(disks, key=order) + sorted(ram, key=order)
 
 
 def select_result(path, mount, metrics, reason, kind, block, required_bytes, safety_bytes):
@@ -251,13 +314,13 @@ def select_result(path, mount, metrics, reason, kind, block, required_bytes, saf
             'total_bytes': metrics['total_bytes'], 'free_bytes': metrics['free_bytes'],
             'required_bytes': required_bytes, 'safety_bytes': safety_bytes,
             'reason': reason, 'persistent': False if kind == 'ram' else (True if block else None),
-            'selection_only': True,
+            'live_persistence': kind == 'persistence', 'selection_only': True,
             'write_verified': False}
 
 
-def plan(required_bytes, configured=None, *, proc_root=Path('/proc'), run=command):
+def plan(required_bytes, configured=None, *, proc_root=Path('/proc'), run=command, home=None):
     mounts = mount_table(read(Path(proc_root) / 'self/mountinfo'))
     output = run(LSBLK)
     blocks = block_table(output) if output else {}
     ram = memory_info(read(Path(proc_root) / 'meminfo'))['available_bytes']
-    return select(mounts, blocks, required_bytes, configured=configured, ram_available=ram)
+    return select(mounts, blocks, required_bytes, configured=configured, ram_available=ram, home=home)
