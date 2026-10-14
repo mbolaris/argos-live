@@ -2328,3 +2328,18 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
   .auto-climb-levels-grid { grid-template-columns: 1fr; }
 }
 
+/* Self-improvement */
+#improve .card { margin-top: 14px; }
+.improve-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 10px; margin: 16px 0; }
+.improve-stat { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--raised); min-width: 0; }
+.improve-stat span { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.improve-stat strong { display: block; margin-top: 4px; font-size: 20px; overflow-wrap: anywhere; }
+.improve-bar { height: 10px; border-radius: 6px; background: var(--raised); overflow: hidden; }
+#improve-bar-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--blue)); transition: width .6s ease; }
+.improve-items { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; max-height: 360px; overflow-y: auto; }
+.improve-items li { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; background: var(--raised); border-left: 3px solid var(--line); font-size: 13px; }
+.improve-items li span { color: var(--muted); overflow-wrap: anywhere; }
+.improve-items li.improve-ok { border-left-color: var(--accent); }
+.improve-items li.improve-miss { border-left-color: var(--amber); }
+.improve-chart { width: 100%; height: auto; display: block; }
+.improve-journal { margin: 0; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; color: var(--muted); }

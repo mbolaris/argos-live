@@ -8,13 +8,27 @@ from . import starter, storage, session_mode
 from .pull_jobs import read_json
 
 PLUGIN_ROOT = '/usr/local/share/argos-live/plugins/argos-improve'
+# Seeded once into a fresh workspace; existing owner files are never replaced.
+WORKSPACE_FILES = (('AGENTS.md', 'SELF-IMPROVEMENT-AGENTS.md'), ('SOUL.md', 'SELF-IMPROVEMENT-SOUL.md'),
+                   ('IDENTITY.md', 'SELF-IMPROVEMENT-IDENTITY.md'),
+                   ('tools/argos-control.py', 'SELF-IMPROVEMENT-CONTROL.py'))
+# While IMPROVEMENT-LOG.md has a '## Next' step and no '## Done', keep the campaign moving.
+HEARTBEAT_PROMPT = ('Self-improvement heartbeat. Read IMPROVEMENT-LOG.md in your workspace. If it has a "## Next" step '
+                    'and no "## Done" section, your campaign is active: take that next step now, following AGENTS.md, '
+                    'then update the log. If there is no active campaign, reply exactly HEARTBEAT_OK.')
+
+
+def workspace_file(name):
+    return (Path(__file__).resolve().parent / 'data' / name).read_bytes()
 
 
 def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
     return {
         'gateway': {'mode': 'local', 'bind': 'loopback', 'auth': {'mode': 'token', 'token': secrets.token_hex(32)}},
         'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(workspace),
-                                'skipBootstrap': True}},
+                                'skipBootstrap': True,
+                                'heartbeat': {'every': '3m', 'session': 'main', 'target': 'none',
+                                              'timeoutSeconds': 1800, 'prompt': HEARTBEAT_PROMPT}}},
         'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama',
             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,
                         'contextWindow': 32768, 'maxTokens': 4096,
@@ -23,7 +37,10 @@ def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
                   'alsoAllow': ['group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'],
                   'deny': ['gateway', 'browser'],
                   'exec': {'host': 'gateway', 'security': 'full', 'ask': 'off'},
-                  'elevated': {'enabled': False}},
+                  'elevated': {'enabled': False},
+                  # Local Ollama runs otherwise hide tool schemas behind tool search, and
+                  # models then call argos_evaluate by name and get an empty turn.
+                  'toolSearch': False},
         'plugins': {'enabled': True, 'load': {'paths': [str(plugin_root)]},
                     'entries': {'argos-improve': {'enabled': True}}},
         'commands': {'bash': False, 'restart': False}}
@@ -115,7 +132,7 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
         directories.append(path)
     try:
         report('write-configuration')
-        for path in (models, state_path.parent, config_path.parent / 'workspace'):
+        for path in (models, state_path.parent, config_path.parent / 'workspace', config_path.parent / 'workspace/tools'):
             mkdir(path)
         # Marker is metadata, not a private credential; use exclusive creation
         # on DATA filesystems that may not support hard links.
@@ -126,9 +143,8 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
         with os.fdopen(descriptor, 'wb') as stream:
             stream.write(raw); stream.flush(); os.fsync(stream.fileno())
         workspace = config_path.parent / 'workspace'
-        prompt_path = Path(__file__).resolve().parent / 'data' / 'SELF-IMPROVEMENT-AGENTS.md'
-        prompt = prompt_path.read_bytes()
-        publish_new(workspace / 'AGENTS.md', prompt, journal)
+        for target, source in WORKSPACE_FILES:
+            publish_new(workspace / target, workspace_file(source), journal)
         publish_new(config_path, conversation_config(starter.TAG, workspace), journal)
         publish_new(state_path, state, journal)
     except BaseException:

@@ -685,6 +685,18 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 'turn-timeout')
         self.assertNotIn('/private/path', str(raised.exception))
 
+    def test_runner_reports_a_turn_with_no_answer_as_empty_reply(self):
+        with patch.object(at.subprocess, 'Popen') as spawn, patch(
+                'argoslive.owned_gateway.private_log', side_effect=lambda path: path.open('wb')):
+            process = spawn.return_value.__enter__.return_value
+            process.returncode = 1
+            process.communicate.return_value = (json.dumps({'status': 'error', 'result': {'payloads': [], 'meta': {
+                'error': {'kind': 'incomplete_turn', 'message': "Agent couldn't generate a response."}}}}).encode(),
+                b'The CLI command failed.')
+            with self.assertRaises(at.TrialTurnError) as raised:
+                at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
+        self.assertEqual(raised.exception.code, 'empty-reply')
+
     def test_failed_cli_evidence_is_retained_only_in_private_log(self):
         with patch.object(at.subprocess, 'Popen') as spawn, patch(
                 'argoslive.owned_gateway.private_log', side_effect=lambda path: path.open('wb')):

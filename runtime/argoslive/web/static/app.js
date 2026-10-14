@@ -4487,3 +4487,97 @@ document.getElementById('auto-climb-restart-btn')?.addEventListener('click', () 
 setInterval(refreshAutoClimb, 2000);
 refreshAutoClimb();
 
+// Self-improvement: live assistant benchmark, score history and the agent's journal.
+const IMPROVE_COLORS = ['#82e4de', '#96caff', '#efca8b', '#c9a6ff', '#ff9eb5', '#a8e6a1'];
+const improveModel = value => String(value || '-').replace(/^ollama\//, '');
+const svgNode = (tag, attrs, text) => {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, value);
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
+
+function renderImproveChart(runs) {
+  const chart = document.getElementById('improve-chart');
+  const note = document.getElementById('improve-chart-note');
+  chart.replaceChildren();
+  const shown = runs.filter(run => run.total).slice(-24);
+  note.textContent = shown.length ? 'Each bar is one assistant benchmark run. Hollow bars did not finish and cannot be compared.'
+    : 'No assistant benchmark yet.';
+  if (!shown.length) return;
+  const models = [...new Set(shown.map(run => improveModel(run.model)))];
+  const color = model => IMPROVE_COLORS[models.indexOf(model) % IMPROVE_COLORS.length];
+  const left = 36, top = 12, width = 590, height = 160, step = width / shown.length;
+  for (const pct of [0, 50, 100]) {
+    const y = top + height - height * pct / 100;
+    chart.append(svgNode('line', {x1: left, x2: left + width, y1: y, y2: y, stroke: '#2a3c4c'}),
+                 svgNode('text', {x: left - 6, y: y + 4, 'text-anchor': 'end', fill: '#afc1d0', 'font-size': 11}, pct + '%'));
+  }
+  const firstComplete = shown.find(run => run.complete);
+  if (firstComplete) {
+    const y = top + height - height * firstComplete.correct / firstComplete.total;
+    chart.append(svgNode('line', {x1: left, x2: left + width, y1: y, y2: y, stroke: '#efca8b', 'stroke-dasharray': '4 4'}));
+  }
+  shown.forEach((run, index) => {
+    const model = improveModel(run.model), share = run.correct / run.total;
+    const barHeight = Math.max(2, height * share), x = left + index * step + step * 0.15, w = step * 0.7;
+    const bar = svgNode('rect', {x, y: top + height - barHeight, width: w, height: barHeight, rx: 3,
+      fill: run.complete ? color(model) : 'none', stroke: color(model), 'stroke-width': run.complete ? 0 : 2});
+    bar.append(svgNode('title', {}, `${model}: ${run.correct}/${run.total}${run.complete ? '' : ' (did not finish)'} · ${run.format_errors ?? 0} format errors · ${run.elapsed_seconds}s`));
+    chart.append(bar);
+    if (step >= 26) chart.append(svgNode('text', {x: x + w / 2, y: top + height - barHeight - 4, 'text-anchor': 'middle',
+      fill: '#edf4fa', 'font-size': 11}, `${run.correct}/${run.total}`));
+  });
+  models.forEach((model, index) => {
+    const x = left + index * 150;
+    chart.append(svgNode('rect', {x, y: 198, width: 12, height: 12, rx: 2, fill: color(model)}),
+                 svgNode('text', {x: x + 18, y: 209, fill: '#afc1d0', 'font-size': 12}, model));
+  });
+  if (firstComplete) chart.append(svgNode('text', {x: left + width, y: 222, 'text-anchor': 'end', fill: '#efca8b', 'font-size': 11}, '--- first complete run'));
+}
+
+function renderImproveLive(live) {
+  const card = document.getElementById('improve-live');
+  if (!live || !['starting', 'running', 'completed', 'failed', 'stale'].includes(live.phase)) { card.hidden = true; return; }
+  card.hidden = false;
+  const items = live.items || [], total = live.total || items.length || 20;
+  const running = live.phase === 'running' || live.phase === 'starting';
+  document.getElementById('improve-live-title').textContent = running ? 'Live test · running now' : 'Latest test';
+  document.getElementById('improve-bar-fill').style.width = `${Math.round(100 * items.length / total)}%`;
+  const score = `${live.correct ?? live.summary?.correct ?? 0}/${items.length} correct`;
+  const now = live.current ? ` · now asking ${live.current.item_id} (${live.current.category})` : '';
+  const outcome = running ? `${items.length} of ${total} answered · ${score}${now}`
+    : live.phase === 'stale' ? `Stopped responding after ${items.length} of ${total} · ${score}`
+    : `${live.phase === 'completed' ? 'Finished' : 'Stopped'} · ${live.summary?.correct ?? 0}/${live.summary?.total ?? items.length} correct · ${live.summary?.format_errors ?? 0} format errors · ${live.elapsed_seconds ?? '?'}s`;
+  document.getElementById('improve-live-status').textContent = `${improveModel(live.model)} · ${outcome}`;
+  const list = document.getElementById('improve-live-items');
+  list.replaceChildren(...items.slice(-20).reverse().map(item => {
+    const row = document.createElement('li');
+    row.className = item.correct ? 'improve-ok' : 'improve-miss';
+    const head = document.createElement('strong');
+    head.textContent = `${item.correct ? '✓' : '✗'} ${item.item_id} · ${item.category} · ${item.seconds}s`;
+    const answer = document.createElement('span');
+    answer.textContent = item.no_reply ? 'No answer' : (item.answer || '').replace(/\s+/g, ' ').slice(0, 140);
+    row.append(head, answer);
+    return row;
+  }));
+}
+
+async function refreshImprove() {
+  if (!document.getElementById('improve')) return;
+  let data;
+  try { data = await api('/api/improve'); } catch (_) { return; }
+  const runs = data.runs || [];
+  document.getElementById('improve-model').textContent = improveModel(data.model);
+  document.getElementById('improve-count').textContent = String(runs.length);
+  const best = data.best, first = data.first;
+  document.getElementById('improve-best').textContent = best ? `${best.correct}/${best.total} · ${improveModel(best.model)}` : '-';
+  const gain = best && first ? best.correct - first.correct : null;
+  document.getElementById('improve-gain').textContent = gain === null ? '-' : `${gain >= 0 ? '+' : ''}${gain} correct`;
+  renderImproveLive(data.live);
+  renderImproveChart(runs);
+  const journal = document.getElementById('improve-journal');
+  if (data.journal) journal.textContent = data.journal.join('\n');
+}
+setInterval(refreshImprove, 2000);
+refreshImprove();

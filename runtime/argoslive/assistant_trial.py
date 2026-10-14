@@ -279,6 +279,24 @@ def paths(home):
     return (storage.safe_local(base / 'assistant-trial.json'), storage.safe_local(base / 'assistant-changes.json'))
 
 
+def model_gave_no_answer(stdout):
+    """True when OpenClaw reports the model ended its turn with no text and no tool call.
+
+    The gateway and model both worked; the assistant simply produced nothing usable,
+    which a benchmark scores as a wrong answer rather than a broken run.
+    """
+    try:
+        value = json.loads(stdout)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    if not isinstance(value, dict):
+        return False
+    body = value.get('result') if isinstance(value.get('result'), dict) else {}
+    meta = body.get('meta') if isinstance(body.get('meta'), dict) else {}
+    return any(isinstance(error, dict) and error.get('kind') == 'incomplete_turn'
+               for error in (value.get('error'), meta.get('error')))
+
+
 def agents_path(home):
     config = read_json(storage.safe_local(home / '.openclaw/openclaw.json'))
     raw = config.get('agents', {}).get('defaults', {}).get('workspace')
@@ -594,6 +612,8 @@ class OpenClawRunner:
                     log.write(stderr[-65536:])
             except (OSError, ValueError):
                 pass  # Diagnostic availability must not change failure handling.
+            if model_gave_no_answer(stdout):
+                raise TrialTurnError('empty-reply')
             diagnostic = (stdout + stderr).decode('utf-8', errors='replace').lower()
             timed_out = any(term in diagnostic for term in ('timed out', 'timeout', 'deadline exceeded'))
             raise TrialTurnError('turn-timeout' if timed_out else 'assistant-error')

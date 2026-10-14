@@ -72,6 +72,14 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertIn('argos_evaluate', (self.home / '.openclaw/workspace/AGENTS.md').read_text())
                 self.assertTrue(config['agents']['defaults']['skipBootstrap'])
                 self.assertFalse((self.home / '.openclaw/workspace/BOOTSTRAP.md').exists())
+                workspace = self.home / '.openclaw/workspace'
+                for target, source in auto_setup.WORKSPACE_FILES:
+                    self.assertEqual((workspace / target).read_bytes(), auto_setup.workspace_file(source))
+                self.assertIn('best agent you can be', ' '.join((workspace / 'SOUL.md').read_text(encoding='utf-8').split()))
+                self.assertIs(config['tools']['toolSearch'], False)
+                heartbeat = config['agents']['defaults']['heartbeat']
+                self.assertEqual((heartbeat['session'], heartbeat['target']), ('main', 'none'))
+                self.assertIn('## Done', heartbeat['prompt'])
                 self.assertFalse(config['commands']['bash'])
                 self.assertNotIn('token', json.dumps(result))
                 self.assertEqual(events[-1]['phase'], 'configured')
