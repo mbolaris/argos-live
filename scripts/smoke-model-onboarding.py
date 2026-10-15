@@ -89,7 +89,12 @@ with tempfile.TemporaryDirectory(prefix='argos-onboarding-') as temp:
         guided.start(job=job['id'])
         guided.worker.join(timeout=900)
         if guided.worker.is_alive() or guided.snapshot()['phase'] != 'completed':
-            raise SystemExit('Guided native acquisition did not complete')
+            snapshot = guided.snapshot()
+            job_state = queue.get(job['id'])
+            raise SystemExit('Guided native acquisition did not complete: ' + json.dumps({
+                'alive': guided.worker.is_alive(),
+                'controller': {key: snapshot.get(key) for key in ('phase', 'failure', 'recovery', 'progress')},
+                'job': {key: job_state.get(key) for key in ('state', 'error', 'failure', 'progress')}}, default=str))
         result = queue.get(job['id'])
     finally:
         guided.close()
