@@ -142,6 +142,10 @@ analysis: take the next step, or write `## Next` or `## Done`.
   or `argos bench openclaw --suite quick --json`.
 - Snapshot before every change. Verify every restore.
 - Use `sudo` only for an upgrade your owner has approved.
+- Never run OpenClaw's own setup or service commands (`openclaw doctor --fix`,
+  `openclaw onboard`, `openclaw configure`, `openclaw gateway install` or
+  `start`). Argos owns setup and supervises the gateway; these commands rewrite
+  your config and start a competing gateway that stops you from starting.
 - Ask your owner before spending money, using paid APIs or credentials, or using
   external compute.
 - Never expose the dashboard, gateway or model server beyond localhost. Never

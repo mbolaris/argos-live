@@ -218,6 +218,22 @@ class StartupTests(unittest.TestCase):
                 patch('argoslive.startup.model_verify.verify') as verify:
             startup.source(self.home)
         verify.assert_called_once()
+        # OpenClaw doctor's normalized equivalent of security=full / ask=off.
+        doctor_normalized = copy.deepcopy(config)
+        doctor_normalized['tools']['exec'] = {'host': 'gateway', 'mode': 'full'}
+        with patch('argoslive.startup.read_json', side_effect=[state, doctor_normalized]), \
+                patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                patch('argoslive.startup.model_verify.verify') as verify:
+            startup.source(self.home)
+        verify.assert_called_once()
+        for exec_policy in ({'host': 'gateway', 'mode': 'auto'}, {'host': 'node', 'mode': 'full'}):
+            other = copy.deepcopy(config)
+            other['tools']['exec'] = exec_policy
+            with patch('argoslive.startup.read_json', side_effect=[state, other]), \
+                    patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                    patch('argoslive.startup.model_verify.verify') as verify:
+                with self.subTest(exec=exec_policy), self.assertRaises(ValueError):
+                    startup.source(self.home)
         no_filesystem = copy.deepcopy(filesystem_allowed)
         no_filesystem['tools']['alsoAllow'] = []
         with patch('argoslive.startup.read_json', side_effect=[state, no_filesystem]), \
