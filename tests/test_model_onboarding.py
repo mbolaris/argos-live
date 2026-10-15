@@ -225,6 +225,15 @@ class OnboardingTests(unittest.TestCase):
         changed['layers'][0]['size'] += 1
         with self.assertRaisesRegex(ValueError, 'differ from reviewed catalog'):
             artifacts.check_local_manifest(json.dumps(changed).encode(), self.entry)
+        # Ollama 0.40 records the pulled registry manifest; only the reviewed revision is accepted.
+        kind = 'application/vnd.docker.distribution.manifest.v2+json'
+        recorded = json.loads(self.raw)
+        recorded['layers'].append({'mediaType': kind, 'digest': self.entry['manifest_digest'], 'size': len(self.raw)})
+        artifacts.check_local_manifest(json.dumps(recorded).encode(), self.entry)
+        other = json.loads(self.raw)
+        other['layers'].append({'mediaType': kind, 'digest': 'sha256:' + '0' * 64, 'size': 1})
+        with self.assertRaisesRegex(ValueError, 'extra'):
+            artifacts.check_local_manifest(json.dumps(other).encode(), self.entry)
 
     def test_registry_drift_blocks_backend_and_publication_checks_existing_blobs(self):
         with patch.object(artifacts, 'check_manifest', side_effect=ValueError('changed')):

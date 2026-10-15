@@ -62,6 +62,12 @@ def check_local_manifest(raw, entry):
             raise ValueError('Conflicting manifest descriptors')
         descriptors[item['digest']] = descriptor
     expected = {a['digest']: a for a in entry['artifacts']}
+    # Ollama 0.40 also records the registry manifest it pulled. Accept that one
+    # extra descriptor only when it is exactly the reviewed manifest revision.
+    reference = descriptors.get(entry.get('manifest_digest'))
+    if (reference and reference['media_type'] == 'application/vnd.docker.distribution.manifest.v2+json'
+            and entry['manifest_digest'] not in expected):
+        descriptors.pop(entry['manifest_digest'])
     if descriptors != expected:
         changed = sorted(f"{d[7:19]} {expected[d]['media_type']}->{descriptors[d]['media_type']} "
                          f"{expected[d]['size']}->{descriptors[d]['size']}"
