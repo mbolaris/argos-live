@@ -129,9 +129,10 @@ class OnboardingQueue(Queue):
                 except OllamaError:
                     job.update(state='interrupted', inference_ready=False,
                                error='Backend operation interrupted; retry explicitly')
-                except (OSError, ValueError):
+                except (OSError, ValueError) as exc:
                     job.update(state='failed', inference_ready=False,
-                               error='Revision, storage, artifact or reply check failed')
+                               error='Revision, storage, artifact or reply check failed',
+                               error_detail=f'{type(exc).__name__}: {str(exc)[:200]}')
                 except KeyboardInterrupt:
                     job.update(state='paused', inference_ready=False)
                 save()
