@@ -43,7 +43,7 @@ class OnboardingQueue(Queue):
                     # Refuse to replace a preexisting tag, even on a failed pull.
                     existing = artifacts.manifest_path(target, entry['tag'])
                     if existing.exists():
-                        artifacts.check_manifest(artifacts.read_manifest(target, entry['tag']), entry)
+                        artifacts.check_local_manifest(artifacts.read_manifest(target, entry['tag']), entry)
                     revision(entry)  # Check mutable registry tag before any weight request.
                     staging = storage.safe_local(target / '.argos-pulls')
                     staging.mkdir(mode=0o700, exist_ok=True)

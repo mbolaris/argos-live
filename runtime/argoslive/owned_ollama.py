@@ -16,7 +16,7 @@ from .storage import safe_local
 from .pull_jobs import worker_lock
 from .private_files import private_log
 
-PIN = '0.35.1'
+PIN = '0.40.4'
 
 
 def supervisor_pid(process, *, deadline, cancel=None):

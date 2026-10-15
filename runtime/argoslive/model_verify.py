@@ -37,8 +37,21 @@ def read_manifest(root, tag):
 
 
 def check_manifest(raw, entry):
+    """Registry bytes must be exactly the reviewed revision."""
     if len(raw) > LIMIT or 'sha256:' + hashlib.sha256(raw).hexdigest() != entry['manifest_digest']:
         raise ValueError('Manifest revision differs from reviewed catalog')
+    return check_local_manifest(raw, entry)
+
+
+def check_local_manifest(raw, entry):
+    """A stored manifest must describe exactly the reviewed artifacts.
+
+    Ollama 0.40 re-serializes manifests it stores, so their bytes no longer hash
+    to the registry revision. Every descriptor (digest, size, media type) must
+    still match the catalog, and verify() checks each blob's SHA256.
+    """
+    if len(raw) > LIMIT:
+        raise ValueError('Manifest exceeds metadata limit')
     value = json.loads(raw)
     if value.get('schemaVersion') != 2 or not isinstance(value.get('layers'), list):
         raise ValueError('Invalid model manifest')
@@ -77,7 +90,7 @@ def verify_blob(path, item, cancel=None, progress=None, *, sync=True):
 
 
 def verify(root, entry, cancel=None, progress=None, *, sync=True):
-    check_manifest(read_manifest(root, entry['tag']), entry)
+    check_local_manifest(read_manifest(root, entry['tag']), entry)
     checked = 0
     for item in entry['artifacts']:
         verify_blob(blob_path(root, item), item, cancel,
@@ -94,9 +107,9 @@ def publish(stage, target, entry, cancel=None):
     """
     destination = manifest_path(target, entry['tag'])
     raw = read_manifest(stage, entry['tag'])
-    check_manifest(raw, entry)
+    check_local_manifest(raw, entry)
     if destination.exists():
-        check_manifest(read_manifest(target, entry['tag']), entry)
+        check_local_manifest(read_manifest(target, entry['tag']), entry)
     blobs = storage.safe_local(Path(target) / 'blobs')
     blobs.mkdir(exist_ok=True)
     for item in entry['artifacts']:
