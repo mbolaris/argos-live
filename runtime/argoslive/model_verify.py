@@ -61,8 +61,15 @@ def check_local_manifest(raw, entry):
         if item['digest'] in descriptors and descriptors[item['digest']] != descriptor:
             raise ValueError('Conflicting manifest descriptors')
         descriptors[item['digest']] = descriptor
-    if descriptors != {a['digest']: a for a in entry['artifacts']}:
-        raise ValueError('Manifest descriptors differ from reviewed catalog')
+    expected = {a['digest']: a for a in entry['artifacts']}
+    if descriptors != expected:
+        changed = sorted(f"{d[7:19]} {expected[d]['media_type']}->{descriptors[d]['media_type']} "
+                         f"{expected[d]['size']}->{descriptors[d]['size']}"
+                         for d in descriptors.keys() & expected.keys() if descriptors[d] != expected[d])
+        raise ValueError('Manifest descriptors differ from reviewed catalog: ' + json.dumps({
+            'missing': sorted(expected[d]['media_type'] for d in expected.keys() - descriptors.keys()),
+            'extra': sorted(descriptors[d]['media_type'] for d in descriptors.keys() - expected.keys()),
+            'changed': changed}))
     return raw
 
 
