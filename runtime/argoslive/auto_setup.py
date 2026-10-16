@@ -13,9 +13,10 @@ WORKSPACE_FILES = (('AGENTS.md', 'SELF-IMPROVEMENT-AGENTS.md'), ('SOUL.md', 'SEL
                    ('IDENTITY.md', 'SELF-IMPROVEMENT-IDENTITY.md'),
                    ('tools/argos-control.py', 'SELF-IMPROVEMENT-CONTROL.py'))
 # While IMPROVEMENT-LOG.md has a '## Next' step and no '## Done', keep the campaign moving.
-HEARTBEAT_PROMPT = ('Self-improvement heartbeat. Read IMPROVEMENT-LOG.md in your workspace. If it has a "## Next" step '
-                    'and no "## Done" section, your campaign is active: take that next step now, following AGENTS.md, '
-                    'then update the log. If there is no active campaign, reply exactly HEARTBEAT_OK.')
+HEARTBEAT_PROMPT = ('Self-improvement heartbeat. Run `tail -n 30 IMPROVEMENT-LOG.md` in your workspace. If it has a '
+                    '"## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
+                    'following AGENTS.md, then append one short entry to the log. If there is no active campaign, '
+                    'reply exactly HEARTBEAT_OK.')
 
 
 def workspace_file(name):

@@ -2,6 +2,8 @@
 """Self-upgrade controls for the Argos agent, using the dashboard's own supported endpoints.
 
   argos-control.py status            startup, model download and storage state (JSON)
+  argos-control.py upgrades          reviewed tool-capable models: exact tag, size, fit on this GPU, installed;
+                                     "next" names the model to try. Use its tag exactly.
   argos-control.py download TAG      verified download of a reviewed catalog model; follows it to the end.
                                      It restarts the assistant (ending your turn) unless TAG is already installed.
   argos-control.py restart           stop and start the assistant (Ollama + OpenClaw gateway)
@@ -63,6 +65,35 @@ def installed_models():
         return set()
 
 
+def upgrades():
+    sys.path.insert(0, '/usr/local/lib/argos-live')
+    from argoslive import catalog, first_model, hw
+    vram = max((gpu.get('vram_total_bytes') or 0 for gpu in hw.snapshot().get('gpus', [])), default=0)
+    config = json.loads((home / '.openclaw/openclaw.json').read_text())
+    current = config['agents']['defaults']['model']['primary'].split('/', 1)[-1]
+    installed, rows = installed_models(), []
+    for entry in catalog.load()['models']:
+        if 'tools' not in entry.get('capabilities', []) or '/' in entry['tag'] or not entry.get('kv_cache'):
+            continue
+        need = first_model.footprint(entry)
+        rows.append({'tag': entry['tag'], 'family': entry.get('family'), 'billion_params': round(entry.get('parameter_count', 0) / 1e9, 1),
+                     'needs_gb': round(need / 2**30, 1), 'fits': need <= vram, 'installed': entry['tag'] in installed,
+                     'current': entry['tag'] == current})
+    rows.sort(key=lambda row: -row['billion_params'])
+    size = {row['tag']: row['billion_params'] for row in rows}
+    better = [row for row in rows if row['fits'] and row['family'] in first_model.GENERAL_FAMILIES
+              and row['billion_params'] > size.get(current, 0)]
+    if better:
+        nxt = 'Try ' + better[0]['tag'] + ': ' + ('printf "yes\n" | argos select-model --model ' if better[0]['installed']
+                                                 else 'python3 tools/argos-control.py download ') + better[0]['tag']
+    else:
+        nxt = 'No larger general model fits; tune configuration and instructions instead (MoE such as qwen3:30b only if it fits and you want to test it).'
+    return {'gpu_vram_gb': round(vram / 2**30, 1), 'current': current, 'next': nxt,
+            'fitting_models': ['{tag} {billion_params}B needs {needs_gb}GB{i}{c}'.format(
+                **row, i=' installed' if row['installed'] else '', c=' CURRENT' if row['current'] else '')
+                for row in rows if row['fits']][:4]}
+
+
 def download(call, tag):
     if tag in installed_models():
         # A download restarts the assistant to load-test the model; never repeat one.
@@ -105,6 +136,9 @@ def restart(call):
 
 if __name__ == '__main__':
     command = sys.argv[1:2] or ['status']
+    if command == ['upgrades']:
+        print(json.dumps(upgrades(), indent=1))
+        raise SystemExit
     call = dashboard()
     if command == ['status']:
         print(json.dumps(status(call), indent=1))
