@@ -15,6 +15,14 @@ spec.loader.exec_module(module)
 
 
 class NativeChatTests(unittest.TestCase):
+    def test_native_budget_requires_observed_request_not_catalog_metadata(self):
+        module.verify_request_budget({'body_inspected': True, 'num_predict': 32})
+        for value in ({}, {'num_predict': 32}, {'body_inspected': True},
+                      {'body_inspected': True, 'num_predict': 4096},
+                      {'body_inspected': True, 'num_predict': -1}):
+            with self.assertRaises(ValueError):
+                module.verify_request_budget(value)
+
     def test_request_report_is_revalidated_before_export(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'metrics.json'

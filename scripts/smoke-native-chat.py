@@ -149,6 +149,11 @@ def request_metrics(env):
         return {}
 
 
+def verify_request_budget(metrics):
+    if metrics.get('body_inspected') is not True or metrics.get('num_predict') != 32:
+        raise ValueError('Native smoke generation limit was not established on the wire')
+
+
 def command(cli, arguments, env, *, timeout=180):
     started = time.monotonic()
     process = subprocess.Popen([str(cli), *arguments], env=env, stdout=subprocess.PIPE,
@@ -216,6 +221,9 @@ def run(cli, ollama, seed):
                                      plugin_root=ROOT / 'openclaw-plugin/argos-improve')
         # A bounded CI response, not a change to the shipped assistant budget.
         config['models']['providers']['ollama']['models'][0]['maxTokens'] = 32
+        # maxTokens is catalog metadata in the pinned native provider. The
+        # actual Ollama request budget must be an explicit native model option.
+        config['models']['providers']['ollama']['models'][0]['params'] = {'num_predict': 32}
         config['gateway']['auth']['token'] = 'fictional-public-native-chat-fixture'
         path = state / 'openclaw.json'
         path.write_text(json.dumps(config))
@@ -236,6 +244,7 @@ def run(cli, ollama, seed):
             result = summary(command(cli, ['agent', '--local', '--agent', 'main', '--message',
                 'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
                 '--timeout', '180', '--json'], env, timeout=240))
+            verify_request_budget(request_metrics(env))
             observed = placement(client.ps().get('models', []), starter.TAG)
             if observed['mode'] != 'CPU':
                 raise ValueError('Native chat CPU placement was not established: ' + json.dumps(observed))
