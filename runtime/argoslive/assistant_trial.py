@@ -2,8 +2,8 @@
 
 The change is an Argos-managed block appended to the workspace AGENTS.md. Personality
 files, OpenClaw configuration and Argos settings must stay byte-identical. Evidence comes
-from independent tasks sent through the running gateway, before and after, in fresh
-sessions; lab scores are never used. The owner approves the trial, then keeps or restores
+from independent tool-free embedded tasks, before and after, in ephemeral state;
+lab scores are never used. The owner approves the trial, then keeps or restores
 it. Restores are byte-exact and refused when the owner has edited the file since.
 """
 import copy
@@ -513,7 +513,7 @@ def recover(home):
 
 
 class OpenClawRunner:
-    """One turn through the running gateway, in a fresh session that is not the owner's chat."""
+    """One tool-free embedded evaluation turn, outside the owner's gateway/state."""
 
     def __init__(self, home, executable=None):
         self.home, self.executable = Path(home), executable
@@ -569,27 +569,31 @@ class OpenClawRunner:
                 raise ValueError('A workspace default could not be verified')
 
     def turn(self, text, timeout=180):
+        from .evaluation_context import isolated
+        with isolated(self.home, agents_path(self.home).parent) as (home, config, workspace):
+            return self._embedded_turn(text, timeout, home, config, workspace)
+
+    def _embedded_turn(self, text, timeout, home, config, workspace):
         from .owned_gateway import environment
         if type(timeout) not in (int, float) or timeout <= 0:
             raise TrialTurnError('turn-timeout')
         executable = self.executable or shutil.which('openclaw')
         if not executable:
             raise ValueError('OpenClaw is unavailable')
-        config = storage.safe_local(self.home / '.openclaw/openclaw.json')
-        env = environment(self.home, config)
+        env = environment(home, config)
         env.pop('OPENCLAW_GATEWAY_STARTUP_TRACE', None)
         session = str(uuid.uuid4())
         started = time.monotonic()
         timeout = max(1, int(timeout))
-        command = [str(executable), 'agent', '--agent', 'main', '--session-id', session,
+        command = [str(executable), 'agent', '--local', '--agent', 'main', '--session-id', session,
                    '--session-key', 'agent:main:argos-trial-' + session,
                    '--message', text, '--timeout', str(timeout), '--json']
-        with subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+        with subprocess.Popen(command, env=env, cwd=workspace, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
             deadline = time.monotonic() + timeout
             while True:
                 if (self.cancel_event and self.cancel_event.is_set()) or time.monotonic() >= deadline:
                     cancelled = bool(self.cancel_event and self.cancel_event.is_set())
-                    process.terminate()  # Pinned CLI forwards termination to the gateway's chat.abort.
+                    process.terminate()  # Embedded work has no owner gateway queue to resume.
                     try:
                         process.communicate(timeout=10)
                     except subprocess.TimeoutExpired:

@@ -13,6 +13,7 @@ on:
       - 'runtime/argoslive/model_selection.py'
       - 'runtime/argoslive/owned_gateway.py'
       - 'runtime/argoslive/auto_setup.py'
+      - 'runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md'
       - 'runtime/argoslive/startup.py'
       - 'openclaw-plugin/**'
       - 'runtime/argoslive/starter.py'
@@ -59,6 +60,7 @@ jobs:
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: native-local-chat
           path: |

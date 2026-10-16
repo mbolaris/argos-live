@@ -77,7 +77,10 @@ class TrialTests(unittest.TestCase):
         workspace = self.home / '.openclaw/workspace'
         workspace.mkdir(parents=True)
         (self.home / '.config/argos-live').mkdir(parents=True)
-        (self.home / '.openclaw/openclaw.json').write_text(json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}))
+        (self.home / '.openclaw/openclaw.json').write_text(json.dumps({
+            'agents': {'defaults': {'workspace': str(workspace), 'model': {'primary': 'ollama/fixture'}}},
+            'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434',
+                'models': [{'id': 'fixture', 'name': 'fixture'}]}}}}))
         (self.home / '.config/argos-live/state.json').write_text('{"model": "fixture"}')
         self.original = '# Operating notes\r\nBe kind and brief.'  # no trailing newline, CRLF: must survive byte-exact
         (workspace / 'AGENTS.md').write_bytes(self.original.encode())
@@ -651,7 +654,7 @@ class TrialTests(unittest.TestCase):
         config.write_text(json.dumps(value))
         self.assertEqual(at.agents_path(self.home), alternate / 'AGENTS.md')
 
-    def test_runner_uses_unique_gateway_session_without_behavior_override(self):
+    def test_runner_uses_unique_embedded_session_without_owner_gateway(self):
         with patch.object(at.uuid, 'uuid4', return_value='unique-turn'), patch.object(at.subprocess, 'Popen') as spawn:
             process = spawn.return_value.__enter__.return_value
             process.returncode = 0
@@ -660,7 +663,7 @@ class TrialTests(unittest.TestCase):
             reply = at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
             command = spawn.call_args.args[0]
             self.assertIn('agent:main:argos-trial-unique-turn', command)
-            self.assertNotIn('--local', command)
+            self.assertIn('--local', command)
             self.assertNotIn('--deliver', command)
             self.assertNotIn('--thinking', command)
             self.assertEqual(reply['text'], 'A reply')

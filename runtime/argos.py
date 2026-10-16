@@ -223,7 +223,14 @@ def select_model(model):
     state = load()
     if not model or not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or 'cloud' in model.split(':')[-1]:
         raise ValueError('Specify a local model with --model, for example qwen3:8b.')
-    installed = weights_installed(state['storage'], model)
+    from argoslive import starter
+    if model == starter.TAG:
+        starter.read_only(SEED)
+        installed = True
+    else:
+        installed = weights_installed(state['storage'], model)
+    if not installed:
+        raise ValueError('Download and verify this model before selecting it; current selection was preserved.')
     previous_source = state.get('model_source')
     print(f"Select {model}; model storage remains {state['storage']}. "
           + ('Its weights are installed.' if installed else 'No weights downloaded yet.'))

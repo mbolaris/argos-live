@@ -160,6 +160,8 @@ class AutoSetupTests(unittest.TestCase):
         initial = json.loads(self.config.read_text())
         marker = (self.models / '.argos-storage-id').read_bytes()
         with patch.object(argos, 'STATE', self.state), patch.object(argos, 'OC', self.config.parent), \
+                patch.object(argos, 'weights_installed', return_value=True), \
+                patch('argoslive.starter.read_only', return_value=self.seed), \
                 patch('builtins.input', return_value='yes'), redirect_stdout(io.StringIO()):
             for model, source in [('qwen3:1.7b', 'managed'), (starter.TAG, 'bundled')]:
                 argos.select_model(model)

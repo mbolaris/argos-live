@@ -1,9 +1,12 @@
 import copy
+from contextlib import closing
 import importlib.util
 import json
+import sqlite3
+import tempfile
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('native_chat', ROOT / 'scripts/smoke-native-chat.py')
@@ -12,6 +15,92 @@ spec.loader.exec_module(module)
 
 
 class NativeChatTests(unittest.TestCase):
+    def test_native_budget_requires_observed_request_not_catalog_metadata(self):
+        module.verify_request_budget({'body_inspected': True, 'num_predict': 32})
+        for value in ({}, {'num_predict': 32}, {'body_inspected': True},
+                      {'body_inspected': True, 'num_predict': 4096},
+                      {'body_inspected': True, 'num_predict': -1}):
+            with self.assertRaises(ValueError):
+                module.verify_request_budget(value)
+
+    def test_request_report_is_revalidated_before_export(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'metrics.json'
+            path.write_text(json.dumps({'num_predict': 32, 'num_ctx': 32768,
+                'think': False, 'body_inspected': True, 'request_count': True,
+                'message_chars': 'private-canary', 'secret': 'private-canary'}))
+            report = module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)})
+            self.assertEqual(report, {'num_predict': 32, 'num_ctx': 32768,
+                                      'think': False, 'body_inspected': True})
+            path.write_text('x' * 32769)
+            self.assertEqual(module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)}), {})
+
+    def test_failure_metadata_only_exports_finite_allowlisted_numbers(self):
+        secret = 'fictional-private-text'
+        raw = {'meta': {'durationMs': 180000, 'aborted': True,
+            'agentMeta': {'promptTokens': 9000, 'usage': {'input': 9000, 'output': 33,
+                'total': float('inf'), 'cacheRead': True, secret: 123}, 'sessionId': secret},
+            'systemPromptReport': {'systemPrompt': {'chars': 34000, 'text': secret},
+                'tools': {'schemaChars': 8000, 'promptChars': secret}}, 'error': secret}}
+        report = module.failure_diagnostics({}, json.dumps(raw).encode())
+        self.assertTrue(report['aborted'])
+        self.assertEqual(report['numeric_metadata'], {'duration_ms': 180000,
+            'prompt_tokens': 9000, 'usage_input': 9000, 'usage_output': 33,
+            'systemPrompt_chars': 34000, 'tools_schemaChars': 8000})
+        self.assertNotIn(secret, json.dumps(report))
+        for value in ([], {'result': None}, {'meta': None}, {'meta': {'agentMeta': []}},
+                      {'meta': {'systemPromptReport': None}}):
+            report = module.failure_diagnostics({}, json.dumps(value).encode())
+            self.assertEqual(report['numeric_metadata'], {})
+
+    def test_failure_diagnostics_are_bounded_read_only_and_do_not_export_content(self):
+        with tempfile.TemporaryDirectory() as temp:
+            state = Path(temp)
+            path = state / 'agents/main/agent/openclaw-agent.sqlite'
+            path.parent.mkdir(parents=True)
+            with closing(sqlite3.connect(path)) as connection:
+                connection.execute('CREATE TABLE transcript_events (created_at INTEGER, event_json TEXT)')
+                secret = 'fictional-private-content'
+                event = {'message': {'role': 'assistant', 'content': [
+                    {'type': 'thinking', 'thinking': secret},
+                    {'type': 'toolCall', 'name': 'exec', 'arguments': {'command': secret}},
+                    {'type': 'toolCall', 'name': secret}]}}
+                connection.executemany('INSERT INTO transcript_events VALUES (?, ?)',
+                    [(i, json.dumps(event)) for i in range(70)] +
+                    [(71, 'bad json'), (72, 'x' * (1048576 + 1))])
+                connection.commit()
+            before = path.read_bytes()
+            report = module.failure_diagnostics({'OPENCLAW_STATE_DIR': str(state)},
+                                                secret.encode(), secret.encode())
+            self.assertEqual(report['scanned_events'], 64)
+            self.assertEqual(report['skipped_events'], 2)
+            self.assertEqual(report['tool_calls']['exec'], 62)
+            self.assertEqual(report['tool_calls']['other'], 62)
+            self.assertNotIn(secret, json.dumps(report))
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_missing_or_unreadable_diagnostics_do_not_mask_command_failure(self):
+        self.assertEqual(module.failure_diagnostics({})['transcript_scan'], 'unavailable')
+        with tempfile.TemporaryDirectory() as temp:
+            self.assertEqual(module.failure_diagnostics({'OPENCLAW_STATE_DIR': temp})
+                             ['transcript_scan'], 'absent')
+
+    def test_outer_timeout_exports_counters_and_still_cleans_process(self):
+        process = MagicMock()
+        process.communicate.side_effect = module.subprocess.TimeoutExpired(
+            ['private-command'], 1, output=b'private-reply', stderr=b'private-token')
+        with patch.object(module.subprocess, 'Popen', return_value=process), \
+                patch.object(module, 'stop_group') as stop:
+            with self.assertRaises(ValueError) as failure:
+                module.command('fixture-cli', [], {}, timeout=1)
+        text = str(failure.exception)
+        self.assertIn('outer deadline exceeded', text)
+        self.assertIn('stdout_bytes', text)
+        self.assertNotIn('private', text)
+        stop.assert_called_once_with(process)
+        process.stdout.close.assert_called_once()
+        process.stderr.close.assert_called_once()
+
     def setUp(self):
         self.reply = {'payloads': [{'text': 'Hello from the local fixture.'}],
             'meta': {'agentMeta': {'provider': 'ollama', 'model': 'qwen3:0.6b'}}}

@@ -22,6 +22,7 @@ from argoslive import auto_setup, starter, storage
 from argoslive.desktop import reconnect, serve, session_url
 from argoslive.ollama import NoRedirect
 from argoslive.owned_gateway import owned as gateway_owned
+from argoslive import owned_gateway as gateway_runtime
 from argoslive.owned_ollama import owned as backend_owned, owns_port
 from argoslive.startup import Controller
 
@@ -39,6 +40,19 @@ def run(cli, ollama, seed):
         root = home / '.local/state/argos-live'
         root.mkdir(parents=True, mode=0o700)
         selected = home / 'managed-models'
+        probe_path = home / 'native-request-metrics.json'
+        @contextmanager
+        def observed_gateway(target, **options):
+            original_environment = gateway_runtime.environment
+            def fixture_environment(owned_home, config):
+                env = original_environment(owned_home, config)
+                env.update(NODE_OPTIONS='--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri(),
+                    ARGOS_NATIVE_REQUEST_REPORT=str(probe_path), ARGOS_NATIVE_OPENCLAW_ENTRY=str(cli.resolve()))
+                return env
+            # Only this disposable fixture's owned gateway receives the probe.
+            with patch.object(gateway_runtime, 'environment', fixture_environment):
+                with gateway_owned(target, executable=cli, **options) as origin:
+                    yield origin
         def configure(home, **options):
             result = auto_setup.configure(home, planner=lambda required: {'path': str(selected),
                 'kind': 'disk', 'encrypted': None}, verify_seed=lambda: starter.read_only(seed),
@@ -49,11 +63,12 @@ def run(cli, ollama, seed):
                 path = home / '.openclaw/openclaw.json'
                 config = json.loads(path.read_text())
                 config['models']['providers']['ollama']['models'][0]['maxTokens'] = 32
+                config['models']['providers']['ollama']['models'][0]['params'] = {'num_predict': 32}
                 path.write_text(json.dumps(config))
             return result
         controller = Controller(home, configure=configure,
             backend=lambda target, **options: backend_owned(target, executable=ollama, **options),
-            gateway=lambda home, **options: gateway_owned(home, executable=cli, **options))
+            gateway=observed_gateway)
         stop = threading.Event()
         errors = []
         def launch():
@@ -147,11 +162,16 @@ def run(cli, ollama, seed):
                 if request('/api/startup')['phase'] != 'ready':
                     raise ValueError('Selected native OpenClaw assistant is not ready')
                 native = runpy.run_path(str(ROOT / 'scripts/smoke-native-chat.py'))
+                probe_path.unlink(missing_ok=True)
+                chat_env = native['child_environment'](home)
+                chat_env['ARGOS_NATIVE_REQUEST_REPORT'] = str(probe_path)
                 # The pinned host rejects --local when this owned gateway runs.
                 # Exercise the live gateway's agent path, not a competing embedded host.
                 native['summary'](native['command'](cli, ['agent', '--agent', 'main', '--message',
                     'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
-                    '--timeout', '180', '--json'], native['child_environment'](home), timeout=240))
+                    '--timeout', '180', '--json'], chat_env, timeout=240))
+                wire_request = native['request_metrics'](chat_env)
+                native['verify_request_budget'](wire_request)
                 request('/api/startup/stop', 'POST')
                 controller.worker.join(timeout=30)
                 if controller.snapshot()['phase'] != 'stopped' or controller.worker.is_alive():
@@ -231,6 +251,7 @@ def run(cli, ollama, seed):
         'native_model_lab_completed': True, 'model_lab_assistant_resumed': True,
         'native_verified_model_selection': True,
         'native_openclaw_gateway_reply_after_starter_reselection': True,
+        'wire_request': wire_request,
         'configuration_unchanged': True, 'weights_copied': False, 'startup_metrics': report['metrics'],
         'browser_conversation_verified': False, 'physical_acceptance': False}
 
