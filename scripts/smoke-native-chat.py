@@ -142,7 +142,8 @@ def request_metrics(env):
         result = {key: value[key] for key in allowed if type(value.get(key)) in (int, float)
                   and math.isfinite(value[key]) and -2 <= value[key] <= 10**12}
         result.update({key: value[key] for key in ('body_inspected', 'num_predict_present',
-                      'num_ctx_present', 'think') if type(value.get(key)) is bool})
+                      'num_ctx_present', 'think', 'probe_loaded', 'runtime_fetch_hooked')
+                      if type(value.get(key)) is bool})
         return result
     except (KeyError, OSError, ValueError, OverflowError):
         return {}
@@ -224,6 +225,7 @@ def run(cli, ollama, seed):
         # it forwards the original fetch unchanged and records no request text.
         env['NODE_OPTIONS'] = '--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri()
         env['ARGOS_NATIVE_REQUEST_REPORT'] = str(home / 'native-request-metrics.json')
+        env['ARGOS_NATIVE_OPENCLAW_ENTRY'] = str(cli.resolve())
         version = command(cli, ['--version'], env, timeout=30).decode()
         if pins['OPENCLAW_VERSION'] not in re.findall(r'\d{4}\.\d+\.\d+', version):
             raise ValueError('Native host differs from the accepted pin')

@@ -1,6 +1,7 @@
 // Disposable native smoke only. Observe numeric request options without changing
 // transport, body, headers, prompts or responses. Never export request content.
 import {writeFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
 
 export function observeRequests(original, reportPath) {
   let count=0;
@@ -10,7 +11,7 @@ export function observeRequests(original, reportPath) {
       const url=new URL(typeof input==='string' || input instanceof URL ? input : input?.url);
       if (url.origin==='http://127.0.0.1:11434' && url.pathname==='/api/chat') {
         count++;
-        const metrics={request_count:count,body_inspected:false};
+        const metrics={probe_loaded:true,request_count:count,body_inspected:false};
         // The pinned provider passes a serialized JSON body. Do not consume a
         // Request stream or clone a response if a different call shape appears.
         if (typeof init?.body==='string' && Buffer.byteLength(init.body)<=2*1024**2) {
@@ -35,5 +36,23 @@ export function observeRequests(original, reportPath) {
   };
 }
 
-if (process.env.ARGOS_NATIVE_REQUEST_REPORT)
-  globalThis.fetch=observeRequests(globalThis.fetch,process.env.ARGOS_NATIVE_REQUEST_REPORT);
+export function hookRuntimeFetch(runtime,reportPath) {
+  if (typeof runtime?.fetch!=='function') return false;
+  runtime.fetch=observeRequests(runtime.fetch,reportPath);
+  return true;
+}
+
+if (process.env.ARGOS_NATIVE_REQUEST_REPORT) {
+  const path=process.env.ARGOS_NATIVE_REQUEST_REPORT;
+  globalThis.fetch=observeRequests(globalThis.fetch,path);
+  let runtimeHooked=false;
+  try {
+    // OpenClaw's dispatcher-aware guarded path uses the pinned dependency's
+    // fetch directly. Resolve from that exact CLI entry, not this repo's deps.
+    const runtime=createRequire(process.env.ARGOS_NATIVE_OPENCLAW_ENTRY)('undici');
+    runtimeHooked=hookRuntimeFetch(runtime,path);
+  } catch (_) { /* Explicit activation report distinguishes an unavailable hook. */ }
+  try {writeFileSync(path,JSON.stringify({probe_loaded:true,
+    runtime_fetch_hooked:runtimeHooked,request_count:0,body_inspected:false}),{mode:0o600});}
+  catch (_) { /* Diagnostics must not change the fixture outcome. */ }
+}

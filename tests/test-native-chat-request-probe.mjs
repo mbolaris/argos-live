@@ -3,7 +3,24 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,existsSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {observeRequests} from '../scripts/native-chat-request-probe.mjs';
+import {observeRequests,hookRuntimeFetch} from '../scripts/native-chat-request-probe.mjs';
+
+test('dispatcher runtime fetch is observed without changing its options or result',()=>{
+  const root=mkdtempSync(join(tmpdir(),'argos-wire-runtime-'));
+  try {
+    const path=join(root,'metrics.json');
+    let received;
+    const result=Promise.resolve('fixture');
+    const runtime={fetch:(...args)=>{received=args;return result;}};
+    assert.equal(hookRuntimeFetch(runtime,path),true);
+    const init={dispatcher:{fixture:true},body:JSON.stringify({options:{num_predict:32}})};
+    assert.equal(runtime.fetch('http://127.0.0.1:11434/api/chat',init),result);
+    assert.equal(received[1],init);
+    const report=JSON.parse(readFileSync(path,'utf8'));
+    assert.equal(report.num_predict,32);assert.equal(report.probe_loaded,true);
+    assert.equal(hookRuntimeFetch({},path),false);
+  } finally {rmSync(root,{recursive:true,force:true});}
+});
 
 test('probe preserves fetch arguments and response; exports only numeric options',()=>{
   const root=mkdtempSync(join(tmpdir(),'argos-wire-test-'));
