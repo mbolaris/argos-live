@@ -583,7 +583,32 @@
       </div>
       <button id="chat-fallback" type="button" disabled>Talk to Argos</button>
     </section>
-    <nav class="lab-nav" aria-label="Workspace sections"><a href="#cc-title">Mission Control</a><a href="#benchmarks-title">Test performance</a><a href="#storage-title">Choose model storage</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Add a capability</a><a href="#hardware-title">Hardware details</a></nav>
+    <nav class="lab-nav" aria-label="Workspace sections"><a href="#improve-title">Self-improvement</a><a href="#cc-title">Mission Control</a><a href="#benchmarks-title">Test performance</a><a href="#storage-title">Choose model storage</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Add a capability</a><a href="#hardware-title">Hardware details</a></nav>
+    <section aria-labelledby="improve-title" id="improve">
+      <h2 id="improve-title">Self-improvement</h2>
+      <p>Tell your assistant <strong>"improve yourself"</strong> in chat. It benchmarks itself, upgrades and reconfigures, and keeps only what measurably helps. Watch its tool calls in the chat; follow its scores here.</p>
+      <div class="improve-stats">
+        <div class="improve-stat"><span>Model</span><strong id="improve-model">-</strong></div>
+        <div class="improve-stat"><span>Best score</span><strong id="improve-best">-</strong></div>
+        <div class="improve-stat"><span>Since first run</span><strong id="improve-gain">-</strong></div>
+        <div class="improve-stat"><span>Assistant runs</span><strong id="improve-count">0</strong></div>
+      </div>
+      <article class="card improve-live" id="improve-live" hidden>
+        <h3 id="improve-live-title">Live test</h3>
+        <div class="improve-bar" aria-hidden="true"><div id="improve-bar-fill"></div></div>
+        <p id="improve-live-status" aria-live="polite"></p>
+        <ol id="improve-live-items" class="improve-items"></ol>
+      </article>
+      <article class="card">
+        <h3>Score history</h3>
+        <svg id="improve-chart" class="improve-chart" viewBox="0 0 640 230" role="img" aria-label="Assistant benchmark scores over time"></svg>
+        <p id="improve-chart-note">No assistant benchmark yet.</p>
+      </article>
+      <article class="card">
+        <h3>Agent journal</h3>
+        <pre id="improve-journal" class="improve-journal">The agent's IMPROVEMENT-LOG.md appears here once it starts a campaign.</pre>
+      </article>
+    </section>
     <section aria-labelledby="benchmarks-title">
       <h2 id="benchmarks-title">Detailed test records</h2>
       <p>How fast does it answer? Which tasks does it get right? Build a baseline you can compare after each model upgrade.</p>

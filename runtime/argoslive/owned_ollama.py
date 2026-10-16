@@ -9,6 +9,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 
 from .ollama import Client, NotRunning
@@ -16,7 +17,7 @@ from .storage import safe_local
 from .pull_jobs import worker_lock
 from .private_files import private_log
 
-PIN = '0.35.1'
+PIN = '0.40.5'
 
 
 def supervisor_pid(process, *, deadline, cancel=None):
@@ -86,7 +87,36 @@ def owns_port(pid, port):
 
 
 @contextmanager
-def owned(target, *, executable=None, timeout=180, lease_store=None, port=0, context_tokens=2048, cancel=None):
+def owned(target, **options):
+    """Serve a model store; a read-only store (the image seed) gets a private writable shadow.
+
+    Ollama 0.40 writes to its model directory and fails on a read-only one. The
+    shadow holds copied manifests (a few KB) and links to the unchanged blobs.
+    """
+    target = safe_local(target)
+    if os.access(target, os.W_OK):
+        with _owned(target, **options) as client:
+            yield client
+        return
+    with tempfile.TemporaryDirectory(prefix='argos-ollama-shadow-') as temp:
+        shadow = Path(temp) / 'models'
+        for path in sorted((target / 'manifests').rglob('*')):
+            destination = shadow / path.relative_to(target)
+            if path.is_dir():
+                destination.mkdir(parents=True, exist_ok=True)
+            elif path.is_file():
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(path.read_bytes())
+        (shadow / 'blobs').mkdir(parents=True, exist_ok=True)
+        for blob in sorted((target / 'blobs').iterdir()):
+            os.symlink(blob, shadow / 'blobs' / blob.name)
+        options.setdefault('lease_store', Path(temp))
+        with _owned(shadow, **options) as client:
+            yield client
+
+
+@contextmanager
+def _owned(target, *, executable=None, timeout=180, lease_store=None, port=0, context_tokens=2048, cancel=None):
     if sys.platform != 'linux':
         raise ValueError('Owned Ollama onboarding requires Linux')
     if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 600:

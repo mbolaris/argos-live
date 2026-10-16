@@ -37,11 +37,17 @@ def source(home):
             allowed.update(value for value in values if isinstance(value, str))
     denied = set(tools.get('deny', [])) if isinstance(tools.get('deny'), list) else set()
     reviewed_tools = {'group:fs', 'argos_evaluate', 'argos_compare'}
+    legacy_policy = (tools.get('profile') == 'minimal' and
+                     {'gateway', 'group:runtime', 'group:web', 'browser'} <= denied and
+                     'group:fs' not in denied and allowed == reviewed_tools)
+    improvement_policy = (tools.get('profile') == 'minimal' and denied == {'gateway', 'browser'} and
+                          allowed == {'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'} and
+                          # OpenClaw doctor normalizes security=full/ask=off to the equivalent mode=full.
+                          tools.get('exec') in ({'host': 'gateway', 'security': 'full', 'ask': 'off'},
+                                                {'host': 'gateway', 'mode': 'full'}))
     if (not isinstance(provider, dict) or provider.get('baseUrl') != 'http://127.0.0.1:11434' or
             provider.get('api') != 'ollama' or primary != 'ollama/' + str(model) or
-            tools.get('profile') != 'minimal' or not isinstance(tools.get('deny'), list) or
-            not {'gateway', 'group:runtime', 'group:web', 'browser'} <= denied or
-            'group:fs' in denied or allowed != reviewed_tools or
+            not isinstance(tools.get('deny'), list) or not (legacy_policy or improvement_policy) or
             tools.get('elevated', {}).get('enabled') is not False or
             config.get('commands', {}).get('bash') is not False or
             config.get('commands', {}).get('restart') is not False or config.get('channels')):

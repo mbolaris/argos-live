@@ -43,27 +43,77 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             self.assertEqual(result['prompt_fingerprint']['workspace_agents_sha256'],
                              hashlib.sha256(instructions.read_bytes()).hexdigest())
 
-    def test_instruction_change_during_run_marks_partial_failure(self):
+    def test_no_answer_is_scored_wrong_and_the_run_continues(self):
+        class SilentOnce(FakeOpenClaw):
+            def turn(self, prompt):
+                if self.calls == 16:
+                    self.calls += 1
+                    raise TrialTurnError('empty-reply')
+                return super().turn(prompt)
+
+        result = bench_openclaw.run(runner=SilentOnce())
+        self.assertEqual(result['state'], 'completed')
+        self.assertEqual(result['coverage'], {'completed': 20, 'total': 20, 'complete': True})
+        silent = result['items'][16]
+        self.assertTrue(silent['no_reply'])
+        self.assertEqual((silent['score'], silent['outcome']), (0, 'format_error'))
+        self.assertEqual(result['summary']['correct'], 19)
+
+    def test_infrastructure_errors_still_stop_the_run(self):
+        result = bench_openclaw.run(runner=FakeOpenClaw(fail_at=3))
+        self.assertEqual((result['state'], result['failure_code']), ('failed', 'assistant-error'))
+
+    def test_files_left_in_the_workspace_are_moved_aside_and_reported(self):
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp)
             workspace = home / '.openclaw/workspace'
             workspace.mkdir(parents=True)
-            instructions = workspace / 'AGENTS.md'
-            instructions.write_text('Original instructions\n', encoding='utf-8')
-            config = home / '.openclaw/openclaw.json'
-            config.write_text(json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}), encoding='utf-8')
+            (workspace / 'AGENTS.md').write_text('Instructions\n', encoding='utf-8')
+            (workspace / 'IMPROVEMENT-LOG.md').write_text('# Log\n', encoding='utf-8')
+            (home / '.openclaw/openclaw.json').write_text(
+                json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}), encoding='utf-8')
 
-            class MutatingRunner(FakeOpenClaw):
+            class Littering(FakeOpenClaw):
                 def turn(self, prompt):
+                    if self.calls == 2:
+                        (workspace / 'OUTPUT.txt').write_text('scratch', encoding='utf-8')
+                    return super().turn(prompt)
+
+            result = bench_openclaw.run(home=home, runner=Littering())
+            self.assertEqual(result['state'], 'completed')
+            self.assertEqual(sorted(p.name for p in workspace.iterdir()), ['AGENTS.md', 'IMPROVEMENT-LOG.md'])
+            self.assertEqual(result['workspace_side_effects']['moved_entries'], ['OUTPUT.txt'])
+            moved = Path(result['workspace_side_effects']['moved_to'])
+            self.assertEqual((moved / 'OUTPUT.txt').read_text(encoding='utf-8'), 'scratch')
+
+    def test_a_task_that_rewrites_the_instructions_is_undone_before_the_next_task(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            workspace = home / '.openclaw/workspace'
+            (workspace / 'tools').mkdir(parents=True)
+            guide = workspace / 'AGENTS.md'
+            guide.write_text('Real guidebook\n', encoding='utf-8')
+            (workspace / 'tools/argos-control.py').write_text('print(1)\n', encoding='utf-8')
+            (home / '.openclaw/openclaw.json').write_text(
+                json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}), encoding='utf-8')
+            seen = []
+
+            class Overwriting(FakeOpenClaw):
+                def turn(self, prompt):
+                    seen.append(guide.read_text(encoding='utf-8'))
                     answer = super().turn(prompt)
-                    if self.calls == 1:
-                        instructions.write_text('Changed during run\n', encoding='utf-8')
+                    if self.calls == 5:
+                        guide.write_text('storage optimization', encoding='utf-8')
+                        (workspace / 'tools/argos-control.py').unlink()
                     return answer
 
-            result = bench_openclaw.run(home=home, runner=MutatingRunner())
-            self.assertEqual(result['state'], 'failed')
-            self.assertEqual(result['failure_code'], 'instruction-changed-during-run')
-            self.assertFalse(result['coverage']['complete'])
+            result = bench_openclaw.run(home=home, runner=Overwriting())
+            self.assertEqual(result['state'], 'completed')
+            self.assertEqual(set(seen), {'Real guidebook\n'})
+            self.assertEqual(guide.read_text(encoding='utf-8'), 'Real guidebook\n')
+            self.assertTrue((workspace / 'tools/argos-control.py').is_file())
+            self.assertEqual(result['workspace_restored'][0]['files'], ['AGENTS.md', 'tools/argos-control.py'])
+            self.assertTrue(result['restoration']['mutated'])
 
     def test_failed_turn_saves_partial_evidence_but_cannot_be_compared(self):
         partial = bench_openclaw.run(runner=FakeOpenClaw(fail_at=6))

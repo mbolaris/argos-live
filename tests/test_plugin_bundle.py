@@ -26,6 +26,8 @@ class ImprovementPluginBundleTests(unittest.TestCase):
 
     def test_generated_manifest_covers_the_code_bundle_and_detects_drift(self):
         source = ROOT / 'openclaw-plugin/argos-improve'
+        self.assertEqual(refresh.inventory(source),
+                         json.loads((source / 'files.sha256.json').read_text()))
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / 'plugin'
             shutil.copytree(source, target, ignore=shutil.ignore_patterns('node_modules', 'files.sha256.json'))

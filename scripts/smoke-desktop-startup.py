@@ -40,9 +40,17 @@ def run(cli, ollama, seed):
         root.mkdir(parents=True, mode=0o700)
         selected = home / 'managed-models'
         def configure(home, **options):
-            return auto_setup.configure(home, planner=lambda required: {'path': str(selected),
+            result = auto_setup.configure(home, planner=lambda required: {'path': str(selected),
                 'kind': 'disk', 'encrypted': None}, verify_seed=lambda: starter.read_only(seed),
                 probe_persistence=lambda: {'active': False, 'encrypted': None}, **options)
+            if result['status'] == 'created':
+                # Same bounded CPU greeting as smoke-native-chat; retain all
+                # shipped tools and deadlines. Production budgets are unchanged.
+                path = home / '.openclaw/openclaw.json'
+                config = json.loads(path.read_text())
+                config['models']['providers']['ollama']['models'][0]['maxTokens'] = 32
+                path.write_text(json.dumps(config))
+            return result
         controller = Controller(home, configure=configure,
             backend=lambda target, **options: backend_owned(target, executable=ollama, **options),
             gateway=lambda home, **options: gateway_owned(home, executable=cli, **options))

@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from argoslive import addons
 from argoslive.ability import object_pairs
 from argoslive.web import status as live_status
-from argoslive.web import models
+from argoslive.web import improve, models
 from argoslive.web.benchmarks import View as BenchmarkView
 
 ASSETS = Path(__file__).with_name('static')
@@ -174,6 +174,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.reply(200, self.server.lab.events_after(after, run_id=run_id), head=head)
                 except (ValueError, OSError, TypeError):
                     self.reply(400, {'error': 'Invalid event parameters'}, head=head)
+        elif path == '/api/improve':
+            self.reply(200, improve.snapshot(self.server.startup.home if self.server.startup else None), head=head)
         elif path == '/api/startup':
             self.reply(200, self.server.startup.snapshot() if self.server.startup else
                        {'schema': 'argos-startup/1', 'managed': False}, head=head)
