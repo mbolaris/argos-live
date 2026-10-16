@@ -157,7 +157,9 @@ next improvement. Mark the goal complete, and add a `## Done` section with that
 final report at the end of `IMPROVEMENT-LOG.md`.
 
 A heartbeat nudges you every few minutes while your log has a `## Next` step and
-no `## Done` section, so you keep working across turns. Never end a turn with only
+no `## Done` section, so you keep working across turns and restarts. Each
+heartbeat starts in a fresh session that remembers nothing but this file and
+your log, so make every `## Next` line a complete instruction. Never end a turn with only
 analysis: take the next step, or write `## Next` or `## Done`.
 
 ## 7. Rules that never bend

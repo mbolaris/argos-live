@@ -28,7 +28,10 @@ def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
         'gateway': {'mode': 'local', 'bind': 'loopback', 'auth': {'mode': 'token', 'token': secrets.token_hex(32)}},
         'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(workspace),
                                 'skipBootstrap': True,
+                                # A fresh session per heartbeat: no chat history to outgrow the
+                                # context, and no dependence on a chat surviving a restart.
                                 'heartbeat': {'every': '3m', 'session': 'main', 'target': 'none',
+                                              'isolatedSession': True,
                                               'timeoutSeconds': 1800, 'prompt': HEARTBEAT_PROMPT}}},
         'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama',
             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,

@@ -79,6 +79,7 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertIs(config['tools']['toolSearch'], False)
                 heartbeat = config['agents']['defaults']['heartbeat']
                 self.assertEqual((heartbeat['session'], heartbeat['target']), ('main', 'none'))
+                self.assertIs(heartbeat['isolatedSession'], True)
                 self.assertIn('## Done', heartbeat['prompt'])
                 self.assertFalse(config['commands']['bash'])
                 self.assertNotIn('token', json.dumps(result))
