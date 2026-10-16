@@ -59,6 +59,7 @@ jobs:
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: native-local-chat
           path: |
