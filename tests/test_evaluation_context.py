@@ -45,7 +45,7 @@ class EvaluationIsolationTests(unittest.TestCase):
             self.assertFalse((workspace / 'tools').exists())
             self.assertFalse((workspace / 'IMPROVEMENT-LOG.md').exists())
             value = json.loads(config.read_bytes())
-            self.assertEqual(value['tools'], {'deny': ['*']})
+            self.assertEqual(value['tools'], {'deny': ['*'], 'toolSearch': False})
             self.assertEqual(value['plugins']['allow'], ['ollama'])
             self.assertEqual(value['plugins']['entries'], {'ollama': {'enabled': True}})
             self.assertEqual(value['plugins']['slots']['memory'], 'none')

@@ -77,7 +77,10 @@ def isolated(home, workspace):
                                     'models': {primary: {'agentRuntime': {'id': 'openclaw'}}}}},
             'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434',
                        'apiKey': 'ollama-local', 'api': 'ollama', 'models': [model]}}},
-            'tools': {'deny': ['*']},
+            # Tool Search stays off, as in the owner config: with every tool denied it
+            # still offered a tool_search meta-tool, and a capable model looped on it
+            # until the turn deadline (22 calls in 60 s) or answered about missing tools.
+            'tools': {'deny': ['*'], 'toolSearch': False},
             # Ollama inference itself is a pinned bundled provider plugin in
             # OpenClaw 2026.10.4. Permit only it, never the campaign plugin/tools.
             'plugins': {'allow': ['ollama'], 'entries': {'ollama': {'enabled': True}},
