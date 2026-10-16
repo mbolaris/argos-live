@@ -6,13 +6,13 @@ import json
 import os
 from pathlib import Path
 import secrets
-import shutil
 import time
 
 from . import ability, hw
 from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
 from .results import Store
+from .evaluation_context import EXECUTION_PATH
 
 
 PROTECTED_LIMIT = 1024 ** 2
@@ -33,26 +33,22 @@ def protected_files(workspace):
     return saved
 
 
-def restore_protected(workspace, saved):
-    """Put back any protected file a task changed or deleted; return their names."""
-    restored = []
+def changed_inputs(workspace, saved):
+    """Detect changed inputs without overwriting controller work."""
+    changed = []
     for name, original in saved.items():
         path = workspace / name
         try:
             if path.is_file() and not path.is_symlink() and path.read_bytes() == original:
                 continue
-            if path.is_symlink() or path.is_dir():
-                continue  # Never follow or replace unexpected links or folders; the final checks report it.
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(original)
-            restored.append(name)
+            changed.append(name)
         except OSError:
-            pass
-    return restored
+            changed.append(name)
+    return changed
 
 
 def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic):
-    """Run fixed tasks as fresh ordinary OpenClaw main-agent sessions."""
+    """Run fixed text tasks with copied instructions and no execution capabilities."""
     data = ability.load(suite)
     suite_path = ability.DATA / (suite + '.json')
     suite_digest = hashlib.sha256(suite_path.read_bytes()).hexdigest()
@@ -68,12 +64,12 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
     protected = protected_files(workspace)
 
     def protect(item_id):
-        # Tasks run with the assistant's normal tools; an answer must never
-        # rewrite its instructions or files for the tasks that follow.
-        restored = restore_protected(workspace, protected) if protected else []
-        if restored:
-            result['restoration'] = {'succeeded': True, 'mutated': True}
-            result.setdefault('workspace_restored', []).append({'item_id': item_id, 'files': restored})
+        # Evaluation cannot edit owner files. A concurrent controller edit is
+        # newer owner work: invalidate the comparison, never roll it back.
+        changed = changed_inputs(workspace, protected) if protected else []
+        if changed:
+            result['workspace_changed'] = {'item_id': item_id, 'files': changed}
+            raise TrialTurnError('workspace-changed-during-run')
     runner = runner or OpenClawRunner(home=home)
     started = clock()
     result = {
@@ -82,7 +78,7 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
         'suite': 'openclaw-' + suite,
         'suite_version': 'argos-openclaw-ability/' + suite + '/' + data['version'],
         'model': 'identity pending first OpenClaw turn', 'manifest_digest': None,
-        'settings': {'execution_path': 'openclaw gateway; fresh session per task',
+        'settings': {'execution_path': EXECUTION_PATH,
                      'suite_sha256': suite_digest},
         'prompt_fingerprint': {'workspace_agents_sha256': instruction_digest},
         'hardware': hw.snapshot(), 'state': 'running', 'items': [],
@@ -145,15 +141,12 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
         result['state'] = 'failed'
         result['failure_code'] = 'benchmark-changed-during-run'
     if workspace_before is not None:
-        # Tasks run with the assistant's normal tools, so answers can leave files
-        # in its workspace. Move them aside (never delete) and report them.
+        # Preserve concurrent owner/controller additions; never move them away.
         created = sorted(set(os.listdir(instruction_path.parent)) - workspace_before)
         if created:
-            scratch = Path(home) / '.local/state/argos-live/benchmark-scratch' / result['id']
-            scratch.mkdir(mode=0o700, parents=True)
-            for name in created:
-                shutil.move(str(instruction_path.parent / name), str(scratch / name))
-            result['workspace_side_effects'] = {'moved_entries': created, 'moved_to': str(scratch)}
+            result['workspace_side_effects'] = {'added_entries': created, 'preserved': True}
+            result['state'] = 'failed'
+            result['failure_code'] = 'workspace-changed-during-run'
     if instruction_path is not None:
         current_digest = (hashlib.sha256(instruction_path.read_bytes()).hexdigest()
                           if instruction_path.exists() else None)

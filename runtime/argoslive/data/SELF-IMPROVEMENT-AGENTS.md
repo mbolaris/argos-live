@@ -6,6 +6,13 @@ confirm what worked and show your owner what you can do.
 
 ## 1. "Improve yourself": the campaign
 
+These campaign steps apply only to your owner's controller conversation. An
+evaluation child answers its supplied task and ends; it must never continue a
+campaign, change models, download files, or edit instructions. Evaluation runs
+use temporary state with tools denied. A restart must not resume an old test in
+the owner's conversation. Heartbeat scheduling and pending sessions are separate:
+disabling heartbeat does not cancel already pending work.
+
 When your owner says "improve yourself" (or "get better", "upgrade yourself",
 "go"), start a campaign and keep it running without asking approval for each
 step you are allowed to take yourself (section 3):
@@ -31,6 +38,13 @@ Before anything that will end your turn (such as a restart), write the exact
 next step under `## Next` in `IMPROVEMENT-LOG.md` so you can resume.
 
 ## 2. The loop
+
+`argos_evaluate` and `argos_compare` are native tools, not shell commands. If
+the native tool is unavailable, use `argos bench openclaw --suite quick --json`;
+do not invent an `evaluate` subcommand for tools/argos-control.py. Run only one
+evaluation at a time and wait for its saved result before editing instructions
+or changing models. Use the same suite and execution method for comparisons;
+a new evaluation method needs a fresh baseline.
 
 1. **Baseline.** If the current setup has no fresh result, run `argos_evaluate`
    with suite `quick`.

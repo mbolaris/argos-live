@@ -63,7 +63,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         result = bench_openclaw.run(runner=FakeOpenClaw(fail_at=3))
         self.assertEqual((result['state'], result['failure_code']), ('failed', 'assistant-error'))
 
-    def test_files_left_in_the_workspace_are_moved_aside_and_reported(self):
+    def test_concurrent_workspace_additions_are_preserved_and_invalidate_run(self):
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp)
             workspace = home / '.openclaw/workspace'
@@ -80,13 +80,11 @@ class OpenClawBenchmarkTests(unittest.TestCase):
                     return super().turn(prompt)
 
             result = bench_openclaw.run(home=home, runner=Littering())
-            self.assertEqual(result['state'], 'completed')
-            self.assertEqual(sorted(p.name for p in workspace.iterdir()), ['AGENTS.md', 'IMPROVEMENT-LOG.md'])
-            self.assertEqual(result['workspace_side_effects']['moved_entries'], ['OUTPUT.txt'])
-            moved = Path(result['workspace_side_effects']['moved_to'])
-            self.assertEqual((moved / 'OUTPUT.txt').read_text(encoding='utf-8'), 'scratch')
+            self.assertEqual(result['state'], 'failed')
+            self.assertEqual(result['workspace_side_effects']['added_entries'], ['OUTPUT.txt'])
+            self.assertEqual((workspace / 'OUTPUT.txt').read_text(encoding='utf-8'), 'scratch')
 
-    def test_a_task_that_rewrites_the_instructions_is_undone_before_the_next_task(self):
+    def test_instruction_edits_are_preserved_and_stop_the_run(self):
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp)
             workspace = home / '.openclaw/workspace'
@@ -108,12 +106,11 @@ class OpenClawBenchmarkTests(unittest.TestCase):
                     return answer
 
             result = bench_openclaw.run(home=home, runner=Overwriting())
-            self.assertEqual(result['state'], 'completed')
+            self.assertEqual(result['state'], 'failed')
             self.assertEqual(set(seen), {'Real guidebook\n'})
-            self.assertEqual(guide.read_text(encoding='utf-8'), 'Real guidebook\n')
-            self.assertTrue((workspace / 'tools/argos-control.py').is_file())
-            self.assertEqual(result['workspace_restored'][0]['files'], ['AGENTS.md', 'tools/argos-control.py'])
-            self.assertTrue(result['restoration']['mutated'])
+            self.assertEqual(guide.read_text(encoding='utf-8'), 'storage optimization')
+            self.assertFalse((workspace / 'tools/argos-control.py').exists())
+            self.assertEqual(result['workspace_changed']['files'], ['AGENTS.md', 'tools/argos-control.py'])
 
     def test_failed_turn_saves_partial_evidence_but_cannot_be_compared(self):
         partial = bench_openclaw.run(runner=FakeOpenClaw(fail_at=6))
@@ -130,6 +127,13 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             self.assertEqual(saved['failure_code'], 'assistant-error')
             with self.assertRaisesRegex(ValueError, 'partial or cancelled'):
                 results.compare([saved, complete])
+
+    def test_old_gateway_runs_are_not_compared_to_isolated_runs(self):
+        old = bench_openclaw.run(runner=FakeOpenClaw())
+        old['settings']['execution_path'] = 'openclaw gateway; fresh session per task'
+        current = bench_openclaw.run(runner=FakeOpenClaw())
+        with self.assertRaisesRegex(ValueError, 'non-model settings'):
+            results.compare([old, current])
 
 
 if __name__ == '__main__':

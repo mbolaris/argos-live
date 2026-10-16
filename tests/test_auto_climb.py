@@ -1406,6 +1406,12 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         import subprocess
         from unittest.mock import patch, MagicMock
         cancel_evt = threading.Event()
+        config_path = self.home / '.openclaw/openclaw.json'
+        config = json.loads(config_path.read_text())
+        config['agents']['defaults']['model'] = {'primary': 'ollama/test-model'}
+        config['models'] = {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434',
+            'models': [{'id': 'test-model', 'name': 'test-model'}]}}}
+        config_path.write_text(json.dumps(config))
         runner = assistant_trial.OpenClawRunner(self.home, executable='openclaw')
         runner.cancel_event = cancel_evt
         cancel_evt.set()
