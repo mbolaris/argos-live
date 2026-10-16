@@ -38,12 +38,13 @@ class OnboardingQueue(Queue):
                     self.check(job)
                     if control.is_set():
                         raise Cancelled('Model onboarding paused')
+                stage = None
                 try:
                     check()
                     # Refuse to replace a preexisting tag, even on a failed pull.
                     existing = artifacts.manifest_path(target, entry['tag'])
                     if existing.exists():
-                        artifacts.check_local_manifest(artifacts.read_manifest(target, entry['tag']), entry)
+                        artifacts.check_local_manifest(artifacts.read_manifest(target, entry['tag']), entry, target)
                     revision(entry)  # Check mutable registry tag before any weight request.
                     staging = storage.safe_local(target / '.argos-pulls')
                     staging.mkdir(mode=0o700, exist_ok=True)
@@ -133,6 +134,9 @@ class OnboardingQueue(Queue):
                     job.update(state='failed', inference_ready=False,
                                error='Revision, storage, artifact or reply check failed',
                                error_detail=f'{type(exc).__name__}: {str(exc)[:200]}')
+                    if stage is not None:
+                        # A failed pull is never resumed; free its staging space.
+                        shutil.rmtree(stage, ignore_errors=True)
                 except KeyboardInterrupt:
                     job.update(state='paused', inference_ready=False)
                 save()

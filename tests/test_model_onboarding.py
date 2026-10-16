@@ -235,6 +235,27 @@ class OnboardingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'extra'):
             artifacts.check_local_manifest(json.dumps(other).encode(), self.entry)
 
+    def test_manifest_list_is_accepted_only_when_it_selects_the_reviewed_revision(self):
+        import hashlib, tempfile
+        kind = 'application/vnd.ollama.manifest.list.v2+json'
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / 'blobs').mkdir()
+
+            def stored(manifests):
+                doc = json.dumps({'schemaVersion': 2, 'mediaType': kind, 'manifests': manifests}).encode()
+                digest = 'sha256:' + hashlib.sha256(doc).hexdigest()
+                (Path(root) / 'blobs' / digest.replace(':', '-')).write_bytes(doc)
+                value = json.loads(self.raw)
+                value['layers'].append({'mediaType': kind, 'digest': digest, 'size': len(doc)})
+                return json.dumps(value).encode()
+
+            good = stored([{'digest': 'sha256:' + '1' * 64}, {'digest': self.entry['manifest_digest']}])
+            artifacts.check_local_manifest(good, self.entry, root)
+            with self.assertRaisesRegex(ValueError, 'extra'):
+                artifacts.check_local_manifest(good, self.entry)  # no store to read the list from
+            with self.assertRaisesRegex(ValueError, 'extra'):
+                artifacts.check_local_manifest(stored([{'digest': 'sha256:' + '1' * 64}]), self.entry, root)
+
     def test_registry_drift_blocks_backend_and_publication_checks_existing_blobs(self):
         with patch.object(artifacts, 'check_manifest', side_effect=ValueError('changed')):
             self.assertEqual(self.run_job()['state'], 'failed')
