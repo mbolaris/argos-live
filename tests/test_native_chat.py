@@ -15,6 +15,24 @@ spec.loader.exec_module(module)
 
 
 class NativeChatTests(unittest.TestCase):
+    def test_failure_metadata_only_exports_finite_allowlisted_numbers(self):
+        secret = 'fictional-private-text'
+        raw = {'meta': {'durationMs': 180000, 'aborted': True,
+            'agentMeta': {'promptTokens': 9000, 'usage': {'input': 9000, 'output': 33,
+                'total': float('inf'), 'cacheRead': True, secret: 123}, 'sessionId': secret},
+            'systemPromptReport': {'systemPrompt': {'chars': 34000, 'text': secret},
+                'tools': {'schemaChars': 8000, 'promptChars': secret}}, 'error': secret}}
+        report = module.failure_diagnostics({}, json.dumps(raw).encode())
+        self.assertTrue(report['aborted'])
+        self.assertEqual(report['numeric_metadata'], {'duration_ms': 180000,
+            'prompt_tokens': 9000, 'usage_input': 9000, 'usage_output': 33,
+            'systemPrompt_chars': 34000, 'tools_schemaChars': 8000})
+        self.assertNotIn(secret, json.dumps(report))
+        for value in ([], {'result': None}, {'meta': None}, {'meta': {'agentMeta': []}},
+                      {'meta': {'systemPromptReport': None}}):
+            report = module.failure_diagnostics({}, json.dumps(value).encode())
+            self.assertEqual(report['numeric_metadata'], {})
+
     def test_failure_diagnostics_are_bounded_read_only_and_do_not_export_content(self):
         with tempfile.TemporaryDirectory() as temp:
             state = Path(temp)

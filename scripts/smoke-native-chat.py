@@ -3,6 +3,7 @@
 import argparse
 from contextlib import closing
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -65,6 +66,35 @@ def failure_diagnostics(env, stdout=b'', stderr=b''):
     """
     report = {'stdout_bytes': len(stdout), 'stderr_bytes': len(stderr),
               'transcript_scan': 'absent'}
+    # The pinned host can return a structured failure with useful numeric usage
+    # and prompt-size metadata. Never copy arbitrary keys or free text from it.
+    try:
+        value = json.loads(stdout) if len(stdout) <= 1024**2 else {}
+        body = value.get('result', value)
+        meta = body.get('meta', {})
+        agent = meta.get('agentMeta', {})
+        numeric = {}
+        def number(label, value):
+            if type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 10**12:
+                numeric[label] = value
+        number('duration_ms', meta.get('durationMs'))
+        number('prompt_tokens', agent.get('promptTokens'))
+        for section in ('usage', 'lastCallUsage'):
+            usage = agent.get(section, {})
+            if isinstance(usage, dict):
+                for key in ('input', 'output', 'cacheRead', 'cacheWrite', 'total'):
+                    number(section + '_' + key, usage.get(key))
+        prompt = meta.get('systemPromptReport', {})
+        for section in ('systemPrompt', 'tools', 'skills'):
+            row = prompt.get(section, {})
+            if isinstance(row, dict):
+                for key in ('chars', 'schemaChars', 'promptChars'):
+                    number(section + '_' + key, row.get(key))
+        if type(meta.get('aborted')) is bool:
+            report['aborted'] = meta['aborted']
+        report['numeric_metadata'] = numeric
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        report['numeric_metadata'] = {}
     try:
         state = Path(env['OPENCLAW_STATE_DIR'])
         database = state / 'agents/main/agent/openclaw-agent.sqlite'
