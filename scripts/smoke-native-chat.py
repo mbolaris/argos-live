@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Hosted disposable native OpenClaw/Ollama chat acceptance, never owner state."""
 import argparse
+from contextlib import closing
 import json
 import os
 from pathlib import Path
 import re
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -55,12 +57,58 @@ def child_environment(home):
     return env
 
 
+def failure_diagnostics(env, stdout=b'', stderr=b''):
+    """Export only fixed-label counters from this disposable smoke fixture.
+
+    Never export event text, tool arguments, session IDs, configuration or raw
+    subprocess output. A failed diagnostic must not hide the original failure.
+    """
+    report = {'stdout_bytes': len(stdout), 'stderr_bytes': len(stderr),
+              'transcript_scan': 'absent'}
+    try:
+        state = Path(env['OPENCLAW_STATE_DIR'])
+        database = state / 'agents/main/agent/openclaw-agent.sqlite'
+        if database.is_file() and not database.is_symlink():
+            roles = dict.fromkeys(('assistant', 'user', 'toolResult', 'other'), 0)
+            calls = dict.fromkeys(('exec', 'write', 'edit', 'argos_evaluate', 'other'), 0)
+            with closing(sqlite3.connect(database.absolute().as_uri() + '?mode=ro',
+                                        uri=True, timeout=1)) as connection:
+                # Bound both the number and size of inspected events. Oversized
+                # rows are counted, but never decoded or included in the report.
+                rows = connection.execute('SELECT CASE WHEN length(event_json) <= 1048576 '
+                    'THEN event_json ELSE NULL END FROM transcript_events '
+                    'ORDER BY created_at DESC LIMIT 64').fetchall()
+            skipped = 0
+            for (raw,) in rows:
+                try:
+                    message = json.loads(raw).get('message', {})
+                    role = message.get('role')
+                    roles[role if role in roles else 'other'] += 1
+                    content = message.get('content', [])
+                    for block in content if isinstance(content, list) else []:
+                        if isinstance(block, dict) and block.get('type') == 'toolCall':
+                            name = block.get('name')
+                            calls[name if name in calls else 'other'] += 1
+                except (TypeError, ValueError, AttributeError):
+                    skipped += 1
+            report.update(transcript_scan='read', scanned_events=len(rows),
+                          skipped_events=skipped, roles=roles, tool_calls=calls)
+    except (OSError, sqlite3.Error, KeyError, ValueError):
+        report['transcript_scan'] = 'unavailable'
+    return report
+
+
 def command(cli, arguments, env, *, timeout=180):
     started = time.monotonic()
     process = subprocess.Popen([str(cli), *arguments], env=env, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, start_new_session=True)
     try:
-        stdout, stderr = process.communicate(timeout=timeout)
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as error:
+            raise ValueError('Native OpenClaw outer deadline exceeded: ' + json.dumps({
+                'elapsed_seconds': round(time.monotonic() - started, 1),
+                **failure_diagnostics(env, error.output or b'', error.stderr or b'')})) from None
         if process.returncode:
             # Output can contain config; never place it in public action logs.
             text = (stdout + stderr)[-65536:].decode(errors='replace').lower()
@@ -80,7 +128,8 @@ def command(cli, arguments, env, *, timeout=180):
             }.items()}
             raise ValueError('Native OpenClaw command failed: ' + json.dumps({
                 'exit_code': process.returncode,
-                'elapsed_seconds': round(time.monotonic() - started, 1), **indicators}))
+                'elapsed_seconds': round(time.monotonic() - started, 1), **indicators,
+                **failure_diagnostics(env, stdout, stderr)}))
         return stdout
     finally:
         stop_group(process)
