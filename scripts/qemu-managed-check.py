@@ -564,6 +564,15 @@ def managed_check(started, desktop_seconds):
             break
         time.sleep(.5)
     else:
+        print('ARGOS_C3_DIAG ' + json.dumps({key: (lab_value or {}).get(key) for key in
+              ('available', 'active', 'phase', 'failure', 'recovery', 'model', 'error')}, default=str)[:600], flush=True)
+        for path in ('/api/startup', '/api/models/control', '/api/models/selection'):
+            try:
+                value = dashboard_json(path)
+                print('ARGOS_C3_DIAG ' + path + ' ' + json.dumps({key: value.get(key) for key in
+                      ('phase', 'active', 'model', 'failure', 'model_reply_verified', 'job_id')}, default=str)[:500], flush=True)
+            except Exception as error:
+                print('ARGOS_C3_DIAG ' + path + ' ' + type(error).__name__, flush=True)
         raise ValueError('Visible Model Lab button did not start the baseline')
     print('ARGOS_C3_LAB ' + json.dumps({'phase': lab_value['phase']}), flush=True)
 
