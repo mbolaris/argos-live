@@ -15,6 +15,18 @@ spec.loader.exec_module(module)
 
 
 class NativeChatTests(unittest.TestCase):
+    def test_request_report_is_revalidated_before_export(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'metrics.json'
+            path.write_text(json.dumps({'num_predict': 32, 'num_ctx': 32768,
+                'think': False, 'body_inspected': True, 'request_count': True,
+                'message_chars': 'private-canary', 'secret': 'private-canary'}))
+            report = module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)})
+            self.assertEqual(report, {'num_predict': 32, 'num_ctx': 32768,
+                                      'think': False, 'body_inspected': True})
+            path.write_text('x' * 32769)
+            self.assertEqual(module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)}), {})
+
     def test_failure_metadata_only_exports_finite_allowlisted_numbers(self):
         secret = 'fictional-private-text'
         raw = {'meta': {'durationMs': 180000, 'aborted': True,

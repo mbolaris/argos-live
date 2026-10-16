@@ -66,6 +66,7 @@ def failure_diagnostics(env, stdout=b'', stderr=b''):
     """
     report = {'stdout_bytes': len(stdout), 'stderr_bytes': len(stderr),
               'transcript_scan': 'absent'}
+    report['wire_request'] = request_metrics(env)
     # The pinned host can return a structured failure with useful numeric usage
     # and prompt-size metadata. Never copy arbitrary keys or free text from it.
     try:
@@ -126,6 +127,25 @@ def failure_diagnostics(env, stdout=b'', stderr=b''):
     except (OSError, sqlite3.Error, KeyError, ValueError):
         report['transcript_scan'] = 'unavailable'
     return report
+
+
+def request_metrics(env):
+    try:
+        path = Path(env['ARGOS_NATIVE_REQUEST_REPORT'])
+        if path.is_symlink() or path.stat().st_size > 32768:
+            return {}
+        value = json.loads(path.read_text())
+        if not isinstance(value, dict):
+            return {}
+        allowed = ('request_count', 'request_bytes', 'num_predict', 'num_ctx',
+                   'message_chars', 'tool_schema_chars')
+        result = {key: value[key] for key in allowed if type(value.get(key)) in (int, float)
+                  and math.isfinite(value[key]) and -2 <= value[key] <= 10**12}
+        result.update({key: value[key] for key in ('body_inspected', 'num_predict_present',
+                      'num_ctx_present', 'think') if type(value.get(key)) is bool})
+        return result
+    except (KeyError, OSError, ValueError, OverflowError):
+        return {}
 
 
 def command(cli, arguments, env, *, timeout=180):
@@ -200,6 +220,10 @@ def run(cli, ollama, seed):
         path.write_text(json.dumps(config))
         path.chmod(0o600)
         env = child_environment(home)
+        # The observer is injected only into this hosted disposable fixture;
+        # it forwards the original fetch unchanged and records no request text.
+        env['NODE_OPTIONS'] = '--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri()
+        env['ARGOS_NATIVE_REQUEST_REPORT'] = str(home / 'native-request-metrics.json')
         version = command(cli, ['--version'], env, timeout=30).decode()
         if pins['OPENCLAW_VERSION'] not in re.findall(r'\d{4}\.\d+\.\d+', version):
             raise ValueError('Native host differs from the accepted pin')
@@ -218,7 +242,8 @@ def run(cli, ollama, seed):
             raise ValueError('Native chat changed the image starter identity')
         if (workspace / 'AGENTS.md').read_bytes() != instructions:
             raise ValueError('Native chat changed the installed improvement guide')
-        return {'schema': 'argos-native-chat-smoke/1', **result, 'host_version': pins['OPENCLAW_VERSION'],
+        return {'schema': 'argos-native-chat-smoke/1', **result, 'wire_request': request_metrics(env),
+                'host_version': pins['OPENCLAW_VERSION'],
                 'backend_version': PIN, 'backend': 'CPU', 'elapsed_seconds': time.monotonic() - started,
                 'seed_unchanged': True, 'guide_unchanged': True, 'weights_copied': False, 'generation_budget': 32,
                 'gateway_ui_verified': False, 'physical_acceptance': False}
