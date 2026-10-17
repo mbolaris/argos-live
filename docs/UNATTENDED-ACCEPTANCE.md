@@ -88,7 +88,7 @@ Before approving the next image for physical use:
 
 ## Executable storage test
 
-`encrypted-shutdown.yml` runs `scripts/smoke-encrypted-shutdown.py` only on an
+The `shutdown_only` mode of `iso-boot.yml` runs `scripts/smoke-encrypted-shutdown.py` only on an
 explicitly approved disposable GitHub-hosted root runner. It requires the ISO
 checksum and build commit to match the exact test checkout. It creates only a
 new regular virtual USB file, keeps its generated test key outside artifacts,

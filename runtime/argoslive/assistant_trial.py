@@ -279,7 +279,7 @@ def paths(home):
     return (storage.safe_local(base / 'assistant-trial.json'), storage.safe_local(base / 'assistant-changes.json'))
 
 
-def model_gave_no_answer(stdout):
+def model_gave_no_answer(stdout, stderr=b''):
     """True when OpenClaw reports the model ended its turn with no text and no tool call.
 
     The gateway and model both worked; the assistant simply produced nothing usable,
@@ -288,13 +288,24 @@ def model_gave_no_answer(stdout):
     try:
         value = json.loads(stdout)
     except (UnicodeDecodeError, json.JSONDecodeError):
-        return False
+        value = {}
     if not isinstance(value, dict):
-        return False
+        value = {}
     body = value.get('result') if isinstance(value.get('result'), dict) else {}
     meta = body.get('meta') if isinstance(body.get('meta'), dict) else {}
-    return any(isinstance(error, dict) and error.get('kind') == 'incomplete_turn'
-               for error in (value.get('error'), meta.get('error')))
+    if any(isinstance(error, dict) and error.get('kind') == 'incomplete_turn'
+           for error in (value.get('error'), meta.get('error'))):
+        return True
+    # The pinned embedded CLI can instead exit 1 with only a structured host
+    # fallback decision on stderr. Observed on Toronado at task 58. Require the
+    # final decision, one unchanged model, reason=format, and no further fallback;
+    # generic errors, timeouts and arbitrary "no reply" text stay failures.
+    decisions = [line for line in stderr.decode('utf-8', errors='replace').splitlines()
+                 if line.startswith('[model-fallback/decision]')]
+    return bool(decisions and re.fullmatch(
+        r'\[model-fallback/decision\] model fallback decision: decision=candidate_failed '
+        r'requested=(?P<model>\S+) candidate=(?P=model) reason=format next=none '
+        r'detail=(?P=model) ended without a visible assistant reply', decisions[-1]))
 
 
 def agents_path(home):
@@ -616,7 +627,7 @@ class OpenClawRunner:
                     log.write(stderr[-65536:])
             except (OSError, ValueError):
                 pass  # Diagnostic availability must not change failure handling.
-            if model_gave_no_answer(stdout):
+            if model_gave_no_answer(stdout, stderr):
                 raise TrialTurnError('empty-reply')
             diagnostic = (stdout + stderr).decode('utf-8', errors='replace').lower()
             timed_out = any(term in diagnostic for term in ('timed out', 'timeout', 'deadline exceeded'))

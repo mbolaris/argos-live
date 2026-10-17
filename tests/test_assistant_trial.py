@@ -688,6 +688,23 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 'turn-timeout')
         self.assertNotIn('/private/path', str(raised.exception))
 
+    def test_pinned_embedded_empty_reply_is_wrong_answer_not_infrastructure_failure(self):
+        decision = (b'[model-fallback/decision] model fallback decision: decision=candidate_failed '
+                    b'requested=ollama/qwen3.8:27b candidate=ollama/qwen3.8:27b reason=format '
+                    b'next=none detail=ollama/qwen3.8:27b ended without a visible assistant reply\n')
+        with patch.object(at.subprocess, 'Popen') as spawn:
+            process = spawn.return_value.__enter__.return_value
+            process.returncode = 1
+            process.communicate.return_value = (b'', decision + b'[openclaw] The CLI command failed.\n')
+            with self.assertRaises(at.TrialTurnError) as raised:
+                at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
+            self.assertEqual(raised.exception.code, 'empty-reply')
+        for unconfirmed in (b'ended without a visible assistant reply',
+                            decision.replace(b'next=none', b'next=another'),
+                            decision.replace(b'candidate=ollama/qwen3.8:27b', b'candidate=ollama/other'),
+                            decision + b'[model-fallback/decision] decision=candidate_failed reason=timeout\n'):
+            self.assertFalse(at.model_gave_no_answer(b'', unconfirmed))
+
     def test_runner_reports_a_turn_with_no_answer_as_empty_reply(self):
         with patch.object(at.subprocess, 'Popen') as spawn, patch(
                 'argoslive.owned_gateway.private_log', side_effect=lambda path: path.open('wb')):

@@ -21,11 +21,22 @@ on:
         required: false
         default: false
         type: boolean
+      shutdown_only:
+        description: Three encrypted virtual USB shutdowns with offline checks before journal replay
+        required: false
+        default: false
+        type: boolean
+      candidate_commit:
+        description: Exact build commit for shutdown-only testing (defaults to this workflow ref)
+        required: false
+        default: ''
+        type: string
 permissions:
   contents: read
   actions: read
 jobs:
   boot:
+    if: ${{ !inputs.shutdown_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -62,5 +73,37 @@ jobs:
         with:
           name: argos-live-qemu-${{ github.run_id }}
           path: work/vm-smoke/
+          retention-days: 7
+          if-no-files-found: warn
+  encrypted-shutdown:
+    if: ${{ inputs.shutdown_only }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_commit || github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: argos-live-iso-${{ inputs.build_run }}
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+          path: work/shutdown-iso
+      - name: Install disposable VM/storage tools
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso cryptsetup e2fsprogs util-linux
+      - name: Three cold shutdowns and read-only checks before replay
+        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT python3 scripts/smoke-encrypted-shutdown.py work/shutdown-iso/argos-live-amd64.iso --output work/shutdown-evidence
+      - name: Record result
+        if: always()
+        run: |
+          if test -f work/shutdown-evidence/result.json; then
+            cat work/shutdown-evidence/result.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: argos-encrypted-shutdown-${{ github.run_id }}
+          path: work/shutdown-evidence/
           retention-days: 7
           if-no-files-found: warn
