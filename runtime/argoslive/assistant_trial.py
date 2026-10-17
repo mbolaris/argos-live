@@ -312,7 +312,10 @@ def model_gave_no_answer(stdout, stderr=b''):
 def agents_path(home):
     config = read_json(storage.safe_local(home / '.openclaw/openclaw.json'))
     raw = config.get('agents', {}).get('defaults', {}).get('workspace')
-    for agent in config.get('agents', {}).get('list', []):
+    roster = config.get('agents', {})
+    agents = ([dict(value, id=key) for key, value in roster['entries'].items()] if 'entries' in roster
+              else roster.get('list', []))
+    for agent in agents:
         if agent.get('id') == 'main' and 'workspace' in agent:
             raw = agent['workspace']
     workspace = Path(raw).expanduser() if isinstance(raw, str) else home / '.openclaw/workspace'

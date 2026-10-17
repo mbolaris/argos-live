@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import threading
@@ -104,7 +105,19 @@ def run(cli):
                 start = len(requests)
                 runner = OpenClawRunner(home, executable=cli)
                 runner.expected_model = 'fixture:latest'
-                answer = runner.turn('Say READY.', timeout=90)
+                try:
+                    answer = runner.turn('Say READY.', timeout=90)
+                except ValueError:
+                    # This HOME contains only public synthetic fixture inputs.
+                    # Preserve bounded CLI evidence before temporary cleanup.
+                    diagnostic = home / '.local/state/argos-live/trial-turn-failure.log'
+                    if diagnostic.exists():
+                        text = diagnostic.read_text(errors='replace')[-6000:]
+                        text = re.sub(r'(?:https?|wss?)://\S+', '[fixture URL omitted]', text)
+                        text = re.sub(r'(?i)((?:token|password|api[_-]?key|secret)\s*[=:]\s*)\S+',
+                                      r'\1[omitted]', text)
+                        print(text, file=sys.stderr)
+                    raise
                 captured = requests[start:]
                 if answer['text'].strip() != 'READY' or len(captured) != 1 or failures:
                     raise ValueError('Synthetic request/response contract failed')

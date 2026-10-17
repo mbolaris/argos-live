@@ -62,7 +62,9 @@ def configuration(home):
     """Build the same bounded model configuration for copying and provenance."""
     original = json.loads(storage.safe_local(Path(home) / '.openclaw/openclaw.json').read_bytes())
     defaults = original['agents']['defaults']
-    main = next((row for row in original['agents'].get('list', []) if row.get('id') == 'main'), {})
+    roster = original['agents']
+    main = (roster['entries'].get('main', {}) if 'entries' in roster else
+            next((row for row in roster.get('list', []) if row.get('id') == 'main'), {}))
     selected = main.get('model', defaults['model'])
     primary = selected if isinstance(selected, str) else selected['primary']
     if not isinstance(primary, str) or not primary.startswith('ollama/'):
@@ -86,12 +88,12 @@ def configuration(home):
                   params=parameters(defaults.get('params')),
                   models={primary: {'agentRuntime': {'id': 'openclaw'},
                                     'params': parameters(defaults.get('models', {}).get(primary, {}).get('params'))}})
-    agent = {'id': 'main', 'params': parameters(main.get('params')),
+    agent = {'params': parameters(main.get('params')),
              'models': {primary: {'params': parameters(main.get('models', {}).get(primary, {}).get('params'))}}}
     local = {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama', 'models': [model]}
     if 'maxTokens' in provider:
         local['maxTokens'] = provider['maxTokens']
-    return {'agents': {'defaults': copied, 'list': [agent]}, 'models': {'providers': {'ollama': local}},
+    return {'agents': {'defaults': copied, 'entries': {'main': agent}}, 'models': {'providers': {'ollama': local}},
             'tools': {'deny': ['*'], 'toolSearch': False},
             'plugins': {'allow': ['ollama'], 'entries': {'ollama': {'enabled': True}}, 'slots': {'memory': 'none'}},
             'skills': {'allowBundled': []}}
@@ -101,7 +103,7 @@ def configuration_receipt(home):
     config = configuration(home)
     defaults = config['agents']['defaults']
     primary = defaults['model']['primary']
-    agent = config['agents']['list'][0]
+    agent = config['agents']['entries']['main']
     provider = config['models']['providers']['ollama']
     model = provider['models'][0]
     generation = {'defaults': {key: defaults[key] for key in DEFAULT_SETTINGS if key in defaults},

@@ -104,9 +104,18 @@ class EvaluationIsolationTests(unittest.TestCase):
             copied = json.loads(path.read_bytes())
             self.assertEqual(copied['agents']['defaults']['model']['primary'], 'ollama/fixture')
             self.assertEqual(copied['agents']['defaults']['params'], {'temperature': 0.2})
-            self.assertEqual(copied['agents']['list'][0]['params'], {'temperature': 0.3})
+            self.assertEqual(copied['agents']['entries']['main']['params'], {'temperature': 0.3})
             self.assertEqual(copied['models']['providers']['ollama']['models'][0]['params'], {'num_ctx': 8192})
         self.assertEqual(receipt['configured_generation']['agent_model_params'], {'thinking': 'low'})
+
+    def test_canonical_roster_is_used_for_model_and_workspace_selection(self):
+        self.value['agents']['entries'] = {'main': {'workspace': str(self.workspace), 'model': 'ollama/fixture',
+                                                   'params': {'temperature': 0.4}}}
+        self.value['agents']['list'] = [{'id': 'main', 'model': 'ollama/absent'}]
+        self.config.write_text(json.dumps(self.value))
+        config = ec.configuration(self.home)
+        self.assertNotIn('list', config['agents'])
+        self.assertEqual(config['agents']['entries']['main']['params'], {'temperature': 0.4})
 
     def test_private_parameter_values_are_digested_and_changes_are_detected(self):
         self.value['agents']['defaults']['params'] = {'stop': ['private-stop-canary'],
