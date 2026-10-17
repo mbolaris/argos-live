@@ -49,8 +49,13 @@ the copied configuration changes. Comparisons require one changed dimension and
 explicitly label configuration evidence separately from effective requests.
 Old v1 results require a fresh v2 baseline. The hosted pinned-SDK protocol fixture
 checks actual outgoing options against a synthetic local Ollama endpoint without
-model inference; this is transport evidence, never a quality result. That fixture
-must pass before claiming the transport fix works. Nothing is hot-deployed.
+model inference; this is transport evidence, never a quality result. Hosted run
+39074201752 passed for source 653379a using the exact checked runtime lock.
+It observed temperature 0.44, top_p 0.8, num_predict 73, provider-model num_ctx
+24576 overriding the agent's 16384, and no tool schemas. Requested thinking low
+became top-level think low with reasoning=true and false with reasoning=false.
+The saved public receipt is evidence/evaluation-protocol-653379a.json. Linux CI
+passed 743 Python tests (4 skips) and 28 Node tests. Nothing is hot-deployed.
 
 ## Shutdown evidence gate
 

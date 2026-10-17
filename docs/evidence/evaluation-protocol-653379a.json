@@ -1,0 +1,101 @@
+{
+  "schema": "argos-evaluation-protocol/1",
+  "kind": "synthetic protocol fixture; no model-quality result",
+  "passed": true,
+  "cases": [
+    {
+      "reasoning": true,
+      "options": {
+        "temperature": 0.44,
+        "top_p": 0.8,
+        "num_predict": 73,
+        "num_ctx": 24576
+      },
+      "think": "low",
+      "tool_schemas": false,
+      "receipt": {
+        "sha256": "5d1e09f9be55d9344cc3acf33531b051c15d8ef5b78e4e0af19e72a4e5dc446c",
+        "model": {
+          "primary": "ollama/fixture:latest",
+          "metadata": {
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 32768,
+            "maxTokens": 4096
+          }
+        },
+        "configured_generation": {
+          "defaults": {},
+          "default_params": {
+            "temperature": 0.11
+          },
+          "model_params": {
+            "temperature": 0.22,
+            "topP": 0.8
+          },
+          "agent_params": {
+            "temperature": 0.44
+          },
+          "agent_model_params": {
+            "temperature": 0.33,
+            "maxTokens": 73,
+            "thinking": "low",
+            "num_ctx": 16384
+          },
+          "provider_model_params": {
+            "num_ctx": 24576
+          }
+        }
+      }
+    },
+    {
+      "reasoning": false,
+      "options": {
+        "temperature": 0.44,
+        "top_p": 0.8,
+        "num_predict": 73,
+        "num_ctx": 24576
+      },
+      "think": false,
+      "tool_schemas": false,
+      "receipt": {
+        "sha256": "3113f00d7e0b42cfe3cc0bcbd5728f906f5153ed02c132c8124c4b7688dc71d8",
+        "model": {
+          "primary": "ollama/fixture:latest",
+          "metadata": {
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 32768,
+            "maxTokens": 4096
+          }
+        },
+        "configured_generation": {
+          "defaults": {},
+          "default_params": {
+            "temperature": 0.11
+          },
+          "model_params": {
+            "temperature": 0.22,
+            "topP": 0.8
+          },
+          "agent_params": {
+            "temperature": 0.44
+          },
+          "agent_model_params": {
+            "temperature": 0.33,
+            "maxTokens": 73,
+            "thinking": "low",
+            "num_ctx": 16384
+          },
+          "provider_model_params": {
+            "num_ctx": 24576
+          }
+        }
+      }
+    }
+  ]
+}

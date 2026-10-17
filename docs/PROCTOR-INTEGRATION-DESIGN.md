@@ -65,6 +65,18 @@ Toronado's wall clock currently labels Pacific time UTC. Use monotonic time for
 live timeouts and retain both host times and controller UTC evidence; never infer
 expiry across a reboot from the bad wall clock.
 
+The takeover demonstrated a separate failure boundary: the coordinating CLI
+expired its waiting deadline after the gateway accepted a turn. Its error warned
+that execution could continue. Later read-only inspection found the exact session
+marked timeout and no benchmark child, while the liveboard still reported running
+with partial coverage and no saved result. Client timeout, gateway turn timeout,
+worker exit, and saved result finalization must be separate recorded events.
+Neither a CLI failure nor stale progress grants admission to replacement work.
+Require a service-owned interrupted record when a drained child has no final
+artifact; retain its partial evidence without ranking it. The parent must be able
+to observe a durable child outcome after reconnecting, without repeating the
+experiment or relying on a continuously open CLI connection.
+
 ## Proctor boundary
 
 The service owns cartridges, answer keys, exposure history, signing keys and
