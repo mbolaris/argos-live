@@ -188,6 +188,12 @@ publication, immutable evidence, signing retry and real OpenSSL verification wit
 tampering/wrong-key rejection. The actual signature round trip is not mocked.
 OpenSSL tests skip explicitly if unavailable; CI's Linux system provides it.
 
+October 17, 2026 validation: 32 focused Windows tests pass with actual OpenSSL.
+Linux CI passes 699 Python tests (four skips), 25 Node tests and shell checks,
+including the real signature round trip and packaged SQL-resource check. Full
+Windows discovery ran 714 tests with 38 skips and three journey/reboot failures;
+all three reproduce on unchanged main (path separators and POSIX permissions).
+
 Remaining: daemon ownership and scheduler, authenticated MCP/REST adapters,
 restricted OpenClaw sessions, model loading/GPU leases, real model runner, concrete
 aid workers, held-out bank governance, calibrated scoring, coding sandbox grader,
