@@ -31,10 +31,12 @@ image/storage acceptance. Passing a subset does not complete the goal.
   adapter, protected service identity, shared admission on every execution path,
   repeated baseline/final runs and Yugo-verified transcripts are still required.
   See PROCTOR-INTEGRATION-DESIGN.md. Do not run a proctor during the campaign.
-- Storage: the previous card was damaged after poweroff. Root cause and a verified
-  clean-unmount path remain unresolved. No poweroff on Toronado in this work.
-- Build acceptance: no ISO has been built for these new changes, no stricter
-  exact-image VM acceptance, fresh physical card write or full readback yet.
+- Storage: candidate 98307ce passed three encrypted virtual-USB shutdown cycles
+  and read-only offline checks in run39074075124. Physical-card acceptance and
+  the previous damage's root cause remain unproven. No Toronado poweroff here.
+- Build acceptance: ISO build39072374940 succeeded for the storage checkpoint;
+  later source changes are excluded. The stricter containment test, a merged
+  final-source ISO, fresh physical card write and full readback remain required.
 - Unattended plateau: NOT ACHIEVED. Require one fresh verified card and one owner
   message, baseline/model decision, two more one-change experiments with evidence,
   and ## Done without any operator rescue. Preserve failed attempts as failures.
@@ -80,10 +82,12 @@ The binary stays at its original path so its relative library lookup is retained
 an initrd marker and small /shutdown entry point allow the documented second
 shutdown phase after leaving the old overlay root. Staging checks all template
 hashes before enabling the entry point. LightDM requires successful preparation.
-This code has not been executed as root or installed on Toronado. It remains an
-unverified candidate until the exact-image encrypted VM/offline checks below
-pass. The normal systemd finalizer may still report teardown failures; neither
-the readiness marker nor shutdown-helper exit is proof of a clean filesystem.
+This code was executed only in approved disposable build/VM runners and has not
+been installed on Toronado. The exact-image encrypted VM/offline checks below
+passed for candidate 98307ce. Initial busy unmount attempts are preserved in
+the consoles; the RAM phase ultimately unmounted persistence and detached DM
+in all three cycles. Neither a readiness marker nor helper exit alone is proof
+of a clean filesystem; the offline checks supply the filesystem evidence.
 
 Before approving the next image for physical use:
 
@@ -122,3 +126,25 @@ for firmware boot, stricter evaluator containment or physical-card acceptance.
 The owner approved privileged writes solely in disposable GitHub build/VM
 runners for this candidate. That approval does not authorize Toronado root
 writes or poweroff.
+
+## Saved storage evidence
+
+Build39072374940, source98307ce342566f2db7bd6fb6e4798ad65cc29f03, ISO SHA256
+23321073f93f30b5973a78315732ff1fd00eaac6487f321c066a1752d217f162.
+Hosted VM run39074075124 used that exact checkout and ISO. The public saved
+result and artifact hash manifest are in evidence/shutdown-39074075124/.
+All three cycles reached natural QEMU exit after complete storage detachment;
+before each subsequent boot, the stopped persistence filesystem was clean,
+had no needs_recovery feature, and passed read-only e2fsck -f -n with exit0.
+External pre-poweroff backups verified2,4,6 cumulative synthetic files unchanged.
+No repair or journal replay was used to pass. Firmware, physical media and GPU
+are outside this evidence's scope. The final merged image must repeat this gate.
+
+## Termination evidence follow-up
+
+The CLI now requests cancellation on SIGINT/SIGTERM/SIGHUP, drains the embedded
+CLI group, saves a cancelled outcome and updates the liveboard. Failed/cancelled
+admission remains quarantined and links the saved result, rather than silently
+starting replacement work. A hosted subprocess test must verify the signal,
+descendant exit, saved JSON and liveboard state. This is not hard-kill recovery,
+nor proof that a model-server request has drained: quarantining is retained.

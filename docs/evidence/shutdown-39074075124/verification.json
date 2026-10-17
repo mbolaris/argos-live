@@ -1,0 +1,80 @@
+{
+  "workflow_run": 39074075124,
+  "source_commit": "98307ce342566f2db7bd6fb6e4798ad65cc29f03",
+  "scope": "Static artifact consistency audit; offline check exit statuses attested by pinned hosted harness",
+  "passed": true,
+  "cycles": [
+    {
+      "cycle": 1,
+      "verified_backup_files": 2,
+      "complete_detachment_then_powerdown": true,
+      "initial_busy_unmount_attempts_preserved": true
+    },
+    {
+      "cycle": 2,
+      "verified_backup_files": 4,
+      "complete_detachment_then_powerdown": true,
+      "initial_busy_unmount_attempts_preserved": true
+    },
+    {
+      "cycle": 3,
+      "verified_backup_files": 6,
+      "complete_detachment_then_powerdown": true,
+      "initial_busy_unmount_attempts_preserved": true
+    }
+  ],
+  "artifact_files": {
+    "cycle-1-backup.json": {
+      "sha256": "fab781b9bc4a317f3c19a412cb3c837ce644e357778bae99adb6a57ca36302e8",
+      "bytes": 796
+    },
+    "cycle-1-console.log": {
+      "sha256": "c37b1484172e8d8785a21b9caf414e6108db54569942613b8bd6397b040e4651",
+      "bytes": 166029
+    },
+    "cycle-1-fsck.txt": {
+      "sha256": "f29bb96ddfc34646838ed0b89a761ae6576ff6f67777f1863441d5d87e42f15e",
+      "bytes": 300
+    },
+    "cycle-1-superblock.txt": {
+      "sha256": "7ef4ce83d0d8e25a1dbc912d80f5be184de78162e2d0b00b6ef49dd9250ca83b",
+      "bytes": 2193
+    },
+    "cycle-2-backup.json": {
+      "sha256": "3c47fc31b781d5198d21786f1ad46025ca0b7d0463241d875c2d2f96d02beb25",
+      "bytes": 1486
+    },
+    "cycle-2-console.log": {
+      "sha256": "22cd1a1279ac15382a1b37046e6d8c4e7382688dba7b90150291c3dd4d0519e9",
+      "bytes": 130535
+    },
+    "cycle-2-fsck.txt": {
+      "sha256": "408910e8059deffda5ae8caf3dba39b08efb3ee7901d60fbb49805f9b9c42c76",
+      "bytes": 300
+    },
+    "cycle-2-superblock.txt": {
+      "sha256": "09f00aaa222025a8044d19e2e64ac7ee901845abdb14c8361ad024ff2b8e1caa",
+      "bytes": 2193
+    },
+    "cycle-3-backup.json": {
+      "sha256": "ad273df1067a119a3122820ba031c192f62827a60714d81ca8a6d01374810e1d",
+      "bytes": 2176
+    },
+    "cycle-3-console.log": {
+      "sha256": "a5cc0d0a5c481fcca77be7075413c6aad8d5e9652ad8dff3ce72fcf3fe52e932",
+      "bytes": 119496
+    },
+    "cycle-3-fsck.txt": {
+      "sha256": "8cabee679b86ca89752f0c5eaa20927ce57930513a509b17f4513ca0dd66d952",
+      "bytes": 300
+    },
+    "cycle-3-superblock.txt": {
+      "sha256": "ae9ed1622eebbc600a96d4c3b2701a6d276e3e09c40c39a0261b79ea2546403a",
+      "bytes": 2193
+    },
+    "result.json": {
+      "sha256": "cf1cf800bc7e0528b7e1466682be4bd75da05ef7077fcbaf690e57065460e4c8",
+      "bytes": 1712
+    }
+  }
+}

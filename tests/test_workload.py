@@ -31,8 +31,10 @@ class WorkloadTests(unittest.TestCase):
             binary.mkdir()
             ready = root / 'child-ready'
             executable = binary / 'openclaw'
-            executable.write_text('#!/usr/bin/env python3\nimport os,time\nfrom pathlib import Path\n'
-                                  f'Path({str(ready)!r}).write_text(str(os.getpid()))\n'
+            executable.write_text('#!/usr/bin/env python3\nimport os,time,json,subprocess,sys\nfrom pathlib import Path\n'
+                                  'child=subprocess.Popen([sys.executable,"-c","import time;time.sleep(60)"],'
+                                  'stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)\n'
+                                  f'Path({str(ready)!r}).write_text(json.dumps({{"pid":os.getpid(),"child":child.pid}}))\n'
                                   'time.sleep(60)\n')
             executable.chmod(0o700)
             env = {**os.environ, 'PYTHONPATH': str(ROOT / 'runtime'),
@@ -42,12 +44,14 @@ class WorkloadTests(unittest.TestCase):
                                         '--home', str(home), '--results-dir', str(output), '--json'],
                                        env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             child_pid = None
+            descendant = None
             try:
                 deadline = time.monotonic() + 20
                 while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
                     time.sleep(.05)
                 self.assertTrue(ready.exists(), 'Embedded child never started')
-                child_pid = int(ready.read_text())
+                identity = json.loads(ready.read_text())
+                child_pid, descendant = identity['pid'], identity['child']
                 process.terminate()
                 stdout, stderr = process.communicate(timeout=15)
                 self.assertEqual(process.returncode, 0, stderr)
@@ -63,6 +67,13 @@ class WorkloadTests(unittest.TestCase):
                 self.assertEqual(reservation['result_id'], result['id'])
                 with self.assertRaises(ProcessLookupError):
                     os.kill(child_pid, 0)
+                # A killed orphan can briefly remain a zombie pending init's
+                # reap; it cannot execute or retain inference connections.
+                status = Path(f'/proc/{descendant}/stat')
+                try:
+                    self.assertEqual(status.read_text().split(') ', 1)[1].split()[0], 'Z')
+                except FileNotFoundError:
+                    pass
                 with self.assertRaises(workload.Busy):
                     with workload.reserve(home, 'proctor'):
                         self.fail('Cancellation silently reopened admission')

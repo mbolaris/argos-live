@@ -603,16 +603,27 @@ class OpenClawRunner:
         command = [str(executable), 'agent', '--local', '--agent', 'main', '--session-id', session,
                    '--session-key', 'agent:main:argos-trial-' + session,
                    '--message', text, '--timeout', str(timeout), '--json']
-        with subprocess.Popen(command, env=env, cwd=workspace, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+        with subprocess.Popen(command, env=env, cwd=workspace, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              start_new_session=os.name == 'posix') as process:
             deadline = time.monotonic() + timeout
             while True:
                 if (self.cancel_event and self.cancel_event.is_set()) or time.monotonic() >= deadline:
                     cancelled = bool(self.cancel_event and self.cancel_event.is_set())
-                    process.terminate()  # Embedded work has no owner gateway queue to resume.
-                    try:
+                    # The CLI can respawn a Node child. Stop its owned group,
+                    # including descendants after an early launcher exit.
+                    if os.name == 'posix':
+                        from .owned_ollama import stop_group
+                        try:
+                            stop_group(process)
+                        except ProcessLookupError:
+                            process.wait(timeout=10)
                         process.communicate(timeout=10)
-                    except subprocess.TimeoutExpired:
-                        process.kill(); process.communicate()
+                    else:
+                        process.terminate()
+                        try:
+                            process.communicate(timeout=10)
+                        except subprocess.TimeoutExpired:
+                            process.kill(); process.communicate()
                     raise TrialTurnError('cancelled' if cancelled else 'turn-timeout')
                 try:
                     stdout, stderr = process.communicate(timeout=.2)
