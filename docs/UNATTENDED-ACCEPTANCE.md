@@ -85,3 +85,22 @@ Before approving the next image for physical use:
 5. Document the exact owner shutdown procedure. After a backed-up physical
    acceptance run, check the card offline before reusing it. Filesystem errors
    require stopping and asking the owner; preserve the damaged evidence.
+
+## Executable storage test
+
+`encrypted-shutdown.yml` runs `scripts/smoke-encrypted-shutdown.py` only on an
+explicitly approved disposable GitHub-hosted root runner. It requires the ISO
+checksum and build commit to match the exact test checkout. It creates only a
+new regular virtual USB file, keeps its generated test key outside artifacts,
+and performs three cold boots/poweroffs. Every poweroff is preceded by an
+fsynced host backup of synthetic record/snapshot sentinels. Every stopped disk
+is opened read-only, its clean bit and absence of journal-recovery are required,
+and `e2fsck -f -n` must exit 0 before a `ro,noload` mount verifies every backup
+byte. Earlier sentinels must also match across subsequent boots. A forced VM
+termination, missing RAM handoff, incomplete detachment, dirty filesystem or
+changed sentinel fails the test. It performs no repair. This does not substitute
+for firmware boot, stricter evaluator containment or physical-card acceptance.
+
+The owner approved privileged writes solely in disposable GitHub build/VM
+runners for this candidate. That approval does not authorize Toronado root
+writes or poweroff.
