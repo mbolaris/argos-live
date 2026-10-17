@@ -16,7 +16,12 @@ test('plugin tools call the installed Argos benchmark commands', async () => {
     await writeFile(executable, `import fs from 'node:fs';
 const args = process.argv.slice(2);
 fs.writeFileSync(process.env.ARGOS_CAPTURE, JSON.stringify(args));
-if (args[1] === 'openclaw') {
+if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
+  console.log(JSON.stringify({status:'busy',message:'Another host workload is active',recovery_required:false}));
+  process.exit(75);
+} else if (args[1] === 'log') {
+  console.log(JSON.stringify({status:'appended',observed:'2026-10-17T00:00:00+00:00',snapshot:'/private/snapshot',note_claims_verified:false}));
+} else if (args[1] === 'openclaw') {
   console.error(JSON.stringify({phase:'scored', completed:1, total:20, receipt:{score:true, output:'fixture answer'}}));
   console.log(JSON.stringify({path:'/private/fixture-result.json', result:{
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-quick', suite_version:'argos-openclaw-ability/quick/fixture1', state:'completed',
@@ -55,6 +60,17 @@ if (args[1] === 'openclaw') {
     await assert.rejects(tools.get('argos_compare').execute('raw-compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)
     }), /Raw model runs do not test assistant instructions/);
+    const note = 'Hypothesis: check output format.\n## Next\nMeasure baseline.';
+    const logged = await tools.get('argos_log').execute('log', { text: note });
+    assert.equal(logged.details.note_claims_verified, false);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'log', '--text', note, '--json']);
+    await writeFile(capture + '.busy', 'busy fixture');
+    const busy = await tools.get('argos_evaluate').execute('busy-eval', {suite:'quick'});
+    assert.equal(busy.details.status, 'busy');
+    assert.match(busy.content[0].text, /No evaluation started/);
+    const busyLog = await tools.get('argos_log').execute('busy-log', {text:note});
+    assert.match(busyLog.content[0].text, /No note appended/);
   } finally {
     if (priorBin === undefined) delete process.env.ARGOS_BIN;
     else process.env.ARGOS_BIN = priorBin;

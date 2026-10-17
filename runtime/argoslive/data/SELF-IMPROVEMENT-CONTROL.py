@@ -50,7 +50,12 @@ def dashboard():
 def status(call):
     start, models, storage = call('/api/startup'), call('/api/models/control'), call('/api/storage')
     progress = models.get('progress') or {}
-    return {'assistant': {k: start.get(k) for k in ('phase', 'model', 'model_reply_verified', 'failure')},
+    reservation_path = state_dir / 'workload/reservation.json'
+    workload = json.loads(reservation_path.read_text()) if reservation_path.exists() else {'state': 'released'}
+    return {'workload': {k: workload.get(k) for k in ('state', 'kind', 'id')},
+            'evaluation_running': workload.get('kind') == 'evaluation' and workload.get('state') == 'active',
+            'recovery_required': workload.get('state') == 'quarantined',
+            'assistant': {k: start.get(k) for k in ('phase', 'model', 'model_reply_verified', 'failure')},
             'download': {'phase': models.get('phase'), 'active': models.get('active'), 'model': models.get('model'),
                          'bytes_done': progress.get('bytes_done'), 'bytes_total': progress.get('bytes_total'),
                          'reply_test': models.get('reply_test')},

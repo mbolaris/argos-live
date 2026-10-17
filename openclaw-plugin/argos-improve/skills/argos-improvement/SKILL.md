@@ -12,6 +12,9 @@ Prefer a comfortably fitting stronger model early; inspect `argos hw --json`,
 tools and Argos's existing managed download/switch flow, without a second planner.
 Keep a private workspace journal linking snapshots and before/after run IDs.
 
+Use `argos_log` with one `text` field to append campaign notes and the complete
+`## Next` or `## Done`. It supplies the host timestamp and saved-run receipts;
+it does not verify prose claims about changes. Never overwrite the log.
 Use `argos_evaluate` to measure the configured assistant. Start with `quick`;
 use `standard` when the owner wants the longer evaluation. The tool creates a
 tool-free embedded OpenClaw turn with temporary state and copied instructions for

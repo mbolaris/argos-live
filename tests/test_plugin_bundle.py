@@ -20,7 +20,7 @@ class ImprovementPluginBundleTests(unittest.TestCase):
         self.assertEqual(package['version'], lock['packages']['']['version'])
         self.assertEqual(lock['packages']['node_modules/typebox']['version'], package['dependencies']['typebox'])
         self.assertEqual(manifest['id'], 'argos-improve')
-        self.assertEqual(manifest['contracts']['tools'], ['argos_evaluate', 'argos_compare'])
+        self.assertEqual(manifest['contracts']['tools'], ['argos_evaluate', 'argos_compare', 'argos_log'])
         self.assertTrue((ROOT / 'runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md').is_file())
         self.assertFalse((ROOT / 'openclaw-plugin/argos-improve/runtime').exists())
 

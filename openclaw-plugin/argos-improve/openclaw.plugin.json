@@ -4,5 +4,5 @@
   "description": "Run and compare fixed ability benchmarks through the configured OpenClaw assistant.",
   "configSchema": {"type": "object", "additionalProperties": false, "properties": {}},
   "skills": ["./skills"],
-  "contracts": {"tools": ["argos_evaluate", "argos_compare"]}
+  "contracts": {"tools": ["argos_evaluate", "argos_compare", "argos_log"]}
 }

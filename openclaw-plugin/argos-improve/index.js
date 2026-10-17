@@ -53,7 +53,15 @@ function runArgos(command, args, signal, onUpdate) {
     child.on("close", (code) => {
       clearTimeout(timer);
       signal?.removeEventListener("abort", abort);
-      if (code !== 0) return reject(new Error("Benchmark did not complete; inspect the local Argos status."));
+      if (code !== 0) {
+        if (code === 75) {
+          try {
+            const busy = JSON.parse(stdout);
+            if (busy.status === "busy") return resolve(busy);
+          } catch { /* Invalid data is still a failed command. */ }
+        }
+        return reject(new Error("Argos command did not complete; inspect the local Argos status."));
+      }
       try { resolve(JSON.parse(stdout)); }
       catch { reject(new Error("Benchmark returned invalid result data.")); }
     });
@@ -76,6 +84,8 @@ export default function register(api) {
     async execute(_id, params, signal, onUpdate) {
       const value = await runArgos("openclaw",
         ["--suite", params.suite ?? "quick", "--json"], signal, onUpdate);
+      if (value.status === "busy") return textResult(
+        `${value.message}. No evaluation started. Wait for the active workload; do not edit the workspace.`, value);
       const run = value.result;
       const summary = run?.summary;
       if (!run || !summary || !run.coverage) throw new Error("Benchmark result is incomplete.");
@@ -117,6 +127,18 @@ export default function register(api) {
         ? "Workspace instructions differ between runs; treat this as an experiment, not identical setup."
         : "Workspace instruction fingerprint is unchanged between runs.";
       return textResult(`${promptNote}\n${JSON.stringify(result, null, 2)}`, { comparison: result });
+    }
+  });
+  api.registerTool({
+    name: "argos_log",
+    label: "Append campaign log",
+    description: "Append one short note to IMPROVEMENT-LOG.md with a host timestamp and checked receipts for referenced full saved run IDs. Include the complete ## Next or ## Done. Does not overwrite history. Notes about changes still require evidence; this tool does not verify prose claims.",
+    parameters: Type.Object({ text: Type.String({ minLength: 1, maxLength: 4096 }) },
+      { additionalProperties: false }),
+    async execute(_id, params, signal) {
+      const value = await runArgos("log", ["--text", params.text, "--json"], signal);
+      return textResult(value.status === "busy" ? `${value.message}. No note appended.` :
+        `Appended at host time ${value.observed}. Pre-append snapshot: ${value.snapshot}.`, value);
     }
   });
 }

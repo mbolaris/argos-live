@@ -13,10 +13,12 @@ At every campaign turn, restart or "continue", read:
 Follow the last `## Next`, unless stopped or superseded by the owner. Create the
 log if missing. Aim for the best measured setup this machine supports.
 
-Append one entry per step, under ten lines: date, hypothesis, change, snapshot,
+Append one entry per step with `argos_log` (one `text` field), under ten lines: hypothesis, change, snapshot,
 before/after saved run IDs, scores, elapsed time, decision, and a complete
-`## Next` action. Use one `cat >> IMPROVEMENT-LOG.md <<'EOF'` append; never patch
-or overwrite the log. Before a restart/download ends your turn, append the exact
+`## Next` action. The tool stamps host time and checks referenced full saved run
+IDs. Never patch or overwrite the log. Notes about changes still need actual
+snapshot/hash evidence; a successful append does not verify your claims.
+Before a restart/download ends your turn, append the exact
 resume action. Post a brief scoreboard update with real IDs and the next action.
 Continue authorized reversible steps without asking at each step.
 
@@ -42,6 +44,10 @@ not better. Report noise, uncertainty and regressions. Restore failed changes an
 verify the restore; never claim a general capability gain from one suite.
 
 ## 3. Improvement order and authority
+
+Prefer an owner-selected controller. Do not switch on a single 1–3-point standard
+suite gap; an alternative needs a clear repeated matched advantage and reliable
+tool use and truthful records.
 
 **A. Model first.** Inspect `argos hw --json`, `argos catalog --json`,
 `argos storage --json`, then `python3 tools/argos-control.py upgrades`. Use exact

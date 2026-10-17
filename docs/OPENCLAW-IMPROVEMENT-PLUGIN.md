@@ -199,3 +199,20 @@ References: [pinned OpenClaw plugins](https://github.com/openclaw/openclaw/blob/
 [IFEval](https://github.com/google-research/google-research/tree/master/instruction_following_eval),
 [SQuAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/),
 [EvalPlus](https://github.com/evalplus/evalplus).
+
+## October 17 campaign-admission checkpoint
+
+The next-image branch registers `argos_log` with one `text` argument. It appends,
+adds a host timestamp and snapshots the pre-append log/guide. Every full run ID in
+the note must resolve through the validated result store; actual saved receipts
+are appended separately. This makes note-taking simpler for smaller controllers.
+It does not certify natural-language claims about edits or invented score prose.
+A complete independent campaign audit remains required.
+
+Assistant benchmark CLI/API admission and log appends share an OS lock and durable
+reservation. A competing request gets `busy` before inference, live-board changes
+or log writes. A failed or abandoned evaluation is quarantined for recovery;
+expiry alone never authorizes another worker. Completed CLI results are saved
+before admission is released. Direct backend calls, other desktop workloads,
+controller/heartbeat inference and unrestricted filesystem tools still need the
+full broker design. These changes alone do not establish image-level safety.

@@ -1,6 +1,7 @@
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import hashlib
 import json
 from pathlib import Path
@@ -28,6 +29,16 @@ class FakeOpenClaw:
 
 
 class OpenClawBenchmarkTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        home = Path(temporary.name)
+        (home / '.openclaw/workspace').mkdir(parents=True)
+        (home / '.openclaw/openclaw.json').write_text('{}', encoding='utf-8')
+        patcher = patch.object(Path, 'home', return_value=Path(temporary.name))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_records_suite_and_workspace_instruction_fingerprints(self):
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp)
@@ -113,12 +124,12 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             self.assertEqual(result['workspace_changed']['files'], ['AGENTS.md', 'tools/argos-control.py'])
 
     def test_failed_turn_saves_partial_evidence_but_cannot_be_compared(self):
+        complete = bench_openclaw.run(runner=FakeOpenClaw())
         partial = bench_openclaw.run(runner=FakeOpenClaw(fail_at=6))
         self.assertEqual(partial['state'], 'failed')
         self.assertEqual(partial['failure_code'], 'assistant-error')
         self.assertEqual(partial['coverage'], {'completed': 5, 'total': 20, 'complete': False})
 
-        complete = bench_openclaw.run(runner=FakeOpenClaw())
         with tempfile.TemporaryDirectory() as temp:
             store = results.Store(Path(temp) / 'runs')
             partial_path = store.save(partial)

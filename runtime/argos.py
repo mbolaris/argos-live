@@ -289,6 +289,7 @@ def command_parser():
     benchmarks.add_parser('openclaw', help='Measure the configured OpenClaw assistant on the fixed ability suite', add_help=False).set_defaults(delegate='argoslive.bench_openclaw')
     benchmarks.add_parser('documents', help='Run the short-document trial', add_help=False).set_defaults(delegate='argoslive.doc_trial')
     benchmarks.add_parser('results', help='Inspect and compare saved runs', add_help=False).set_defaults(delegate='argoslive.results')
+    benchmarks.add_parser('log', help='Append one timestamped campaign note', add_help=False).set_defaults(delegate='argoslive.campaign_log')
     benchmarks.add_parser('all', help='Run speed and ability sequentially', add_help=False).set_defaults(delegate='argoslive.bench_all')
     pack = commands.add_parser('pack', help='Export, review, apply or roll back personality packs')
     packs = pack.add_subparsers(dest='operation', required=True)

@@ -41,7 +41,8 @@ def source(home):
                      {'gateway', 'group:runtime', 'group:web', 'browser'} <= denied and
                      'group:fs' not in denied and allowed == reviewed_tools)
     improvement_policy = (tools.get('profile') == 'minimal' and denied == {'gateway', 'browser'} and
-                          allowed == {'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'} and
+                          allowed in ({'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'},
+                                      {'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare', 'argos_log'}) and
                           # OpenClaw doctor normalizes security=full/ask=off to the equivalent mode=full.
                           tools.get('exec') in ({'host': 'gateway', 'security': 'full', 'ask': 'off'},
                                                 {'host': 'gateway', 'mode': 'full'}))

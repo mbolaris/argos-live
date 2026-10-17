@@ -13,6 +13,7 @@ from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
 from .results import Store
 from .evaluation_context import EXECUTION_PATH
+from .workload import Busy, reserve
 
 
 PROTECTED_LIMIT = 1024 ** 2
@@ -48,6 +49,15 @@ def changed_inputs(workspace, saved):
 
 
 def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic):
+    home = Path.home() if home is None else Path(home)
+    with reserve(home, 'evaluation') as slot:
+        result = _run(suite=suite, home=home, runner=runner, progress=progress, clock=clock)
+        if result['state'] == 'completed':
+            slot.complete(result['id'])
+        return result
+
+
+def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic):
     """Run fixed text tasks with copied instructions and no execution capabilities."""
     data = ability.load(suite)
     suite_path = ability.DATA / (suite + '.json')
@@ -212,13 +222,23 @@ def main(argv=None):
     parser.add_argument('--results-dir', type=Path, default=Store().root)
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)
-    board = LiveBoard(args.home, args.suite)
-    def progress(value):
-        print(json.dumps(value, ensure_ascii=False), file=__import__('sys').stderr, flush=True)
-        board.update(value)
-    result = run(suite=args.suite, home=args.home, progress=progress)
-    path = Store(args.results_dir).save(result)
-    board.finish(result)
+    try:
+        with reserve(args.home, 'evaluation') as slot:
+            # Admission precedes even live-board publication; a rejected request
+            # must not overwrite the first run's progress or save a partial run.
+            board = LiveBoard(args.home, args.suite)
+            def progress(value):
+                print(json.dumps(value, ensure_ascii=False), file=__import__('sys').stderr, flush=True)
+                board.update(value)
+            result = _run(suite=args.suite, home=args.home, progress=progress)
+            path = Store(args.results_dir).save(result)
+            board.finish(result)
+            if result['state'] == 'completed':
+                slot.complete(result['id'])
+    except Busy as error:
+        print(json.dumps({'status': 'busy', 'recovery_required': error.recovery,
+                          'message': str(error)}))
+        return 75
     if args.json:
         print(json.dumps({'result': result, 'path': str(path)}, ensure_ascii=False))
     else:

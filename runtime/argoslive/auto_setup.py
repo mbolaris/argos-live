@@ -12,10 +12,16 @@ PLUGIN_ROOT = '/usr/local/share/argos-live/plugins/argos-improve'
 WORKSPACE_FILES = (('AGENTS.md', 'SELF-IMPROVEMENT-AGENTS.md'), ('SOUL.md', 'SELF-IMPROVEMENT-SOUL.md'),
                    ('IDENTITY.md', 'SELF-IMPROVEMENT-IDENTITY.md'),
                    ('tools/argos-control.py', 'SELF-IMPROVEMENT-CONTROL.py'))
-# While IMPROVEMENT-LOG.md has a '## Next' step and no '## Done', keep the campaign moving.
-HEARTBEAT_PROMPT = ('Self-improvement heartbeat. Run `tail -n 30 IMPROVEMENT-LOG.md` in your workspace. If it has a '
+# Resumption is allowed only for an owner-started campaign. Prompt guardrails
+# supplement host admission; they are not an enforcement boundary.
+HEARTBEAT_PROMPT = ('Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
+                    '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
+                    'recovery, or the assistant is not ready, reply exactly HEARTBEAT_OK. Never start a new '
+                    'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. If it has a '
                     '"## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
-                    'following AGENTS.md, then append one short entry to the log. If there is no active campaign, '
+                    'following AGENTS.md, then append one short entry with argos_log. Call argos_evaluate and '
+                    'argos_compare as tools. Never install software, use sudo, clone repositories or request secrets. '
+                    'If there is no active campaign, '
                     'reply exactly HEARTBEAT_OK.')
 
 
@@ -38,7 +44,7 @@ def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
                         'contextWindow': 32768, 'maxTokens': 4096,
                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
         'tools': {'profile': 'minimal',
-                  'alsoAllow': ['group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'],
+                  'alsoAllow': ['group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare', 'argos_log'],
                   'deny': ['gateway', 'browser'],
                   'exec': {'host': 'gateway', 'security': 'full', 'ask': 'off'},
                   'elevated': {'enabled': False},
