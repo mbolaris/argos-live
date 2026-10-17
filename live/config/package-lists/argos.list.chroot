@@ -21,6 +21,7 @@ ca-certificates
 git
 python3
 python3-tk
+openssl
 sudo
 nvme-cli
 smartmontools
