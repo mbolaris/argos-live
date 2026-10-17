@@ -99,6 +99,22 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
+### P1 Proctor core and failure acceptance — `in progress`
+
+- Implements a separate stdlib assessment core under `runtime/argoslive/proctor/`:
+  validated immutable choice/numeric cartridges, explicit SQLite write transactions,
+  bounded timed modules and breaks, replayable answer/rejection evidence, host-scoped
+  enrollment, held-out reservations/exposure, aid worker lifecycle, restart recovery,
+  immutable transcript payloads and system-OpenSSL Ed25519 signing.
+- Acceptance: file-backed concurrent enrollment and writer/deadline contention;
+  malformed/stale retries; full deadline catch-up; wrong/inactive/late aids;
+  cartridge integrity/routing/unsupported scorer rejection; signed transcript
+  verification/tampering; packaged SQL resources. See [contract](PROCTOR-DESIGN.md).
+- Follow-up: daemon/supervisor and MCP authentication, restricted OpenClaw booth,
+  raw-model runner/GPU lease, concrete aid workers, 20-item assessment seed,
+  coding sandbox integration, calibrated conversions and physical Live acceptance.
+  This core reports declared conditions only and does not activate a public service.
+
 ### U6 — One complete play session before another image
 
 Agreed October 8, 2026. [PLAY-SESSION.md](PLAY-SESSION.md) is the experience release

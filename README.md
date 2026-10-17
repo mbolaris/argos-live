@@ -49,6 +49,11 @@ The current USB candidate and internal disks are recorded in [docs/INVENTORY.md]
 
 `argos bench all --model qwen3:0.6b --suite quick --size short` runs speed followed by ability without setup. Omit `--size short` for the full speed workload. Both save independent results; `--json` emits one batch containing them. A failed ability stage keeps an already-saved speed result. `--ollama URL`, `--timeout 1–600` and `--results-dir PATH` work across benchmark commands. Stop competing workloads before benchmarking.
 
+The [Proctor core](docs/PROCTOR-DESIGN.md) is a developer foundation for separate,
+timed assessments with immutable signed transcripts. Its choice/numeric state
+engine and regression tests are available; the daemon, MCP/OpenClaw adapters,
+model runner and calibrated exam banks remain follow-up work.
+
 ### Hardware snapshot
 
 `argos hw --json` reports CPU, RAM, GPU memory/driver, disks, kernel and readable Secure Boot state without requiring setup or modifying storage. Add `--model-dir /path/to/models` (repeatable) to check existing directories' capacity. Missing measurements are `null`; PCI GPU names alone do not establish driver or inference readiness. The CLI can also run from a source checkout with `python3 runtime/argos.py hw --json`.
