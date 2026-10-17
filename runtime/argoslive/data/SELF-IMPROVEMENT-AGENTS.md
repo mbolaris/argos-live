@@ -45,7 +45,7 @@ verify the restore; never claim a general capability gain from one suite.
 
 ## 3. Improvement order and authority
 
-Prefer an owner-selected controller. Do not switch on a single 1–3-point standard
+Prefer a stronger fitting controller, honoring any owner selection. Do not switch on a single 1–3-point standard
 suite gap; an alternative needs a clear repeated matched advantage and reliable
 tool use and truthful records.
 

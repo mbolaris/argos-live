@@ -50,9 +50,22 @@ https://github.com/systemd/systemd/blob/main/docs/INITRD_INTERFACE.md
 
 Read-only Toronado inspection found live-boot 1:20250815~deb13u1, live-tools
 1:20240525 and systemd 257.13-1~deb13u1. The live-tools shutdown hook calls only
-live-medium-eject. /run/initramfs/shutdown could not be inspected because its
-parent is private; no privilege workaround was used. These facts do not prove
+live-medium-eject. Initial unprivileged access to /run/initramfs was denied;
+the owner then explicitly approved a narrowly scoped root read. That inspection
+found the directory empty: no shutdown executable. No files were changed and
+no poweroff occurred. These facts do not prove
 which final unmount path ran or caused the earlier corruption.
+
+The image-source candidate now stages the pinned systemd-shutdown binary and
+its dependency closure in a dedicated executable tmpfs under /run/initramfs.
+The binary stays at its original path so its relative library lookup is retained;
+an initrd marker and small /shutdown entry point allow the documented second
+shutdown phase after leaving the old overlay root. Staging checks all template
+hashes before enabling the entry point. LightDM requires successful preparation.
+This code has not been executed as root or installed on Toronado. It remains an
+unverified candidate until the exact-image encrypted VM/offline checks below
+pass. The normal systemd finalizer may still report teardown failures; neither
+the readiness marker nor shutdown-helper exit is proof of a clean filesystem.
 
 Before approving the next image for physical use:
 
