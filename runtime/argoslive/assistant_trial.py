@@ -15,6 +15,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -97,7 +98,8 @@ class TrialTurnError(ValueError):
     def __init__(self, code):
         if code not in {'cancelled', 'turn-timeout', 'assistant-error', 'empty-reply',
                         'invalid-reply', 'session-mismatch', 'model-mismatch',
-                        'workspace-changed-during-run', 'configuration-changed-during-run'}:
+                        'workspace-changed-during-run', 'configuration-changed-during-run',
+                        'worker-drain-unconfirmed'}:
             code = 'assistant-error'
         self.code = code
         super().__init__(code)
@@ -527,6 +529,40 @@ def recover(home):
         return 'needs-review'
 
 
+def drain_embedded_group(process):
+    """Stop the owned CLI group and confirm no Linux member can still execute."""
+    from .owned_ollama import stop_group
+    try:
+        stop_group(process)
+    except ProcessLookupError:
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            raise TrialTurnError('worker-drain-unconfirmed') from None
+    except (OSError, subprocess.TimeoutExpired):
+        raise TrialTurnError('worker-drain-unconfirmed') from None
+    deadline = time.monotonic() + 10
+    while True:
+        live = False
+        for entry in Path('/proc').iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                raw = (entry / 'stat').read_text()
+                fields = raw[raw.rfind(')') + 2:].split()
+                if int(fields[2]) == process.pid and fields[0] not in ('Z', 'X'):
+                    live = True
+            except (FileNotFoundError, ProcessLookupError):
+                continue
+            except (PermissionError, ValueError, IndexError):
+                raise TrialTurnError('worker-drain-unconfirmed') from None
+        if not live:
+            return
+        if time.monotonic() >= deadline:
+            raise TrialTurnError('worker-drain-unconfirmed')
+        time.sleep(.05)
+
+
 class OpenClawRunner:
     """One tool-free embedded evaluation turn, outside the owner's gateway/state."""
 
@@ -611,12 +647,8 @@ class OpenClawRunner:
                     cancelled = bool(self.cancel_event and self.cancel_event.is_set())
                     # The CLI can respawn a Node child. Stop its owned group,
                     # including descendants after an early launcher exit.
-                    if os.name == 'posix':
-                        from .owned_ollama import stop_group
-                        try:
-                            stop_group(process)
-                        except ProcessLookupError:
-                            process.wait(timeout=10)
+                    if sys.platform == 'linux':
+                        drain_embedded_group(process)
                         process.communicate(timeout=10)
                     else:
                         process.terminate()
