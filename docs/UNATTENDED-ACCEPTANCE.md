@@ -39,6 +39,19 @@ image/storage acceptance. Passing a subset does not complete the goal.
   message, baseline/model decision, two more one-change experiments with evidence,
   and ## Done without any operator rescue. Preserve failed attempts as failures.
 
+## Configuration evidence follow-up
+
+The existing-card evaluator omitted per-model generation params, so its claimed
+thinking experiments are not proof that those settings were exercised. The v2
+evaluation path copies allowlisted generation scopes, records a private-safe
+configuration digest and requested-settings receipt, and invalidates a suite if
+the copied configuration changes. Comparisons require one changed dimension and
+explicitly label configuration evidence separately from effective requests.
+Old v1 results require a fresh v2 baseline. The hosted pinned-SDK protocol fixture
+checks actual outgoing options against a synthetic local Ollama endpoint without
+model inference; this is transport evidence, never a quality result. That fixture
+must pass before claiming the transport fix works. Nothing is hot-deployed.
+
 ## Shutdown evidence gate
 
 Do not treat a successful poweroff command, VM exit, sync, or later journal

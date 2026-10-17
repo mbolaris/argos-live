@@ -12,7 +12,7 @@ from . import ability, hw
 from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
 from .results import Store
-from .evaluation_context import EXECUTION_PATH
+from .evaluation_context import EXECUTION_PATH, configuration_receipt
 from .workload import Busy, reserve
 
 
@@ -72,6 +72,7 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                         if instruction_path is not None and instruction_path.parent.is_dir() else None)
     workspace = instruction_path.parent if workspace_before is not None else None
     protected = protected_files(workspace)
+    configuration = configuration_receipt(home)
 
     def protect(item_id):
         # Evaluation cannot edit owner files. A concurrent controller edit is
@@ -80,7 +81,15 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         if changed:
             result['workspace_changed'] = {'item_id': item_id, 'files': changed}
             raise TrialTurnError('workspace-changed-during-run')
+        try:
+            same = configuration_receipt(home)['sha256'] == configuration['sha256']
+        except (OSError, ValueError, KeyError, TypeError):
+            same = False
+        if not same:
+            raise TrialTurnError('configuration-changed-during-run')
     runner = runner or OpenClawRunner(home=home)
+    if isinstance(runner, OpenClawRunner):
+        runner.expected_model = configuration['model']['primary'].removeprefix('ollama/')
     started = clock()
     result = {
         'schema': 'argos-bench/1', 'id': secrets.token_hex(16),
@@ -89,14 +98,17 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         'suite_version': 'argos-openclaw-ability/' + suite + '/' + data['version'],
         'model': 'identity pending first OpenClaw turn', 'manifest_digest': None,
         'settings': {'execution_path': EXECUTION_PATH,
-                     'suite_sha256': suite_digest},
-        'prompt_fingerprint': {'workspace_agents_sha256': instruction_digest},
+                     'suite_sha256': suite_digest, 'model': configuration['model'],
+                     'configured_generation': configuration['configured_generation']},
+        'prompt_fingerprint': {'workspace_agents_sha256': instruction_digest,
+                               'evaluation_config_sha256': configuration['sha256']},
         'hardware': hw.snapshot(), 'state': 'running', 'items': [],
         'omitted_categories': data['omitted_categories'],
         'restoration': {'succeeded': True, 'mutated': False},
     }
     try:
         for index, task in enumerate(data['items'], 1):
+            protect(task['id'])
             item_started = clock()
             if progress:
                 progress({'phase': 'asking', 'completed': index - 1, 'run_id': result['id'],
@@ -140,6 +152,7 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                 progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
                           'total': len(data['items']), 'item_id': task['id'],
                           'model': result['model'], 'receipt': scored})
+        protect('final')
         result['state'] = 'completed'
     except KeyboardInterrupt:
         result['state'] = 'cancelled'

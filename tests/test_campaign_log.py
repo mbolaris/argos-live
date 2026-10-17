@@ -7,7 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import bench_openclaw, campaign_log, results, workload
-from test_bench_openclaw import FakeOpenClaw
+from test_bench_openclaw import FakeOpenClaw, configure_fake
 
 
 class CampaignLogTests(unittest.TestCase):
@@ -18,8 +18,7 @@ class CampaignLogTests(unittest.TestCase):
         self.workspace = self.home / '.openclaw/workspace'
         self.workspace.mkdir(parents=True)
         (self.workspace / 'AGENTS.md').write_text('Owner guide\n', encoding='utf-8')
-        (self.home / '.openclaw/openclaw.json').write_text(json.dumps(
-            {'agents': {'defaults': {'workspace': str(self.workspace)}}}), encoding='utf-8')
+        configure_fake(self.home, self.workspace)
         self.log = self.workspace / 'IMPROVEMENT-LOG.md'
         self.original = b'Owner history\r\nKeep these bytes.\r\n'
         self.log.write_bytes(self.original)

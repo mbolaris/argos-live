@@ -96,7 +96,8 @@ class TrialTurnError(ValueError):
 
     def __init__(self, code):
         if code not in {'cancelled', 'turn-timeout', 'assistant-error', 'empty-reply',
-                        'invalid-reply', 'session-mismatch', 'model-mismatch'}:
+                        'invalid-reply', 'session-mismatch', 'model-mismatch',
+                        'workspace-changed-during-run', 'configuration-changed-during-run'}:
             code = 'assistant-error'
         self.code = code
         super().__init__(code)

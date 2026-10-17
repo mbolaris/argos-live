@@ -26,7 +26,7 @@ intelligence.
 If a plugin tool is unavailable, the equivalent assistant command is
 `argos bench openclaw --suite quick --json`. The raw-model `argos bench ability`
 command does not test workspace instructions. Check the receipt's `openclaw-quick`
-suite and `openclaw embedded; ephemeral state; tools denied; v1` execution path. Each retest
+suite and `openclaw embedded; ephemeral state; tools denied; v2` execution path. Each retest
 needs a new run ID; an old result or an unsaved claim is not a new measurement.
 These are native tools, not shell commands. Run evaluations sequentially and
 repeat a candidate to confirm a gain. Establish a new baseline when the recorded

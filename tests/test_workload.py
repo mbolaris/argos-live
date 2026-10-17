@@ -13,7 +13,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import bench_openclaw, workload
-from test_bench_openclaw import FakeOpenClaw
+from test_bench_openclaw import FakeOpenClaw, configure_fake
 
 
 class WorkloadTests(unittest.TestCase):
@@ -21,7 +21,7 @@ class WorkloadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)
             (home / '.openclaw/workspace').mkdir(parents=True)
-            (home / '.openclaw/openclaw.json').write_text('{}', encoding='utf-8')
+            configure_fake(home, home / '.openclaw/workspace')
             started, resume = threading.Event(), threading.Event()
             outcomes = []
             class Waiting(FakeOpenClaw):

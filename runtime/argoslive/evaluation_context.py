@@ -7,7 +7,9 @@ not a request that the model voluntarily refrain from using its normal tools.
 """
 from contextlib import contextmanager, closing
 import copy
+import hashlib
 import json
+import math
 from pathlib import Path
 import tempfile
 import sqlite3
@@ -15,9 +17,111 @@ from urllib.parse import urlsplit
 
 from . import storage
 
-EXECUTION_PATH = 'openclaw embedded; ephemeral state; tools denied; v1'
+EXECUTION_PATH = 'openclaw embedded; ephemeral state; tools denied; v2'
 WORKSPACE_FILES = ('AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md', 'TOOLS.md')
 FILE_LIMIT = 1024 * 1024
+DEFAULT_SETTINGS = ('bootstrapMaxChars', 'bootstrapTotalMaxChars', 'contextTokens', 'thinkingDefault')
+# Pinned native Ollama request/runtime controls. Never transport, routing,
+# headers, credentials, plugins, external harnesses or tool policy.
+NUMERIC_PARAMS = frozenset(('temperature', 'topP', 'maxTokens', 'seed', 'frequencyPenalty', 'presencePenalty',
+    'num_ctx', 'num_keep', 'num_predict', 'top_k', 'top_p', 'min_p', 'typical_p', 'repeat_last_n',
+    'repeat_penalty', 'presence_penalty', 'frequency_penalty', 'num_batch', 'num_gpu', 'main_gpu', 'num_thread'))
+BOOL_PARAMS = frozenset(('use_mmap', 'truncate', 'shift', 'streaming'))
+THINK_LEVELS = frozenset(('off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'adaptive', 'max', 'ultra', 'disabled', 'none'))
+
+
+def parameters(value):
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError('Evaluation generation parameters must be an object')
+    for key, setting in value.items():
+        valid = False
+        if key in NUMERIC_PARAMS:
+            valid = type(setting) in (int, float) and math.isfinite(setting)
+        elif key in BOOL_PARAMS:
+            valid = type(setting) is bool
+        elif key in ('think', 'thinking'):
+            valid = type(setting) is bool or isinstance(setting, str) and setting in THINK_LEVELS
+        elif key == 'stop':
+            valid = isinstance(setting, str) or (isinstance(setting, list) and all(isinstance(x, str) for x in setting))
+        elif key == 'format':
+            valid = setting == 'json' or isinstance(setting, dict)
+        elif key == 'keep_alive':
+            # Kept as configuration evidence; a native request probe must still
+            # establish which options the pinned provider actually exercised.
+            valid = type(setting) in (int, float) and math.isfinite(setting) or isinstance(setting, str)
+        if not valid:
+            raise ValueError('Unsupported or invalid evaluation generation parameter')
+    if len(json.dumps(value, allow_nan=False).encode()) > 65536:
+        raise ValueError('Evaluation generation parameters exceed the limit')
+    return copy.deepcopy(value)
+
+
+def configuration(home):
+    """Build the same bounded model configuration for copying and provenance."""
+    original = json.loads(storage.safe_local(Path(home) / '.openclaw/openclaw.json').read_bytes())
+    defaults = original['agents']['defaults']
+    main = next((row for row in original['agents'].get('list', []) if row.get('id') == 'main'), {})
+    selected = main.get('model', defaults['model'])
+    primary = selected if isinstance(selected, str) else selected['primary']
+    if not isinstance(primary, str) or not primary.startswith('ollama/'):
+        raise ValueError('Evaluation requires a configured local Ollama model')
+    tag = primary.removeprefix('ollama/')
+    provider = original['models']['providers']['ollama']
+    origin = urlsplit(provider['baseUrl'])
+    if (origin.scheme != 'http' or origin.hostname != '127.0.0.1' or
+            origin.port != 11434 or origin.username or origin.password or
+            origin.query or origin.fragment or origin.path not in ('', '/')):
+        raise ValueError('Evaluation requires the owned localhost model server')
+    selected_row = next((row for row in provider['models'] if row.get('id') == tag), None)
+    if selected_row is None:
+        raise ValueError('Configured model metadata is unavailable')
+    model = {key: copy.deepcopy(selected_row[key]) for key in
+             ('id', 'name', 'reasoning', 'input', 'cost', 'contextWindow', 'contextTokens', 'maxTokens')
+             if key in selected_row}
+    model['params'] = parameters(selected_row.get('params'))
+    copied = {key: copy.deepcopy(defaults[key]) for key in DEFAULT_SETTINGS if key in defaults}
+    copied.update(model={'primary': primary}, heartbeat={'every': '0m'}, skipBootstrap=True,
+                  params=parameters(defaults.get('params')),
+                  models={primary: {'agentRuntime': {'id': 'openclaw'},
+                                    'params': parameters(defaults.get('models', {}).get(primary, {}).get('params'))}})
+    agent = {'id': 'main', 'params': parameters(main.get('params')),
+             'models': {primary: {'params': parameters(main.get('models', {}).get(primary, {}).get('params'))}}}
+    local = {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama', 'models': [model]}
+    if 'maxTokens' in provider:
+        local['maxTokens'] = provider['maxTokens']
+    return {'agents': {'defaults': copied, 'list': [agent]}, 'models': {'providers': {'ollama': local}},
+            'tools': {'deny': ['*'], 'toolSearch': False},
+            'plugins': {'allow': ['ollama'], 'entries': {'ollama': {'enabled': True}}, 'slots': {'memory': 'none'}},
+            'skills': {'allowBundled': []}}
+
+
+def configuration_receipt(home):
+    config = configuration(home)
+    defaults = config['agents']['defaults']
+    primary = defaults['model']['primary']
+    agent = config['agents']['list'][0]
+    provider = config['models']['providers']['ollama']
+    model = provider['models'][0]
+    generation = {'defaults': {key: defaults[key] for key in DEFAULT_SETTINGS if key in defaults},
+                  'default_params': defaults['params'], 'model_params': defaults['models'][primary]['params'],
+                  'agent_params': agent['params'], 'agent_model_params': agent['models'][primary]['params'],
+                  'provider_model_params': model['params']}
+    if 'maxTokens' in provider:
+        generation['provider_maxTokens'] = provider['maxTokens']
+    generation = copy.deepcopy(generation)
+    # Stop text or JSON schemas may contain private input. Retain a digest,
+    # never publish their content in an otherwise safe configuration receipt.
+    for scope in generation.values():
+        if isinstance(scope, dict):
+            for key in ('stop', 'format'):
+                if key in scope:
+                    scope[key] = {'sha256': hashlib.sha256(json.dumps(scope[key], sort_keys=True).encode()).hexdigest()}
+    return {'sha256': hashlib.sha256(json.dumps(config, sort_keys=True, allow_nan=False).encode()).hexdigest(),
+            'model': {'primary': primary, 'metadata': {key: value for key, value in model.items()
+                                                      if key not in ('id', 'name', 'cost', 'params')}},
+            'configured_generation': generation}
 
 
 def require_no_legacy_trials(home):
@@ -40,22 +144,7 @@ def require_no_legacy_trials(home):
 def isolated(home, workspace):
     """Copy bounded instruction/persona inputs, never credentials or session state."""
     home, workspace = Path(home), Path(workspace)
-    original = json.loads(storage.safe_local(home / '.openclaw/openclaw.json').read_bytes())
-    primary = original['agents']['defaults']['model']['primary']
-    if not isinstance(primary, str) or not primary.startswith('ollama/'):
-        raise ValueError('Evaluation requires a configured local Ollama model')
-    tag = primary.removeprefix('ollama/')
-    provider = original['models']['providers']['ollama']
-    origin = urlsplit(provider['baseUrl'])
-    if (origin.scheme != 'http' or origin.hostname != '127.0.0.1' or
-            origin.port != 11434 or origin.username or origin.password or
-            origin.query or origin.fragment or origin.path not in ('', '/')):
-        raise ValueError('Evaluation requires the owned localhost model server')
-    model = next((copy.deepcopy(row) for row in provider['models'] if row.get('id') == tag), None)
-    if model is None:
-        raise ValueError('Configured model metadata is unavailable')
-    model = {key: model[key] for key in ('id', 'name', 'reasoning', 'input', 'cost', 'contextWindow', 'maxTokens')
-             if key in model}
+    config = configuration(home)
     with tempfile.TemporaryDirectory(prefix='argos-evaluation-') as temporary:
         root = Path(temporary)
         work = root / '.openclaw/workspace'
@@ -71,27 +160,7 @@ def isolated(home, workspace):
             if len(raw) > FILE_LIMIT:
                 raise ValueError('Evaluation workspace input exceeds the limit')
             (work / name).write_bytes(raw)
-        config = {
-            'agents': {'defaults': {'workspace': str(work), 'model': {'primary': primary},
-                                    'heartbeat': {'every': '0m'}, 'skipBootstrap': True,
-                                    'models': {primary: {'agentRuntime': {'id': 'openclaw'}}}}},
-            'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434',
-                       'apiKey': 'ollama-local', 'api': 'ollama', 'models': [model]}}},
-            # Tool Search stays off, as in the owner config: with every tool denied it
-            # still offered a tool_search meta-tool, and a capable model looped on it
-            # until the turn deadline (22 calls in 60 s) or answered about missing tools.
-            'tools': {'deny': ['*'], 'toolSearch': False},
-            # Ollama inference itself is a pinned bundled provider plugin in
-            # OpenClaw 2026.10.4. Permit only it, never the campaign plugin/tools.
-            'plugins': {'allow': ['ollama'], 'entries': {'ollama': {'enabled': True}},
-                        'slots': {'memory': 'none'}},
-            'skills': {'allowBundled': []},
-        }
-        # Carry only input-budget/model-generation settings, never owner routing,
-        # plugins, fallbacks, external harnesses, auth profiles or shell env.
-        for key in ('bootstrapMaxChars', 'bootstrapTotalMaxChars', 'contextTokens', 'thinkingDefault'):
-            if key in original['agents']['defaults']:
-                config['agents']['defaults'][key] = original['agents']['defaults'][key]
+        config['agents']['defaults']['workspace'] = str(work)
         path = root / '.openclaw/openclaw.json'
         path.write_text(json.dumps(config), encoding='utf-8')
         path.chmod(0o600)

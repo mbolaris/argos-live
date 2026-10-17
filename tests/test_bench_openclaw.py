@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import ability, bench_openclaw, results
+from argoslive import ability, auto_setup, bench_openclaw, results
 from argoslive.assistant_trial import TrialTurnError
 
 
@@ -28,13 +28,19 @@ class FakeOpenClaw:
                 'model': 'qwen3:4b-instruct-2507-q4_K_M'}
 
 
+def configure_fake(home, workspace):
+    (home / '.openclaw').mkdir(parents=True, exist_ok=True)
+    (home / '.openclaw/openclaw.json').write_text(json.dumps(auto_setup.conversation_config(
+        'qwen3:4b-instruct-2507-q4_K_M', workspace)), encoding='utf-8')
+
+
 class OpenClawBenchmarkTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         home = Path(temporary.name)
         (home / '.openclaw/workspace').mkdir(parents=True)
-        (home / '.openclaw/openclaw.json').write_text('{}', encoding='utf-8')
+        configure_fake(home, home / '.openclaw/workspace')
         patcher = patch.object(Path, 'home', return_value=Path(temporary.name))
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -47,7 +53,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             instructions = workspace / 'AGENTS.md'
             instructions.write_text('Original instructions\n', encoding='utf-8')
             config = home / '.openclaw/openclaw.json'
-            config.write_text(json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}), encoding='utf-8')
+            configure_fake(home, workspace)
             result = bench_openclaw.run(home=home, runner=FakeOpenClaw())
             suite_path = ability.DATA / 'quick.json'
             self.assertEqual(result['settings']['suite_sha256'], hashlib.sha256(suite_path.read_bytes()).hexdigest())
@@ -81,8 +87,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             workspace.mkdir(parents=True)
             (workspace / 'AGENTS.md').write_text('Instructions\n', encoding='utf-8')
             (workspace / 'IMPROVEMENT-LOG.md').write_text('# Log\n', encoding='utf-8')
-            (home / '.openclaw/openclaw.json').write_text(
-                json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}), encoding='utf-8')
+            configure_fake(home, workspace)
 
             class Littering(FakeOpenClaw):
                 def turn(self, prompt):
@@ -103,8 +108,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             guide = workspace / 'AGENTS.md'
             guide.write_text('Real guidebook\n', encoding='utf-8')
             (workspace / 'tools/argos-control.py').write_text('print(1)\n', encoding='utf-8')
-            (home / '.openclaw/openclaw.json').write_text(
-                json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}), encoding='utf-8')
+            configure_fake(home, workspace)
             seen = []
 
             class Overwriting(FakeOpenClaw):
@@ -122,6 +126,37 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             self.assertEqual(guide.read_text(encoding='utf-8'), 'storage optimization')
             self.assertFalse((workspace / 'tools/argos-control.py').exists())
             self.assertEqual(result['workspace_changed']['files'], ['AGENTS.md', 'tools/argos-control.py'])
+
+    def test_config_edits_invalidate_without_overwriting_the_edit(self):
+        home = Path.home()
+        path = home / '.openclaw/openclaw.json'
+        class Changing(FakeOpenClaw):
+            def turn(self, prompt):
+                value = json.loads(path.read_bytes())
+                value['agents']['defaults']['params'] = {'temperature': 0.123}
+                path.write_text(json.dumps(value))
+                return super().turn(prompt)
+        value = bench_openclaw.run(home=home, runner=Changing())
+        self.assertEqual(value['state'], 'failed')
+        self.assertEqual(value['failure_code'], 'configuration-changed-during-run')
+        self.assertEqual(json.loads(path.read_bytes())['agents']['defaults']['params'], {'temperature': 0.123})
+
+    def test_configuration_comparison_requires_one_change_and_labels_evidence(self):
+        import copy
+        first = bench_openclaw.run(runner=FakeOpenClaw())
+        second = copy.deepcopy(first)
+        second['id'] = 'a' * 32
+        second['settings']['configured_generation']['model_params']['temperature'] = 0.2
+        second['prompt_fingerprint']['evaluation_config_sha256'] = 'b' * 64
+        compared = results.compare([first, second])
+        self.assertIn('configured settings', compared['configuration_changes'][1]['evidence'])
+        second['settings']['configured_generation']['model_params']['topP'] = 0.8
+        with self.assertRaisesRegex(ValueError, 'more than one'):
+            results.compare([first, second])
+        del second['settings']['configured_generation']['model_params']['topP']
+        second['settings']['model']['metadata']['reasoning'] = True
+        with self.assertRaisesRegex(ValueError, 'more than one'):
+            results.compare([first, second])
 
     def test_failed_turn_saves_partial_evidence_but_cannot_be_compared(self):
         complete = bench_openclaw.run(runner=FakeOpenClaw())

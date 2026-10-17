@@ -4,7 +4,7 @@ import { Type } from "typebox";
 const TOOL_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_OUTPUT = 2 * 1024 * 1024;
 const ARGOS_BIN = process.env.ARGOS_BIN || "argos";
-const EVALUATION_PATH = "openclaw embedded; ephemeral state; tools denied; v1";
+const EVALUATION_PATH = "openclaw embedded; ephemeral state; tools denied; v2";
 
 function argosPrefixArgs() {
   if (!process.env.ARGOS_BIN_ARGS) return [];

@@ -3,6 +3,10 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - scripts/smoke-evaluation-config.py
+      - runtime/argoslive/evaluation_context.py
+      - runtime/argoslive/assistant_trial.py
+      - runtime/argoslive/bench_openclaw.py
       - scripts/smoke-pack-schema.py
       - scripts/smoke-owned-gateway.py
       - runtime/argoslive/owned_gateway.py
@@ -29,6 +33,10 @@ on:
       - live/config/includes.chroot/usr/local/share/argos-live/package-lock.json
   pull_request:
     paths:
+      - scripts/smoke-evaluation-config.py
+      - runtime/argoslive/evaluation_context.py
+      - runtime/argoslive/assistant_trial.py
+      - runtime/argoslive/bench_openclaw.py
       - scripts/smoke-pack-schema.py
       - scripts/smoke-owned-gateway.py
       - runtime/argoslive/owned_gateway.py
@@ -98,12 +106,15 @@ jobs:
           python3 scripts/smoke-pack-schema.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --version "$OPENCLAW_VERSION" --report work/openclaw-compatibility.json
       - name: Native owned gateway health, UI document and shutdown
         run: python3 scripts/smoke-owned-gateway.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw > work/native-gateway.json
+      - name: Pinned evaluation generation request protocol (synthetic, no inference)
+        run: python3 scripts/smoke-evaluation-config.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/evaluation-protocol.json
       - uses: actions/upload-artifact@v4
         with:
           name: openclaw-compatibility
           path: |
             work/openclaw-compatibility.json
             work/native-gateway.json
+            work/evaluation-protocol.json
             work/addon-inventory.json
             work/dashboard-desktop.png
             work/dashboard-narrow.png

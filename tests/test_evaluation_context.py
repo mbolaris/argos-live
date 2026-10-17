@@ -90,6 +90,39 @@ class EvaluationIsolationTests(unittest.TestCase):
         self.assertTrue(all(not home.exists() for home in observed))
         self.assertFalse((self.home / '.openclaw/agents').exists())
 
+    def test_generation_scopes_and_main_selection_survive_isolation(self):
+        defaults = self.value['agents']['defaults']
+        defaults['model'] = {'primary': 'ollama/unused'}
+        defaults['params'] = {'temperature': 0.2}
+        defaults['models'] = {'ollama/fixture': {'params': {'topP': 0.7}}}
+        self.value['agents']['list'] = [{'id': 'main', 'model': 'ollama/fixture',
+            'params': {'temperature': 0.3}, 'models': {'ollama/fixture': {'params': {'thinking': 'low'}}}}]
+        self.value['models']['providers']['ollama']['models'][0]['params'] = {'num_ctx': 8192}
+        self.config.write_text(json.dumps(self.value))
+        receipt = ec.configuration_receipt(self.home)
+        with ec.isolated(self.home, self.workspace) as (_, path, _):
+            copied = json.loads(path.read_bytes())
+            self.assertEqual(copied['agents']['defaults']['model']['primary'], 'ollama/fixture')
+            self.assertEqual(copied['agents']['defaults']['params'], {'temperature': 0.2})
+            self.assertEqual(copied['agents']['list'][0]['params'], {'temperature': 0.3})
+            self.assertEqual(copied['models']['providers']['ollama']['models'][0]['params'], {'num_ctx': 8192})
+        self.assertEqual(receipt['configured_generation']['agent_model_params'], {'thinking': 'low'})
+
+    def test_private_parameter_values_are_digested_and_changes_are_detected(self):
+        self.value['agents']['defaults']['params'] = {'stop': ['private-stop-canary'],
+            'format': {'private-schema-canary': {'type': 'string'}}}
+        self.config.write_text(json.dumps(self.value))
+        first = ec.configuration_receipt(self.home)
+        self.assertNotIn('private-stop-canary', json.dumps(first))
+        self.assertNotIn('private-schema-canary', json.dumps(first))
+        self.value['agents']['defaults']['params']['stop'] = ['changed']
+        self.config.write_text(json.dumps(self.value))
+        self.assertNotEqual(first['sha256'], ec.configuration_receipt(self.home)['sha256'])
+        for params in ({'headers': {'Authorization': 'secret'}}, {'temperature': True},
+                       {'topP': float('inf')}, {'thinking': 'invented'}):
+            with self.assertRaises(ValueError):
+                ec.parameters(params)
+
     def test_remote_provider_is_rejected_before_launch(self):
         self.value['models']['providers']['ollama']['baseUrl'] = 'https://example.com'
         self.config.write_text(json.dumps(self.value))
