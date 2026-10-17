@@ -4,12 +4,12 @@
     "local-transcription",
     "local-image-generation"
   ],
-  "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
-  "host_version": "2026.10.1",
+  "host_integrity": "sha512-+FH0StZF1tlTazM7JJGY6JePeJmhFNSRByi2Q3jXPRiLO7o4dJh2xa9Vy4Dk8Cd2ic8B7Zkf5NfEaCCWUkgqnQ==",
+  "host_version": "2026.10.4",
   "note": "Metadata only. Contracts/default enablement are not effective agent tool grants or readiness.",
   "plugins": [
     {
-      "compatible_host": "2026.10.1",
+      "compatible_host": "2026.10.4",
       "declared_contracts": {
         "embeddingProviders": [
           "ollama"
@@ -27,7 +27,7 @@
       ],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
+      "host_integrity": "sha512-+FH0StZF1tlTazM7JJGY6JePeJmhFNSRByi2Q3jXPRiLO7o4dJh2xa9Vy4Dk8Cd2ic8B7Zkf5NfEaCCWUkgqnQ==",
       "id": "ollama",
       "invocation_verified": false,
       "license": "MIT",
@@ -38,11 +38,11 @@
       },
       "package": "@openclaw/ollama-provider",
       "package_presence_verified": true,
-      "package_sha256": "679e4d6c3de2f3886c718bac78d9f72afce5ab67a1f126b5ed09e9a969458328",
-      "version": "2026.10.1"
+      "package_sha256": "745b471c53c2297629bb5625812890ec2932c78d9505c84d2c0850fa4d82f523",
+      "version": "2026.10.4"
     },
     {
-      "compatible_host": "2026.10.1",
+      "compatible_host": "2026.10.4",
       "declared_contracts": {
         "tools": [
           "intent",
@@ -53,7 +53,7 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": null,
-      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
+      "host_integrity": "sha512-+FH0StZF1tlTazM7JJGY6JePeJmhFNSRByi2Q3jXPRiLO7o4dJh2xa9Vy4Dk8Cd2ic8B7Zkf5NfEaCCWUkgqnQ==",
       "id": "memory-core",
       "invocation_verified": false,
       "license": "MIT",
@@ -67,11 +67,11 @@
       },
       "package": "@openclaw/memory-core",
       "package_presence_verified": true,
-      "package_sha256": "ac459967c6be4282fa5fcf4fbab6fd2739d999a369a8dc3ddd1193e99419faac",
-      "version": "2026.10.1"
+      "package_sha256": "390d1fa6586b50d61aa7e74d39ce6dc262b50ea0947b7406304239ceac670843",
+      "version": "2026.10.4"
     },
     {
-      "compatible_host": "2026.10.1",
+      "compatible_host": "2026.10.4",
       "declared_contracts": {
         "tools": [
           "browser"
@@ -80,7 +80,7 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
+      "host_integrity": "sha512-+FH0StZF1tlTazM7JJGY6JePeJmhFNSRByi2Q3jXPRiLO7o4dJh2xa9Vy4Dk8Cd2ic8B7Zkf5NfEaCCWUkgqnQ==",
       "id": "browser",
       "invocation_verified": false,
       "license": "MIT",
@@ -97,11 +97,11 @@
       },
       "package": "@openclaw/browser-plugin",
       "package_presence_verified": true,
-      "package_sha256": "b3f8e4df5f5c725efa9f0b552619c63df1dedf660ee48ad2346016e85ddee6b1",
-      "version": "2026.10.1"
+      "package_sha256": "09b4a89d151b390e36445a73f90bf5974244608f4dd8358aa5868089be19489d",
+      "version": "2026.10.4"
     },
     {
-      "compatible_host": "2026.10.1",
+      "compatible_host": "2026.10.4",
       "declared_contracts": {
         "documentExtractors": [
           "pdf"
@@ -110,7 +110,7 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
+      "host_integrity": "sha512-+FH0StZF1tlTazM7JJGY6JePeJmhFNSRByi2Q3jXPRiLO7o4dJh2xa9Vy4Dk8Cd2ic8B7Zkf5NfEaCCWUkgqnQ==",
       "id": "document-extract",
       "invocation_verified": false,
       "license": "MIT",
@@ -121,11 +121,11 @@
       },
       "package": "@openclaw/document-extract-plugin",
       "package_presence_verified": true,
-      "package_sha256": "bfbbf0b6f7fac63f6e23724d3326c86cc41a3b524ae32be41f31339f93296b5e",
-      "version": "2026.10.1"
+      "package_sha256": "3186d9d82a1c9536a33d319d217e69e6535fc1db9fcae1979d3c3a6a0426f9f6",
+      "version": "2026.10.4"
     },
     {
-      "compatible_host": "2026.10.1",
+      "compatible_host": "2026.10.4",
       "declared_contracts": {
         "speechProviders": [
           "tts-local-cli",
@@ -135,7 +135,7 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
+      "host_integrity": "sha512-+FH0StZF1tlTazM7JJGY6JePeJmhFNSRByi2Q3jXPRiLO7o4dJh2xa9Vy4Dk8Cd2ic8B7Zkf5NfEaCCWUkgqnQ==",
       "id": "tts-local-cli",
       "invocation_verified": false,
       "license": "MIT",
@@ -144,16 +144,16 @@
       "npm_dependencies": {},
       "package": "@openclaw/tts-local-cli",
       "package_presence_verified": true,
-      "package_sha256": "473f7beb85b56b14e1f8d497a1aa4f863c4b8e0e73091c50d9863692cf7f7811",
-      "version": "2026.10.1"
+      "package_sha256": "570dc0eae4b1fcb170b67e01213537a7735e5afd8dbafac53ababafe77fdecf1",
+      "version": "2026.10.4"
     },
     {
-      "compatible_host": "2026.10.1",
+      "compatible_host": "2026.10.4",
       "declared_contracts": {},
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": null,
-      "host_integrity": "sha512-C072/lxy83KP1nMCnJbipr4O+EtIR9XXbjzQFM+ol7VE5ci2MkKk5XTxfSG70jxpEVaGFeXcEmObHxR/ZHLdHw==",
+      "host_integrity": "sha512-+FH0StZF1tlTazM7JJGY6JePeJmhFNSRByi2Q3jXPRiLO7o4dJh2xa9Vy4Dk8Cd2ic8B7Zkf5NfEaCCWUkgqnQ==",
       "id": "telegram",
       "invocation_verified": false,
       "license": "MIT",
@@ -169,8 +169,8 @@
       },
       "package": "@openclaw/telegram",
       "package_presence_verified": true,
-      "package_sha256": "ca47edbd1981a21601c82c45e5cae6e3714a6db759f791021d51ba806d142384",
-      "version": "2026.10.1"
+      "package_sha256": "3ca36d5bac03f08f4d58a0cb314fa43343c8ed5c0261c23183b41d1dd14872c9",
+      "version": "2026.10.4"
     }
   ],
   "schema": "argos-addons/1",

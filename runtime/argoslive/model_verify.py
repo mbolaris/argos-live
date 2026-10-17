@@ -37,8 +37,21 @@ def read_manifest(root, tag):
 
 
 def check_manifest(raw, entry):
+    """Registry bytes must be exactly the reviewed revision."""
     if len(raw) > LIMIT or 'sha256:' + hashlib.sha256(raw).hexdigest() != entry['manifest_digest']:
         raise ValueError('Manifest revision differs from reviewed catalog')
+    return check_local_manifest(raw, entry)
+
+
+def check_local_manifest(raw, entry, root=None):
+    """A stored manifest must describe exactly the reviewed artifacts.
+
+    Ollama 0.40 re-serializes manifests it stores, so their bytes no longer hash
+    to the registry revision. Every descriptor (digest, size, media type) must
+    still match the catalog, and verify() checks each blob's SHA256.
+    """
+    if len(raw) > LIMIT:
+        raise ValueError('Manifest exceeds metadata limit')
     value = json.loads(raw)
     if value.get('schemaVersion') != 2 or not isinstance(value.get('layers'), list):
         raise ValueError('Invalid model manifest')
@@ -48,9 +61,47 @@ def check_manifest(raw, entry):
         if item['digest'] in descriptors and descriptors[item['digest']] != descriptor:
             raise ValueError('Conflicting manifest descriptors')
         descriptors[item['digest']] = descriptor
-    if descriptors != {a['digest']: a for a in entry['artifacts']}:
-        raise ValueError('Manifest descriptors differ from reviewed catalog')
+    expected = {a['digest']: a for a in entry['artifacts']}
+    # Ollama 0.40 also records the registry manifest it pulled. Accept that one
+    # extra descriptor only when it is exactly the reviewed manifest revision.
+    reference = descriptors.get(entry.get('manifest_digest'))
+    if (reference and reference['media_type'] == 'application/vnd.docker.distribution.manifest.v2+json'
+            and entry['manifest_digest'] not in expected):
+        descriptors.pop(entry['manifest_digest'])
+    # For tags with several variants it also records the registry's manifest
+    # list. Accept it only when the stored list document is intact and selects
+    # the reviewed manifest revision.
+    for digest, item in list(descriptors.items()):
+        if item['media_type'] == LIST_TYPE and digest not in expected and root is not None and listed(root, item, entry):
+            descriptors.pop(digest)
+    if descriptors != expected:
+        changed = sorted(f"{d[7:19]} {expected[d]['media_type']}->{descriptors[d]['media_type']} "
+                         f"{expected[d]['size']}->{descriptors[d]['size']}"
+                         for d in descriptors.keys() & expected.keys() if descriptors[d] != expected[d])
+        raise ValueError('Manifest descriptors differ from reviewed catalog: ' + json.dumps({
+            'missing': sorted(expected[d]['media_type'] for d in expected.keys() - descriptors.keys()),
+            'extra': sorted(descriptors[d]['media_type'] for d in descriptors.keys() - expected.keys()),
+            'changed': changed}))
     return raw
+
+
+LIST_TYPE = 'application/vnd.ollama.manifest.list.v2+json'
+
+
+def listed(root, item, entry):
+    path = blob_path(root, item)
+    try:
+        raw = path.read_bytes() if path.stat().st_size <= LIMIT else b''
+    except OSError:
+        return False
+    if 'sha256:' + hashlib.sha256(raw).hexdigest() != item['digest'] or len(raw) != item['size']:
+        return False
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return False
+    return (value.get('mediaType') == LIST_TYPE and isinstance(value.get('manifests'), list)
+            and any(isinstance(m, dict) and m.get('digest') == entry['manifest_digest'] for m in value['manifests']))
 
 
 def blob_path(root, item):
@@ -77,7 +128,7 @@ def verify_blob(path, item, cancel=None, progress=None, *, sync=True):
 
 
 def verify(root, entry, cancel=None, progress=None, *, sync=True):
-    check_manifest(read_manifest(root, entry['tag']), entry)
+    check_local_manifest(read_manifest(root, entry['tag']), entry, root)
     checked = 0
     for item in entry['artifacts']:
         verify_blob(blob_path(root, item), item, cancel,
@@ -94,9 +145,9 @@ def publish(stage, target, entry, cancel=None):
     """
     destination = manifest_path(target, entry['tag'])
     raw = read_manifest(stage, entry['tag'])
-    check_manifest(raw, entry)
+    check_local_manifest(raw, entry, stage)
     if destination.exists():
-        check_manifest(read_manifest(target, entry['tag']), entry)
+        check_local_manifest(read_manifest(target, entry['tag']), entry, target)
     blobs = storage.safe_local(Path(target) / 'blobs')
     blobs.mkdir(exist_ok=True)
     for item in entry['artifacts']:
@@ -109,6 +160,11 @@ def publish(stage, target, entry, cancel=None):
             # Staging is on the same filesystem. Hard-link publication is atomic
             # and fails if another writer created the destination in the meantime.
             os.link(source, dest)
+    # A verified manifest list the stored manifest names travels with it.
+    for item in json.loads(raw)['layers']:
+        if (item.get('mediaType') == LIST_TYPE and listed(stage, item, entry)
+                and not blob_path(target, item).exists()):
+            os.link(blob_path(stage, item), blob_path(target, item))
     destination.parent.mkdir(parents=True, exist_ok=True)
     storage.safe_local(destination)
     if not destination.exists():

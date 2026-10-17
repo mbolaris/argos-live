@@ -108,7 +108,13 @@ class OnboardingTests(unittest.TestCase):
     def write_stage(self):
         path = artifacts.manifest_path(self.stage, self.entry['tag'])
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(self.raw + (b' ' if self.mode == 'changed-tag' else b''))
+        raw = self.raw
+        if self.mode == 'changed-tag':
+            # A changed revision describes different artifacts, not merely different bytes.
+            changed = json.loads(raw)
+            changed['layers'][0]['size'] += 1
+            raw = json.dumps(changed).encode()
+        path.write_bytes(raw)
         (self.stage / 'blobs').mkdir(exist_ok=True)
         for digest, raw in self.payload.items():
             if self.mode == 'corrupt' and raw.startswith(b'authored'):
@@ -207,6 +213,48 @@ class OnboardingTests(unittest.TestCase):
             self.assertEqual(main(['--state', str(state), 'status', self.job['id']]), 0)
             self.assertEqual(main(['--state', str(state), 'pause', self.job['id']]), 0)
         self.assertEqual(self.requests, [])
+
+    def test_stored_manifest_is_checked_by_content_not_bytes(self):
+        value = json.loads(self.raw)
+        reserialized = json.dumps(value, indent=3, sort_keys=True).encode()
+        self.assertNotEqual(reserialized, self.raw)
+        self.assertEqual(artifacts.check_local_manifest(reserialized, self.entry), reserialized)
+        with self.assertRaisesRegex(ValueError, 'revision differs'):
+            artifacts.check_manifest(reserialized, self.entry)  # registry bytes stay exact
+        changed = json.loads(self.raw)
+        changed['layers'][0]['size'] += 1
+        with self.assertRaisesRegex(ValueError, 'differ from reviewed catalog'):
+            artifacts.check_local_manifest(json.dumps(changed).encode(), self.entry)
+        # Ollama 0.40 records the pulled registry manifest; only the reviewed revision is accepted.
+        kind = 'application/vnd.docker.distribution.manifest.v2+json'
+        recorded = json.loads(self.raw)
+        recorded['layers'].append({'mediaType': kind, 'digest': self.entry['manifest_digest'], 'size': len(self.raw)})
+        artifacts.check_local_manifest(json.dumps(recorded).encode(), self.entry)
+        other = json.loads(self.raw)
+        other['layers'].append({'mediaType': kind, 'digest': 'sha256:' + '0' * 64, 'size': 1})
+        with self.assertRaisesRegex(ValueError, 'extra'):
+            artifacts.check_local_manifest(json.dumps(other).encode(), self.entry)
+
+    def test_manifest_list_is_accepted_only_when_it_selects_the_reviewed_revision(self):
+        import hashlib, tempfile
+        kind = 'application/vnd.ollama.manifest.list.v2+json'
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / 'blobs').mkdir()
+
+            def stored(manifests):
+                doc = json.dumps({'schemaVersion': 2, 'mediaType': kind, 'manifests': manifests}).encode()
+                digest = 'sha256:' + hashlib.sha256(doc).hexdigest()
+                (Path(root) / 'blobs' / digest.replace(':', '-')).write_bytes(doc)
+                value = json.loads(self.raw)
+                value['layers'].append({'mediaType': kind, 'digest': digest, 'size': len(doc)})
+                return json.dumps(value).encode()
+
+            good = stored([{'digest': 'sha256:' + '1' * 64}, {'digest': self.entry['manifest_digest']}])
+            artifacts.check_local_manifest(good, self.entry, root)
+            with self.assertRaisesRegex(ValueError, 'extra'):
+                artifacts.check_local_manifest(good, self.entry)  # no store to read the list from
+            with self.assertRaisesRegex(ValueError, 'extra'):
+                artifacts.check_local_manifest(stored([{'digest': 'sha256:' + '1' * 64}]), self.entry, root)
 
     def test_registry_drift_blocks_backend_and_publication_checks_existing_blobs(self):
         with patch.object(artifacts, 'check_manifest', side_effect=ValueError('changed')):

@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import secrets
 import time
@@ -11,10 +12,43 @@ from . import ability, hw
 from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
 from .results import Store
+from .evaluation_context import EXECUTION_PATH
+
+
+PROTECTED_LIMIT = 1024 ** 2
+
+
+def protected_files(workspace):
+    """Bytes of the assistant's own workspace files that benchmark tasks must not change."""
+    saved = {}
+    if workspace is None or not workspace.is_dir():
+        return saved
+    candidates = [path for path in workspace.iterdir() if path.is_file()]
+    for folder in ('tools', 'skills'):
+        if (workspace / folder).is_dir():
+            candidates += [path for path in (workspace / folder).rglob('*') if path.is_file()]
+    for path in candidates:
+        if not path.is_symlink() and path.stat().st_size <= PROTECTED_LIMIT:
+            saved[path.relative_to(workspace).as_posix()] = path.read_bytes()
+    return saved
+
+
+def changed_inputs(workspace, saved):
+    """Detect changed inputs without overwriting controller work."""
+    changed = []
+    for name, original in saved.items():
+        path = workspace / name
+        try:
+            if path.is_file() and not path.is_symlink() and path.read_bytes() == original:
+                continue
+            changed.append(name)
+        except OSError:
+            changed.append(name)
+    return changed
 
 
 def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic):
-    """Run fixed tasks as fresh ordinary OpenClaw main-agent sessions."""
+    """Run fixed text tasks with copied instructions and no execution capabilities."""
     data = ability.load(suite)
     suite_path = ability.DATA / (suite + '.json')
     suite_digest = hashlib.sha256(suite_path.read_bytes()).hexdigest()
@@ -24,6 +58,18 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
         instruction_path = agents_path(Path(home))
         if instruction_path.exists():
             instruction_digest = hashlib.sha256(instruction_path.read_bytes()).hexdigest()
+    workspace_before = (set(os.listdir(instruction_path.parent))
+                        if instruction_path is not None and instruction_path.parent.is_dir() else None)
+    workspace = instruction_path.parent if workspace_before is not None else None
+    protected = protected_files(workspace)
+
+    def protect(item_id):
+        # Evaluation cannot edit owner files. A concurrent controller edit is
+        # newer owner work: invalidate the comparison, never roll it back.
+        changed = changed_inputs(workspace, protected) if protected else []
+        if changed:
+            result['workspace_changed'] = {'item_id': item_id, 'files': changed}
+            raise TrialTurnError('workspace-changed-during-run')
     runner = runner or OpenClawRunner(home=home)
     started = clock()
     result = {
@@ -32,7 +78,7 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
         'suite': 'openclaw-' + suite,
         'suite_version': 'argos-openclaw-ability/' + suite + '/' + data['version'],
         'model': 'identity pending first OpenClaw turn', 'manifest_digest': None,
-        'settings': {'execution_path': 'openclaw gateway; fresh session per task',
+        'settings': {'execution_path': EXECUTION_PATH,
                      'suite_sha256': suite_digest},
         'prompt_fingerprint': {'workspace_agents_sha256': instruction_digest},
         'hardware': hw.snapshot(), 'state': 'running', 'items': [],
@@ -43,9 +89,28 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
         for index, task in enumerate(data['items'], 1):
             item_started = clock()
             if progress:
-                progress({'phase': 'asking', 'completed': index - 1,
-                          'total': len(data['items']), 'item_id': task['id']})
-            answer = runner.turn(task['prompt'])
+                progress({'phase': 'asking', 'completed': index - 1, 'run_id': result['id'],
+                          'total': len(data['items']), 'item_id': task['id'], 'category': task['scorer']['kind']})
+            try:
+                answer = runner.turn(task['prompt'])
+            except TrialTurnError as exc:
+                if exc.code != 'empty-reply':
+                    raise
+                # The assistant ran but produced no usable answer: score it as a
+                # wrong answer and keep going instead of voiding the whole run.
+                scored = ability.score(task, '')
+                scored.update(category=task['scorer']['kind'], output='', output_truncated=False,
+                              no_reply=True, latency_seconds=max(0, clock() - item_started),
+                              measurement={'source': 'OpenClaw CLI elapsed time', 'elapsed_seconds': None},
+                              session_id=None)
+                protect(task['id'])
+                result['items'].append(scored)
+                if progress:
+                    progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
+                              'total': len(data['items']), 'item_id': task['id'],
+                              'model': result['model'], 'receipt': scored})
+                continue
+            protect(task['id'])
             identity = '/'.join(str(answer.get(key) or 'unknown') for key in ('provider', 'model'))
             if result['model'] == 'identity pending first OpenClaw turn':
                 result['model'] = identity
@@ -62,9 +127,9 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
                 session_id=answer['session_id'])
             result['items'].append(scored)
             if progress:
-                progress({'phase': 'scored', 'completed': index,
+                progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
                           'total': len(data['items']), 'item_id': task['id'],
-                          'receipt': scored})
+                          'model': result['model'], 'receipt': scored})
         result['state'] = 'completed'
     except KeyboardInterrupt:
         result['state'] = 'cancelled'
@@ -75,6 +140,13 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
     if hashlib.sha256(suite_path.read_bytes()).hexdigest() != suite_digest:
         result['state'] = 'failed'
         result['failure_code'] = 'benchmark-changed-during-run'
+    if workspace_before is not None:
+        # Preserve concurrent owner/controller additions; never move them away.
+        created = sorted(set(os.listdir(instruction_path.parent)) - workspace_before)
+        if created:
+            result['workspace_side_effects'] = {'added_entries': created, 'preserved': True}
+            result['state'] = 'failed'
+            result['failure_code'] = 'workspace-changed-during-run'
     if instruction_path is not None:
         current_digest = (hashlib.sha256(instruction_path.read_bytes()).hexdigest()
                           if instruction_path.exists() else None)
@@ -90,6 +162,49 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
     return result
 
 
+class LiveBoard:
+    """Publish a running benchmark's progress for the dashboard's live view."""
+
+    def __init__(self, home, suite):
+        self.path = Path(home) / '.local/state/argos-live/assistant-bench-live.json'
+        self.state = {'schema': 'argos-assistant-bench-live/1', 'suite': 'openclaw-' + suite, 'phase': 'starting',
+                      'started': datetime.now(timezone.utc).isoformat(), 'items': []}
+        self.write()
+
+    def write(self):
+        try:
+            self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            temporary = self.path.with_name('.' + self.path.name + '.tmp')
+            temporary.write_text(json.dumps(self.state, ensure_ascii=False))
+            os.replace(temporary, self.path)
+        except OSError:
+            pass  # The live view is a convenience; never let it break a benchmark.
+
+    def update(self, event):
+        self.state.update(phase='running', run_id=event.get('run_id'), total=event.get('total'),
+                          completed=event.get('completed'), updated=datetime.now(timezone.utc).isoformat())
+        if event.get('phase') == 'asking':
+            self.state['current'] = {'item_id': event.get('item_id'), 'category': event.get('category')}
+        elif event.get('phase') == 'scored':
+            receipt = event.get('receipt') or {}
+            self.state['model'] = event.get('model')
+            self.state['current'] = None
+            self.state['items'].append({
+                'item_id': event.get('item_id'), 'category': receipt.get('category'),
+                'correct': bool(receipt.get('score')), 'outcome': receipt.get('outcome'),
+                'no_reply': bool(receipt.get('no_reply')), 'answer': (receipt.get('output') or '')[:240],
+                'seconds': round(receipt.get('latency_seconds') or 0, 1)})
+            self.state['correct'] = sum(item['correct'] for item in self.state['items'])
+        self.write()
+
+    def finish(self, result):
+        self.state.update(phase=result['state'], run_id=result['id'], summary=result.get('summary'),
+                          coverage=result.get('coverage'), elapsed_seconds=round(result.get('elapsed_seconds') or 0, 1),
+                          failure_code=result.get('failure_code'), current=None,
+                          updated=datetime.now(timezone.utc).isoformat())
+        self.write()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Evaluate the configured OpenClaw assistant with fixed Argos tasks.')
     parser.add_argument('--suite', choices=('quick', 'standard'), default='quick')
@@ -97,10 +212,13 @@ def main(argv=None):
     parser.add_argument('--results-dir', type=Path, default=Store().root)
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)
+    board = LiveBoard(args.home, args.suite)
     def progress(value):
         print(json.dumps(value, ensure_ascii=False), file=__import__('sys').stderr, flush=True)
+        board.update(value)
     result = run(suite=args.suite, home=args.home, progress=progress)
     path = Store(args.results_dir).save(result)
+    board.finish(result)
     if args.json:
         print(json.dumps({'result': result, 'path': str(path)}, ensure_ascii=False))
     else:

@@ -6,6 +6,16 @@ coordinator as the next development target. Progress belongs in
 
 ## Implementation status — October 12, 2026
 
+October 13 fresh-image update (this branch, not deployed): new setup now uses
+OpenClaw file/runtime tools, reference fetching and local execution, with elevated
+mode disabled, rather than blocking runtime tools. The tool list is kept small
+for the CPU starter. Existing profiles remain intact and
+the prior minimal profile still starts. The installed guide now describes how to
+begin on "go", prioritize measured hardware/model fit, preserve snapshots and
+journal matched trials. This enables local operations; it is not acceptance of an
+autonomous improvement cycle. The earlier verified ISO does not contain this
+change, and no SD write has occurred. See the current backlog checkpoint.
+
 A first working prototype is installed on Toronado as OpenClaw plugin
 `argos-improve` version `0.1.3`. It registers
 `argos_evaluate` (fixed 20-task quick or 70-task standard Argos ability suite)

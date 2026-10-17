@@ -65,6 +65,8 @@ def owned(home=None, *, executable=None, config_path=None, timeout=600, cancel=N
         raise ValueError('Invalid gateway startup deadline')
     home = safe_local(Path.home() if home is None else Path(home))
     config_path = safe_local(config_path or home / '.openclaw/openclaw.json')
+    from .evaluation_context import require_no_legacy_trials
+    require_no_legacy_trials(home)
     origin, port = settings(config_path)
     # Fail before launching a CLI or creating a lease if any listener occupies it.
     with socket.socket() as reservation:

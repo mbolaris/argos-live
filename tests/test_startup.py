@@ -209,6 +209,8 @@ class StartupTests(unittest.TestCase):
         verify.assert_called_once()
         self.assertEqual(config, original)
         filesystem_allowed = copy.deepcopy(config)
+        filesystem_allowed['tools']['profile'] = 'minimal'
+        filesystem_allowed['tools'].pop('exec')
         filesystem_allowed['tools']['alsoAllow'] = ['group:fs', 'argos_evaluate', 'argos_compare']
         filesystem_allowed['tools']['deny'] = ['gateway', 'group:runtime', 'group:web', 'browser']
         with patch('argoslive.startup.read_json', side_effect=[state, filesystem_allowed]), \
@@ -216,6 +218,22 @@ class StartupTests(unittest.TestCase):
                 patch('argoslive.startup.model_verify.verify') as verify:
             startup.source(self.home)
         verify.assert_called_once()
+        # OpenClaw doctor's normalized equivalent of security=full / ask=off.
+        doctor_normalized = copy.deepcopy(config)
+        doctor_normalized['tools']['exec'] = {'host': 'gateway', 'mode': 'full'}
+        with patch('argoslive.startup.read_json', side_effect=[state, doctor_normalized]), \
+                patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                patch('argoslive.startup.model_verify.verify') as verify:
+            startup.source(self.home)
+        verify.assert_called_once()
+        for exec_policy in ({'host': 'gateway', 'mode': 'auto'}, {'host': 'node', 'mode': 'full'}):
+            other = copy.deepcopy(config)
+            other['tools']['exec'] = exec_policy
+            with patch('argoslive.startup.read_json', side_effect=[state, other]), \
+                    patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                    patch('argoslive.startup.model_verify.verify') as verify:
+                with self.subTest(exec=exec_policy), self.assertRaises(ValueError):
+                    startup.source(self.home)
         no_filesystem = copy.deepcopy(filesystem_allowed)
         no_filesystem['tools']['alsoAllow'] = []
         with patch('argoslive.startup.read_json', side_effect=[state, no_filesystem]), \
@@ -225,21 +243,23 @@ class StartupTests(unittest.TestCase):
                 startup.source(self.home)
         verify.assert_not_called()
         unexpected_tool = copy.deepcopy(config)
-        unexpected_tool['tools']['alsoAllow'].append('group:runtime')
+        unexpected_tool['tools']['alsoAllow'].append('browser')
         with patch('argoslive.startup.read_json', side_effect=[state, unexpected_tool]), \
                 patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
                 patch('argoslive.startup.model_verify.verify') as verify:
             with self.assertRaises(ValueError):
                 startup.source(self.home)
         verify.assert_not_called()
-        for change in ('policy', 'shell', 'provider', 'channels', 'source'):
+        for change in ('policy', 'shell', 'provider', 'channels', 'source', 'elevated', 'exec'):
             proposed = copy.deepcopy(config)
             altered = copy.deepcopy(state)
-            if change == 'policy': proposed['tools']['profile'] = 'full'
+            if change == 'policy': proposed['tools']['profile'] = 'messaging'
             if change == 'shell': proposed['commands']['bash'] = True
             if change == 'provider': proposed['models']['providers']['ollama']['baseUrl'] = 'http://remote.invalid'
             if change == 'channels': proposed['channels'] = {'fixture': {'enabled': True}}
             if change == 'source': altered['model_source'] = 'unknown'
+            if change == 'elevated': proposed['tools']['elevated']['enabled'] = True
+            if change == 'exec': proposed['tools']['exec']['host'] = 'node'
             with patch('argoslive.startup.read_json', side_effect=[altered, proposed]), \
                     patch('argoslive.startup.storage.validate_configured', return_value=target), \
                     patch('argoslive.startup.model_verify.verify') as verify:

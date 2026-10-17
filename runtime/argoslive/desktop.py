@@ -84,6 +84,15 @@ def reconnect(home, *, browser=open_browser, view=None):
     browser(dashboard_url(value['url'], view))
 
 
+def start_first_model(home, controller, downloads, selection, stop):
+    """Move a fresh install off the bundled starter; never let it disturb the desktop."""
+    from . import first_model
+    try:
+        first_model.run(home, controller, downloads, selection, stop)
+    except Exception:  # noqa: BLE001 - the owner can still choose a model from the dashboard
+        pass
+
+
 def serve(home, root, *, port=0, browser=open_browser, no_browser=False, controller=None, stop=None, view=None):
     from .model_selection import Controller as Selection, restore
     from . import assistant_trial, storage_view
@@ -133,6 +142,8 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
             if not no_browser:
                 browser(dashboard_url(server.url, view))
             controller.start()
+            threading.Thread(target=start_first_model, args=(home, controller, downloads, selection, stop),
+                             daemon=True, name='argos-first-model').start()
             stop.wait()
         finally:
             temporary.unlink(missing_ok=True)

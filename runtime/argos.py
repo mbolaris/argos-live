@@ -110,23 +110,22 @@ def setup(ask=input):
     workspace = OC / 'workspace'
     config = conversation_config(model, workspace)
     workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
-    instructions = workspace / 'AGENTS.md'
-    if not instructions.exists():
-        prompt = (Path(argoslive.__file__).resolve().parent / 'data/SELF-IMPROVEMENT-AGENTS.md').read_bytes()
+    from argoslive.auto_setup import WORKSPACE_FILES, workspace_file
+    for target, source in WORKSPACE_FILES:
+        path = workspace / target
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
-            descriptor = os.open(instructions, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         except FileExistsError:
-            # Preserve an owner file created after the existence check.
-            pass
-        else:
-            with os.fdopen(descriptor, 'wb') as stream:
-                stream.write(prompt)
-                stream.flush()
-                os.fsync(stream.fileno())
+            continue  # Preserve existing owner files.
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(workspace_file(source))
+            stream.flush()
+            os.fsync(stream.fileno())
     save(OC / 'openclaw.json', config)
-    save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'file-tools-and-benchmarks'})
+    save(STATE, {'storage': str(models), 'storage_id': identity, 'model': model, 'permissions': 'local-tools-and-benchmarks'})
     print('Setup saved. Bundled Qwen3 0.6B supports offline conversation after setup. Other models need a download.')
-    print('Optional providers: openclaw onboard. Keep the configured limited tool policy; enter keys only in its local prompt.')
+    print('Optional providers: openclaw onboard. Enter keys only in its local prompt.')
 
 def load():
     if not STATE.exists():
@@ -215,11 +214,26 @@ def download_budget(model, storage):
             missing += part['size']
     return missing, max(1024**3, int(missing * 1.1) + 256 * 1024**2)
 
+def weights_installed(storage, model):
+    name, _, tag = model.partition(':')
+    parts = name.split('/') if '/' in name else ['library', name]
+    return (Path(storage) / 'manifests' / 'registry.ollama.ai' / Path(*parts) / (tag or 'latest')).is_file()
+
 def select_model(model):
     state = load()
     if not model or not re.fullmatch(r'[A-Za-z0-9_.:/-]+', model) or 'cloud' in model.split(':')[-1]:
         raise ValueError('Specify a local model with --model, for example qwen3:8b.')
-    print(f"Select {model}; model storage remains {state['storage']}. No weights downloaded yet.")
+    from argoslive import starter
+    if model == starter.TAG:
+        starter.read_only(SEED)
+        installed = True
+    else:
+        installed = weights_installed(state['storage'], model)
+    if not installed:
+        raise ValueError('Download and verify this model before selecting it; current selection was preserved.')
+    previous_source = state.get('model_source')
+    print(f"Select {model}; model storage remains {state['storage']}. "
+          + ('Its weights are installed.' if installed else 'No weights downloaded yet.'))
     if input('Select this model? [yes/no]: ').strip().lower() != 'yes':
         return
     config_path = OC / 'openclaw.json'
@@ -235,6 +249,10 @@ def select_model(model):
     save(STATE, state)
     if state.get('model_source') == 'bundled':
         print('The bundled starter stays in the image. Restart the assistant to use this source.')
+    elif state.get('model_source') == 'managed' and installed and previous_source == 'managed':
+        print('Switched. OpenClaw applies the new model on the next turn without a restart; benchmark it now.')
+    elif state.get('model_source') == 'managed' and installed:
+        print('Switched. Restart the assistant once to move off the bundled starter, then benchmark it.')
     elif state.get('model_source') == 'managed':
         print('Use argos pull for a reviewed model download, then restart the assistant.')
     else:

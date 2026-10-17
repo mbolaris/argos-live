@@ -50,7 +50,7 @@ class AutoSetupTests(unittest.TestCase):
                     result = self.configure(active, progress=events.append)
                 self.assertEqual(result['mode'], 'persistent' if active else 'try')
                 self.assertEqual(result['model_source'], 'bundled')
-                self.assertEqual(result['permissions'], 'file-tools-and-benchmarks')
+                self.assertEqual(result['permissions'], 'local-tools-and-benchmarks')
                 self.assertEqual(result['storage_encrypted'], False if active else None)
                 self.assertEqual(result['persistence_encrypted'], True if active else None)
                 self.assertEqual([path.name for path in self.models.iterdir()], ['.argos-storage-id'])
@@ -61,12 +61,26 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertEqual(len(config['gateway']['auth']['token']), 64)
                 self.assertFalse(config['tools']['elevated']['enabled'])
                 self.assertEqual(config['tools']['profile'], 'minimal')
-                self.assertNotIn('group:fs', config['tools']['deny'])
-                self.assertIn('group:fs', config['tools']['alsoAllow'])
+                self.assertEqual(config['tools']['deny'], ['gateway', 'browser'])
+                self.assertIn('group:runtime', config['tools']['alsoAllow'])
+                self.assertIn('web_fetch', config['tools']['alsoAllow'])
+                self.assertEqual(config['tools']['exec'],
+                                 {'host': 'gateway', 'security': 'full', 'ask': 'off'})
                 self.assertEqual(config['plugins']['entries']['argos-improve']['enabled'], True)
                 self.assertEqual(config['plugins']['load']['paths'], [auto_setup.PLUGIN_ROOT])
                 self.assertTrue((self.home / '.openclaw/workspace/AGENTS.md').is_file())
                 self.assertIn('argos_evaluate', (self.home / '.openclaw/workspace/AGENTS.md').read_text())
+                self.assertTrue(config['agents']['defaults']['skipBootstrap'])
+                self.assertFalse((self.home / '.openclaw/workspace/BOOTSTRAP.md').exists())
+                workspace = self.home / '.openclaw/workspace'
+                for target, source in auto_setup.WORKSPACE_FILES:
+                    self.assertEqual((workspace / target).read_bytes(), auto_setup.workspace_file(source))
+                self.assertIn('best agent you can be', ' '.join((workspace / 'SOUL.md').read_text(encoding='utf-8').split()))
+                self.assertIs(config['tools']['toolSearch'], False)
+                heartbeat = config['agents']['defaults']['heartbeat']
+                self.assertEqual((heartbeat['session'], heartbeat['target']), ('main', 'none'))
+                self.assertIs(heartbeat['isolatedSession'], True)
+                self.assertIn('## Done', heartbeat['prompt'])
                 self.assertFalse(config['commands']['bash'])
                 self.assertNotIn('token', json.dumps(result))
                 self.assertEqual(events[-1]['phase'], 'configured')
@@ -146,6 +160,8 @@ class AutoSetupTests(unittest.TestCase):
         initial = json.loads(self.config.read_text())
         marker = (self.models / '.argos-storage-id').read_bytes()
         with patch.object(argos, 'STATE', self.state), patch.object(argos, 'OC', self.config.parent), \
+                patch.object(argos, 'weights_installed', return_value=True), \
+                patch('argoslive.starter.read_only', return_value=self.seed), \
                 patch('builtins.input', return_value='yes'), redirect_stdout(io.StringIO()):
             for model, source in [('qwen3:1.7b', 'managed'), (starter.TAG, 'bundled')]:
                 argos.select_model(model)

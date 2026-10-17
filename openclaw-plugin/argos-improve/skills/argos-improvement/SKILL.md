@@ -5,11 +5,29 @@ description: Measure the configured OpenClaw assistant with Argos benchmarks and
 
 # Improve with evidence
 
+When the owner says go, run a baseline and pursue useful reversible local
+experiments. Use the workspace AGENTS.md for the installed operating guide.
+Prefer a comfortably fitting stronger model early; inspect `argos hw --json`,
+`argos catalog --json`, and `argos storage --json` first. Use ordinary OpenClaw
+tools and Argos's existing managed download/switch flow, without a second planner.
+Keep a private workspace journal linking snapshots and before/after run IDs.
+
 Use `argos_evaluate` to measure the configured assistant. Start with `quick`;
 use `standard` when the owner wants the longer evaluation. The tool creates a
-fresh ordinary OpenClaw session for each fixed task and saves a private result.
+tool-free embedded OpenClaw turn with temporary state and copied instructions for
+each fixed task, and saves a private result. Evaluation children answer the task;
+they do not run campaign steps or use the owner's gateway/session queue.
 Explain that the score describes this suite and configuration, not general
 intelligence.
+
+If a plugin tool is unavailable, the equivalent assistant command is
+`argos bench openclaw --suite quick --json`. The raw-model `argos bench ability`
+command does not test workspace instructions. Check the receipt's `openclaw-quick`
+suite and `openclaw embedded; ephemeral state; tools denied; v1` execution path. Each retest
+needs a new run ID; an old result or an unsaved claim is not a new measurement.
+These are native tools, not shell commands. Run evaluations sequentially and
+repeat a candidate to confirm a gain. Establish a new baseline when the recorded
+execution method differs; do not compare old gateway runs with isolated runs.
 
 Before proposing a change, inspect the task-level misses and ask what useful
 behavior they represent. State one hypothesis and one reversible change. Preserve

@@ -4,6 +4,7 @@ import { Type } from "typebox";
 const TOOL_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_OUTPUT = 2 * 1024 * 1024;
 const ARGOS_BIN = process.env.ARGOS_BIN || "argos";
+const EVALUATION_PATH = "openclaw embedded; ephemeral state; tools denied; v1";
 
 function argosPrefixArgs() {
   if (!process.env.ARGOS_BIN_ARGS) return [];
@@ -67,7 +68,7 @@ export default function register(api) {
   api.registerTool({
     name: "argos_evaluate",
     label: "Evaluate OpenClaw",
-    description: "Run the fixed Argos ability suite through the configured OpenClaw main assistant. Saves a private scored run; does not change configuration.",
+    description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
     parameters: Type.Object({
       suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard")],
         { description: "Quick 20-task suite or full 70-task suite." }))
@@ -78,11 +79,19 @@ export default function register(api) {
       const run = value.result;
       const summary = run?.summary;
       if (!run || !summary || !run.coverage) throw new Error("Benchmark result is incomplete.");
+      if (run.suite !== `openclaw-${params.suite ?? "quick"}` ||
+          !run.suite_version?.startsWith("argos-openclaw-ability/") ||
+          run.settings?.execution_path !== EVALUATION_PATH) {
+        throw new Error("Expected an OpenClaw assistant benchmark. Raw model runs do not test assistant instructions.");
+      }
       const progress = `${run.coverage.completed}/${run.coverage.total} tasks`;
       const outcome = run.state === "completed"
         ? `${summary.correct}/${summary.total} passed`
         : `stopped after ${progress} (${run.failure_code ?? run.state}); this partial run cannot be compared`;
-      const text = `OpenClaw benchmark ${outcome}. Run ID: ${run.id}. Suite: ${run.suite_version}. Complete coverage: ${run.coverage.complete ? "yes" : "no"}. Saved privately at ${value.path}.`;
+      const next = run.state === "completed"
+        ? "Next: append the saved run ID and score to IMPROVEMENT-LOG.md. Compare matched runs and repeat a candidate to confirm a gain. Change only one thing between experiments; do not change setup during a run."
+        : "Next: note the failure in IMPROVEMENT-LOG.md and fix its cause before retesting.";
+      const text = `OpenClaw benchmark ${outcome}. Run ID: ${run.id}. Suite: ${run.suite_version}. Complete coverage: ${run.coverage.complete ? "yes" : "no"}. Saved privately at ${value.path}. ${next}`;
       return textResult(text, { run_id: run.id, suite_version: run.suite_version,
         suite_sha256: run.settings?.suite_sha256,
         prompt_fingerprint: run.prompt_fingerprint,
@@ -100,6 +109,10 @@ export default function register(api) {
     async execute(_id, params) {
       const result = await runArgos("results", ["--compare", params.baseline_id,
         params.candidate_id, "--json"]);
+      if (result.kind !== "ability" || !result.suite_version?.startsWith("argos-openclaw-ability/") ||
+          result.settings?.execution_path !== EVALUATION_PATH) {
+        throw new Error("Expected an OpenClaw assistant comparison. Raw model runs do not test assistant instructions.");
+      }
       const promptNote = result.workspace_agents_changed
         ? "Workspace instructions differ between runs; treat this as an experiment, not identical setup."
         : "Workspace instruction fingerprint is unchanged between runs.";

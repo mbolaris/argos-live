@@ -8,6 +8,20 @@ the current tools; a continuing Start/watch/recovery loop is not yet implemented
 
 ## Operating instructions to install
 
+Fresh-image implementation update: new workspaces select file/runtime tools,
+`web_fetch` and benchmark tools using OpenClaw's `minimal` base profile, with
+local `exec` (`host: gateway`, `security: full`, `ask: off`) under the
+desktop Linux user, with OpenClaw elevated mode disabled. This is the owner's
+authorized agent-led improvement setup. Existing configurations are not silently
+expanded; automatic startup still accepts the earlier file/benchmark profile.
+The canonical installed text is
+[`runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md`](../runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md).
+It explains what to do when the owner says go, early hardware/model inspection,
+managed downloads, private snapshots, a workspace journal and verified restoration.
+Tool availability is not proof that a model uses those tools successfully.
+Fresh setup also sets OpenClaw's supported `skipBootstrap: true`: it loads the
+installed guide without generating the generic first-run identity interview.
+
 Argos Live installs this text as `AGENTS.md` only in a fresh workspace. Existing
 owner files are reused without replacement. The bundled plugin provides
 `argos_evaluate` and `argos_compare`; it does not change assistant settings or
