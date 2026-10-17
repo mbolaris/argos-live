@@ -7,6 +7,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,7 +16,7 @@ jobs:
       - name: Verify pinned improvement-plugin dependency lock
         run: npm ci --prefix openclaw-plugin/argos-improve --ignore-scripts --no-audit --no-fund
       - name: Python tests and shell syntax
-        run: bash scripts/check.sh
+        run: PYTHONFAULTHANDLER=1 timeout --signal=ABRT --kill-after=10s 5m bash scripts/check.sh
       - name: Node upstream tests
         run: |
           node --check runtime/argoslive/web/static/app.js
