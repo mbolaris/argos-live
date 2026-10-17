@@ -99,7 +99,7 @@ Status values: `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reas
 
 ## Shared design decisions
 
-### P1 Proctor core and failure acceptance — `in progress`
+### P1 Proctor core and failure acceptance — `in progress` ([PR #114](https://github.com/mbolaris/argos-live/pull/114))
 
 - Implements a separate stdlib assessment core under `runtime/argoslive/proctor/`:
   validated immutable choice/numeric cartridges, explicit SQLite write transactions,
