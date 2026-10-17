@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import re
 
 from . import storage
 from .pull_jobs import read_json, worker_lock, write_json
@@ -27,7 +28,14 @@ class Reservation:
 
     def complete(self, result_id=None):
         """Caller asserts all child work has drained; publish the saved result first."""
+        if result_id is not None:
+            self.record_result(result_id)
         self.drained = True
+
+    def record_result(self, result_id):
+        """Attach an already-published outcome without claiming safe release."""
+        if not isinstance(result_id, str) or not re.fullmatch('[a-f0-9]{32}', result_id):
+            raise ValueError('Invalid saved workload result ID')
         self.record['result_id'] = result_id
 
 

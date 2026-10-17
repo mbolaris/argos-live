@@ -1,11 +1,14 @@
 """Score the configured OpenClaw assistant with Argos' fixed ability suite."""
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
 import secrets
+import signal
+import threading
 import time
 
 from . import ability, hw
@@ -17,6 +20,25 @@ from .workload import Busy, reserve
 
 
 PROTECTED_LIMIT = 1024 ** 2
+
+
+@contextmanager
+def graceful_termination():
+    """CLI signals request cancellation; the runner must drain before saving."""
+    cancelled = threading.Event()
+    previous = {}
+    if threading.current_thread() is threading.main_thread():
+        def request_cancel(_signum, _frame):
+            cancelled.set()
+        for name in ('SIGINT', 'SIGTERM', 'SIGHUP'):
+            number = getattr(signal, name, None)
+            if number is not None:
+                previous[number] = signal.signal(number, request_cancel)
+    try:
+        yield cancelled
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
 
 
 def protected_files(workspace):
@@ -48,16 +70,16 @@ def changed_inputs(workspace, saved):
     return changed
 
 
-def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic):
+def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None):
     home = Path.home() if home is None else Path(home)
     with reserve(home, 'evaluation') as slot:
-        result = _run(suite=suite, home=home, runner=runner, progress=progress, clock=clock)
+        result = _run(suite=suite, home=home, runner=runner, progress=progress, clock=clock, cancel=cancel)
         if result['state'] == 'completed':
             slot.complete(result['id'])
         return result
 
 
-def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic):
+def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None):
     """Run fixed text tasks with copied instructions and no execution capabilities."""
     data = ability.load(suite)
     suite_path = ability.DATA / (suite + '.json')
@@ -75,6 +97,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     configuration = configuration_receipt(home)
 
     def protect(item_id):
+        if cancel is not None and cancel.is_set():
+            raise TrialTurnError('cancelled')
         # Evaluation cannot edit owner files. A concurrent controller edit is
         # newer owner work: invalidate the comparison, never roll it back.
         changed = changed_inputs(workspace, protected) if protected else []
@@ -90,6 +114,7 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     runner = runner or OpenClawRunner(home=home)
     if isinstance(runner, OpenClawRunner):
         runner.expected_model = configuration['model']['primary'].removeprefix('ollama/')
+        runner.cancel_event = cancel
     started = clock()
     result = {
         'schema': 'argos-bench/1', 'id': secrets.token_hex(16),
@@ -158,7 +183,7 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         result['state'] = 'cancelled'
         result['failure_code'] = 'cancelled'
     except TrialTurnError as exc:
-        result['state'] = 'failed'
+        result['state'] = 'cancelled' if exc.code == 'cancelled' else 'failed'
         result['failure_code'] = exc.code
     if hashlib.sha256(suite_path.read_bytes()).hexdigest() != suite_digest:
         result['state'] = 'failed'
@@ -236,15 +261,16 @@ def main(argv=None):
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)
     try:
-        with reserve(args.home, 'evaluation') as slot:
+        with graceful_termination() as cancel, reserve(args.home, 'evaluation') as slot:
             # Admission precedes even live-board publication; a rejected request
             # must not overwrite the first run's progress or save a partial run.
             board = LiveBoard(args.home, args.suite)
             def progress(value):
                 print(json.dumps(value, ensure_ascii=False), file=__import__('sys').stderr, flush=True)
                 board.update(value)
-            result = _run(suite=args.suite, home=args.home, progress=progress)
+            result = _run(suite=args.suite, home=args.home, progress=progress, cancel=cancel)
             path = Store(args.results_dir).save(result)
+            slot.record_result(result['id'])
             board.finish(result)
             if result['state'] == 'completed':
                 slot.complete(result['id'])

@@ -1,5 +1,6 @@
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 import hashlib
@@ -180,6 +181,27 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         current = bench_openclaw.run(runner=FakeOpenClaw())
         with self.assertRaisesRegex(ValueError, 'non-model settings'):
             results.compare([old, current])
+
+    def test_cancellation_keeps_partial_evidence_and_blocks_comparison(self):
+        cancel = threading.Event()
+        class Cancelling(FakeOpenClaw):
+            def turn(self, prompt):
+                if self.calls == 3:
+                    cancel.set()
+                    raise TrialTurnError('cancelled')
+                return super().turn(prompt)
+        value = bench_openclaw.run(runner=Cancelling(), cancel=cancel)
+        self.assertEqual((value['state'], value['failure_code']), ('cancelled', 'cancelled'))
+        self.assertEqual(value['coverage'], {'completed': 3, 'total': 20, 'complete': False})
+        results.validate(value)
+
+    def test_already_cancelled_run_never_calls_the_model(self):
+        cancel = threading.Event()
+        cancel.set()
+        runner = FakeOpenClaw()
+        value = bench_openclaw.run(runner=runner, cancel=cancel)
+        self.assertEqual(runner.calls, 0)
+        self.assertEqual(value['state'], 'cancelled')
 
 
 if __name__ == '__main__':

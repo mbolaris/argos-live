@@ -7,6 +7,8 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
+import signal
 import unittest
 from unittest.mock import patch
 
@@ -17,6 +19,71 @@ from test_bench_openclaw import FakeOpenClaw, configure_fake
 
 
 class WorkloadTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == 'linux', 'POSIX signal and executable fixture')
+    def test_sigterm_drains_real_child_and_saves_cancelled_result(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            home = root / 'home'
+            workspace = home / '.openclaw/workspace'
+            workspace.mkdir(parents=True)
+            configure_fake(home, workspace)
+            binary = root / 'bin'
+            binary.mkdir()
+            ready = root / 'child-ready'
+            executable = binary / 'openclaw'
+            executable.write_text('#!/usr/bin/env python3\nimport os,time\nfrom pathlib import Path\n'
+                                  f'Path({str(ready)!r}).write_text(str(os.getpid()))\n'
+                                  'time.sleep(60)\n')
+            executable.chmod(0o700)
+            env = {**os.environ, 'PYTHONPATH': str(ROOT / 'runtime'),
+                   'PATH': str(binary) + os.pathsep + os.environ['PATH']}
+            output = root / 'results'
+            process = subprocess.Popen([sys.executable, '-m', 'argoslive.bench_openclaw',
+                                        '--home', str(home), '--results-dir', str(output), '--json'],
+                                       env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            child_pid = None
+            try:
+                deadline = time.monotonic() + 20
+                while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
+                    time.sleep(.05)
+                self.assertTrue(ready.exists(), 'Embedded child never started')
+                child_pid = int(ready.read_text())
+                process.terminate()
+                stdout, stderr = process.communicate(timeout=15)
+                self.assertEqual(process.returncode, 0, stderr)
+                result = json.loads(stdout)['result']
+                self.assertEqual((result['state'], result['failure_code']), ('cancelled', 'cancelled'))
+                self.assertFalse(result['coverage']['complete'])
+                self.assertEqual(json.loads((output / (result['id'] + '.json')).read_bytes()), result)
+                state = home / '.local/state/argos-live'
+                board = json.loads((state / 'assistant-bench-live.json').read_bytes())
+                self.assertEqual(board['phase'], 'cancelled')
+                reservation = json.loads((state / 'workload/reservation.json').read_bytes())
+                self.assertEqual(reservation['state'], 'quarantined')
+                self.assertEqual(reservation['result_id'], result['id'])
+                with self.assertRaises(ProcessLookupError):
+                    os.kill(child_pid, 0)
+                with self.assertRaises(workload.Busy):
+                    with workload.reserve(home, 'proctor'):
+                        self.fail('Cancellation silently reopened admission')
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.communicate(timeout=15)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.communicate(timeout=5)
+                if child_pid is not None:
+                    command = Path(f'/proc/{child_pid}/cmdline')
+                    try:
+                        if str(executable).encode() in command.read_bytes().split(b'\0'):
+                            os.kill(child_pid, signal.SIGKILL)
+                    except FileNotFoundError:
+                        pass
+                process.stdout.close()
+                process.stderr.close()
+
     def test_only_one_benchmark_can_reach_inference(self):
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)
