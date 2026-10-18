@@ -114,6 +114,32 @@ Until then, label the integration declared and do not claim tamper resistance.
 
 ## Implementation checkpoint
 
+### Pinned SDK admission boundary inspected
+
+The integrity-checked OpenClaw2026.10.4 package has a before_agent_run gate.
+Its global hook runner marks this hook fail-closed; its harness wrapper converts
+handler errors into a block before inference. Context contains framework runId,
+sessionId/sessionKey and trigger, while the event includes senderIsOwner. These
+are candidate host inputs, not model-authored authorization text. The exact
+desktop/heartbeat values must still be verified by a native protocol fixture.
+Do not derive owner authority from words in the prompt or from an agent-supplied
+reservation ID. Admit a parent once by framework run identity, and authorize its
+evaluation child through a host-minted capability unavailable as a tool argument.
+
+The embedded agent-end call uses runAgentEndSideEffects, which does not await
+plugin completion. Therefore agent_end alone cannot be the authoritative release
+boundary. The host must confirm worker/child drainage and saved outcomes before
+release; a late callback must match its reservation generation. SDK fail-closed
+entry hooks do not themselves implement this durable lifecycle or protect direct
+backend/model-operation paths. Removing broad filesystem/runtime tools also
+requires bounded host tools for the agent's own model and instruction decisions;
+it must not introduce an operator planner in place of those decisions.
+
+Source inspected: hooks-CM9Qxrxp.mjs, hook-runner-global-BfCvU9TT.mjs,
+before-agent-run-Dal6QhAA.mjs, settled-turn-finalization-result-G1tP4IWJ.mjs,
+builtin-openclaw-qVsnLx0N.mjs and context-engine-lifecycle-BwtFrh_C.mjs from
+the exact package integrity pinned in the checked-in runtime lock.
+
 The next-image branch now contains initial cooperative admission for the assistant
 benchmark CLI/API and argos_log. It does not implement the complete service above.
 The controller/heartbeat, desktop trials, model operations and direct backend
