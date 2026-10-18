@@ -131,6 +131,20 @@ class DelegationTests(unittest.TestCase):
                 bench_openclaw.run(home=self.home, runner=FakeOpenClaw())
         self.assertEqual(self.record()['state'], 'quarantined')
 
+    def test_alive_process_without_its_owner_lock_cannot_authorize_child(self):
+        context = workload.reserve(self.home, 'controller')
+        parent = context.__enter__()
+        capability = parent.delegate('evaluation')
+        with patch.object(workload, 'write_json', side_effect=OSError('final marker failed')):
+            with self.assertRaisesRegex(OSError, 'final marker failed'):
+                context.__exit__(None, None, None)
+        # Same live PID and boot/start identity; only its actual ownership lock
+        # proves this context ended despite an unchanged active marker.
+        runner = FakeOpenClaw()
+        with self.assertRaises(workload.Busy):
+            bench_openclaw.run(home=self.home, runner=runner, delegation=capability)
+        self.assertEqual(runner.calls, 0)
+
     def test_controller_can_append_log_after_saved_delegated_evaluation(self):
         with workload.reserve(self.home, 'controller') as parent:
             capability = parent.delegate('evaluation')

@@ -28,6 +28,10 @@ STATES = {'queued', 'downloading', 'paused', 'cancelled', 'interrupted',
           'failed', 'downloaded_needs_verification', 'verifying', 'loading', 'testing', 'publishing', 'ready'}
 
 
+class WorkerBusy(ValueError):
+    """Only OS lock contention; callers must not mistake path errors for ownership."""
+
+
 def stamp():
     return datetime.now(timezone.utc).isoformat()
 
@@ -81,13 +85,13 @@ def worker_lock(root):
             try:
                 msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
             except OSError:
-                raise ValueError('Another model job operation is active') from None
+                raise WorkerBusy('Another model job operation is active') from None
         else:
             import fcntl
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:
-                raise ValueError('Another model job operation is active') from None
+                raise WorkerBusy('Another model job operation is active') from None
         yield
     finally:
         os.close(fd)

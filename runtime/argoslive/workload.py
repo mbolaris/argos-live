@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 import sys
 
 from . import storage
-from .pull_jobs import read_json, worker_lock, write_json
+from .pull_jobs import WorkerBusy, read_json, worker_lock, write_json
 
 PROCESS_NONCE = secrets.token_hex(32)
 
@@ -89,6 +89,17 @@ def checked_child(root, capability):
         raise ValueError('Invalid workload delegation')
     if (child.get('parent_id'), child.get('generation'), child.get('id')) != (
             capability.parent_id, capability.generation, capability.child_id):
+        raise Busy(recovery=True)
+    # A surviving process/PID alone does not prove its reservation context is
+    # still open (e.g. final marker publication failed). The parent's live OS
+    # lock must also exclude this probe. A stale file is never an owner.
+    probe = worker_lock(root)
+    try:
+        probe.__enter__()
+    except WorkerBusy:
+        pass
+    else:
+        probe.__exit__(None, None, None)
         raise Busy(recovery=True)
     try:
         if worker_identity(parent['pid']) != parent.get('worker_identity'):
