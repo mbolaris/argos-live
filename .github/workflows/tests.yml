@@ -6,9 +6,8 @@ permissions:
   contents: read
 jobs:
   test:
-    # Temporarily hold the known runner-loss suite on this draft branch until
-    # guarded, focused diagnosis establishes safe process-group behavior.
-    if: ${{ (github.head_ref || github.ref_name) != 'codex/unattended-campaign' }}
+    needs: signal-diagnosis
+    if: ${{ always() && (needs.signal-diagnosis.result == 'success' || needs.signal-diagnosis.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

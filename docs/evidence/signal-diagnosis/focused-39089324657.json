@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "pattern": "test_process_group.py",
+      "exit_code": 0
+    },
+    {
+      "pattern": "test_workload.py",
+      "exit_code": 0
+    },
+    {
+      "pattern": "test_assistant_trial.py",
+      "exit_code": 0
+    },
+    {
+      "pattern": "test_auto_climb.TestAutoClimbCoordinator.test_openclaw_runner_child_process_termination_on_cancellation",
+      "exit_code": 0
+    }
+  ]
+}
