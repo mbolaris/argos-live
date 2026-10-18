@@ -20,7 +20,7 @@ def main():
            'ARGOS_SIGNAL_GUARD_DIR': str(guard), 'ARGOS_SIGNAL_DIAG_DIR': str(output)}
     results = []
     for pattern in ('test_process_group.py', 'test_workload.py', 'test_workload_delegation.py',
-                    'test_controller_bridge.py', 'test_assistant_trial.py',
+                    'test_controller_bridge.py', 'test_instruction_changes.py', 'test_assistant_trial.py',
                     'test_auto_climb.TestAutoClimbCoordinator.test_openclaw_runner_child_process_termination_on_cancellation'):
         loader = (f'unittest.defaultTestLoader.discover("tests",pattern={pattern!r})' if pattern.endswith('.py') else
                   f'unittest.defaultTestLoader.loadTestsFromName({pattern!r})')

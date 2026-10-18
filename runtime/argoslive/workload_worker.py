@@ -9,13 +9,13 @@ import json
 from pathlib import Path
 import sys
 
-from . import bench_openclaw, campaign_log
+from . import bench_openclaw, campaign_log, instruction_changes
 from .workload import Delegation
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('kind', choices=('evaluation', 'log'))
+    parser.add_argument('kind', choices=('evaluation', 'log', 'maintenance'))
     parser.add_argument('--home', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
@@ -23,10 +23,16 @@ def main(argv=None):
         if len(raw) > 32768:
             raise ValueError('Worker request exceeds limit')
         request = json.loads(raw)
-        allowed = {'delegation', 'suite'} if args.kind == 'evaluation' else {'delegation', 'text'}
+        allowed = ({'delegation', 'suite'} if args.kind == 'evaluation' else
+                   {'delegation', 'operation', 'params'} if args.kind == 'maintenance' else {'delegation', 'text'})
         if not isinstance(request, dict) or set(request) - allowed or 'delegation' not in request:
             raise ValueError('Unexpected worker request')
         capability = Delegation(**request['delegation'])
+        if args.kind == 'maintenance':
+            value = instruction_changes.perform(args.home, request.get('operation'), request.get('params'),
+                                                delegation=capability)
+            print(json.dumps(value))
+            return 0
         if args.kind == 'evaluation':
             suite = request.get('suite', 'quick')
             if suite not in ('quick', 'standard'):

@@ -61,6 +61,11 @@ def parameters(value):
 def configuration(home):
     """Build the same bounded model configuration for copying and provenance."""
     original = json.loads(storage.safe_local(Path(home) / '.openclaw/openclaw.json').read_bytes())
+    return configuration_from(original)
+
+
+def configuration_from(original):
+    """Pure projection, also used to verify a host's immutable config snapshot."""
     defaults = original['agents']['defaults']
     roster = original['agents']
     main = (roster['entries'].get('main', {}) if 'entries' in roster else
@@ -100,7 +105,10 @@ def configuration(home):
 
 
 def configuration_receipt(home):
-    config = configuration(home)
+    return receipt_from(configuration(home))
+
+
+def receipt_from(config):
     defaults = config['agents']['defaults']
     primary = defaults['model']['primary']
     agent = config['agents']['entries']['main']

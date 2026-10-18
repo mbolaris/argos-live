@@ -7,6 +7,7 @@ on:
       - scripts/smoke-controller-bridge.py
       - scripts/synthetic_http.py
       - runtime/argoslive/controller_bridge.py
+      - runtime/argoslive/instruction_changes.py
       - runtime/argoslive/workload.py
       - runtime/argoslive/workload_worker.py
       - scripts/smoke-evaluation-config.py
@@ -43,6 +44,7 @@ on:
       - scripts/smoke-controller-bridge.py
       - scripts/synthetic_http.py
       - runtime/argoslive/controller_bridge.py
+      - runtime/argoslive/instruction_changes.py
       - runtime/argoslive/workload.py
       - runtime/argoslive/workload_worker.py
       - scripts/smoke-evaluation-config.py

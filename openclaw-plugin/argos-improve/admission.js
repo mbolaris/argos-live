@@ -2,6 +2,7 @@ import net from 'node:net';
 
 const TOOLS = new Map([
   ['argos_evaluate', 'evaluation'], ['argos_compare', 'compare'], ['argos_log', 'log'],
+  ['argos_inspect', 'inspect'], ['argos_edit_instructions', 'edit'], ['argos_resolve_instructions', 'resolve'],
 ]);
 
 export function registerAdmission(api) {

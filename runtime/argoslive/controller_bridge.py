@@ -20,7 +20,7 @@ import tempfile
 import threading
 import uuid
 
-from . import workload
+from . import workload, instruction_changes
 from .pull_jobs import read_json, write_json
 from .results import Store, compare
 
@@ -128,6 +128,8 @@ class Bridge:
                 elif kind == 'compare':
                     if set(params) != {'baseline_id', 'candidate_id'}:
                         raise ValueError('Invalid comparison request')
+                elif kind in {'inspect', 'edit', 'resolve'}:
+                    instruction_changes.validate_request(kind, params)
                 else:
                     raise ValueError('Unsupported controller tool')
                 self.active['calls'].add(call)
@@ -137,6 +139,8 @@ class Bridge:
                     store.load(params['baseline_id']), store.load(params['candidate_id'])])}
             value = self.run_child(kind, params)
             outcome = {'kind': kind, 'call_id': call}
+            if kind in {'edit', 'resolve'}:
+                outcome.update(status=value['value']['status'], change_id=value['value'].get('change_id'))
             if kind == 'evaluation':
                 outcome['result_id'] = value['value']['result']['id']
                 outcome['state'] = value['value']['result']['state']
@@ -148,15 +152,17 @@ class Bridge:
             self.tool_lock.release()
 
     def run_child(self, kind, params):
-        capability = self.parent.delegate(kind)
-        command = [sys.executable, '-m', 'argoslive.workload_worker', kind, '--home', str(self.home)]
+        maintenance = kind in {'inspect', 'edit', 'resolve'}
+        worker_kind = 'maintenance' if maintenance else kind
+        capability = self.parent.delegate(worker_kind)
+        command = [sys.executable, '-m', 'argoslive.workload_worker', worker_kind, '--home', str(self.home)]
         # No gateway/bridge credentials or owner provider environment is passed
         # to an evaluator. Its SDK context further strips inherited authority.
         env = {key: os.environ[key] for key in ('PATH', 'LANG', 'LC_ALL', 'TZ') if key in os.environ}
         env.update(PATH=self.worker_path, PYTHONPATH=str(Path(__file__).resolve().parents[1]), PYTHONUTF8='1')
         try:
             process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE, env=env, text=True,
+                                       stderr=subprocess.PIPE, env=env, text=True, encoding='utf-8',
                                        start_new_session=os.name == 'posix')
         except OSError:
             self.parent.cancel_unstarted(capability)
@@ -166,7 +172,9 @@ class Bridge:
             self.pending = process
         try:
             try:
-                stdout, _stderr = process.communicate(json.dumps({'delegation': asdict(capability), **params}),
+                payload = {'operation': kind, 'params': params} if maintenance else params
+                stdout, _stderr = process.communicate(json.dumps({'delegation': asdict(capability), **payload},
+                                                                 ensure_ascii=False),
                                                       timeout=self.worker_timeout)
             except subprocess.TimeoutExpired:
                 process.terminate()
@@ -187,7 +195,9 @@ class Bridge:
                     # Preserve the saved partial outcome/ID for the agent while
                     # keeping admission closed. A generic busy error would hide it.
                     return {'status': 'completed', 'value': value}
-            elif value.get('status') != 'appended':
+            elif maintenance and value.get('status') not in {'inspected', 'changed', 'restored', 'kept', 'rejected'}:
+                raise workload.Busy(recovery=True)
+            elif not maintenance and value.get('status') != 'appended':
                 raise workload.Busy(recovery=True)
             # communicate() confirms process exit; normal isolated evaluation
             # completed and its saved result was reloaded. Uncertain outcomes

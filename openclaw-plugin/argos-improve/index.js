@@ -75,6 +75,36 @@ function textResult(text, details) {
 
 export default function register(api) {
   const admission = registerAdmission(api);
+  const savedId = () => Type.String({minLength:32,maxLength:32,pattern:'^[a-f0-9]{32}$'});
+  const hash = () => Type.String({minLength:64,maxLength:64,pattern:'^[a-f0-9]{64}$'});
+  const controlled = async (id, kind, params, signal) => {
+    if (!admission) throw new Error('This tool requires a managed host controller.');
+    const value = await admission.execute(id, kind, params, signal);
+    return textResult(JSON.stringify(value, null, 2), value);
+  };
+  api.registerTool({
+    name:'argos_inspect', label:'Inspect current experiment setup',
+    description:'Read your current AGENTS.md, its hash, safe configured generation settings, pending change and keep evidence policy. No arbitrary file paths or credentials.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'inspect',params,signal); }
+  }, {optional:true});
+  api.registerTool({
+    name:'argos_edit_instructions', label:'Try one instruction change',
+    description:'Apply one unique literal replacement in AGENTS.md after a host snapshot. Choose your own hypothesis and patch. Requires the current hash and a saved matching baseline from this controller. Resolve this change before another edit.',
+    parameters:Type.Object({baseline_id:savedId(),expected_sha256:hash(),
+      find:Type.String({minLength:1,maxLength:4096}), replace:Type.String({maxLength:4096}),
+      hypothesis:Type.String({minLength:1,maxLength:1024})}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'edit',params,signal); }
+  }, {optional:true});
+  api.registerTool({
+    name:'argos_resolve_instructions', label:'Keep or restore your instruction change',
+    description:'Choose keep or restore for your pending instruction experiment. Keep needs at least two matched baseline and two fresh candidate runs meeting the host practice policy. Restore checks snapshot bytes and preserves other configuration; without valid candidate IDs it does not count as a measured experiment. This does not certify independent gain.',
+    parameters:Type.Object({change_id:savedId(),expected_sha256:hash(),
+      action:Type.Union([Type.Literal('keep'),Type.Literal('restore')]),
+      baseline_ids:Type.Optional(Type.Array(savedId(),{minItems:1,maxItems:8})),
+      candidate_ids:Type.Optional(Type.Array(savedId(),{minItems:1,maxItems:8}))}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'resolve',params,signal); }
+  }, {optional:true});
   api.registerTool({
     name: "argos_evaluate",
     label: "Evaluate OpenClaw",
