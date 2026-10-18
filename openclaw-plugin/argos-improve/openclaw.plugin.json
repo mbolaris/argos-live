@@ -2,7 +2,8 @@
   "id": "argos-improve",
   "name": "Argos Improvement Bench",
   "description": "Run and compare fixed ability benchmarks through the configured OpenClaw assistant.",
-  "configSchema": {"type": "object", "additionalProperties": false, "properties": {}},
+  "configSchema": {"type": "object", "additionalProperties": false,
+    "properties": {"hostAdmission": {"type": "boolean", "default": false}}},
   "skills": ["./skills"],
   "contracts": {"tools": ["argos_evaluate", "argos_compare", "argos_log"]}
 }

@@ -1,6 +1,7 @@
 {
-  "index.js": "91279b10ea52dfd0b40610c3c5f1e80cc906d9690b88f5dcf49afced3c4b2b72",
-  "openclaw.plugin.json": "97a372161c523c814271c3e86b306426dc325748e7662379298b7fbaf720d8a7",
+  "admission.js": "48c869c8785031955e615da5d426ec69cc15ac7c18b100b9ca9a8457b81f3f76",
+  "index.js": "ab4ef34280efee638e45ddf77b96eacc4c2614c987a8670fd4902d34eadf4f10",
+  "openclaw.plugin.json": "9b56b27e58115de42210f4f66ac3d609b0b60450c0a72344dfecbdff278e7362",
   "package-lock.json": "a7a1900217d1a74b899fca652e13efd8a96fdcb49e24f13fb2d4de4dc3640314",
   "package.json": "5d4f500bc770bc578b858e8466cf8aabd06419486e1ed6d3397bb0c66b349f69",
   "skills/argos-improvement/SKILL.md": "e2d681efaf872e6021b2a4fe74cc9965d95ed666679d62975289a0ee1bb07562"

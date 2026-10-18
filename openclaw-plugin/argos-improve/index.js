@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { Type } from "typebox";
+import { registerAdmission } from "./admission.js";
 
 const TOOL_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_OUTPUT = 2 * 1024 * 1024;
@@ -73,6 +74,7 @@ function textResult(text, details) {
 }
 
 export default function register(api) {
+  const admission = registerAdmission(api);
   api.registerTool({
     name: "argos_evaluate",
     label: "Evaluate OpenClaw",
@@ -82,7 +84,8 @@ export default function register(api) {
         { description: "Quick 20-task suite or full 70-task suite." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
-      const value = await runArgos("openclaw",
+      const value = admission ? await admission.execute(_id, 'evaluation',
+        {suite:params.suite ?? 'quick'}, signal) : await runArgos("openclaw",
         ["--suite", params.suite ?? "quick", "--json"], signal, onUpdate);
       if (value.status === "busy") return textResult(
         `${value.message}. No evaluation started. Wait for the active workload; do not edit the workspace.`, value);
@@ -117,7 +120,8 @@ export default function register(api) {
       candidate_id: Type.String({ minLength: 32, maxLength: 32, pattern: "^[a-f0-9]{32}$" })
     }, { additionalProperties: false }),
     async execute(_id, params) {
-      const result = await runArgos("results", ["--compare", params.baseline_id,
+      const result = admission ? await admission.execute(_id, 'compare', params) :
+        await runArgos("results", ["--compare", params.baseline_id,
         params.candidate_id, "--json"]);
       if (result.kind !== "ability" || !result.suite_version?.startsWith("argos-openclaw-ability/") ||
           result.settings?.execution_path !== EVALUATION_PATH) {
@@ -136,7 +140,8 @@ export default function register(api) {
     parameters: Type.Object({ text: Type.String({ minLength: 1, maxLength: 4096 }) },
       { additionalProperties: false }),
     async execute(_id, params, signal) {
-      const value = await runArgos("log", ["--text", params.text, "--json"], signal);
+      const value = admission ? await admission.execute(_id, 'log', params, signal) :
+        await runArgos("log", ["--text", params.text, "--json"], signal);
       return textResult(value.status === "busy" ? `${value.message}. No note appended.` :
         `Appended at host time ${value.observed}. Pre-append snapshot: ${value.snapshot}.`, value);
     }

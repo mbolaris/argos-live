@@ -4,6 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
+import net from 'node:net';
+import { randomUUID } from 'node:crypto';
+import { registerAdmission } from '../openclaw-plugin/argos-improve/admission.js';
 
 test('plugin tools call the installed Argos benchmark commands', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-plugin-'));
@@ -79,5 +82,58 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     if (priorCapture === undefined) delete process.env.ARGOS_CAPTURE;
     else process.env.ARGOS_CAPTURE = priorCapture;
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('managed hooks bind tool-call identity and cannot release the host lease', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-admission-'));
+  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\argos-admission-${randomUUID()}` : path.join(directory, 'host.sock');
+  const priorPath = process.env.ARGOS_CONTROLLER_SOCKET;
+  const priorSecret = process.env.ARGOS_CONTROLLER_SECRET;
+  const requests = [];
+  const server = net.createServer((socket) => {
+    socket.setEncoding('utf8');
+    let raw = '';
+    socket.on('data', (chunk) => {
+      raw += chunk;
+      if (!raw.endsWith('\n')) return;
+      const value = JSON.parse(raw);
+      requests.push(value);
+      let response;
+      if (value.op === 'begin') response = requests.length === 1 ?
+        {status:'admitted',turn_token:'fictional-turn'} : {status:'busy'};
+      else if (value.op === 'tool') response = {status:'completed',value:{status:'appended'}};
+      else response = {status:'recorded'};
+      socket.end(JSON.stringify(response) + '\n');
+    });
+  });
+  try {
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(endpoint, resolve); });
+    process.env.ARGOS_CONTROLLER_SOCKET = endpoint;
+    process.env.ARGOS_CONTROLLER_SECRET = 'fictional-bridge-secret';
+    const hooks = new Map();
+    const admission = registerAdmission({pluginConfig:{hostAdmission:true}, on(name, handler) {hooks.set(name,handler);}});
+    const ctx = {runId:'run-1',sessionId:'session-1',sessionKey:'agent:main:host-session',trigger:'user'};
+    assert.deepEqual(await hooks.get('before_agent_run')({}, ctx), {outcome:'pass'});
+    assert.equal(hooks.get('before_tool_call')({toolName:'exec',runId:'run-1',toolCallId:'exec-1'},ctx).block,true);
+    assert.equal(requests.length,1);
+    hooks.get('before_tool_call')({toolName:'argos_log',runId:'run-1',toolCallId:'log-1'},ctx);
+    assert.deepEqual(await admission.execute('log-1','log',{text:'Unicode note 你好'}),{status:'appended'});
+    await assert.rejects(admission.execute('log-1','log',{text:'replay'}),/no current host admission/);
+    await hooks.get('agent_end')({},ctx);
+    assert.deepEqual(requests.map((value) => value.op),['begin','tool','ended']);
+    assert.equal(requests[1].run_id,'run-1');
+    assert.equal(requests[1].call_id,'log-1');
+    assert.equal(requests[1].turn_token,'fictional-turn');
+    assert.equal(requests[1].params.text,'Unicode note 你好');
+    assert.equal((await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'})).outcome,'block');
+    assert.ok(requests.every((value) => value.auth === 'fictional-bridge-secret'));
+  } finally {
+    if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET;
+    else process.env.ARGOS_CONTROLLER_SOCKET = priorPath;
+    if (priorSecret === undefined) delete process.env.ARGOS_CONTROLLER_SECRET;
+    else process.env.ARGOS_CONTROLLER_SECRET = priorSecret;
+    await new Promise((resolve) => server.close(resolve));
+    await rm(directory,{recursive:true,force:true});
   }
 });
