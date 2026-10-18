@@ -91,6 +91,8 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund --prefix work/compatibility-runtime
           npm ci --ignore-scripts --no-audit --no-fund --prefix openclaw-plugin/argos-improve
           python3 scripts/refresh-plugin-manifest.py openclaw-plugin/argos-improve
+      - name: Pinned admission entry hook (synthetic, no inference)
+        run: python3 scripts/smoke-admission-hook.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/admission-hook.json
       - name: Inspect pinned addon registration in disposable state
         run: python3 scripts/smoke-addon-inventory.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --package-root work/compatibility-runtime/node_modules/openclaw --report work/addon-inventory.json
       - name: Browser dashboard smoke (Chromium proxy for Firefox ESR)
@@ -110,8 +112,6 @@ jobs:
         run: python3 scripts/smoke-owned-gateway.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw > work/native-gateway.json
       - name: Pinned evaluation generation request protocol (synthetic, no inference)
         run: python3 scripts/smoke-evaluation-config.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/evaluation-protocol.json
-      - name: Pinned admission entry hook (synthetic, no inference)
-        run: python3 scripts/smoke-admission-hook.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/admission-hook.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

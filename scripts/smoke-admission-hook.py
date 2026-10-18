@@ -32,8 +32,8 @@ export default function register(api) {
     })+'\\n');
     if (config.mode === 'error') throw new Error('fixture admission unavailable');
     if (config.mode === 'invalid') return {unexpected:true};
-    return {outcome:config.mode === 'allow' ? 'allow' : 'block',
-            reason:'fixture admission denied'};
+    if (config.mode === 'allow') return {outcome:'pass'};
+    return {outcome:'block',reason:'fixture admission denied'};
   });
   api.on('agent_end', (_event, ctx) => {
     fs.appendFileSync(config.capture, JSON.stringify({phase:'end',runId:ctx.runId ?? null})+'\\n');
