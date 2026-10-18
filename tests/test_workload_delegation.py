@@ -145,6 +145,21 @@ class DelegationTests(unittest.TestCase):
             bench_openclaw.run(home=self.home, runner=runner, delegation=capability)
         self.assertEqual(runner.calls, 0)
 
+    def test_lock_io_errors_are_not_reported_as_proof_of_an_owner(self):
+        import errno
+        import importlib
+        module = importlib.import_module('msvcrt' if os.name == 'nt' else 'fcntl')
+        function = 'locking' if os.name == 'nt' else 'flock'
+        for number in (errno.EIO, errno.EBADF):
+            with patch.object(module, function, side_effect=OSError(number, 'fixture lock failure')):
+                with self.assertRaises(OSError):
+                    with workload.worker_lock(self.home):
+                        self.fail('I/O failure admitted a workload')
+        with patch.object(module, function, side_effect=OSError(errno.EAGAIN, 'fixture contention')):
+            with self.assertRaises(workload.WorkerBusy):
+                with workload.worker_lock(self.home):
+                    self.fail('Contended lock admitted a workload')
+
     def test_controller_can_append_log_after_saved_delegated_evaluation(self):
         with workload.reserve(self.home, 'controller') as parent:
             capability = parent.delegate('evaluation')
