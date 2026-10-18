@@ -1,0 +1,30 @@
+{
+  "schema": "argos-native-instruction-verification/1",
+  "passed": true,
+  "source_commit": "67fa777644bfaf015c335ad7df46cf7873008e12",
+  "native_run": "https://github.com/mbolaris/argos-live/actions/runs/39106875111",
+  "tests_run": "https://github.com/mbolaris/argos-live/actions/runs/39106875110",
+  "python_tests": 779,
+  "python_skips": 4,
+  "node_tests": 29,
+  "guarded_groups": 7,
+  "shell_syntax": "passed",
+  "artifact_sha256": {
+    "report.json": "8dc475cf5575d7e3a93e07bd1ba6250907705f170406be4865107b00656f06f1",
+    "result.json": "1565fcf50ca2e0e858b7b9c446263784729637d8e78555bcd0859df3b082e674",
+    "worker.json": "76cafe421951efea34caf7d124626db2802c4e3e9ffa73924113ec047289f7f7",
+    "instructions.json": "aa7595e0d828a3904bbcfe288c7c4ff80f41487f6035b8787df5c756c9fc55f4"
+  },
+  "full_test_log_sha256": "873fa6dea49ccb0c1926050441db518da9fd2a5af620e59ee141b058f08255ea",
+  "guarded_summary_sha256": "47cdaf607aebf6b3ca8449810816c3577a2f0ab7888151b81ddb01661bad0025",
+  "saved_synthetic_result_id": "a69d6a762035ec1a2576c107625c394a",
+  "qualified_experiments": 0,
+  "limitations": [
+    "Scripted synthetic choices, not model quality or autonomous decisions",
+    "Native fixture restores without a candidate exam; measured repeated keep/restore is unit-tested",
+    "Instruction journal only; free-form log claims and independent gain remain unverified",
+    "No production gateway/heartbeat routing or bounded model operations",
+    "No protected identity, full input/weight identity or backend-wide mediation/drainage",
+    "No Toronado deployment, proctor exam, unattended campaign or physical acceptance"
+  ]
+}

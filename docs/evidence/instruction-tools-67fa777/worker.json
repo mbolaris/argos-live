@@ -1,0 +1,41 @@
+{
+  "generation": 1,
+  "parent_id": "d6f86ecf4704b90ab9ca520462b33120",
+  "pid": 2855,
+  "process_group_drained": true,
+  "run_id": "f2f74a75-c082-48fe-985b-29ec9d5cfd5a",
+  "schema": "argos-controller-worker/1",
+  "sdk_end_observed": true,
+  "session_id": "393b7498-d8fb-4fa4-a0ff-4abf67465d67",
+  "session_key": "agent:main:host-1929ebc9-76b3-4623-8994-26ac4935a572",
+  "state": "completed",
+  "stdout_sha256": "de76a36045090c0a999479ad2652a6ea8da660b96565da6a80928b529d838c53",
+  "tools": [
+    {
+      "call_id": "fixture-call-1",
+      "kind": "inspect"
+    },
+    {
+      "call_id": "fixture-call-2",
+      "kind": "evaluation",
+      "result_id": "a69d6a762035ec1a2576c107625c394a",
+      "state": "completed"
+    },
+    {
+      "call_id": "fixture-call-3",
+      "change_id": "99e239d5d16e8ea0995a5398142243e1",
+      "kind": "edit",
+      "status": "changed"
+    },
+    {
+      "call_id": "fixture-call-4",
+      "change_id": "99e239d5d16e8ea0995a5398142243e1",
+      "kind": "resolve",
+      "status": "restored"
+    },
+    {
+      "call_id": "fixture-call-5",
+      "kind": "log"
+    }
+  ]
+}

@@ -4,7 +4,7 @@ The goal is a fresh-card unattended campaign, an honest machine-audited record,
 independent signed baseline/final replication, enforced safety, and reproducible
 image/storage acceptance. Passing a subset does not complete the goal.
 
-## Current evidence and gaps (2026-10-17)
+## Current evidence and gaps (2026-10-18)
 
 - Option A: owner reconfirmed and applied on the existing Toronado card. Protected
   snapshots and session evidence are in work/TORONADO-COORDINATION.md in the owner
@@ -193,3 +193,33 @@ the complete claim auditor and the remaining physical/independent acceptance
 gates are still required. No actual model made the fixture's scripted choices;
 it is not an autonomous climb, proctor exam or model-quality measurement. The
 feature remains opt-in and no Toronado change occurred for this checkpoint.
+
+## Bounded instruction tools checkpoint
+
+Source67fa777 adds optional managed inspection, one literal AGENTS.md patch,
+private before/after/config/baseline snapshots, and keep/restore resolution.
+Only a matching baseline from the same live host controller can authorize an
+edit. Repeated matched evidence and an explicit conservative practice policy
+gate keeps; restoring without a valid candidate exam does not count as a
+measured experiment. Unknown writes and publication failures stay quarantined.
+The instruction journal auditor replays patches, validates saved receipts and
+checks final bytes. Its scope excludes free-form log claims and independent gain.
+
+Exact-source Tests run39106875110 passed779 Python tests (4skips),29 Node tests,
+shell syntax and seven guarded groups. Pinned compatibility run39106875111
+passed actual SDK inspection/evaluation/edit/restore/log transport with seven
+controller requests and20 isolated evaluation requests. Saved synthetic result
+a69d6a762035ec1a2576c107625c394a has complete20-task coverage. The patch was
+snapshotted and restored byte-for-byte, the journal audit passed, generic exec
+was denied, and proctor admission stayed closed until host release. This fixture
+has no candidate exam: it reports zero qualified experiments and no independent
+gain. Repeated measured keep/restore policy is unit-tested. Reports, saved result,
+worker/journal receipts and machine-checked hashes are in
+evidence/instruction-tools-67fa777/. No actual model chose these scripted actions.
+
+The feature is not enabled in the default conversation profile or on Toronado.
+Deployment still requires receipts for every copied context/personality input
+and installed weight identity, bounded model operations, production gateway/
+heartbeat routing, durable owner authority, protected service identity and
+backend-wide admission/drainage. Full claim auditing, independent signed exams
+and every fresh-image/physical acceptance gate above remain open.

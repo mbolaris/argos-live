@@ -182,7 +182,7 @@ failed/cancelled saved result before recording their terminal lifecycle. The
 ordinary Python evaluation API now also saves before release; previously it
 returned an unsaved result after releasing admission. Log workers keep the parent
 reservation and reuse the append-only interface. workload_worker accepts only
-evaluation/log operations, an explicit host home, and a bounded private stdin
+fixed evaluation/log/maintenance operations, an explicit host home, and a bounded private stdin
 request. Capability secrets are excluded from argv, persistent metadata, normal
 output and request-error messages. This is an internal host protocol, not a new
 model tool argument or permission to invoke arbitrary commands.
@@ -232,8 +232,9 @@ to execution; neither identity nor the capability is a model tool argument.
 The SDK tool factory itself has no runId in this pin, so a factory/global-current
 run guess is not used. End hooks record metadata and cannot release admission.
 
-In this managed scope, the tool hook rejects every tool except argos_evaluate,
-argos_compare and argos_log. Evaluations/logs use the fixed delegated workers;
+In this managed scope, the tool hook admits only Argos host operations. The
+original tools are argos_evaluate, argos_compare and argos_log; optional bounded
+instruction tools are described below. Evaluations/logs use the fixed delegated workers;
 comparisons load checked saved results. Failed/cancelled saved evaluations remain
 visible with their full IDs while the host stays quarantined. Admission tokens
 are absent from persistent metadata, child environments and tool output.
@@ -262,7 +263,7 @@ run39093712269 passed768 Python tests (4skips),29 Node tests and shell syntax.
 This is not installed or enabled in Toronado's running gateway. The
 production UI/heartbeat dispatcher still needs its supervised adapter and durable
 owner-started campaign authorization. The managed tool set also needs bounded
-inspection, instruction/config changes and model operations before it can carry
+configuration changes and model operations before it can carry
 the full self-improvement loop; enabling it as the default now would prevent the
 agent from making its experiments. Proctor/evaluator service identity and actual
 backend admission/drainage remain independent requirements.
@@ -275,3 +276,57 @@ existing listener to reject a competitor and remain usable, while allowing a
 stopped fixture's successor to bind. No process/listener is killed or adopted.
 This addresses fixture socket lifecycle; it is not evidence of model exclusion
 or proof of the historical kernel socket state on the discarded first runner.
+
+### Bounded instruction experiments
+
+The optional managed-only tools argos_inspect, argos_edit_instructions and
+argos_resolve_instructions use fixed delegated maintenance workers. No tool
+argument selects a path or command. Inspection returns canonical AGENTS.md,
+its hash, a private-safe configuration receipt and the practice keep policy.
+Edits require that hash, one unique literal replacement, a hypothesis and a
+completed matching baseline admitted by this same host controller reservation.
+Only the canonical .openclaw/workspace/AGENTS.md may change. Other workspaces,
+ambiguous patches, stale hashes and borrowed result IDs are refused.
+
+Before replacing bytes, the host saves private before/after/config snapshots,
+the baseline and its admission record, and an immutable intent. It then records
+the applied hash. Resolution either restores those exact bytes or validates a
+keep. Every keep needs at least two baseline and two candidate runs with matching
+configuration, model tag and hardware. The conservative practice policy requires
+the worst candidate to beat the best baseline by two correct quick tasks or four
+standard tasks without more format errors; alternatively, correct answers must
+be maintained with strictly fewer format errors and median latency at most 1.5
+times baseline. These are practice thresholds, not statistical significance or
+independent generalization evidence. Installed weight identity remains unproven.
+Before deployment, receipts must also bind every copied personality/context
+input across runs, not just AGENTS.md and projected configuration. The evaluator
+detects changes to existing bounded protected files during each individual run, but its current saved
+fingerprint does not prove those other files stayed identical between runs.
+The next receipt revision must record missing-versus-present states as well as
+bytes for every copied WORKSPACE_FILES input, reject changes before each turn
+and final publication, and require the non-AGENTS inputs to match for an
+instruction-only experiment. A newly created persona file needs the same
+invalidation behavior as editing or deleting an existing one.
+
+Restoration does not require a successful exam. An unmeasured restoration is
+explicitly marked as such and does not count as a completed experiment. Unknown
+write outcomes or failed journal publication stay quarantined. Expected hashes
+preserve an observed owner edit; protected ownership is still required to exclude
+arbitrary same-UID races or journal tampering.
+
+instruction_changes.audit replays the patch, checks snapshot/config hashes,
+event ordering, evidence and admission receipts, policy calculations, journal
+continuity and the final live guide. Its report covers only this host instruction
+journal. It explicitly does not certify free-form log claims or independent gain.
+The optional tools are not enabled in the default conversation profile. No live
+gateway or Toronado deployment is implied by adding them.
+
+Source67fa777 passed native compatibility run39106875111 and Tests
+run39106875110 (779 Python tests,4skips;29 Node tests;seven guarded groups and
+shell syntax). The pinned SDK exercised inspect, evaluate, edit, restore and log;
+the host audit confirmed exact restoration and proctor exclusion through context
+release. Saved synthetic resulta69d6a762035ec1a2576c107625c394a covers20 tasks.
+The native fixture restores without a candidate exam, explicitly counts zero
+qualified experiments and claims no independent gain. Repeated measured keep/
+restore is covered by unit tests. Evidence and verified artifact hashes are in
+evidence/instruction-tools-67fa777/.
