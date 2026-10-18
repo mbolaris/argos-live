@@ -178,6 +178,62 @@ class DelegationTests(unittest.TestCase):
             slot.complete()
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process birth identity')
+    def test_fixed_subprocess_workers_evaluate_publish_and_append_under_parent(self):
+        from dataclasses import asdict
+        binary = self.home / 'bin'
+        binary.mkdir()
+        executable = binary / 'openclaw'
+        # Synthetic CLI output only. Exercises host IPC/process lifecycle and
+        # saved-result publication, not SDK behavior or model quality.
+        executable.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+            'session=sys.argv[sys.argv.index("--session-id")+1]\n'
+            'print(json.dumps({"payloads":[{"text":"synthetic answer"}],"meta":{"agentMeta":{'
+            '"sessionId":session,"provider":"ollama","model":"qwen3:4b-instruct-2507-q4_K_M"}}}))\n')
+        executable.chmod(0o700)
+        env = {**os.environ, 'PYTHONPATH': str(ROOT / 'runtime'),
+               'PATH': str(binary) + os.pathsep + os.environ['PATH']}
+        def worker(kind, capability, **fields):
+            request = {'delegation': asdict(capability), **fields}
+            outcome = subprocess.run([sys.executable, '-m', 'argoslive.workload_worker', kind,
+                '--home', str(self.home)], input=json.dumps(request), env=env, text=True,
+                capture_output=True, timeout=30)
+            self.assertEqual(outcome.returncode, 0, outcome.stdout + outcome.stderr)
+            self.assertNotIn(capability.secret, outcome.stdout + outcome.stderr)
+            return json.loads(outcome.stdout)
+        with workload.reserve(self.home, 'controller') as parent:
+            capability = parent.delegate('evaluation')
+            value = worker('evaluation', capability, suite='quick')
+            run = value['result']
+            self.assertEqual(run['state'], 'completed')
+            self.assertEqual(Store(self.home / '.local/share/argos-live/results').load(run['id']), run)
+            # subprocess.run has confirmed this worker's exit, not merely an
+            # SDK callback or observation deadline. Backend inference is fake.
+            parent.resume(capability, worker_drained=True)
+            capability = parent.delegate('log')
+            note = worker('log', capability, text='Saved run ' + run['id'])
+            self.assertEqual(note['receipts'][0]['id'], run['id'])
+            parent.resume(capability, worker_drained=True)
+            parent.complete()
+        with workload.reserve(self.home, 'proctor') as slot:
+            slot.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process birth identity')
+    def test_invalid_worker_request_does_not_print_capability_or_consume_grant(self):
+        from dataclasses import asdict
+        env = {**os.environ, 'PYTHONPATH': str(ROOT / 'runtime')}
+        with workload.reserve(self.home, 'controller') as parent:
+            capability = parent.delegate('evaluation')
+            request = {'delegation': asdict(capability), 'suite': 'arbitrary-shell-command'}
+            outcome = subprocess.run([sys.executable, '-m', 'argoslive.workload_worker', 'evaluation',
+                '--home', str(self.home)], input=json.dumps(request), env=env, text=True,
+                capture_output=True, timeout=10)
+            self.assertEqual(outcome.returncode, 70)
+            self.assertNotIn(capability.secret, outcome.stdout + outcome.stderr)
+            parent.cancel_unstarted(capability)
+            parent.resume(capability, worker_drained=True)
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process birth identity')
     def test_killed_child_never_resumes_parent_or_allows_proctor(self):
         script = ('from argoslive.workload import reserve,Delegation\n'
                   'import json,sys\n'

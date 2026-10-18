@@ -257,7 +257,7 @@ class LiveBoard:
         self.write()
 
 
-def main(argv=None):
+def main(argv=None, *, delegation=None):
     parser = argparse.ArgumentParser(description='Evaluate the configured OpenClaw assistant with fixed Argos tasks.')
     parser.add_argument('--suite', choices=('quick', 'standard'), default='quick')
     parser.add_argument('--home', type=Path, default=Path.home())
@@ -265,7 +265,7 @@ def main(argv=None):
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)
     try:
-        with graceful_termination() as cancel, reserve(args.home, 'evaluation') as slot:
+        with graceful_termination() as cancel, reserve(args.home, 'evaluation', delegation=delegation) as slot:
             # Admission precedes even live-board publication; a rejected request
             # must not overwrite the first run's progress or save a partial run.
             board = LiveBoard(args.home, args.suite)

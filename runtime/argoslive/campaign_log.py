@@ -63,14 +63,14 @@ def append(home, text, *, delegation=None):
                 'receipts': receipts, 'note_claims_verified': False}
 
 
-def main(argv=None):
+def main(argv=None, *, delegation=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--home', type=Path, default=Path.home())
     parser.add_argument('--text', required=True)
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)
     try:
-        value = append(args.home, args.text)
+        value = append(args.home, args.text, delegation=delegation)
     except Busy as error:
         print(json.dumps({'status': 'busy', 'recovery_required': error.recovery, 'message': str(error)}))
         return 75
