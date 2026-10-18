@@ -539,7 +539,7 @@ def drain_embedded_group(process):
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             raise TrialTurnError('worker-drain-unconfirmed') from None
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, ValueError, subprocess.TimeoutExpired):
         raise TrialTurnError('worker-drain-unconfirmed') from None
     deadline = time.monotonic() + 10
     while True:

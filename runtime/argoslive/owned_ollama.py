@@ -51,16 +51,22 @@ def supervisor_pid(process, *, deadline, cancel=None):
 
 
 def stop_group(process):
+    # killpg coerces objects through __index__; a MagicMock becomes group 1.
+    # Never let malformed process handles select a group or our own session.
+    pid = process.pid
+    if (type(pid) is not int or pid <= 1 or
+            pid in (os.getpgrp(), os.getsid(0))):
+        raise ValueError('Refusing an invalid or caller-owned process group')
     if process.poll() is None:
-        os.killpg(process.pid, signal.SIGTERM)
+        os.killpg(pid, signal.SIGTERM)
         try:
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)
+            os.killpg(pid, signal.SIGKILL)
             process.wait(timeout=10)
     # Runners may outlive an already-exited daemon leader.
     try:
-        os.killpg(process.pid, signal.SIGKILL)
+        os.killpg(pid, signal.SIGKILL)
     except ProcessLookupError:
         pass
 
