@@ -2,6 +2,7 @@
 """Real pinned SDK controller/hooks/tools, synthetic model; disposable CI only."""
 import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from synthetic_http import SyntheticHTTPServer
 import json
 import hashlib
 import os
@@ -86,8 +87,7 @@ def run(cli, report):
             self.end_headers()
             self.wfile.write(raw)
 
-    server = ThreadingHTTPServer(('127.0.0.1', 11434), Handler, bind_and_activate=False)
-    server.allow_reuse_address = False
+    server = SyntheticHTTPServer(('127.0.0.1', 11434), Handler, bind_and_activate=False)
     server.server_bind()
     server.server_activate()
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -107,7 +107,8 @@ def run(cli, report):
             config = conversation_config('fixture:latest', workspace,
                                          plugin_root=ROOT / 'openclaw-plugin/argos-improve')
             config['agents']['defaults']['heartbeat']['every'] = '0m'
-            config['skills'] = {'allowBundled': [], 'load': {'watch': False}}
+            config['skills'] = {'allowBundled': [], 'load': {'watch': False},
+                                'workshop': {'autonomous': {'mode': 'off'}}}
             config['plugins']['allow'] = ['argos-improve']
             config['plugins']['slots'] = {'memory': 'none'}
             config['plugins']['entries']['argos-improve'].update(
@@ -123,6 +124,8 @@ def run(cli, report):
                     response, stderr = bridge.finish(timeout=330)
                 except BaseException:
                     diagnostic = getattr(bridge, 'last_stdout', '') + getattr(bridge, 'last_stderr', '')
+                    diagnostic += '\nChild outcome:\n' + getattr(bridge, 'last_child_stdout', '')[-8000:]
+                    diagnostic += '\nChild diagnostic:\n' + getattr(bridge, 'last_child_stderr', '')[-6000:]
                     for secret in (bridge.secret, (bridge.active or {}).get('token', '')):
                         if secret:
                             diagnostic = diagnostic.replace(secret, '[omitted]')

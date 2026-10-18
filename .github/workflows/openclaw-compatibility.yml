@@ -5,6 +5,7 @@ on:
     paths:
       - scripts/smoke-admission-hook.py
       - scripts/smoke-controller-bridge.py
+      - scripts/synthetic_http.py
       - runtime/argoslive/controller_bridge.py
       - runtime/argoslive/workload.py
       - runtime/argoslive/workload_worker.py
@@ -40,6 +41,7 @@ on:
     paths:
       - scripts/smoke-admission-hook.py
       - scripts/smoke-controller-bridge.py
+      - scripts/synthetic_http.py
       - runtime/argoslive/controller_bridge.py
       - runtime/argoslive/workload.py
       - runtime/argoslive/workload_worker.py
@@ -79,6 +81,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Verify synthetic TCP reuse cannot share a live listener
+        run: python3 -m unittest discover -s tests -p test_synthetic_fixture_ports.py -v
       - name: Read exact runtime pins
         id: pins
         shell: bash

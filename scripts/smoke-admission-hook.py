@@ -6,6 +6,7 @@ owner identity, heartbeat authorization, backend exclusion, or worker drainage.
 """
 import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from synthetic_http import SyntheticHTTPServer
 import json
 import os
 from pathlib import Path
@@ -81,9 +82,8 @@ def run(cli, report):
             self.end_headers()
             self.wfile.write(raw)
 
-    # Never reuse or interrupt a listener. This script cannot run on Toronado.
-    server = ThreadingHTTPServer(('127.0.0.1', 11434), Handler, bind_and_activate=False)
-    server.allow_reuse_address = False
+    # A live listener still fails binding. Only stopped TCP TIME_WAIT is reused.
+    server = SyntheticHTTPServer(('127.0.0.1', 11434), Handler, bind_and_activate=False)
     server.server_bind()
     server.server_activate()
     worker = threading.Thread(target=server.serve_forever, daemon=True)

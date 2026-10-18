@@ -172,6 +172,7 @@ class Bridge:
                 process.terminate()
                 stdout, _stderr = process.communicate(timeout=30)
                 self.uncertain = True
+            self.last_child_stdout, self.last_child_stderr = stdout, _stderr
             if process.returncode or len(stdout.encode()) > 2 * 1024**2:
                 raise workload.Busy(recovery=True)
             value = json.loads(stdout)
@@ -210,9 +211,12 @@ class Bridge:
         from .owned_gateway import environment
         path = Path(config_path or self.home / '.openclaw/openclaw.json')
         config = read_json(path)
-        entry = config.get('plugins', {}).get('entries', {}).get('argos-improve', {})
-        if (entry.get('enabled') is not True or entry.get('config', {}).get('hostAdmission') is not True or
-                entry.get('hooks', {}).get('allowConversationAccess') is not True):
+        plugins = config.get('plugins', {})
+        entry = plugins.get('entries', {}).get('argos-improve', {})
+        if (plugins.get('enabled') is not True or 'argos-improve' not in plugins.get('allow', []) or
+                entry.get('enabled') is not True or entry.get('config', {}).get('hostAdmission') is not True or
+                entry.get('hooks', {}).get('allowConversationAccess') is not True or
+                config.get('skills', {}).get('workshop', {}).get('autonomous', {}).get('mode') != 'off'):
             raise ValueError('Controller launch requires the reviewed admission hook policy')
         if not isinstance(message, str) or not 0 < len(message.encode()) <= 32768:
             raise ValueError('Bounded owner controller message required')
@@ -301,12 +305,15 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800):
         bridge = Bridge(home, parent, session_key=session_key, trigger=trigger, worker_timeout=worker_timeout)
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
+                work_bearing = False
                 try:
                     self.request.settimeout(5)
                     raw = self.rfile.readline(LIMIT + 1)
                     if len(raw) > LIMIT or not raw.endswith(b'\n'):
                         raise ValueError('Bridge request exceeds bound')
-                    response = bridge.dispatch(json.loads(raw))
+                    request = json.loads(raw)
+                    work_bearing = isinstance(request, dict) and request.get('op') == 'tool'
+                    response = bridge.dispatch(request)
                 except workload.Busy as error:
                     response = {'status': 'busy', 'recovery_required': error.recovery}
                 except (ValueError, KeyError, TypeError, OSError):
@@ -314,7 +321,10 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800):
                 try:
                     self.wfile.write((json.dumps(response) + '\n').encode())
                 except OSError:
-                    bridge.uncertain = True
+                    # End notifications carry no work/release authority. A lost
+                    # optional acknowledgment cannot negate proven worker exit.
+                    if work_bearing:
+                        bridge.uncertain = True
         class Server(socketserver.ThreadingUnixStreamServer):
             daemon_threads = True
             block_on_close = False

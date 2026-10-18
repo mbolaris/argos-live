@@ -7,6 +7,7 @@ contain selected protocol options, not prompts, headers, or owner configuration.
 import argparse
 import copy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from synthetic_http import SyntheticHTTPServer
 import json
 import os
 from pathlib import Path
@@ -70,9 +71,8 @@ def run(cli):
             self.end_headers()
             self.wfile.write(raw)
 
-    # Bind without reuse: fail instead of interrupting any existing server.
-    server = ThreadingHTTPServer(('127.0.0.1', 11434), Handler, bind_and_activate=False)
-    server.allow_reuse_address = False
+    # Reuse stopped TCP TIME_WAIT; a live listener still fails binding.
+    server = SyntheticHTTPServer(('127.0.0.1', 11434), Handler, bind_and_activate=False)
     server.server_bind()
     server.server_activate()
     worker = threading.Thread(target=server.serve_forever, daemon=True)
