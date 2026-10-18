@@ -39,7 +39,7 @@ def main(argv=None):
         text = request['text']
         if not isinstance(text, str):
             raise ValueError('Log note must be text')
-        return campaign_log.main(['--home', str(args.home), '--text', text, '--json'], delegation=capability)
+        return campaign_log.main(['--home', str(args.home), '--text=' + text, '--json'], delegation=capability)
     except (ValueError, TypeError, KeyError, OSError):
         # The request contains a capability. Do not dump it, a traceback, parser
         # locals, or the exception payload into agent-visible output.

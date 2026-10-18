@@ -239,7 +239,7 @@ class DelegationTests(unittest.TestCase):
             # SDK callback or observation deadline. Backend inference is fake.
             parent.resume(capability, worker_drained=True)
             capability = parent.delegate('log')
-            note = worker('log', capability, text='Saved run ' + run['id'])
+            note = worker('log', capability, text='--literal note; saved run ' + run['id'])
             self.assertEqual(note['receipts'][0]['id'], run['id'])
             parent.resume(capability, worker_drained=True)
             parent.complete()
