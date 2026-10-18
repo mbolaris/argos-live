@@ -60,7 +60,8 @@ def validate(value):
                         if isinstance(prompt_fingerprint, dict) else None)
         if (not isinstance(prompt_fingerprint, dict)
                 or 'workspace_agents_sha256' not in prompt_fingerprint
-                or set(prompt_fingerprint) - {'workspace_agents_sha256', 'evaluation_config_sha256'}
+                or set(prompt_fingerprint) - {'workspace_agents_sha256', 'evaluation_config_sha256',
+                                               'workspace_context_sha256'}
                 or (digest_value is not None and
                     (not isinstance(digest_value, str) or not re.fullmatch(r'[a-f0-9]{64}', digest_value)))):
             raise ValueError('Invalid prompt fingerprint')
@@ -68,6 +69,10 @@ def validate(value):
         if ('evaluation_config_sha256' in prompt_fingerprint and
                 (not isinstance(configuration_hash, str) or not re.fullmatch(r'[a-f0-9]{64}', configuration_hash))):
             raise ValueError('Invalid evaluation configuration fingerprint')
+        context_hash = prompt_fingerprint.get('workspace_context_sha256')
+        if context_hash is not None and (not isinstance(context_hash, str) or
+                                         not re.fullmatch(r'[a-f0-9]{64}', context_hash)):
+            raise ValueError('Invalid workspace context fingerprint')
     if value['settings'].get('execution_path') == 'openclaw embedded; ephemeral state; tools denied; v2':
         if (not isinstance(value['settings'].get('configured_generation'), dict)
                 or not isinstance(value['settings'].get('model'), dict)
@@ -245,9 +250,12 @@ def compare(values):
                                                      value['settings']['model'], 'model')
             instructions_changed = (first.get('prompt_fingerprint', {}).get('workspace_agents_sha256') !=
                                     value.get('prompt_fingerprint', {}).get('workspace_agents_sha256'))
-            if len(changes) + int(instructions_changed) + int(first['model'] != value['model']) > 1:
+            context_changed = (first.get('prompt_fingerprint', {}).get('workspace_context_sha256') !=
+                               value.get('prompt_fingerprint', {}).get('workspace_context_sha256'))
+            if len(changes) + int(instructions_changed) + int(context_changed) + int(first['model'] != value['model']) > 1:
                 raise ValueError('Comparison changes more than one model, instruction or configuration setting')
             configuration_changes.append({'id': value['id'], 'changes': changes,
+                                          'workspace_context_changed': context_changed,
                                           'evidence': 'configured settings; not proof of the effective wire request'})
     rows = []
     for value in values:

@@ -17,7 +17,8 @@ import copy
 from . import storage, workload
 from .assistant_trial import agents_path
 from .bench_ability import summaries
-from .evaluation_context import configuration_receipt, configuration_from, receipt_from, EXECUTION_PATH
+from .evaluation_context import (configuration_receipt, configuration_from, receipt_from,
+                                 workspace_context_receipt, EXECUTION_PATH)
 from .model_selection import replace_raw
 from .pull_jobs import read_json, write_json
 from .results import Store, compare, identifier, same_hardware
@@ -153,7 +154,7 @@ def immutable(path, value):
     new_file(path, (json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + '\n').encode())
 
 
-def load_run(home, run_id, expected_hash, config_hash, parent, generation):
+def load_run(home, run_id, expected_hash, config_hash, context_hash, parent, generation):
     try:
         run = Store(Path(home) / '.local/share/argos-live/results').load(run_id)
     except ValueError:
@@ -162,6 +163,7 @@ def load_run(home, run_id, expected_hash, config_hash, parent, generation):
             run.get('settings', {}).get('execution_path') != EXECUTION_PATH or
             run.get('prompt_fingerprint', {}).get('workspace_agents_sha256') != expected_hash or
             run.get('prompt_fingerprint', {}).get('evaluation_config_sha256') != config_hash or
+            run.get('prompt_fingerprint', {}).get('workspace_context_sha256') != context_hash or
             run.get('summary') != summaries(run.get('items', []))):
         raise Refused('run-does-not-match-this-instruction-experiment')
     # A model cannot borrow an old result from another controller reservation.
@@ -204,7 +206,8 @@ def edit(home, root, params, slot):
     parent = slot.record.get('parent_id')
     if not parent:
         raise Refused('instruction-changes-require-host-controller-delegation')
-    baseline, admission = load_run(home, params['baseline_id'], digest(before), receipt['sha256'],
+    context_hash = workspace_context_receipt(path.parent)
+    baseline, admission = load_run(home, params['baseline_id'], digest(before), receipt['sha256'], context_hash,
                                    parent, slot.record['generation'])
     observed = stamp()
     if datetime.fromisoformat(baseline['created']) > datetime.fromisoformat(observed):
@@ -222,6 +225,7 @@ def edit(home, root, params, slot):
               'observed': observed, 'hypothesis': params['hypothesis'], 'baseline_id': baseline['id'],
               'find': params['find'], 'replacement': params['replace'],
               'before_sha256': digest(before), 'after_sha256': digest(after),
+              'workspace_context_sha256': context_hash,
               'config_sha256': digest(config), 'evaluation_config_sha256': receipt['sha256'],
               'baseline_sha256': digest((json.dumps(baseline, sort_keys=True, indent=2) + '\n').encode())}
     immutable(directory / 'intent.json', intent)
@@ -254,6 +258,7 @@ def evidence(home, intent, directory, params):
         group = []
         for run_id in ids:
             run, admission = load_run(home, run_id, expected, intent['evaluation_config_sha256'],
+                                      intent['workspace_context_sha256'],
                                       intent['parent_id'], intent['generation'])
             created = datetime.fromisoformat(run['created'])
             if (expected == intent['before_sha256'] and created > datetime.fromisoformat(intent['observed']) or
@@ -399,6 +404,8 @@ def audit(home):
                     digest(before) != intent['before_sha256'] or digest(after) != intent['after_sha256'] or
                     digest(config) != intent['config_sha256'] or digest(baseline) != intent['baseline_sha256'] or
                     receipt_from(configuration_from(json.loads(config)))['sha256'] != intent['evaluation_config_sha256'] or
+                    json.loads(baseline).get('prompt_fingerprint', {}).get('workspace_context_sha256') !=
+                    intent['workspace_context_sha256'] or
                     applied['sha256'] != digest(after) or previous_sha is not None and digest(before) != previous_sha):
                 raise ValueError('snapshot-or-chain-mismatch')
             source = before.decode('utf-8')

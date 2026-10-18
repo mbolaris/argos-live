@@ -15,7 +15,7 @@ from . import ability, hw
 from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
 from .results import Store
-from .evaluation_context import EXECUTION_PATH, configuration_receipt
+from .evaluation_context import EXECUTION_PATH, configuration_receipt, workspace_context_receipt
 from .workload import Busy, reserve
 
 
@@ -99,6 +99,7 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     workspace = instruction_path.parent if workspace_before is not None else None
     protected = protected_files(workspace)
     configuration = configuration_receipt(home)
+    workspace_context = workspace_context_receipt(workspace)
 
     def protect(item_id):
         if cancel is not None and cancel.is_set():
@@ -106,7 +107,13 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         # Evaluation cannot edit owner files. A concurrent controller edit is
         # newer owner work: invalidate the comparison, never roll it back.
         changed = changed_inputs(workspace, protected) if protected else []
-        if changed:
+        try:
+            context_unchanged = workspace_context_receipt(workspace) == workspace_context
+        except (OSError, ValueError, TypeError):
+            context_unchanged = False
+        if changed or not context_unchanged:
+            if not changed:
+                changed = ['copied-context-inputs']
             result['workspace_changed'] = {'item_id': item_id, 'files': changed}
             raise TrialTurnError('workspace-changed-during-run')
         try:
@@ -130,7 +137,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                      'suite_sha256': suite_digest, 'model': configuration['model'],
                      'configured_generation': configuration['configured_generation']},
         'prompt_fingerprint': {'workspace_agents_sha256': instruction_digest,
-                               'evaluation_config_sha256': configuration['sha256']},
+                               'evaluation_config_sha256': configuration['sha256'],
+                               'workspace_context_sha256': workspace_context},
         'hardware': hw.snapshot(), 'state': 'running', 'items': [],
         'omitted_categories': data['omitted_categories'],
         'restoration': {'succeeded': True, 'mutated': False},

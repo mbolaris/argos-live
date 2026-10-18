@@ -60,6 +60,27 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             self.assertEqual(result['settings']['suite_sha256'], hashlib.sha256(suite_path.read_bytes()).hexdigest())
             self.assertEqual(result['prompt_fingerprint']['workspace_agents_sha256'],
                              hashlib.sha256(instructions.read_bytes()).hexdigest())
+            self.assertEqual(len(result['prompt_fingerprint']['workspace_context_sha256']), 64)
+
+    def test_copied_context_presence_and_changes_invalidate_runs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            workspace = home / '.openclaw/workspace'
+            workspace.mkdir(parents=True)
+            (workspace / 'AGENTS.md').write_text('Guide\n', encoding='utf-8')
+            configure_fake(home, workspace)
+
+            class AddingPersona(FakeOpenClaw):
+                def turn(self, prompt):
+                    answer = super().turn(prompt)
+                    if self.calls == 2:
+                        (workspace / 'SOUL.md').write_text('New persona\n', encoding='utf-8')
+                    return answer
+
+            result = bench_openclaw.run(home=home, runner=AddingPersona())
+            self.assertEqual(result['state'], 'failed')
+            self.assertEqual(result['failure_code'], 'workspace-changed-during-run')
+            self.assertEqual((workspace / 'SOUL.md').read_text(encoding='utf-8'), 'New persona\n')
 
     def test_no_answer_is_scored_wrong_and_the_run_continues(self):
         class SilentOnce(FakeOpenClaw):
@@ -151,6 +172,10 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         second['prompt_fingerprint']['evaluation_config_sha256'] = 'b' * 64
         compared = results.compare([first, second])
         self.assertIn('configured settings', compared['configuration_changes'][1]['evidence'])
+        second['prompt_fingerprint']['workspace_context_sha256'] = 'c' * 64
+        with self.assertRaisesRegex(ValueError, 'more than one'):
+            results.compare([first, second])
+        second['prompt_fingerprint']['workspace_context_sha256'] = first['prompt_fingerprint']['workspace_context_sha256']
         second['settings']['configured_generation']['model_params']['topP'] = 0.8
         with self.assertRaisesRegex(ValueError, 'more than one'):
             results.compare([first, second])

@@ -134,6 +134,26 @@ def receipt_from(config):
             'configured_generation': generation}
 
 
+def workspace_context_receipt(workspace):
+    """Hash presence and bytes of copied persona inputs other than AGENTS.md."""
+    workspace = Path(workspace)
+    entries = []
+    for name in WORKSPACE_FILES:
+        if name == 'AGENTS.md':
+            continue
+        path = storage.safe_local(workspace / name)
+        if not path.exists() and not path.is_symlink():
+            entries.append({'name': name, 'present': False})
+            continue
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > FILE_LIMIT:
+            raise ValueError('Evaluation workspace input is not a bounded regular file')
+        raw = path.read_bytes()
+        if len(raw) > FILE_LIMIT:
+            raise ValueError('Evaluation workspace input exceeds the limit')
+        entries.append({'name': name, 'present': True, 'sha256': hashlib.sha256(raw).hexdigest()})
+    return hashlib.sha256(json.dumps(entries, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+
 def require_no_legacy_trials(home):
     """Refuse restart over pending old gateway evaluations; never rewrite evidence."""
     for candidate in (Path(home) / '.openclaw/agents').glob('*/agent/openclaw-agent.sqlite'):
