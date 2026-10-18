@@ -171,3 +171,25 @@ tools still need mediation. Protected proctor/evaluator identity, the complete
 log auditor, repeated independent signed exams and fresh-card unattended
 acceptance remain unproven. No live Toronado change or exam occurred for this
 checkpoint. The final merged image still needs every gate above.
+
+## Managed SDK bridge checkpoint
+
+Sourcea1d2247 passed Tests run39093712269 (768 Python tests,4skips;29 Node tests;
+shell syntax and guarded signal tests) and pinned compatibility run39093712268.
+The latter exercised the actual SDK entry/tool hooks through a private host
+bridge: generic exec was denied, one synthetic20-task evaluation was saved,
+its receipt-backed note was appended, and proctor admission stayed closed until
+the host confirmed SDK worker/group exit and closed the context. Evidence is
+under evidence/controller-bridge-a1d2247/, including the actual saved synthetic
+result258e61073d48642bbf38a3cdf3a50198 and validated artifact hashes. The prior
+6597e35 fixture failed binding its mock HTTP port before controller launch;
+kernel-tested TIME_WAIT reuse resolved fixture sequencing without sharing or
+interrupting a live listener.
+
+The managed scope has only evaluation/compare/log tools. Production gateway and
+heartbeat routing, durable owner campaign authorization, bounded inspection/
+edit/model tools, protected service identity, backend-wide exclusion/drainage,
+the complete claim auditor and the remaining physical/independent acceptance
+gates are still required. No actual model made the fixture's scripted choices;
+it is not an autonomous climb, proctor exam or model-quality measurement. The
+feature remains opt-in and no Toronado change occurred for this checkpoint.

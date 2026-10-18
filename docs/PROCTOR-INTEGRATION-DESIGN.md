@@ -221,3 +221,57 @@ and no isolated service identity is deployed. The host must stop the controller'
 inference and instruction writes while a child owns the delegated slot; the
 cooperative API cannot force a generic SDK or shell client to honor that rule.
 Acceptance remains governed by UNATTENDED-ACCEPTANCE.md.
+
+### Managed SDK bridge (opt-in; production routing remains open)
+
+controller_bridge.owned holds the root controller reservation and a private
+AF_UNIX endpoint. The host chooses the allowed session key and trigger before
+launch. The plugin's hostAdmission mode binds before_agent_run framework identity
+to a private turn token. before_tool_call binds the framework run/tool-call IDs
+to execution; neither identity nor the capability is a model tool argument.
+The SDK tool factory itself has no runId in this pin, so a factory/global-current
+run guess is not used. End hooks record metadata and cannot release admission.
+
+In this managed scope, the tool hook rejects every tool except argos_evaluate,
+argos_compare and argos_log. Evaluations/logs use the fixed delegated workers;
+comparisons load checked saved results. Failed/cancelled saved evaluations remain
+visible with their full IDs while the host stays quarantined. Admission tokens
+are absent from persistent metadata, child environments and tool output.
+
+The host-only launch/finish interface owns an actual embedded SDK process in a
+new session. It preflights explicit plugin enablement/allowlisting, conversation
+hook access and skills.workshop.autonomous.mode=off. The exact pinned source
+otherwise defaults autonomous skill review to auto, allowing post-turn review
+inference. finish verifies successful CLI output/session identity and absence of
+live process-group members, then saves a host worker receipt before marking the
+parent drained. A client-provided worker_exited claim or agent_end callback is
+not a completion path. A missing end callback/ack alone cannot negate confirmed
+worker completion. Unexpected transport/workers/results remain quarantined.
+
+Sourcea1d2247 passed native compatibility run39093712268, including this opt-in
+interface against the real pinned SDK with synthetic responses. Four controller
+requests and20 isolated evaluation requests completed. A generic exec call was
+denied by the hook without creating its marker; evaluation and log calls reached
+the fixed host workers. Saved synthetic result258e61073d48642bbf38a3cdf3a50198
+has20/20 coverage (not a model-quality claim). A proctor reservation was rejected
+while the host context remained open, then admitted after the SDK process group
+and host context exited. The report, saved result, worker receipt and checked
+hash manifest are in evidence/controller-bridge-a1d2247/. Full Tests
+run39093712269 passed768 Python tests (4skips),29 Node tests and shell syntax.
+
+This is not installed or enabled in Toronado's running gateway. The
+production UI/heartbeat dispatcher still needs its supervised adapter and durable
+owner-started campaign authorization. The managed tool set also needs bounded
+inspection, instruction/config changes and model operations before it can carry
+the full self-improvement loop; enabling it as the default now would prevent the
+agent from making its experiments. Proctor/evaluator service identity and actual
+backend admission/drainage remain independent requirements.
+
+Native fixture attempt6597e35/run39093471588 stopped before controller launch
+with EADDRINUSE binding11434 immediately after another synthetic fixture.
+The revised synthetic HTTP helper uses SO_REUSEADDR for stopped TCP TIME_WAIT
+and explicitly disables SO_REUSEPORT. Linux kernel preflight tests require an
+existing listener to reject a competitor and remain usable, while allowing a
+stopped fixture's successor to bind. No process/listener is killed or adopted.
+This addresses fixture socket lifecycle; it is not evidence of model exclusion
+or proof of the historical kernel socket state on the discarded first runner.

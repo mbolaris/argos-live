@@ -1,0 +1,33 @@
+{
+  "schema": "argos-native-controller-verification/1",
+  "passed": true,
+  "source_commit": "a1d2247d345a981cae803655c83af3282ca86ffc",
+  "scope": "real pinned SDK hooks and host workers; synthetic responses; no model-quality result",
+  "native_run": "https://github.com/mbolaris/argos-live/actions/runs/39093712268",
+  "tests_run": "https://github.com/mbolaris/argos-live/actions/runs/39093712269",
+  "python_tests": 768,
+  "python_skips": 4,
+  "node_tests": 29,
+  "shell_syntax": "passed",
+  "artifact_sha256": {
+    "report.json": "a3a1ca11995843e8dce0f688d45a843f6c8f59b1d9e995517a6abd5cf0ab0987",
+    "result.json": "34e508e5b9d8f1b15e0ab3c9fc7b7ce3bd3572013bc8ee128a60bd25beb7f0e1",
+    "worker.json": "6c034fa07dd816238a63ca0bdd2b7c31b40f6d91cadfa03a4df73805596df483"
+  },
+  "full_test_log_sha256": "d87f09daf5a1f18ab8d825c7455c362dc1bb9c89fcd9958d2ee02e17114d1f94",
+  "saved_synthetic_result_id": "258e61073d48642bbf38a3cdf3a50198",
+  "sdk_end_observed": true,
+  "prior_attempt": {
+    "source_commit": "6597e359abf21f01db18a1fcdbdb81b1b69f1fa7",
+    "run_id": 39093471588,
+    "outcome": "failed at synthetic TCP bind before controller launch",
+    "historical_socket_state": "not observed; TIME_WAIT reuse behavior separately kernel-tested"
+  },
+  "limitations": [
+    "Synthetic responses; no model-quality or autonomous-model-decision evidence",
+    "No production UI/gateway or heartbeat dispatcher cutover",
+    "Managed scope lacks bounded edit/inspection/model tools needed for the full climb",
+    "No protected proctor/evaluator service identity or backend-wide mediation/drainage",
+    "No live Toronado change, proctor exam or unattended acceptance run"
+  ]
+}
