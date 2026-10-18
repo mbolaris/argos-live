@@ -1419,7 +1419,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                 patch.object(assistant_trial, 'drain_embedded_group') as drain:
             proc = MagicMock()
             popen_mock.return_value.__enter__.return_value = proc
-            proc.communicate.side_effect = [subprocess.TimeoutExpired(cmd='openclaw', timeout=0.2), (b'', b'')]
+            # Cancellation is already set before launch; after the mocked
+            # drain, collecting its pipes must finish without a new timeout.
+            proc.communicate.return_value = (b'', b'')
             with self.assertRaises(assistant_trial.TrialTurnError) as raised:
                 runner.turn('A test task')
             self.assertEqual(raised.exception.code, 'cancelled')
