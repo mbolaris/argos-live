@@ -19,10 +19,14 @@ def main():
     env = {**os.environ, 'PYTHONPATH': str(guard) + os.pathsep + str(ROOT / 'runtime'),
            'ARGOS_SIGNAL_GUARD_DIR': str(guard), 'ARGOS_SIGNAL_DIAG_DIR': str(output)}
     results = []
-    for pattern in ('test_workload.py', 'test_assistant_trial.py'):
+    for pattern in ('test_workload.py', 'test_assistant_trial.py',
+                    'test_auto_climb.TestAutoClimbCoordinator.test_openclaw_runner_child_process_termination_on_cancellation'):
+        loader = (f'unittest.defaultTestLoader.discover("tests",pattern={pattern!r})' if pattern.endswith('.py') else
+                  f'unittest.defaultTestLoader.loadTestsFromName({pattern!r})')
         code = ('import faulthandler,unittest,sys;'
                 'faulthandler.dump_traceback_later(20,repeat=True);'
-                f'suite=unittest.defaultTestLoader.discover("tests",pattern={pattern!r});'
+                'sys.path.insert(0,"tests");'
+                f'suite={loader};'
                 'result=unittest.TextTestRunner(verbosity=2).run(suite);'
                 'sys.exit(0 if result.wasSuccessful() else 1)')
         print('Focused signal diagnosis: ' + pattern, flush=True)
