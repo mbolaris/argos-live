@@ -438,7 +438,8 @@ def audit(home):
             previous, previous_sha = intent['id'], resulting
         _path, live, _config, _receipt = inputs(home)
         if (not entries or current['sequence'] != len(entries) or current['last_id'] != previous or
-                digest(live) != previous_sha):
+                digest(live) != previous_sha or
+                workspace_context_receipt(_path.parent) != entries[-1][0]['workspace_context_sha256']):
             raise ValueError('current-instructions-or-index-mismatch')
         report.update(passed=True, qualified_experiments=sum(item['qualified_experiment'] for item in report['changes']))
     except (ValueError, KeyError, OSError, TypeError) as error:
