@@ -1,0 +1,98 @@
+{
+  "schema": "argos-admission-hook-protocol/1",
+  "passed": true,
+  "scope": "synthetic local embedded SDK entry; no model-quality result",
+  "cases": [
+    {
+      "mode": "block",
+      "conversation_access": false,
+      "exit_code": 0,
+      "model_requests": 1,
+      "events": []
+    },
+    {
+      "mode": "block",
+      "conversation_access": true,
+      "exit_code": 1,
+      "model_requests": 0,
+      "events": [
+        {
+          "phase": "before",
+          "runId": "e55ac585-b8fb-4201-88d3-8ce9e69327bd",
+          "agentId": "main",
+          "sessionId": "77f1016f-71c6-41b6-b80e-46737eb324d4",
+          "sessionKey": "agent:main:admission-probe-77f1016f-71c6-41b6-b80e-46737eb324d4",
+          "trigger": "user",
+          "senderIsOwner": true
+        },
+        {
+          "phase": "end",
+          "runId": "e55ac585-b8fb-4201-88d3-8ce9e69327bd"
+        }
+      ]
+    },
+    {
+      "mode": "error",
+      "conversation_access": true,
+      "exit_code": 1,
+      "model_requests": 0,
+      "events": [
+        {
+          "phase": "before",
+          "runId": "30d05fe2-f71f-4ea3-a5ec-5d662672f584",
+          "agentId": "main",
+          "sessionId": "ffef19d8-168e-4476-b31f-2400fd594f17",
+          "sessionKey": "agent:main:admission-probe-ffef19d8-168e-4476-b31f-2400fd594f17",
+          "trigger": "user",
+          "senderIsOwner": true
+        },
+        {
+          "phase": "end",
+          "runId": "30d05fe2-f71f-4ea3-a5ec-5d662672f584"
+        }
+      ]
+    },
+    {
+      "mode": "invalid",
+      "conversation_access": true,
+      "exit_code": 1,
+      "model_requests": 0,
+      "events": [
+        {
+          "phase": "before",
+          "runId": "07c13304-f699-43ec-88cb-77a8eef032b1",
+          "agentId": "main",
+          "sessionId": "ef817091-e383-4441-9d8b-6d10de1dcd3f",
+          "sessionKey": "agent:main:admission-probe-ef817091-e383-4441-9d8b-6d10de1dcd3f",
+          "trigger": "user",
+          "senderIsOwner": true
+        },
+        {
+          "phase": "end",
+          "runId": "07c13304-f699-43ec-88cb-77a8eef032b1"
+        }
+      ]
+    },
+    {
+      "mode": "allow",
+      "conversation_access": true,
+      "exit_code": 0,
+      "model_requests": 1,
+      "events": [
+        {
+          "phase": "before",
+          "runId": "0ab41a90-541b-4f05-828f-84151379d97d",
+          "agentId": "main",
+          "sessionId": "2a186cf8-b8a7-4dff-9169-0f6a7f29be08",
+          "sessionKey": "agent:main:admission-probe-2a186cf8-b8a7-4dff-9169-0f6a7f29be08",
+          "trigger": "user",
+          "senderIsOwner": true
+        },
+        {
+          "phase": "end",
+          "runId": "0ab41a90-541b-4f05-828f-84151379d97d"
+        }
+      ]
+    }
+  ]
+}

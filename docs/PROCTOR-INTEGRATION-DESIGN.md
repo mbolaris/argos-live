@@ -135,6 +135,31 @@ backend/model-operation paths. Removing broad filesystem/runtime tools also
 requires bounded host tools for the agent's own model and instruction decisions;
 it must not introduce an operator planner in place of those decisions.
 
+Registration itself needs verification: the pinned registry ignores
+before_agent_run and agent_end for non-bundled plugins unless their owner
+configuration explicitly grants hooks.allowConversationAccess=true. Merely
+loading the plugin or listing its tools does not prove an admission gate is
+active. The typed decision contract uses exactly {outcome:"pass"} to admit;
+{outcome:"block",reason:"..."} denies. An "allow" outcome is invalid.
+scripts/smoke-admission-hook.py now exercises the real CLI against a synthetic
+local model endpoint: an ungranted negative control, explicit denial, a thrown
+handler, a malformed decision, and a valid pass. It records only safe framework
+identity fields and request counts. Run39090547783 at source8310dad passed all
+five cases and the broader pinned compatibility job. Its saved report is
+evidence/admission-hook-8310dad.json. The ungranted control made one request and
+emitted no hook event; each granted refusal/error/invalid decision exited1 with
+zero model requests; a valid pass exited0 with one request.
+
+All granted local CLI cases reported trigger=user and senderIsOwner=true,
+including the refused runs. A generic local CLI invocation can therefore carry
+those values: they do not prove a fresh human owner instruction or authorize a
+heartbeat/campaign on their own. The host still needs its own owner-started
+campaign record and private dispatch capability. agent_end also fired for each
+blocked attempt, so an end event is not evidence that a reservation was admitted
+or inference drained. Match host-owned identity and generation, then confirm
+worker lifecycle. No production controller protection has been deployed by this
+fixture. Desktop and heartbeat ingress still require native evidence.
+
 Source inspected: hooks-CM9Qxrxp.mjs, hook-runner-global-BfCvU9TT.mjs,
 before-agent-run-Dal6QhAA.mjs, settled-turn-finalization-result-G1tP4IWJ.mjs,
 builtin-openclaw-qVsnLx0N.mjs and context-engine-lifecycle-BwtFrh_C.mjs from
