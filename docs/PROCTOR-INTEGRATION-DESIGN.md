@@ -165,8 +165,59 @@ before-agent-run-Dal6QhAA.mjs, settled-turn-finalization-result-G1tP4IWJ.mjs,
 builtin-openclaw-qVsnLx0N.mjs and context-engine-lifecycle-BwtFrh_C.mjs from
 the exact package integrity pinned in the checked-in runtime lock.
 
-The next-image branch now contains initial cooperative admission for the assistant
-benchmark CLI/API and argos_log. It does not implement the complete service above.
-The controller/heartbeat, desktop trials, model operations and direct backend
-access still need mediation, and no isolated service identity is deployed.
+### Cooperative parent/child lifecycle
+
+The next-image branch contains cooperative reservations for the assistant
+benchmark CLI/API, argos_log and a host controller scope. The controller holds
+the root OS lock for its entire lifetime. delegate() durably marks it delegated
+before returning one operation-specific, one-use child capability. Only its hash is saved.
+The child acquires a separate nonblocking lock, verifies parent id/generation,
+the live parent lock and Linux boot/process birth, then publishes its identity
+before it executes. A second child, mismatched operation, old generation or
+replayed capability cannot enter inference. An unused grant can be revoked
+under that same child lock; active or uncertain workers cannot be revoked.
+
+The delegated evaluation API and fixed subprocess worker publish the complete or
+failed/cancelled saved result before recording their terminal lifecycle. The
+ordinary Python evaluation API now also saves before release; previously it
+returned an unsaved result after releasing admission. Log workers keep the parent
+reservation and reuse the append-only interface. workload_worker accepts only
+evaluation/log operations, an explicit host home, and a bounded private stdin
+request. Capability secrets are excluded from argv, persistent metadata, normal
+output and request-error messages. This is an internal host protocol, not a new
+model tool argument or permission to invoke arbitrary commands.
+
+resume() requires both a released child and an explicit trusted-host drainage
+assertion. That assertion is deliberately not derived from SDK end events or
+timeouts. It is not implemented backend/process inspection: the supervising
+adapter must establish it before calling resume. A failed/cancelled child,
+publication error, killed worker, abandoned controller, or missing live parent
+lock leaves admission closed. Root and child finalization are fenced by the
+parent identity/generation; neither lease expiry nor a stale active marker
+automatically reclaims work. These are short file/OS-lock lifecycle operations,
+not the proposed deployed SQLite service or an OS security boundary.
+
+The fixed-worker integration test runs separate evaluation/log processes with
+synthetic CLI replies, checks saved result receipts and secret-free output,
+confirms worker exit before parent resume, then admits a proctor only after the
+parent releases. Other tests cover contention before inference, killed parents
+and children, stale callbacks, invalid/replayed capabilities, failed publication
+and final-marker failure while the owner's PID remains alive. These tests do not
+exercise an actual model or establish backend drainage.
+
+Source697908a passed all14 cases in the guarded Linux gate and the complete
+Tests run39092122371:762 Python tests (4skips),28 Node tests and shell syntax.
+The machine-checked receipt and focused log are saved under
+evidence/workload-delegation-697908a.{json,log}; the receipt binds the source,
+hosted run and private full-log hash. Native SDK compatibility is a separate
+gate; lifecycle fixtures alone do not prove controller ingress is mediated.
+Pinned compatibility run39092126565 also passed at that exact source: browser,
+schema/recovery, native gateway cleanup, generation requests and admission entry
+hooks. The receipt includes hashes of its locally preserved JSON artifacts.
+
+The native controller/heartbeat dispatch is not yet connected to this lifecycle.
+Desktop trials, model operations and direct backend access also need mediation,
+and no isolated service identity is deployed. The host must stop the controller's
+inference and instruction writes while a child owns the delegated slot; the
+cooperative API cannot force a generic SDK or shell client to honor that rule.
 Acceptance remains governed by UNATTENDED-ACCEPTANCE.md.

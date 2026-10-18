@@ -148,3 +148,26 @@ admission remains quarantined and links the saved result, rather than silently
 starting replacement work. A hosted subprocess test must verify the signal,
 descendant exit, saved JSON and liveboard state. This is not hard-kill recovery,
 nor proof that a model-server request has drained: quarantining is retained.
+
+## Cooperative controller delegation checkpoint
+
+Source697908a adds a parent reservation, one-use operation-scoped child grants,
+fixed evaluation/log subprocess workers and fenced resume/finalization. A child
+needs both a live parent lock and matching boot/process birth. The Python
+evaluation API now saves completed or failed/cancelled results before release;
+publication failure stays quarantined. The guarded Linux gate passed14 lifecycle
+cases, including actual subprocess exit, killed workers/parents, stale callbacks,
+contention, capability replay, lock I/O errors and failed publication. Full Tests
+run39092122371 passed762 Python tests (4skips),28 Node tests and shell syntax.
+See evidence/workload-delegation-697908a.json and its focused log.
+The same source passed pinned compatibility run39092126565; its artifact hashes
+are included in that receipt. This remains synthetic/request and native runtime
+evidence, without a model-quality or physical acceptance claim.
+
+This does not satisfy the full safety gate. Production controller/heartbeat
+dispatch is not yet connected; trusted-host drainage assertions are not backend
+inspection; direct model/desktop/maintenance paths and broad SDK filesystem/shell
+tools still need mediation. Protected proctor/evaluator identity, the complete
+log auditor, repeated independent signed exams and fresh-card unattended
+acceptance remain unproven. No live Toronado change or exam occurred for this
+checkpoint. The final merged image still needs every gate above.

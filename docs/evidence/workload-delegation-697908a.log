@@ -1,0 +1,19 @@
+test_alive_process_without_its_owner_lock_cannot_authorize_child (test_workload_delegation.DelegationTests.test_alive_process_without_its_owner_lock_cannot_authorize_child) ... ok
+test_api_keeps_admission_during_result_publication (test_workload_delegation.DelegationTests.test_api_keeps_admission_during_result_publication) ... ok
+test_concurrent_child_and_early_resume_cannot_enter (test_workload_delegation.DelegationTests.test_concurrent_child_and_early_resume_cannot_enter) ... ok
+test_controller_can_append_log_after_saved_delegated_evaluation (test_workload_delegation.DelegationTests.test_controller_can_append_log_after_saved_delegated_evaluation) ... ok
+test_failed_child_retains_saved_outcome_and_quarantines_parent (test_workload_delegation.DelegationTests.test_failed_child_retains_saved_outcome_and_quarantines_parent) ... ok
+test_fixed_subprocess_workers_evaluate_publish_and_append_under_parent (test_workload_delegation.DelegationTests.test_fixed_subprocess_workers_evaluate_publish_and_append_under_parent) ... ok
+test_invalid_worker_request_does_not_print_capability_or_consume_grant (test_workload_delegation.DelegationTests.test_invalid_worker_request_does_not_print_capability_or_consume_grant) ... ok
+test_killed_child_never_resumes_parent_or_allows_proctor (test_workload_delegation.DelegationTests.test_killed_child_never_resumes_parent_or_allows_proctor) ... ok
+test_killed_parent_grant_cannot_start_a_child_or_be_reclaimed (test_workload_delegation.DelegationTests.test_killed_parent_grant_cannot_start_a_child_or_be_reclaimed) ... ok
+test_lock_io_errors_are_not_reported_as_proof_of_an_owner (test_workload_delegation.DelegationTests.test_lock_io_errors_are_not_reported_as_proof_of_an_owner) ... ok
+test_nested_evaluation_saves_before_parent_can_resume (test_workload_delegation.DelegationTests.test_nested_evaluation_saves_before_parent_can_resume) ... ok
+test_only_unstarted_grants_can_be_revoked (test_workload_delegation.DelegationTests.test_only_unstarted_grants_can_be_revoked) ... ok
+test_publication_failure_never_releases_admission (test_workload_delegation.DelegationTests.test_publication_failure_never_releases_admission) ... ok
+test_wrong_secret_kind_and_stale_generation_cannot_consume_grant (test_workload_delegation.DelegationTests.test_wrong_secret_kind_and_stale_generation_cannot_consume_grant) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 1.441s
+
+OK
