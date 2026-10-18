@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - scripts/smoke-admission-hook.py
       - scripts/smoke-evaluation-config.py
       - runtime/argoslive/evaluation_context.py
       - runtime/argoslive/assistant_trial.py
@@ -33,6 +34,7 @@ on:
       - live/config/includes.chroot/usr/local/share/argos-live/package-lock.json
   pull_request:
     paths:
+      - scripts/smoke-admission-hook.py
       - scripts/smoke-evaluation-config.py
       - runtime/argoslive/evaluation_context.py
       - runtime/argoslive/assistant_trial.py
@@ -108,13 +110,18 @@ jobs:
         run: python3 scripts/smoke-owned-gateway.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw > work/native-gateway.json
       - name: Pinned evaluation generation request protocol (synthetic, no inference)
         run: python3 scripts/smoke-evaluation-config.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/evaluation-protocol.json
+      - name: Pinned admission entry hook (synthetic, no inference)
+        run: python3 scripts/smoke-admission-hook.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/admission-hook.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: openclaw-compatibility
           path: |
             work/openclaw-compatibility.json
             work/native-gateway.json
             work/evaluation-protocol.json
+            work/admission-hook.json
+            work/admission-hook.diagnostic.txt
             work/addon-inventory.json
             work/dashboard-desktop.png
             work/dashboard-narrow.png
