@@ -5,7 +5,6 @@ The persistent active marker intentionally outlives the OS lock after a crash.
 """
 from contextlib import contextmanager
 from datetime import datetime, timezone
-import json
 import os
 from pathlib import Path
 import secrets
@@ -14,6 +13,9 @@ import hashlib
 import hmac
 from dataclasses import dataclass, field
 import sys
+
+from . import storage
+from .pull_jobs import read_json, worker_lock, write_json
 
 PROCESS_NONCE = secrets.token_hex(32)
 
@@ -29,10 +31,6 @@ def worker_identity(pid):
     if pid == os.getpid():
         return {'process_nonce': PROCESS_NONCE}
     raise ValueError('Cross-process delegation requires Linux worker identity')
-
-from . import storage
-from .pull_jobs import read_json, worker_lock, write_json
-
 
 class Busy(ValueError):
     def __init__(self, recovery=False):
@@ -169,6 +167,18 @@ class Reservation:
             self.record = current
             return child
 
+    def cancel_unstarted(self, capability):
+        """Revoke only an unused grant, under the same lock as child admission."""
+        root = self.path.parent
+        with child_lock(root):
+            current, path, child = checked_child(root, capability)
+            same_owner(current, self.record)
+            if child['state'] != 'authorized':
+                raise Busy(recovery=True)
+            child.update(state='released', outcome='cancelled-before-start',
+                         finished=datetime.now(timezone.utc).isoformat())
+            write_json(path, child)
+
 
 class ChildReservation(Reservation):
     def __init__(self, root, capability, path, record):
@@ -188,6 +198,9 @@ class ChildReservation(Reservation):
 
     def resume(self, capability, *, worker_drained=False):
         raise ValueError('A delegated worker cannot resume a controller')
+
+    def cancel_unstarted(self, capability):
+        raise ValueError('A delegated worker cannot revoke host authorization')
 
 
 @contextmanager

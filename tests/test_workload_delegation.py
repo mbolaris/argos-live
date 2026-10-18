@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import bench_openclaw, workload
+from argoslive import bench_openclaw, campaign_log, workload
 from argoslive.results import Store
 from test_bench_openclaw import FakeOpenClaw, configure_fake
 
@@ -130,6 +130,39 @@ class DelegationTests(unittest.TestCase):
             with self.assertRaisesRegex(OSError, 'disk full'):
                 bench_openclaw.run(home=self.home, runner=FakeOpenClaw())
         self.assertEqual(self.record()['state'], 'quarantined')
+
+    def test_controller_can_append_log_after_saved_delegated_evaluation(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            capability = parent.delegate('evaluation')
+            with self.assertRaises(workload.Busy):
+                campaign_log.append(self.home, 'Cannot write during evaluation', delegation=capability)
+            self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
+            run = bench_openclaw.run(home=self.home, runner=FakeOpenClaw(), delegation=capability)
+            parent.resume(capability, worker_drained=True)
+            log_capability = parent.delegate('log')
+            note = campaign_log.append(self.home, 'Saved baseline ' + run['id'], delegation=log_capability)
+            self.assertEqual(note['receipts'][0]['id'], run['id'])
+            parent.resume(log_capability, worker_drained=True)
+            parent.complete()
+
+    def test_only_unstarted_grants_can_be_revoked(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            capability = parent.delegate('evaluation')
+            parent.cancel_unstarted(capability)
+            with self.assertRaises(workload.Busy):
+                with workload.reserve(self.home, 'evaluation', delegation=capability):
+                    self.fail('Revoked grant started inference')
+            child = parent.resume(capability, worker_drained=True)
+            self.assertEqual(child['outcome'], 'cancelled-before-start')
+            capability = parent.delegate('log')
+            with workload.reserve(self.home, 'log', delegation=capability) as slot:
+                with self.assertRaises(workload.Busy):
+                    parent.cancel_unstarted(capability)
+                slot.complete()
+            with self.assertRaises(workload.Busy):
+                parent.cancel_unstarted(capability)
+            parent.resume(capability, worker_drained=True)
+            parent.complete()
 
     def test_api_keeps_admission_during_result_publication(self):
         save = Store.save

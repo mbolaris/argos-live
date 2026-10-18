@@ -19,12 +19,12 @@ from .results import Store
 from .workload import Busy, reserve
 
 
-def append(home, text):
+def append(home, text, *, delegation=None):
     if (not isinstance(text, str) or not text.strip() or len(text.encode('utf-8')) > 4096
             or any(ord(c) < 32 and c not in '\n\t' for c in text)):
         raise ValueError('Log text must contain 1–4096 UTF-8 bytes without control characters')
     home = Path(home)
-    with reserve(home, 'log') as slot:
+    with reserve(home, 'log', delegation=delegation) as slot:
         # This operation never starts a child or inference request. Even a bad
         # run ID can release admission safely; it must not strand the campaign.
         slot.complete()
