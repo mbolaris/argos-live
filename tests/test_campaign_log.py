@@ -25,7 +25,7 @@ class CampaignLogTests(unittest.TestCase):
 
     def test_append_preserves_history_and_supplies_actual_receipts(self):
         run = bench_openclaw.run(home=self.home, runner=FakeOpenClaw())
-        results.Store(self.home / '.local/share/argos-live/results').save(run)
+        self.assertEqual(results.Store(self.home / '.local/share/argos-live/results').load(run['id']), run)
         note = 'Measured baseline ' + run['id'] + '\n## Next\nChoose one hypothesis.'
         receipt = campaign_log.append(self.home, note)
         actual = self.log.read_bytes()

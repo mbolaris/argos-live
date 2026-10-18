@@ -70,10 +70,14 @@ def changed_inputs(workspace, saved):
     return changed
 
 
-def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None):
+def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None,
+        delegation=None, results_dir=None):
+    """Evaluate and publish the outcome before returning/releasing admission."""
     home = Path.home() if home is None else Path(home)
-    with reserve(home, 'evaluation') as slot:
+    with reserve(home, 'evaluation', delegation=delegation) as slot:
         result = _run(suite=suite, home=home, runner=runner, progress=progress, clock=clock, cancel=cancel)
+        Store(results_dir if results_dir is not None else home / '.local/share/argos-live/results').save(result)
+        slot.record_result(result['id'])
         if result['state'] == 'completed':
             slot.complete(result['id'])
         return result
