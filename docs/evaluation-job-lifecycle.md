@@ -1,4 +1,4 @@
-# Evaluation job lifecycle: host primitive, not yet exposed to agent tools
+# Evaluation job lifecycle and long-tool recovery
 
 The immediate blocker is reliable measurement, before changing the question bank.
 An agent-turn timeout must not destroy the only saved evidence of a long test.
@@ -23,6 +23,29 @@ enabled agent-facing protocol. A killed host process does not survive merely
 because its Python evaluation thread was non-daemon. The actual application host
 must outlive agent turns, preserve the job, and own shutdown/cancellation. Saved
 metadata alone never proves that a former process/backend has stopped.
+
+## Pinned runtime liveness integration
+
+The observed failure was an OpenClaw tool call with regular Argos progress,
+while the host diagnostic owner continued to report only
+`tool:argos_evaluate:started`. The pinned runtime patch in
+`scripts/patch-openclaw-liveness.mjs` wires `argos_evaluate` updates to the
+existing owner-fenced semantic progress event, at most once every 30 seconds.
+It keeps the tool call pending until the saved result returns, so controller
+inference stays suspended and the delegated workload exclusion remains active.
+The plugin forwards the worker's bounded `asking` and `scored` events through
+host admission as well as in direct mode. A disconnected progress client does
+not cancel a delegated evaluation.
+
+The patch runs only after npm verifies the upstream package against the checked
+in `package-lock.json`; it records hashes of the two modified runtime files.
+It refuses unrecognized source layouts. This addresses the observed no-progress
+watchdog path without exposing an asynchronous poll protocol. The asynchronous
+`Jobs` primitive above remains unexposed because returning `running` would let
+OpenClaw resume model generation while evaluation owns the same inference
+resources. Process-wide host survival and explicit cancellation still require a
+separately supervised host service before claiming that an aborted SDK turn can
+always be recovered.
 
 ## Integration gates before exposing start/wait tools
 

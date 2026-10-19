@@ -102,7 +102,10 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
       let response;
       if (value.op === 'begin') response = requests.length === 1 ?
         {status:'admitted',turn_token:'fictional-turn'} : {status:'busy'};
-      else if (value.op === 'tool') response = {status:'completed',value:{status:'appended'}};
+      else if (value.op === 'tool') {
+        socket.write(JSON.stringify({status:'progress',progress:{phase:'asking',completed:0,total:20}}) + '\n');
+        response = {status:'completed',value:{status:'appended'}};
+      }
       else response = {status:'recorded'};
       socket.end(JSON.stringify(response) + '\n');
     });
@@ -118,7 +121,11 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.equal(hooks.get('before_tool_call')({toolName:'exec',runId:'run-1',toolCallId:'exec-1'},ctx).block,true);
     assert.equal(requests.length,1);
     hooks.get('before_tool_call')({toolName:'argos_log',runId:'run-1',toolCallId:'log-1'},ctx);
-    assert.deepEqual(await admission.execute('log-1','log',{text:'Unicode note 你好'}),{status:'appended'});
+    const updates = [];
+    assert.deepEqual(await admission.execute('log-1','log',{text:'Unicode note 你好'},undefined,
+      (update) => updates.push(update)),{status:'appended'});
+    assert.equal(updates.length,1);
+    assert.match(updates[0].content[0].text,/Working on challenge 1\/20/);
     await assert.rejects(admission.execute('log-1','log',{text:'replay'}),/no current host admission/);
     await hooks.get('agent_end')({},ctx);
     assert.deepEqual(requests.map((value) => value.op),['begin','tool','ended']);

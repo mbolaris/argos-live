@@ -105,6 +105,8 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund --prefix work/compatibility-runtime
           npm ci --ignore-scripts --no-audit --no-fund --prefix openclaw-plugin/argos-improve
           python3 scripts/refresh-plugin-manifest.py openclaw-plugin/argos-improve
+      - name: Apply and verify Argos evaluation liveness integration
+        run: node scripts/patch-openclaw-liveness.mjs work/compatibility-runtime/node_modules/openclaw
       - name: Pinned admission entry hook (synthetic, no inference)
         run: python3 scripts/smoke-admission-hook.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/admission-hook.json
       - name: Native controller bridge and scoped host tools (synthetic, no inference)

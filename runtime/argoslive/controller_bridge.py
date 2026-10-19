@@ -66,7 +66,7 @@ class Bridge:
         value['tools'] = self.outcomes
         write_json(self.events, value)
 
-    def dispatch(self, request):
+    def dispatch(self, request, on_update=None):
         if not isinstance(request, dict) or not isinstance(request.get('auth'), str) or not hmac.compare_digest(
                 request['auth'], self.secret):
             raise ValueError('Bridge authentication failed')
@@ -80,7 +80,7 @@ class Bridge:
                 self.publish()
             return {'status': 'recorded'}
         if operation == 'tool':
-            return self.tool(request)
+            return self.tool(request, on_update=on_update)
         raise ValueError('Unknown bridge operation')
 
     def begin(self, request):
@@ -106,7 +106,7 @@ class Bridge:
                 not isinstance(token, str) or not hmac.compare_digest(token, self.active['token'])):
             raise workload.Busy(recovery=True)
 
-    def tool(self, request):
+    def tool(self, request, *, on_update=None):
         if not self.tool_lock.acquire(blocking=False):
             raise workload.Busy()
         try:
@@ -137,7 +137,7 @@ class Bridge:
                 store = Store(self.home / '.local/share/argos-live/results')
                 return {'status': 'completed', 'value': compare([
                     store.load(params['baseline_id']), store.load(params['candidate_id'])])}
-            value = self.run_child(kind, params)
+            value = self.run_child(kind, params, on_update=on_update)
             outcome = {'kind': kind, 'call_id': call}
             if kind in {'edit', 'resolve'}:
                 outcome.update(status=value['value']['status'], change_id=value['value'].get('change_id'))
@@ -151,7 +151,7 @@ class Bridge:
         finally:
             self.tool_lock.release()
 
-    def run_child(self, kind, params):
+    def run_child(self, kind, params, *, on_update=None):
         maintenance = kind in {'inspect', 'edit', 'resolve'}
         worker_kind = 'maintenance' if maintenance else kind
         capability = self.parent.delegate(worker_kind)
@@ -162,7 +162,7 @@ class Bridge:
         env.update(PATH=self.worker_path, PYTHONPATH=str(Path(__file__).resolve().parents[1]), PYTHONUTF8='1')
         try:
             process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE, env=env, text=True, encoding='utf-8',
+                                       stderr=subprocess.PIPE, env=env,
                                        start_new_session=os.name == 'posix')
         except OSError:
             self.parent.cancel_unstarted(capability)
@@ -171,17 +171,72 @@ class Bridge:
         with self.lock:
             self.pending = process
         try:
+            stdout_parts, stderr_parts = [], []
+            output_lock = threading.Lock()
+            overflow = threading.Event()
+            def drain(stream, chunks, limit, progress=False):
+                pending = b''
+                while True:
+                    chunk = stream.read(4096)
+                    if not chunk:
+                        break
+                    with output_lock:
+                        size = sum(map(len, chunks))
+                        if size + len(chunk) > limit:
+                            if not progress:
+                                overflow.set()
+                                if process.poll() is None:
+                                    process.kill()
+                        else:
+                            chunks.append(chunk)
+                    if not progress or on_update is None:
+                        continue
+                    pending += chunk
+                    if len(pending) > 32768 and b'\n' not in pending:
+                        pending = b''
+                        continue
+                    lines = pending.split(b'\n')
+                    pending = lines.pop()
+                    for line in lines:
+                        try:
+                            event = json.loads(line)
+                        except (UnicodeDecodeError, json.JSONDecodeError):
+                            continue
+                        if isinstance(event, dict) and event.get('phase') in {'asking', 'scored'}:
+                            try:
+                                on_update(event)
+                            except (BrokenPipeError, ConnectionError, OSError):
+                                # The agent can disappear while the host-owned
+                                # child still saves its result. Never cancel it.
+                                pass
+
+            out_reader = threading.Thread(target=drain, args=(process.stdout, stdout_parts, 2 * 1024**2),
+                                          name='argos-child-stdout', daemon=True)
+            err_reader = threading.Thread(target=drain, args=(process.stderr, stderr_parts, 32768, True),
+                                          name='argos-child-stderr', daemon=True)
+            out_reader.start()
+            err_reader.start()
+            payload = {'operation': kind, 'params': params} if maintenance else params
+            process.stdin.write(json.dumps({'delegation': asdict(capability), **payload},
+                                           ensure_ascii=False).encode('utf-8'))
+            process.stdin.close()
             try:
-                payload = {'operation': kind, 'params': params} if maintenance else params
-                stdout, _stderr = process.communicate(json.dumps({'delegation': asdict(capability), **payload},
-                                                                 ensure_ascii=False),
-                                                      timeout=self.worker_timeout)
+                process.wait(timeout=self.worker_timeout)
             except subprocess.TimeoutExpired:
                 process.terminate()
-                stdout, _stderr = process.communicate(timeout=30)
+                try:
+                    process.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    pass  # Leave the parent quarantined if the exact worker survives.
                 self.uncertain = True
+            out_reader.join(timeout=30)
+            err_reader.join(timeout=30)
+            if out_reader.is_alive() or err_reader.is_alive() or overflow.is_set():
+                self.uncertain = True
+            stdout = b''.join(stdout_parts).decode('utf-8', errors='replace')
+            _stderr = b''.join(stderr_parts).decode('utf-8', errors='replace')
             self.last_child_stdout, self.last_child_stderr = stdout, _stderr
-            if process.returncode or len(stdout.encode()) > 2 * 1024**2:
+            if process.returncode or overflow.is_set() or len(stdout.encode()) > 2 * 1024**2:
                 raise workload.Busy(recovery=True)
             value = json.loads(stdout)
             if kind == 'evaluation':
@@ -316,6 +371,7 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800):
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
                 work_bearing = False
+                write_lock = threading.Lock()
                 try:
                     self.request.settimeout(5)
                     raw = self.rfile.readline(LIMIT + 1)
@@ -323,13 +379,27 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800):
                         raise ValueError('Bridge request exceeds bound')
                     request = json.loads(raw)
                     work_bearing = isinstance(request, dict) and request.get('op') == 'tool'
-                    response = bridge.dispatch(request)
+                    def progress(event):
+                        frame = {'status': 'progress', 'progress': {
+                            'phase': event['phase'], 'completed': event.get('completed'),
+                            'total': event.get('total'),
+                            'passed': bool(event.get('receipt', {}).get('score'))
+                            if event['phase'] == 'scored' else None}}
+                        try:
+                            with write_lock:
+                                self.wfile.write((json.dumps(frame) + '\n').encode())
+                                self.wfile.flush()
+                        except OSError:
+                            # A caller leaving the wait does not own child lifetime.
+                            pass
+                    response = bridge.dispatch(request, on_update=progress if work_bearing else None)
                 except workload.Busy as error:
                     response = {'status': 'busy', 'recovery_required': error.recovery}
                 except (ValueError, KeyError, TypeError, OSError):
                     response = {'status': 'failed', 'message': 'Controller bridge request failed'}
                 try:
-                    self.wfile.write((json.dumps(response) + '\n').encode())
+                    with write_lock:
+                        self.wfile.write((json.dumps(response) + '\n').encode())
                 except OSError:
                     # End notifications carry no work/release authority. A lost
                     # optional acknowledgment cannot negate proven worker exit.

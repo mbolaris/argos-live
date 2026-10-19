@@ -12,7 +12,7 @@ export function registerAdmission(api) {
   const turns = new Map();
   const bindings = new Map();
 
-  function request(value, signal) {
+  function request(value, signal, onUpdate) {
     return new Promise((resolve, reject) => {
       const fail = () => reject(new Error('Host controller admission is unavailable.'));
       if (!socketPath || !auth) return fail();
@@ -20,6 +20,12 @@ export function registerAdmission(api) {
       socket.setEncoding('utf8');
       let output = '';
       let bytes = 0;
+      let settled = false;
+      const settleError = () => {
+        if (settled) return;
+        settled = true;
+        fail();
+      };
       const abort = () => socket.destroy(new Error('Controller request cancelled'));
       if (signal?.aborted) abort();
       else signal?.addEventListener('abort', abort, {once: true});
@@ -29,15 +35,35 @@ export function registerAdmission(api) {
         bytes += Buffer.byteLength(chunk);
         if (bytes > 2 * 1024 * 1024) return abort();
         output += chunk;
-        if (!output.endsWith('\n')) return;
-        try { resolve(JSON.parse(output)); }
-        catch { fail(); }
-        socket.end();
+        let boundary;
+        while ((boundary = output.indexOf('\n')) >= 0) {
+          const line = output.slice(0, boundary);
+          output = output.slice(boundary + 1);
+          let frame;
+          try { frame = JSON.parse(line); }
+          catch { return settleError(); }
+          if (frame?.status === 'progress') {
+            if (frame.progress && onUpdate) {
+              const progress = frame.progress;
+              const text = progress.phase === 'scored'
+                ? `Challenge ${progress.completed}/${progress.total}: ${progress.passed ? 'passed' : 'not passed'}.`
+                : `Working on challenge ${Number(progress.completed ?? 0) + 1}/${progress.total}.`;
+              try { onUpdate({content:[{type:'text',text}], details:{progress}}); }
+              catch { /* Progress display cannot own or cancel host work. */ }
+            }
+            continue;
+          }
+          if (settled) return;
+          settled = true;
+          resolve(frame);
+          socket.end();
+          return;
+        }
       });
-      socket.on('error', fail);
+      socket.on('error', settleError);
       socket.on('close', () => {
         signal?.removeEventListener('abort', abort);
-        if (!output.endsWith('\n')) fail();
+        if (!settled) settleError();
       });
     });
   }
@@ -75,13 +101,13 @@ export function registerAdmission(api) {
   });
 
   return {
-    async execute(callId, kind, params, signal) {
+    async execute(callId, kind, params, signal, onUpdate) {
       const binding = bindings.get(callId);
       bindings.delete(callId);
       if (!binding || binding.kind !== kind || turns.get(binding.runId) !== binding.token)
         throw new Error('Controller tool call has no current host admission.');
       const value = await request({op:'tool', run_id:binding.runId, turn_token:binding.token,
-        call_id:callId, kind, params}, signal);
+        call_id:callId, kind, params}, signal, onUpdate);
       if (value.status === 'busy') return {status:'busy', message:'Host workload needs attention',
         recovery_required:value.recovery_required === true};
       if (value.status !== 'completed') throw new Error('Host controller tool did not complete.');

@@ -85,6 +85,24 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertNotIn(bridge.secret, json.dumps(value))
             self.assertIsNone(bridge.pending)
 
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
+    def test_evaluation_progress_crosses_host_bridge_before_saved_result(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            updates = []
+            tool = {**turn, 'op': 'tool', 'call_id': 'eval-call', 'kind': 'evaluation',
+                    'params': {'suite': 'quick'}}
+            value = bridge.dispatch(tool, on_update=updates.append)
+            self.assertEqual(value['status'], 'completed')
+            self.assertEqual(value['value']['result']['state'], 'completed')
+            self.assertTrue(updates)
+            self.assertEqual(updates[0]['phase'], 'asking')
+            self.assertEqual(updates[-1]['phase'], 'scored')
+            self.assertEqual(value['value']['result']['coverage']['completed'], 20)
+            self.assertEqual(parent.record['phase'], 'running')
+            parent.complete()
+
 
 if __name__ == '__main__':
     unittest.main()

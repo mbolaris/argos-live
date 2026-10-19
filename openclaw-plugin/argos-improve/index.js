@@ -77,9 +77,9 @@ export default function register(api) {
   const admission = registerAdmission(api);
   const savedId = () => Type.String({minLength:32,maxLength:32,pattern:'^[a-f0-9]{32}$'});
   const hash = () => Type.String({minLength:64,maxLength:64,pattern:'^[a-f0-9]{64}$'});
-  const controlled = async (id, kind, params, signal) => {
+  const controlled = async (id, kind, params, signal, onUpdate) => {
     if (!admission) throw new Error('This tool requires a managed host controller.');
-    const value = await admission.execute(id, kind, params, signal);
+    const value = await admission.execute(id, kind, params, signal, onUpdate);
     return textResult(JSON.stringify(value, null, 2), value);
   };
   api.registerTool({
@@ -115,7 +115,7 @@ export default function register(api) {
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const value = admission ? await admission.execute(_id, 'evaluation',
-        {suite:params.suite ?? 'quick'}, signal) : await runArgos("openclaw",
+        {suite:params.suite ?? 'quick'}, signal, onUpdate) : await runArgos("openclaw",
         ["--suite", params.suite ?? "quick", "--json"], signal, onUpdate);
       if (value.status === "busy") return textResult(
         `${value.message}. No evaluation started. Wait for the active workload; do not edit the workspace.`, value);

@@ -23,6 +23,11 @@ test -f /usr/local/share/argos-live/package-lock.json
 cp /usr/local/share/argos-live/package-lock.json .
 EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
 npm ci
+# Preserve exclusive benchmark execution while refreshing the stuck-session
+# tracker from real Argos evaluation progress updates.
+node /usr/local/share/argos-live/patch-openclaw-liveness.mjs /opt/argos/node_modules/openclaw
+install -m 644 /opt/argos/node_modules/openclaw/argos-liveness-patch.json \
+  /usr/local/share/argos-live/openclaw-liveness-patch.json
 # Install the reviewed improvement tools from the image's pinned local package.
 # The lockfile fixes its only dependency; the agent never installs this code.
 plugin=/usr/local/share/argos-live/plugins/argos-improve
