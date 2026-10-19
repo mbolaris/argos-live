@@ -18,9 +18,11 @@ class GuestTests(unittest.TestCase):
     def test_guest_setup_refuses_disk_before_writes(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
-            with patch.object(session_mode, 'guest', return_value=True):
+            with patch.object(session_mode, 'guest', return_value=True), \
+                    patch.object(session_mode, 'require_ram', side_effect=ValueError('Guest setup requires RAM')) as require:
                 with self.assertRaisesRegex(ValueError, 'requires RAM'):
                     auto_setup.configure(home, planner=lambda _: self.fail('planner ran'))
+                require.assert_called_once_with(home)
             self.assertEqual(list(home.iterdir()), [])
 
     def test_guest_setup_mode_and_persistence_conflict(self):
