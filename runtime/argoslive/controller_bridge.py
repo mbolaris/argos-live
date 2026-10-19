@@ -175,9 +175,8 @@ class Bridge:
             output_lock = threading.Lock()
             overflow = threading.Event()
             def drain(stream, chunks, limit, progress=False):
-                pending = b''
                 while True:
-                    chunk = stream.read(4096)
+                    chunk = stream.readline() if progress else stream.read(4096)
                     if not chunk:
                         break
                     with output_lock:
@@ -191,24 +190,17 @@ class Bridge:
                             chunks.append(chunk)
                     if not progress or on_update is None:
                         continue
-                    pending += chunk
-                    if len(pending) > 32768 and b'\n' not in pending:
-                        pending = b''
+                    try:
+                        event = json.loads(chunk)
+                    except (UnicodeDecodeError, json.JSONDecodeError):
                         continue
-                    lines = pending.split(b'\n')
-                    pending = lines.pop()
-                    for line in lines:
+                    if isinstance(event, dict) and event.get('phase') in {'asking', 'scored'}:
                         try:
-                            event = json.loads(line)
-                        except (UnicodeDecodeError, json.JSONDecodeError):
-                            continue
-                        if isinstance(event, dict) and event.get('phase') in {'asking', 'scored'}:
-                            try:
-                                on_update(event)
-                            except (BrokenPipeError, ConnectionError, OSError):
-                                # The agent can disappear while the host-owned
-                                # child still saves its result. Never cancel it.
-                                pass
+                            on_update(event)
+                        except (BrokenPipeError, ConnectionError, OSError):
+                            # The agent can disappear while the host-owned
+                            # child still saves its result. Never cancel it.
+                            pass
 
             out_reader = threading.Thread(target=drain, args=(process.stdout, stdout_parts, 2 * 1024**2),
                                           name='argos-child-stdout', daemon=True)
