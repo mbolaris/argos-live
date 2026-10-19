@@ -87,8 +87,17 @@ class ControllerBridgeTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_evaluation_progress_crosses_host_bridge_before_saved_result(self):
+        binary = self.home / 'bin'
+        binary.mkdir()
+        executable = binary / 'openclaw'
+        executable.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+            'session=sys.argv[sys.argv.index("--session-id")+1]\n'
+            'print(json.dumps({"payloads":[{"text":"synthetic answer"}],"meta":{"agentMeta":{'
+            '"sessionId":session,"provider":"ollama","model":"qwen3:4b-instruct-2507-q4_K_M"}}}))\n')
+        executable.chmod(0o700)
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            bridge.worker_path = str(binary) + os.pathsep + bridge.worker_path
             _, turn = self.begin(bridge)
             updates = []
             tool = {**turn, 'op': 'tool', 'call_id': 'eval-call', 'kind': 'evaluation',
