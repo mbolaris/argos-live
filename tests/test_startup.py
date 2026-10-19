@@ -115,6 +115,22 @@ class StartupTests(unittest.TestCase):
         self.assertEqual(self.calls[-2:], ['gateway-stop', 'backend-stop'])
         self.assertIsNone(value.snapshot()['failure'])
 
+    def test_stop_during_failure_threshold_probe_is_clean_handoff(self):
+        value = None
+        probes = 0
+        def ready(origin):
+            nonlocal probes
+            probes += 1
+            if probes == 3:
+                value.stop()
+            return False
+        value = self.controller(ready=ready)
+        value.start()
+        self.wait(value, 'stopped', timeout=10)
+        self.assertEqual(probes, 3)
+        self.assertIsNone(value.snapshot()['failure'])
+        self.assertEqual(self.calls[-2:], ['gateway-stop', 'backend-stop'])
+
     def test_one_worker_measured_reply_once_handoff_and_ordered_owned_cleanup(self):
         value = self.controller()
         value.start()

@@ -210,6 +210,11 @@ class Controller:
                     missed_probes = 0
                     while not self.stop_event.wait(2):
                         if not self.ready(origin):
+                            # A Lab/owner stop can arrive while the bounded
+                            # readiness request is in flight. Do not turn that
+                            # intentional handoff into a failed assistant.
+                            if self.stop_event.is_set():
+                                break
                             missed_probes += 1
                             self.transition('reconnecting')
                             if missed_probes >= 3:
