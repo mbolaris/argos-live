@@ -17,6 +17,46 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_chat_target_retries_bounded_readiness_conflict(self):
+        class Response(io.BytesIO):
+            def __enter__(self): return self
+            def __exit__(self, *args): self.close()
+        conflict = HTTPError('http://127.0.0.1/private/chat', 409,
+                             'private readiness detail', {}, io.BytesIO(b'secret'))
+        class Opener:
+            def __init__(self):
+                self.responses = [conflict, Response(
+                    b'{"url":"http://127.0.0.1:18789/chat#token=private-token"}')]
+            def open(self, request, timeout):
+                response = self.responses.pop(0)
+                if isinstance(response, HTTPError):
+                    raise response
+                return response
+        with patch.object(module.time, 'sleep') as pause:
+            target = module.assistant_chat_target(Opener(), 'http://127.0.0.1:44429',
+                                                   'private-token', Path('/unused'))
+        self.assertEqual((target.hostname, target.path), ('127.0.0.1', '/chat'))
+        self.assertEqual(pause.call_args.args, (.5,))
+        self.assertTrue(conflict.file.closed)
+
+    def test_chat_target_stops_retrying_conflicts_at_deadline(self):
+        conflict = HTTPError('http://127.0.0.1/private/chat', 409,
+                             'private readiness detail', {}, io.BytesIO(b'secret'))
+        class Opener:
+            def open(self, request, timeout):
+                raise conflict
+        output = io.StringIO()
+        with patch.object(module.time, 'monotonic', side_effect=[0, 0, 2]), \
+                patch.object(module.time, 'sleep') as pause, \
+                patch('sys.stdout', output):
+            with self.assertRaises(HTTPError):
+                module.assistant_chat_target(Opener(), 'http://127.0.0.1:44429',
+                                             'private-token', Path('/unused'), ready_timeout=1)
+        self.assertEqual(pause.call_args.args, (.5,))
+        self.assertTrue(conflict.file.closed)
+        self.assertIn('"status": 409', output.getvalue())
+        self.assertNotIn('private', output.getvalue())
+
     def test_assistant_chat_http_failure_reports_only_check_and_status(self):
         body = io.BytesIO(b'{"error":"private token and response body"}')
         error = HTTPError('http://127.0.0.1/private-token/chat', 409,
@@ -47,9 +87,9 @@ class DiagnosticFlagsTests(unittest.TestCase):
                 'auth': {'mode': 'token', 'token': 'fictional-private-token'}}}
             (config_dir / 'openclaw.json').write_text(json.dumps(config))
             with patch('argoslive.web.status.gateway_ready', return_value=True):
-                value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+                value = module.assistant_chat_preconditions(Path(temp))
             self.assertEqual(value, {'config_readable': True, 'gateway_config_valid': True,
-                'origin_matches_session': True, 'token_mode': True, 'token_present': True,
+                'token_mode': True, 'token_present': True,
                 'token_length_valid': True, 'gateway_ready': True})
             self.assertNotIn('fictional-private-token', json.dumps(value))
 
@@ -59,7 +99,7 @@ class DiagnosticFlagsTests(unittest.TestCase):
             config_dir.mkdir()
             (config_dir / 'openclaw.json').write_text(json.dumps(
                 {'gateway': {'bind': '0.0.0.0', 'auth': {'token': 'secret'}}}))
-            value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+            value = module.assistant_chat_preconditions(Path(temp))
             self.assertTrue(value['config_readable'])
             self.assertFalse(value['gateway_config_valid'])
             self.assertFalse(value['token_present'])
