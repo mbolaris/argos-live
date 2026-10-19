@@ -164,6 +164,19 @@ class DiagnosticFlagsTests(unittest.TestCase):
                                                  '_NET_WM_NAME(UTF8_STRING) = ' + title]):
                 self.assertEqual(module.firefox_model_lab_visible(), expected)
 
+    def test_model_lab_click_waits_through_transient_firefox_focus_handoff(self):
+        with patch.object(module, 'firefox_model_lab_visible', side_effect=[False, False, True]), \
+                patch.object(module.time, 'monotonic', side_effect=[0, 0, 0]), \
+                patch.object(module.time, 'sleep') as pause:
+            self.assertTrue(module.wait_for_active_firefox())
+        self.assertEqual(pause.call_count, 2)
+
+    def test_model_lab_click_fails_closed_when_firefox_never_gets_focus(self):
+        with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
+                patch.object(module.time, 'monotonic', side_effect=[0, 6]), \
+                patch.object(module.time, 'sleep'):
+            self.assertFalse(module.wait_for_active_firefox())
+
     def test_owned_exit_only_admits_bounded_whole_numeric_records(self):
         self.assertEqual(module.owned_exit(b'private token\nARGOS_OWNED_EXIT returncode=-11\n'), -11)
         self.assertEqual(module.owned_exit(b'ARGOS_OWNED_EXIT returncode=0\n'), 0)

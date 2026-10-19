@@ -328,6 +328,17 @@ def firefox_model_lab_visible():
         return False
 
 
+def wait_for_active_firefox(timeout=5):
+    """Allow a short desktop focus handoff after opening the shipped dashboard."""
+    deadline = time.monotonic() + timeout
+    while True:
+        if firefox_model_lab_visible():
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(.25)
+
+
 def click_model_lab_baseline(origin, token):
     """Navigate to the button's fragment, then use normal keyboard activation.
 
@@ -340,7 +351,7 @@ def click_model_lab_baseline(origin, token):
     x11 = None
     display = None
     try:
-        if not firefox_model_lab_visible():
+        if not wait_for_active_firefox():
             raise ValueError('Model Lab is not the active Firefox page')
         destination = origin + '/?' + urlencode({'token': token, 'view': 'lab'}) + '#lab-start'
         stage = 'load-keyboard-libraries'
