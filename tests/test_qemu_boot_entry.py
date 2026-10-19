@@ -104,6 +104,32 @@ class BootEntryTests(unittest.TestCase):
                                    (pixel % 251, pixel % 127, pixel % 31)))
             module.graphical_frame(path)
 
+    def test_dashboard_capture_retries_transient_blank_frame(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'screen.ppm'
+            blank = b'P6\n800 600\n255\n' + b'\0' * (800 * 600 * 3)
+            rendered = b'P6\n800 600\n255\n' + bytes(
+                value for pixel in range(800 * 600) for value in
+                (pixel % 251, pixel % 127, pixel % 31))
+            frames = iter([blank, rendered])
+            def capture(_qmp, target): target.write_bytes(next(frames))
+            with unittest.mock.patch.object(module, 'screenshot_dashboard_content',
+                                            side_effect=capture), \
+                    unittest.mock.patch.object(module.time, 'sleep') as pause:
+                module.capture_graphical_dashboard(Path('qmp.sock'), path)
+            self.assertEqual(pause.call_args.args, (.5,))
+
+    def test_dashboard_capture_fails_after_bounded_blank_frame_wait(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'screen.ppm'
+            blank = b'P6\n800 600\n255\n' + b'\0' * (800 * 600 * 3)
+            with unittest.mock.patch.object(module.time, 'monotonic', side_effect=[0, 0, 2]), \
+                    unittest.mock.patch.object(module, 'screenshot_dashboard_content',
+                                                side_effect=lambda qmp, target: target.write_bytes(blank)), \
+                    unittest.mock.patch.object(module.time, 'sleep'):
+                with self.assertRaisesRegex(ValueError, 'remained blank'):
+                    module.capture_graphical_dashboard(Path('qmp.sock'), path, timeout=1)
+
     def test_serial_result_waits_for_whole_nested_record(self):
         value = {'schema': 'argos-qemu-smoke/1', 'desktop_started': True,
                  'dashboard_authenticated': True, 'result_round_trip': True,

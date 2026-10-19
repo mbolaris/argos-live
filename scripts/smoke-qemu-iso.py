@@ -82,6 +82,22 @@ def screenshot_dashboard_content(qmp, path):
         private_path.unlink(missing_ok=True)
 
 
+def capture_graphical_dashboard(qmp, path, *, timeout=30):
+    """Wait briefly for the newly opened browser to paint before accepting pixels."""
+    deadline = time.monotonic() + timeout
+    while True:
+        screenshot_dashboard_content(qmp, path)
+        try:
+            graphical_frame(path)
+            return
+        except ValueError as error:
+            if 'blank or placeholder' not in str(error):
+                raise
+            if time.monotonic() >= deadline:
+                raise ValueError('QEMU browser frame remained blank after paint wait') from error
+            time.sleep(.5)
+
+
 def lab_progress_phase(line):
     """Return only a recognized test phase; never surface guest text in host logs."""
     try:
@@ -243,14 +259,12 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                             reported_lab_phases.add(phase)
                             print(f'Guest Model Lab phase: {phase}', flush=True)
                             if not (output / 'lab-progress.ppm').exists():
-                                screenshot_dashboard_content(qmp, output / 'lab-progress.ppm')
-                                graphical_frame(output / 'lab-progress.ppm')
+                                capture_graphical_dashboard(qmp, output / 'lab-progress.ppm')
                     if {'cpu-inference', 'managed-browser'} & reported_stages and not (output / 'desktop.ppm').exists():
                         # Native DOM readiness plus paint delay precede this
                         # stage. Capture startup, not the idle desktop after a
                         # several-minute CPU emulation workload.
-                        screenshot_dashboard_content(qmp, output / 'desktop.ppm')
-                        graphical_frame(output / 'desktop.ppm')
+                        capture_graphical_dashboard(qmp, output / 'desktop.ppm')
                     if time.monotonic() >= next_heartbeat:
                         print(f'Guest running: {int(time.monotonic() - started)} seconds; '
                               f'payload started: {payload_sent}', flush=True)
