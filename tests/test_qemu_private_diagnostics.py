@@ -107,6 +107,8 @@ class DiagnosticFlagsTests(unittest.TestCase):
 
     def test_trial_keyboard_refuses_wrong_active_window(self):
         with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
+                patch.object(module, 'wait_for_active_firefox', return_value=False), \
+                patch.object(module, 'focus_firefox_dashboard', return_value=False), \
                 patch.object(module.ctypes, 'CDLL') as library:
             with self.assertRaisesRegex(ValueError, 'active Firefox'):
                 module.click_model_lab_baseline("http://127.0.0.1:49355", "fixture-token")
@@ -120,6 +122,7 @@ class DiagnosticFlagsTests(unittest.TestCase):
         xtst.XTestFakeKeyEvent.side_effect = [1, 0, 1]
         output = io.StringIO()
         with patch.object(module, 'firefox_model_lab_visible', return_value=True), \
+                patch.object(module, 'focus_firefox_dashboard', return_value=False), \
                 patch.object(module.ctypes, 'CDLL', side_effect=[x11, xtst]), \
                 patch('sys.stdout', output):
             with self.assertRaisesRegex(ValueError, 'keyboard input failed'):
@@ -176,6 +179,34 @@ class DiagnosticFlagsTests(unittest.TestCase):
                 patch.object(module.time, 'monotonic', side_effect=[0, 6]), \
                 patch.object(module.time, 'sleep'):
             self.assertFalse(module.wait_for_active_firefox())
+
+    def test_dashboard_window_lookup_requires_shipped_firefox_title(self):
+        with patch.object(module.subprocess, 'check_output', side_effect=[
+                '_NET_CLIENT_LIST(WINDOW): window id # 0x10, 0x20',
+                'WM_CLASS(STRING) = "firefox-esr", "Firefox-esr"',
+                '_NET_WM_NAME(UTF8_STRING) = "Firefox Privacy Notice"',
+                'WM_CLASS(STRING) = "firefox-esr", "Firefox-esr"',
+                '_NET_WM_NAME(UTF8_STRING) = "Argos Live · Local workspace — Mozilla Firefox"']):
+            self.assertEqual(module.firefox_dashboard_window(), 0x20)
+
+    def test_dashboard_window_lookup_does_not_match_other_pages_or_browsers(self):
+        with patch.object(module.subprocess, 'check_output', side_effect=[
+                '_NET_CLIENT_LIST(WINDOW): window id # 0x10, 0x20',
+                'WM_CLASS(STRING) = "firefox-esr", "Firefox-esr"',
+                '_NET_WM_NAME(UTF8_STRING) = "OpenClaw Control"',
+                'WM_CLASS(STRING) = "other-browser", "Other-browser"']):
+            self.assertIsNone(module.firefox_dashboard_window())
+
+    def test_focus_targets_only_the_discovered_argos_firefox_window(self):
+        x11 = MagicMock()
+        x11.XOpenDisplay.return_value = 123
+        with patch.object(module, 'firefox_dashboard_window', return_value=0x20), \
+                patch.object(module, 'wait_for_active_firefox', return_value=True), \
+                patch.object(module.ctypes, 'CDLL', return_value=x11):
+            self.assertTrue(module.focus_firefox_dashboard())
+        x11.XRaiseWindow.assert_called_once_with(123, 0x20)
+        x11.XSetInputFocus.assert_called_once_with(123, 0x20, 2, 0)
+        x11.XCloseDisplay.assert_called_once_with(123)
 
     def test_owned_exit_only_admits_bounded_whole_numeric_records(self):
         self.assertEqual(module.owned_exit(b'private token\nARGOS_OWNED_EXIT returncode=-11\n'), -11)

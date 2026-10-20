@@ -328,6 +328,53 @@ def firefox_model_lab_visible():
         return False
 
 
+def firefox_dashboard_window():
+    """Find the shipped dashboard window without exposing its private URL."""
+    env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(Path.home() / '.Xauthority'))
+    try:
+        clients = subprocess.check_output(['xprop', '-root', '_NET_CLIENT_LIST'],
+                                          env=env, text=True, timeout=10)
+        for window in re.findall(r'0x[0-9a-fA-F]+', clients):
+            kind = subprocess.check_output(['xprop', '-id', window, 'WM_CLASS'],
+                                           env=env, text=True, timeout=10)
+            if 'firefox' not in kind.lower():
+                continue
+            title = subprocess.check_output(['xprop', '-id', window, '_NET_WM_NAME'],
+                                            env=env, text=True, timeout=10)
+            if re.search(r' = "Argos Live · Local workspace(?: — Mozilla Firefox)?"\s*$', title):
+                return int(window, 16)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return None
+
+
+def focus_firefox_dashboard():
+    """Raise and focus only the exact shipped Argos Firefox window."""
+    window = firefox_dashboard_window()
+    if window is None:
+        return False
+    display = None
+    try:
+        x11 = ctypes.CDLL('libX11.so.6')
+        x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
+        x11.XRaiseWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        x11.XSetInputFocus.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+        x11.XFlush.argtypes = [ctypes.c_void_p]
+        x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+        display = x11.XOpenDisplay(b':0')
+        if not display:
+            return False
+        x11.XRaiseWindow(display, window)
+        x11.XSetInputFocus(display, window, 2, 0)
+        x11.XFlush(display)
+    except (OSError, AttributeError):
+        return False
+    finally:
+        if display:
+            x11.XCloseDisplay(display)
+    return wait_for_active_firefox()
+
+
 def wait_for_active_firefox(timeout=5):
     """Allow a short desktop focus handoff after opening the shipped dashboard."""
     deadline = time.monotonic() + timeout
@@ -351,7 +398,7 @@ def click_model_lab_baseline(origin, token):
     x11 = None
     display = None
     try:
-        if not wait_for_active_firefox():
+        if not wait_for_active_firefox() and not focus_firefox_dashboard():
             raise ValueError('Model Lab is not the active Firefox page')
         destination = origin + '/?' + urlencode({'token': token, 'view': 'lab'}) + '#lab-start'
         stage = 'load-keyboard-libraries'
@@ -552,7 +599,12 @@ def managed_check(started, desktop_seconds):
     print('ARGOS_C3_STAGE model-lab-command-returned', flush=True)
     lab_deadline = time.monotonic() + 30
     while not firefox_model_lab_visible():
+        focus_firefox_dashboard()
+        if firefox_model_lab_visible():
+            break
         if time.monotonic() >= lab_deadline:
+            print('ARGOS_C3_BROWSER ' + json.dumps({'dashboard_window_found':
+                  firefox_dashboard_window() is not None, 'active_dashboard': False}), flush=True)
             raise ValueError('Model Lab command did not open its shipped Firefox view')
         time.sleep(.5)
     time.sleep(5)
