@@ -42,6 +42,19 @@ class ImprovementPluginBundleTests(unittest.TestCase):
             changed = refresh.inventory(target)
             self.assertNotEqual(actual['index.js'], changed['index.js'])
 
+    def test_agent_skill_teaches_the_host_verified_experiment_path(self):
+        skill = (ROOT / 'openclaw-plugin/argos-improve/skills/argos-improvement/SKILL.md').read_text()
+        guide = (ROOT / 'runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md').read_text()
+        for text in (skill, guide):
+            for tool in ('argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions'):
+                self.assertIn(tool, text)
+            self.assertIn('two distinct', text)
+            self.assertIn('held-out', text)
+            self.assertIn('owner edits', text)
+        self.assertIn('2/20', guide)
+        self.assertIn('4/70', guide)
+        self.assertIn('3/40', guide)
+
 
 if __name__ == '__main__':
     unittest.main()

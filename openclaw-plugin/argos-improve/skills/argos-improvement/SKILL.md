@@ -27,6 +27,28 @@ they do not run campaign steps or use the owner's gateway/session queue.
 Explain that the score describes this suite and configuration, not general
 intelligence.
 
+For an instruction experiment, use `argos_inspect` to read the canonical
+workspace instructions, their hash, current configuration receipt, active
+change, and keep policy. Use one specific saved baseline from the current host
+controller, then call `argos_edit_instructions` with that baseline ID, the
+inspected hash, one exact replacement, and a short hypothesis. This tool makes
+one reversible change only in the canonical `AGENTS.md` and saves the original
+bytes and configuration on the host. It refuses stale baselines, unrelated
+controller runs, ambiguous replacements, and a second unresolved edit.
+
+After the edit, collect two distinct matched baseline runs and two distinct
+candidate runs with the same suite, model/configuration, and execution method.
+The host checks the saved receipts and practice policy: quick needs at least 2
+additional correct answers, standard 4, and challenge 3, with format errors no
+higher than baseline. A reliability gain instead needs unchanged-or-higher
+correct count, fewer format errors, and median latency no more than 1.5 times
+baseline. These are practice thresholds, not independent proof of transfer.
+Use a separate challenge or held-out form to check transfer when available. Call
+`argos_resolve_instructions` with the current change ID and hash to keep only a
+qualified change or restore the exact snapshot. The host verifies the resulting
+bytes and preserves concurrent owner edits. Never claim a keep or restore until
+that tool returns the verified result.
+
 If a plugin tool is unavailable, the equivalent assistant command is
 `argos bench openclaw --suite quick --json`. The raw-model `argos bench ability`
 command does not test workspace instructions. Check the receipt's `openclaw-quick`
@@ -37,12 +59,13 @@ repeat a candidate to confirm a gain. Establish a new baseline when the recorded
 execution method differs; do not compare old gateway runs with isolated runs.
 
 Before proposing a change, inspect the task-level misses and ask what useful
-behavior they represent. State one hypothesis and one reversible change. Preserve
-the current settings and owner instructions before editing. Do not change the
-benchmark or scorer to improve the score. After the change, run the same suite
-and use `argos_compare` on the two run IDs. Report gains, regressions, elapsed
-time, and uncertainty; restore the previous settings if the change does not help
-or causes a regression. Verify the restore before saying it is complete.
+behavior they represent. State one hypothesis and one reversible change. Use
+the host-managed instruction tools for `AGENTS.md`; for other authorized model
+or configuration experiments, preserve the relevant files and use the reviewed
+Argos recovery path. Do not change the benchmark or scorer to improve the score.
+Use `argos_compare` for compatible runs and report gains, regressions, elapsed
+time, and uncertainty. Restore a non-beneficial change and verify the restore
+before saying it is complete.
 
 For a stronger local model, use Argos's reviewed fit and storage guidance; if its
 existing model flow needs an owner action, say exactly what to click and why. Ask
