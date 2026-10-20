@@ -20,13 +20,13 @@ class ImprovementPluginBundleTests(unittest.TestCase):
         self.assertEqual(package['version'], lock['packages']['']['version'])
         self.assertEqual(lock['packages']['node_modules/typebox']['version'], package['dependencies']['typebox'])
         self.assertEqual(manifest['id'], 'argos-improve')
-        self.assertEqual(manifest['contracts']['tools'], ['argos_evaluate', 'argos_compare', 'argos_log',
+        self.assertEqual(manifest['contracts']['tools'], ['argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status', 'argos_compare', 'argos_log',
                          'argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions',
                          'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
                          'argos_proctor_answer', 'argos_proctor_continue', 'argos_proctor_submit',
                          'argos_proctor_feedback'])
         self.assertTrue(all(manifest['toolMetadata'][name]['optional'] for name in
-                           ('argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions',
+                           ('argos_evaluate_wait', 'argos_evaluate_status', 'argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions',
                             'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
                             'argos_proctor_answer', 'argos_proctor_continue', 'argos_proctor_submit',
                             'argos_proctor_feedback')))

@@ -24,6 +24,13 @@ The tool creates a
 tool-free embedded OpenClaw turn with temporary state and copied instructions for
 each fixed task, and saves a private result. Evaluation children answer the task;
 they do not run campaign steps or use the owner's gateway/session queue.
+Each tool wait is bounded to eight minutes. If `argos_evaluate` returns a running
+job, use `argos_evaluate_wait` with its job ID until the saved result is returned.
+If a turn ends before returning the job ID, use `argos_evaluate_status` to find
+the current job, then continue polling. An interrupted agent turn does not cancel
+a host-owned evaluation; do not start another experiment or edit instructions
+while the job is running. Only the trusted host owner-control path can request
+cancellation.
 Explain that the score describes this suite and configuration, not general
 intelligence.
 

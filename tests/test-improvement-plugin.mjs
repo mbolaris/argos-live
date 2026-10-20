@@ -122,7 +122,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   }
 });
 
-test('direct evaluation escalates an ignored cancellation and waits for child exit', async () => {
+test('direct non-evaluation tool escalates an ignored cancellation and waits for child exit', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-plugin-cancel-'));
   const executable = path.join(directory, 'stuck-argos.mjs');
   const capture = path.join(directory, 'child.json');
@@ -147,7 +147,7 @@ setInterval(() => {}, 1000);
     const tools = new Map();
     register({registerTool(tool) { tools.set(tool.name, tool); }});
     const controller = new AbortController();
-    const evaluation = tools.get('argos_evaluate').execute('stuck-eval', {suite:'quick'}, controller.signal);
+    const evaluation = tools.get('argos_log').execute('stuck-log', {text:'note'}, controller.signal);
     for (let attempt = 0; attempt < 100; attempt += 1) {
       try {
         child = JSON.parse(await readFile(capture, 'utf8'));
@@ -186,6 +186,74 @@ setInterval(() => {}, 1000);
     else process.env.ARGOS_BIN_ARGS = priorBinArgs;
     if (priorCapture === undefined) delete process.env.ARGOS_CAPTURE;
     else process.env.ARGOS_CAPTURE = priorCapture;
+    await rm(directory, {recursive:true, force:true});
+  }
+});
+
+test('aborting an evaluation wait leaves the detached host job running and pollable', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-plugin-job-'));
+  const executable = path.join(directory, 'slow-argos.mjs');
+  const capture = path.join(directory, 'child.json');
+  const release = path.join(directory, 'release');
+  const priorBin = process.env.ARGOS_BIN;
+  const priorBinArgs = process.env.ARGOS_BIN_ARGS;
+  const priorCapture = process.env.ARGOS_CAPTURE;
+  const priorRelease = process.env.ARGOS_RELEASE;
+  let child;
+  try {
+    await writeFile(executable, `import fs from 'node:fs';
+const args = process.argv.slice(2);
+fs.writeFileSync(process.env.ARGOS_CAPTURE, JSON.stringify({pid:process.pid,args}));
+const deadline = Date.now() + 10000;
+while (!fs.existsSync(process.env.ARGOS_RELEASE) && Date.now() < deadline)
+  await new Promise(resolve => setTimeout(resolve, 10));
+console.log(JSON.stringify({path:'/private/fixture-result.json',result:{
+ id:'d'.repeat(32),suite:'openclaw-standard',suite_version:'argos-openclaw-ability/standard/fixture1',
+ state:'completed',settings:{execution_path:'openclaw embedded; ephemeral state; tools denied; v2'},
+ summary:{correct:68,total:70},coverage:{completed:70,total:70,complete:true}
+}}));
+`);
+    process.env.ARGOS_BIN = process.execPath;
+    process.env.ARGOS_BIN_ARGS = JSON.stringify([executable]);
+    process.env.ARGOS_CAPTURE = capture;
+    process.env.ARGOS_RELEASE = release;
+    const pluginPath = pathToFileURL(path.resolve('openclaw-plugin/argos-improve/index.js')).href;
+    const {default: register} = await import(`${pluginPath}?job-test=${Date.now()}`);
+    const tools = new Map();
+    register({registerTool(tool) {tools.set(tool.name, tool);}});
+    assert.ok(tools.has('argos_evaluate_wait'));
+    const controller = new AbortController();
+    const evaluation = tools.get('argos_evaluate').execute('slow-eval', {suite:'standard'}, controller.signal);
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try { child = JSON.parse(await readFile(capture, 'utf8')); break; }
+      catch { await new Promise((resolve) => setTimeout(resolve, 20)); }
+    }
+    assert.ok(child, 'The host evaluation process should start.');
+    controller.abort();
+    const started = await evaluation;
+    assert.equal(started.details.status, 'running');
+    assert.equal(started.details.total, 70);
+    assert.match(started.details.job_id, /^[a-f0-9]{32}$/);
+    const status = await tools.get('argos_evaluate_status').execute('status', {});
+    assert.equal(status.details.status, 'running');
+    assert.equal(status.details.job_id, started.details.job_id);
+    if (process.platform !== 'win32') {
+      process.kill(child.pid, 0);
+    }
+    await writeFile(release, 'complete');
+    const completed = await tools.get('argos_evaluate_wait').execute('poll',
+      {job_id:started.details.job_id});
+    assert.match(completed.content[0].text, /68\/70 passed/);
+    assert.equal(completed.details.coverage.completed, 70);
+  } finally {
+    if (child?.pid) {
+      try { process.kill(process.platform === 'win32' ? child.pid : -child.pid, 'SIGKILL'); }
+      catch { /* Test cleanup only. */ }
+    }
+    if (priorBin === undefined) delete process.env.ARGOS_BIN; else process.env.ARGOS_BIN = priorBin;
+    if (priorBinArgs === undefined) delete process.env.ARGOS_BIN_ARGS; else process.env.ARGOS_BIN_ARGS = priorBinArgs;
+    if (priorCapture === undefined) delete process.env.ARGOS_CAPTURE; else process.env.ARGOS_CAPTURE = priorCapture;
+    if (priorRelease === undefined) delete process.env.ARGOS_RELEASE; else process.env.ARGOS_RELEASE = priorRelease;
     await rm(directory, {recursive:true, force:true});
   }
 });
@@ -251,5 +319,57 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     else process.env.ARGOS_CONTROLLER_SECRET = priorSecret;
     await new Promise((resolve) => server.close(resolve));
     await rm(directory,{recursive:true,force:true});
+  }
+});
+
+test('managed admission returns bounded evaluation jobs and supports a follow-up wait', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-admission-job-'));
+  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\argos-job-${randomUUID()}` : path.join(directory, 'host.sock');
+  const priorPath = process.env.ARGOS_CONTROLLER_SOCKET;
+  const priorSecret = process.env.ARGOS_CONTROLLER_SECRET;
+  const requests = [];
+  const server = net.createServer((socket) => {
+    socket.setEncoding('utf8');
+    let raw = '';
+    socket.on('data', (chunk) => {
+      raw += chunk;
+      if (!raw.endsWith('\n')) return;
+      const value = JSON.parse(raw);
+      requests.push(value);
+      let response;
+      if (value.op === 'begin') response = {status:'admitted',turn_token:'turn-job'};
+      else if (value.op === 'tool' && value.kind === 'evaluation')
+        response = {status:'running',job_id:'b'.repeat(32),suite:'standard',completed:0,total:70};
+      else if (value.op === 'tool' && value.kind === 'evaluation_wait')
+        response = {status:'completed',value:{result:{id:'c'.repeat(32),state:'completed',
+          suite:'openclaw-standard',suite_version:'argos-openclaw-ability/standard/test',
+          settings:{execution_path:'openclaw embedded; ephemeral state; tools denied; v2'},
+          summary:{correct:68,total:70},coverage:{completed:70,total:70,complete:true}},path:'/private/run.json'}};
+      else response = {status:'recorded'};
+      socket.end(JSON.stringify(response) + '\n');
+    });
+  });
+  try {
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(endpoint, resolve); });
+    process.env.ARGOS_CONTROLLER_SOCKET = endpoint;
+    process.env.ARGOS_CONTROLLER_SECRET = 'job-bridge-secret';
+    const hooks = new Map();
+    const admission = registerAdmission({pluginConfig:{hostAdmission:true}, on(name, handler) {hooks.set(name, handler);}});
+    const ctx = {runId:'run-job',sessionId:'session-job',sessionKey:'agent:main:host-session',trigger:'user'};
+    assert.deepEqual(await hooks.get('before_agent_run')({}, ctx), {outcome:'pass'});
+    hooks.get('before_tool_call')({toolName:'argos_evaluate',runId:'run-job',toolCallId:'eval-job'},ctx);
+    const started = await admission.execute('eval-job','evaluation',{suite:'standard'});
+    assert.equal(started.status, 'running');
+    assert.equal(started.total, 70);
+    hooks.get('before_tool_call')({toolName:'argos_evaluate_wait',runId:'run-job',toolCallId:'wait-job'},ctx);
+    const finished = await admission.execute('wait-job','evaluation_wait',{job_id:started.job_id});
+    assert.equal(finished.result.coverage.completed,70);
+    assert.deepEqual(requests.filter(item => item.op === 'tool').map(item => item.kind),
+      ['evaluation','evaluation_wait']);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET; else process.env.ARGOS_CONTROLLER_SOCKET = priorPath;
+    if (priorSecret === undefined) delete process.env.ARGOS_CONTROLLER_SECRET; else process.env.ARGOS_CONTROLLER_SECRET = priorSecret;
+    await rm(directory, {recursive:true, force:true});
   }
 });

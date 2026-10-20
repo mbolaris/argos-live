@@ -27,6 +27,7 @@ from .results import Store, compare
 LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
+EVALUATION_WAIT_SECONDS = 480
 
 
 def identity(value):
@@ -52,6 +53,7 @@ class Bridge:
         self.closed = False
         self.verified = False
         self.outcomes = []
+        self.evaluation_job = None
         self.lock = threading.RLock()
         self.tool_lock = threading.Lock()
         self.events = self.parent.path.parent / 'controller-turn.json'
@@ -64,6 +66,11 @@ class Bridge:
         workload.same_owner(read_json(self.parent.path), self.parent.record)
         value = {'schema': 'argos-controller-turn/1', 'parent_id': self.parent.record['id'],
                  'generation': self.parent.record['generation'], 'uncertain': self.uncertain}
+        if self.evaluation_job:
+            job = self.evaluation_job
+            value['evaluation_job'] = {'job_id': job['job_id'], 'suite': job['suite'],
+                'state': 'running' if job['thread'].is_alive() else ('failed' if job['error'] else 'completed'),
+                'completed': job['completed'], 'total': job['total']}
         if self.active:
             value.update({key: self.active[key] for key in
                           ('run_id', 'session_id', 'session_key', 'trigger', 'ended')})
@@ -124,9 +131,18 @@ class Bridge:
                     raise ValueError('Bounded tool parameters required')
                 if self.exam_session is not None and kind not in PROCTOR_TOOLS:
                     raise ValueError('Only Proctor tools are available during an exam')
+                if (self.evaluation_job and not self.evaluation_job.get('consumed') and
+                        kind != 'evaluation_wait'):
+                    raise workload.Busy()
                 if kind == 'evaluation':
                     if set(params) - {'suite'} or params.get('suite', 'quick') not in {'quick', 'standard', 'challenge'}:
                         raise ValueError('Unsupported evaluation request')
+                elif kind == 'evaluation_wait':
+                    if set(params) != {'job_id'} or not identity(params.get('job_id')):
+                        raise ValueError('Invalid evaluation job identity')
+                elif kind == 'evaluation_status':
+                    if params:
+                        raise ValueError('Evaluation status takes no options')
                 elif kind == 'log':
                     if set(params) != {'text'} or not isinstance(params['text'], str) or not 0 < len(
                             params['text'].encode('utf-8')) <= 4096:
@@ -150,6 +166,21 @@ class Bridge:
                     self.outcomes.append(outcome)
                     self.publish()
                 return {'status': 'completed', 'value': value}
+            if kind == 'evaluation':
+                value = self.start_evaluation(params, on_update=on_update)
+                if value.get('status') == 'running':
+                    return value
+                return {'status': 'completed', 'value': value}
+            if kind == 'evaluation_wait':
+                value = self.wait_evaluation(params['job_id'], on_update=on_update)
+                if value.get('status') == 'running':
+                    return value
+                return {'status': 'completed', 'value': value}
+            if kind == 'evaluation_status':
+                value = self.evaluation_status()
+                if value.get('status') == 'running':
+                    return value
+                return {'status': 'completed', 'value': value}
             if kind == 'compare':
                 store = Store(self.home / '.local/share/argos-live/results')
                 return {'status': 'completed', 'value': compare([
@@ -167,6 +198,90 @@ class Bridge:
             return value
         finally:
             self.tool_lock.release()
+
+    def start_evaluation(self, params, *, on_update=None, seconds=EVALUATION_WAIT_SECONDS):
+        """Run one bounded tool wait over a host-owned evaluation worker."""
+        with self.lock:
+            current = self.evaluation_job
+            if current and not current.get('consumed'):
+                raise workload.Busy()
+            job_id = secrets.token_hex(16)
+            job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
+                   'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40}[
+                       params.get('suite', 'quick')], 'value': None, 'error': None,
+                   'recorded': False, 'consumed': False, 'on_update': on_update}
+            self.evaluation_job = job
+
+            def progress(event):
+                with self.lock:
+                    job['completed'] = event.get('completed', job['completed'])
+                    job['total'] = event.get('total', job['total'])
+                callback = job.get('on_update')
+                if callback is not None:
+                    try:
+                        callback(event)
+                    except (BrokenPipeError, ConnectionError, OSError):
+                        pass
+
+            def execute():
+                try:
+                    job['value'] = self.run_child('evaluation', params, on_update=progress)
+                except BaseException as error:
+                    job['error'] = error
+
+            job['thread'] = threading.Thread(target=execute, name='argos-controller-evaluation', daemon=False)
+            job['thread'].start()
+        return self.wait_evaluation(job_id, on_update=on_update, seconds=seconds)
+
+    def wait_evaluation(self, job_id, *, on_update=None, seconds=EVALUATION_WAIT_SECONDS):
+        job = self.evaluation_job
+        if not job or not hmac.compare_digest(job['job_id'], job_id):
+            raise ValueError('Unknown evaluation job')
+        job['on_update'] = on_update
+        thread = job['thread']
+        thread.join(seconds)
+        if thread.is_alive():
+            job['on_update'] = None
+            return {'status': 'running', 'job_id': job_id, 'suite': job['suite'],
+                    'completed': job['completed'], 'total': job['total']}
+        if job['error'] is not None:
+            raise workload.Busy(recovery=True) from None
+        if not job['recorded']:
+            value = job['value']
+            result = value['value']['result']
+            with self.lock:
+                self.outcomes.append({'kind': 'evaluation', 'job_id': job_id,
+                                      'result_id': result['id'], 'state': result['state']})
+                self.publish()
+                job['recorded'] = True
+                job['consumed'] = True
+        return job['value']['value']
+
+    def cancel_evaluation_owner(self, job_id):
+        """Trusted-host cancellation; deliberately absent from model tool IPC."""
+        job = self.evaluation_job
+        if not job or not hmac.compare_digest(job['job_id'], job_id):
+            raise ValueError('Unknown evaluation job')
+        if not job['thread'].is_alive():
+            return {'status': 'already_finished', 'job_id': job_id}
+        process = self.pending
+        if process is None or process.poll() is not None:
+            self.uncertain = True
+            self.publish()
+            raise workload.Busy(recovery=True)
+        process.terminate()
+        return {'status': 'cancel_requested', 'job_id': job_id}
+
+    def evaluation_status(self):
+        job = self.evaluation_job
+        if job is None:
+            return {'status': 'idle'}
+        if job['thread'].is_alive():
+            return {'status': 'running', 'job_id': job['job_id'], 'suite': job['suite'],
+                    'completed': job['completed'], 'total': job['total']}
+        if job['error'] is not None:
+            return {'status': 'busy', 'recovery_required': True}
+        return {'status': 'completed', 'job_id': job['job_id'], 'suite': job['suite']}
 
     @staticmethod
     def _validate_proctor_request(kind, params):
@@ -472,7 +587,8 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                 except OSError:
                     # End notifications carry no work/release authority. A lost
                     # optional acknowledgment cannot negate proven worker exit.
-                    if work_bearing:
+                    if work_bearing and request.get('kind') not in {'evaluation', 'evaluation_wait',
+                                                                      'evaluation_status'}:
                         bridge.uncertain = True
         class Server(socketserver.ThreadingUnixStreamServer):
             daemon_threads = True

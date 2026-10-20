@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { Type } from "typebox";
 import { registerAdmission } from "./admission.js";
 
@@ -8,6 +9,8 @@ const MAX_OUTPUT = 2 * 1024 * 1024;
 const MAX_PROGRESS_LINE = 65536;
 const ARGOS_BIN = process.env.ARGOS_BIN || "argos";
 const EVALUATION_PATH = "openclaw embedded; ephemeral state; tools denied; v2";
+const EVALUATION_WAIT_MS = 8 * 60 * 1000;
+const directEvaluationJobs = new Map();
 
 function argosPrefixArgs() {
   if (!process.env.ARGOS_BIN_ARGS) return [];
@@ -125,6 +128,87 @@ function textResult(text, details) {
   return { content: [{ type: "text", text }], details };
 }
 
+function renderEvaluation(value) {
+  const run = value?.result;
+  const summary = run?.summary;
+  if (!run || !summary || !run.coverage) throw new Error("Benchmark result is incomplete.");
+  if (!run.suite?.startsWith("openclaw-") ||
+      !run.suite_version?.startsWith("argos-openclaw-ability/") ||
+      run.settings?.execution_path !== EVALUATION_PATH) {
+    throw new Error("Expected an OpenClaw assistant benchmark. Raw model runs do not test assistant instructions.");
+  }
+  const progress = `${run.coverage.completed}/${run.coverage.total} tasks`;
+  const outcome = run.state === "completed"
+    ? `${summary.correct}/${summary.total} passed`
+    : `stopped after ${progress} (${run.failure_code ?? run.state}); this partial run cannot be compared`;
+  const next = run.state === "completed"
+    ? "Next: append the saved run ID and score to IMPROVEMENT-LOG.md. Compare matched runs and repeat a candidate to confirm a gain. Change only one thing between experiments; do not change setup during a run."
+    : "Next: note the failure in IMPROVEMENT-LOG.md and fix its cause before retesting.";
+  const text = `OpenClaw benchmark ${outcome}. Run ID: ${run.id}. Suite: ${run.suite_version}. Complete coverage: ${run.coverage.complete ? "yes" : "no"}. Saved privately at ${value.path}. ${next}`;
+  return textResult(text, {run_id:run.id, suite_version:run.suite_version,
+    suite_sha256:run.settings?.suite_sha256, prompt_fingerprint:run.prompt_fingerprint,
+    state:run.state, summary, coverage:run.coverage, elapsed_seconds:run.elapsed_seconds});
+}
+
+function evaluationProgress(job, callback, event) {
+  job.progress = {completed:event.completed, total:event.total};
+  try { callback?.(event); } catch { /* Losing a progress consumer never cancels the host job. */ }
+}
+
+async function waitForDirectEvaluation(job, signal, onUpdate) {
+  if (!job?.completion || !job.id) throw new Error("Unknown evaluation job ID.");
+  job.onUpdate = onUpdate;
+  if (signal?.aborted) return {status:"running", job_id:job.id, suite:job.suite, ...job.progress};
+  let timer;
+  const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), EVALUATION_WAIT_MS); });
+  let abortHandler;
+  const aborted = signal ? new Promise((resolve) => {
+    abortHandler = () => resolve(null);
+    signal.addEventListener("abort", abortHandler, {once:true});
+  }) : new Promise(() => {});
+  const result = await Promise.race([job.completion, timeout, aborted]);
+  clearTimeout(timer);
+  if (abortHandler) signal.removeEventListener("abort", abortHandler);
+  job.onUpdate = null;
+  if (result) {
+    directEvaluationJobs.delete(job.id);
+    return result;
+  }
+  return {status:"running", job_id:job.id, suite:job.suite, ...job.progress};
+}
+
+function startDirectEvaluation(suite, signal, onUpdate) {
+  if (signal?.aborted) throw new Error("Argos request was cancelled before dispatch; no command started.");
+  const id = randomBytes(16).toString("hex");
+  const job = {id, suite, progress:{completed:0,total:suite === "challenge" ? 40 : suite === "standard" ? 70 : 20}};
+  job.ownerCancellation = new AbortController();
+  job.cancel = () => job.ownerCancellation.abort();
+  job.completion = runArgos("openclaw", ["--suite", suite, "--json"], job.ownerCancellation.signal,
+    (event) => evaluationProgress(job, job.onUpdate, event)).then((value) => {
+      job.finished = true;
+      return {status:"completed", value};
+    }, () => {
+      job.finished = true;
+      return {status:"failed", error:"Argos evaluation did not complete; inspect the local Argos status."};
+    });
+  directEvaluationJobs.set(id, job);
+  return waitForDirectEvaluation(job, signal, onUpdate).then((value) => {
+    if (value.status === "completed") return value.value;
+    if (value.status === "failed") throw new Error(value.error);
+    return value;
+  });
+}
+
+// Called only by the trusted host owner-control adapter; this is not registered
+// as an agent tool. Aborting an agent's wait signal never invokes this method.
+export function cancelDirectEvaluation(jobId) {
+  const job = directEvaluationJobs.get(jobId);
+  if (!job) throw new Error("Unknown evaluation job ID.");
+  if (job.finished) return {status:"already_finished", job_id:jobId};
+  job.cancel();
+  return {status:"cancel_requested", job_id:jobId};
+}
+
 export default function register(api) {
   const admission = registerAdmission(api);
   const savedId = () => Type.String({minLength:32,maxLength:32,pattern:'^[a-f0-9]{32}$'});
@@ -208,33 +292,54 @@ export default function register(api) {
         { description: "Quick 20-task suite, standard 70-task suite, or separate 40-task challenge form." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
+      const suite = params.suite ?? 'quick';
       const value = admission ? await admission.execute(_id, 'evaluation',
-        {suite:params.suite ?? 'quick'}, signal, onUpdate) : await runArgos("openclaw",
-        ["--suite", params.suite ?? "quick", "--json"], signal, onUpdate);
+        {suite}, signal, onUpdate) : await startDirectEvaluation(suite, signal, onUpdate);
       if (value.status === "busy") return textResult(
         `${value.message}. No evaluation started. Wait for the active workload; do not edit the workspace.`, value);
-      const run = value.result;
-      const summary = run?.summary;
-      if (!run || !summary || !run.coverage) throw new Error("Benchmark result is incomplete.");
-      if (run.suite !== `openclaw-${params.suite ?? "quick"}` ||
-          !run.suite_version?.startsWith("argos-openclaw-ability/") ||
-          run.settings?.execution_path !== EVALUATION_PATH) {
-        throw new Error("Expected an OpenClaw assistant benchmark. Raw model runs do not test assistant instructions.");
-      }
-      const progress = `${run.coverage.completed}/${run.coverage.total} tasks`;
-      const outcome = run.state === "completed"
-        ? `${summary.correct}/${summary.total} passed`
-        : `stopped after ${progress} (${run.failure_code ?? run.state}); this partial run cannot be compared`;
-      const next = run.state === "completed"
-        ? "Next: append the saved run ID and score to IMPROVEMENT-LOG.md. Compare matched runs and repeat a candidate to confirm a gain. Change only one thing between experiments; do not change setup during a run."
-        : "Next: note the failure in IMPROVEMENT-LOG.md and fix its cause before retesting.";
-      const text = `OpenClaw benchmark ${outcome}. Run ID: ${run.id}. Suite: ${run.suite_version}. Complete coverage: ${run.coverage.complete ? "yes" : "no"}. Saved privately at ${value.path}. ${next}`;
-      return textResult(text, { run_id: run.id, suite_version: run.suite_version,
-        suite_sha256: run.settings?.suite_sha256,
-        prompt_fingerprint: run.prompt_fingerprint,
-        state: run.state, summary, coverage: run.coverage, elapsed_seconds: run.elapsed_seconds });
+      if (value.status === "running") return textResult(
+        `Evaluation is still running (${value.completed}/${value.total}). Use argos_evaluate_wait with job ID ${value.job_id}; do not start another evaluation or edit the workspace.`, value);
+      return renderEvaluation(value);
     }
   });
+  api.registerTool({
+    name:"argos_evaluate_wait", label:"Wait for an evaluation job",
+    description:"Continue waiting for a host-owned evaluation. Each wait is bounded to eight minutes; if it is still running, use this tool again with the returned job ID. The original evaluation continues if your turn ends.",
+    parameters:Type.Object({job_id:Type.String({minLength:32,maxLength:32,pattern:"^[a-f0-9]{32}$"})},{additionalProperties:false}),
+    async execute(_id, params, signal, onUpdate) {
+      const value = admission ? await admission.execute(_id, 'evaluation_wait', params, signal, onUpdate) :
+        await waitForDirectEvaluation(directEvaluationJobs.get(params.job_id) ?? {}, signal, onUpdate);
+      if (value.status === "running") return textResult(
+        `Evaluation is still running (${value.completed}/${value.total}). Use argos_evaluate_wait again with job ID ${value.job_id}.`, value);
+      if (value.status === "busy") return textResult("Host workload needs attention; do not start another evaluation.", value);
+      if (!admission && value.status === "failed") throw new Error(value.error);
+      const result = admission ? value : value.value;
+      if (result?.status === "running") return textResult(
+        `Evaluation is still running (${result.completed}/${result.total}). Use argos_evaluate_wait again with job ID ${result.job_id}.`, result);
+      if (result?.status === "busy") return textResult("Host workload needs attention; do not start another evaluation.", result);
+      return renderEvaluation(result);
+    }
+  }, {optional:true});
+  api.registerTool({
+    name:"argos_evaluate_status", label:"Find the current evaluation job",
+    description:"Check whether a host-owned evaluation is still active and recover its job ID if your previous turn ended before receiving it. This never starts or cancels work.",
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(_id, _params) {
+      let value;
+      if (admission) value = await admission.execute(_id, 'evaluation_status', {});
+      else {
+        const job = [...directEvaluationJobs.values()].at(-1);
+        value = !job ? {status:"idle"} : {status:job.finished ? "completed" : "running",
+          job_id:job.id, suite:job.suite, ...job.progress};
+      }
+      if (value.status === "running") return textResult(
+        `Evaluation is running (${value.completed}/${value.total}). Continue with argos_evaluate_wait and job ID ${value.job_id}.`, value);
+      if (value.status === "completed") return textResult(
+        `Evaluation finished and is saved. Retrieve its result with argos_evaluate_wait and job ID ${value.job_id}.`, value);
+      if (value.status === "busy") return textResult("The evaluation workload needs host recovery; do not start another evaluation.", value);
+      return textResult("No evaluation job is active.", value);
+    }
+  }, {optional:true});
   api.registerTool({
     name: "argos_compare",
     label: "Compare OpenClaw runs",

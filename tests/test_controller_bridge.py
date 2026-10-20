@@ -194,6 +194,34 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(parent.record['phase'], 'running')
             parent.complete()
 
+    def test_bounded_evaluation_wait_keeps_host_job_for_followup_after_turn_ends(self):
+        started = threading.Event()
+        release = threading.Event()
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+
+            def slow_child(kind, params, *, on_update=None):
+                self.assertEqual(kind, 'evaluation')
+                started.set()
+                release.wait(5)
+                return {'status':'completed', 'value':{'result':{
+                    'id':'a' * 32, 'state':'completed', 'coverage':{'completed':70,'total':70}},
+                    'path':'saved-result.json'}}
+
+            bridge.run_child = slow_child
+            value = bridge.start_evaluation({'suite':'standard'}, seconds=.01)
+            self.assertEqual(value['status'], 'running')
+            self.assertEqual(value['total'], 70)
+            self.assertTrue(started.wait(1))
+            with self.assertRaises(workload.Busy):
+                bridge.start_evaluation({'suite':'quick'}, seconds=.01)
+            # The caller can disappear here; the host worker still owns the slot.
+            release.set()
+            finished = bridge.wait_evaluation(value['job_id'], seconds=2)
+            self.assertEqual(finished['result']['coverage']['completed'], 70)
+            self.assertEqual(bridge.outcomes[0]['result_id'], 'a' * 32)
+            parent.complete()
+
 
 if __name__ == '__main__':
     unittest.main()

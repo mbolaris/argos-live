@@ -4,6 +4,7 @@ from pathlib import Path
 import secrets
 import sys
 import tempfile
+import threading
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -73,6 +74,23 @@ class AgentSessionTests(unittest.TestCase):
 
         with self.assertRaises(AttributeError):
             exam.transcript()
+
+    def test_host_sdk_thread_can_use_engine_created_on_setup_thread(self):
+        exam = self.session()
+        result = []
+        failures = []
+        def start():
+            try:
+                result.append(exam.start('host-start-cross-thread'))
+            except BaseException as error:
+                failures.append(error)
+        worker = threading.Thread(target=start)
+        worker.start()
+        worker.join(timeout=5)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(failures, [])
+        self.assertEqual(result[0]['state'], 'ACTIVE')
+        self.assertEqual(exam.status()['state'], 'ACTIVE')
 
     def test_host_conditions_are_snapshotted_and_not_agent_mutable(self):
         subject = dict(self.subject, configuration={'temperature': 0})
