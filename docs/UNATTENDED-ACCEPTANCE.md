@@ -223,3 +223,24 @@ and installed weight identity, bounded model operations, production gateway/
 heartbeat routing, durable owner authority, protected service identity and
 backend-wide admission/drainage. Full claim auditing, independent signed exams
 and every fresh-image/physical acceptance gate above remain open.
+
+## Fresh direct-transport image candidate (cd9b2db)
+
+Pinned ISO build [39370482787](https://github.com/mbolaris/argos-live/actions/runs/39370482787)
+passed from source cd9b2db450abc89b2943ce902f4c527a0fb5b37e. The ISO SHA-256 is
+88dcd719a2dbdb7bd777cafdc07e9eec2a3798c884d6d889c9f0fc13f370313d; build pins
+and artifact report are preserved in `docs/evidence/managed-guest-39372199391/`.
+
+Strict offline managed-guest KVM acceptance
+[39372199391](https://github.com/mbolaris/argos-live/actions/runs/39372199391)
+passed. The guest reported RAM policy, automatic first boot, visible Model Lab,
+saved speed and ability results, and assistant resumption. Saved run IDs are
+e8bef97fd8932b10474794f601e736bc and 9d38a584f1390f5948987999029b6f78. The
+captured progress screen shows an active 0/20 ability phase; terminal scoring is
+supported by the saved result record, not that screenshot. This synthetic CPU
+fixture does not establish model improvement or an independent exam pass.
+
+Physical firmware/card/persistence/reboot-reset acceptance and browser chat
+reply remain unverified. The image is a validated USB-writing candidate, not a
+physical-card acceptance claim. Toronado and its generation-36 quarantine were
+not changed.
