@@ -105,7 +105,7 @@ class BootEntryTests(unittest.TestCase):
             self.assertTrue(all(item.args == ('socket', frame) for item in capture.call_args_list))
             self.assertEqual(commands.call_count, 2)
             scroll_event = commands.call_args_list[0].args[1][0]['arguments']['events'][0]
-            self.assertEqual(scroll_event['data']['key'], {'type': 'qcode', 'data': 'PAGEDOWN'})
+            self.assertEqual(scroll_event['data'], {'down': True, 'button': 'wheel-down'})
             events = [item['arguments']['events'][0] for item in commands.call_args_list[1].args[1]]
             self.assertEqual([item['type'] for item in events], ['abs', 'abs', 'btn', 'btn'])
             self.assertEqual([item['data']['down'] for item in events[2:]], [True, False])

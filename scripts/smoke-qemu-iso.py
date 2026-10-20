@@ -141,8 +141,10 @@ def click_rendered_baseline(qmp, frame, *, timeout=20):
     # controls below the initial viewport. Page down once before looking for
     # the baseline control so the click remains tied to its rendered location.
     qmp_commands(qmp, [{'execute': 'input-send-event', 'arguments': {'events': [
-        {'type': 'key', 'data': {'down': True, 'key': {'type': 'qcode', 'data': 'PAGEDOWN'}}},
-        {'type': 'key', 'data': {'down': False, 'key': {'type': 'qcode', 'data': 'PAGEDOWN'}}},
+        {'type': 'btn', 'data': {'down': True, 'button': 'wheel-down'}},
+        {'type': 'btn', 'data': {'down': False, 'button': 'wheel-down'}},
+        {'type': 'btn', 'data': {'down': True, 'button': 'wheel-down'}},
+        {'type': 'btn', 'data': {'down': False, 'button': 'wheel-down'}},
     ]}}])
     time.sleep(.5)
     screenshot_dashboard_content(qmp, frame)
