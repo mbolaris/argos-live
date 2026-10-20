@@ -119,10 +119,14 @@ def run(cli, report):
             source['forms'][0]['modules'][0]['duration_ms'] = 60_000
             source['forms'][0]['modules'][1]['duration_ms'] = 60_000
             source['forms'][0]['modules'][1]['break_ms'] = 500
-            cartridge_path = home / '.local/share/argos-live/proctor/cartridges/regression.db'
+            proctor_root = home / '.local/share/argos-live/proctor'
+            proctor_root.mkdir(parents=True, mode=0o700)
+            proctor_root.chmod(0o700)
+            cartridge_path = proctor_root / 'cartridges/regression.db'
             cartridge_path.parent.mkdir(parents=True, mode=0o700)
+            cartridge_path.parent.chmod(0o700)
             compile_cartridge(source, cartridge_path)
-            state = open_state(home / '.local/share/argos-live/proctor/state.db')
+            state = open_state(proctor_root / 'state.db')
             host_token, token_secret = uuid.uuid4().hex, os.urandom(32)
             signing_key = home / '.local/share/argos-live/proctor/signing.key'
             generate_key(signing_key)
