@@ -198,6 +198,9 @@ def run(cli, report):
             model_storage.mkdir(mode=0o700)
             storage_id = uuid.uuid4().hex
             (model_storage / '.argos-storage-id').write_text(storage_id + '\n')
+            model_manifest = model_storage / 'manifests/registry.ollama.ai/library/fixture/latest'
+            model_manifest.parent.mkdir(parents=True)
+            model_manifest.write_bytes(b'synthetic fixture model manifest\n')
             setup_state = service_home / '.config/argos-live/state.json'
             setup_state.parent.mkdir(parents=True, mode=0o700)
             setup_state.write_text(json.dumps({'storage': str(model_storage), 'storage_id': storage_id,

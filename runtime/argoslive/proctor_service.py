@@ -17,7 +17,7 @@ import shutil
 import socket
 import sys
 
-from . import auto_setup, controller_bridge, owned_gateway, owned_ollama, proctor, session_mode, startup
+from . import auto_setup, controller_bridge, model_verify, owned_gateway, owned_ollama, proctor, session_mode, startup
 from .proctor.engine import Caller
 from .proctor.engine import digest
 from .proctor.signing import Ed25519Signer, generate_key
@@ -183,7 +183,7 @@ def refuse_live_backend():
         return
 
 
-def make_session(home, cartridge_path, form_id, model, config_hash, *, openssl='openssl'):
+def make_session(home, cartridge_path, form_id, model, config_hash, *, model_storage, openssl='openssl'):
     """Provision/reopen the service-owned practice database and host-only keys."""
     root = _private_directory(Path(home) / '.local/state/argos-live/proctor')
     cart = proctor.Cartridge(cartridge_path)
@@ -205,8 +205,14 @@ def make_session(home, cartridge_path, form_id, model, config_hash, *, openssl='
                                    telemetry_trust='unavailable')},
         token_secret=token_secret, boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
         signer=signer)
-    subject = {'model': model, 'profile_sha256': config_hash,
-               'cartridge_sha256': cart.digest}
+    manifest = model_verify.read_manifest(model_storage, model)
+    model_digest = hashlib.sha256(manifest).hexdigest()
+    subject = {
+        'lineage_id': hashlib.sha256((model + '\0' + config_hash).encode('utf-8')).hexdigest()[:32],
+        'subject_type': 'deployed_agent_profile', 'model_tag': model,
+        'model_digest': model_digest,
+        'configuration': {'profile_sha256': config_hash, 'cartridge_sha256': cart.digest},
+    }
     session = proctor.AgentSession(engine, caller_id=caller_id, caller_token=caller_token,
         form_id=form_id, tier='practice', subject=subject, policy=POLICY)
     return db, session, cart
@@ -252,7 +258,8 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
         home, model, owner_config_path=home / '.openclaw/openclaw.json')
     refuse_live_gateway(config_path)
     refuse_live_backend()
-    db, exam, cart = make_session(home, cartridge_path, form_id, model, config_hash, openssl=openssl)
+    db, exam, cart = make_session(home, cartridge_path, form_id, model, config_hash,
+                                  model_storage=target, openssl=openssl)
     executable = executable or shutil.which('openclaw')
     if not executable:
         db.close()

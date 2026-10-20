@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -151,6 +152,45 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(cartridge.manifest['cartridge_id'], 'argos-practice-pilot')
         self.assertIn('pilot-a', cartridge.forms)
         self.assertEqual(len(cartridge.items), 4)
+
+    def test_session_subject_binds_manifest_and_can_start_exam(self):
+        model_storage = self.home / 'Models'
+        manifest = model_storage / 'manifests/registry.ollama.ai/library/fixture/latest'
+        manifest.parent.mkdir(parents=True)
+        manifest.write_bytes(b'synthetic fixture model manifest\n')
+        original_read_text = Path.read_text
+
+        def read_text(path, *args, **kwargs):
+            if path.as_posix() == '/proc/sys/kernel/random/boot_id':
+                return 'synthetic-boot'
+            return original_read_text(path, *args, **kwargs)
+
+        def create_test_key(path, executable='openssl'):
+            Path(path).write_bytes(b'test signing key placeholder')
+
+        class TestSigner:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+        cartridge = proctor_service.default_cartridge(self.home)
+        with patch.object(Path, 'read_text', read_text), \
+             patch.object(proctor_service, 'generate_key', create_test_key), \
+             patch.object(proctor_service, 'Ed25519Signer', TestSigner):
+            db, exam, _cart = proctor_service.make_session(
+                self.home, cartridge, 'pilot-a', 'fixture:latest', 'b' * 64,
+                model_storage=model_storage)
+        try:
+            status = exam.start('start-operation')
+            self.assertEqual(status['state'], 'ACTIVE')
+            row = db.execute('SELECT subject_json FROM sessions WHERE session_id=?',
+                             (exam.session_id,)).fetchone()
+            subject = json.loads(row['subject_json'])
+            self.assertEqual(subject['model_tag'], 'fixture:latest')
+            self.assertEqual(subject['model_digest'], hashlib.sha256(
+                b'synthetic fixture model manifest\n').hexdigest())
+            self.assertEqual(subject['configuration']['profile_sha256'], 'b' * 64)
+        finally:
+            db.close()
 
 
 if __name__ == '__main__':
