@@ -78,6 +78,20 @@ class BootEntryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 module.guest_result(wire(changed), setup_mode='managed')
 
+    def test_rendered_baseline_target_rejects_blank_ambiguous_and_wrong_dimensions(self):
+        def frame(boxes):
+            pixels = bytearray(1280 * 640 * 3)
+            for left, top, width, height in boxes:
+                for y in range(top, top + height):
+                    start = (y * 1280 + left) * 3
+                    pixels[start:start + width * 3] = bytes((130, 228, 222)) * width
+            return b'P6\n1280 640\n255\n' + pixels
+        self.assertEqual(module.baseline_button_target(frame([(178, 565, 336, 44)])), (346, 746))
+        for raw in (frame([]), frame([(178, 565, 336, 44), (178, 200, 336, 44)]),
+                    b'P6\n800 600\n255\n', frame([(178, 565, 385, 44)])):
+            with self.assertRaises(ValueError):
+                module.baseline_button_target(raw)
+
     def test_large_guest_payload_is_chunked_checked_and_never_shell_source(self):
         source = b'$(untrusted shell text)' + b''.join(hashlib.sha256(str(i).encode()).digest() for i in range(200))
         commands = module.guest_commands(source)

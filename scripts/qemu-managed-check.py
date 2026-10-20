@@ -388,82 +388,6 @@ def wait_for_active_firefox(timeout=5):
         time.sleep(.25)
 
 
-def click_model_lab_baseline(origin, token):
-    """Navigate to the button's fragment, then use normal keyboard activation.
-
-    Fragment navigation establishes the browser's sequential focus starting
-    point. Tab then Shift-Tab focuses that control without assuming Firefox's
-    Find result received focus. Space preserves normal disabled/click behavior.
-    The caller still requires an active Lab job and saved results.
-    """
-    stage = 'verify-active-firefox'
-    x11 = None
-    display = None
-    try:
-        if not wait_for_active_firefox() and not focus_firefox_dashboard():
-            raise ValueError('Model Lab is not the active Firefox page')
-        destination = origin + '/?' + urlencode({'token': token, 'view': 'lab'}) + '#lab-start'
-        stage = 'load-keyboard-libraries'
-        x11 = ctypes.CDLL('libX11.so.6')
-        xtst = ctypes.CDLL('libXtst.so.6')
-        x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
-        x11.XKeysymToKeycode.argtypes, x11.XKeysymToKeycode.restype = [ctypes.c_void_p, ctypes.c_ulong], ctypes.c_ubyte
-        x11.XkbKeycodeToKeysym.argtypes, x11.XkbKeycodeToKeysym.restype = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_int, ctypes.c_int], ctypes.c_ulong
-        x11.XFlush.argtypes = x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
-        xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
-        stage = 'open-input-display'
-        display = x11.XOpenDisplay(b':0')
-        if not display:
-            raise ValueError('Model Lab input display is unavailable')
-
-        def key(symbol, pressed):
-            code = x11.XKeysymToKeycode(display, symbol)
-            if not code or not xtst.XTestFakeKeyEvent(display, code, pressed, 0):
-                raise ValueError('Model Lab keyboard input failed')
-            x11.XFlush(display)
-
-        def tap(symbol):
-            key(symbol, 1)
-            key(symbol, 0)
-            time.sleep(.03)
-
-        def modified(modifier, symbol):
-            key(modifier, 1)
-            try:
-                tap(symbol)
-            finally:
-                key(modifier, 0)
-
-        stage = 'focus-location-bar'
-        modified(0xffe3, ord('l'))  # Control-L selects the location bar.
-        stage = 'type-dashboard-url'
-        for character in destination:
-            symbol = ord(character)
-            code = x11.XKeysymToKeycode(display, symbol)
-            if not code:
-                raise ValueError('Model Lab navigation key unavailable')
-            if x11.XkbKeycodeToKeysym(display, code, 0, 0) != symbol:
-                modified(0xffe1, symbol)  # Shift for URL punctuation/case.
-            else:
-                tap(symbol)
-        stage = 'navigate-dashboard'
-        tap(0xff0d)  # Return navigates through the ordinary Firefox UI.
-        time.sleep(5)
-        stage = 'focus-baseline-button'
-        tap(0xff09)  # Tab from the fragment's focus starting point.
-        modified(0xffe1, 0xff09)  # Shift-Tab returns to the baseline button.
-        stage = 'activate-baseline-button'
-        tap(0x20)
-    except ValueError:
-        # Report only a fixed phase. Never include the URL, session token, or
-        # response content in VM diagnostics.
-        print('ARGOS_C3_INPUT_FAILURE ' + stage, flush=True)
-        raise
-    finally:
-        if x11 is not None and display:
-            x11.XCloseDisplay(display)
-
-
 def await_dashboard_paint(timeout=90):
     """Wait for the host QMP observer to confirm the real dashboard has painted."""
     ready, _, _ = select.select([sys.stdin], [], [], timeout)
@@ -630,9 +554,8 @@ def managed_check(started, desktop_seconds):
     # The host must observe a non-placeholder rendered dashboard before this
     # guest uses keyboard input; a static Firefox title can appear while the
     # page is still showing its local-connection loading screen.
-    await_dashboard_paint()
     managed_stage('model-lab-button-click')
-    click_model_lab_baseline(origin, token)
+    await_dashboard_paint()
     managed_stage('model-lab-button-activated')
 
     def dashboard_json(path):
@@ -724,7 +647,7 @@ def managed_check(started, desktop_seconds):
         'model_lab_launch_command_succeeded': True, 'model_lab_ui_visible': True,
         'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
         'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
-        'model_lab_assistant_resumed': True,
+        'model_lab_assistant_resumed': True, 'model_lab_run_ids': run_ids,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics,
         'mission_control_visible': True, 'chat_destination_available': True,

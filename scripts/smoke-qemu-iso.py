@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline TCG guest acceptance of an existing checksum-verified ISO."""
+"""Offline guest acceptance of an existing checksum-verified ISO."""
 import argparse
 from collections import Counter
 import base64
@@ -43,19 +43,22 @@ def desktop_entry(text, *, guest=False):
 
 
 def screenshot(qmp, path):
+    qmp_commands(qmp, [{'execute': 'screendump', 'arguments': {'filename': str(path.absolute())}}])
+
+
+def qmp_commands(qmp, commands):
     with socket.socket(socket.AF_UNIX) as connection:
         connection.settimeout(15)
         connection.connect(str(qmp))
         stream = connection.makefile('rwb')
         json.loads(stream.readline())
-        for command in ({'execute': 'qmp_capabilities'},
-                        {'execute': 'screendump', 'arguments': {'filename': str(path.absolute())}}):
+        for command in [{'execute': 'qmp_capabilities'}, *commands]:
             stream.write(json.dumps(command).encode() + b'\n')
             stream.flush()
             while True:
                 reply = json.loads(stream.readline())
                 if 'error' in reply:
-                    raise ValueError('QEMU screenshot failed')
+                    raise ValueError('QEMU command failed')
                 if 'return' in reply:
                     break
 
@@ -97,6 +100,48 @@ def capture_graphical_dashboard(qmp, path, *, timeout=60):
             if time.monotonic() >= deadline:
                 raise ValueError('QEMU browser frame remained blank after paint wait') from error
             time.sleep(.5)
+
+
+def baseline_button_target(raw):
+    """Locate the pinned dashboard's baseline button; reject ambiguous layouts.
+
+    This is a UI input hint, never acceptance evidence. The guest must still
+    observe the real job, both saved runs, and assistant resumption.
+    """
+    header = re.match(rb'P6\s+(\d+)\s+(\d+)\s+255\s', raw)
+    if not header:
+        raise ValueError('Unexpected dashboard frame')
+    width, height = int(header[1]), int(header[2])
+    pixels = raw[header.end():]
+    if width != 1280 or height != 640 or len(pixels) != width * height * 3:
+        raise ValueError('Unexpected dashboard dimensions')
+    groups = []
+    for y in range(height):
+        row = pixels[y * width * 3:(y + 1) * width * 3]
+        for match in re.finditer(b'(?:\x82\xe4\xde){310,}', row):
+            x, length = match.start() // 3, len(match[0]) // 3
+            if match.start() % 3 or not 310 <= length <= 350:
+                continue
+            group = next((g for g in groups if abs(g[0] - x) < 12 and y - g[2] < 50), None)
+            if group is None:
+                groups.append([x, y, y, length])
+            else:
+                group[2] = y
+    targets = [(x + length // 2, (top + bottom) // 2 + 160)
+               for x, top, bottom, length in groups if 30 <= bottom - top <= 48]
+    if len(targets) != 1:
+        raise ValueError('Rendered baseline button missing or ambiguous')
+    return targets[0]
+
+
+def click_rendered_baseline(qmp, frame):
+    x, y = baseline_button_target(frame.read_bytes())
+    def event(kind, data):
+        return {'execute': 'input-send-event', 'arguments': {'events': [{'type': kind, 'data': data}]}}
+    qmp_commands(qmp, [event('abs', {'axis': 'x', 'value': x * 32767 // 1279}),
+                       event('abs', {'axis': 'y', 'value': y * 32767 // 799}),
+                       event('btn', {'button': 'left', 'down': True}),
+                       event('btn', {'button': 'left', 'down': False})])
 
 
 def lab_progress_phase(line):
@@ -226,7 +271,7 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
         qmp = work / 'qmp.sock'
         process = subprocess.Popen(['qemu-system-x86_64', '-accel', accel, '-cpu', 'host' if accel == 'kvm' else 'max', '-smp', '2',
                     '-m', '8192' if setup_mode == 'managed' else '4096', '-display', f'vnc=unix:{work / "vnc.sock"}', '-vga', 'std',
-                    '-nic', 'none', '-no-reboot',
+                    '-nic', 'none', '-no-reboot', '-device', 'qemu-xhci', '-device', 'usb-tablet',
                     '-kernel', str(work / 'kernel'), '-initrd', str(work / 'initrd'), '-append', append,
                     '-cdrom', str(image), '-serial', 'stdio', '-monitor', 'none',
                     '-qmp', f'unix:{qmp},server=on,wait=off'], stdin=subprocess.PIPE,
@@ -270,6 +315,7 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                         # until a real dashboard frame, rather than a Firefox
                         # title or white loading page, passes graphical QA.
                         capture_graphical_dashboard(qmp, output / 'desktop.ppm')
+                        click_rendered_baseline(qmp, output / 'desktop.ppm')
                         process.stdin.write(b'ARGOS_C3_UI_READY\n')
                         process.stdin.flush()
                         browser_paint_acknowledged = True
