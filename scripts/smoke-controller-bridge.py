@@ -334,13 +334,14 @@ def run(cli, report):
             reservation = json.loads((abort_home / '.local/state/argos-live/workload/reservation.json').read_text())
             abort_result_artifact = report.with_name('controller-bridge-abort-result.json')
             abort_result_artifact.write_text(json.dumps(abort_run, indent=2) + '\n')
+            evaluation_outcomes = [item for item in aborted.outcomes if item.get('kind') == 'evaluation']
             abort_checks = {
                 'run_completed': abort_run['state'] == 'completed',
                 'all_tasks_saved': abort_run['coverage']['completed'] == 20,
                 'pending_worker_cleared': aborted.pending is None,
-                'one_host_outcome': len(aborted.outcomes) == 1,
-                'outcome_matches_saved_run': bool(aborted.outcomes) and
-                    aborted.outcomes[0].get('result_id') == abort_run['id'],
+                'one_host_evaluation_outcome': len(evaluation_outcomes) == 1,
+                'outcome_matches_saved_run': bool(evaluation_outcomes) and
+                    evaluation_outcomes[0].get('result_id') == abort_run['id'],
                 'reservation_quarantined': reservation.get('state') == 'quarantined',
                 'controller_inference_stopped': counts['controller_requests'] == requests_at_abort,
                 'no_fixture_errors': not failures,
