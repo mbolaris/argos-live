@@ -151,7 +151,9 @@ class ControllerBridgeTests(unittest.TestCase):
         if failures:
             raise failures[0]
         store = Store(self.home / '.local/share/argos-live/results')
-        rows = store.list()
+        listing = store.list()
+        self.assertEqual(listing['rejected'], [])
+        rows = listing['runs']
         self.assertEqual(len(rows), 1)
         saved = store.load(rows[0]['id'])
         self.assertEqual(saved['state'], 'completed')
