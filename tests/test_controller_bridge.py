@@ -56,7 +56,11 @@ class ControllerBridgeTests(unittest.TestCase):
             bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
             request, turn = self.begin(bridge)
             self.assertEqual(bridge.dispatch(request)['turn_token'], turn['turn_token'])
-            bridge.dispatch({**turn, 'op': 'ended'})
+            diagnostics = {'tool_hooks':14,'bound_calls':14,'executions':14,
+                           'rejected':{'unknown_tool':0,'missing_admission':0,
+                                       'invalid_call_id':0,'stale_binding':0}}
+            bridge.dispatch({**turn, 'op': 'ended', 'diagnostics':diagnostics})
+            self.assertEqual(json.loads(bridge.events.read_text())['admission_diagnostics'],diagnostics)
             for claim in ({**turn, 'op': 'complete', 'worker_exited': True},
                           {**request, 'run_id': 'next-run'}):
                 with self.assertRaises(ValueError):

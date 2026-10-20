@@ -304,6 +304,8 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.deepEqual(await admission.execute('exam-item','proctor_item',{item_id:'q1'}),{status:'appended'});
     await hooks.get('agent_end')({},ctx);
     assert.deepEqual(requests.map((value) => value.op),['begin','tool','tool','ended']);
+    assert.deepEqual(requests.at(-1).diagnostics,{tool_hooks:3,bound_calls:2,executions:2,
+      rejected:{unknown_tool:1,missing_admission:0,invalid_call_id:0,stale_binding:0}});
     assert.equal(requests[1].run_id,'run-1');
     assert.equal(requests[1].call_id,'log-1');
     assert.equal(requests[1].turn_token,'fictional-turn');

@@ -251,6 +251,7 @@ def run(cli, report):
                             'active': bool(bridge.active),
                             'ended': bool(bridge.active and bridge.active.get('ended')),
                             'uncertain': bridge.uncertain,
+                            'diagnostics': bridge.active.get('diagnostics') if bridge.active else None,
                             'tool_outcome_kinds': [item.get('kind') for item in bridge.outcomes],
                         },
                         'tool_outcomes': list(bridge.outcomes),

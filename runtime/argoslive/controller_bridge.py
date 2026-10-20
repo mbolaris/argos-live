@@ -74,6 +74,8 @@ class Bridge:
         if self.active:
             value.update({key: self.active[key] for key in
                           ('run_id', 'session_id', 'session_key', 'trigger', 'ended')})
+            if isinstance(self.active.get('diagnostics'), dict):
+                value['admission_diagnostics'] = self.active['diagnostics']
         value['tools'] = self.outcomes
         write_json(self.events, value)
 
@@ -87,6 +89,19 @@ class Bridge:
         if operation == 'ended':
             with self.lock:
                 self.check_turn(request)
+                diagnostics = request.get('diagnostics')
+                if isinstance(diagnostics, dict):
+                    counts = ('tool_hooks', 'bound_calls', 'executions')
+                    rejected = diagnostics.get('rejected')
+                    rejection_kinds = ('unknown_tool', 'missing_admission', 'invalid_call_id', 'stale_binding')
+                    if (set(diagnostics) != {*counts, 'rejected'} or
+                            any(type(diagnostics.get(key)) is not int or diagnostics[key] < 0
+                                for key in counts) or
+                            not isinstance(rejected, dict) or set(rejected) != set(rejection_kinds) or
+                            any(type(rejected.get(key)) is not int or rejected[key] < 0
+                                for key in rejection_kinds)):
+                        raise ValueError('Invalid bounded controller diagnostics')
+                    self.active['diagnostics'] = diagnostics
                 self.active['ended'] = True
                 self.publish()
             return {'status': 'recorded'}
