@@ -19,10 +19,13 @@ passed from main `d016e45febbd83eb7cdd601a7517c4e0af5d903b`; its ISO SHA-256 is
   Final-image encrypted shutdown 39447678206 passed all three clean-filesystem
   and read-only fsck cycles, preserving 2/4/6 cumulative synthetic backup files.
 - Initial managed run 39447668689 failed a startup assertion after gateway
-  readiness. Preserve that failure. The stricter diagnostic harness passed
+  readiness. Preserve that failure. The harness with added diagnostics passed
   39448644453 on the same ISO with saved IDs `044624f9b9fa9195e452714dc47ceb76`
   and `c298b3184007b04d6f22246c125d7876`. The initial failure's cause is
-  unconfirmed; one additional cold managed run 39450021324 is pending.
+  unconfirmed. Additional cold managed run 39450021324 also passed, with saved
+  IDs `fc8da3e6ca3d58d2cc8786b42d786fe1` and `57c0b40b9402046f1377ed7038c067ca`.
+  Its reviewed progress frame still showed the speed view at capture time;
+  completed ability coverage is established by its saved result, not that frame.
 - The native Firefox Lab click uses an isolated test profile of the shipped
   binary. It does not establish interaction with the launcher's original tab
   or a browser chat reply. Reviewed progress frames show an active ability
