@@ -99,6 +99,12 @@ class BootEntryTests(unittest.TestCase):
                 path.write_bytes(raw)
                 with self.assertRaises(ValueError):
                     module.graphical_frame(path)
+            near_blank = bytearray([249, 249, 251] * (800 * 600))
+            for index in range(0, 30000, 3):
+                near_blank[index:index + 3] = bytes((index % 251, index % 127, index % 31))
+            path.write_bytes(b'P6\n800 600\n255\n' + near_blank)
+            with self.assertRaisesRegex(ValueError, 'blank or placeholder'):
+                module.graphical_frame(path)
             path.write_bytes(b'P6\n800 600\n255\n' +
                              bytes(value for pixel in range(800 * 600) for value in
                                    (pixel % 251, pixel % 127, pixel % 31)))

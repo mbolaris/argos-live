@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline TCG guest acceptance of an existing checksum-verified ISO."""
 import argparse
+from collections import Counter
 import base64
 import hashlib
 import json
@@ -82,8 +83,8 @@ def screenshot_dashboard_content(qmp, path):
         private_path.unlink(missing_ok=True)
 
 
-def capture_graphical_dashboard(qmp, path, *, timeout=30):
-    """Wait briefly for the newly opened browser to paint before accepting pixels."""
+def capture_graphical_dashboard(qmp, path, *, timeout=60):
+    """Wait for the newly opened browser to paint before accepting pixels."""
     deadline = time.monotonic() + timeout
     while True:
         screenshot_dashboard_content(qmp, path)
@@ -161,8 +162,8 @@ def graphical_frame(path):
     if width < 800 or height < 600 or len(pixels) != width * height * 3:
         raise ValueError('QEMU did not capture the configured graphical desktop')
     stride = max(3, len(pixels) // 6000 // 3 * 3)
-    colors = {pixels[offset:offset + 3] for offset in range(0, len(pixels) - 2, stride)}
-    if len(colors) < 9:
+    colors = [pixels[offset:offset + 3] for offset in range(0, len(pixels) - 2, stride)]
+    if len(set(colors)) < 9 or Counter(colors).most_common(1)[0][1] / len(colors) > .90:
         raise ValueError('QEMU captured a blank or placeholder frame; review screenshot')
 
 
@@ -232,6 +233,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
         print('Starting offline CPU-emulated guest; acceptance timeout is 30 minutes.', flush=True)
         reported_stages = set()
         reported_lab_phases = set()
+        browser_paint_acknowledged = False
         next_heartbeat = started + 60
         tail = ''
         login_sent = password_sent = payload_sent = False
@@ -260,9 +262,18 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                             print(f'Guest Model Lab phase: {phase}', flush=True)
                             if not (output / 'lab-progress.ppm').exists():
                                 capture_graphical_dashboard(qmp, output / 'lab-progress.ppm')
-                    if {'cpu-inference', 'managed-browser'} & reported_stages and not (output / 'desktop.ppm').exists():
-                        # Native DOM readiness plus paint delay precede this
-                        # stage. Capture startup, not the idle desktop after a
+                    if (setup_mode == 'managed' and 'managed-browser' in reported_stages and
+                            not browser_paint_acknowledged):
+                        # The guest is blocked on a serial acknowledgement
+                        # until a real dashboard frame, rather than a Firefox
+                        # title or white loading page, passes graphical QA.
+                        capture_graphical_dashboard(qmp, output / 'desktop.ppm')
+                        process.stdin.write(b'ARGOS_C3_UI_READY\n')
+                        process.stdin.flush()
+                        browser_paint_acknowledged = True
+                    elif ({'cpu-inference', 'managed-browser'} & reported_stages and
+                          not (output / 'desktop.ppm').exists()):
+                        # Capture startup, not the idle desktop after a
                         # several-minute CPU emulation workload.
                         capture_graphical_dashboard(qmp, output / 'desktop.ppm')
                     if time.monotonic() >= next_heartbeat:

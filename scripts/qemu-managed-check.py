@@ -7,7 +7,9 @@ import os
 from pathlib import Path
 import re
 import stat
+import select
 import subprocess
+import sys
 import time
 from urllib.request import Request, ProxyHandler, build_opener
 from urllib.error import HTTPError, URLError
@@ -462,6 +464,13 @@ def click_model_lab_baseline(origin, token):
             x11.XCloseDisplay(display)
 
 
+def await_dashboard_paint(timeout=90):
+    """Wait for the host QMP observer to confirm the real dashboard has painted."""
+    ready, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not ready or sys.stdin.readline(64) != 'ARGOS_C3_UI_READY\n':
+        raise ValueError('The managed dashboard did not establish its visible ready state')
+
+
 def firefox_connected(port):
     """An actual Firefox process must hold a gateway TCP connection."""
     remote = f'0100007F:{port:04X}'
@@ -613,9 +622,10 @@ def managed_check(started, desktop_seconds):
     print('ARGOS_C3_STAGE model-lab-visible', flush=True)
     time.sleep(5)
     print('ARGOS_C3_STAGE managed-browser', flush=True)
-    # Give the host-side QMP capture a moment to save the idle Lab screen,
-    # then exercise the actual visible button rather than calling its API.
-    time.sleep(5)
+    # The host must observe a non-placeholder rendered dashboard before this
+    # guest uses keyboard input; a static Firefox title can appear while the
+    # page is still showing its local-connection loading screen.
+    await_dashboard_paint()
     print('ARGOS_C3_STAGE model-lab-button-click', flush=True)
     click_model_lab_baseline(origin, token)
     print('ARGOS_C3_STAGE model-lab-button-activated', flush=True)
