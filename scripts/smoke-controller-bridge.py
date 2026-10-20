@@ -332,20 +332,31 @@ def run(cli, report):
                 raise ValueError('SDK-aborted evaluation did not publish exactly one saved run')
             abort_run = abort_store.load(abort_listing['runs'][0]['id'])
             reservation = json.loads((abort_home / '.local/state/argos-live/workload/reservation.json').read_text())
-            if (abort_run['state'] != 'completed' or abort_run['coverage']['completed'] != 20 or
-                    aborted.pending is not None or len(aborted.outcomes) != 1 or
-                    aborted.outcomes[0].get('result_id') != abort_run['id'] or
-                    reservation.get('state') != 'quarantined' or
-                    counts['controller_requests'] != requests_at_abort or failures):
-                raise ValueError('SDK abort did not preserve saved result and uncertain admission')
+            abort_result_artifact = report.with_name('controller-bridge-abort-result.json')
+            abort_result_artifact.write_text(json.dumps(abort_run, indent=2) + '\n')
+            abort_checks = {
+                'run_completed': abort_run['state'] == 'completed',
+                'all_tasks_saved': abort_run['coverage']['completed'] == 20,
+                'pending_worker_cleared': aborted.pending is None,
+                'one_host_outcome': len(aborted.outcomes) == 1,
+                'outcome_matches_saved_run': bool(aborted.outcomes) and
+                    aborted.outcomes[0].get('result_id') == abort_run['id'],
+                'reservation_quarantined': reservation.get('state') == 'quarantined',
+                'controller_inference_stopped': counts['controller_requests'] == requests_at_abort,
+                'no_fixture_errors': not failures,
+            }
+            receipt['sdk_abort_checks'] = abort_checks
+            receipt['sdk_abort_reservation_state'] = reservation.get('state')
+            receipt['sdk_abort_outcomes'] = aborted.outcomes
+            receipt['sdk_abort_failures'] = failures
+            if not all(abort_checks.values()):
+                raise ValueError('SDK abort acceptance checks failed: ' + json.dumps(abort_checks))
             receipt.update(sdk_sigterm_aborted_controller=True,
                 sdk_sigterm_worker_exit=aborted.worker.returncode,
                 sdk_abort_evaluation_saved=True, sdk_abort_saved_run_id=abort_run['id'],
                 sdk_abort_saved_coverage=abort_run['coverage'], sdk_abort_second_evaluation_refused=True,
                 sdk_abort_controller_inference_stayed_stopped=True,
                 sdk_abort_reservation_quarantined=True, sdk_abort_controller_requests=counts['controller_requests'])
-            abort_result_artifact = report.with_name('controller-bridge-abort-result.json')
-            abort_result_artifact.write_text(json.dumps(abort_run, indent=2) + '\n')
             receipt['sdk_abort_result_sha256'] = hashlib.sha256(abort_result_artifact.read_bytes()).hexdigest()
             receipt['passed'] = True
             return receipt
