@@ -300,7 +300,8 @@ def run(cli, report):
             # Exercise the chained owner command: practice must finalize and
             # release before a separate campaign profile receives host tools.
             progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[])
-            with patch.object(proctor_service.startup, 'source',
+            with patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
+                    patch.object(proctor_service.startup, 'source',
                               return_value=(model_storage, 'fixture:latest')), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
                     patch.object(proctor_service.owned_ollama, 'owned',
