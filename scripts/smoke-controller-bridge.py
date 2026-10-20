@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import signal
 import sys
 import tempfile
 import threading
@@ -140,7 +141,7 @@ def run(cli, report):
             try:
                 self.wfile.write(raw)
             except (BrokenPipeError, ConnectionResetError):
-                # A real SDK turn timeout can close its inference request while
+                # A real SDK abort can close its inference request while
                 # the host-owned evaluator is still draining and saving.
                 pass
 
@@ -236,7 +237,7 @@ def run(cli, report):
                 slot.complete()
             receipt.update(proctor_admitted_after_host_release=True)
 
-            # Exercise a real pinned SDK timeout while its admitted evaluation
+            # Exercise a real pinned SDK SIGTERM abort while its admitted evaluation
             # is blocked in the synthetic inference backend. The agent process
             # must exit, but its host-owned delegated evaluator must keep the
             # reservation, save a complete run without a polling client, and
@@ -267,26 +268,24 @@ def run(cli, report):
                 try:
                     with controller_bridge.owned(abort_home, session_key='agent:main:abort-' + str(uuid.uuid4()),
                                                  worker_timeout=60) as (aborted, _abort_env):
-                        aborted.launch(cli, 'Run the quick ability check, then reply READY.', timeout=12)
+                        aborted.launch(cli, 'Run the quick ability check, then reply READY.', timeout=600)
                         if not evaluation_started.wait(45):
                             raise ValueError('Pinned SDK did not dispatch the gated evaluation')
-                        deadline = time.monotonic() + 35
-                        while aborted.worker.poll() is None and time.monotonic() < deadline:
-                            time.sleep(.05)
-                        if aborted.worker.poll() is None:
-                            raise ValueError('Pinned SDK agent timeout did not end the controller process')
-                        timeout_stdout, timeout_stderr = aborted.worker.communicate(timeout=5)
-                        timeout_output = (timeout_stdout + '\n' + timeout_stderr).lower()
-                        timeout_diagnostic = any(marker in timeout_output for marker in
-                                                 ('timeout', 'timed out', 'aborted', 'abort'))
-                        receipt.update(sdk_timeout_exit_status=aborted.worker.returncode,
-                                       sdk_timeout_diagnostic_present=timeout_diagnostic,
-                                       sdk_timeout_output_sha256=hashlib.sha256(
-                                           (timeout_stdout + '\n' + timeout_stderr).encode()).hexdigest())
-                        if aborted.worker.returncode == 0 or not timeout_diagnostic:
-                            raise ValueError('Pinned SDK process ended without a non-success timeout/abort outcome')
+                        if aborted.worker.poll() is not None:
+                            raise ValueError('Pinned SDK ended before the explicit abort signal')
+                        # OpenClaw's local agent CLI handles SIGTERM as a run
+                        # interruption. Keep the tool backend gated so no normal
+                        # successful tool result can reach the agent first.
+                        aborted.worker.send_signal(signal.SIGTERM)
+                        try:
+                            abort_stdout, abort_stderr = aborted.worker.communicate(timeout=20)
+                        except subprocess.TimeoutExpired as error:
+                            raise ValueError('Pinned SDK did not exit after SIGTERM') from error
+                        receipt.update(sdk_sigterm_sent=True, sdk_abort_worker_exit=aborted.worker.returncode,
+                                       sdk_abort_output_sha256=hashlib.sha256(
+                                           (abort_stdout + '\n' + abort_stderr).encode()).hexdigest())
                         if not aborted.pending or aborted.pending.poll() is not None:
-                            raise ValueError('SDK timeout cancelled or lost the host-owned evaluation')
+                            raise ValueError('SDK abort cancelled or lost the host-owned evaluation')
                         requests_at_abort = counts['controller_requests']
                         try:
                             with workload.reserve(abort_home, 'evaluation'):
@@ -339,7 +338,8 @@ def run(cli, report):
                     reservation.get('state') != 'quarantined' or
                     counts['controller_requests'] != requests_at_abort or failures):
                 raise ValueError('SDK abort did not preserve saved result and uncertain admission')
-            receipt.update(sdk_timeout_aborted_controller=True, sdk_timeout_worker_exit=aborted.worker.returncode,
+            receipt.update(sdk_sigterm_aborted_controller=True,
+                sdk_sigterm_worker_exit=aborted.worker.returncode,
                 sdk_abort_evaluation_saved=True, sdk_abort_saved_run_id=abort_run['id'],
                 sdk_abort_saved_coverage=abort_run['coverage'], sdk_abort_second_evaluation_refused=True,
                 sdk_abort_controller_inference_stayed_stopped=True,
