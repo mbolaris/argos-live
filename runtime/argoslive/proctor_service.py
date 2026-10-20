@@ -1,9 +1,10 @@
-"""Owner-started, host-selected Proctor practice sessions through the managed gateway.
+"""Owner-started Proctor practice and improvement sessions through the managed gateway.
 
 This service is cooperative enforcement for the same-UID Argos account. It is
-deliberately practice-only until protected service identity and calibrated forms
+deliberately coaching-only until protected service identity and calibrated forms
 are deployed. Agent tool calls cannot select the cartridge, form, exposure tier,
-subject identity, policy, caller credential, or signing key.
+subject identity, policy, caller credential, or signing key; Proctor scores do
+not qualify an improvement campaign.
 """
 import argparse
 from contextlib import ExitStack
@@ -326,7 +327,7 @@ def main(argv=None):
         value = (run_improvement(home, args.cartridge, args.form) if args.operation == 'improve'
                  else run_practice(home, args.cartridge, args.form))
         print(json.dumps(value, indent=2, ensure_ascii=False) if args.json else
-              (f"Improvement campaign complete: {len(value['campaign']['saved_evaluation_ids'])} saved evaluations; "
+              (f"Improvement session ended: {len(value['campaign']['saved_evaluation_ids'])} saved evaluations; "
                f"practice transcript {value['practice']['transcript_id']} (uncalibrated coaching only)."
                if args.operation == 'improve' else
                f"Practice complete: {value['result']['correct']}/{value['result']['total']}; "
