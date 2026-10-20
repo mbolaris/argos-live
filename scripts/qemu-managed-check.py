@@ -529,6 +529,11 @@ def backend_observation(opener):
     return {'processes': items, 'pinned_api_reachable': reachable}
 
 
+def managed_stage(name):
+    globals()['ARGOS_C3_LAST_STAGE'] = name
+    print('ARGOS_C3_STAGE ' + name, flush=True)
+
+
 def managed_check(started, desktop_seconds):
     from argoslive.desktop import session_url
     from argoslive.ollama import NoRedirect
@@ -537,7 +542,7 @@ def managed_check(started, desktop_seconds):
     home = Path.home()
     descriptor = home / '.local/state/argos-live/desktop-session.json'
     deadline = time.monotonic() + 1200
-    print('ARGOS_C3_STAGE managed-startup', flush=True)
+    managed_stage('managed-startup')
     opener = build_opener(ProxyHandler({}), NoRedirect())
     last = None
     stable_since = None
@@ -599,13 +604,13 @@ def managed_check(started, desktop_seconds):
     # Exercise the exact command installed in the Applications menu. The live
     # desktop is already owned and ready, so this follows its authenticated
     # reconnect path and opens the dedicated Lab view in shipped Firefox.
-    print('ARGOS_C3_STAGE model-lab-launch', flush=True)
+    managed_stage('model-lab-launch')
     lab_env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(home / '.Xauthority'))
     subprocess.run(['argos', 'desktop', '--model-lab'], check=True, timeout=20,
                    env=lab_env,
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
-    print('ARGOS_C3_STAGE model-lab-command-returned', flush=True)
+    managed_stage('model-lab-command-returned')
     lab_deadline = time.monotonic() + 30
     while not firefox_model_lab_visible():
         focus_firefox_dashboard()
@@ -619,16 +624,16 @@ def managed_check(started, desktop_seconds):
     time.sleep(5)
     if not firefox_model_lab_visible():
         raise ValueError('Model Lab view did not remain open after assistant readiness')
-    print('ARGOS_C3_STAGE model-lab-visible', flush=True)
+    managed_stage('model-lab-visible')
     time.sleep(5)
-    print('ARGOS_C3_STAGE managed-browser', flush=True)
+    managed_stage('managed-browser')
     # The host must observe a non-placeholder rendered dashboard before this
     # guest uses keyboard input; a static Firefox title can appear while the
     # page is still showing its local-connection loading screen.
     await_dashboard_paint()
-    print('ARGOS_C3_STAGE model-lab-button-click', flush=True)
+    managed_stage('model-lab-button-click')
     click_model_lab_baseline(origin, token)
-    print('ARGOS_C3_STAGE model-lab-button-activated', flush=True)
+    managed_stage('model-lab-button-activated')
 
     def dashboard_json(path):
         request = Request(origin + path, headers={'X-Argos-Token': token})
@@ -684,7 +689,7 @@ def managed_check(started, desktop_seconds):
     if (len(saved_rows) != 2 or {row.get('kind') for row in saved_rows} != {'speed', 'ability'}
             or not lab_value.get('resume_requested')):
         raise ValueError('Model Lab results or assistant resume request are missing')
-    print('ARGOS_C3_STAGE model-lab-results-saved', flush=True)
+    managed_stage('model-lab-results-saved')
 
     resumed = False
     resume_deadline = time.monotonic() + 300
@@ -700,7 +705,7 @@ def managed_check(started, desktop_seconds):
         time.sleep(2)
     if not resumed or not firefox_model_lab_visible():
         raise ValueError('Assistant did not resume while keeping Model Lab open')
-    print('ARGOS_C3_STAGE model-lab-assistant-resumed', flush=True)
+    managed_stage('model-lab-assistant-resumed')
     if is_guest:
         from argoslive import session_mode, storage_view
         from argoslive.web.status import mounts_and_blocks, persistence

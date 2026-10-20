@@ -298,7 +298,12 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                         payload_next += 1
                         payload_sent = payload_next == len(guest)
                         tail = ''
-                    if re.search(r'ARGOS_C3_FAIL [A-Za-z]+\r?\n', tail):
+                    if (setup_mode == 'managed' and 'model-lab-command-returned' in reported_stages and
+                            not (output / 'lab-startup.ppm').exists()):
+                        # Preserve the visible state immediately after the menu command,
+                        # including failures before the button interaction stage.
+                        screenshot_dashboard_content(qmp, output / 'lab-startup.ppm')
+                    if re.search(r'ARGOS_C3_FAIL [A-Za-z]+(?: [a-z-]+)?\r?\n', tail):
                         raise ValueError('Guest acceptance failed; see console artifact')
                     result = guest_result(tail, setup_mode=setup_mode, guest=guest_mode)
                     if result is not None:

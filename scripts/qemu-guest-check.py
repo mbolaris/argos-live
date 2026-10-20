@@ -21,6 +21,7 @@ def main():
     if setup_mode != 'managed' and Path('/home/argos/.config/argos-live/state.json').exists():
         raise ValueError('Test requires an unconfigured disposable guest')
     def stage(name):
+        globals()['ARGOS_C3_LAST_STAGE'] = name
         print('ARGOS_C3_STAGE ' + name, flush=True)
     stage('desktop')
     deadline = time.monotonic() + 180
@@ -144,5 +145,6 @@ if __name__ == '__main__':
     try:
         main()
     except BaseException as error:
-        print('ARGOS_C3_FAIL ' + type(error).__name__, flush=True)
+        stage = globals().get('ARGOS_C3_LAST_STAGE', 'unknown')
+        print('ARGOS_C3_FAIL ' + type(error).__name__ + ' ' + stage, flush=True)
         raise SystemExit(1)
