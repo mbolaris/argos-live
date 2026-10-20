@@ -33,6 +33,11 @@ capability, keys, scores and signed transcript. A host-side terminal transcript
 must be issued before the workload releases. The adapter refuses reference-aided
 sessions until bounded aid workers are implemented.
 
+For host-selected practice sessions only, `argos_proctor_feedback` returns
+aggregate score and domain counts after terminal signing, giving the agent a
+learning signal without revealing answer keys. Assessment and held-out feedback
+remains host-only.
+
 This is still a cooperative same-UID bridge. There is no installed service
 identity or OS-enforced backend exclusion, the model identity is host-declared
 rather than attested, and a managed context is not wired into the production

@@ -35,6 +35,10 @@ transitions. The examinee tools intentionally return no scores, answer keys or
 signed transcript. A completed exam is evidence for the trusted host to review;
 it does not by itself validate an instruction change or prove general ability.
 These tools are unavailable in ordinary improvement sessions.
+When the host specifically selects a practice session, use
+`argos_proctor_feedback` after completion to inspect aggregate score and domain
+counts, then choose a practice experiment. The tool refuses feedback for
+assessment and held-out sessions.
 
 For an instruction experiment, use `argos_inspect` to read the canonical
 workspace instructions, their hash, current configuration receipt, active

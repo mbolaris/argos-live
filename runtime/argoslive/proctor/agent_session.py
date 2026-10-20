@@ -6,6 +6,7 @@ active question and accept answers; they never return a score or transcript.
 This is a cooperative API until a separate service identity protects its files.
 """
 import hashlib
+import json
 
 
 class AgentSession:
@@ -110,6 +111,16 @@ class AgentSession:
             raise ValueError('Exam has not reached a terminal state')
         self.engine.tick()
         return self.engine.get_transcript(self.session_id, self._token)
+
+    def practice_feedback(self):
+        """Return aggregate coaching feedback only for a host-selected practice form."""
+        if self.tier != 'practice':
+            raise ValueError('Scores are withheld for assessment and held-out sessions')
+        envelope = self.host_transcript()
+        payload = json.loads(envelope['payload_json'])
+        return {'state': payload['outcome'], 'correct': payload['accepted_correct'],
+                'total': payload['total_items'], 'unanswered': payload['unanswered'],
+                'domains': payload['domains']}
 
     def _require_started(self):
         if self.session_id is None or self._token is None:

@@ -104,6 +104,26 @@ class AgentSessionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'server-selected active module'):
             exam.submit('m2', 'wrong-module-submit')
 
+    def test_practice_feedback_supports_learning_but_assessments_withhold_scores(self):
+        exam = self.session(tier='practice')
+        exam.start('practice-start')
+        exam.answer('q1', 'B', 'practice-q1')
+        exam.answer('q2', '4', 'practice-q2')
+        exam.submit('m1', 'practice-submit-1')
+        self.clock.now += 500_000_000
+        exam.continue_module('practice-continue')
+        exam.answer('q3', 'A', 'practice-q3')
+        exam.answer('q4', '-1.25', 'practice-q4')
+        exam.submit('m2', 'practice-submit-2')
+        feedback = exam.practice_feedback()
+        self.assertEqual((feedback['correct'], feedback['total'], feedback['unanswered']), (4, 4, 0))
+        self.assertEqual(feedback['domains']['reasoning'], {'correct': 2, 'total': 2, 'answered': 2})
+        held_out = self.session(tier='held_out', subject=dict(self.subject,
+            lineage_id='heldout-lineage', memory_id='heldout-memory'))
+        held_out.start('heldout-no-feedback')
+        with self.assertRaisesRegex(ValueError, 'withheld'):
+            held_out.practice_feedback()
+
     def test_agent_answer_cannot_choose_revision_or_rewrite_condition(self):
         exam = self.session()
         exam.start('host-start-0005')
@@ -145,6 +165,8 @@ class AgentSessionTests(unittest.TestCase):
             call('answer-q3', 'proctor_answer', {'item_id': 'q3', 'answer': 'A'})
             call('answer-q4', 'proctor_answer', {'item_id': 'q4', 'answer': '-1.25'})
             self.assertEqual(call('submit-two', 'proctor_submit', {'module_id': 'm2'})['state'], 'COMPLETED')
+            with self.assertRaisesRegex(ValueError, 'withheld'):
+                call('heldout-feedback', 'proctor_feedback')
 
             class Worker:
                 @staticmethod
@@ -159,6 +181,8 @@ class AgentSessionTests(unittest.TestCase):
             payload = json.loads(envelope['payload_json'])
             self.assertEqual(payload['accepted_correct'], 4)
             self.assertEqual(payload['exposure_tier'], 'held_out')
+            with self.assertRaisesRegex(ValueError, 'withheld'):
+                exam.practice_feedback()
             self.assertNotIn('accepted_correct', json.dumps(bridge.outcomes))
             self.assertNotIn('payload_json', json.dumps(bridge.outcomes))
 

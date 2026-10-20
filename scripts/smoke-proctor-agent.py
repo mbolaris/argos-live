@@ -25,11 +25,12 @@ from synthetic_http import SyntheticHTTPServer
 TOOLS = ['argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item', 'argos_proctor_answer',
          'argos_proctor_item', 'argos_proctor_answer', 'argos_proctor_submit',
          'argos_proctor_continue', 'argos_proctor_item', 'argos_proctor_answer',
-         'argos_proctor_item', 'argos_proctor_answer', 'argos_proctor_submit']
+         'argos_proctor_item', 'argos_proctor_answer', 'argos_proctor_submit',
+         'argos_proctor_feedback']
 ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'}, {'item_id': 'q2'},
         {'item_id': 'q2', 'answer': '4'}, {'module_id': 'm1'}, {}, {'item_id': 'q3'},
         {'item_id': 'q3', 'answer': 'A'}, {'item_id': 'q4'},
-        {'item_id': 'q4', 'answer': '-1.25'}, {'module_id': 'm2'}]
+        {'item_id': 'q4', 'answer': '-1.25'}, {'module_id': 'm2'}, {}]
 if len(TOOLS) != len(ARGS):
     raise RuntimeError('Synthetic Proctor tool plan is inconsistent')
 
@@ -147,6 +148,8 @@ def run(cli, report):
                     raise ValueError('Unexpected Proctor tool dispatch: ' + json.dumps(progress))
                 if any(item['kind'] in {'evaluation', 'log', 'edit', 'resolve'} for item in bridge.outcomes):
                     raise ValueError('Campaign tools were available during the Proctor session')
+                if any(item['kind'] == 'proctor_feedback' for item in bridge.outcomes):
+                    raise ValueError('Held-out exam feedback was returned to the examinee')
                 signed = profile.host_transcript()
                 if not verify_envelope(signed, signer.public_key_der):
                     raise ValueError('Host-issued Proctor transcript signature did not verify')

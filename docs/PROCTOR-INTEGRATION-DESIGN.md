@@ -111,6 +111,11 @@ bound as the workload result ID, and its signed payload hash is journaled before
 release. The agent tools return questions and state but no score, answer key or
 transcript.
 
+`argos_proctor_feedback` returns aggregate score and domain counts only when the
+host preselected the practice tier and the session is terminal. This lets the
+agent choose a follow-up practice experiment. Assessment and held-out sessions
+refuse feedback and preserve scores for the trusted host.
+
 This adapter is declared enforcement only and is not active in the default
 profile or production gateway. The host must build the exam profile from a
 verified model/configuration snapshot and the protected service must own the

@@ -14,7 +14,7 @@ test('dedicated Proctor tools are registered as optional managed-only tools', as
   const options = new Map();
   registerPlugin({registerTool(tool, metadata) { tools.set(tool.name, tool); options.set(tool.name, metadata); }});
   for (const name of ['argos_proctor_start','argos_proctor_status','argos_proctor_item',
-    'argos_proctor_answer','argos_proctor_continue','argos_proctor_submit']) {
+    'argos_proctor_answer','argos_proctor_continue','argos_proctor_submit','argos_proctor_feedback']) {
     assert.equal(options.get(name)?.optional, true);
     await assert.rejects(tools.get(name).execute('unmanaged', {}, undefined), /managed host controller/);
   }

@@ -194,6 +194,12 @@ export default function register(api) {
     async execute(id, params, signal) { return controlled(id,'proctor_submit',params,signal); }
   }, {optional:true});
   api.registerTool({
+    name:'argos_proctor_feedback', label:'Review practice exam feedback',
+    description:'Review aggregate score and domain counts only for a host-selected practice session after it ends. Assessment and held-out sessions never return feedback to the examinee.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'proctor_feedback',params,signal); }
+  }, {optional:true});
+  api.registerTool({
     name: "argos_evaluate",
     label: "Evaluate OpenClaw",
     description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",

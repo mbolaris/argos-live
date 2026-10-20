@@ -5,7 +5,7 @@
   "configSchema": {"type": "object", "additionalProperties": false,
     "properties": {"hostAdmission": {"type": "boolean", "default": false}}},
   "skills": ["./skills"],
-  "contracts": {"tools": ["argos_evaluate", "argos_compare", "argos_log", "argos_inspect", "argos_edit_instructions", "argos_resolve_instructions", "argos_proctor_start", "argos_proctor_status", "argos_proctor_item", "argos_proctor_answer", "argos_proctor_continue", "argos_proctor_submit"]},
+  "contracts": {"tools": ["argos_evaluate", "argos_compare", "argos_log", "argos_inspect", "argos_edit_instructions", "argos_resolve_instructions", "argos_proctor_start", "argos_proctor_status", "argos_proctor_item", "argos_proctor_answer", "argos_proctor_continue", "argos_proctor_submit", "argos_proctor_feedback"]},
   "toolMetadata": {"argos_inspect": {"optional": true},
     "argos_edit_instructions": {"optional": true, "sideEffecting": true},
     "argos_resolve_instructions": {"optional": true, "sideEffecting": true},
@@ -14,5 +14,6 @@
     "argos_proctor_item": {"optional": true},
     "argos_proctor_answer": {"optional": true, "sideEffecting": true},
     "argos_proctor_continue": {"optional": true, "sideEffecting": true},
-    "argos_proctor_submit": {"optional": true, "sideEffecting": true}}
+    "argos_proctor_submit": {"optional": true, "sideEffecting": true},
+    "argos_proctor_feedback": {"optional": true}}
 }

@@ -6,6 +6,7 @@ const TOOLS = new Map([
   ['argos_proctor_start', 'proctor_start'], ['argos_proctor_status', 'proctor_status'],
   ['argos_proctor_item', 'proctor_item'], ['argos_proctor_answer', 'proctor_answer'],
   ['argos_proctor_continue', 'proctor_continue'], ['argos_proctor_submit', 'proctor_submit'],
+  ['argos_proctor_feedback', 'proctor_feedback'],
 ]);
 
 export function registerAdmission(api) {

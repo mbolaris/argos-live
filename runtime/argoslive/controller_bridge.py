@@ -26,7 +26,7 @@ from .results import Store, compare
 
 LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
-                 'proctor_answer', 'proctor_continue', 'proctor_submit'}
+                 'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 
 
 def identity(value):
@@ -170,7 +170,7 @@ class Bridge:
 
     @staticmethod
     def _validate_proctor_request(kind, params):
-        if kind in {'proctor_start', 'proctor_status', 'proctor_continue'}:
+        if kind in {'proctor_start', 'proctor_status', 'proctor_continue', 'proctor_feedback'}:
             if params:
                 raise ValueError('This Proctor operation takes no model-selected options')
         elif kind == 'proctor_submit':
@@ -197,6 +197,8 @@ class Bridge:
             return self.exam_session.continue_module(call_id)
         if kind == 'proctor_submit':
             return self.exam_session.submit(params['module_id'], call_id)
+        if kind == 'proctor_feedback':
+            return self.exam_session.practice_feedback()
         raise ValueError('Unsupported Proctor tool')
 
     def run_child(self, kind, params, *, on_update=None):
