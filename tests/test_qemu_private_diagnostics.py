@@ -17,6 +17,24 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_startup_measurement_rejection_reports_only_fixed_indicators(self):
+        for metrics in (None, {'backend': {'mode': 'private token', 'size_bytes': 'secret',
+                'vram_bytes': 0}}, {'backend': {'mode': 'GPU', 'size_bytes': 100, 'vram_bytes': 100}}):
+            output = io.StringIO()
+            with self.subTest(metrics=metrics), patch('sys.stdout', output), self.assertRaises(ValueError):
+                module.ready_cpu_metrics({'model_reply_verified': True, 'metrics': metrics})
+            self.assertNotIn('private', output.getvalue())
+            self.assertNotIn('secret', output.getvalue())
+            value = json.loads(output.getvalue().split(' ', 1)[1])
+            self.assertEqual(set(value), {'model_reply_verified', 'metrics_present', 'backend_mode',
+                                         'backend_size_recorded', 'zero_vram_recorded'})
+
+    def test_startup_measurement_still_requires_verified_reply_and_cpu(self):
+        metrics = {'backend': {'mode': 'CPU', 'size_bytes': 100, 'vram_bytes': 0}}
+        self.assertIs(module.ready_cpu_metrics({'model_reply_verified': True, 'metrics': metrics}), metrics)
+        with patch('sys.stdout', io.StringIO()), self.assertRaises(ValueError):
+            module.ready_cpu_metrics({'model_reply_verified': False, 'metrics': metrics})
+
     def test_chat_target_retries_bounded_readiness_conflict(self):
         class Response(io.BytesIO):
             def __enter__(self): return self

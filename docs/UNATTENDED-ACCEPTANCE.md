@@ -4,7 +4,53 @@ The goal is a fresh-card unattended campaign, an honest machine-audited record,
 independent signed baseline/final replication, enforced safety, and reproducible
 image/storage acceptance. Passing a subset does not complete the goal.
 
-## Current evidence and gaps (2026-10-18)
+## Release checkpoint (2026-10-20)
+
+PRs [117](https://github.com/mbolaris/argos-live/pull/117) and
+[118](https://github.com/mbolaris/argos-live/pull/118) are merged. The older
+containment/Auto Climb PRs 112, 113, 106 and harness draft 104 are closed as
+superseded. Pinned build
+[39445005714](https://github.com/mbolaris/argos-live/actions/runs/39445005714)
+passed from main `d016e45febbd83eb7cdd601a7517c4e0af5d903b`; its ISO SHA-256 is
+`4ace331123dc658cf8b92df412a4dce7d4db9918355e3d06fdc334d1062a673e`.
+
+- Final-image guest acceptance 39447673254 passed with saved speed/ability IDs
+  `f5c0851bb50df17fecd69c02402d32f7` and `34f3f933ac2ce046444565da95de8009`.
+  Final-image encrypted shutdown 39447678206 passed all three clean-filesystem
+  and read-only fsck cycles, preserving 2/4/6 cumulative synthetic backup files.
+- Initial managed run 39447668689 failed a startup assertion after gateway
+  readiness. Preserve that failure. The harness with added diagnostics passed
+  39448644453 on the same ISO with saved IDs `044624f9b9fa9195e452714dc47ceb76`
+  and `c298b3184007b04d6f22246c125d7876`. The initial failure's cause is
+  unconfirmed. Additional cold managed run 39450021324 also passed, with saved
+  IDs `fc8da3e6ca3d58d2cc8786b42d786fe1` and `57c0b40b9402046f1377ed7038c067ca`.
+  Its reviewed progress frame still showed the speed view at capture time;
+  completed ability coverage is established by its saved result, not that frame.
+- The native Firefox Lab click uses an isolated test profile of the shipped
+  binary. It does not establish interaction with the launcher's original tab
+  or a browser chat reply. Reviewed progress frames show an active ability
+  phase; completion claims derive from the saved result IDs.
+- The separate `guest_reset_only` gate passed 39447721277 on this exact ISO.
+  Five synthetic user-state markers disappear after a requested normal reboot
+  under a different kernel boot ID. Receipts and scope are in
+  [the guest-reset evidence](evidence/guest-reset-39447721277/README.md).
+- Runtime progress now reaches the pinned OpenClaw semantic activity tracker;
+  actual SDK cancellation evidence preserves a saved host evaluation while the
+  Python host remains alive. The asynchronous job primitive is still unexposed;
+  hard host-death survival is not established. Recovery never releases by age:
+  it requires a valid persisted boot ID and a different current kernel boot ID.
+- The separate 40-task challenge suite, matched-run instruction guidance and
+  bounded Auto Climb restoration/validation fixes are implemented. These are
+  software changes, not evidence of a further model ability gain.
+
+The broader unattended plateau below remains unachieved: protected service
+identity, backend-wide admission/drainage, a complete claim auditor, independent
+signed baseline/final replication and a fresh-card campaign without operator
+rescue still need acceptance. No physical USB was written and Toronado was not
+changed for this release. The generic ISO bundles `qwen3:0.6b`; migrating an
+existing 27B deployment requires preserving its model files and private config.
+
+## Historical evidence and gaps (2026-10-18)
 
 - Option A: owner reconfirmed and applied on the existing Toronado card. Protected
   snapshots and session evidence are in work/TORONADO-COORDINATION.md in the owner

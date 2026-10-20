@@ -449,6 +449,24 @@ def managed_stage(name):
     print('ARGOS_C3_STAGE ' + name, flush=True)
 
 
+def ready_cpu_metrics(report):
+    """Explain a rejected startup measurement without publishing guest text."""
+    metrics = report.get('metrics')
+    backend = metrics.get('backend') if isinstance(metrics, dict) else None
+    backend = backend if isinstance(backend, dict) else {}
+    mode = backend.get('mode')
+    if report.get('model_reply_verified') is not True or mode != 'CPU':
+        print('ARGOS_C3_STARTUP_CHECK ' + json.dumps({
+            'model_reply_verified': report.get('model_reply_verified') is True,
+            'metrics_present': isinstance(metrics, dict),
+            'backend_mode': mode if mode in ('CPU', 'GPU', 'split') else None,
+            'backend_size_recorded': type(backend.get('size_bytes')) in (int, float),
+            'zero_vram_recorded': type(backend.get('vram_bytes')) in (int, float)
+                and backend['vram_bytes'] == 0}), flush=True)
+        raise ValueError('Automatic startup did not establish a measured CPU reply')
+    return metrics
+
+
 def managed_check(started, desktop_seconds):
     with FirefoxLabSession() as native_lab:
         return managed_check_body(started, desktop_seconds, native_lab)
@@ -497,9 +515,8 @@ def managed_check_body(started, desktop_seconds, native_lab):
                 print('ARGOS_C3_BACKEND ' + json.dumps(observed), flush=True)
                 last_backend = observed
         if phase == 'ready':
-            metrics = report.get('metrics')
-            if not report['model_reply_verified'] or metrics['backend']['mode'] != 'CPU':
-                raise ValueError('Automatic startup did not establish a measured CPU reply')
+            metrics = ready_cpu_metrics(report)
+            globals()['ARGOS_C3_LAST_STAGE'] = 'managed-chat-check'
             chat_target = assistant_chat_target(opener, origin, token, home)
             chat_available = (chat_target.scheme == 'http' and chat_target.hostname == '127.0.0.1'
                               and chat_target.path == '/chat' and chat_target.fragment.startswith('token='))

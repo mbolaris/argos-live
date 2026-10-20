@@ -1,0 +1,13 @@
+{
+  "schema": "argos-guest-reset-evidence/1",
+  "workflow_run": 39447721277,
+  "harness_commit": "0f92c6584af2e19adce377de8dc69174b1843a9c",
+  "build_run": 39445005714,
+  "iso_source": "d016e45febbd83eb7cdd601a7517c4e0af5d903b",
+  "iso_sha256": "4ace331123dc658cf8b92df412a4dce7d4db9918355e3d06fdc334d1062a673e",
+  "files": {
+    "result.json": "f52b6834a0633b0ac6f60365f7f96e5514d5939f668e59953eaa81f890dc9739",
+    "seed-receipt.json": "a44d393e2362a52fef6f28b1c2461bd1ab43d016b86c6d71732d696c2f8f3c8c",
+    "verify-receipt.json": "c7a90226bd3d1fc3a0c7c66d65d8336b104245528649f9eae01c7ba87a9c5b29"
+  }
+}

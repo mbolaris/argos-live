@@ -1,0 +1,16 @@
+{
+  "schema": "argos-guest-reset/1",
+  "iso_sha256": "4ace331123dc658cf8b92df412a4dce7d4db9918355e3d06fdc334d1062a673e",
+  "passed": true,
+  "guest_reboot_reset_verified": true,
+  "markers_verified": 5,
+  "kernel_boot_ids": [
+    "94361a67-6567-4fe1-83fd-01aab77b9d64",
+    "f83e1b02-2592-40de-8567-3389ea2d3df7"
+  ],
+  "scope": "synthetic profile/workspace/conversation/result/settings markers; offline direct-kernel guest",
+  "firmware_boot_verified": false,
+  "physical_acceptance": false,
+  "downloaded_model_reset_verified": false,
+  "vm_acceleration": "kvm"
+}
