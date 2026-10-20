@@ -460,6 +460,10 @@ def ready_cpu_metrics(report):
             'model_reply_verified': report.get('model_reply_verified') is True,
             'metrics_present': isinstance(metrics, dict),
             'backend_mode': mode if mode in ('CPU', 'GPU', 'split') else None,
+            'backend_size_bytes': backend.get('size_bytes')
+                if type(backend.get('size_bytes')) is int and backend['size_bytes'] >= 0 else None,
+            'backend_vram_bytes': backend.get('vram_bytes')
+                if type(backend.get('vram_bytes')) is int and backend['vram_bytes'] >= 0 else None,
             'backend_size_recorded': type(backend.get('size_bytes')) in (int, float),
             'zero_vram_recorded': type(backend.get('vram_bytes')) in (int, float)
                 and backend['vram_bytes'] == 0}), flush=True)

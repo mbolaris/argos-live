@@ -18,8 +18,10 @@ spec.loader.exec_module(module)
 
 class DiagnosticFlagsTests(unittest.TestCase):
     def test_startup_measurement_rejection_reports_only_fixed_indicators(self):
-        for metrics in (None, {'backend': {'mode': 'private token', 'size_bytes': 'secret',
-                'vram_bytes': 0}}, {'backend': {'mode': 'GPU', 'size_bytes': 100, 'vram_bytes': 100}}):
+        cases = ((None, None, None),
+                 ({'backend': {'mode': 'private token', 'size_bytes': 'secret', 'vram_bytes': 0}}, None, 0),
+                 ({'backend': {'mode': 'GPU', 'size_bytes': 100, 'vram_bytes': 100}}, 100, 100))
+        for metrics, expected_size, expected_vram in cases:
             output = io.StringIO()
             with self.subTest(metrics=metrics), patch('sys.stdout', output), self.assertRaises(ValueError):
                 module.ready_cpu_metrics({'model_reply_verified': True, 'metrics': metrics})
@@ -27,7 +29,10 @@ class DiagnosticFlagsTests(unittest.TestCase):
             self.assertNotIn('secret', output.getvalue())
             value = json.loads(output.getvalue().split(' ', 1)[1])
             self.assertEqual(set(value), {'model_reply_verified', 'metrics_present', 'backend_mode',
+                                         'backend_size_bytes', 'backend_vram_bytes',
                                          'backend_size_recorded', 'zero_vram_recorded'})
+            self.assertEqual((value['backend_size_bytes'], value['backend_vram_bytes']),
+                             (expected_size, expected_vram))
 
     def test_startup_measurement_still_requires_verified_reply_and_cpu(self):
         metrics = {'backend': {'mode': 'CPU', 'size_bytes': 100, 'vram_bytes': 0}}
