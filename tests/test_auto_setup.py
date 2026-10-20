@@ -186,6 +186,24 @@ class AutoSetupTests(unittest.TestCase):
         self.assertEqual(spawn.call_args.kwargs['env']['OLLAMA_MODELS'], str(self.models))
         self.assertFalse(self.models.exists())
 
+    def test_cli_model_switch_preserves_each_models_native_thinking_settings(self):
+        self.configure()
+        config = json.loads(self.config.read_text())
+        rows = config['models']['providers']['ollama']['models']
+        rows.append(dict(rows[0], id='qwen3:14b', name='Qwen 14B', reasoning=True,
+                         params={'think': True}))
+        self.config.write_text(json.dumps(config))
+        expected = json.loads(self.config.read_text())['models']
+        with patch.object(argos, 'STATE', self.state), patch.object(argos, 'OC', self.config.parent), \
+                patch.object(argos, 'weights_installed', return_value=True), \
+                patch('argoslive.starter.read_only'), patch('builtins.input', return_value='yes'), \
+                redirect_stdout(io.StringIO()):
+            for tag in ('qwen3:14b', starter.TAG, 'qwen3:14b'):
+                argos.select_model(tag)
+                current = json.loads(self.config.read_text())
+                self.assertEqual(current['models'], expected)
+                self.assertEqual(current['agents']['defaults']['model']['primary'], 'ollama/' + tag)
+
     def test_racing_owner_file_is_not_replaced(self):
         original = auto_setup.os.link
         def race(source, destination):
