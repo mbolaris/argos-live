@@ -2,7 +2,7 @@
 
 Operating guide for the [lightweight Argos plugin](OPENCLAW-IMPROVEMENT-PLUGIN.md).
 The fresh-image plugin supports `argos_evaluate`, `argos_compare`, `argos_log`,
-`argos_inspect`, `argos_edit_instructions`, and `argos_resolve_instructions`.
+`argos_inspect`, `argos_audit_instructions`, `argos_edit_instructions`, and `argos_resolve_instructions`.
 Toronado's deployed runtime remains separate from this image candidate; do not
 claim live acceptance from package or VM tests.
 
@@ -78,7 +78,12 @@ not change model settings or grant new tools.
    `argos_resolve_instructions` enforces the practice policy and verifies
    Keep/Restore against the host snapshot. Confirm any claimed broader
    improvement on a separate challenge or held-out form.
-5. Continue only with a distinct justified idea and remaining allowance. Report
+5. Call `argos_audit_instructions` before reporting. It checks the host journal,
+   exact snapshots, saved run receipts and resolution policy, then returns safe
+   aggregate scores and run IDs without answer text. An empty journal is a valid
+   no-experiment result; a failed audit blocks claims based on that journal.
+   This audit does not validate prose in the free-form log or prove transfer.
+6. Continue only with a distinct justified idea and remaining allowance. Report
    no useful ideas, unavailable tools, exhausted resources or owner Stop accurately;
    none of these proves a universal capability plateau.
 

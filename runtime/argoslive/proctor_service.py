@@ -31,7 +31,7 @@ PROCTOR_TOOL_NAMES = [
 ]
 CAMPAIGN_TOOL_NAMES = [
     'argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status',
-    'argos_compare', 'argos_log', 'argos_inspect', 'argos_edit_instructions',
+    'argos_compare', 'argos_log', 'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions',
     'argos_resolve_instructions',
 ]
 POLICY = {'enforcement_level': 'declared', 'assistance_policy': 'closed_book'}
@@ -52,7 +52,9 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
     'Use host-managed inspect/edit/resolve tools for instruction changes and preserve every saved run ID. '
     'If the evidence does not support a useful experiment, report that honestly. Proctor practice scores '
     'are coaching input only and must never be described as proof that an ability improved. Continue '
-    'until the campaign has a verified keep/restore decision or no supported experiment remains.')
+    'until the campaign has a verified keep/restore decision or no supported experiment remains. Before the final '
+    'report, call argos_audit_instructions and use its verified run IDs, scores, and limits; do not describe '
+    'Proctor coaching scores or free-form log text as verified improvement evidence.')
 
 
 def _private_directory(path):

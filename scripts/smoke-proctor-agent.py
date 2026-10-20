@@ -36,8 +36,8 @@ ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'}, {'item_id':
         {'item_id': 'q4', 'answer': '-1.25'}, {'module_id': 'm2'}, {}]
 if len(TOOLS) != len(ARGS):
     raise RuntimeError('Synthetic Proctor tool plan is inconsistent')
-CAMPAIGN_TOOLS = ['argos_inspect']
-CAMPAIGN_ARGS = [{}]
+CAMPAIGN_TOOLS = ['argos_inspect', 'argos_audit_instructions']
+CAMPAIGN_ARGS = [{}, {}]
 
 
 def run(cli, report):

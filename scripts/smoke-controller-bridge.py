@@ -109,6 +109,8 @@ def run(cli, report):
                             'change_id': changed[-1]['change_id'],
                             'expected_sha256': changed[-1]['after_sha256'], 'action': 'restore'}
                     elif index == 5:
+                        tool, args = 'argos_audit_instructions', {}
+                    elif index == 6:
                         found = re.search(r'Run ID: ([a-f0-9]{32})', history)
                         if not found:
                             failures.append('controller-missing-saved-run-id')
@@ -174,7 +176,7 @@ def run(cli, report):
             config['plugins']['entries']['argos-improve'].update(
                 hooks={'allowConversationAccess': True}, config={'hostAdmission': True})
             config['tools']['alsoAllow'].extend([
-                'argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions'])
+                'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions', 'argos_resolve_instructions'])
             path = workspace.parent / 'openclaw.json'
             path.write_text(json.dumps(config))
             path.chmod(0o600)
@@ -197,7 +199,7 @@ def run(cli, report):
                     raise ValueError('Controller transport credential leaked')
                 if 'READY' not in json.dumps(response) or marker.exists() or failures or not counts['unsafe_exec_denied']:
                     raise ValueError('Native controller/tool admission contract failed: ' + json.dumps(counts))
-                if counts['controller_requests'] != 7 or counts['evaluation_requests'] != 20:
+                if counts['controller_requests'] != 8 or counts['evaluation_requests'] != 20:
                     raise ValueError('Unexpected controller/evaluation request counts: ' + json.dumps(counts))
                 # SDK end and child completion cannot release the host's scope.
                 try:
@@ -216,6 +218,9 @@ def run(cli, report):
                         audited['qualified_experiments'] != 0 or len(audited['changes']) != 1 or
                         audited['changes'][0]['action'] != 'restore'):
                     raise ValueError('Native instruction snapshot/restore audit failed')
+                if (audited['changes'][0]['baseline']['run_ids'] != [saved['id']] or
+                        audited['changes'][0]['candidate']['run_ids']):
+                    raise ValueError('Instruction audit omitted its host-verified baseline evidence')
                 worker = json.loads((home / '.local/state/argos-live/workload/controller-worker.json').read_bytes())
                 result_artifact = report.with_name('controller-bridge-result.json')
                 worker_artifact = report.with_name('controller-bridge-worker.json')
@@ -256,7 +261,7 @@ def run(cli, report):
             abort_config['plugins']['entries']['argos-improve'].update(
                 hooks={'allowConversationAccess': True}, config={'hostAdmission': True})
             abort_config['tools']['alsoAllow'].extend([
-                'argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions'])
+                'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions', 'argos_resolve_instructions'])
             (abort_workspace.parent / 'openclaw.json').write_text(json.dumps(abort_config))
             (abort_workspace.parent / 'openclaw.json').chmod(0o600)
             counts.update(controller_requests=0, evaluation_requests=0, unsafe_exec_denied=False)

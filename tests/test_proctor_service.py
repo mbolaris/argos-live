@@ -84,6 +84,7 @@ class ProctorServiceTests(unittest.TestCase):
         config = json.loads(config_path.read_text())
         self.assertEqual(workspace, (self.home / '.openclaw/workspace').resolve())
         self.assertEqual(config['tools']['alsoAllow'], proctor_service.CAMPAIGN_TOOL_NAMES)
+        self.assertIn('argos_audit_instructions', config['tools']['alsoAllow'])
         self.assertIn('group:fs', config['tools']['deny'])
         self.assertIn('exec', config['tools']['deny'])
         self.assertNotIn('argos_proctor_start', config['tools']['alsoAllow'])

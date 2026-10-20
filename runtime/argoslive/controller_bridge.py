@@ -184,7 +184,7 @@ class Bridge:
                 elif kind == 'compare':
                     if set(params) != {'baseline_id', 'candidate_id'}:
                         raise ValueError('Invalid comparison request')
-                elif kind in {'inspect', 'edit', 'resolve'}:
+                elif kind in {'inspect', 'audit', 'edit', 'resolve'}:
                     instruction_changes.validate_request(kind, params)
                 elif kind in PROCTOR_TOOLS:
                     self._validate_proctor_request(kind, params)

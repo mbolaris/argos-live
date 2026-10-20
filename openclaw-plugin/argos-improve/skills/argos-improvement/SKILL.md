@@ -79,6 +79,13 @@ qualified change or restore the exact snapshot. The host verifies the resulting
 bytes and preserves concurrent owner edits. Never claim a keep or restore until
 that tool returns the verified result.
 
+Before reporting the campaign outcome, call `argos_audit_instructions`. Use its
+host-verified change IDs, saved run IDs, aggregate scores, and keep/restore state.
+An empty journal means no instruction experiment was recorded; a failed audit
+means stop and report that evidence could not be verified. The audit does not
+verify prose in `IMPROVEMENT-LOG.md`, independent model-weight identity, or
+generalization to held-out tasks. Keep those limitations explicit.
+
 If a plugin tool is unavailable, the equivalent assistant command is
 `argos bench openclaw --suite quick --json`. The raw-model `argos bench ability`
 command does not test workspace instructions. Check the receipt's `openclaw-quick`

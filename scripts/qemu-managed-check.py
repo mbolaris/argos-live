@@ -472,6 +472,109 @@ def managed_check(started, desktop_seconds):
         return managed_check_body(started, desktop_seconds, native_lab)
 
 
+def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag):
+    """Verify one real bundled-model Proctor practice, then return to ready state."""
+    import sqlite3
+    from argoslive import startup
+    from argoslive.proctor.signing import Ed25519Signer, verify_envelope
+
+    def dashboard_post(path):
+        request = Request(origin + path, data=b'', method='POST', headers={
+            'X-Argos-Token': token, 'Origin': origin})
+        with opener.open(request, timeout=15) as response:
+            raw = response.read(1048577)
+        if len(raw) > 1048576:
+            raise ValueError('Proctor startup control returned oversized status')
+        return json.loads(raw)
+
+    managed_stage('proctor-smoke-stop-assistant')
+    dashboard_post('/api/startup/stop')
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        state = dashboard_json('/api/startup')
+        if state.get('phase') == 'stopped':
+            break
+        if state.get('phase') == 'failed':
+            raise ValueError('Assistant did not stop cleanly for Proctor practice')
+        time.sleep(1)
+    else:
+        raise ValueError('Assistant did not stop before Proctor practice')
+
+    practice_error = None
+    receipt = None
+    try:
+        managed_stage('proctor-practice')
+        completed = subprocess.run(['argos', 'proctor', 'practice', '--json'],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=2100, check=False)
+        if (completed.returncode != 0 or len(completed.stdout) > 1024 * 1024 or
+                len(completed.stderr) > 1024 * 1024):
+            raise ValueError('Bundled-model Proctor practice command failed')
+        practice = json.loads(completed.stdout)
+        transcript_id = practice.get('transcript_id')
+        if (practice.get('status') != 'completed' or practice.get('practice_only') is not True or
+                practice.get('calibration_status') != 'uncalibrated' or
+                not isinstance(transcript_id, str) or not re.fullmatch(r'[a-f0-9]{32}', transcript_id)):
+            raise ValueError('Bundled-model Proctor practice did not return a complete host receipt')
+        proctor_root = home / '.local/state/argos-live/proctor'
+        database_path = proctor_root / 'state.sqlite3'
+        with sqlite3.connect(database_path.as_uri() + '?mode=ro', uri=True, timeout=5) as database:
+            row = database.execute('SELECT envelope_json FROM transcripts WHERE session_id=?',
+                                   ('sess_' + transcript_id,)).fetchone()
+        if not row:
+            raise ValueError('Proctor did not persist its signed transcript')
+        signer = Ed25519Signer(proctor_root / 'transcript-ed25519.pem')
+        envelope = json.loads(row[0])
+        if not verify_envelope(envelope, signer.public_key_der):
+            raise ValueError('Proctor transcript signature did not verify')
+        payload = json.loads(envelope['payload_json'])
+        subject = payload.get('subject', {})
+        _target, verified_model, identity = startup.source(home, include_model_identity=True)
+        if (verified_model != model_tag or subject.get('model_tag') != model_tag or
+                subject.get('model_identity') != identity or
+                subject.get('model_digest') != identity.get('sha256')):
+            raise ValueError('Signed Proctor transcript does not bind the verified model source')
+        score = practice.get('result', {})
+        if (payload.get('outcome') != 'COMPLETED' or payload.get('total_items') != 4 or
+                type(payload.get('accepted_correct')) is not int or
+                score.get('correct') != payload['accepted_correct'] or
+                score.get('total') != payload['total_items']):
+            raise ValueError('Proctor transcript and practice receipt disagree')
+        managed_stage('proctor-transcript-verified')
+        receipt = {'proctor_practice_completed': True, 'proctor_transcript_saved': True,
+            'proctor_signature_verified': True, 'proctor_model_identity_bound': True,
+            'proctor_calibration_status': 'uncalibrated', 'proctor_campaign_started': False,
+            'proctor_backend_weights_loaded_attested': False, 'proctor_transcript_id': transcript_id,
+            'proctor_model_tag': model_tag,
+            'proctor_score': {'correct': payload['accepted_correct'], 'total': payload['total_items']}}
+    except Exception:
+        practice_error = True
+
+    restart_error = None
+    try:
+        dashboard_post('/api/startup/start')
+        deadline = time.monotonic() + 300
+        while time.monotonic() < deadline:
+            state = dashboard_json('/api/startup')
+            if (state.get('phase') == 'ready' and state.get('model_reply_verified') is True and
+                    state.get('model') == model_tag):
+                managed_stage('proctor-assistant-resumed')
+                break
+            if state.get('phase') == 'failed':
+                raise ValueError('Assistant restart failed')
+            time.sleep(2)
+        else:
+            raise ValueError('Assistant restart did not reach readiness')
+    except Exception:
+        restart_error = True
+    if restart_error:
+        raise ValueError('Assistant did not resume after Proctor practice')
+    if practice_error:
+        raise ValueError('Real-model Proctor practice failed verification after assistant recovery')
+    receipt['proctor_assistant_resumed'] = True
+    return receipt
+
+
 def managed_check_body(started, desktop_seconds, native_lab):
     from argoslive.desktop import session_url
     from argoslive.ollama import NoRedirect
@@ -644,6 +747,11 @@ def managed_check_body(started, desktop_seconds, native_lab):
     if not resumed or not firefox_model_lab_visible():
         raise ValueError('Assistant did not resume while keeping Model Lab open')
     managed_stage('model-lab-assistant-resumed')
+    proctor_receipt = {}
+    if globals().get('ARGOS_QEMU_PROCTOR_SMOKE', False):
+        if is_guest:
+            raise ValueError('Real-model Proctor smoke is unavailable in RAM-only guest mode')
+        proctor_receipt = real_proctor_practice(home, opener, origin, token, dashboard_json, state['model'])
     if is_guest:
         from argoslive import session_mode, storage_view
         from argoslive.web.status import mounts_and_blocks, persistence
@@ -671,6 +779,7 @@ def managed_check_body(started, desktop_seconds, native_lab):
         'desktop_wait_seconds': desktop_seconds,
         'managed_elapsed_seconds': report['elapsed_seconds'],
         'ready_seconds': time.monotonic() - started, 'physical_acceptance': False,
-        'browser_chat_reply_verified': False, 'requires_screenshot_review': True}), flush=True)
+        'browser_chat_reply_verified': False, 'requires_screenshot_review': True,
+        **proctor_receipt}), flush=True)
     # The host captures the actual shipped Firefox; no substitute test browser.
     time.sleep(30)

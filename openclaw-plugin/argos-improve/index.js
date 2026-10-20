@@ -225,6 +225,12 @@ export default function register(api) {
     async execute(id, params, signal) { return controlled(id,'inspect',params,signal); }
   }, {optional:true});
   api.registerTool({
+    name:'argos_audit_instructions', label:'Audit saved instruction experiments',
+    description:'Verify the host-managed instruction journal, snapshots, matched saved-run receipts, and keep/restore decisions. Returns run IDs and aggregate scores without answers. An empty journal is valid; this does not verify free-form log claims or independent transfer.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'audit',params,signal); }
+  }, {optional:true});
+  api.registerTool({
     name:'argos_edit_instructions', label:'Try one instruction change',
     description:'Apply one unique literal replacement in AGENTS.md after a host snapshot. Choose your own hypothesis and patch. Requires the current hash and a saved matching baseline from this controller. Resolve this change before another edit.',
     parameters:Type.Object({baseline_id:savedId(),expected_sha256:hash(),
