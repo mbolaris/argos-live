@@ -1,8 +1,8 @@
-# Proctor core (P1)
+# Proctor core and scoped examinee adapter (P1)
 
 Argos Proctor administers versioned assessments under recorded conditions and
-preserves evidence about the tested configuration. P1 implements the trusted
-local core and failure acceptance. It is not yet an agent-facing daemon.
+preserves evidence about the tested configuration. P1 implements the local core
+and a narrow managed-agent adapter. It is not yet a protected agent-facing daemon.
 
 ## Scope and trust
 
@@ -24,9 +24,27 @@ that description does not establish that a booth exists or its isolation works.
 The host launch adapter must independently establish model/configuration identity,
 memory lineage and permissions before it can claim stronger enforcement.
 
-There is no network listener, GPU ownership, inference call or new agent framework.
-Existing benchmark commands/results are unchanged. Service installation,
-restricted gateway integration and real model acceptance are separate milestones.
+The optional OpenClaw bridge now exposes `argos_proctor_*` operations only inside
+a dedicated host-started Proctor workload. The host preselects the cartridge,
+form, exposure tier, subject/configuration snapshot and closed-book policy. The
+agent can start, inspect status, read active-module items, submit answers, advance
+server-selected modules and submit a module. Tool outputs exclude the examinee
+capability, keys, scores and signed transcript. A host-side terminal transcript
+must be issued before the workload releases. The adapter refuses reference-aided
+sessions until bounded aid workers are implemented.
+
+For host-selected practice sessions only, `argos_proctor_feedback` returns
+aggregate score and domain counts after terminal signing, giving the agent a
+learning signal without revealing answer keys. Assessment and held-out feedback
+remains host-only.
+
+This is still a cooperative same-UID bridge. There is no installed service
+identity or OS-enforced backend exclusion, the model identity is host-declared
+rather than attested, and a managed context is not wired into the production
+gateway/heartbeat dispatcher. Do not call this tamper-resistant or use the
+four-item regression fixture as a meaningful ability exam. Existing benchmark
+commands/results are unchanged; protected service deployment and real model
+acceptance remain separate milestones.
 
 ## Content and storage
 
@@ -194,8 +212,8 @@ including the real signature round trip and packaged SQL-resource check. Full
 Windows discovery ran 714 tests with 38 skips and three journey/reboot failures;
 all three reproduce on unchanged main (path separators and POSIX permissions).
 
-Remaining: daemon ownership and scheduler, authenticated MCP/REST adapters,
-restricted OpenClaw sessions, model loading/GPU leases, real model runner, concrete
-aid workers, held-out bank governance, calibrated scoring, coding sandbox grader,
-dashboard integration, image build and physical Toronado acceptance. P1 unit and
-signature evidence does not establish any of those deployment properties.
+Remaining: protected daemon ownership and scheduler, production gateway/heartbeat
+dispatch, model loading/GPU leases, real model runner, concrete aid workers,
+held-out bank governance, calibrated scoring, coding sandbox grader, dashboard
+integration, image build and physical Toronado acceptance. P1 unit and signature
+evidence does not establish any of those deployment properties.

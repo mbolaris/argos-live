@@ -31,10 +31,13 @@ use `argos bench openclaw --suite quick --json`; never invent a control-script
 workspace instructions, and cannot establish an assistant gain.
 
 Get a fresh baseline, choose one hypothesis, snapshot, change one thing, evaluate,
-compare, then keep or restore. Every retest needs a new saved ID. Run evaluations
-sequentially; wait for the saved result before editing instructions or switching
-models. Match suite, execution method and configuration evidence. A new execution
-method needs a fresh baseline. Inspect misses with `argos bench results --load <id>`.
+compare, then keep or restore. Every retest needs a new saved ID. Each wait is
+bounded to eight minutes: if `argos_evaluate` returns a running job, use
+`argos_evaluate_wait` with its job ID until the saved result arrives. If a turn
+ends before the ID is returned, `argos_evaluate_status` recovers it. Wait for the
+saved result before editing instructions or switching models. Match suite,
+execution method and configuration evidence. A new execution method needs a
+fresh baseline. Inspect misses with `argos bench results --load <id>`.
 
 Quick scores vary by 1–2 of 20. If standard is saturated or does not expose a
 useful weakness, run the separate 40-task `challenge` form. Its prompts use

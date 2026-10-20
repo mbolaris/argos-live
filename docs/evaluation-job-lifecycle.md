@@ -18,11 +18,21 @@ An agent-turn timeout must not destroy the only saved evidence of a long test.
   Windows atomic replacement. Terminal status is returned only after admission's
   release/quarantine record has been published.
 
-This is **not** a detached process service, automatic quarantine recovery, or an
-enabled agent-facing protocol. A killed host process does not survive merely
-because its Python evaluation thread was non-daemon. The actual application host
-must outlive agent turns, preserve the job, and own shutdown/cancellation. Saved
-metadata alone never proves that a former process/backend has stopped.
+The current agent-tools PR exposes bounded start/wait/status operations in both
+managed host admission and the direct plugin path. Each wait is capped at eight
+minutes. The bridge keeps its delegated child and controller reservation while
+the agent polls; the direct plugin leaves the benchmark process independent of
+the tool's AbortSignal. A status operation recovers the job ID after a lost
+reply. A second evaluation is refused until the first result is consumed. A
+separate trusted-host cancellation method requests cancellation; no agent cancel
+tool is registered.
+
+This still is not a supervisor that survives a host/gateway process kill, and
+the trusted-host cancellation hook is not wired to a production owner control.
+Direct job IDs live in the plugin process; if that process dies, the benchmark
+can still save its result, but polling by job ID is unavailable and the workload
+reservation may require recovery. Saved metadata alone never proves that a
+former process/backend has stopped.
 
 ## Pinned runtime liveness integration
 
@@ -72,10 +82,10 @@ fixture ignores SIGTERM in both parent and descendant and verifies group exit.
 An unresponsive process may still fail to save a run; the plugin reports that as
 an error rather than inventing a result ID.
 
-Both hostAdmission and direct runArgos adapters must use the same host service,
-not an agent-owned child. Tool abort cancels only the bounded wait. Owner cancel
-requests actual job cancellation. The host must save a run without polling and
-retain a failed/interrupted result ID for inspection.
+Both hostAdmission and direct runArgos adapters now keep evaluation lifetime
+outside the individual tool wait. Tool abort cancels only the bounded wait.
+Owner cancellation remains an internal host method and still needs an owner UI
+or command integration. The benchmark itself saves the run without polling.
 
 Returning `running` must not resume controller inference while the delegated
 evaluation still owns inference resources. Existing bridge delegation explicitly
@@ -104,11 +114,13 @@ survive; recovery first writes a per-generation receipt retaining the prior
 state and saved result ID. Missing, malformed or same-boot identities still
 leave admission quarantined.
 
-Tests must cover the real SDK/transport cancellation path, both adapters, bounded
-polling, persisted completion without polling, rejection of a second evaluation,
-and controller/resource exclusion. The CPU primitive tests do not substitute for
-those integration tests. Release still requires CI, a checksum-pinned ISO, strict
-VM acceptance, and owner coordination before changing the production card.
+The latest native SDK gate exposed a cross-thread SQLite failure: Proctor state
+was opened on setup but first accessed by the SDK socket-handler thread. The
+engine now serializes its shared connection and permits that host thread handoff.
+A regression covers the thread boundary; the revised SDK smoke and the full
+Linux bridge/transport suite must pass before this is accepted. Release still
+requires CI, a checksum-pinned ISO, strict VM acceptance, and owner coordination
+before changing the production card.
 
 ## Evidence policy
 

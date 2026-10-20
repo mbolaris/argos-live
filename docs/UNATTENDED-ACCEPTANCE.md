@@ -36,8 +36,11 @@ passed from main `d016e45febbd83eb7cdd601a7517c4e0af5d903b`; its ISO SHA-256 is
   [the guest-reset evidence](evidence/guest-reset-39447721277/README.md).
 - Runtime progress now reaches the pinned OpenClaw semantic activity tracker;
   actual SDK cancellation evidence preserves a saved host evaluation while the
-  Python host remains alive. The asynchronous job primitive is still unexposed;
-  hard host-death survival is not established. Recovery never releases by age:
+  Python host remains alive. The current PR now exposes eight-minute start/wait
+  calls over host-owned evaluations in the managed bridge and detached direct
+  plugin path. Local synthetic tests cover an aborted wait, later saved result,
+  and single-job exclusion; hosted native SDK acceptance is still pending.
+  Hard host-death survival is not established. Recovery never releases by age:
   it requires a valid persisted boot ID and a different current kernel boot ID.
 - The separate 40-task challenge suite, matched-run instruction guidance and
   bounded Auto Climb restoration/validation fixes are implemented. These are

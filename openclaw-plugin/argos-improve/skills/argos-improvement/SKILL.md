@@ -24,8 +24,28 @@ The tool creates a
 tool-free embedded OpenClaw turn with temporary state and copied instructions for
 each fixed task, and saves a private result. Evaluation children answer the task;
 they do not run campaign steps or use the owner's gateway/session queue.
+Each tool wait is bounded to eight minutes. If `argos_evaluate` returns a running
+job, use `argos_evaluate_wait` with its job ID until the saved result is returned.
+If a turn ends before returning the job ID, use `argos_evaluate_status` to find
+the current job, then continue polling. An interrupted agent turn does not cancel
+a host-owned evaluation; do not start another experiment or edit instructions
+while the job is running. Only the trusted host owner-control path can request
+cancellation.
 Explain that the score describes this suite and configuration, not general
 intelligence.
+
+When the host launches a dedicated Proctor session and exposes `argos_proctor_*`
+tools, use them only for the host-selected exam. The host, not the agent, selects
+the form, exposure tier, tested model snapshot and assistance policy. Read only
+items from the active module, submit answers, and follow server-selected module
+transitions. The examinee tools intentionally return no scores, answer keys or
+signed transcript. A completed exam is evidence for the trusted host to review;
+it does not by itself validate an instruction change or prove general ability.
+These tools are unavailable in ordinary improvement sessions.
+When the host specifically selects a practice session, use
+`argos_proctor_feedback` after completion to inspect aggregate score and domain
+counts, then choose a practice experiment. The tool refuses feedback for
+assessment and held-out sessions.
 
 For an instruction experiment, use `argos_inspect` to read the canonical
 workspace instructions, their hash, current configuration receipt, active

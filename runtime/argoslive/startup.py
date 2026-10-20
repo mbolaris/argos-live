@@ -40,9 +40,11 @@ def source(home):
     legacy_policy = (tools.get('profile') == 'minimal' and
                      {'gateway', 'group:runtime', 'group:web', 'browser'} <= denied and
                      'group:fs' not in denied and allowed == reviewed_tools)
+    improvement_base = {'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'}
+    improvement_job_tools = improvement_base | {'argos_evaluate_wait', 'argos_evaluate_status'}
     improvement_policy = (tools.get('profile') == 'minimal' and denied == {'gateway', 'browser'} and
-                          allowed in ({'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'},
-                                      {'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare', 'argos_log'}) and
+                          allowed in (improvement_base, improvement_base | {'argos_log'},
+                                      improvement_job_tools, improvement_job_tools | {'argos_log'}) and
                           # OpenClaw doctor normalizes security=full/ask=off to the equivalent mode=full.
                           tools.get('exec') in ({'host': 'gateway', 'security': 'full', 'ask': 'off'},
                                                 {'host': 'gateway', 'mode': 'full'}))

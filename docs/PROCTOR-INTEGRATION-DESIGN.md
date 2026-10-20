@@ -97,6 +97,34 @@ shell access. A protected service identity and transport authorization require a
 reviewed deployment plan and owner approval before any root-level installation.
 Until then, label the integration declared and do not claim tamper resistance.
 
+### Scoped agent adapter implementation
+
+`runtime/argoslive/proctor/agent_session.py` wraps the core with one immutable
+host-selected profile. Its public methods do not accept form, tier, subject,
+policy, answer revision, session capability or transcript choices. The plugin
+registers optional `argos_proctor_*` tools; its managed bridge routes them only
+when `owned(..., exam_session=...)` holds a `proctor` workload reservation.
+Campaign, compare, log, and instruction tools are rejected in that mode. The
+host bridge writes the signed terminal transcript before releasing admission;
+incomplete or uncertain sessions remain quarantined. The Proctor session ID is
+bound as the workload result ID, and its signed payload hash is journaled before
+release. The agent tools return questions and state but no score, answer key or
+transcript.
+
+`argos_proctor_feedback` returns aggregate score and domain counts only when the
+host preselected the practice tier and the session is terminal. This lets the
+agent choose a follow-up practice experiment. Assessment and held-out sessions
+refuse feedback and preserve scores for the trusted host.
+
+This adapter is declared enforcement only and is not active in the default
+profile or production gateway. The host must build the exam profile from a
+verified model/configuration snapshot and the protected service must own the
+cartridge, token secret, signing key and workload store before held-out use.
+Reference-aided exams are refused until their bounded aid workers exist. The
+fixture tests verify tool scoping and transcript privacy but do not establish
+same-UID isolation, backend drainage, model identity attestation, a calibrated
+question bank or real-model ability.
+
 ## Acceptance evidence before a live proctor slot
 
 1. Simultaneous campaign/proctor admissions yield exactly one winner. A rejected

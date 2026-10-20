@@ -1,6 +1,7 @@
 """Authoritative local state machine. One connection per worker; no network listener."""
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import wraps
 import hashlib
 import hmac
 import json
@@ -8,12 +9,22 @@ import os
 from pathlib import Path
 import secrets
 import sqlite3
+import threading
 import time
 
 from .cartridge import DIRECTORY, correct_answer, identifier, json_text, valid_answer
 
 MS = 1_000_000
 TERMINAL = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
+
+
+def synchronized(method):
+    """Serialize one engine's shared SQLite connection across host SDK threads."""
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with self._db_lock:
+            return method(self, *args, **kwargs)
+    return locked
 
 
 class ProctorError(ValueError):
@@ -60,7 +71,7 @@ def open_state(path):
             raise ValueError('State database permissions must be private')
     else:
         os.close(fd)
-    conn = sqlite3.connect(path, isolation_level=None, timeout=10)
+    conn = sqlite3.connect(path, isolation_level=None, timeout=10, check_same_thread=False)
     try:
         conn.row_factory = sqlite3.Row
         conn.execute('PRAGMA foreign_keys=ON')
@@ -99,6 +110,7 @@ class Proctor:
         if state.isolation_level is not None or not isinstance(token_secret, bytes) or len(token_secret) < 32:
             raise ValueError('Autocommit connection and at least 256-bit host token secret required')
         self.cart, self.db = cartridge, state
+        self._db_lock = threading.RLock()
         self.callers = dict(callers)
         self.secret, self.boot_id, self.signer, self.clock = token_secret, boot_id, signer, clock
         if not isinstance(boot_id, str) or not boot_id:
@@ -155,6 +167,7 @@ class Proctor:
             raise ProctorError(status, response['error'])
         return response
 
+    @synchronized
     def enroll(self, caller_id, caller_token, key, *, form_id, tier, subject, policy):
         """Host-facing launch API. The future examinee transport must not expose subject/policy selection."""
         caller = self._caller(caller_id, caller_token)
@@ -288,6 +301,7 @@ class Proctor:
                 return
         raise RuntimeError('Cartridge exceeded bounded transition count')
 
+    @synchronized
     def begin_module(self, sid, token, module_id, key):
         def action(s, now):
             if s['active_module'] != module_id or s['state'] not in ('READY', 'BREAK', 'ACTIVE'):
@@ -302,6 +316,7 @@ class Proctor:
         if s['state'] != 'ACTIVE' or s['active_module'] != mod_id:
             raise ProctorError(409, 'MODULE_NOT_ACTIVE')
 
+    @synchronized
     def record_answer(self, sid, token, module_id, item_id, answer, revision, key):
         if not isinstance(answer, str) or len(answer.encode('utf-8')) > 8192 or type(revision) is not int:
             raise ProctorError(422, 'INVALID_SUBMISSION_ARGUMENTS')
@@ -333,6 +348,7 @@ class Proctor:
             return {'status': 'accepted', 'revision': revision}
         return self._mutate(sid, token, 'record_answer', key, request, action)
 
+    @synchronized
     def submit_module(self, sid, token, module_id, key):
         def action(s, now):
             self._active(s, module_id)
@@ -341,6 +357,7 @@ class Proctor:
             return {'state': self.db.execute('SELECT state FROM sessions WHERE session_id=?', (sid,)).fetchone()[0]}
         return self._mutate(sid, token, 'submit_module', key, {'module_id': module_id}, action)
 
+    @synchronized
     def reserve_aid(self, sid, token, module_id, name, value, key):
         if len(json_text(value).encode()) > 8192:
             raise ValueError('Aid input exceeds limit')
@@ -358,6 +375,7 @@ class Proctor:
         # Reservation itself is the idempotent result. Worker lifecycle lives in aids.
         return response
 
+    @synchronized
     def complete_aid(self, caller_id, caller_token, aid_id, output):
         self._caller(caller_id, caller_token)
         encoded = json_text(output)
@@ -386,6 +404,7 @@ class Proctor:
         if error:
             raise error
 
+    @synchronized
     def aid_status(self, sid, token, aid_id):
         s = self._session(sid, token)
         a = self.db.execute('SELECT * FROM aids WHERE session_id=? AND aid_id=?', (sid, aid_id)).fetchone()
@@ -402,6 +421,7 @@ class Proctor:
         if self.clock() >= deadline:
             raise ProctorError(409, 'MODULE_DEADLINE_EXPIRED')
 
+    @synchronized
     def get_item(self, sid, token, module_id, item_id):
         s = self._session(sid, token)
         self._read_active(s, module_id)
@@ -411,6 +431,7 @@ class Proctor:
         return {k: json.loads(json_text(item[k])) for k in
                 ('item_id', 'position', 'domain', 'prompt', 'response_type', 'choices')}
 
+    @synchronized
     def status(self, sid, token):
         s = self._session(sid, token)
         mod_id = s['active_module']
@@ -465,6 +486,7 @@ class Proctor:
                                   'client_rejected_tool_calls': None}}
         self.db.execute('INSERT INTO transcript_payloads VALUES (?,?)', (sid, json_text(payload)))
 
+    @synchronized
     def issue_transcripts(self):
         """Trusted host worker: signing occurs outside every database write transaction."""
         rows = self.db.execute('''SELECT p.* FROM transcript_payloads p JOIN sessions s USING(session_id)
@@ -476,6 +498,7 @@ class Proctor:
             with transaction(self.db):
                 self.db.execute('INSERT OR IGNORE INTO transcripts VALUES (?,?)', (row['session_id'], json_text(envelope)))
 
+    @synchronized
     def get_transcript(self, sid, token):
         self._session(sid, token)
         row = self.db.execute('SELECT envelope_json FROM transcripts WHERE session_id=?', (sid,)).fetchone()
@@ -483,6 +506,7 @@ class Proctor:
             raise ProctorError(409, 'TRANSCRIPT_NOT_ISSUED')
         return json.loads(row[0])
 
+    @synchronized
     def tick(self):
         """Call from the daemon scheduler; also usable by an offline trusted runner."""
         rows = self.db.execute('SELECT session_id FROM sessions WHERE cartridge_digest=? AND state NOT IN (?,?,?,?)',
@@ -492,6 +516,7 @@ class Proctor:
                 self._catch_up(row[0], self.clock())
         self.issue_transcripts()
 
+    @synchronized
     def recover(self):
         """Host startup only, under exclusive supervisor ownership; never run per client connection."""
         with transaction(self.db):
