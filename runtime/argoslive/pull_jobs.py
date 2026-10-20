@@ -8,6 +8,7 @@ the original internal download-only API and never marks a model ready.
 from collections import deque
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import errno
 import hashlib
 import json
 import os
@@ -26,6 +27,10 @@ LIMIT = 1024 * 1024
 ID = re.compile(r'[a-f0-9]{32}')
 STATES = {'queued', 'downloading', 'paused', 'cancelled', 'interrupted',
           'failed', 'downloaded_needs_verification', 'verifying', 'loading', 'testing', 'publishing', 'ready'}
+
+
+class WorkerBusy(ValueError):
+    """Only OS lock contention; callers must not mistake path errors for ownership."""
 
 
 def stamp():
@@ -80,14 +85,18 @@ def worker_lock(root):
             os.lseek(fd, 0, os.SEEK_SET)
             try:
                 msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-            except OSError:
-                raise ValueError('Another model job operation is active') from None
+            except OSError as error:
+                if error.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                raise WorkerBusy('Another model job operation is active') from None
         else:
             import fcntl
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError:
-                raise ValueError('Another model job operation is active') from None
+            except OSError as error:
+                if error.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                raise WorkerBusy('Another model job operation is active') from None
         yield
     finally:
         os.close(fd)

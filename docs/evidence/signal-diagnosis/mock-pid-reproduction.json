@@ -1,0 +1,17 @@
+{
+  "scope": "Safe local reproduction; kernel signal function replaced before invocation",
+  "calls": [
+    {
+      "target_type": "MagicMock",
+      "coerced_group": 1,
+      "signal": 15,
+      "sent_to_kernel": false
+    },
+    {
+      "target_type": "MagicMock",
+      "coerced_group": 1,
+      "signal": 9,
+      "sent_to_kernel": false
+    }
+  ]
+}

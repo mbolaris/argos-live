@@ -6,6 +6,16 @@ coordinator as the next development target. Progress belongs in
 
 ## Implementation status — October 12, 2026
 
+October 13 fresh-image update (this branch, not deployed): new setup now uses
+OpenClaw file/runtime tools, reference fetching and local execution, with elevated
+mode disabled, rather than blocking runtime tools. The tool list is kept small
+for the CPU starter. Existing profiles remain intact and
+the prior minimal profile still starts. The installed guide now describes how to
+begin on "go", prioritize measured hardware/model fit, preserve snapshots and
+journal matched trials. This enables local operations; it is not acceptance of an
+autonomous improvement cycle. The earlier verified ISO does not contain this
+change, and no SD write has occurred. See the current backlog checkpoint.
+
 A first working prototype is installed on Toronado as OpenClaw plugin
 `argos-improve` version `0.1.3`. It registers
 `argos_evaluate` (fixed 20-task quick or 70-task standard Argos ability suite)
@@ -189,3 +199,20 @@ References: [pinned OpenClaw plugins](https://github.com/openclaw/openclaw/blob/
 [IFEval](https://github.com/google-research/google-research/tree/master/instruction_following_eval),
 [SQuAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/),
 [EvalPlus](https://github.com/evalplus/evalplus).
+
+## October 17 campaign-admission checkpoint
+
+The next-image branch registers `argos_log` with one `text` argument. It appends,
+adds a host timestamp and snapshots the pre-append log/guide. Every full run ID in
+the note must resolve through the validated result store; actual saved receipts
+are appended separately. This makes note-taking simpler for smaller controllers.
+It does not certify natural-language claims about edits or invented score prose.
+A complete independent campaign audit remains required.
+
+Assistant benchmark CLI/API admission and log appends share an OS lock and durable
+reservation. A competing request gets `busy` before inference, live-board changes
+or log writes. A failed or abandoned evaluation is quarantined for recovery;
+expiry alone never authorizes another worker. Completed CLI results are saved
+before admission is released. Direct backend calls, other desktop workloads,
+controller/heartbeat inference and unrestricted filesystem tools still need the
+full broker design. These changes alone do not establish image-level safety.

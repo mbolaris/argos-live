@@ -1,0 +1,25 @@
+{
+  "generation": 1,
+  "parent_id": "b82cad8ff6eb73cea6e0a517502035a3",
+  "pid": 2832,
+  "process_group_drained": true,
+  "run_id": "b1ff7d81-d3e0-47c5-8b6c-e83e3de00482",
+  "schema": "argos-controller-worker/1",
+  "sdk_end_observed": true,
+  "session_id": "f1656086-75d5-4ad4-9804-5a8537382148",
+  "session_key": "agent:main:host-5b6db783-5b1f-48c8-aafb-964186b5afdc",
+  "state": "completed",
+  "stdout_sha256": "bd0dd4df1e1108247d34545e43f3416a0572e75dc27bca0c67b5c9b1faa21c8f",
+  "tools": [
+    {
+      "call_id": "fixture-call-1",
+      "kind": "evaluation",
+      "result_id": "258e61073d48642bbf38a3cdf3a50198",
+      "state": "completed"
+    },
+    {
+      "call_id": "fixture-call-2",
+      "kind": "log"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ cache=/var/lib/argos-live/runtime-lock
 cd "$cache"
 export PATH="$cache/node/bin:$PATH"
 npm ci
+node "$src/scripts/patch-openclaw-liveness.mjs" "$cache/node_modules/openclaw"
 curl --fail --location --retry 5 -o ollama.tar.zst "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
 echo "$OLLAMA_SHA256  ollama.tar.zst" | sha256sum -c -
 mkdir -p ollama

@@ -20,12 +20,17 @@ class ImprovementPluginBundleTests(unittest.TestCase):
         self.assertEqual(package['version'], lock['packages']['']['version'])
         self.assertEqual(lock['packages']['node_modules/typebox']['version'], package['dependencies']['typebox'])
         self.assertEqual(manifest['id'], 'argos-improve')
-        self.assertEqual(manifest['contracts']['tools'], ['argos_evaluate', 'argos_compare'])
+        self.assertEqual(manifest['contracts']['tools'], ['argos_evaluate', 'argos_compare', 'argos_log',
+                         'argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions'])
+        self.assertTrue(all(manifest['toolMetadata'][name]['optional'] for name in
+                           ('argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions')))
         self.assertTrue((ROOT / 'runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md').is_file())
         self.assertFalse((ROOT / 'openclaw-plugin/argos-improve/runtime').exists())
 
     def test_generated_manifest_covers_the_code_bundle_and_detects_drift(self):
         source = ROOT / 'openclaw-plugin/argos-improve'
+        self.assertEqual(refresh.inventory(source),
+                         json.loads((source / 'files.sha256.json').read_text()))
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / 'plugin'
             shutil.copytree(source, target, ignore=shutil.ignore_patterns('node_modules', 'files.sha256.json'))

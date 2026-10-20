@@ -194,7 +194,7 @@ def smoke(cli, expected_version, plugin_root):
                 'legacy_default_migrated': True,
                 'valid_fresh_conversation_config': True,
                 'improvement_plugin_runtime_loaded': True,
-                'improvement_tools_registered': ['argos_evaluate', 'argos_compare'],
+                'improvement_tools_registered': ['argos_evaluate', 'argos_compare', 'argos_log'],
                 'invalid_config_rejected': True,
                 'native_backup_verified': True, 'backup_sha256': backup_digest,
                 'fresh_restore_config_personas_byte_match': True,

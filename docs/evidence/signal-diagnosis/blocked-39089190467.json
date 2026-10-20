@@ -1,0 +1,42 @@
+[
+  {
+    "actor_pid": 2453,
+    "kind": "group",
+    "target": "MagicMock",
+    "signal": 9,
+    "allowed": false,
+    "reason": "not an exact owned session/group ID",
+    "stack": [
+      {
+        "file": "/home/runner/work/argos-live/argos-live/tests/test_auto_climb.py",
+        "line": 1423,
+        "function": "test_openclaw_runner_child_process_termination_on_cancellation"
+      },
+      {
+        "file": "/home/runner/work/argos-live/argos-live/runtime/argoslive/assistant_trial.py",
+        "line": 625,
+        "function": "turn"
+      },
+      {
+        "file": "/home/runner/work/argos-live/argos-live/runtime/argoslive/assistant_trial.py",
+        "line": 651,
+        "function": "_embedded_turn"
+      },
+      {
+        "file": "/home/runner/work/argos-live/argos-live/runtime/argoslive/assistant_trial.py",
+        "line": 536,
+        "function": "drain_embedded_group"
+      },
+      {
+        "file": "/home/runner/work/argos-live/argos-live/runtime/argoslive/owned_ollama.py",
+        "line": 63,
+        "function": "stop_group"
+      },
+      {
+        "file": "/home/runner/work/argos-live/argos-live/scripts/signal-guard/sitecustomize.py",
+        "line": 112,
+        "function": "killpg"
+      }
+    ]
+  }
+]

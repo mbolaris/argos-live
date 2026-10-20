@@ -1402,21 +1402,34 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             controller.close()
 
     def test_openclaw_runner_child_process_termination_on_cancellation(self):
-        """OpenClawRunner terminates child process with terminate() on cancellation or timeout."""
+        """Cancellation invokes the platform cleanup boundary, without real OS signals."""
         import subprocess
         from unittest.mock import patch, MagicMock
         cancel_evt = threading.Event()
+        config_path = self.home / '.openclaw/openclaw.json'
+        config = json.loads(config_path.read_text())
+        config['agents']['defaults']['model'] = {'primary': 'ollama/test-model'}
+        config['models'] = {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434',
+            'models': [{'id': 'test-model', 'name': 'test-model'}]}}}
+        config_path.write_text(json.dumps(config))
         runner = assistant_trial.OpenClawRunner(self.home, executable='openclaw')
         runner.cancel_event = cancel_evt
         cancel_evt.set()
-        with patch('subprocess.Popen') as popen_mock:
+        with patch('subprocess.Popen') as popen_mock, \
+                patch.object(assistant_trial, 'drain_embedded_group') as drain:
             proc = MagicMock()
             popen_mock.return_value.__enter__.return_value = proc
-            proc.communicate.side_effect = [subprocess.TimeoutExpired(cmd='openclaw', timeout=0.2), (b'', b'')]
+            # Cancellation is already set before launch; after the mocked
+            # drain, collecting its pipes must finish without a new timeout.
+            proc.communicate.return_value = (b'', b'')
             with self.assertRaises(assistant_trial.TrialTurnError) as raised:
                 runner.turn('A test task')
             self.assertEqual(raised.exception.code, 'cancelled')
-            proc.terminate.assert_called_once()
+            if assistant_trial.sys.platform == 'linux':
+                drain.assert_called_once_with(proc)
+                proc.terminate.assert_not_called()
+            else:
+                proc.terminate.assert_called_once()
 
     def test_workload_ownership_delegation_retains_lab_active(self):
         """Delegated execution retains startup.lab_active and refuses competing non-delegated workloads."""

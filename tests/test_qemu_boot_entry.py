@@ -7,6 +7,7 @@ import re
 import zlib
 from pathlib import Path
 import unittest
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('qemu_smoke', ROOT / 'scripts/smoke-qemu-iso.py')
@@ -78,6 +79,41 @@ class BootEntryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 module.guest_result(wire(changed), setup_mode='managed')
 
+    def test_rendered_baseline_target_rejects_blank_ambiguous_and_wrong_dimensions(self):
+        def frame(boxes):
+            pixels = bytearray(1280 * 640 * 3)
+            for left, top, width, height in boxes:
+                for y in range(top, top + height):
+                    start = (y * 1280 + left) * 3
+                    pixels[start:start + width * 3] = bytes((130, 228, 222)) * width
+            return b'P6\n1280 640\n255\n' + pixels
+        self.assertEqual(module.baseline_button_target(frame([(178, 565, 336, 44)])), (346, 746))
+        for raw in (frame([]), frame([(178, 565, 336, 44), (178, 200, 336, 44)]),
+                    b'P6\n800 600\n255\n', frame([(178, 565, 385, 44)])):
+            with self.assertRaises(ValueError):
+                module.baseline_button_target(raw)
+
+    def test_mouse_input_waits_for_control_and_never_clicks_on_deadline(self):
+        frame = MagicMock()
+        missing = ValueError('Rendered baseline button missing or ambiguous')
+        with patch.object(module, 'baseline_button_target', side_effect=[missing, (346, 745)]), \
+                patch.object(module.time, 'sleep'), \
+                patch.object(module, 'screenshot_dashboard_content') as capture, \
+                patch.object(module, 'qmp_commands') as commands:
+            module.click_rendered_baseline('socket', frame)
+            capture.assert_called_once_with('socket', frame)
+            events = [item['arguments']['events'][0] for item in commands.call_args.args[1]]
+            self.assertEqual([item['type'] for item in events], ['abs', 'abs', 'btn', 'btn'])
+            self.assertEqual([item['data']['down'] for item in events[2:]], [True, False])
+        with patch.object(module, 'baseline_button_target', side_effect=missing), \
+                patch.object(module.time, 'monotonic', side_effect=[0, 21]), \
+                patch.object(module, 'screenshot_dashboard_content') as capture, \
+                patch.object(module, 'qmp_commands') as commands:
+            with self.assertRaises(ValueError):
+                module.click_rendered_baseline('socket', frame)
+            capture.assert_not_called()
+            commands.assert_not_called()
+
     def test_large_guest_payload_is_chunked_checked_and_never_shell_source(self):
         source = b'$(untrusted shell text)' + b''.join(hashlib.sha256(str(i).encode()).digest() for i in range(200))
         commands = module.guest_commands(source)
@@ -99,10 +135,42 @@ class BootEntryTests(unittest.TestCase):
                 path.write_bytes(raw)
                 with self.assertRaises(ValueError):
                     module.graphical_frame(path)
+            near_blank = bytearray([249, 249, 251] * (800 * 600))
+            for index in range(0, 30000, 3):
+                near_blank[index:index + 3] = bytes((index % 251, index % 127, index % 31))
+            path.write_bytes(b'P6\n800 600\n255\n' + near_blank)
+            with self.assertRaisesRegex(ValueError, 'blank or placeholder'):
+                module.graphical_frame(path)
             path.write_bytes(b'P6\n800 600\n255\n' +
                              bytes(value for pixel in range(800 * 600) for value in
                                    (pixel % 251, pixel % 127, pixel % 31)))
             module.graphical_frame(path)
+
+    def test_dashboard_capture_retries_transient_blank_frame(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'screen.ppm'
+            blank = b'P6\n800 600\n255\n' + b'\0' * (800 * 600 * 3)
+            rendered = b'P6\n800 600\n255\n' + bytes(
+                value for pixel in range(800 * 600) for value in
+                (pixel % 251, pixel % 127, pixel % 31))
+            frames = iter([blank, rendered])
+            def capture(_qmp, target): target.write_bytes(next(frames))
+            with unittest.mock.patch.object(module, 'screenshot_dashboard_content',
+                                            side_effect=capture), \
+                    unittest.mock.patch.object(module.time, 'sleep') as pause:
+                module.capture_graphical_dashboard(Path('qmp.sock'), path)
+            self.assertEqual(pause.call_args.args, (.5,))
+
+    def test_dashboard_capture_fails_after_bounded_blank_frame_wait(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'screen.ppm'
+            blank = b'P6\n800 600\n255\n' + b'\0' * (800 * 600 * 3)
+            with unittest.mock.patch.object(module.time, 'monotonic', side_effect=[0, 0, 2]), \
+                    unittest.mock.patch.object(module, 'screenshot_dashboard_content',
+                                                side_effect=lambda qmp, target: target.write_bytes(blank)), \
+                    unittest.mock.patch.object(module.time, 'sleep'):
+                with self.assertRaisesRegex(ValueError, 'remained blank'):
+                    module.capture_graphical_dashboard(Path('qmp.sock'), path, timeout=1)
 
     def test_serial_result_waits_for_whole_nested_record(self):
         value = {'schema': 'argos-qemu-smoke/1', 'desktop_started': True,

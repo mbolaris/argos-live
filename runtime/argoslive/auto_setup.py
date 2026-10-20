@@ -8,19 +8,49 @@ from . import starter, storage, session_mode
 from .pull_jobs import read_json
 
 PLUGIN_ROOT = '/usr/local/share/argos-live/plugins/argos-improve'
+# Seeded once into a fresh workspace; existing owner files are never replaced.
+WORKSPACE_FILES = (('AGENTS.md', 'SELF-IMPROVEMENT-AGENTS.md'), ('SOUL.md', 'SELF-IMPROVEMENT-SOUL.md'),
+                   ('IDENTITY.md', 'SELF-IMPROVEMENT-IDENTITY.md'),
+                   ('tools/argos-control.py', 'SELF-IMPROVEMENT-CONTROL.py'))
+# Resumption is allowed only for an owner-started campaign. Prompt guardrails
+# supplement host admission; they are not an enforcement boundary.
+HEARTBEAT_PROMPT = ('Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
+                    '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
+                    'recovery, or the assistant is not ready, reply exactly HEARTBEAT_OK. Never start a new '
+                    'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. If it has a '
+                    '"## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
+                    'following AGENTS.md, then append one short entry with argos_log. Call argos_evaluate and '
+                    'argos_compare as tools. Never install software, use sudo, clone repositories or request secrets. '
+                    'If there is no active campaign, '
+                    'reply exactly HEARTBEAT_OK.')
+
+
+def workspace_file(name):
+    return (Path(__file__).resolve().parent / 'data' / name).read_bytes()
 
 
 def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
     return {
         'gateway': {'mode': 'local', 'bind': 'loopback', 'auth': {'mode': 'token', 'token': secrets.token_hex(32)}},
-        'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(workspace)}},
+        'agents': {'defaults': {'model': {'primary': 'ollama/' + model}, 'workspace': str(workspace),
+                                'skipBootstrap': True,
+                                # A fresh session per heartbeat: no chat history to outgrow the
+                                # context, and no dependence on a chat surviving a restart.
+                                'heartbeat': {'every': '3m', 'session': 'main', 'target': 'none',
+                                              'isolatedSession': True,
+                                              'timeoutSeconds': 1800, 'prompt': HEARTBEAT_PROMPT}}},
         'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama',
             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,
                         'contextWindow': 32768, 'maxTokens': 4096,
                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
-        'tools': {'profile': 'minimal', 'alsoAllow': ['group:fs', 'argos_evaluate', 'argos_compare'],
-                  'deny': ['gateway', 'group:runtime', 'group:web', 'browser'],
-                  'elevated': {'enabled': False}},
+        'tools': {'profile': 'minimal',
+                  'alsoAllow': ['group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare', 'argos_log'],
+                  'deny': ['gateway', 'browser'],
+                  'exec': {'host': 'gateway', 'security': 'full', 'ask': 'off'},
+                  'elevated': {'enabled': False},
+                  # Local Ollama runs otherwise hide tool schemas behind tool search, and
+                  # models then call argos_evaluate by name and get an empty turn.
+                  'toolSearch': False},
         'plugins': {'enabled': True, 'load': {'paths': [str(plugin_root)]},
                     'entries': {'argos-improve': {'enabled': True}}},
         'commands': {'bash': False, 'restart': False}}
@@ -94,7 +124,7 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
     if is_guest and observed['active']:
         raise ValueError('Guest mode cannot use live persistence; reboot using the guest entry')
     state = {'storage': str(models), 'storage_id': secrets.token_hex(24),
-             'model': starter.TAG, 'model_source': 'bundled', 'permissions': 'file-tools-and-benchmarks',
+             'model': starter.TAG, 'model_source': 'bundled', 'permissions': 'local-tools-and-benchmarks',
              'mode': 'guest' if is_guest else ('persistent' if observed['active'] else 'try'),
              'storage_temporary': selected['kind'] == 'ram', 'storage_encrypted': selected.get('encrypted'),
              'persistence_encrypted': observed.get('encrypted'), 'starter': identity}
@@ -112,7 +142,7 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
         directories.append(path)
     try:
         report('write-configuration')
-        for path in (models, state_path.parent, config_path.parent / 'workspace'):
+        for path in (models, state_path.parent, config_path.parent / 'workspace', config_path.parent / 'workspace/tools'):
             mkdir(path)
         # Marker is metadata, not a private credential; use exclusive creation
         # on DATA filesystems that may not support hard links.
@@ -123,9 +153,8 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
         with os.fdopen(descriptor, 'wb') as stream:
             stream.write(raw); stream.flush(); os.fsync(stream.fileno())
         workspace = config_path.parent / 'workspace'
-        prompt_path = Path(__file__).resolve().parent / 'data' / 'SELF-IMPROVEMENT-AGENTS.md'
-        prompt = prompt_path.read_bytes()
-        publish_new(workspace / 'AGENTS.md', prompt, journal)
+        for target, source in WORKSPACE_FILES:
+            publish_new(workspace / target, workspace_file(source), journal)
         publish_new(config_path, conversation_config(starter.TAG, workspace), journal)
         publish_new(state_path, state, journal)
     except BaseException:

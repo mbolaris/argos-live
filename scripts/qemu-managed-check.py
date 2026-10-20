@@ -7,7 +7,9 @@ import os
 from pathlib import Path
 import re
 import stat
+import select
 import subprocess
+import sys
 import time
 from urllib.request import Request, ProxyHandler, build_opener
 from urllib.error import HTTPError, URLError
@@ -183,11 +185,30 @@ def report_http_failure(check, error):
     error.close()
 
 
-def assistant_chat_preconditions(home, session_origin):
+def assistant_chat_target(opener, origin, token, home, *, ready_timeout=120):
+    """Resolve the local chat target while the shipped gateway settles."""
+    request = Request(origin + '/api/assistant/chat', headers={'X-Argos-Token': token})
+    deadline = time.monotonic() + ready_timeout
+    while True:
+        try:
+            with opener.open(request, timeout=10) as response:
+                return urlsplit(json.load(response).get('url', ''))
+        except HTTPError as error:
+            if error.code == 409 and time.monotonic() < deadline:
+                error.close()
+                time.sleep(.5)
+                continue
+            report_http_failure('assistant-chat-availability', error)
+            print('ARGOS_C3_CHAT_PREFLIGHT ' + json.dumps(
+                assistant_chat_preconditions(home)), flush=True)
+            raise
+
+
+def assistant_chat_preconditions(home):
     """Report only booleans used by the shipped chat-destination preflight."""
     from argoslive.web.status import gateway, gateway_ready, read_json
     result = {'config_readable': False, 'gateway_config_valid': False,
-              'origin_matches_session': False, 'token_mode': False,
+              'token_mode': False,
               'token_present': False, 'token_length_valid': False,
               'gateway_ready': False}
     try:
@@ -203,7 +224,6 @@ def assistant_chat_preconditions(home, session_origin):
         token = auth.get('token')
         result.update({
             'gateway_config_valid': True,
-            'origin_matches_session': configured_origin == session_origin,
             'token_mode': auth.get('mode', 'token') == 'token',
             'token_present': isinstance(token, str) and bool(token),
             'token_length_valid': isinstance(token, str) and 0 < len(token) <= 4096,
@@ -310,80 +330,69 @@ def firefox_model_lab_visible():
         return False
 
 
-def click_model_lab_baseline(origin, token):
-    """Navigate to the button's fragment, then use normal keyboard activation.
+def firefox_dashboard_window():
+    """Find the shipped dashboard window without exposing its private URL."""
+    env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(Path.home() / '.Xauthority'))
+    try:
+        clients = subprocess.check_output(['xprop', '-root', '_NET_CLIENT_LIST'],
+                                          env=env, text=True, timeout=10)
+        for window in re.findall(r'0x[0-9a-fA-F]+', clients):
+            kind = subprocess.check_output(['xprop', '-id', window, 'WM_CLASS'],
+                                           env=env, text=True, timeout=10)
+            if 'firefox' not in kind.lower():
+                continue
+            title = subprocess.check_output(['xprop', '-id', window, '_NET_WM_NAME'],
+                                            env=env, text=True, timeout=10)
+            if re.search(r' = "Argos Live · Local workspace(?: — Mozilla Firefox)?"\s*$', title):
+                return int(window, 16)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return None
 
-    Fragment navigation establishes the browser's sequential focus starting
-    point. Tab then Shift-Tab focuses that control without assuming Firefox's
-    Find result received focus. Space preserves normal disabled/click behavior.
-    The caller still requires an active Lab job and saved results.
-    """
-    stage = 'verify-active-firefox'
-    x11 = None
+
+def focus_firefox_dashboard():
+    """Raise and focus only the exact shipped Argos Firefox window."""
+    window = firefox_dashboard_window()
+    if window is None:
+        return False
     display = None
     try:
-        if not firefox_model_lab_visible():
-            raise ValueError('Model Lab is not the active Firefox page')
-        destination = origin + '/?' + urlencode({'token': token, 'view': 'lab'}) + '#lab-start'
-        stage = 'load-keyboard-libraries'
         x11 = ctypes.CDLL('libX11.so.6')
-        xtst = ctypes.CDLL('libXtst.so.6')
         x11.XOpenDisplay.argtypes, x11.XOpenDisplay.restype = [ctypes.c_char_p], ctypes.c_void_p
-        x11.XKeysymToKeycode.argtypes, x11.XKeysymToKeycode.restype = [ctypes.c_void_p, ctypes.c_ulong], ctypes.c_ubyte
-        x11.XkbKeycodeToKeysym.argtypes, x11.XkbKeycodeToKeysym.restype = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_int, ctypes.c_int], ctypes.c_ulong
-        x11.XFlush.argtypes = x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
-        xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
-        stage = 'open-input-display'
+        x11.XRaiseWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        x11.XSetInputFocus.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+        x11.XFlush.argtypes = [ctypes.c_void_p]
+        x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
         display = x11.XOpenDisplay(b':0')
         if not display:
-            raise ValueError('Model Lab input display is unavailable')
-
-        def key(symbol, pressed):
-            code = x11.XKeysymToKeycode(display, symbol)
-            if not code or not xtst.XTestFakeKeyEvent(display, code, pressed, 0):
-                raise ValueError('Model Lab keyboard input failed')
-            x11.XFlush(display)
-
-        def tap(symbol):
-            key(symbol, 1)
-            key(symbol, 0)
-            time.sleep(.03)
-
-        def modified(modifier, symbol):
-            key(modifier, 1)
-            try:
-                tap(symbol)
-            finally:
-                key(modifier, 0)
-
-        stage = 'focus-location-bar'
-        modified(0xffe3, ord('l'))  # Control-L selects the location bar.
-        stage = 'type-dashboard-url'
-        for character in destination:
-            symbol = ord(character)
-            code = x11.XKeysymToKeycode(display, symbol)
-            if not code:
-                raise ValueError('Model Lab navigation key unavailable')
-            if x11.XkbKeycodeToKeysym(display, code, 0, 0) != symbol:
-                modified(0xffe1, symbol)  # Shift for URL punctuation/case.
-            else:
-                tap(symbol)
-        stage = 'navigate-dashboard'
-        tap(0xff0d)  # Return navigates through the ordinary Firefox UI.
-        time.sleep(5)
-        stage = 'focus-baseline-button'
-        tap(0xff09)  # Tab from the fragment's focus starting point.
-        modified(0xffe1, 0xff09)  # Shift-Tab returns to the baseline button.
-        stage = 'activate-baseline-button'
-        tap(0x20)
-    except ValueError:
-        # Report only a fixed phase. Never include the URL, session token, or
-        # response content in VM diagnostics.
-        print('ARGOS_C3_INPUT_FAILURE ' + stage, flush=True)
-        raise
+            return False
+        x11.XRaiseWindow(display, window)
+        x11.XSetInputFocus(display, window, 2, 0)
+        x11.XFlush(display)
+    except (OSError, AttributeError):
+        return False
     finally:
-        if x11 is not None and display:
+        if display:
             x11.XCloseDisplay(display)
+    return wait_for_active_firefox()
+
+
+def wait_for_active_firefox(timeout=5):
+    """Allow a short desktop focus handoff after opening the shipped dashboard."""
+    deadline = time.monotonic() + timeout
+    while True:
+        if firefox_model_lab_visible():
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(.25)
+
+
+def await_dashboard_paint(timeout=90):
+    """Wait for the host QMP observer to confirm the real dashboard has painted."""
+    ready, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not ready or sys.stdin.readline(64) != 'ARGOS_C3_UI_READY\n':
+        raise ValueError('The managed dashboard did not establish its visible ready state')
 
 
 def firefox_connected(port):
@@ -444,6 +453,11 @@ def backend_observation(opener):
     return {'processes': items, 'pinned_api_reachable': reachable}
 
 
+def managed_stage(name):
+    globals()['ARGOS_C3_LAST_STAGE'] = name
+    print('ARGOS_C3_STAGE ' + name, flush=True)
+
+
 def managed_check(started, desktop_seconds):
     from argoslive.desktop import session_url
     from argoslive.ollama import NoRedirect
@@ -452,7 +466,7 @@ def managed_check(started, desktop_seconds):
     home = Path.home()
     descriptor = home / '.local/state/argos-live/desktop-session.json'
     deadline = time.monotonic() + 1200
-    print('ARGOS_C3_STAGE managed-startup', flush=True)
+    managed_stage('managed-startup')
     opener = build_opener(ProxyHandler({}), NoRedirect())
     last = None
     stable_since = None
@@ -490,15 +504,7 @@ def managed_check(started, desktop_seconds):
             metrics = report.get('metrics')
             if not report['model_reply_verified'] or metrics['backend']['mode'] != 'CPU':
                 raise ValueError('Automatic startup did not establish a measured CPU reply')
-            chat_request = Request(origin + '/api/assistant/chat', headers={'X-Argos-Token': token})
-            try:
-                with opener.open(chat_request, timeout=10) as response:
-                    chat_target = urlsplit(json.load(response).get('url', ''))
-            except HTTPError as error:
-                report_http_failure('assistant-chat-availability', error)
-                print('ARGOS_C3_CHAT_PREFLIGHT ' + json.dumps(
-                    assistant_chat_preconditions(home, origin)), flush=True)
-                raise
+            chat_target = assistant_chat_target(opener, origin, token, home)
             chat_available = (chat_target.scheme == 'http' and chat_target.hostname == '127.0.0.1'
                               and chat_target.path == '/chat' and chat_target.fragment.startswith('token='))
             if (report['auto_open_chat'] is False and chat_available and firefox_model_lab_visible()):
@@ -522,30 +528,35 @@ def managed_check(started, desktop_seconds):
     # Exercise the exact command installed in the Applications menu. The live
     # desktop is already owned and ready, so this follows its authenticated
     # reconnect path and opens the dedicated Lab view in shipped Firefox.
-    print('ARGOS_C3_STAGE model-lab-launch', flush=True)
+    managed_stage('model-lab-launch')
     lab_env = dict(os.environ, DISPLAY=':0', XAUTHORITY=str(home / '.Xauthority'))
     subprocess.run(['argos', 'desktop', '--model-lab'], check=True, timeout=20,
                    env=lab_env,
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
-    print('ARGOS_C3_STAGE model-lab-command-returned', flush=True)
+    managed_stage('model-lab-command-returned')
     lab_deadline = time.monotonic() + 30
     while not firefox_model_lab_visible():
+        focus_firefox_dashboard()
+        if firefox_model_lab_visible():
+            break
         if time.monotonic() >= lab_deadline:
+            print('ARGOS_C3_BROWSER ' + json.dumps({'dashboard_window_found':
+                  firefox_dashboard_window() is not None, 'active_dashboard': False}), flush=True)
             raise ValueError('Model Lab command did not open its shipped Firefox view')
         time.sleep(.5)
     time.sleep(5)
     if not firefox_model_lab_visible():
         raise ValueError('Model Lab view did not remain open after assistant readiness')
-    print('ARGOS_C3_STAGE model-lab-visible', flush=True)
+    managed_stage('model-lab-visible')
     time.sleep(5)
-    print('ARGOS_C3_STAGE managed-browser', flush=True)
-    # Give the host-side QMP capture a moment to save the idle Lab screen,
-    # then exercise the actual visible button rather than calling its API.
-    time.sleep(5)
-    print('ARGOS_C3_STAGE model-lab-button-click', flush=True)
-    click_model_lab_baseline(origin, token)
-    print('ARGOS_C3_STAGE model-lab-button-activated', flush=True)
+    managed_stage('managed-browser')
+    # The host must observe a non-placeholder rendered dashboard before this
+    # guest uses keyboard input; a static Firefox title can appear while the
+    # page is still showing its local-connection loading screen.
+    managed_stage('model-lab-button-click')
+    await_dashboard_paint()
+    managed_stage('model-lab-button-activated')
 
     def dashboard_json(path):
         request = Request(origin + path, headers={'X-Argos-Token': token})
@@ -564,6 +575,15 @@ def managed_check(started, desktop_seconds):
             break
         time.sleep(.5)
     else:
+        print('ARGOS_C3_DIAG ' + json.dumps({key: (lab_value or {}).get(key) for key in
+              ('available', 'active', 'phase', 'failure', 'recovery', 'model', 'error')}, default=str)[:600], flush=True)
+        for path in ('/api/startup', '/api/models/control', '/api/models/selection'):
+            try:
+                value = dashboard_json(path)
+                print('ARGOS_C3_DIAG ' + path + ' ' + json.dumps({key: value.get(key) for key in
+                      ('phase', 'active', 'model', 'failure', 'model_reply_verified', 'job_id')}, default=str)[:500], flush=True)
+            except Exception as error:
+                print('ARGOS_C3_DIAG ' + path + ' ' + type(error).__name__, flush=True)
         raise ValueError('Visible Model Lab button did not start the baseline')
     print('ARGOS_C3_LAB ' + json.dumps({'phase': lab_value['phase']}), flush=True)
 
@@ -592,7 +612,7 @@ def managed_check(started, desktop_seconds):
     if (len(saved_rows) != 2 or {row.get('kind') for row in saved_rows} != {'speed', 'ability'}
             or not lab_value.get('resume_requested')):
         raise ValueError('Model Lab results or assistant resume request are missing')
-    print('ARGOS_C3_STAGE model-lab-results-saved', flush=True)
+    managed_stage('model-lab-results-saved')
 
     resumed = False
     resume_deadline = time.monotonic() + 300
@@ -608,7 +628,7 @@ def managed_check(started, desktop_seconds):
         time.sleep(2)
     if not resumed or not firefox_model_lab_visible():
         raise ValueError('Assistant did not resume while keeping Model Lab open')
-    print('ARGOS_C3_STAGE model-lab-assistant-resumed', flush=True)
+    managed_stage('model-lab-assistant-resumed')
     if is_guest:
         from argoslive import session_mode, storage_view
         from argoslive.web.status import mounts_and_blocks, persistence
@@ -627,7 +647,7 @@ def managed_check(started, desktop_seconds):
         'model_lab_launch_command_succeeded': True, 'model_lab_ui_visible': True,
         'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
         'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
-        'model_lab_assistant_resumed': True,
+        'model_lab_assistant_resumed': True, 'model_lab_run_ids': run_ids,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics,
         'mission_control_visible': True, 'chat_destination_available': True,

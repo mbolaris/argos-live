@@ -1,0 +1,76 @@
+{
+  "schema": "argos-workload-delegation-evidence/1",
+  "source_commit": "697908a05c1bb95ced837bc1cb57deb141d133b5",
+  "tests_run": 39092122371,
+  "url": "https://github.com/mbolaris/argos-live/actions/runs/39092122371",
+  "passed": true,
+  "scope": "cooperative host admission and fixed subprocess workers; synthetic CLI replies",
+  "python_tests": 762,
+  "python_skips": 4,
+  "node_tests": 28,
+  "shell_syntax": "passed",
+  "guarded_groups": [
+    {
+      "pattern": "test_process_group.py",
+      "exit_code": 0
+    },
+    {
+      "pattern": "test_workload.py",
+      "exit_code": 0
+    },
+    {
+      "pattern": "test_workload_delegation.py",
+      "exit_code": 0
+    },
+    {
+      "pattern": "test_assistant_trial.py",
+      "exit_code": 0
+    },
+    {
+      "pattern": "test_auto_climb.TestAutoClimbCoordinator.test_openclaw_runner_child_process_termination_on_cancellation",
+      "exit_code": 0
+    }
+  ],
+  "delegation_cases": [
+    "test_alive_process_without_its_owner_lock_cannot_authorize_child",
+    "test_api_keeps_admission_during_result_publication",
+    "test_concurrent_child_and_early_resume_cannot_enter",
+    "test_controller_can_append_log_after_saved_delegated_evaluation",
+    "test_failed_child_retains_saved_outcome_and_quarantines_parent",
+    "test_fixed_subprocess_workers_evaluate_publish_and_append_under_parent",
+    "test_invalid_worker_request_does_not_print_capability_or_consume_grant",
+    "test_killed_child_never_resumes_parent_or_allows_proctor",
+    "test_killed_parent_grant_cannot_start_a_child_or_be_reclaimed",
+    "test_lock_io_errors_are_not_reported_as_proof_of_an_owner",
+    "test_nested_evaluation_saves_before_parent_can_resume",
+    "test_only_unstarted_grants_can_be_revoked",
+    "test_publication_failure_never_releases_admission",
+    "test_wrong_secret_kind_and_stale_generation_cannot_consume_grant"
+  ],
+  "pinned_compatibility": {
+    "run_id": 39092126565,
+    "url": "https://github.com/mbolaris/argos-live/actions/runs/39092126565",
+    "passed": true,
+    "admission_cases": 5,
+    "generation_cases": 2,
+    "native_gateway_clean_shutdown": true,
+    "artifact_sha256": {
+      "admission-hook.json": "f1ea98dac7e341ec34cb953036869dc302c92fae00f5c05f4e679dc4b6f6afbf",
+      "evaluation-protocol.json": "3c577997be5d44bfc45db5ac0ce12d211e6cbd1bba4c0c44aeac029c675c40a1",
+      "native-gateway.json": "561985589e8c97f99d71c7b149f1342116ec3e352e6df30564827ef308335439",
+      "openclaw-compatibility.json": "4030a4ea317180a870690379b376c14a4b5ff684858203cfcbe212277c090371",
+      "addon-inventory.json": "f5e0d94cf09c0c78f7ad13c3c6b74426420b713b88acbd8839d1aef0f6c93733"
+    }
+  },
+  "sha256": {
+    "focused_case_log": "d1b438255dc34400d92d3f872bd6715cb66c628c2a9c1080efe4d7f908b37272",
+    "full_ci_log": "10678db8cd968d637dfedb046e95dac4e3df833d64f68172d2730b2a4afe4dc2"
+  },
+  "limitations": [
+    "No production controller/heartbeat dispatch wired to admission",
+    "Host drain assertion must be established by the supervising adapter",
+    "No actual model or backend-drain evidence in subprocess fixtures",
+    "Cooperative same-UID exclusion; protected service identity remains open",
+    "No Toronado change, live proctor exam or unattended acceptance run"
+  ]
+}

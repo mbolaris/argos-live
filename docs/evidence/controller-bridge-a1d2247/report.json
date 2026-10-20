@@ -1,0 +1,37 @@
+{
+  "schema": "argos-native-controller-bridge/1",
+  "passed": true,
+  "scope": "real pinned SDK hooks and host workers; synthetic responses; no model-quality result",
+  "production_gateway_dispatch": false,
+  "protected_service_identity": false,
+  "backend_drainage_proven": false,
+  "controller_requests": 4,
+  "evaluation_requests": 20,
+  "unsafe_exec_denied": true,
+  "controller_worker_exit": 0,
+  "controller_process_group_drained": true,
+  "sdk_end_observed": true,
+  "saved_run_id": "258e61073d48642bbf38a3cdf3a50198",
+  "saved_coverage": {
+    "complete": true,
+    "completed": 20,
+    "total": 20
+  },
+  "host_tools": [
+    {
+      "call_id": "fixture-call-1",
+      "kind": "evaluation",
+      "result_id": "258e61073d48642bbf38a3cdf3a50198",
+      "state": "completed"
+    },
+    {
+      "call_id": "fixture-call-2",
+      "kind": "log"
+    }
+  ],
+  "result_sha256": "34e508e5b9d8f1b15e0ab3c9fc7b7ce3bd3572013bc8ee128a60bd25beb7f0e1",
+  "worker_receipt_sha256": "6c034fa07dd816238a63ca0bdd2b7c31b40f6d91cadfa03a4df73805596df483",
+  "no_exec_side_effect": true,
+  "configuration_unchanged": true,
+  "proctor_admitted_after_host_release": true
+}

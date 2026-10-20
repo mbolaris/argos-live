@@ -63,27 +63,32 @@ class StarterTests(unittest.TestCase):
                     self.fail('Writable source served')
             backend.assert_not_called()
 
-    def test_inference_uses_source_and_separate_ephemeral_lease(self):
+    def test_inference_uses_a_private_shadow_of_the_read_only_source(self):
         before = self.snapshot()
         seen = {}
+        links = {}
         class Client:
             def list(inner):
-                return {'models': [{'name': starter.TAG, 'digest': self.entry['manifest_digest'][7:]}]}
+                served = hashlib.sha256(seen['manifest'].read_bytes()).hexdigest()
+                return {'models': [{'name': starter.TAG, 'digest': served}]}
         @contextmanager
         def backend(target, **options):
-            seen.update(target=target, **options)
+            seen.update(target=target, manifest=target / starter.model_verify.manifest_path(self.root, starter.TAG).relative_to(self.root), **options)
             self.assertTrue(options['lease_store'].is_dir())
+            # Ollama 0.40 re-serializes the stored manifest; content identity must still hold.
+            value = json.loads(seen['manifest'].read_bytes())
+            seen['manifest'].write_text(json.dumps(value, indent=4))
             yield Client()
             seen['stopped'] = True
-        with patch('argoslive.starter.os.access', return_value=False), patch('argoslive.starter.owned', backend):
+        with patch('argoslive.starter.os.access', return_value=False), patch('argoslive.starter.owned', backend),                 patch('argoslive.starter.os.symlink', side_effect=lambda src, dst: links.__setitem__(Path(dst).name, Path(src))):
             with starter.serve(self.root, data=self.data) as client:
                 self.assertEqual(client.list()['models'][0]['name'], starter.TAG)
-                self.assertEqual(seen['target'], self.root)
+                self.assertNotEqual(seen['target'], self.root)
                 self.assertNotEqual(seen['lease_store'], self.root)
+                self.assertEqual(set(links.values()), {starter.model_verify.blob_path(self.root, item) for item in self.entry['artifacts']})
         self.assertTrue(seen['stopped'])
-        self.assertFalse(seen['lease_store'].exists())
+        self.assertFalse(seen['target'].exists())
         self.assertEqual(self.snapshot(), before)
-
 
 if __name__ == '__main__':
     unittest.main()

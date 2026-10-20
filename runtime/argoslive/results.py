@@ -59,10 +59,26 @@ def validate(value):
         digest_value = (prompt_fingerprint.get('workspace_agents_sha256')
                         if isinstance(prompt_fingerprint, dict) else None)
         if (not isinstance(prompt_fingerprint, dict)
-                or set(prompt_fingerprint) != {'workspace_agents_sha256'}
+                or 'workspace_agents_sha256' not in prompt_fingerprint
+                or set(prompt_fingerprint) - {'workspace_agents_sha256', 'evaluation_config_sha256',
+                                               'workspace_context_sha256'}
                 or (digest_value is not None and
                     (not isinstance(digest_value, str) or not re.fullmatch(r'[a-f0-9]{64}', digest_value)))):
             raise ValueError('Invalid prompt fingerprint')
+        configuration_hash = prompt_fingerprint.get('evaluation_config_sha256')
+        if ('evaluation_config_sha256' in prompt_fingerprint and
+                (not isinstance(configuration_hash, str) or not re.fullmatch(r'[a-f0-9]{64}', configuration_hash))):
+            raise ValueError('Invalid evaluation configuration fingerprint')
+        context_hash = prompt_fingerprint.get('workspace_context_sha256')
+        if context_hash is not None and (not isinstance(context_hash, str) or
+                                         not re.fullmatch(r'[a-f0-9]{64}', context_hash)):
+            raise ValueError('Invalid workspace context fingerprint')
+    if value['settings'].get('execution_path') == 'openclaw embedded; ephemeral state; tools denied; v2':
+        if (not isinstance(value['settings'].get('configured_generation'), dict)
+                or not isinstance(value['settings'].get('model'), dict)
+                or not isinstance(prompt_fingerprint, dict)
+                or not prompt_fingerprint.get('evaluation_config_sha256')):
+            raise ValueError('Missing evaluation configuration receipt')
     try:
         created = datetime.fromisoformat(value['created'])
         if created.tzinfo is None:
@@ -172,6 +188,20 @@ class Store:
         path.unlink()
 
 
+def configuration_differences(before, after, prefix=''):
+    """One scalar/list setting is one change; missing differs from explicit null."""
+    changes = []
+    for key in sorted(set(before) | set(after)):
+        path = (prefix + '.' if prefix else '') + key
+        if key in before and key in after and isinstance(before[key], dict) and isinstance(after[key], dict):
+            changes.extend(configuration_differences(before[key], after[key], path))
+        elif (key not in before or key not in after or
+              json.dumps(before[key], sort_keys=True) != json.dumps(after[key], sort_keys=True)):
+            changes.append({'path': path, 'before_present': key in before, 'after_present': key in after,
+                            'before': before.get(key), 'after': after.get(key)})
+    return changes
+
+
 def compare(values):
     if len(values) < 2:
         raise ValueError('Choose at least two runs for comparison')
@@ -184,8 +214,10 @@ def compare(values):
         # The model is the thing an ability comparison is meant to vary. It
         # already has a dedicated top-level field, so keep all other settings
         # identical while allowing `assistant_model` to differ.
-        return {key: setting for key, setting in value['settings'].items()
-                if key not in ('assistant_model', 'model')}
+        excluded = {'assistant_model', 'model'}
+        if value['settings'].get('execution_path') == 'openclaw embedded; ephemeral state; tools denied; v2':
+            excluded.add('configured_generation')
+        return {key: setting for key, setting in value['settings'].items() if key not in excluded}
 
     first_settings = comparison_settings(first)
     for value in values:
@@ -208,6 +240,23 @@ def compare(values):
             [(p['size'], p.get('context_tokens'), p['skipped']) for p in first['prompts']]
             for v in values):
         raise ValueError('Speed prompt coverage differs between runs')
+    configuration_changes = []
+    if first['settings'].get('execution_path') == 'openclaw embedded; ephemeral state; tools denied; v2':
+        for value in values:
+            changes = configuration_differences(first['settings']['configured_generation'],
+                                                 value['settings']['configured_generation'])
+            if first['model'] == value['model']:
+                changes += configuration_differences(first['settings']['model'],
+                                                     value['settings']['model'], 'model')
+            instructions_changed = (first.get('prompt_fingerprint', {}).get('workspace_agents_sha256') !=
+                                    value.get('prompt_fingerprint', {}).get('workspace_agents_sha256'))
+            context_changed = (first.get('prompt_fingerprint', {}).get('workspace_context_sha256') !=
+                               value.get('prompt_fingerprint', {}).get('workspace_context_sha256'))
+            if len(changes) + int(instructions_changed) + int(context_changed) + int(first['model'] != value['model']) > 1:
+                raise ValueError('Comparison changes more than one model, instruction or configuration setting')
+            configuration_changes.append({'id': value['id'], 'changes': changes,
+                                          'workspace_context_changed': context_changed,
+                                          'evidence': 'configured settings; not proof of the effective wire request'})
     rows = []
     for value in values:
         common = {'id': value['id'], 'model': value['model'], 'manifest_digest': value.get('manifest_digest'),
@@ -230,6 +279,7 @@ def compare(values):
                      if isinstance(value.get('prompt_fingerprint'), dict) else None for value in values]
     return {'kind': first['kind'], 'suite_version': first['suite_version'], 'settings': first_settings,
             'workspace_agents_changed': len(set(prompt_hashes)) > 1,
+            'configuration_changes': configuration_changes,
             'rows': rows, **matched_details(values), 'limitations': 'Hardware and runtime versions can differ; inspect original runs. '
             'Missing measurements are unranked. Tool formatting is not tool execution.'}
 

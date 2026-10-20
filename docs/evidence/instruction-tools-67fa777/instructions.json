@@ -1,0 +1,17 @@
+{
+  "scope": "host instruction journal only",
+  "passed": true,
+  "changes": [
+    {
+      "change_id": "99e239d5d16e8ea0995a5398142243e1",
+      "action": "restore",
+      "before_sha256": "cba8385ff7ccc705b77bf04250b8591ae4990cfc75f3815b5e67d1369ff62c97",
+      "after_sha256": "3290bd21b909fd4f179725dcd02f48a263c6792fa80cad065687cd301f2791ed",
+      "qualified_experiment": false,
+      "observed": "2026-10-18T07:18:38.678957+00:00"
+    }
+  ],
+  "full_log_claims_verified": false,
+  "independent_gain_verified": false,
+  "qualified_experiments": 0
+}

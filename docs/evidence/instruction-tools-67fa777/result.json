@@ -1,0 +1,481 @@
+{
+  "coverage": {
+    "complete": true,
+    "completed": 20,
+    "total": 20
+  },
+  "created": "2026-10-18T07:15:22.049140+00:00",
+  "elapsed_seconds": 195.97297159,
+  "hardware": {
+    "cpu": {
+      "cores": 2,
+      "model": "AMD EPYC 9V74 80-Core Processor",
+      "threads": 4
+    },
+    "disks": [
+      {
+        "children": [
+          {
+            "children": [],
+            "filesystem": "ext4",
+            "mountpoints": [
+              "/"
+            ],
+            "name": "sda1",
+            "size_bytes": 159986466304,
+            "type": "part"
+          },
+          {
+            "children": [],
+            "filesystem": null,
+            "mountpoints": [
+              null
+            ],
+            "name": "sda14",
+            "size_bytes": 4194304,
+            "type": "part"
+          },
+          {
+            "children": [],
+            "filesystem": "vfat",
+            "mountpoints": [
+              "/boot/efi"
+            ],
+            "name": "sda15",
+            "size_bytes": 111149056,
+            "type": "part"
+          },
+          {
+            "children": [],
+            "filesystem": "ext4",
+            "mountpoints": [
+              "/boot"
+            ],
+            "name": "sda16",
+            "size_bytes": 957350400,
+            "type": "part"
+          }
+        ],
+        "filesystem": null,
+        "mountpoints": [
+          null
+        ],
+        "name": "sda",
+        "size_bytes": 161061273600,
+        "type": "disk"
+      }
+    ],
+    "gpus": [],
+    "kernel": "6.17.0-1022-azure",
+    "model_directories": [],
+    "ram": {
+      "available_bytes": 14698815488,
+      "total_bytes": 16766414848
+    },
+    "schema": "argos-hw/1",
+    "secure_boot": false
+  },
+  "id": "a69d6a762035ec1a2576c107625c394a",
+  "items": [
+    {
+      "category": "numeric",
+      "format_valid": false,
+      "item_id": "math-01",
+      "latency_seconds": 9.711316361000002,
+      "measurement": {
+        "elapsed_seconds": 9.71,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "21cfef38-ce0a-435f-adde-4abbb859795f",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "numeric",
+      "format_valid": false,
+      "item_id": "math-02",
+      "latency_seconds": 9.84767283399998,
+      "measurement": {
+        "elapsed_seconds": 9.84,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "f990dfc2-a7ea-4a62-bba2-f568225a4003",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "numeric",
+      "format_valid": false,
+      "item_id": "math-03",
+      "latency_seconds": 9.791622966999995,
+      "measurement": {
+        "elapsed_seconds": 9.79,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "0732151a-0000-4e49-8fa3-90e95799c772",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "numeric",
+      "format_valid": false,
+      "item_id": "math-04",
+      "latency_seconds": 9.746326392999975,
+      "measurement": {
+        "elapsed_seconds": 9.74,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "89cda916-9810-4b6f-9c15-ac8201bdacfd",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "choice",
+      "format_valid": false,
+      "item_id": "choice-01",
+      "latency_seconds": 9.803142269999995,
+      "measurement": {
+        "elapsed_seconds": 9.8,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "c2ac85f9-bebb-42d9-9c8f-f35754b7430b",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "choice",
+      "format_valid": false,
+      "item_id": "choice-02",
+      "latency_seconds": 9.756195956,
+      "measurement": {
+        "elapsed_seconds": 9.75,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "deb8e555-38ed-4d9b-b467-5b1274b535ba",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "choice",
+      "format_valid": false,
+      "item_id": "choice-03",
+      "latency_seconds": 9.73863467199999,
+      "measurement": {
+        "elapsed_seconds": 9.73,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "20119409-d3c8-47d1-a9ef-2e0427e2d1c2",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "choice",
+      "format_valid": false,
+      "item_id": "choice-04",
+      "latency_seconds": 9.811549017999994,
+      "measurement": {
+        "elapsed_seconds": 9.81,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "1c7061f7-17ee-4f9e-9141-2dc4abf983e8",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "instruction",
+      "format_valid": true,
+      "item_id": "instruction-01",
+      "latency_seconds": 9.808397925000008,
+      "measurement": {
+        "elapsed_seconds": 9.8,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "wrong_answer",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "ee23d4ac-fb24-4273-9fbd-ccab3b1464b0",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "instruction",
+      "format_valid": true,
+      "item_id": "instruction-02",
+      "latency_seconds": 9.735898364999969,
+      "measurement": {
+        "elapsed_seconds": 9.73,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "wrong_answer",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "251a5f06-2fd5-40aa-9d2f-2f81cf7fa9c4",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "instruction",
+      "format_valid": true,
+      "item_id": "instruction-03",
+      "latency_seconds": 9.857664338000006,
+      "measurement": {
+        "elapsed_seconds": 9.85,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "wrong_answer",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "e16ad32b-8509-4a31-8d8f-3704e3d25499",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "instruction",
+      "format_valid": true,
+      "item_id": "instruction-04",
+      "latency_seconds": 9.877756025999986,
+      "measurement": {
+        "elapsed_seconds": 9.87,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "wrong_answer",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "51c627b7-059a-47ec-b0ef-e590618765ac",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "json",
+      "format_valid": false,
+      "item_id": "json-01",
+      "latency_seconds": 9.817063325999982,
+      "measurement": {
+        "elapsed_seconds": 9.81,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "5487fa2b-0ee9-4bb6-80c5-575f65d21b6c",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "json",
+      "format_valid": false,
+      "item_id": "json-02",
+      "latency_seconds": 9.78055090800001,
+      "measurement": {
+        "elapsed_seconds": 9.78,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "1caef16e-1c1c-4a61-8ccb-1591e37706c9",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "json",
+      "format_valid": false,
+      "item_id": "json-03",
+      "latency_seconds": 9.759826688000032,
+      "measurement": {
+        "elapsed_seconds": 9.76,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "8ec38231-093a-4c4f-837f-ab0eaaabf148",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "json",
+      "format_valid": false,
+      "item_id": "json-04",
+      "latency_seconds": 9.805954170000007,
+      "measurement": {
+        "elapsed_seconds": 9.8,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "12576bca-9e4e-40fa-94a7-24bcf3ac5898",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "tool-call",
+      "format_valid": false,
+      "item_id": "tool-01",
+      "latency_seconds": 9.690706360000036,
+      "measurement": {
+        "elapsed_seconds": 9.69,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "a7a4e2fb-928f-42b1-9750-0e4b9ea8af7a",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "tool-call",
+      "format_valid": false,
+      "item_id": "tool-02",
+      "latency_seconds": 9.749091307999947,
+      "measurement": {
+        "elapsed_seconds": 9.74,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "993db8ca-bf6c-4f3a-b42f-61187c1da06d",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "tool-call",
+      "format_valid": false,
+      "item_id": "tool-03",
+      "latency_seconds": 9.839436062000004,
+      "measurement": {
+        "elapsed_seconds": 9.84,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "6c3274b2-c151-4817-9762-6ff941c3a503",
+      "tool_execution_verified": false
+    },
+    {
+      "category": "tool-call",
+      "format_valid": false,
+      "item_id": "tool-04",
+      "latency_seconds": 9.83558979899999,
+      "measurement": {
+        "elapsed_seconds": 9.83,
+        "source": "OpenClaw CLI elapsed time"
+      },
+      "outcome": "format_error",
+      "output": "synthetic answer",
+      "output_truncated": false,
+      "score": 0,
+      "session_id": "8080aa3f-5bc7-439d-b323-e18aac8ec9d9",
+      "tool_execution_verified": false
+    }
+  ],
+  "kind": "ability",
+  "manifest_digest": null,
+  "model": "ollama/fixture:latest",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "prompt_fingerprint": {
+    "evaluation_config_sha256": "7e21b4adadf63fca31026297927b676936eec8954de2db65fc38d547bf064e1f",
+    "workspace_agents_sha256": "cba8385ff7ccc705b77bf04250b8591ae4990cfc75f3815b5e67d1369ff62c97"
+  },
+  "restoration": {
+    "mutated": false,
+    "succeeded": true
+  },
+  "schema": "argos-bench/1",
+  "settings": {
+    "assistant_model": "ollama/fixture:latest",
+    "configured_generation": {
+      "agent_model_params": {},
+      "agent_params": {},
+      "default_params": {},
+      "defaults": {},
+      "model_params": {},
+      "provider_model_params": {}
+    },
+    "execution_path": "openclaw embedded; ephemeral state; tools denied; v2",
+    "model": {
+      "metadata": {
+        "contextWindow": 32768,
+        "input": [
+          "text"
+        ],
+        "maxTokens": 4096,
+        "reasoning": false
+      },
+      "primary": "ollama/fixture:latest"
+    },
+    "suite_sha256": "ddeb40a1403c7f6935ca12fd3ccfbfe40baf6a7065ea03aec674caf39805678d"
+  },
+  "state": "completed",
+  "suite": "openclaw-quick",
+  "suite_version": "argos-openclaw-ability/quick/1.0.0",
+  "summary": {
+    "accuracy": 0.0,
+    "categories": {
+      "choice": {
+        "accuracy": 0.0,
+        "correct": 0,
+        "format_errors": 4,
+        "total": 4
+      },
+      "instruction": {
+        "accuracy": 0.0,
+        "correct": 0,
+        "format_errors": 0,
+        "total": 4
+      },
+      "json": {
+        "accuracy": 0.0,
+        "correct": 0,
+        "format_errors": 4,
+        "total": 4
+      },
+      "numeric": {
+        "accuracy": 0.0,
+        "correct": 0,
+        "format_errors": 4,
+        "total": 4
+      },
+      "tool-call": {
+        "accuracy": 0.0,
+        "correct": 0,
+        "format_errors": 4,
+        "total": 4
+      }
+    },
+    "correct": 0,
+    "format_errors": 16,
+    "total": 20
+  }
+}

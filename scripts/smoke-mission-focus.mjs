@@ -75,8 +75,17 @@ try {
   assert.ok(!passage.includes('QUESTION:') && !passage.includes('Respond with'),'Passage excludes question and schema');
   assert.match(await page.locator('#arena-progress-label').textContent(),/^\d+ of \d+ responses done$/);
   // Highlight an exact returned quote once one arrives.
-  await page.waitForFunction(()=>document.querySelector('#arena-current-passage mark'),null,{timeout:30000});
-  assert.ok(await page.locator('#arena-current-passage').evaluate(el=>el.querySelector('mark') && el.dataset.text.includes(el.querySelector('mark').textContent)),
+  // Capture passage and mark in one browser turn. Live progress may replace
+  // both before a second evaluate call reaches the browser.
+  const highlighted=await page.waitForFunction(()=>{
+    const el=document.getElementById('arena-current-passage');
+    const mark=el?.querySelector('mark');
+    const passage=el?.dataset.text||'';
+    return mark && passage.includes(mark.textContent)
+      ? {passage,quote:mark.textContent} : false;
+  },null,{timeout:30000});
+  const evidence=await highlighted.jsonValue();
+  assert.ok(evidence.passage.includes(evidence.quote),
     'Highlighted text is an exact passage quotation');
   await both('watch',async()=>{
     // Phone keeps the passage one tap away; wide screens keep it open beside the question.

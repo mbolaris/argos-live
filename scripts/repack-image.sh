@@ -19,6 +19,15 @@ for area in config/includes.chroot chroot; do
   done
 done
 bash "$src/scripts/sync-build-runtime.sh"
+# Do not produce a desktop that requires an absent or obsolete shutdown template.
+# Repacking does not rerun the chroot hooks that construct its dependency closure.
+shutdown_root="$work/chroot/usr/local/share/argos-live/shutdown-root"
+[[ -f "$shutdown_root/PREPARER_SHA256" && -f "$shutdown_root/SHA256SUMS" ]] || {
+  echo 'A fresh image build is required for the RAM shutdown environment.' >&2; exit 1;
+}
+[[ "$(cat "$shutdown_root/PREPARER_SHA256")" == "$(sha256sum "$src/live/config/includes.chroot/usr/local/share/argos-live/prepare-shutdown-root.sh" | cut -d ' ' -f1)" ]] || {
+  echo 'Shutdown template differs from source; do a fresh image build.' >&2; exit 1;
+}
 install -m 755 "$src/live/config/hooks/live/050-argos-menu.hook.binary" "$work/config/hooks/live/050-argos-menu.hook.binary"
 python3 - "$work/config/binary" <<'PY'
 import pathlib, sys, re

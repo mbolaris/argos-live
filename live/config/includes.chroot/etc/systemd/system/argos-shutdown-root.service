@@ -1,0 +1,12 @@
+[Unit]
+Description=Prepare RAM environment for encrypted live-storage shutdown
+After=local-fs.target
+Before=lightdm.service systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/local/share/argos-live/prepare-shutdown-root.sh --stage
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

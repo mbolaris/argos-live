@@ -5,4 +5,5 @@
 *.env text eol=lf
 *.py text eol=lf
 *.ps1 text eol=crlf
+openclaw-plugin/argos-improve/** text eol=lf
 runtime/argoslive/data/licenses/*.txt -text

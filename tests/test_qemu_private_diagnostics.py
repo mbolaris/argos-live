@@ -17,6 +17,46 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_chat_target_retries_bounded_readiness_conflict(self):
+        class Response(io.BytesIO):
+            def __enter__(self): return self
+            def __exit__(self, *args): self.close()
+        conflict = HTTPError('http://127.0.0.1/private/chat', 409,
+                             'private readiness detail', {}, io.BytesIO(b'secret'))
+        class Opener:
+            def __init__(self):
+                self.responses = [conflict, Response(
+                    b'{"url":"http://127.0.0.1:18789/chat#token=private-token"}')]
+            def open(self, request, timeout):
+                response = self.responses.pop(0)
+                if isinstance(response, HTTPError):
+                    raise response
+                return response
+        with patch.object(module.time, 'sleep') as pause:
+            target = module.assistant_chat_target(Opener(), 'http://127.0.0.1:44429',
+                                                   'private-token', Path('/unused'))
+        self.assertEqual((target.hostname, target.path), ('127.0.0.1', '/chat'))
+        self.assertEqual(pause.call_args.args, (.5,))
+        self.assertTrue(conflict.file.closed)
+
+    def test_chat_target_stops_retrying_conflicts_at_deadline(self):
+        conflict = HTTPError('http://127.0.0.1/private/chat', 409,
+                             'private readiness detail', {}, io.BytesIO(b'secret'))
+        class Opener:
+            def open(self, request, timeout):
+                raise conflict
+        output = io.StringIO()
+        with patch.object(module.time, 'monotonic', side_effect=[0, 0, 2]), \
+                patch.object(module.time, 'sleep') as pause, \
+                patch('sys.stdout', output):
+            with self.assertRaises(HTTPError):
+                module.assistant_chat_target(Opener(), 'http://127.0.0.1:44429',
+                                             'private-token', Path('/unused'), ready_timeout=1)
+        self.assertEqual(pause.call_args.args, (.5,))
+        self.assertTrue(conflict.file.closed)
+        self.assertIn('"status": 409', output.getvalue())
+        self.assertNotIn('private', output.getvalue())
+
     def test_assistant_chat_http_failure_reports_only_check_and_status(self):
         body = io.BytesIO(b'{"error":"private token and response body"}')
         error = HTTPError('http://127.0.0.1/private-token/chat', 409,
@@ -47,9 +87,9 @@ class DiagnosticFlagsTests(unittest.TestCase):
                 'auth': {'mode': 'token', 'token': 'fictional-private-token'}}}
             (config_dir / 'openclaw.json').write_text(json.dumps(config))
             with patch('argoslive.web.status.gateway_ready', return_value=True):
-                value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+                value = module.assistant_chat_preconditions(Path(temp))
             self.assertEqual(value, {'config_readable': True, 'gateway_config_valid': True,
-                'origin_matches_session': True, 'token_mode': True, 'token_present': True,
+                'token_mode': True, 'token_present': True,
                 'token_length_valid': True, 'gateway_ready': True})
             self.assertNotIn('fictional-private-token', json.dumps(value))
 
@@ -59,35 +99,11 @@ class DiagnosticFlagsTests(unittest.TestCase):
             config_dir.mkdir()
             (config_dir / 'openclaw.json').write_text(json.dumps(
                 {'gateway': {'bind': '0.0.0.0', 'auth': {'token': 'secret'}}}))
-            value = module.assistant_chat_preconditions(Path(temp), 'http://127.0.0.1:18789')
+            value = module.assistant_chat_preconditions(Path(temp))
             self.assertTrue(value['config_readable'])
             self.assertFalse(value['gateway_config_valid'])
             self.assertFalse(value['token_present'])
             self.assertNotIn('secret', json.dumps(value))
-
-    def test_trial_keyboard_refuses_wrong_active_window(self):
-        with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
-                patch.object(module.ctypes, 'CDLL') as library:
-            with self.assertRaisesRegex(ValueError, 'active Firefox'):
-                module.click_model_lab_baseline("http://127.0.0.1:49355", "fixture-token")
-            library.assert_not_called()
-
-    def test_trial_keyboard_failure_releases_control_and_closes_display(self):
-        x11, xtst = MagicMock(), MagicMock()
-        x11.XOpenDisplay.return_value = 123
-        x11.XKeysymToKeycode.side_effect = lambda display, symbol: symbol
-        # Control press succeeds; typing the location shortcut fails.
-        xtst.XTestFakeKeyEvent.side_effect = [1, 0, 1]
-        output = io.StringIO()
-        with patch.object(module, 'firefox_model_lab_visible', return_value=True), \
-                patch.object(module.ctypes, 'CDLL', side_effect=[x11, xtst]), \
-                patch('sys.stdout', output):
-            with self.assertRaisesRegex(ValueError, 'keyboard input failed'):
-                module.click_model_lab_baseline("http://127.0.0.1:49355", "fixture-token")
-        self.assertEqual(xtst.XTestFakeKeyEvent.call_args.args, (123, 0xffe3, 0, 0))
-        x11.XCloseDisplay.assert_called_once_with(123)
-        self.assertEqual(output.getvalue(), 'ARGOS_C3_INPUT_FAILURE focus-location-bar\n')
-        self.assertNotIn('fixture-token', output.getvalue())
 
     def test_probe_failure_only_emits_fixed_categories_not_private_error_text(self):
         self.assertEqual(module.probe_failure(TimeoutError('private token')), 'timeout')
@@ -123,6 +139,65 @@ class DiagnosticFlagsTests(unittest.TestCase):
                     'check_output', side_effect=['_NET_ACTIVE_WINDOW: 0x123', kind,
                                                  '_NET_WM_NAME(UTF8_STRING) = ' + title]):
                 self.assertEqual(module.firefox_model_lab_visible(), expected)
+
+    def test_model_lab_click_waits_through_transient_firefox_focus_handoff(self):
+        with patch.object(module, 'firefox_model_lab_visible', side_effect=[False, False, True]), \
+                patch.object(module.time, 'monotonic', side_effect=[0, 0, 0]), \
+                patch.object(module.time, 'sleep') as pause:
+            self.assertTrue(module.wait_for_active_firefox())
+        self.assertEqual(pause.call_count, 2)
+
+    def test_model_lab_click_fails_closed_when_firefox_never_gets_focus(self):
+        with patch.object(module, 'firefox_model_lab_visible', return_value=False), \
+                patch.object(module.time, 'monotonic', side_effect=[0, 6]), \
+                patch.object(module.time, 'sleep'):
+            self.assertFalse(module.wait_for_active_firefox())
+
+    def test_managed_guest_waits_for_exact_host_paint_acknowledgement(self):
+        stream = io.StringIO('ARGOS_C3_UI_READY\n')
+        with patch.object(module.sys, 'stdin', stream), \
+                patch.object(module.select, 'select', return_value=([stream], [], [])) as ready:
+            module.await_dashboard_paint(timeout=17)
+        self.assertEqual(ready.call_args.args[3], 17)
+
+    def test_managed_guest_rejects_missing_or_unexpected_paint_acknowledgement(self):
+        stream = io.StringIO('private content\n')
+        with patch.object(module.sys, 'stdin', stream), \
+                patch.object(module.select, 'select', return_value=([], [], [])):
+            with self.assertRaisesRegex(ValueError, 'visible ready state'):
+                module.await_dashboard_paint(timeout=0)
+        with patch.object(module.sys, 'stdin', io.StringIO('PRIVATE_TOKEN\n')), \
+                patch.object(module.select, 'select', side_effect=lambda readers, *args: (readers, [], [])):
+            with self.assertRaisesRegex(ValueError, 'visible ready state'):
+                module.await_dashboard_paint(timeout=0)
+
+    def test_dashboard_window_lookup_requires_shipped_firefox_title(self):
+        with patch.object(module.subprocess, 'check_output', side_effect=[
+                '_NET_CLIENT_LIST(WINDOW): window id # 0x10, 0x20',
+                'WM_CLASS(STRING) = "firefox-esr", "Firefox-esr"',
+                '_NET_WM_NAME(UTF8_STRING) = "Firefox Privacy Notice"',
+                'WM_CLASS(STRING) = "firefox-esr", "Firefox-esr"',
+                '_NET_WM_NAME(UTF8_STRING) = "Argos Live · Local workspace — Mozilla Firefox"']):
+            self.assertEqual(module.firefox_dashboard_window(), 0x20)
+
+    def test_dashboard_window_lookup_does_not_match_other_pages_or_browsers(self):
+        with patch.object(module.subprocess, 'check_output', side_effect=[
+                '_NET_CLIENT_LIST(WINDOW): window id # 0x10, 0x20',
+                'WM_CLASS(STRING) = "firefox-esr", "Firefox-esr"',
+                '_NET_WM_NAME(UTF8_STRING) = "OpenClaw Control"',
+                'WM_CLASS(STRING) = "other-browser", "Other-browser"']):
+            self.assertIsNone(module.firefox_dashboard_window())
+
+    def test_focus_targets_only_the_discovered_argos_firefox_window(self):
+        x11 = MagicMock()
+        x11.XOpenDisplay.return_value = 123
+        with patch.object(module, 'firefox_dashboard_window', return_value=0x20), \
+                patch.object(module, 'wait_for_active_firefox', return_value=True), \
+                patch.object(module.ctypes, 'CDLL', return_value=x11):
+            self.assertTrue(module.focus_firefox_dashboard())
+        x11.XRaiseWindow.assert_called_once_with(123, 0x20)
+        x11.XSetInputFocus.assert_called_once_with(123, 0x20, 2, 0)
+        x11.XCloseDisplay.assert_called_once_with(123)
 
     def test_owned_exit_only_admits_bounded_whole_numeric_records(self):
         self.assertEqual(module.owned_exit(b'private token\nARGOS_OWNED_EXIT returncode=-11\n'), -11)

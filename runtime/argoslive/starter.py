@@ -1,5 +1,6 @@
 """Verified image starter inference without copying or writing model files."""
 from contextlib import contextmanager
+import hashlib
 import os
 from pathlib import Path
 import tempfile
@@ -43,13 +44,26 @@ def read_only(root=ROOT, *, data=None):
 def serve(root=ROOT, *, executable=None, data=None, timeout=60):
     """Own inference on image weights, with private temporary process leases."""
     root = safe_local(root)
-    identity = read_only(root, data=data)
-    with tempfile.TemporaryDirectory(prefix='argos-starter-') as lease:
-        with owned(root, executable=executable, timeout=timeout, lease_store=Path(lease)) as client:
-            models = client.list().get('models', [])
-            expected = identity['manifest_digest']
-            # Ollama's API uses bare hex; catalog descriptors include sha256:.
-            if not any(model.get('name') == TAG and model.get('digest') in (expected, expected[7:])
-                       for model in models):
+    read_only(root, data=data)
+    entry = next(entry for entry in (data or catalog.load())['models'] if entry['tag'] == TAG)
+    with tempfile.TemporaryDirectory(prefix='argos-starter-') as temp:
+        lease = Path(temp) / 'lease'
+        lease.mkdir(mode=0o700)
+        # Ollama 0.40 writes to its model directory, so serve a private shadow:
+        # a copied manifest (a few KB) and blob links to the read-only image.
+        shadow = Path(temp) / 'models'
+        manifest = shadow / model_verify.manifest_path(root, TAG).relative_to(root)
+        manifest.parent.mkdir(parents=True)
+        manifest.write_bytes(model_verify.read_manifest(root, TAG))
+        (shadow / 'blobs').mkdir()
+        for item in entry['artifacts']:
+            os.symlink(model_verify.blob_path(root, item), shadow / 'blobs' / item['digest'].replace(':', '-'))
+        with owned(shadow, executable=executable, timeout=timeout, lease_store=lease) as client:
+            raw = manifest.read_bytes()
+            model_verify.check_local_manifest(raw, entry)
+            served = hashlib.sha256(raw).hexdigest()
+            # Ollama's API uses bare hex digests of the manifest it serves.
+            if not any(model.get('name') == TAG and model.get('digest') in (served, 'sha256:' + served)
+                       for model in client.list().get('models', [])):
                 raise ValueError('Ollama starter identity differs from the verified image')
             yield client

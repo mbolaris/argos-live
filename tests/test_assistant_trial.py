@@ -77,7 +77,10 @@ class TrialTests(unittest.TestCase):
         workspace = self.home / '.openclaw/workspace'
         workspace.mkdir(parents=True)
         (self.home / '.config/argos-live').mkdir(parents=True)
-        (self.home / '.openclaw/openclaw.json').write_text(json.dumps({'agents': {'defaults': {'workspace': str(workspace)}}}))
+        (self.home / '.openclaw/openclaw.json').write_text(json.dumps({
+            'agents': {'defaults': {'workspace': str(workspace), 'model': {'primary': 'ollama/fixture'}}},
+            'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434',
+                'models': [{'id': 'fixture', 'name': 'fixture'}]}}}}))
         (self.home / '.config/argos-live/state.json').write_text('{"model": "fixture"}')
         self.original = '# Operating notes\r\nBe kind and brief.'  # no trailing newline, CRLF: must survive byte-exact
         (workspace / 'AGENTS.md').write_bytes(self.original.encode())
@@ -651,7 +654,7 @@ class TrialTests(unittest.TestCase):
         config.write_text(json.dumps(value))
         self.assertEqual(at.agents_path(self.home), alternate / 'AGENTS.md')
 
-    def test_runner_uses_unique_gateway_session_without_behavior_override(self):
+    def test_runner_uses_unique_embedded_session_without_owner_gateway(self):
         with patch.object(at.uuid, 'uuid4', return_value='unique-turn'), patch.object(at.subprocess, 'Popen') as spawn:
             process = spawn.return_value.__enter__.return_value
             process.returncode = 0
@@ -660,7 +663,7 @@ class TrialTests(unittest.TestCase):
             reply = at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
             command = spawn.call_args.args[0]
             self.assertIn('agent:main:argos-trial-unique-turn', command)
-            self.assertNotIn('--local', command)
+            self.assertIn('--local', command)
             self.assertNotIn('--deliver', command)
             self.assertNotIn('--thinking', command)
             self.assertEqual(reply['text'], 'A reply')
@@ -684,6 +687,35 @@ class TrialTests(unittest.TestCase):
                 at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
         self.assertEqual(raised.exception.code, 'turn-timeout')
         self.assertNotIn('/private/path', str(raised.exception))
+
+    def test_pinned_embedded_empty_reply_is_wrong_answer_not_infrastructure_failure(self):
+        decision = (b'[model-fallback/decision] model fallback decision: decision=candidate_failed '
+                    b'requested=ollama/qwen3.8:27b candidate=ollama/qwen3.8:27b reason=format '
+                    b'next=none detail=ollama/qwen3.8:27b ended without a visible assistant reply\n')
+        with patch.object(at.subprocess, 'Popen') as spawn:
+            process = spawn.return_value.__enter__.return_value
+            process.returncode = 1
+            process.communicate.return_value = (b'', decision + b'[openclaw] The CLI command failed.\n')
+            with self.assertRaises(at.TrialTurnError) as raised:
+                at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
+            self.assertEqual(raised.exception.code, 'empty-reply')
+        for unconfirmed in (b'ended without a visible assistant reply',
+                            decision.replace(b'next=none', b'next=another'),
+                            decision.replace(b'candidate=ollama/qwen3.8:27b', b'candidate=ollama/other'),
+                            decision + b'[model-fallback/decision] decision=candidate_failed reason=timeout\n'):
+            self.assertFalse(at.model_gave_no_answer(b'', unconfirmed))
+
+    def test_runner_reports_a_turn_with_no_answer_as_empty_reply(self):
+        with patch.object(at.subprocess, 'Popen') as spawn, patch(
+                'argoslive.owned_gateway.private_log', side_effect=lambda path: path.open('wb')):
+            process = spawn.return_value.__enter__.return_value
+            process.returncode = 1
+            process.communicate.return_value = (json.dumps({'status': 'error', 'result': {'payloads': [], 'meta': {
+                'error': {'kind': 'incomplete_turn', 'message': "Agent couldn't generate a response."}}}}).encode(),
+                b'The CLI command failed.')
+            with self.assertRaises(at.TrialTurnError) as raised:
+                at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
+        self.assertEqual(raised.exception.code, 'empty-reply')
 
     def test_failed_cli_evidence_is_retained_only_in_private_log(self):
         with patch.object(at.subprocess, 'Popen') as spawn, patch(

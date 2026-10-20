@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Offline TCG guest acceptance of an existing checksum-verified ISO."""
+"""Offline guest acceptance of an existing checksum-verified ISO."""
 import argparse
+from collections import Counter
 import base64
 import hashlib
 import json
@@ -42,19 +43,22 @@ def desktop_entry(text, *, guest=False):
 
 
 def screenshot(qmp, path):
+    qmp_commands(qmp, [{'execute': 'screendump', 'arguments': {'filename': str(path.absolute())}}])
+
+
+def qmp_commands(qmp, commands):
     with socket.socket(socket.AF_UNIX) as connection:
         connection.settimeout(15)
         connection.connect(str(qmp))
         stream = connection.makefile('rwb')
         json.loads(stream.readline())
-        for command in ({'execute': 'qmp_capabilities'},
-                        {'execute': 'screendump', 'arguments': {'filename': str(path.absolute())}}):
+        for command in [{'execute': 'qmp_capabilities'}, *commands]:
             stream.write(json.dumps(command).encode() + b'\n')
             stream.flush()
             while True:
                 reply = json.loads(stream.readline())
                 if 'error' in reply:
-                    raise ValueError('QEMU screenshot failed')
+                    raise ValueError('QEMU command failed')
                 if 'return' in reply:
                     break
 
@@ -80,6 +84,75 @@ def screenshot_dashboard_content(qmp, path):
         path.write_bytes(crop_ppm_top(private_path.read_bytes(), 160))
     finally:
         private_path.unlink(missing_ok=True)
+
+
+def capture_graphical_dashboard(qmp, path, *, timeout=60):
+    """Wait for the newly opened browser to paint before accepting pixels."""
+    deadline = time.monotonic() + timeout
+    while True:
+        screenshot_dashboard_content(qmp, path)
+        try:
+            graphical_frame(path)
+            return
+        except ValueError as error:
+            if 'blank or placeholder' not in str(error):
+                raise
+            if time.monotonic() >= deadline:
+                raise ValueError('QEMU browser frame remained blank after paint wait') from error
+            time.sleep(.5)
+
+
+def baseline_button_target(raw):
+    """Locate the pinned dashboard's baseline button; reject ambiguous layouts.
+
+    This is a UI input hint, never acceptance evidence. The guest must still
+    observe the real job, both saved runs, and assistant resumption.
+    """
+    header = re.match(rb'P6\s+(\d+)\s+(\d+)\s+255\s', raw)
+    if not header:
+        raise ValueError('Unexpected dashboard frame')
+    width, height = int(header[1]), int(header[2])
+    pixels = raw[header.end():]
+    if width != 1280 or height != 640 or len(pixels) != width * height * 3:
+        raise ValueError('Unexpected dashboard dimensions')
+    groups = []
+    for y in range(height):
+        row = pixels[y * width * 3:(y + 1) * width * 3]
+        for match in re.finditer(b'(?:\x82\xe4\xde){310,}', row):
+            x, length = match.start() // 3, len(match[0]) // 3
+            if match.start() % 3 or not 310 <= length <= 350:
+                continue
+            group = next((g for g in groups if abs(g[0] - x) < 12 and y - g[2] < 50), None)
+            if group is None:
+                groups.append([x, y, y, length])
+            else:
+                group[2] = y
+    targets = [(x + length // 2, (top + bottom) // 2 + 160)
+               for x, top, bottom, length in groups if 30 <= bottom - top <= 48]
+    if len(targets) != 1:
+        raise ValueError('Rendered baseline button missing or ambiguous')
+    return targets[0]
+
+
+def click_rendered_baseline(qmp, frame, *, timeout=20):
+    # A painted shell can precede the authenticated Lab status response. Wait
+    # for the actual enabled control, never click another turquoise element.
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            x, y = baseline_button_target(frame.read_bytes())
+            break
+        except ValueError as error:
+            if str(error) != 'Rendered baseline button missing or ambiguous' or time.monotonic() >= deadline:
+                raise
+            time.sleep(.5)
+            screenshot_dashboard_content(qmp, frame)
+    def event(kind, data):
+        return {'execute': 'input-send-event', 'arguments': {'events': [{'type': kind, 'data': data}]}}
+    qmp_commands(qmp, [event('abs', {'axis': 'x', 'value': x * 32767 // 1279}),
+                       event('abs', {'axis': 'y', 'value': y * 32767 // 799}),
+                       event('btn', {'button': 'left', 'down': True}),
+                       event('btn', {'button': 'left', 'down': False})])
 
 
 def lab_progress_phase(line):
@@ -145,8 +218,8 @@ def graphical_frame(path):
     if width < 800 or height < 600 or len(pixels) != width * height * 3:
         raise ValueError('QEMU did not capture the configured graphical desktop')
     stride = max(3, len(pixels) // 6000 // 3 * 3)
-    colors = {pixels[offset:offset + 3] for offset in range(0, len(pixels) - 2, stride)}
-    if len(colors) < 9:
+    colors = [pixels[offset:offset + 3] for offset in range(0, len(pixels) - 2, stride)]
+    if len(set(colors)) < 9 or Counter(colors).most_common(1)[0][1] / len(colors) > .90:
         raise ValueError('QEMU captured a blank or placeholder frame; review screenshot')
 
 
@@ -173,7 +246,9 @@ def guest_commands(source):
     return commands
 
 
-def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=False):
+def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=False, accel='tcg'):
+    if accel not in ('tcg', 'kvm'):
+        raise ValueError('Unknown VM acceleration')
     if guest_mode and setup_mode != 'managed':
         raise ValueError('Guest acceptance requires managed startup')
     if setup_mode not in ('interactive', 'auto', 'managed'):
@@ -205,17 +280,18 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
         extract(kernel, work / 'kernel')
         extract(initrd, work / 'initrd')
         qmp = work / 'qmp.sock'
-        process = subprocess.Popen(['qemu-system-x86_64', '-accel', 'tcg', '-cpu', 'max', '-smp', '2',
+        process = subprocess.Popen(['qemu-system-x86_64', '-accel', accel, '-cpu', 'host' if accel == 'kvm' else 'max', '-smp', '2',
                     '-m', '8192' if setup_mode == 'managed' else '4096', '-display', f'vnc=unix:{work / "vnc.sock"}', '-vga', 'std',
-                    '-nic', 'none', '-no-reboot',
+                    '-nic', 'none', '-no-reboot', '-device', 'qemu-xhci', '-device', 'usb-tablet',
                     '-kernel', str(work / 'kernel'), '-initrd', str(work / 'initrd'), '-append', append,
                     '-cdrom', str(image), '-serial', 'stdio', '-monitor', 'none',
                     '-qmp', f'unix:{qmp},server=on,wait=off'], stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         started = time.monotonic()
-        print('Starting offline CPU-emulated guest; acceptance timeout is 30 minutes.', flush=True)
+        print(f'Starting offline {accel} guest; acceptance timeout is 60 minutes.', flush=True)
         reported_stages = set()
         reported_lab_phases = set()
+        browser_paint_acknowledged = False
         next_heartbeat = started + 60
         tail = ''
         login_sent = password_sent = payload_sent = False
@@ -243,14 +319,22 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                             reported_lab_phases.add(phase)
                             print(f'Guest Model Lab phase: {phase}', flush=True)
                             if not (output / 'lab-progress.ppm').exists():
-                                screenshot_dashboard_content(qmp, output / 'lab-progress.ppm')
-                                graphical_frame(output / 'lab-progress.ppm')
-                    if {'cpu-inference', 'managed-browser'} & reported_stages and not (output / 'desktop.ppm').exists():
-                        # Native DOM readiness plus paint delay precede this
-                        # stage. Capture startup, not the idle desktop after a
+                                capture_graphical_dashboard(qmp, output / 'lab-progress.ppm')
+                    if (setup_mode == 'managed' and 'managed-browser' in reported_stages and
+                            not browser_paint_acknowledged):
+                        # The guest is blocked on a serial acknowledgement
+                        # until a real dashboard frame, rather than a Firefox
+                        # title or white loading page, passes graphical QA.
+                        capture_graphical_dashboard(qmp, output / 'desktop.ppm')
+                        click_rendered_baseline(qmp, output / 'desktop.ppm')
+                        process.stdin.write(b'ARGOS_C3_UI_READY\n')
+                        process.stdin.flush()
+                        browser_paint_acknowledged = True
+                    elif ({'cpu-inference', 'managed-browser'} & reported_stages and
+                          not (output / 'desktop.ppm').exists()):
+                        # Capture startup, not the idle desktop after a
                         # several-minute CPU emulation workload.
-                        screenshot_dashboard_content(qmp, output / 'desktop.ppm')
-                        graphical_frame(output / 'desktop.ppm')
+                        capture_graphical_dashboard(qmp, output / 'desktop.ppm')
                     if time.monotonic() >= next_heartbeat:
                         print(f'Guest running: {int(time.monotonic() - started)} seconds; '
                               f'payload started: {payload_sent}', flush=True)
@@ -273,12 +357,18 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                         payload_next += 1
                         payload_sent = payload_next == len(guest)
                         tail = ''
-                    if re.search(r'ARGOS_C3_FAIL [A-Za-z]+\r?\n', tail):
+                    if (setup_mode == 'managed' and 'model-lab-command-returned' in reported_stages and
+                            not (output / 'lab-startup.ppm').exists()):
+                        # Preserve the visible state immediately after the menu command,
+                        # including failures before the button interaction stage.
+                        screenshot_dashboard_content(qmp, output / 'lab-startup.ppm')
+                    if re.search(r'ARGOS_C3_FAIL [A-Za-z]+(?: [a-z-]+)?\r?\n', tail):
                         raise ValueError('Guest acceptance failed; see console artifact')
                     result = guest_result(tail, setup_mode=setup_mode, guest=guest_mode)
                     if result is not None:
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
                                       vm_memory_mib=8192 if setup_mode == 'managed' else 4096,
+                                      vm_acceleration=accel,
                                       boot_method='direct kernel/initrd from original desktop entry; serial appended',
                                       firmware_boot_verified=False)
                         if not (output / 'desktop.ppm').exists():
@@ -315,5 +405,6 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--setup-mode', choices=('interactive', 'auto', 'managed'), default='interactive')
     parser.add_argument('--guest', action='store_true', help='Test the RAM-only guest boot entry with managed startup')
+    parser.add_argument('--accel', choices=('tcg', 'kvm'), default='tcg', help='Explicit acceleration; never silently fall back')
     args = parser.parse_args()
-    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode, guest_mode=args.guest)
+    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode, guest_mode=args.guest, accel=args.accel)
