@@ -136,7 +136,7 @@ def challenge_items():
          {'start': '09:15', 'end': '10:05'}, 'Return JSON with string start="09:15" and end="10:05".'),
         ('A request has id R-8, priority high, and is waiting. Report all three fields.',
          {'id': 'R-8', 'priority': 'high', 'waiting': True}, 'Return JSON with string id="R-8", string priority="high", boolean waiting=true.'),
-        ('A batch has 5 accepted and 2 rejected. Report both counts and whether it is complete.',
+        ('A batch expected 7 records and all 7 were processed: 5 accepted and 2 rejected. Report both counts and complete=true.',
          {'accepted': 5, 'rejected': 2, 'complete': True}, 'Return JSON with integer accepted=5, integer rejected=2, boolean complete=true.'),
     ]
     def altered(value):

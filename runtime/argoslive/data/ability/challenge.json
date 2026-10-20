@@ -447,7 +447,7 @@
     },
     {
       "id": "record-08",
-      "prompt": "A batch has 5 accepted and 2 rejected. Report both counts and whether it is complete. Return JSON with integer accepted=5, integer rejected=2, boolean complete=true. Return only JSON with exactly the requested fields.",
+      "prompt": "A batch expected 7 records and all 7 were processed: 5 accepted and 2 rejected. Report both counts and complete=true. Return JSON with integer accepted=5, integer rejected=2, boolean complete=true. Return only JSON with exactly the requested fields.",
       "scorer": {
         "kind": "json",
         "expected": {
