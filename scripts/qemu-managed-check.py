@@ -502,6 +502,7 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
 
     practice_error = None
     receipt = None
+    failure_code = 'practice-command'
     try:
         managed_stage('proctor-practice')
         completed = subprocess.run(['argos', 'proctor', 'practice', '--json'],
@@ -510,12 +511,19 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         if (completed.returncode != 0 or len(completed.stdout) > 1024 * 1024 or
                 len(completed.stderr) > 1024 * 1024):
             raise ValueError('Bundled-model Proctor practice command failed')
+        failure_code = 'practice-json'
         practice = json.loads(completed.stdout)
+        failure_code = 'practice-receipt'
         transcript_id = practice.get('transcript_id')
         if (practice.get('status') != 'completed' or practice.get('practice_only') is not True or
                 practice.get('calibration_status') != 'uncalibrated' or
                 not isinstance(transcript_id, str) or not re.fullmatch(r'[a-f0-9]{32}', transcript_id)):
             raise ValueError('Bundled-model Proctor practice did not return a complete host receipt')
+        result_summary = practice.get('result')
+        if isinstance(result_summary, dict) and result_summary.get('state') in {
+                'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}:
+            managed_stage('proctor-result-' + result_summary['state'].lower())
+        failure_code = 'transcript-store'
         proctor_root = home / '.local/state/argos-live/proctor'
         database_path = proctor_root / 'state.sqlite3'
         with sqlite3.connect(database_path.as_uri() + '?mode=ro', uri=True, timeout=5) as database:
@@ -523,10 +531,13 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
                                    ('sess_' + transcript_id,)).fetchone()
         if not row:
             raise ValueError('Proctor did not persist its signed transcript')
+        failure_code = 'transcript-signature'
         signer = Ed25519Signer(proctor_root / 'transcript-ed25519.pem')
         envelope = json.loads(row[0])
         if not verify_envelope(envelope, signer.public_key_der):
             raise ValueError('Proctor transcript signature did not verify')
+        managed_stage('proctor-signature-verified')
+        failure_code = 'model-identity'
         payload = json.loads(envelope['payload_json'])
         subject = payload.get('subject', {})
         _target, verified_model, identity = startup.source(home, include_model_identity=True)
@@ -534,6 +545,8 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
                 subject.get('model_identity') != identity or
                 subject.get('model_digest') != identity.get('sha256')):
             raise ValueError('Signed Proctor transcript does not bind the verified model source')
+        managed_stage('proctor-model-identity-verified')
+        failure_code = 'transcript-score'
         score = practice.get('result', {})
         if (payload.get('outcome') != 'COMPLETED' or payload.get('total_items') != 4 or
                 type(payload.get('accepted_correct')) is not int or
@@ -548,7 +561,8 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
             'proctor_model_tag': model_tag,
             'proctor_score': {'correct': payload['accepted_correct'], 'total': payload['total_items']}}
     except Exception:
-        practice_error = True
+        practice_error = failure_code
+        managed_stage('proctor-practice-failed-' + failure_code)
 
     restart_error = None
     try:
