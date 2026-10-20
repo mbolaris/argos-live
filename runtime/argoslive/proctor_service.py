@@ -136,7 +136,11 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
     config['agents']['defaults']['heartbeat'] = {'every': '0m'}
     allowed_tools = PROCTOR_TOOL_NAMES if purpose == 'practice' else CAMPAIGN_TOOL_NAMES
     config['tools'] = {'profile': 'minimal', 'alsoAllow': allowed_tools,
-                       'deny': ['group:runtime', 'group:web', 'group:fs', 'exec', 'gateway', 'browser'],
+                       # OpenClaw classifies extension tools in its runtime group;
+                       # denying that group also hides the explicitly allowed Argos
+                       # tools. Keep the profile minimal and deny unsafe built-ins
+                       # by name/group while the admission hook remains authoritative.
+                       'deny': ['group:web', 'group:fs', 'exec', 'process', 'gateway', 'browser'],
                        'exec': {'host': 'gateway', 'security': 'full', 'ask': 'off'},
                        'elevated': {'enabled': False}, 'toolSearch': False}
     config['plugins']['allow'] = ['argos-improve']

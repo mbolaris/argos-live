@@ -238,6 +238,8 @@ def run(cli, report):
                         'response_status': decoded.get('status') if isinstance(decoded, dict) else None,
                         'response_error_present': bool(meta.get('error')) if isinstance(meta, dict) else False,
                         'payload_count': len(payloads) if isinstance(payloads, list) else None,
+                        'synthetic_model_tool_calls': progress['tools'],
+                        'synthetic_model_errors': list(progress['errors']),
                         'tool_outcomes': list(bridge.outcomes),
                         'sdk_end_observed': bool(bridge.active and bridge.active.get('ended')),
                     }
