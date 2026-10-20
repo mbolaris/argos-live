@@ -10,10 +10,11 @@ for self-improvement comparisons. Linux CI passes on the current PR head. ISO
 build 39395061863 (source commit `d5ddf66`) passed managed KVM acceptance and
 three cold encrypted virtual-USB shutdown cycles. Its SHA256 is
 `553048cda87cadf6ba21a59c387123b0f52efeba1a61a676a4632a95b475e61f`. Guest-mode
-acceptance is running against the same ISO; physical firmware/card/GPU
-acceptance remains open. Toronado’s generation-36 evaluation reservation and
-production configuration remain unchanged. Do not treat the tested ISO as
-physically written to the owner’s USB.
+boot also passed against the same ISO, including RAM-only policy verification.
+Physical firmware/card/GPU and guest reboot-reset acceptance remain open.
+Toronado’s generation-36 evaluation reservation and production configuration
+remain unchanged. Do not treat the tested ISO as physically written to the
+owner’s USB.
 
 ## Fresh self-improvement image — October 13 delivery checkpoint
 
