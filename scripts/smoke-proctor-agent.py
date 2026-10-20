@@ -300,8 +300,13 @@ def run(cli, report):
             # Exercise the chained owner command: practice must finalize and
             # release before a separate campaign profile receives host tools.
             progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[])
-            improvement_result = proctor_service.run_improvement(
-                service_home, None, 'pilot-a', executable=cli)
+            with patch.object(proctor_service.startup, 'source',
+                              return_value=(model_storage, 'fixture:latest')), \
+                    patch.object(proctor_service, 'refuse_live_backend'), \
+                    patch.object(proctor_service.owned_ollama, 'owned',
+                                 side_effect=lambda *args, **kwargs: nullcontext(None)):
+                improvement_result = proctor_service.run_improvement(
+                    service_home, None, 'pilot-a', executable=cli)
             expected_campaign_calls = len(TOOLS) + len(CAMPAIGN_TOOLS)
             if (improvement_result['status'] != 'completed' or
                     improvement_result['practice_is_improvement_evidence'] is not False or
