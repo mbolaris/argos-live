@@ -108,6 +108,17 @@ class StatusTests(unittest.TestCase):
             response.read.return_value = b'{"ready":true}'
             self.assertTrue(status.gateway_ready('http://127.0.0.1:18789'))
 
+    def test_live_probe_requires_its_own_contract(self):
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        with patch.object(status, 'build_opener', return_value=Mock(open=Mock(return_value=response))) as opener:
+            response.read.return_value = b'{"ok":true,"status":"live"}'
+            self.assertTrue(status.gateway_alive('http://127.0.0.1:18789'))
+            self.assertTrue(opener.return_value.open.call_args.args[0].endswith('/healthz'))
+            response.read.return_value = b'{"ready":true}'
+            self.assertFalse(status.gateway_alive('http://127.0.0.1:18789'))
+
     def test_chat_requires_local_ready_token_mode_and_uses_fragment(self):
         self.config.write_text(json.dumps({'gateway': {'auth': {'token': 'fixture/secret'}}}))
         url = status.chat_url(self.config, ready=lambda origin: True)

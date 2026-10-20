@@ -21,6 +21,26 @@ from argoslive.pull_jobs import Queue, worker_lock
 
 
 class OnboardingTests(unittest.TestCase):
+    def test_backend_failure_diagnostics_stay_private(self):
+        import io
+        from argoslive.ollama import Interrupted
+        log = io.BytesIO()
+        @contextmanager
+        def private(path):
+            self.assertEqual(path, self.jobs / 'onboarding-failure.log')
+            yield log
+        @contextmanager
+        def backend(target):
+            raise Interrupted('private backend details') from TimeoutError('private timeout cause')
+            yield
+        with patch('argoslive.private_files.private_log', private):
+            result = self.queue.run_verified(self.job['id'], backend=backend,
+                revision=lambda entry: None, assistant_stopped=True)
+        self.assertEqual(result['state'], 'interrupted')
+        self.assertNotIn('private backend details', json.dumps(result))
+        self.assertIn(b'TimeoutError: private timeout cause', log.getvalue())
+        self.assertIn(b'Stage: downloading', log.getvalue())
+
     def test_external_shutdown_cancelled_before_artifact_requests(self):
         value = self.queue.run_verified(self.job['id'], backend=self.backend,
             assistant_stopped=True, cancel=lambda: True)

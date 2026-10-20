@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import secrets
+import traceback
 from pathlib import Path
 import shutil
 
@@ -13,6 +14,16 @@ from .pull_jobs import Queue, Control, Progress, worker_lock, write_json, read_j
 
 
 class OnboardingQueue(Queue):
+    def _record_failure(self, job):
+        # Exception chains stay owner-only; public job errors remain fixed text.
+        from .private_files import private_log
+        try:
+            with private_log(self.root / 'onboarding-failure.log') as log:
+                log.write(('Stage: ' + str(job.get('state')) + '\n').encode())
+                log.write(traceback.format_exc().encode()[-65536:])
+        except (OSError, ValueError):
+            pass
+
     def run_verified(self, job_id, *, backend=owned, revision=artifacts.registry_revision,
                      free=lambda p: shutil.disk_usage(p).free, callback=None,
                      assistant_stopped=False, cancel=None):
@@ -128,6 +139,7 @@ class OnboardingQueue(Queue):
                 except Cancelled:
                     job.update(state='cancelled' if control.action() == 'cancel' else 'paused', inference_ready=False)
                 except OllamaError:
+                    self._record_failure(job)
                     job.update(state='interrupted', inference_ready=False,
                                error='Backend operation interrupted; retry explicitly')
                 except (OSError, ValueError) as exc:
