@@ -16,6 +16,24 @@ def paths(home):
             storage.safe_local(home / '.config/argos-live/model-selection.json'))
 
 
+def selected_config(config, tag):
+    """Select a row without erasing its owner-tuned reasoning/generation settings."""
+    candidate = copy.deepcopy(config)
+    provider = candidate['models']['providers']['ollama']
+    rows = provider['models']
+    matches = [row for row in rows if row.get('id') == tag]
+    if len(matches) > 1 or not rows:
+        raise ValueError('Model metadata needs review before selection')
+    if not matches:
+        row = copy.deepcopy(rows[0])
+        row.update(id=tag, name=tag, input=['text'], reasoning=False)
+        # A new model must not inherit another model's native generation controls.
+        row.pop('params', None)
+        rows.append(row)
+    candidate['agents']['defaults']['model']['primary'] = 'ollama/' + tag
+    return candidate
+
+
 def replace_raw(path, raw):
     path = storage.safe_local(path)
     temporary = path.parent / ('.selection-' + secrets.token_hex(16))
@@ -252,15 +270,7 @@ class Controller(Workload):
             return 'cancelled'
         after = copy.deepcopy(before)
         after['state'].update(model=self.tag, model_source=kind)
-        after['config']['agents']['defaults']['model']['primary'] = 'ollama/' + self.tag
-        provider = after['config']['models']['providers']['ollama']
-        template = copy.deepcopy(provider['models'][0])
-        template.update(id=self.tag, name=self.tag, input=['text'], reasoning=False)
-        existing = next((index for index, item in enumerate(provider['models']) if item.get('id') == self.tag), None)
-        if existing is None:
-            provider['models'].append(template)
-        else:
-            provider['models'][existing] = template
+        after['config'] = selected_config(before['config'], self.tag)
         # Complete owner-only journal reaches durable storage before either file.
         candidate = {key: raw[key] if value == before[key] else json.dumps(value, sort_keys=True, indent=2) + '\n'
                      for key, value in after.items()}

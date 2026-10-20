@@ -238,10 +238,8 @@ def select_model(model):
         return
     config_path = OC / 'openclaw.json'
     config = json.loads(config_path.read_text())
-    config['agents']['defaults']['model']['primary'] = 'ollama/' + model
-    entry = config['models']['providers']['ollama']['models'][0]
-    entry['id'] = model
-    entry['name'] = model
+    from argoslive.model_selection import selected_config
+    config = selected_config(config, model)
     save(config_path, config)
     state['model'] = model
     if 'model_source' in state:
