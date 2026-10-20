@@ -34,6 +34,11 @@ on:
         required: false
         default: false
         type: boolean
+      guest_reset_only:
+        description: Verify RAM-only guest markers disappear after a requested reboot
+        required: false
+        default: false
+        type: boolean
       candidate_commit:
         description: Exact build commit for shutdown-only testing (defaults to this workflow ref)
         required: false
@@ -44,7 +49,7 @@ permissions:
   actions: read
 jobs:
   boot:
-    if: ${{ !inputs.shutdown_only }}
+    if: ${{ !inputs.shutdown_only && !inputs.guest_reset_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     env:
@@ -88,6 +93,35 @@ jobs:
         with:
           name: argos-live-qemu-${{ github.run_id }}
           path: work/vm-smoke/
+          retention-days: 7
+          if-no-files-found: warn
+  guest-reset:
+    if: ${{ inputs.guest_reset_only }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: argos-live-iso-${{ inputs.build_run }}
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+          path: work/reset-iso
+      - name: Install VM tools and enable runner KVM
+        run: |
+          sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Request guest reboot and verify state disappeared
+        run: python3 scripts/smoke-guest-reset.py work/reset-iso/argos-live-amd64.iso --output work/guest-reset --accel kvm
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: argos-guest-reset-${{ github.run_id }}
+          path: work/guest-reset/
           retention-days: 7
           if-no-files-found: warn
   encrypted-shutdown:
