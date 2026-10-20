@@ -509,6 +509,7 @@ def managed_check_body(started, desktop_seconds, native_lab):
     home = Path.home()
     descriptor = home / '.local/state/argos-live/desktop-session.json'
     deadline = time.monotonic() + 1200
+    print('ARGOS_C3_ACCELERATOR_DEVICES ' + json.dumps(accelerator_observation()), flush=True)
     managed_stage('managed-startup')
     opener = build_opener(ProxyHandler({}), NoRedirect())
     last = None
