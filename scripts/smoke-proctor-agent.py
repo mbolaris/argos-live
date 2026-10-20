@@ -44,7 +44,7 @@ def run(cli, report):
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or os.geteuid() == 0):
         raise ValueError('Proctor integration fixture requires an unprivileged disposable hosted runner')
-    progress = {'tools': 0, 'errors': [], 'phase': 'proctor'}
+    progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': []}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -60,6 +60,11 @@ def run(cli, report):
                 progress['errors'].append('invalid-request-length')
                 return self.respond(None)
             request = json.loads(self.rfile.read(length))
+            if isinstance(request.get('tools'), list):
+                names = {tool.get('function', {}).get('name') for tool in request['tools']
+                         if isinstance(tool, dict) and isinstance(tool.get('function'), dict) and
+                         isinstance(tool['function'].get('name'), str)}
+                progress['model_tool_names'] = sorted(set(progress['model_tool_names']) | names)
             if self.path == '/api/show':
                 self.respond({'parameters': 'num_ctx 32768', 'capabilities': ['completion', 'tools'],
                               'model_info': {'general.architecture': 'llama', 'llama.context_length': 32768}})
@@ -186,6 +191,7 @@ def run(cli, report):
             # Exercise the owner-facing service entry point and its isolated,
             # tool-restricted gateway profile with the same synthetic model.
             progress.update(tools=0, errors=[], phase='practice')
+            progress['model_tool_names'] = []
             service_home = home / 'service-home'
             service_home.mkdir(mode=0o700)
             model_storage = service_home / 'Models'
@@ -240,6 +246,13 @@ def run(cli, report):
                         'payload_count': len(payloads) if isinstance(payloads, list) else None,
                         'synthetic_model_tool_calls': progress['tools'],
                         'synthetic_model_errors': list(progress['errors']),
+                        'synthetic_model_tool_names': list(progress['model_tool_names']),
+                        'controller_admission': {
+                            'active': bool(bridge.active),
+                            'ended': bool(bridge.active and bridge.active.get('ended')),
+                            'uncertain': bridge.uncertain,
+                            'tool_outcome_kinds': [item.get('kind') for item in bridge.outcomes],
+                        },
                         'tool_outcomes': list(bridge.outcomes),
                         'sdk_end_observed': bool(bridge.active and bridge.active.get('ended')),
                     }
@@ -259,6 +272,9 @@ def run(cli, report):
             if (service_result['status'] != 'completed' or service_result['result']['correct'] != 4 or
                     progress['tools'] != len(TOOLS) or progress['errors']):
                 raise ValueError('Owner-facing Proctor service did not complete the synthetic practice exam')
+            if (not set(proctor_service.PROCTOR_TOOL_NAMES).issubset(progress['model_tool_names']) or
+                    set(proctor_service.CAMPAIGN_TOOL_NAMES) & set(progress['model_tool_names'])):
+                raise ValueError('Managed practice profile exposed the wrong Argos tool set')
             service_reservation = json.loads((service_home / '.local/state/argos-live/workload/reservation.json').read_text())
             if (service_reservation.get('state') != 'released' or
                     service_reservation.get('result_id') != service_result['transcript_id']):
@@ -276,7 +292,7 @@ def run(cli, report):
                 raise ValueError('Owner-facing Proctor service transcript signature did not verify')
             # Exercise the chained owner command: practice must finalize and
             # release before a separate campaign profile receives host tools.
-            progress.update(tools=0, errors=[], phase='campaign')
+            progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[])
             improvement_result = proctor_service.run_improvement(
                 service_home, None, 'pilot-a', executable=cli)
             expected_campaign_calls = len(TOOLS) + len(CAMPAIGN_TOOLS)
