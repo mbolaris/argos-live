@@ -1,0 +1,41 @@
+{
+  "manifest": {
+    "cartridge_id": "argos-practice-pilot",
+    "version": "1.0.0",
+    "title": "Argos Proctor tool-flow pilot",
+    "content_origin": "argos_original",
+    "calibration_status": "uncalibrated",
+    "start_window_ms": 60000,
+    "abort_on_timeout": false
+  },
+  "forms": [{
+    "form_id": "pilot-a",
+    "entry_module_id": "m1",
+    "modules": [
+      {
+        "module_id": "m1",
+        "ordinal": 1,
+        "duration_ms": 60000,
+        "break_ms": 0,
+        "aids": [],
+        "items": [
+          {"item_id": "q1", "position": 1, "domain": "reasoning", "prompt": "Which number is even?", "response_type": "mcq_single", "choices": {"A": "3", "B": "4", "C": "5", "D": "7"}, "correct": "B"},
+          {"item_id": "q2", "position": 2, "domain": "math", "prompt": "What is 2 + 2?", "response_type": "numeric_grid", "choices": {}, "correct": "4"}
+        ],
+        "routes": [{"minimum": 0, "maximum": 2, "next_module_id": "m2"}]
+      },
+      {
+        "module_id": "m2",
+        "ordinal": 2,
+        "duration_ms": 60000,
+        "break_ms": 0,
+        "aids": [],
+        "items": [
+          {"item_id": "q3", "position": 1, "domain": "reasoning", "prompt": "Which word names a color?", "response_type": "mcq_single", "choices": {"A": "Blue", "B": "Chair"}, "correct": "A"},
+          {"item_id": "q4", "position": 2, "domain": "math", "prompt": "What is -5 divided by 4?", "response_type": "numeric_grid", "choices": {}, "correct": "-1.25"}
+        ],
+        "routes": [{"minimum": 0, "maximum": 2, "next_module_id": null}]
+      }
+    ]
+  }]
+}

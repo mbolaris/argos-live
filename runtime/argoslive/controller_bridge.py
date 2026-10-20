@@ -609,6 +609,13 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                     bridge.closed = True
                     server.shutdown()
                     thread.join(timeout=5)
+                    # Startup can fail before an SDK worker or tool starts (for
+                    # example, a busy local backend or gateway port). Such a
+                    # reservation is safely releasable; no child inference was
+                    # admitted. Any started/uncertain worker still quarantines.
+                    if (not parent.drained and not bridge.uncertain and not bridge.worker and
+                            not bridge.pending and not bridge.active and not bridge.tool_lock.locked()):
+                        parent.complete()
                     # A caller cannot mark release before leaving a live tool
                     # worker behind. The durable parent remains quarantined.
                     if not parent.drained or bridge.pending or bridge.tool_lock.locked() or bridge.uncertain:

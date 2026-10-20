@@ -42,6 +42,15 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertFalse(bridge.events.exists())
             parent.complete()  # No SDK worker or inference was started in this fixture.
 
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned workload lifecycle')
+    def test_prelaunch_gateway_failure_releases_unstarted_proctor_reservation(self):
+        with controller_bridge.owned(self.home, session_key='agent:main:prelaunch',
+                                     exam_session=object()) as (_bridge, _env):
+            pass
+        reservation = json.loads((self.home / '.local/state/argos-live/workload/reservation.json').read_text())
+        self.assertEqual(reservation['kind'], 'proctor')
+        self.assertEqual(reservation['state'], 'released')
+
     def test_end_hook_and_client_completion_claim_never_release_parent(self):
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')

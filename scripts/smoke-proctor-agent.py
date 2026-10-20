@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the optional Proctor tools through the real pinned SDK with synthetic replies."""
 import argparse
+from contextlib import nullcontext
 from http.server import BaseHTTPRequestHandler
 import hashlib
 import json
@@ -15,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 sys.path.insert(0, str(ROOT / 'scripts'))
 from argoslive import controller_bridge, workload
+from argoslive import auto_setup, proctor_service
 from argoslive.auto_setup import conversation_config
 from argoslive.proctor import AgentSession, Caller, Cartridge, Proctor, compile_cartridge, open_state
 from argoslive.proctor.engine import digest
@@ -91,8 +93,9 @@ def run(cli, report):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     receipt = {'schema': 'argos-native-proctor-agent/1', 'passed': False,
-        'scope': 'real pinned OpenClaw SDK and host tools; synthetic answers; four-item regression fixture only',
-        'production_gateway_dispatch': False, 'protected_service_identity': False,
+        'scope': 'real pinned OpenClaw SDK, host tools, and managed private gateway/service; synthetic model and answers; four-item pilot only',
+        'managed_gateway_service_path': False, 'production_gateway_dispatch': False,
+        'protected_service_identity': False,
         'model_identity_attested': False, 'calibrated_ability_claim': False}
     report.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -172,6 +175,59 @@ def run(cli, report):
             reservation = json.loads((home / '.local/state/argos-live/workload/reservation.json').read_text())
             if reservation.get('state') != 'released' or reservation.get('result_id') != transcript_id:
                 raise ValueError('Proctor reservation did not bind the saved signed transcript')
+
+            # Exercise the owner-facing service entry point and its isolated,
+            # tool-restricted gateway profile with the same synthetic model.
+            progress.update(tools=0, errors=[])
+            service_home = home / 'service-home'
+            service_home.mkdir(mode=0o700)
+            model_storage = service_home / 'Models'
+            model_storage.mkdir(mode=0o700)
+            storage_id = uuid.uuid4().hex
+            (model_storage / '.argos-storage-id').write_text(storage_id + '\n')
+            setup_state = service_home / '.config/argos-live/state.json'
+            setup_state.parent.mkdir(parents=True, mode=0o700)
+            setup_state.write_text(json.dumps({'storage': str(model_storage), 'storage_id': storage_id,
+                                               'model': 'fixture:latest'}))
+            owner_workspace = service_home / '.openclaw/workspace'
+            owner_workspace.mkdir(parents=True, mode=0o700)
+            owner_config_path = service_home / '.openclaw/openclaw.json'
+            owner_config = conversation_config('fixture:latest', owner_workspace,
+                                                plugin_root=ROOT / 'openclaw-plugin/argos-improve')
+            owner_config_path.write_text(json.dumps(owner_config))
+            owner_config_path.chmod(0o600)
+            from unittest.mock import patch
+            with patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
+                    patch.object(proctor_service.startup, 'source',
+                                 return_value=(model_storage, 'fixture:latest')), \
+                    patch.object(proctor_service, 'refuse_live_backend'), \
+                    patch.object(proctor_service.owned_ollama, 'owned',
+                                 side_effect=lambda *args, **kwargs: nullcontext(None)):
+                service_result = proctor_service.run_practice(
+                    service_home, None, 'pilot-a', executable=cli)
+            if (service_result['status'] != 'completed' or service_result['result']['correct'] != 4 or
+                    progress['tools'] != len(TOOLS) or progress['errors']):
+                raise ValueError('Owner-facing Proctor service did not complete the synthetic practice exam')
+            service_reservation = json.loads((service_home / '.local/state/argos-live/workload/reservation.json').read_text())
+            if (service_reservation.get('state') != 'released' or
+                    service_reservation.get('result_id') != service_result['transcript_id']):
+                raise ValueError('Owner-facing service did not bind and release the signed transcript')
+            transcript_db = service_home / '.local/state/argos-live/proctor/state.sqlite3'
+            import sqlite3
+            with sqlite3.connect(transcript_db) as conn:
+                row = conn.execute('SELECT envelope_json FROM transcripts WHERE session_id=?',
+                                   ('sess_' + service_result['transcript_id'],)).fetchone()
+            if not row:
+                raise ValueError('Owner-facing Proctor service did not save its signed transcript')
+            service_signer = Ed25519Signer(
+                service_home / '.local/state/argos-live/proctor/transcript-ed25519.pem')
+            if not verify_envelope(json.loads(row[0]), service_signer.public_key_der):
+                raise ValueError('Owner-facing Proctor service transcript signature did not verify')
+            receipt.update(managed_gateway_service_path=True,
+                service_practice_score=service_result['result']['correct'],
+                service_practice_total=service_result['result']['total'],
+                service_transcript_id=service_result['transcript_id'],
+                service_signature_verified=True, production_gateway_dispatch=False)
             receipt['passed'] = True
             state.close()
     finally:

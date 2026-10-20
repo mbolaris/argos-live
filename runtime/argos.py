@@ -277,7 +277,8 @@ def command_parser():
     delegates = {'dashboard': ('argoslive.web.server', 'Open the local dashboard server'),
                  'desktop': ('argoslive.desktop', 'Start or reopen the managed desktop workspace'),
                  'addons': ('argoslive.addons', 'Inspect addon capability candidates'),
-                 'pull': ('argoslive.model_onboarding', 'Manage verified model download jobs')}
+                 'pull': ('argoslive.model_onboarding', 'Manage verified model download jobs'),
+                 'proctor': ('argoslive.proctor_service', 'Run a host-selected, signed ability practice exam')}
     for name, (module, help_text) in delegates.items():
         commands.add_parser(name, help=help_text, add_help=False).set_defaults(delegate=module)
     bench = commands.add_parser('bench', help='Run local model benchmarks')
