@@ -1,7 +1,10 @@
 import importlib.util
+import io
+from contextlib import redirect_stdout
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('firefox_guest', ROOT / 'scripts/qemu-firefox-check.py')
@@ -29,6 +32,68 @@ class Connection:
 
 
 class FirefoxProtocolTests(unittest.TestCase):
+    def test_lab_failure_stage_is_safe_and_does_not_change_timeout(self):
+        session = module.FirefoxLabSession()
+        output = io.StringIO()
+        def fail(env, url, timeout):
+            self.assertEqual(timeout, 30)
+            session.mark('protocol-ready')
+            raise TimeoutError('fictional private URL token')
+        with patch.object(session, '_start', side_effect=fail), redirect_stdout(output):
+            with self.assertRaises(TimeoutError):
+                session.start({}, 'fictional private URL token')
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[0], 'ARGOS_C3_STAGE lab-firefox-protocol-ready')
+        record = json.loads(lines[1].split(' ', 1)[1])
+        self.assertEqual(record, {'stage': 'protocol-ready', 'category': 'TimeoutError'})
+        self.assertNotIn('private', output.getvalue())
+
+    def test_lab_readiness_waits_for_true_dom_gate_and_stops_at_deadline(self):
+        session = module.FirefoxLabSession()
+        session.connection = MagicMock()
+        session.driver = MagicMock()
+        clock = [0.0]
+        def sleep(seconds):
+            clock[0] += seconds
+        session.driver.command.side_effect = [{'value': False}, {'value': True}]
+        with patch.object(module.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(module.time, 'sleep', side_effect=sleep):
+            session.wait_ready(2)
+        self.assertEqual(clock[0], .5)
+        session.driver.command.side_effect = None
+        session.driver.command.return_value = {'value': 'true'}
+        with patch.object(module.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(module.time, 'sleep', side_effect=sleep):
+            with self.assertRaisesRegex(ValueError, 'launch budget'):
+                session.wait_ready(2)
+        self.assertEqual(clock[0], 2)
+
+    def test_lab_click_is_a_native_element_command_not_script_or_start_api(self):
+        session = module.FirefoxLabSession()
+        session.connection = MagicMock()
+        session.driver = MagicMock()
+        session.driver.command.side_effect = [
+            {'value': {'element-6066-11e4-a52e-4f735466cecf': 'test-element'}}, {}]
+        session.click_baseline()
+        calls = session.driver.command.call_args_list
+        self.assertEqual(calls[0].args, ('WebDriver:FindElement',
+                         {'using': 'css selector', 'value': '#lab-start'}))
+        self.assertEqual(calls[1].args, ('WebDriver:ElementClick', {'id': 'test-element'}))
+        session.driver.command.side_effect = None
+        session.driver.command.return_value = {'value': {}}
+        with self.assertRaisesRegex(ValueError, 'handle missing'):
+            session.click_baseline()
+
+    def test_lab_session_cleans_owned_browser_and_profile_on_failure(self):
+        session = module.FirefoxLabSession()
+        session.browser, session.connection, session.profile = MagicMock(), MagicMock(), MagicMock()
+        with self.assertRaisesRegex(ValueError, 'fixture'):
+            with session:
+                raise ValueError('fixture')
+        session.browser.terminate.assert_called_once()
+        session.connection.close.assert_called_once()
+        session.profile.cleanup.assert_called_once()
+
     def test_fragmented_response_and_sequence(self):
         connection = Connection(frame({'marionetteProtocol': 3}) + frame([1, 1, None, {'value': True}]))
         driver = module.FirefoxDriver(connection)

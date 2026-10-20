@@ -7,7 +7,6 @@ import re
 import zlib
 from pathlib import Path
 import unittest
-from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('qemu_smoke', ROOT / 'scripts/smoke-qemu-iso.py')
@@ -16,6 +15,15 @@ spec.loader.exec_module(module)
 
 
 class BootEntryTests(unittest.TestCase):
+    def test_managed_lab_uses_native_firefox_click_not_qmp_mouse_input(self):
+        managed = (ROOT / 'scripts/qemu-managed-check.py').read_text()
+        harness = (ROOT / 'scripts/smoke-qemu-iso.py').read_text()
+        self.assertIn('with FirefoxLabSession() as native_lab', managed)
+        self.assertIn('native_lab.click_baseline()', managed)
+        self.assertIn("'scripts/qemu-firefox-check.py'", harness)
+        self.assertNotIn('ARGOS_C3_UI_READY', managed)
+        self.assertNotIn('click_rendered_baseline', harness)
+
     def test_dashboard_capture_removes_token_bearing_toolbar_rows(self):
         width, height, crop = 800, 760, 160
         toolbar = b'\xff\x00\x00' * width * crop
@@ -78,45 +86,6 @@ class BootEntryTests(unittest.TestCase):
                         dict(value, network_routes=True), dict(value, schema='argos-qemu-smoke/1')):
             with self.assertRaises(ValueError):
                 module.guest_result(wire(changed), setup_mode='managed')
-
-    def test_rendered_baseline_target_rejects_blank_ambiguous_and_wrong_dimensions(self):
-        def frame(boxes):
-            pixels = bytearray(1280 * 640 * 3)
-            for left, top, width, height in boxes:
-                for y in range(top, top + height):
-                    start = (y * 1280 + left) * 3
-                    pixels[start:start + width * 3] = bytes((130, 228, 222)) * width
-            return b'P6\n1280 640\n255\n' + pixels
-        self.assertEqual(module.baseline_button_target(frame([(178, 565, 336, 44)])), (346, 746))
-        for raw in (frame([]), frame([(178, 565, 336, 44), (178, 200, 336, 44)]),
-                    b'P6\n800 600\n255\n', frame([(178, 565, 385, 44)])):
-            with self.assertRaises(ValueError):
-                module.baseline_button_target(raw)
-
-    def test_mouse_input_waits_for_control_and_never_clicks_on_deadline(self):
-        frame = MagicMock()
-        missing = ValueError('Rendered baseline button missing or ambiguous')
-        with patch.object(module, 'baseline_button_target', side_effect=[missing, (346, 745)]), \
-                patch.object(module.time, 'sleep'), \
-                patch.object(module, 'screenshot_dashboard_content') as capture, \
-                patch.object(module, 'qmp_commands') as commands:
-            module.click_rendered_baseline('socket', frame)
-            self.assertEqual(capture.call_count, 2)
-            self.assertTrue(all(item.args == ('socket', frame) for item in capture.call_args_list))
-            self.assertEqual(commands.call_count, 2)
-            scroll_event = commands.call_args_list[0].args[1][0]['arguments']['events'][0]
-            self.assertEqual(scroll_event['data'], {'down': True, 'button': 'wheel-down'})
-            events = [item['arguments']['events'][0] for item in commands.call_args_list[1].args[1]]
-            self.assertEqual([item['type'] for item in events], ['abs', 'abs', 'btn', 'btn'])
-            self.assertEqual([item['data']['down'] for item in events[2:]], [True, False])
-        with patch.object(module, 'baseline_button_target', side_effect=missing), \
-                patch.object(module.time, 'monotonic', side_effect=[0, 21]), \
-                patch.object(module, 'screenshot_dashboard_content') as capture, \
-                patch.object(module, 'qmp_commands') as commands:
-            with self.assertRaises(ValueError):
-                module.click_rendered_baseline('socket', frame)
-            capture.assert_called_once_with('socket', frame)
-            self.assertEqual(commands.call_count, 1)
 
     def test_large_guest_payload_is_chunked_checked_and_never_shell_source(self):
         source = b'$(untrusted shell text)' + b''.join(hashlib.sha256(str(i).encode()).digest() for i in range(200))

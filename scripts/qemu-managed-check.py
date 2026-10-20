@@ -7,9 +7,7 @@ import os
 from pathlib import Path
 import re
 import stat
-import select
 import subprocess
-import sys
 import time
 from urllib.request import Request, ProxyHandler, build_opener
 from urllib.error import HTTPError, URLError
@@ -388,13 +386,6 @@ def wait_for_active_firefox(timeout=5):
         time.sleep(.25)
 
 
-def await_dashboard_paint(timeout=90):
-    """Wait for the host QMP observer to confirm the real dashboard has painted."""
-    ready, _, _ = select.select([sys.stdin], [], [], timeout)
-    if not ready or sys.stdin.readline(64) != 'ARGOS_C3_UI_READY\n':
-        raise ValueError('The managed dashboard did not establish its visible ready state')
-
-
 def firefox_connected(port):
     """An actual Firefox process must hold a gateway TCP connection."""
     remote = f'0100007F:{port:04X}'
@@ -459,6 +450,11 @@ def managed_stage(name):
 
 
 def managed_check(started, desktop_seconds):
+    with FirefoxLabSession() as native_lab:
+        return managed_check_body(started, desktop_seconds, native_lab)
+
+
+def managed_check_body(started, desktop_seconds, native_lab):
     from argoslive.desktop import session_url
     from argoslive.ollama import NoRedirect
     from argoslive import starter
@@ -551,11 +547,13 @@ def managed_check(started, desktop_seconds):
     managed_stage('model-lab-visible')
     time.sleep(5)
     managed_stage('managed-browser')
-    # The host must observe a non-placeholder rendered dashboard before this
-    # guest uses keyboard input; a static Firefox title can appear while the
-    # page is still showing its local-connection loading screen.
+    # Drive the shipped Firefox binary in a disposable isolated profile. The
+    # native Marionette session waits for the actual enabled DOM control, then
+    # sends a trusted WebDriver click; it does not call the start API directly.
     managed_stage('model-lab-button-click')
-    await_dashboard_paint()
+    native_lab.start(lab_env, origin + '/?' + urlencode({'token': token, 'view': 'lab'})
+                     + '#lab-start', timeout=30)
+    native_lab.click_baseline()
     managed_stage('model-lab-button-activated')
 
     def dashboard_json(path):
@@ -648,6 +646,8 @@ def managed_check(started, desktop_seconds):
         'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
         'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
         'model_lab_assistant_resumed': True, 'model_lab_run_ids': run_ids,
+        'model_lab_interaction': 'shipped Firefox binary; isolated Marionette test profile',
+        'original_launcher_tab_interaction_verified': False,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics,
         'mission_control_visible': True, 'chat_destination_available': True,
