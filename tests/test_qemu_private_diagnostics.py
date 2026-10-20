@@ -23,16 +23,44 @@ class DiagnosticFlagsTests(unittest.TestCase):
                  ({'backend': {'mode': 'GPU', 'size_bytes': 100, 'vram_bytes': 100}}, 100, 100))
         for metrics, expected_size, expected_vram in cases:
             output = io.StringIO()
+            devices = {'pci_display_vendor_ids': ['0x1234'], 'dri_render_node_count': 0,
+                       'nvidia_device_node_count': 0}
             with self.subTest(metrics=metrics), patch('sys.stdout', output), self.assertRaises(ValueError):
-                module.ready_cpu_metrics({'model_reply_verified': True, 'metrics': metrics})
+                module.ready_cpu_metrics({'model_reply_verified': True, 'metrics': metrics},
+                                         device_probe=lambda: devices)
             self.assertNotIn('private', output.getvalue())
             self.assertNotIn('secret', output.getvalue())
             value = json.loads(output.getvalue().split(' ', 1)[1])
             self.assertEqual(set(value), {'model_reply_verified', 'metrics_present', 'backend_mode',
                                          'backend_size_bytes', 'backend_vram_bytes',
-                                         'backend_size_recorded', 'zero_vram_recorded'})
+                                         'backend_size_recorded', 'zero_vram_recorded',
+                                         'accelerator_devices'})
             self.assertEqual((value['backend_size_bytes'], value['backend_vram_bytes']),
                              (expected_size, expected_vram))
+            self.assertEqual(value['accelerator_devices'], devices)
+
+    def test_accelerator_observation_reports_only_display_vendors_and_device_counts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            pci = root / 'pci'
+            pci.mkdir()
+            for name, device_class, vendor in (
+                    ('display-device', '0x030000', '0x1234'),
+                    ('network-device', '0x020000', '0x8086'),
+                    ('invalid-device', '0x030000', 'secret')):
+                path = pci / name
+                path.mkdir()
+                (path / 'class').write_text(device_class)
+                (path / 'vendor').write_text(vendor)
+            dev = root / 'dev'
+            (dev / 'dri').mkdir(parents=True)
+            (dev / 'dri/renderD128').touch()
+            (dev / 'nvidia0').touch()
+            report = module.accelerator_observation(pci_root=pci, dev_root=dev)
+            self.assertEqual(report, {'pci_display_vendor_ids': ['0x1234'],
+                                      'dri_render_node_count': 1,
+                                      'nvidia_device_node_count': 1})
+            self.assertNotIn('secret', json.dumps(report))
 
     def test_startup_measurement_still_requires_verified_reply_and_cpu(self):
         metrics = {'backend': {'mode': 'CPU', 'size_bytes': 100, 'vram_bytes': 0}}

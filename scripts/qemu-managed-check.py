@@ -449,7 +449,31 @@ def managed_stage(name):
     print('ARGOS_C3_STAGE ' + name, flush=True)
 
 
-def ready_cpu_metrics(report):
+def accelerator_observation(*, pci_root=Path('/sys/bus/pci/devices'), dev_root=Path('/dev')):
+    """Return a small allowlisted view of GPU device exposure, never device names."""
+    vendors = set()
+    try:
+        for device in pci_root.iterdir():
+            try:
+                device_class = device.joinpath('class').read_text().strip().lower()
+                vendor = device.joinpath('vendor').read_text().strip().lower()
+            except OSError:
+                continue
+            if device_class.startswith('0x03') and re.fullmatch(r'0x[0-9a-f]{4}', vendor):
+                vendors.add(vendor)
+    except OSError:
+        pass
+    def count(pattern):
+        try:
+            return sum(1 for item in dev_root.glob(pattern) if item.exists())
+        except OSError:
+            return 0
+    return {'pci_display_vendor_ids': sorted(vendors),
+            'dri_render_node_count': count('dri/renderD[0-9]*'),
+            'nvidia_device_node_count': count('nvidia[0-9]*')}
+
+
+def ready_cpu_metrics(report, *, device_probe=accelerator_observation):
     """Explain a rejected startup measurement without publishing guest text."""
     metrics = report.get('metrics')
     backend = metrics.get('backend') if isinstance(metrics, dict) else None
@@ -466,7 +490,8 @@ def ready_cpu_metrics(report):
                 if type(backend.get('vram_bytes')) is int and backend['vram_bytes'] >= 0 else None,
             'backend_size_recorded': type(backend.get('size_bytes')) in (int, float),
             'zero_vram_recorded': type(backend.get('vram_bytes')) in (int, float)
-                and backend['vram_bytes'] == 0}), flush=True)
+                and backend['vram_bytes'] == 0,
+            'accelerator_devices': device_probe()}), flush=True)
         raise ValueError('Automatic startup did not establish a measured CPU reply')
     return metrics
 
