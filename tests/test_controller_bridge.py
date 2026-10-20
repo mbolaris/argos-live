@@ -2,12 +2,16 @@ import json
 import os
 from pathlib import Path
 import sys
+import socket
+import threading
+import time
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import controller_bridge, workload
+from argoslive.results import Store
 from test_bench_openclaw import configure_fake
 
 
@@ -84,6 +88,80 @@ class ControllerBridgeTests(unittest.TestCase):
                     self.fail('Tool completion released the parent')
             self.assertNotIn(bridge.secret, json.dumps(value))
             self.assertIsNone(bridge.pending)
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
+    def test_disconnected_evaluation_saves_during_aborted_host_scope_without_releasing_admission(self):
+        binary = self.home / 'bin'
+        binary.mkdir()
+        gate = self.home / 'allow-evaluation'
+        executable = binary / 'openclaw'
+        executable.write_text('#!/usr/bin/env python3\nimport json,sys,time\nfrom pathlib import Path\n'
+            f'gate=Path({str(gate)!r})\n'
+            'deadline=time.monotonic()+10\n'
+            'while not gate.exists() and time.monotonic()<deadline: time.sleep(.01)\n'
+            'assert gate.exists()\n'
+            'session=sys.argv[sys.argv.index("--session-id")+1]\n'
+            'print(json.dumps({"payloads":[{"text":"synthetic answer"}],"meta":{"agentMeta":{'
+            '"sessionId":session,"provider":"ollama","model":"qwen3:4b-instruct-2507-q4_K_M"}}}))\n')
+        executable.chmod(0o700)
+        failures = []
+        releaser = None
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'agent turn aborted'):
+                with controller_bridge.owned(self.home, session_key='agent:main:host-session',
+                                             worker_timeout=15) as (bridge, env):
+                    bridge.worker_path = str(binary) + os.pathsep + bridge.worker_path
+                    _, turn = self.begin(bridge)
+                    tool = {**turn, 'op': 'tool', 'call_id': 'eval-disconnected',
+                            'kind': 'evaluation', 'params': {'suite': 'quick'}}
+                    with socket.socket(socket.AF_UNIX) as client:
+                        client.settimeout(10)
+                        client.connect(env['ARGOS_CONTROLLER_SOCKET'])
+                        client.sendall((json.dumps(tool) + '\n').encode())
+                        with client.makefile('rb') as reader:
+                            self.assertEqual(json.loads(reader.readline())['status'], 'progress')
+                        client.shutdown(socket.SHUT_RDWR)
+                    with self.assertRaises(workload.Busy):
+                        bridge.dispatch({**tool, 'call_id': 'competing-evaluation'})
+
+                    def release_after_teardown_begins():
+                        try:
+                            deadline = time.monotonic() + 5
+                            while not bridge.closed and time.monotonic() < deadline:
+                                time.sleep(.01)
+                            self.assertTrue(bridge.closed)
+                            time.sleep(.15)
+                            self.assertIsNotNone(bridge.pending)
+                            self.assertIsNone(bridge.pending.poll(), 'Teardown killed admitted evaluation')
+                            with self.assertRaises(workload.Busy):
+                                with workload.reserve(self.home, 'evaluation'):
+                                    self.fail('Host released admission before saved result')
+                        except BaseException as error:
+                            failures.append(error)
+                        finally:
+                            gate.write_text('continue')
+                    releaser = threading.Thread(target=release_after_teardown_begins)
+                    releaser.start()
+                    raise RuntimeError('agent turn aborted')
+        finally:
+            gate.touch()
+            if releaser:
+                releaser.join(timeout=10)
+                self.assertFalse(releaser.is_alive())
+        if failures:
+            raise failures[0]
+        store = Store(self.home / '.local/share/argos-live/results')
+        rows = store.list()
+        self.assertEqual(len(rows), 1)
+        saved = store.load(rows[0]['id'])
+        self.assertEqual(saved['state'], 'completed')
+        self.assertEqual(saved['coverage']['completed'], 20)
+        self.assertEqual(bridge.outcomes[0]['result_id'], saved['id'])
+        self.assertIsNone(bridge.pending)
+        with self.assertRaises(workload.Busy) as caught:
+            with workload.reserve(self.home, 'evaluation'):
+                self.fail('Aborted controller quarantine was released')
+        self.assertTrue(caught.exception.recovery)
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_evaluation_progress_crosses_host_bridge_before_saved_result(self):

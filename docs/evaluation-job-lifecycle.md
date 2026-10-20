@@ -62,8 +62,17 @@ fails open are insufficient. Likewise, block instruction/configuration/log write
 throughout an active evaluation. Do not merely weaken parent.resume(), detach a
 child, or release admission to let the controller ask for status.
 
-The existing bridge teardown terminates pending children. It must instead retain
-host ownership across an aborted agent turn and settle each child independently.
+The bridge's outer context now stops its controller worker first and retains the
+parent reservation while waiting for an already admitted tool to finish saving.
+A socket disconnect or exception leaving that context does not itself terminate
+the evaluation. The existing worker deadline still bounds a stuck child; its
+deadline plus pipe-drain allowance bounds teardown. The aborted controller remains
+uncertain and quarantined even if its evaluation saves a completed result. This
+preserves evidence while the Python host remains alive, not across a host kill.
+The regression uses the real Unix socket and delegated evaluator subprocess with
+a gated synthetic CLI, disconnects the client, aborts the outer context, verifies
+exclusion during teardown and checks the saved result and retained quarantine.
+It does not substitute for actual SDK abort/resource-mediation acceptance.
 Unknown cancellation drainage remains quarantined, never reclaimed by age.
 
 Tests must cover the real SDK/transport cancellation path, both adapters, bounded

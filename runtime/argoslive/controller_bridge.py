@@ -421,15 +421,26 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800):
                     if not parent.drained or bridge.pending or bridge.tool_lock.locked() or bridge.uncertain:
                         parent.drained = False
                         bridge.uncertain = True
-                        if bridge.pending and bridge.pending.poll() is None:
-                            bridge.pending.terminate()
-                            try:
-                                bridge.pending.wait(timeout=30)
-                            except subprocess.TimeoutExpired:
-                                pass  # Quarantine persists; never infer exit from a deadline.
+                        # Stop the controller before draining its admitted tool.
+                        # A disappearing agent/client is not an owner cancellation
+                        # of an evaluation. Keep the parent lock and handler alive
+                        # through saved publication, even though this controller's
+                        # uncertain outcome must still leave quarantine in place.
                         if bridge.worker and bridge.worker.poll() is None:
                             bridge.worker.terminate()
                             try:
                                 bridge.worker.wait(timeout=30)
                             except subprocess.TimeoutExpired:
                                 pass
+                        drained = bridge.tool_lock.acquire(timeout=bridge.worker_timeout + 90)
+                        if drained:
+                            bridge.tool_lock.release()
+                        # The host's existing worker deadline still bounds failed
+                        # or stuck children. This is not host-process survival or
+                        # independent backend-drainage proof.
+                        if bridge.pending and bridge.pending.poll() is None:
+                            bridge.pending.terminate()
+                            try:
+                                bridge.pending.wait(timeout=30)
+                            except subprocess.TimeoutExpired:
+                                pass  # Quarantine persists; never infer exit from a deadline.
