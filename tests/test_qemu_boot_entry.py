@@ -7,6 +7,7 @@ import re
 import zlib
 from pathlib import Path
 import unittest
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('qemu_smoke', ROOT / 'scripts/smoke-qemu-iso.py')
@@ -91,6 +92,27 @@ class BootEntryTests(unittest.TestCase):
                     b'P6\n800 600\n255\n', frame([(178, 565, 385, 44)])):
             with self.assertRaises(ValueError):
                 module.baseline_button_target(raw)
+
+    def test_mouse_input_waits_for_control_and_never_clicks_on_deadline(self):
+        frame = MagicMock()
+        missing = ValueError('Rendered baseline button missing or ambiguous')
+        with patch.object(module, 'baseline_button_target', side_effect=[missing, (346, 745)]), \
+                patch.object(module.time, 'sleep'), \
+                patch.object(module, 'screenshot_dashboard_content') as capture, \
+                patch.object(module, 'qmp_commands') as commands:
+            module.click_rendered_baseline('socket', frame)
+            capture.assert_called_once_with('socket', frame)
+            events = [item['arguments']['events'][0] for item in commands.call_args.args[1]]
+            self.assertEqual([item['type'] for item in events], ['abs', 'abs', 'btn', 'btn'])
+            self.assertEqual([item['data']['down'] for item in events[2:]], [True, False])
+        with patch.object(module, 'baseline_button_target', side_effect=missing), \
+                patch.object(module.time, 'monotonic', side_effect=[0, 21]), \
+                patch.object(module, 'screenshot_dashboard_content') as capture, \
+                patch.object(module, 'qmp_commands') as commands:
+            with self.assertRaises(ValueError):
+                module.click_rendered_baseline('socket', frame)
+            capture.assert_not_called()
+            commands.assert_not_called()
 
     def test_large_guest_payload_is_chunked_checked_and_never_shell_source(self):
         source = b'$(untrusted shell text)' + b''.join(hashlib.sha256(str(i).encode()).digest() for i in range(200))

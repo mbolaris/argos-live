@@ -134,8 +134,19 @@ def baseline_button_target(raw):
     return targets[0]
 
 
-def click_rendered_baseline(qmp, frame):
-    x, y = baseline_button_target(frame.read_bytes())
+def click_rendered_baseline(qmp, frame, *, timeout=20):
+    # A painted shell can precede the authenticated Lab status response. Wait
+    # for the actual enabled control, never click another turquoise element.
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            x, y = baseline_button_target(frame.read_bytes())
+            break
+        except ValueError as error:
+            if str(error) != 'Rendered baseline button missing or ambiguous' or time.monotonic() >= deadline:
+                raise
+            time.sleep(.5)
+            screenshot_dashboard_content(qmp, frame)
     def event(kind, data):
         return {'execute': 'input-send-event', 'arguments': {'events': [{'type': kind, 'data': data}]}}
     qmp_commands(qmp, [event('abs', {'axis': 'x', 'value': x * 32767 // 1279}),
