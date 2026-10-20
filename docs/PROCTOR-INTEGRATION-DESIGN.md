@@ -55,11 +55,15 @@ uncertain ownership quarantined. Persist worker identity before it may execute.
 A lease timeout means investigate, not permission to start competing work. After
 service or worker failure, reconcile process start identity, boot id, cgroup and
 saved artifacts. Reclaim only after the old worker and descendants are confirmed
-exited, with its final result saved or an interrupted record created. Fence all
-writes to service-owned run state by generation. Fencing tokens cannot stop an
-uncontrolled old Ollama request; quarantine until that request has exited or been
-confirmed canceled. Restore heartbeat from its saved prior value only after the
-reservation is drained, without overwriting newer unrelated configuration.
+exited, with its final result saved or an interrupted record created. On Linux,
+a different validated kernel boot ID is a sufficient boundary for old local
+processes and inference requests; write a per-generation recovery receipt before
+releasing admission. Same-boot PID absence, timeout, or wall-clock age is not
+enough. Fence all writes to service-owned run state by generation. Fencing tokens
+cannot stop an uncontrolled old Ollama request; quarantine until that request
+has exited, been independently confirmed canceled, or the kernel has rebooted.
+Restore heartbeat from its saved prior value only after the reservation is
+drained, without overwriting newer unrelated configuration.
 
 Toronado's wall clock currently labels Pacific time UTC. Use monotonic time for
 live timeouts and retain both host times and controller UTC evidence; never infer

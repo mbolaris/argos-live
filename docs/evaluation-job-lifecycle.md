@@ -97,6 +97,12 @@ a gated synthetic CLI, disconnects the client, aborts the outer context, verifie
 exclusion during teardown and checks the saved result and retained quarantine.
 It does not substitute for actual SDK abort/resource-mediation acceptance.
 Unknown cancellation drainage remains quarantined, never reclaimed by age.
+On Linux, a later workload may recover an orphan only when the persisted
+reservation contains a valid boot ID different from the current kernel's boot
+ID. That reboot boundary proves old processes and inference requests cannot
+survive; recovery first writes a per-generation receipt retaining the prior
+state and saved result ID. Missing, malformed or same-boot identities still
+leave admission quarantined.
 
 Tests must cover the real SDK/transport cancellation path, both adapters, bounded
 polling, persisted completion without polling, rejection of a second evaluation,
