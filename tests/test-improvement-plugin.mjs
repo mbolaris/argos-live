@@ -96,6 +96,74 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   }
 });
 
+test('direct evaluation escalates an ignored cancellation and waits for child exit', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-plugin-cancel-'));
+  const executable = path.join(directory, 'stuck-argos.mjs');
+  const capture = path.join(directory, 'child.json');
+  const priorBin = process.env.ARGOS_BIN;
+  const priorBinArgs = process.env.ARGOS_BIN_ARGS;
+  const priorCapture = process.env.ARGOS_CAPTURE;
+  let child;
+  try {
+    await writeFile(executable, `import fs from 'node:fs';
+import {spawn} from 'node:child_process';
+process.on('SIGTERM', () => {});
+const descendant = process.platform === 'win32' ? undefined : spawn(process.execPath,
+  ['-e', 'process.on("SIGTERM",()=>{});setInterval(()=>{},1000)'], {stdio:'inherit'});
+fs.writeFileSync(process.env.ARGOS_CAPTURE, JSON.stringify({pid:process.pid,descendant:descendant?.pid}));
+setInterval(() => {}, 1000);
+`);
+    process.env.ARGOS_BIN = process.execPath;
+    process.env.ARGOS_BIN_ARGS = JSON.stringify([executable]);
+    process.env.ARGOS_CAPTURE = capture;
+    const pluginPath = pathToFileURL(path.resolve('openclaw-plugin/argos-improve/index.js')).href;
+    const { default: register } = await import(`${pluginPath}?cancel-test=${Date.now()}`);
+    const tools = new Map();
+    register({registerTool(tool) { tools.set(tool.name, tool); }});
+    const controller = new AbortController();
+    const evaluation = tools.get('argos_evaluate').execute('stuck-eval', {suite:'quick'}, controller.signal);
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        child = JSON.parse(await readFile(capture, 'utf8'));
+        break;
+      } catch { await new Promise((resolve) => setTimeout(resolve, 50)); }
+    }
+    assert.ok(child, 'Benchmark child should have started before cancellation.');
+    controller.abort();
+    let timeout;
+    try {
+      await Promise.race([
+        assert.rejects(evaluation, /did not complete/),
+        new Promise((_, reject) => { timeout = setTimeout(() => reject(
+          new Error('Cancelled benchmark did not drain within the test bound.')), 12_000); })
+      ]);
+    } finally { clearTimeout(timeout); }
+    if (process.platform !== 'win32') {
+      for (const pid of [child.pid, child.descendant]) {
+        let gone = false;
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          try { process.kill(pid, 0); }
+          catch (error) { if (error.code === 'ESRCH') { gone = true; break; } throw error; }
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        assert.ok(gone, 'The full benchmark process group must be gone before the tool settles.');
+      }
+    }
+  } finally {
+    if (child?.pid) {
+      try { process.kill(process.platform === 'win32' ? child.pid : -child.pid, 'SIGKILL'); }
+      catch { /* Test cleanup only; the production assertion reports the failure. */ }
+    }
+    if (priorBin === undefined) delete process.env.ARGOS_BIN;
+    else process.env.ARGOS_BIN = priorBin;
+    if (priorBinArgs === undefined) delete process.env.ARGOS_BIN_ARGS;
+    else process.env.ARGOS_BIN_ARGS = priorBinArgs;
+    if (priorCapture === undefined) delete process.env.ARGOS_CAPTURE;
+    else process.env.ARGOS_CAPTURE = priorCapture;
+    await rm(directory, {recursive:true, force:true});
+  }
+});
+
 test('managed hooks bind tool-call identity and cannot release the host lease', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-admission-'));
   const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\argos-admission-${randomUUID()}` : path.join(directory, 'host.sock');

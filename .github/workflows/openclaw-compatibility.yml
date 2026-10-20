@@ -11,6 +11,7 @@ on:
       - runtime/argoslive/workload.py
       - runtime/argoslive/workload_worker.py
       - scripts/smoke-evaluation-config.py
+      - scripts/smoke-evaluation-liveness.mjs
       - runtime/argoslive/evaluation_context.py
       - runtime/argoslive/assistant_trial.py
       - runtime/argoslive/bench_openclaw.py
@@ -48,6 +49,7 @@ on:
       - runtime/argoslive/workload.py
       - runtime/argoslive/workload_worker.py
       - scripts/smoke-evaluation-config.py
+      - scripts/smoke-evaluation-liveness.mjs
       - runtime/argoslive/evaluation_context.py
       - runtime/argoslive/assistant_trial.py
       - runtime/argoslive/bench_openclaw.py
@@ -107,6 +109,8 @@ jobs:
           python3 scripts/refresh-plugin-manifest.py openclaw-plugin/argos-improve
       - name: Apply and verify Argos evaluation liveness integration
         run: node scripts/patch-openclaw-liveness.mjs work/compatibility-runtime/node_modules/openclaw
+      - name: Verify semantic progress resets the pinned liveness clock
+        run: node scripts/smoke-evaluation-liveness.mjs work/compatibility-runtime/node_modules/openclaw > work/evaluation-liveness.json
       - name: Pinned admission entry hook (synthetic, no inference)
         run: python3 scripts/smoke-admission-hook.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/admission-hook.json
       - name: Native controller bridge and scoped host tools (synthetic, no inference)
@@ -138,6 +142,7 @@ jobs:
             work/openclaw-compatibility.json
             work/native-gateway.json
             work/evaluation-protocol.json
+            work/evaluation-liveness.json
             work/admission-hook.json
             work/admission-hook.diagnostic.txt
             work/controller-bridge*.json

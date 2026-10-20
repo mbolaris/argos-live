@@ -47,6 +47,13 @@ resources. Process-wide host survival and explicit cancellation still require a
 separately supervised host service before claiming that an aborted SDK turn can
 always be recovered.
 
+The pinned compatibility gate now runs the patched 2026.10.4 activity tracker,
+not only a mock: it lets the tracker age 16 minutes, emits an owner-fenced
+`argos_evaluate` semantic progress event, drains the runtime's queued event, and
+asserts `lastProgressAgeMs` returns to zero. A saved report records the old and
+new ages. This verifies the liveness behavior that the earlier callback-only
+test could not establish.
+
 ## Integration gates before exposing start/wait tools
 
 The direct plugin rejects an already-aborted request before spawning any command.
@@ -55,7 +62,12 @@ malformed progress without cancelling evaluation work. Only asking/scored events
 with integer counts within the fixed 20/70 task bounds reach diagnostic liveness.
 Subprocess tests cover no launch before dispatch, oversized-line resynchronizing,
 and invalid progress followed by a valid saved-result response. Active cancellation
-still signals the direct child; this is not direct-path aborted-turn survival.
+first sends SIGTERM to the dedicated process group, allowing the CLI's existing
+handler to save a cancelled partial run. If the process group still holds pipes
+after five seconds, SIGKILL drains it before the tool settles. A regression
+fixture ignores SIGTERM in both parent and descendant and verifies group exit.
+An unresponsive process may still fail to save a run; the plugin reports that as
+an error rather than inventing a result ID.
 
 Both hostAdmission and direct runArgos adapters must use the same host service,
 not an agent-owned child. Tool abort cancels only the bounded wait. Owner cancel
