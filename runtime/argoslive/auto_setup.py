@@ -20,7 +20,9 @@ HEARTBEAT_PROMPT = ('Self-improvement heartbeat. First run `python3 tools/argos-
                     'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. If it has a '
                     '"## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
                     'following AGENTS.md, then append one short entry with argos_log. Call argos_evaluate and '
-                    'argos_compare as tools. Never install software, use sudo, clone repositories or request secrets. '
+                    'argos_compare as tools. If evaluation returns running, use argos_evaluate_wait until saved; '
+                    'if a turn ended before its job ID returned, call argos_evaluate_status first. Never start a '
+                    'second evaluation or edit during a running job. Never install software, use sudo, clone repositories or request secrets. '
                     'If there is no active campaign, '
                     'reply exactly HEARTBEAT_OK.')
 
@@ -44,7 +46,8 @@ def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
                         'contextWindow': 32768, 'maxTokens': 4096,
                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
         'tools': {'profile': 'minimal',
-                  'alsoAllow': ['group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare', 'argos_log'],
+                  'alsoAllow': ['group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_evaluate_wait',
+                                'argos_evaluate_status', 'argos_compare', 'argos_log'],
                   'deny': ['gateway', 'browser'],
                   'exec': {'host': 'gateway', 'security': 'full', 'ask': 'off'},
                   'elevated': {'enabled': False},

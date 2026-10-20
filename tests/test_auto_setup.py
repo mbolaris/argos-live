@@ -64,6 +64,8 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertEqual(config['tools']['deny'], ['gateway', 'browser'])
                 self.assertIn('group:runtime', config['tools']['alsoAllow'])
                 self.assertIn('web_fetch', config['tools']['alsoAllow'])
+                self.assertIn('argos_evaluate_wait', config['tools']['alsoAllow'])
+                self.assertIn('argos_evaluate_status', config['tools']['alsoAllow'])
                 self.assertEqual(config['tools']['exec'],
                                  {'host': 'gateway', 'security': 'full', 'ask': 'off'})
                 self.assertEqual(config['plugins']['entries']['argos-improve']['enabled'], True)
