@@ -1610,6 +1610,9 @@ let currentModelName = null;
 let commandModelName = null;
 let activeModelMonitoring = null;
 let selectionProgressRevealed = false;
+function shouldRevealModelProgress(pending, alreadyRevealed) {
+  return Boolean(pending) && !alreadyRevealed;
+}
 async function refreshSelection() {
   if (selectionRefreshing) return;
   selectionRefreshing = true;
@@ -1622,7 +1625,7 @@ async function refreshSelection() {
     currentModelName = value.model || null;
     const pending = getPendingModelAction();
     document.getElementById('selection-controls').hidden = (!selectionAvailable || value.phase === 'idle') && !pending;
-    if ((pending || selectionActive) && !selectionProgressRevealed) {
+    if (shouldRevealModelProgress(pending, selectionProgressRevealed)) {
       focusSection('selection-controls');
       selectionProgressRevealed = true;
     } else if (!pending && !selectionActive) {
@@ -4297,8 +4300,23 @@ function autoClimbAnswer(progress) {
   if (!latest || latest.id !== progress.current?.id) return 'Waiting for this answer…';
   return typeof latest.reply === 'string' ? latest.reply : latest.reply?.text || 'Waiting for this answer…';
 }
+function autoClimbWatch(value) {
+  const current = value.progress?.current;
+  const receipt = value.receipts?.at(-1);
+  const text = typeof receipt?.reply === 'string' ? receipt.reply : receipt?.reply?.text;
+  if (receipt?.question && text) {
+    return {current: receipt, reply: text, label: 'Last completed answer',
+      next: current?.id !== receipt.id ? current?.question || '' : '',
+      verdict: autoClimbReceipt(receipt)};
+  }
+  return {current, reply: autoClimbAnswer(value.progress), label: 'Your AI’s answer', next: '', verdict: ''};
+}
 function autoClimbTally(value) {
   if (value.phase === 'acquire') {
+    const stage = value.download?.phase;
+    const stages = {verifying: 'Checking downloaded files…', loading: 'Loading the new model…',
+      testing: 'Checking a real reply…', publishing: 'Finishing installation…'};
+    if (stages[stage]) return stages[stage];
     const p = value.download?.progress;
     return p?.bytes_total > 0 ? `${Math.min(100, Math.floor(100 * p.bytes_done / p.bytes_total))}% downloaded` : 'Preparing download…';
   }
@@ -4397,19 +4415,26 @@ function renderAutoClimb() {
     const taskCard = card.querySelector('.auto-climb-watch-card');
     if (taskCard) taskCard.hidden = ['acquire', 'stage'].includes(phase);
 
-    if (prog?.current) {
-      const cur = prog.current;
+    const watch = autoClimbWatch(val);
+    const nextEl = document.getElementById('auto-climb-now-answering');
+    if (nextEl) { nextEl.hidden = !watch.next; nextEl.textContent = watch.next ? `Now answering: ${watch.next}` : ''; }
+    const replyLabel = document.getElementById('auto-climb-watch-reply-label');
+    if (replyLabel) replyLabel.textContent = watch.label;
+    if (watch.current) {
+      const cur = watch.current;
       const kindEl = document.getElementById('auto-climb-watch-kind');
-      if (kindEl) kindEl.textContent = cur.kind || 'challenge';
+      if (kindEl) kindEl.textContent = watch.verdict || ({answer: 'Reading', not_stated: 'Missing information', control: 'Everyday request'})[cur.kind] || 'Challenge';
       const idEl = document.getElementById('auto-climb-watch-task-id');
-      if (idEl) idEl.textContent = cur.id || '';
+      if (idEl) { idEl.textContent = ''; idEl.hidden = true; }
       const passText = document.getElementById('auto-climb-watch-passage-text');
-      if (passText) passText.textContent = cur.passage || '(None)';
+      if (passText) passText.textContent = cur.passage || '';
+      const passageDetails = document.getElementById('auto-climb-watch-passage-details');
+      if (passageDetails) passageDetails.hidden = !cur.passage;
       const qText = document.getElementById('auto-climb-watch-question');
       if (qText) qText.textContent = cur.question || '';
     }
     const replyEl = document.getElementById('auto-climb-watch-reply');
-    if (replyEl) replyEl.textContent = autoClimbAnswer(prog);
+    if (replyEl) replyEl.textContent = watch.reply;
 
     // Receipts
     const receiptsList = document.getElementById('auto-climb-receipts-list');

@@ -16,3 +16,28 @@ test('bounded completed count and separate download progress', () => {
 test('missing quote is explained without changing score', () => {
  assert.equal(c.autoClimbReceipt({passed:false,checks:{answer_present:true,exact_quote:false}}), 'Correct answer, missing quote');
 });
+
+test('file verification is not presented as a completed download', () => {
+ assert.equal(c.autoClimbTally({phase:'acquire',download:{phase:'verifying',progress:{bytes_done:100,bytes_total:100}}}), 'Checking downloaded files…');
+});
+
+test('keeps the completed answer paired with its own question while next turn runs', () => {
+ const v = {progress:{current:{id:'next',question:'Next question'}},
+   receipts:[{id:'previous',kind:'control',question:'Previous question',reply:{text:'Real completed reply'},passed:true}]};
+ const w = c.autoClimbWatch(v);
+ assert.equal(w.current.question, 'Previous question');
+ assert.equal(w.reply, 'Real completed reply');
+ assert.equal(w.next, 'Next question');
+ assert.equal(w.label, 'Last completed answer');
+ assert.equal(w.verdict, 'Everyday reply passed');
+ const oldSchema = c.autoClimbWatch({...v,receipts:[{id:'previous',reply:{text:'Do not misattribute me'}}]});
+ assert.equal(oldSchema.current.id, 'next');
+ assert.match(oldSchema.reply, /Waiting/);
+});
+
+test('only a locally requested model action can move the viewport', () => {
+ vm.runInContext(s.slice(s.indexOf('function shouldRevealModelProgress('), s.indexOf('async function refreshSelection(')), c);
+ assert.equal(c.shouldRevealModelProgress(null, false), false);
+ assert.equal(c.shouldRevealModelProgress({kind:'switch'}, false), true);
+ assert.equal(c.shouldRevealModelProgress({kind:'switch'}, true), false);
+});
