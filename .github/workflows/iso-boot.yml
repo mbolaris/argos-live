@@ -21,6 +21,14 @@ on:
         required: false
         default: false
         type: boolean
+      acceleration:
+        description: Explicit VM acceleration (KVM requires runner hardware support)
+        required: true
+        default: tcg
+        type: choice
+        options:
+          - tcg
+          - kvm
       shutdown_only:
         description: Three encrypted virtual USB shutdowns with offline checks before journal replay
         required: false
@@ -43,6 +51,7 @@ jobs:
       BUILD_RUN: ${{ inputs.build_run || '37216494685' }}
       SETUP_MODE: ${{ inputs.setup_mode || 'interactive' }}
       GUEST_MODE: ${{ inputs.guest_mode || false }}
+      VM_ACCEL: ${{ inputs.acceleration || 'tcg' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,15 +64,21 @@ jobs:
           path: work/iso-candidate
       - name: Install CPU-only VM tools
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso
+      - name: Enable explicitly requested runner KVM
+        if: env.VM_ACCEL == 'kvm'
+        run: |
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
       - name: Boot existing ISO offline and check desktop/dashboard/CPU benchmark
         shell: bash
         run: |
           args=()
           if [[ "$GUEST_MODE" == true ]]; then args+=(--guest); fi
-          python3 scripts/smoke-qemu-iso.py work/iso-candidate/argos-live-amd64.iso --output work/vm-smoke --setup-mode "$SETUP_MODE" "${args[@]}"
+          python3 scripts/smoke-qemu-iso.py work/iso-candidate/argos-live-amd64.iso --output work/vm-smoke --setup-mode "$SETUP_MODE" --accel "$VM_ACCEL" "${args[@]}"
       - name: Record acceptance
         run: |
-          echo '## Offline TCG guest acceptance' >> "$GITHUB_STEP_SUMMARY"
+          echo "## Offline $VM_ACCEL guest acceptance" >> "$GITHUB_STEP_SUMMARY"
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat work/vm-smoke/result.json >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

@@ -190,7 +190,9 @@ def guest_commands(source):
     return commands
 
 
-def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=False):
+def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=False, accel='tcg'):
+    if accel not in ('tcg', 'kvm'):
+        raise ValueError('Unknown VM acceleration')
     if guest_mode and setup_mode != 'managed':
         raise ValueError('Guest acceptance requires managed startup')
     if setup_mode not in ('interactive', 'auto', 'managed'):
@@ -222,7 +224,7 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
         extract(kernel, work / 'kernel')
         extract(initrd, work / 'initrd')
         qmp = work / 'qmp.sock'
-        process = subprocess.Popen(['qemu-system-x86_64', '-accel', 'tcg', '-cpu', 'max', '-smp', '2',
+        process = subprocess.Popen(['qemu-system-x86_64', '-accel', accel, '-cpu', 'host' if accel == 'kvm' else 'max', '-smp', '2',
                     '-m', '8192' if setup_mode == 'managed' else '4096', '-display', f'vnc=unix:{work / "vnc.sock"}', '-vga', 'std',
                     '-nic', 'none', '-no-reboot',
                     '-kernel', str(work / 'kernel'), '-initrd', str(work / 'initrd'), '-append', append,
@@ -230,7 +232,7 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                     '-qmp', f'unix:{qmp},server=on,wait=off'], stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         started = time.monotonic()
-        print('Starting offline CPU-emulated guest; acceptance timeout is 60 minutes.', flush=True)
+        print(f'Starting offline {accel} guest; acceptance timeout is 60 minutes.', flush=True)
         reported_stages = set()
         reported_lab_phases = set()
         browser_paint_acknowledged = False
@@ -309,6 +311,7 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                     if result is not None:
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
                                       vm_memory_mib=8192 if setup_mode == 'managed' else 4096,
+                                      vm_acceleration=accel,
                                       boot_method='direct kernel/initrd from original desktop entry; serial appended',
                                       firmware_boot_verified=False)
                         if not (output / 'desktop.ppm').exists():
@@ -345,5 +348,6 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--setup-mode', choices=('interactive', 'auto', 'managed'), default='interactive')
     parser.add_argument('--guest', action='store_true', help='Test the RAM-only guest boot entry with managed startup')
+    parser.add_argument('--accel', choices=('tcg', 'kvm'), default='tcg', help='Explicit acceleration; never silently fall back')
     args = parser.parse_args()
-    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode, guest_mode=args.guest)
+    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode, guest_mode=args.guest, accel=args.accel)
