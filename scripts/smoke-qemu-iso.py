@@ -137,6 +137,15 @@ def baseline_button_target(raw):
 def click_rendered_baseline(qmp, frame, *, timeout=20):
     # A painted shell can precede the authenticated Lab status response. Wait
     # for the actual enabled control, never click another turquoise element.
+    # The dashboard's mission-control introduction pushed the Model Lab
+    # controls below the initial viewport. Page down once before looking for
+    # the baseline control so the click remains tied to its rendered location.
+    qmp_commands(qmp, [{'execute': 'input-send-event', 'arguments': {'events': [
+        {'type': 'key', 'data': {'down': True, 'key': {'type': 'qcode', 'data': 'PAGEDOWN'}}},
+        {'type': 'key', 'data': {'down': False, 'key': {'type': 'qcode', 'data': 'PAGEDOWN'}}},
+    ]}}])
+    time.sleep(.5)
+    screenshot_dashboard_content(qmp, frame)
     deadline = time.monotonic() + timeout
     while True:
         try:
