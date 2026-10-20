@@ -101,8 +101,12 @@ class BootEntryTests(unittest.TestCase):
                 patch.object(module, 'screenshot_dashboard_content') as capture, \
                 patch.object(module, 'qmp_commands') as commands:
             module.click_rendered_baseline('socket', frame)
-            capture.assert_called_once_with('socket', frame)
-            events = [item['arguments']['events'][0] for item in commands.call_args.args[1]]
+            self.assertEqual(capture.call_count, 2)
+            self.assertTrue(all(item.args == ('socket', frame) for item in capture.call_args_list))
+            self.assertEqual(commands.call_count, 2)
+            scroll_event = commands.call_args_list[0].args[1][0]['arguments']['events'][0]
+            self.assertEqual(scroll_event['data']['key'], {'type': 'qcode', 'data': 'PAGEDOWN'})
+            events = [item['arguments']['events'][0] for item in commands.call_args_list[1].args[1]]
             self.assertEqual([item['type'] for item in events], ['abs', 'abs', 'btn', 'btn'])
             self.assertEqual([item['data']['down'] for item in events[2:]], [True, False])
         with patch.object(module, 'baseline_button_target', side_effect=missing), \
@@ -111,8 +115,8 @@ class BootEntryTests(unittest.TestCase):
                 patch.object(module, 'qmp_commands') as commands:
             with self.assertRaises(ValueError):
                 module.click_rendered_baseline('socket', frame)
-            capture.assert_not_called()
-            commands.assert_not_called()
+            capture.assert_called_once_with('socket', frame)
+            self.assertEqual(commands.call_count, 1)
 
     def test_large_guest_payload_is_chunked_checked_and_never_shell_source(self):
         source = b'$(untrusted shell text)' + b''.join(hashlib.sha256(str(i).encode()).digest() for i in range(200))
