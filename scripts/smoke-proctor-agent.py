@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import threading
@@ -211,6 +212,13 @@ def run(cli, report):
                     return real_finish(bridge, timeout=timeout)
                 except BaseException:
                     raw = getattr(bridge, 'last_stdout', '')
+                    stderr = getattr(bridge, 'last_stderr', '')
+                    def redact(value):
+                        value = re.sub(r'(?i)(token\s*[=:]\s*)[^\s,;]+', r'\1[redacted]', value)
+                        value = re.sub(r'(?i)(bearer\s+)[A-Za-z0-9._~+/-]+=*', r'\1[redacted]', value)
+                        value = re.sub(r'(?<![A-Za-z0-9])[A-Fa-f0-9]{32,}(?![A-Za-z0-9])', '[redacted-id]', value)
+                        value = re.sub(r'/home/runner/[^\s:]+', '[runner-path]', value)
+                        return value[:3000]
                     try:
                         decoded = json.loads(raw)
                         body = decoded.get('result', decoded) if isinstance(decoded, dict) else {}
@@ -224,7 +232,9 @@ def run(cli, report):
                         'stdout_bytes': len(raw.encode()),
                         'stderr_bytes': len(getattr(bridge, 'last_stderr', '').encode()),
                         'stdout_sha256': hashlib.sha256(raw.encode()).hexdigest(),
-                        'stderr_sha256': hashlib.sha256(getattr(bridge, 'last_stderr', '').encode()).hexdigest(),
+                        'stderr_sha256': hashlib.sha256(stderr.encode()).hexdigest(),
+                        'stdout_excerpt': redact(raw),
+                        'stderr_excerpt': redact(stderr),
                         'response_status': decoded.get('status') if isinstance(decoded, dict) else None,
                         'response_error_present': bool(meta.get('error')) if isinstance(meta, dict) else False,
                         'payload_count': len(payloads) if isinstance(payloads, list) else None,
