@@ -55,8 +55,20 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
 
 def _private_directory(path):
     path = Path(path)
-    if path.is_symlink():
+    if any(candidate.is_symlink() or (hasattr(candidate, 'is_junction') and candidate.is_junction())
+           for candidate in (path, *path.parents)):
         raise ValueError('Proctor state path must not be a symbolic link')
+    runtime_root = next((candidate for candidate in (path, *path.parents)
+                         if candidate.name == 'argos-live' and candidate.parent.name == 'state' and
+                         candidate.parent.parent.name == '.local'), None)
+    if runtime_root is not None:
+        # Path.mkdir(parents=True) applies its mode only to the leaf. Create
+        # this shared secret-bearing runtime root directly before its children
+        # so the managed gateway accepts the same private state directory.
+        runtime_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if os.name != 'nt' and (runtime_root.stat().st_uid != os.getuid() or
+                                runtime_root.stat().st_mode & 0o077):
+            raise ValueError('Argos runtime state directory must be private to the Argos account')
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     if os.name != 'nt' and (path.stat().st_uid != os.getuid() or path.stat().st_mode & 0o077):
         raise ValueError('Proctor state directory must be private to the Argos account')

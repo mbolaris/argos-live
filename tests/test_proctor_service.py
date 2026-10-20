@@ -31,6 +31,9 @@ class ProctorServiceTests(unittest.TestCase):
             owner_config_path=self.owner_config)
         config = json.loads(config_path.read_text())
         self.assertEqual(root, self.home / '.local/state/argos-live/proctor')
+        runtime_root = self.home / '.local/state/argos-live'
+        if os.name != 'nt':
+            self.assertEqual(runtime_root.stat().st_mode & 0o077, 0)
         self.assertTrue(workspace.is_dir())
         self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
         model = config['models']['providers']['ollama']['models'][0]
