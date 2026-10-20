@@ -43,7 +43,7 @@ def run(cli, report):
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or os.geteuid() == 0):
         raise ValueError('Proctor integration fixture requires an unprivileged disposable hosted runner')
-    progress = {'tools': 0, 'errors': []}
+    progress = {'tools': 0, 'errors': [], 'phase': 'proctor'}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -67,7 +67,8 @@ def run(cli, report):
                 progress['errors'].append('unexpected-endpoint')
                 return self.respond(None)
             calls = progress['tools']
-            if request.get('tools') and calls < len(TOOLS) + len(CAMPAIGN_TOOLS):
+            campaign_end = len(TOOLS) + (len(CAMPAIGN_TOOLS) if progress['phase'] == 'campaign' else 0)
+            if request.get('tools') and calls < campaign_end:
                 if calls < len(TOOLS):
                     tool, args = TOOLS[calls], ARGS[calls]
                 else:
@@ -183,7 +184,7 @@ def run(cli, report):
 
             # Exercise the owner-facing service entry point and its isolated,
             # tool-restricted gateway profile with the same synthetic model.
-            progress.update(tools=0, errors=[])
+            progress.update(tools=0, errors=[], phase='campaign')
             service_home = home / 'service-home'
             service_home.mkdir(mode=0o700)
             model_storage = service_home / 'Models'
