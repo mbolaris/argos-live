@@ -102,70 +102,6 @@ def capture_graphical_dashboard(qmp, path, *, timeout=60):
             time.sleep(.5)
 
 
-def baseline_button_target(raw):
-    """Locate the pinned dashboard's baseline button; reject ambiguous layouts.
-
-    This is a UI input hint, never acceptance evidence. The guest must still
-    observe the real job, both saved runs, and assistant resumption.
-    """
-    header = re.match(rb'P6\s+(\d+)\s+(\d+)\s+255\s', raw)
-    if not header:
-        raise ValueError('Unexpected dashboard frame')
-    width, height = int(header[1]), int(header[2])
-    pixels = raw[header.end():]
-    if width != 1280 or height != 640 or len(pixels) != width * height * 3:
-        raise ValueError('Unexpected dashboard dimensions')
-    groups = []
-    for y in range(height):
-        row = pixels[y * width * 3:(y + 1) * width * 3]
-        for match in re.finditer(b'(?:\x82\xe4\xde){310,}', row):
-            x, length = match.start() // 3, len(match[0]) // 3
-            if match.start() % 3 or not 310 <= length <= 350:
-                continue
-            group = next((g for g in groups if abs(g[0] - x) < 12 and y - g[2] < 50), None)
-            if group is None:
-                groups.append([x, y, y, length])
-            else:
-                group[2] = y
-    targets = [(x + length // 2, (top + bottom) // 2 + 160)
-               for x, top, bottom, length in groups if 30 <= bottom - top <= 48]
-    if len(targets) != 1:
-        raise ValueError('Rendered baseline button missing or ambiguous')
-    return targets[0]
-
-
-def click_rendered_baseline(qmp, frame, *, timeout=20):
-    # A painted shell can precede the authenticated Lab status response. Wait
-    # for the actual enabled control, never click another turquoise element.
-    # The dashboard's mission-control introduction pushed the Model Lab
-    # controls below the initial viewport. Page down once before looking for
-    # the baseline control so the click remains tied to its rendered location.
-    qmp_commands(qmp, [{'execute': 'input-send-event', 'arguments': {'events': [
-        {'type': 'btn', 'data': {'down': True, 'button': 'wheel-down'}},
-        {'type': 'btn', 'data': {'down': False, 'button': 'wheel-down'}},
-        {'type': 'btn', 'data': {'down': True, 'button': 'wheel-down'}},
-        {'type': 'btn', 'data': {'down': False, 'button': 'wheel-down'}},
-    ]}}])
-    time.sleep(.5)
-    screenshot_dashboard_content(qmp, frame)
-    deadline = time.monotonic() + timeout
-    while True:
-        try:
-            x, y = baseline_button_target(frame.read_bytes())
-            break
-        except ValueError as error:
-            if str(error) != 'Rendered baseline button missing or ambiguous' or time.monotonic() >= deadline:
-                raise
-            time.sleep(.5)
-            screenshot_dashboard_content(qmp, frame)
-    def event(kind, data):
-        return {'execute': 'input-send-event', 'arguments': {'events': [{'type': kind, 'data': data}]}}
-    qmp_commands(qmp, [event('abs', {'axis': 'x', 'value': x * 32767 // 1279}),
-                       event('abs', {'axis': 'y', 'value': y * 32767 // 799}),
-                       event('btn', {'button': 'left', 'down': True}),
-                       event('btn', {'button': 'left', 'down': False})])
-
-
 def lab_progress_phase(line):
     """Return only a recognized test phase; never surface guest text in host logs."""
     try:
@@ -336,13 +272,10 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                                 capture_graphical_dashboard(qmp, output / 'lab-progress.ppm')
                     if (setup_mode == 'managed' and 'managed-browser' in reported_stages and
                             not browser_paint_acknowledged):
-                        # The guest is blocked on a serial acknowledgement
-                        # until a real dashboard frame, rather than a Firefox
-                        # title or white loading page, passes graphical QA.
+                        # Capture the shipped dashboard, but let the guest's
+                        # native Firefox WebDriver session perform the trusted
+                        # button interaction after it verifies DOM readiness.
                         capture_graphical_dashboard(qmp, output / 'desktop.ppm')
-                        click_rendered_baseline(qmp, output / 'desktop.ppm')
-                        process.stdin.write(b'ARGOS_C3_UI_READY\n')
-                        process.stdin.flush()
                         browser_paint_acknowledged = True
                     elif ({'cpu-inference', 'managed-browser'} & reported_stages and
                           not (output / 'desktop.ppm').exists()):

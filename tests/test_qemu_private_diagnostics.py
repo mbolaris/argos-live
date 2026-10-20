@@ -153,24 +153,6 @@ class DiagnosticFlagsTests(unittest.TestCase):
                 patch.object(module.time, 'sleep'):
             self.assertFalse(module.wait_for_active_firefox())
 
-    def test_managed_guest_waits_for_exact_host_paint_acknowledgement(self):
-        stream = io.StringIO('ARGOS_C3_UI_READY\n')
-        with patch.object(module.sys, 'stdin', stream), \
-                patch.object(module.select, 'select', return_value=([stream], [], [])) as ready:
-            module.await_dashboard_paint(timeout=17)
-        self.assertEqual(ready.call_args.args[3], 17)
-
-    def test_managed_guest_rejects_missing_or_unexpected_paint_acknowledgement(self):
-        stream = io.StringIO('private content\n')
-        with patch.object(module.sys, 'stdin', stream), \
-                patch.object(module.select, 'select', return_value=([], [], [])):
-            with self.assertRaisesRegex(ValueError, 'visible ready state'):
-                module.await_dashboard_paint(timeout=0)
-        with patch.object(module.sys, 'stdin', io.StringIO('PRIVATE_TOKEN\n')), \
-                patch.object(module.select, 'select', side_effect=lambda readers, *args: (readers, [], [])):
-            with self.assertRaisesRegex(ValueError, 'visible ready state'):
-                module.await_dashboard_paint(timeout=0)
-
     def test_dashboard_window_lookup_requires_shipped_firefox_title(self):
         with patch.object(module.subprocess, 'check_output', side_effect=[
                 '_NET_CLIENT_LIST(WINDOW): window id # 0x10, 0x20',
