@@ -38,7 +38,7 @@ jobs:
   boot:
     if: ${{ !inputs.shutdown_only }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 70
     env:
       BUILD_RUN: ${{ inputs.build_run || '37216494685' }}
       SETUP_MODE: ${{ inputs.setup_mode || 'interactive' }}

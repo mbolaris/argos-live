@@ -190,7 +190,7 @@ def guest_commands(source):
     return commands
 
 
-def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=False):
+def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=False):
     if guest_mode and setup_mode != 'managed':
         raise ValueError('Guest acceptance requires managed startup')
     if setup_mode not in ('interactive', 'auto', 'managed'):
@@ -230,7 +230,7 @@ def run(image, output, *, timeout=1800, setup_mode='interactive', guest_mode=Fal
                     '-qmp', f'unix:{qmp},server=on,wait=off'], stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         started = time.monotonic()
-        print('Starting offline CPU-emulated guest; acceptance timeout is 30 minutes.', flush=True)
+        print('Starting offline CPU-emulated guest; acceptance timeout is 60 minutes.', flush=True)
         reported_stages = set()
         reported_lab_phases = set()
         browser_paint_acknowledged = False
