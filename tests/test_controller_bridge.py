@@ -213,6 +213,11 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(value['status'], 'running')
             self.assertEqual(value['total'], 70)
             self.assertTrue(started.wait(1))
+            _, turn = self.begin(bridge)
+            status = bridge.dispatch({**turn, 'op':'tool', 'call_id':'recover-eval-job',
+                'kind':'evaluation_status', 'params':{}})
+            self.assertEqual(status['status'], 'running')
+            self.assertEqual(status['job_id'], value['job_id'])
             with self.assertRaises(workload.Busy):
                 bridge.start_evaluation({'suite':'quick'}, seconds=.01)
             # The caller can disappear here; the host worker still owns the slot.

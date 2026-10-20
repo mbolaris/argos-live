@@ -132,7 +132,7 @@ class Bridge:
                 if self.exam_session is not None and kind not in PROCTOR_TOOLS:
                     raise ValueError('Only Proctor tools are available during an exam')
                 if (self.evaluation_job and not self.evaluation_job.get('consumed') and
-                        kind != 'evaluation_wait'):
+                        kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
                 if kind == 'evaluation':
                     if set(params) - {'suite'} or params.get('suite', 'quick') not in {'quick', 'standard', 'challenge'}:
