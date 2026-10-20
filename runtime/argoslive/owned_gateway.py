@@ -70,7 +70,8 @@ class OwnedOrigin(str):
 
 
 @contextmanager
-def owned(home=None, *, executable=None, config_path=None, timeout=600, cancel=None):
+def owned(home=None, *, executable=None, config_path=None, timeout=600, cancel=None,
+          controller_environment=None):
     if sys.platform != 'linux':
         raise ValueError('Owned gateway requires Linux')
     if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 600:
@@ -91,6 +92,17 @@ def owned(home=None, *, executable=None, config_path=None, timeout=600, cancel=N
     # executable, while owner state/log paths must remain unlinked.
     executable = str(safe_local(Path(executable).resolve(strict=True)))
     env = environment(home, config_path)
+    if controller_environment is not None:
+        if (not isinstance(controller_environment, dict) or
+                set(controller_environment) != {'ARGOS_CONTROLLER_SOCKET', 'ARGOS_CONTROLLER_SECRET'} or
+                not isinstance(controller_environment.get('ARGOS_CONTROLLER_SOCKET'), str) or
+                not isinstance(controller_environment.get('ARGOS_CONTROLLER_SECRET'), str) or
+                not re.fullmatch(r'[a-f0-9]{64}', controller_environment['ARGOS_CONTROLLER_SECRET'])):
+            raise ValueError('Invalid private controller environment for the owned gateway')
+        controller_socket = Path(controller_environment['ARGOS_CONTROLLER_SOCKET'])
+        if not controller_socket.is_absolute() or not controller_socket.is_socket() or controller_socket.is_symlink():
+            raise ValueError('Controller socket is not an active private Unix socket')
+        env.update(controller_environment)
     version = subprocess.run([executable, '--version'], env=env, capture_output=True, timeout=30)
     expected = addons.load()['host_version']
     if version.returncode or expected not in re.findall(r'\d{4}\.\d+\.\d+', version.stdout.decode(errors='replace')):

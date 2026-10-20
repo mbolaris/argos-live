@@ -428,7 +428,7 @@ class Bridge:
                 for pipe in (process.stdin, process.stdout, process.stderr):
                     pipe.close()
 
-    def launch(self, executable, message, *, config_path=None, timeout=1800):
+    def launch(self, executable, message, *, config_path=None, timeout=1800, local=True):
         """Host-only launch; no worker PID or release claim is accepted from IPC."""
         from .owned_gateway import environment
         path = Path(config_path or self.home / '.openclaw/openclaw.json')
@@ -450,9 +450,13 @@ class Bridge:
             env = environment(self.home, path)
             env.update(self.transport_env, PATH=self.worker_path)
             self.session_id = str(uuid.uuid4())
-            self.worker = subprocess.Popen([str(executable), 'agent', '--local', '--agent', 'main',
-                '--session-id', self.session_id, '--session-key', self.session_key, '--message', message,
-                '--timeout', str(timeout), '--json'], env=env, stdin=subprocess.DEVNULL,
+            arguments = [str(executable), 'agent']
+            if local:
+                arguments.append('--local')
+            arguments.extend(['--agent', 'main', '--session-id', self.session_id,
+                '--session-key', self.session_key, '--message', message,
+                '--timeout', str(timeout), '--json'])
+            self.worker = subprocess.Popen(arguments, env=env, stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
             try:
                 write_json(self.parent.path.parent / 'controller-worker.json', {

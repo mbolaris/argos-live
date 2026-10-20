@@ -255,12 +255,13 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
         raise ValueError('Pinned OpenClaw executable is unavailable')
     try:
         with ExitStack() as stack:
-            bridge, _ = stack.enter_context(controller_bridge.owned(
+            bridge, controller_env = stack.enter_context(controller_bridge.owned(
             home, session_key='agent:main:argos_proctor_practice', exam_session=exam))
             stack.enter_context(owned_ollama.owned(target, port=11434, context_tokens=32768,
                 lease_store=home / '.local/state/argos-live'))
-            stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path))
-            bridge.launch(executable, MESSAGE, config_path=config_path, timeout=1800)
+            stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
+                controller_environment=controller_env))
+            bridge.launch(executable, MESSAGE, config_path=config_path, timeout=1800, local=False)
             result, _stderr = bridge.finish(timeout=1900)
         feedback = exam.practice_feedback()
         return {'status': 'completed', 'practice_only': True,
@@ -282,12 +283,13 @@ def run_campaign(home, model, target, feedback, *, executable, openssl='openssl'
     refuse_live_backend()
     prompt = CAMPAIGN_MESSAGE.format(feedback=json.dumps(feedback, ensure_ascii=False, sort_keys=True))
     with ExitStack() as stack:
-        bridge, _ = stack.enter_context(controller_bridge.owned(
+        bridge, controller_env = stack.enter_context(controller_bridge.owned(
             home, session_key='agent:main:argos_proctor_improvement', trigger='user'))
         stack.enter_context(owned_ollama.owned(target, port=11434, context_tokens=32768,
             lease_store=Path(home) / '.local/state/argos-live'))
-        stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path))
-        bridge.launch(executable, prompt, config_path=config_path, timeout=3600)
+        stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
+            controller_environment=controller_env))
+        bridge.launch(executable, prompt, config_path=config_path, timeout=3600, local=False)
         result, _stderr = bridge.finish(timeout=3700)
         outcomes = list(bridge.outcomes)
     saved_ids = [item.get('result_id') for item in outcomes

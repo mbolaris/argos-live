@@ -18,6 +18,9 @@ FAKE = '''#!/usr/bin/env python3
 import json, os, subprocess, sys, time
 from pathlib import Path
 if '--version' in sys.argv:
+    if 'ARGOS_CONTROLLER_SOCKET' in os.environ or 'ARGOS_CONTROLLER_SECRET' in os.environ:
+        Path(os.environ['OPENCLAW_CONFIG_PATH']).parent.joinpath('controller-env-forwarded').write_text(
+            str('ARGOS_CONTROLLER_SOCKET' in os.environ and 'ARGOS_CONTROLLER_SECRET' in os.environ))
     print('OpenClaw HOSTPIN')
     sys.exit()
 config = Path(os.environ['OPENCLAW_CONFIG_PATH'])
@@ -102,6 +105,24 @@ class GatewayProcessTests(unittest.TestCase):
         self.assertTrue(self.stopped(leader))
         self.assertTrue(self.stopped(worker))
         self.assertEqual(self.config.read_bytes(), original)
+
+    def test_private_controller_environment_is_forwarded_to_owned_gateway(self):
+        socket_path = self.home / 'controller.sock'
+        with socket.socket(socket.AF_UNIX) as controller:
+            controller.bind(str(socket_path))
+            controller.listen()
+            with owned(self.home, executable=self.binary, timeout=5,
+                       controller_environment={'ARGOS_CONTROLLER_SOCKET': str(socket_path),
+                           'ARGOS_CONTROLLER_SECRET': 'a' * 64}):
+                self.assertEqual((self.state / 'controller-env-forwarded').read_text(), 'True')
+
+    def test_invalid_controller_environment_fails_before_gateway_launch(self):
+        with self.assertRaisesRegex(ValueError, 'Invalid private controller environment'):
+            with owned(self.home, executable=self.binary, timeout=5,
+                       controller_environment={'ARGOS_CONTROLLER_SOCKET': '/tmp/missing.sock',
+                           'ARGOS_CONTROLLER_SECRET': 'not-a-secret'}):
+                self.fail('Invalid controller credentials were accepted')
+        self.assertFalse((self.state / 'leader-pid').exists())
 
     def test_natural_exit_and_signal_are_recorded_before_cleanup(self):
         prefix = FAKE.split('config = ')[0]
