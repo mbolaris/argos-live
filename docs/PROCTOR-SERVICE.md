@@ -1,4 +1,4 @@
-# Owner-started Proctor practice service
+# Owner-started Proctor service
 
 `argos proctor practice` starts a host-selected practice session through a fresh,
 private OpenClaw gateway profile. The profile preserves the selected local
@@ -15,6 +15,16 @@ general ability or establish an improvement. After a terminal practice session,
 the agent gets aggregate scores and item-level submitted/expected answers to
 support coaching. Assessment and held-out exams remain outside this entry point.
 
+`argos proctor improve` runs that practice session first, waits for its signed
+transcript to be saved and its reservation to drain, then starts a separate
+host-admitted improvement campaign. The campaign receives practice misses as
+coaching context and gets only the managed Argos evaluation, comparison,
+logging, and reversible instruction-change tools. Host admission owns one
+workload reservation at a time, and the controller saves evaluations even if
+the campaign agent turn ends. Practice scores never count as evidence that an
+ability improved. The campaign follows the installed Argos improvement skill
+for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
+
 The service refuses to start if the everyday OpenClaw gateway or Ollama already
 occupies its loopback port. Close the everyday assistant first; the Proctor
 command then owns and shuts down both its private Ollama process and gateway.
@@ -24,6 +34,7 @@ Example:
 ```sh
 argos proctor practice
 argos proctor practice --cartridge /path/to/reviewed-cartridge.sqlite3 --form practice-a --json
+argos proctor improve
 ```
 
 This is declared/cooperative enforcement within the same Argos user account.

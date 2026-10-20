@@ -35,6 +35,8 @@ ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'}, {'item_id':
         {'item_id': 'q4', 'answer': '-1.25'}, {'module_id': 'm2'}, {}]
 if len(TOOLS) != len(ARGS):
     raise RuntimeError('Synthetic Proctor tool plan is inconsistent')
+CAMPAIGN_TOOLS = ['argos_inspect']
+CAMPAIGN_ARGS = [{}]
 
 
 def run(cli, report):
@@ -65,8 +67,11 @@ def run(cli, report):
                 progress['errors'].append('unexpected-endpoint')
                 return self.respond(None)
             calls = progress['tools']
-            if request.get('tools') and calls < len(TOOLS):
-                tool, args = TOOLS[calls], ARGS[calls]
+            if request.get('tools') and calls < len(TOOLS) + len(CAMPAIGN_TOOLS):
+                if calls < len(TOOLS):
+                    tool, args = TOOLS[calls], ARGS[calls]
+                else:
+                    tool, args = CAMPAIGN_TOOLS[calls - len(TOOLS)], CAMPAIGN_ARGS[calls - len(TOOLS)]
                 progress['tools'] += 1
                 message = {'role': 'assistant', 'content': '', 'tool_calls': [{
                     'id': f'proctor-call-{calls}', 'type': 'function',
@@ -191,6 +196,7 @@ def run(cli, report):
                                                'model': 'fixture:latest'}))
             owner_workspace = service_home / '.openclaw/workspace'
             owner_workspace.mkdir(parents=True, mode=0o700)
+            (owner_workspace / 'AGENTS.md').write_text('Use managed Argos host tools; preserve saved evidence.')
             owner_config_path = service_home / '.openclaw/openclaw.json'
             owner_config = conversation_config('fixture:latest', owner_workspace,
                                                 plugin_root=ROOT / 'openclaw-plugin/argos-improve')
@@ -223,11 +229,31 @@ def run(cli, report):
                 service_home / '.local/state/argos-live/proctor/transcript-ed25519.pem')
             if not verify_envelope(json.loads(row[0]), service_signer.public_key_der):
                 raise ValueError('Owner-facing Proctor service transcript signature did not verify')
+            # Exercise the chained owner command: practice must finalize and
+            # release before a separate campaign profile receives host tools.
+            progress.update(tools=0, errors=[])
+            improvement_result = proctor_service.run_improvement(
+                service_home, None, 'pilot-a', executable=cli)
+            expected_campaign_calls = len(TOOLS) + len(CAMPAIGN_TOOLS)
+            if (improvement_result['status'] != 'completed' or
+                    improvement_result['practice_is_improvement_evidence'] is not False or
+                    progress['tools'] != expected_campaign_calls or progress['errors']):
+                raise ValueError('Owner-facing chained improvement flow did not complete its scoped campaign')
+            if not improvement_result['practice']['transcript_id']:
+                raise ValueError('Chained improvement flow lacks its saved practice transcript ID')
+            campaign_reservation = json.loads((service_home / '.local/state/argos-live/workload/reservation.json').read_text())
+            if campaign_reservation.get('state') != 'released':
+                raise ValueError('Improvement campaign reservation was not released after its worker drained')
+            if any(item['kind'] in {'evaluation', 'edit', 'resolve'}
+                   for item in improvement_result['campaign']['tool_outcomes']):
+                raise ValueError('Synthetic no-experiment campaign unexpectedly changed or evaluated anything')
             receipt.update(managed_gateway_service_path=True,
                 service_practice_score=service_result['result']['correct'],
                 service_practice_total=service_result['result']['total'],
                 service_transcript_id=service_result['transcript_id'],
-                service_signature_verified=True, production_gateway_dispatch=False)
+                service_signature_verified=True, improvement_campaign_completed=True,
+                campaign_tool_calls=progress['tools'], campaign_saved_evaluations=0,
+                production_gateway_dispatch=False)
             receipt['passed'] = True
             state.close()
     finally:

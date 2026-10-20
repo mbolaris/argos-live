@@ -71,6 +71,45 @@ class ProctorServiceTests(unittest.TestCase):
             proctor_service.private_profile(self.home, 'qwen3.8:27b',
                 plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config)
 
+    def test_campaign_profile_uses_canonical_workspace_and_only_managed_tools(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        root, workspace, config_path, _digest = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='campaign')
+        config = json.loads(config_path.read_text())
+        self.assertEqual(workspace, (self.home / '.openclaw/workspace').resolve())
+        self.assertEqual(config['tools']['alsoAllow'], proctor_service.CAMPAIGN_TOOL_NAMES)
+        self.assertIn('group:fs', config['tools']['deny'])
+        self.assertIn('exec', config['tools']['deny'])
+        self.assertNotIn('argos_proctor_start', config['tools']['alsoAllow'])
+        self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
+
+    def test_improvement_campaign_starts_only_after_completed_practice(self):
+        state_path = self.home / '.config/argos-live/state.json'
+        state_path.parent.mkdir(parents=True)
+        state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
+        feedback = {'state': 'COMPLETED', 'correct': 3, 'total': 4}
+        campaign = {'status': 'completed', 'saved_evaluation_ids': ['run-1']}
+        events = []
+        with patch.object(proctor_service, 'run_practice', return_value={
+                'status': 'completed', 'result': feedback, 'transcript_id': 'transcript-1'}) as practice, \
+             patch.object(proctor_service.startup, 'source', return_value=(self.home / 'Models', 'qwen3.8:27b')), \
+             patch.object(proctor_service, 'run_campaign', side_effect=lambda *args, **kwargs:
+                          events.append(('campaign', args[3])) or campaign):
+            result = proctor_service.run_improvement(self.home, executable='openclaw')
+        practice.assert_called_once()
+        self.assertEqual(events, [('campaign', feedback)])
+        self.assertEqual(result['campaign'], campaign)
+        self.assertIs(result['practice_is_improvement_evidence'], False)
+
+    def test_incomplete_practice_never_starts_campaign(self):
+        with patch.object(proctor_service, 'run_practice', return_value={
+                'status': 'completed', 'result': {'state': 'INCOMPLETE'}}), \
+             patch.object(proctor_service, 'run_campaign') as campaign:
+            with self.assertRaisesRegex(ValueError, 'Practice did not complete'):
+                proctor_service.run_improvement(self.home)
+        campaign.assert_not_called()
+
     def test_existing_gateway_is_refused_before_any_proctor_reservation(self):
         _root, _workspace, config_path, _digest = proctor_service.private_profile(
             self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',

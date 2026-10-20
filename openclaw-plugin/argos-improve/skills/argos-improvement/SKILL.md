@@ -49,6 +49,14 @@ misses and choose a practice experiment. Expected answers are released only
 after a terminal host-selected practice session. The tool refuses feedback for
 assessment and held-out sessions.
 
+When the owner starts `argos proctor improve`, treat the practice feedback only
+as coaching context. The host starts a separate admitted campaign after the
+practice transcript is saved and the practice reservation is released. Make an
+independent hypothesis from saved baseline evidence, collect at least two
+distinct matched baseline runs and two candidate runs after one reversible
+change, then keep or restore through the host tools. Preserve all run IDs and
+report the Proctor score separately; it cannot qualify an improvement.
+
 For an instruction experiment, use `argos_inspect` to read the canonical
 workspace instructions, their hash, current configuration receipt, active
 change, and keep policy. Use one specific saved baseline from the current host
