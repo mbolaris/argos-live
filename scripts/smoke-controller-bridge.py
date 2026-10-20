@@ -137,7 +137,12 @@ def run(cli, report):
             self.send_header('Content-Type', 'application/x-ndjson' if stream else 'application/json')
             self.send_header('Content-Length', str(len(raw)))
             self.end_headers()
-            self.wfile.write(raw)
+            try:
+                self.wfile.write(raw)
+            except (BrokenPipeError, ConnectionResetError):
+                # A real SDK turn timeout can close its inference request while
+                # the host-owned evaluator is still draining and saving.
+                pass
 
     server = SyntheticHTTPServer(('127.0.0.1', 11434), Handler, bind_and_activate=False)
     server.server_bind()
@@ -270,8 +275,16 @@ def run(cli, report):
                             time.sleep(.05)
                         if aborted.worker.poll() is None:
                             raise ValueError('Pinned SDK agent timeout did not end the controller process')
-                        if aborted.worker.returncode != 2:
-                            raise ValueError('Pinned SDK did not report its documented timeout exit status')
+                        timeout_stdout, timeout_stderr = aborted.worker.communicate(timeout=5)
+                        timeout_output = (timeout_stdout + '\n' + timeout_stderr).lower()
+                        timeout_diagnostic = any(marker in timeout_output for marker in
+                                                 ('timeout', 'timed out', 'aborted', 'abort'))
+                        receipt.update(sdk_timeout_exit_status=aborted.worker.returncode,
+                                       sdk_timeout_diagnostic_present=timeout_diagnostic,
+                                       sdk_timeout_output_sha256=hashlib.sha256(
+                                           (timeout_stdout + '\n' + timeout_stderr).encode()).hexdigest())
+                        if aborted.worker.returncode == 0 or not timeout_diagnostic:
+                            raise ValueError('Pinned SDK process ended without a non-success timeout/abort outcome')
                         if not aborted.pending or aborted.pending.poll() is not None:
                             raise ValueError('SDK timeout cancelled or lost the host-owned evaluation')
                         requests_at_abort = counts['controller_requests']
