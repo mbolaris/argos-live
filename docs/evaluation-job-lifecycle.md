@@ -51,8 +51,11 @@ The pinned compatibility gate now runs the patched 2026.10.4 activity tracker,
 not only a mock: it lets the tracker age 16 minutes, emits an owner-fenced
 `argos_evaluate` semantic progress event, drains the runtime's queued event, and
 asserts `lastProgressAgeMs` returns to zero. A saved report records the old and
-new ages. This verifies the liveness behavior that the earlier callback-only
-test could not establish.
+new ages. The same actual-runtime smoke also passes against OpenClaw 2026.10.5;
+CI fetches that package only after checking both npm's integrity metadata and
+the downloaded tarball against the checked-in SHA-512 pin. The image remains
+pinned to 2026.10.4. This verifies the liveness behavior that the earlier
+callback-only test could not establish.
 
 ## Integration gates before exposing start/wait tools
 
