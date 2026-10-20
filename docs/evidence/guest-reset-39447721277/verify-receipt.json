@@ -1,0 +1,10 @@
+{
+  "schema": "argos-guest-reset-phase/1",
+  "phase": "verify",
+  "boot_id": "f83e1b02-2592-40de-8567-3389ea2d3df7",
+  "markers_checked": 5,
+  "ram_backing_verified": true,
+  "seeded": false,
+  "all_markers_absent": true,
+  "marker_sha256": "9e452c354af2a89f70df91cbebb492bfccd5c1f3257039223811263d9de787ce"
+}
