@@ -1,4 +1,5 @@
 import copy
+from collections import Counter
 import importlib.util
 from pathlib import Path
 import sys
@@ -11,7 +12,7 @@ from argoslive import ability
 
 class AbilityTests(unittest.TestCase):
     def test_every_reference_wrong_and_malformed_answer(self):
-        for suite, count in [('quick', 20), ('standard', 70)]:
+        for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40)]:
             data = ability.load(suite)
             self.assertEqual(len(data['items']), count)
             self.assertEqual(data['omitted_categories'], ['code-execution'])
@@ -28,10 +29,13 @@ class AbilityTests(unittest.TestCase):
         generator = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generator)
         standard = {item['id']: item for item in ability.load('standard')['items']}
-        for suite in ('quick', 'standard'):
+        for suite in ('quick', 'standard', 'challenge'):
             self.assertEqual(ability.load(suite), generator.build(suite))
         for item in ability.load()['items']:
             self.assertEqual(item, standard[item['id']])
+        self.assertFalse({item['id'] for item in ability.load('challenge')['items']} & set(standard))
+        categories = Counter(item['scorer']['kind'] for item in ability.load('challenge')['items'])
+        self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8, 'json': 8, 'tool-call': 8})
 
     def test_numeric_format_tolerance_and_ambiguous_rejection(self):
         item = {'id': 'math-01', 'scorer': {'kind': 'numeric', 'expected': '1234.5'}}
@@ -74,3 +78,5 @@ class AbilityTests(unittest.TestCase):
             ability.validate(data)
         with self.assertRaises(ValueError):
             ability.load('../private')
+        with self.assertRaises(ValueError):
+            ability.load([])

@@ -37,6 +37,14 @@ class MissionReportTests(unittest.TestCase):
         self.assertEqual(mission_report.summarize(self.runs)['ability']['recipe'], {'preset': 'concise'})
         self.assertTrue(receipt['ability']['lead_sentence'].startswith('20 of 20 scored questions correct.'))
 
+    def test_challenge_replay_resolves_exact_openclaw_suite_version(self):
+        item = mission_report.resolve_suite_item(
+            'openclaw-challenge', 'argos-openclaw-ability/challenge/1.0.0', 'calc-01')
+        self.assertIsNotNone(item)
+        self.assertIn('240 minutes', item['prompt'])
+        self.assertIsNone(mission_report.resolve_suite_item(
+            'openclaw-challenge', 'argos-openclaw-ability/challenge/2.0.0', 'calc-01'))
+
     def test_opinion_has_only_aggregate_input_and_cannot_change_scores(self):
         self.ability['items'][0]['output'] = 'PRIVATE_DOCUMENT_OR_TOKEN'
         backend = DebriefBackend()

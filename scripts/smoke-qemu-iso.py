@@ -137,6 +137,17 @@ def baseline_button_target(raw):
 def click_rendered_baseline(qmp, frame, *, timeout=20):
     # A painted shell can precede the authenticated Lab status response. Wait
     # for the actual enabled control, never click another turquoise element.
+    # The dashboard's mission-control introduction pushed the Model Lab
+    # controls below the initial viewport. Page down once before looking for
+    # the baseline control so the click remains tied to its rendered location.
+    qmp_commands(qmp, [{'execute': 'input-send-event', 'arguments': {'events': [
+        {'type': 'btn', 'data': {'down': True, 'button': 'wheel-down'}},
+        {'type': 'btn', 'data': {'down': False, 'button': 'wheel-down'}},
+        {'type': 'btn', 'data': {'down': True, 'button': 'wheel-down'}},
+        {'type': 'btn', 'data': {'down': False, 'button': 'wheel-down'}},
+    ]}}])
+    time.sleep(.5)
+    screenshot_dashboard_content(qmp, frame)
     deadline = time.monotonic() + timeout
     while True:
         try:
@@ -313,6 +324,9 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                         if stage not in reported_stages:
                             reported_stages.add(stage)
                             print(f'Guest stage: {stage}', flush=True)
+                            if stage == 'model-lab-button-activated':
+                                time.sleep(2)
+                                capture_graphical_dashboard(qmp, output / 'lab-click.ppm')
                     for line in re.findall(r'ARGOS_C3_LAB (\{[^\r\n]+\})\r?\n', tail):
                         phase = lab_progress_phase(line)
                         if phase and phase not in reported_lab_phases:

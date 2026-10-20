@@ -1,17 +1,20 @@
 # Original ability suites and deterministic scoring
 
-B4a ships original MIT-licensed `quick` (20 items) and `standard` (70 items)
-fixtures at `argoslive/data/ability/`, version 1.0.0. Quick contains four items
-from each of five categories; standard contains fourteen per category. Quick is
-an exact subset, not independent evidence. These are basic arithmetic,
-knowledge-choice, instruction, JSON and inert tool-format probes, not GSM8K,
-MMLU, a comprehensive intelligence evaluation or real tool acceptance.
+B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items) and
+`challenge` (40 items) fixtures at `argoslive/data/ability/`, version 1.0.0.
+Quick contains four items from each of five categories; standard contains
+fourteen per category and includes quick as an exact subset. Challenge is a
+separately authored form with eight items per category and multi-step numeric,
+constraint-selection, structured extraction and inert action-format prompts.
+Challenge is a distinct form, not a held-out external benchmark. These remain
+Argos probes, not GSM8K, MMLU, a comprehensive intelligence evaluation or real
+tool acceptance.
 
-`scripts/build-original-ability-suites.py` reproduces the checked-in fixtures
+`scripts/build-original-ability-suites.py` reproduces all checked-in fixtures
 without downloads. Every item has an original prompt, stable ID, deterministic
 scoring rule, passing reference, semantically wrong answer and malformed answer.
 The packaged NOTICE includes provenance, limits and the MIT license. The normal
-runtime package installer includes both suites and the notice in the image.
+runtime package installer includes all three suites and the notice in the image.
 Changes to prompts, expected answers or scoring semantics require a suite version
 change; later results comparison must refuse mixed versions.
 
@@ -65,8 +68,9 @@ restoration errors fail the run and do not save a successful result.
 
 Private JSON files go to `~/.local/share/argos-live/results/`. `--json` emits the
 result without progress text; `--results-dir`, `--ollama` and a bounded `--timeout`
-are available. Quick and standard have distinct version identities. Code execution
-remains explicitly omitted, and partial runs must not rank beside complete ones.
+are available. Every form has its own version identity; comparisons reject mixed
+forms. Code execution remains explicitly omitted, and partial runs must not rank
+beside complete ones.
 B6 adds result management/comparison; B7 adds combined speed/ability CLI runs.
 Real CPU integration checks completion and restoration, not a minimum model score
 or the GPU timing target. Physical Live/GPU acceptance remains separate.

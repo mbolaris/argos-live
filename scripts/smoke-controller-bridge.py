@@ -9,9 +9,11 @@ import os
 from pathlib import Path
 import re
 import shlex
+import signal
 import sys
 import tempfile
 import threading
+import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +30,9 @@ def run(cli, report):
     counts = {'controller_requests': 0, 'evaluation_requests': 0, 'unsafe_exec_denied': False}
     failures = []
     marker = None
+    abort_mode = {'enabled': False}
+    evaluation_started = threading.Event()
+    release_evaluation = threading.Event()
 
     def tool_values(messages):
         """Read structured tool replies from the SDK's actual provider history."""
@@ -117,6 +122,10 @@ def run(cli, report):
                             'type': 'function', 'function': {'name': tool, 'arguments': args}}])
                 else:
                     counts['evaluation_requests'] += 1
+                    if abort_mode['enabled']:
+                        evaluation_started.set()
+                        if not release_evaluation.wait(90):
+                            failures.append('aborted-evaluation-gate-timeout')
                 self.respond({'model': value['model'], 'message': message, 'done': True,
                               'done_reason': 'stop', 'eval_count': 1}, value.get('stream', True))
             else:
@@ -129,7 +138,12 @@ def run(cli, report):
             self.send_header('Content-Type', 'application/x-ndjson' if stream else 'application/json')
             self.send_header('Content-Length', str(len(raw)))
             self.end_headers()
-            self.wfile.write(raw)
+            try:
+                self.wfile.write(raw)
+            except (BrokenPipeError, ConnectionResetError):
+                # A real SDK abort can close its inference request while
+                # the host-owned evaluator is still draining and saving.
+                pass
 
     server = SyntheticHTTPServer(('127.0.0.1', 11434), Handler, bind_and_activate=False)
     server.server_bind()
@@ -221,7 +235,131 @@ def run(cli, report):
                     no_exec_side_effect=True, configuration_unchanged=True)
             with workload.reserve(home, 'proctor') as slot:
                 slot.complete()
-            receipt.update(passed=True, proctor_admitted_after_host_release=True)
+            receipt.update(proctor_admitted_after_host_release=True)
+
+            # Exercise a real pinned SDK SIGTERM abort while its admitted evaluation
+            # is blocked in the synthetic inference backend. The agent process
+            # must exit, but its host-owned delegated evaluator must keep the
+            # reservation, save a complete run without a polling client, and
+            # leave the interrupted controller quarantined.
+            abort_home = home / 'aborted-controller'
+            abort_workspace = abort_home / '.openclaw/workspace'
+            abort_workspace.mkdir(parents=True, mode=0o700)
+            (abort_workspace / 'AGENTS.md').write_text('Run an ability check, then reply READY.')
+            abort_config = conversation_config('fixture:latest', abort_workspace,
+                plugin_root=ROOT / 'openclaw-plugin/argos-improve')
+            abort_config['agents']['defaults']['heartbeat']['every'] = '0m'
+            abort_config['skills'] = {'allowBundled': [], 'load': {'watch': False},
+                                      'workshop': {'autonomous': {'mode': 'off'}}}
+            abort_config['plugins']['allow'] = ['argos-improve']
+            abort_config['plugins']['slots'] = {'memory': 'none'}
+            abort_config['plugins']['entries']['argos-improve'].update(
+                hooks={'allowConversationAccess': True}, config={'hostAdmission': True})
+            abort_config['tools']['alsoAllow'].extend([
+                'argos_inspect', 'argos_edit_instructions', 'argos_resolve_instructions'])
+            (abort_workspace.parent / 'openclaw.json').write_text(json.dumps(abort_config))
+            (abort_workspace.parent / 'openclaw.json').chmod(0o600)
+            counts.update(controller_requests=0, evaluation_requests=0, unsafe_exec_denied=False)
+            abort_mode['enabled'] = True
+            release_evaluation.clear()
+            releaser = None
+            teardown_errors = []
+            try:
+                try:
+                    with controller_bridge.owned(abort_home, session_key='agent:main:abort-' + str(uuid.uuid4()),
+                                                 worker_timeout=300) as (aborted, _abort_env):
+                        aborted.launch(cli, 'Run the quick ability check, then reply READY.', timeout=600)
+                        if not evaluation_started.wait(45):
+                            raise ValueError('Pinned SDK did not dispatch the gated evaluation')
+                        if aborted.worker.poll() is not None:
+                            raise ValueError('Pinned SDK ended before the explicit abort signal')
+                        # OpenClaw's local agent CLI handles SIGTERM as a run
+                        # interruption. Keep the tool backend gated so no normal
+                        # successful tool result can reach the agent first.
+                        aborted.worker.send_signal(signal.SIGTERM)
+                        try:
+                            abort_stdout, abort_stderr = aborted.worker.communicate(timeout=20)
+                        except subprocess.TimeoutExpired as error:
+                            raise ValueError('Pinned SDK did not exit after SIGTERM') from error
+                        receipt.update(sdk_sigterm_sent=True, sdk_abort_worker_exit=aborted.worker.returncode,
+                                       sdk_abort_output_sha256=hashlib.sha256(
+                                           (abort_stdout + '\n' + abort_stderr).encode()).hexdigest())
+                        if not aborted.pending or aborted.pending.poll() is not None:
+                            raise ValueError('SDK abort cancelled or lost the host-owned evaluation')
+                        requests_at_abort = counts['controller_requests']
+                        try:
+                            with workload.reserve(abort_home, 'evaluation'):
+                                raise ValueError('Competing evaluation entered while SDK-aborted job was active')
+                        except workload.Busy:
+                            pass
+
+                        def release_after_teardown_starts():
+                            try:
+                                deadline = time.monotonic() + 15
+                                while not aborted.closed and time.monotonic() < deadline:
+                                    time.sleep(.01)
+                                if not aborted.closed:
+                                    raise ValueError('Host teardown did not begin after SDK abort')
+                                if not aborted.pending or aborted.pending.poll() is not None:
+                                    raise ValueError('Host killed evaluation before its saved publication')
+                                try:
+                                    with workload.reserve(abort_home, 'evaluation'):
+                                        raise ValueError('Admission released before aborted evaluation was saved')
+                                except workload.Busy:
+                                    pass
+                                release_evaluation.set()
+                            except BaseException as error:
+                                teardown_errors.append(error)
+                                release_evaluation.set()
+
+                        releaser = threading.Thread(target=release_after_teardown_starts, daemon=True)
+                        releaser.start()
+                        raise RuntimeError('synthetic SDK agent turn aborted after evaluation dispatch')
+                except RuntimeError as error:
+                    if str(error) != 'synthetic SDK agent turn aborted after evaluation dispatch':
+                        raise
+            finally:
+                release_evaluation.set()
+                if releaser:
+                    releaser.join(timeout=20)
+                    if releaser.is_alive():
+                        raise ValueError('SDK abort drainage fixture did not finish')
+            if teardown_errors:
+                raise teardown_errors[0]
+            abort_store = Store(abort_home / '.local/share/argos-live/results')
+            abort_listing = abort_store.list()
+            if abort_listing['rejected'] or len(abort_listing['runs']) != 1:
+                raise ValueError('SDK-aborted evaluation did not publish exactly one saved run')
+            abort_run = abort_store.load(abort_listing['runs'][0]['id'])
+            reservation = json.loads((abort_home / '.local/state/argos-live/workload/reservation.json').read_text())
+            abort_result_artifact = report.with_name('controller-bridge-abort-result.json')
+            abort_result_artifact.write_text(json.dumps(abort_run, indent=2) + '\n')
+            evaluation_outcomes = [item for item in aborted.outcomes if item.get('kind') == 'evaluation']
+            abort_checks = {
+                'run_completed': abort_run['state'] == 'completed',
+                'all_tasks_saved': abort_run['coverage']['completed'] == 20,
+                'pending_worker_cleared': aborted.pending is None,
+                'one_host_evaluation_outcome': len(evaluation_outcomes) == 1,
+                'outcome_matches_saved_run': bool(evaluation_outcomes) and
+                    evaluation_outcomes[0].get('result_id') == abort_run['id'],
+                'reservation_quarantined': reservation.get('state') == 'quarantined',
+                'controller_inference_stopped': counts['controller_requests'] == requests_at_abort,
+                'no_fixture_errors': not failures,
+            }
+            receipt['sdk_abort_checks'] = abort_checks
+            receipt['sdk_abort_reservation_state'] = reservation.get('state')
+            receipt['sdk_abort_outcomes'] = aborted.outcomes
+            receipt['sdk_abort_failures'] = failures
+            if not all(abort_checks.values()):
+                raise ValueError('SDK abort acceptance checks failed: ' + json.dumps(abort_checks))
+            receipt.update(sdk_sigterm_aborted_controller=True,
+                sdk_sigterm_worker_exit=aborted.worker.returncode,
+                sdk_abort_evaluation_saved=True, sdk_abort_saved_run_id=abort_run['id'],
+                sdk_abort_saved_coverage=abort_run['coverage'], sdk_abort_second_evaluation_refused=True,
+                sdk_abort_controller_inference_stayed_stopped=True,
+                sdk_abort_reservation_quarantined=True, sdk_abort_controller_requests=counts['controller_requests'])
+            receipt['sdk_abort_result_sha256'] = hashlib.sha256(abort_result_artifact.read_bytes()).hexdigest()
+            receipt['passed'] = True
             return receipt
     finally:
         report.write_text(json.dumps(receipt, indent=2) + '\n')

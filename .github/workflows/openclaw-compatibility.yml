@@ -11,6 +11,7 @@ on:
       - runtime/argoslive/workload.py
       - runtime/argoslive/workload_worker.py
       - scripts/smoke-evaluation-config.py
+      - scripts/smoke-evaluation-liveness.mjs
       - runtime/argoslive/evaluation_context.py
       - runtime/argoslive/assistant_trial.py
       - runtime/argoslive/bench_openclaw.py
@@ -48,6 +49,7 @@ on:
       - runtime/argoslive/workload.py
       - runtime/argoslive/workload_worker.py
       - scripts/smoke-evaluation-config.py
+      - scripts/smoke-evaluation-liveness.mjs
       - runtime/argoslive/evaluation_context.py
       - runtime/argoslive/assistant_trial.py
       - runtime/argoslive/bench_openclaw.py
@@ -107,6 +109,30 @@ jobs:
           python3 scripts/refresh-plugin-manifest.py openclaw-plugin/argos-improve
       - name: Apply and verify Argos evaluation liveness integration
         run: node scripts/patch-openclaw-liveness.mjs work/compatibility-runtime/node_modules/openclaw
+      - name: Verify semantic progress resets the pinned liveness clock
+        run: node scripts/smoke-evaluation-liveness.mjs work/compatibility-runtime/node_modules/openclaw > work/evaluation-liveness.json
+      - name: Verify the reviewed 2026.10.5 tarball and patched liveness behavior
+        shell: bash
+        run: |
+          source versions.env
+          mkdir -p work/compatibility-2026.10.5 work/compatibility-2026.10.5-unpacked
+          npm pack --ignore-scripts --no-audit --no-fund --json --pack-destination work/compatibility-2026.10.5 \
+            "openclaw@$OPENCLAW_COMPAT_VERSION" > work/compatibility-2026.10.5/pack.json
+          EXPECTED="$OPENCLAW_COMPAT_INTEGRITY" VERSION="$OPENCLAW_COMPAT_VERSION" node --input-type=module -e '
+            import {createHash} from "node:crypto";
+            import {readFileSync} from "node:fs";
+            import assert from "node:assert/strict";
+            const root = "work/compatibility-2026.10.5";
+            const meta = JSON.parse(readFileSync(`${root}/pack.json`, "utf8"))[0];
+            const archive = `${root}/${meta.filename}`;
+            const actual = `sha512-${createHash("sha512").update(readFileSync(archive)).digest("base64")}`;
+            assert.equal(meta.version, process.env.VERSION);
+            assert.equal(meta.integrity, process.env.EXPECTED);
+            assert.equal(actual, process.env.EXPECTED);
+          '
+          tar -xzf work/compatibility-2026.10.5/openclaw-2026.10.5.tgz -C work/compatibility-2026.10.5-unpacked
+          node scripts/patch-openclaw-liveness.mjs work/compatibility-2026.10.5-unpacked/package
+          node scripts/smoke-evaluation-liveness.mjs work/compatibility-2026.10.5-unpacked/package > work/evaluation-liveness-2026.10.5.json
       - name: Pinned admission entry hook (synthetic, no inference)
         run: python3 scripts/smoke-admission-hook.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/admission-hook.json
       - name: Native controller bridge and scoped host tools (synthetic, no inference)
@@ -138,6 +164,8 @@ jobs:
             work/openclaw-compatibility.json
             work/native-gateway.json
             work/evaluation-protocol.json
+            work/evaluation-liveness.json
+            work/evaluation-liveness-2026.10.5.json
             work/admission-hook.json
             work/admission-hook.diagnostic.txt
             work/controller-bridge*.json

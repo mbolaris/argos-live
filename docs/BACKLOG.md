@@ -1,5 +1,21 @@
 # Implementation backlog
 
+## Newer candidate checkpoint — October 20, 2026
+
+PR #116 now adds verified OpenClaw progress tracking, bounded process-group
+cancellation, and conservative reservation recovery after a confirmed reboot.
+This update also adds a separately authored 40-task challenge form to the
+assistant proctor, with deterministic scoring and an explicit repeated-gain bar
+for self-improvement comparisons. Linux CI passes on the current PR head. ISO
+build 39395061863 (source commit `d5ddf66`) passed managed KVM acceptance and
+three cold encrypted virtual-USB shutdown cycles. Its SHA256 is
+`553048cda87cadf6ba21a59c387123b0f52efeba1a61a676a4632a95b475e61f`. Guest-mode
+boot also passed against the same ISO, including RAM-only policy verification.
+Physical firmware/card/GPU and guest reboot-reset acceptance remain open.
+Toronado’s generation-36 evaluation reservation and production configuration
+remain unchanged. Do not treat the tested ISO as physically written to the
+owner’s USB.
+
 ## Fresh self-improvement image — October 13 delivery checkpoint
 
 Deliver the lightweight OpenClaw plugin, installed operating guide and ordinary
@@ -31,7 +47,7 @@ coordinator's candidate policy or add a second agent framework. Retain working
 recovery/evidence paths and preserve existing results and owner settings.
 
 - **LP1 — prototype implemented, acceptance in progress:** `argos_evaluate`
-  runs fixed 20-task quick or 70-task standard Argos ability suites through the
+  runs fixed 20-task quick, 70-task standard, or separate 40-task challenge Argos ability suites through the
   configured OpenClaw assistant; `argos_compare` compares compatible private
   results. Toronado quick runs were 18/20 and 19/20 unchanged, while one prompt
   experiment scored 16/20. These demonstrate the end-to-end tool path and a
@@ -366,7 +382,7 @@ Depends on: F2.
   reproducible generator ship with the runtime.
 - Accept: all item fixtures pass, format/wrong outcomes differ, duplicate keys,
   ambiguous numbers, malformed Unicode, bounds and invalid suites are rejected;
-  installed package contains both suites and their notice. No model or tool is
+  installed package contains all three suites and their notice. No model or tool is
   invoked. See [ABILITY-BENCHMARK.md](ABILITY-BENCHMARK.md).
 
 ### B4b Code tasks and enforced execution sandbox — `split into B4b1 and B4b2`

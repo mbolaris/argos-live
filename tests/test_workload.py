@@ -192,6 +192,89 @@ class WorkloadTests(unittest.TestCase):
                     pass
             self.assertTrue(failure.exception.recovery)
 
+    def test_quarantine_recovers_only_after_a_verified_kernel_reboot(self):
+        with tempfile.TemporaryDirectory() as home:
+            old_boot = '11111111-1111-4111-8111-111111111111'
+            new_boot = '22222222-2222-4222-8222-222222222222'
+            result_id = 'a' * 32
+            with patch.object(workload, 'current_boot_id', return_value=old_boot), \
+                    patch.object(workload, 'worker_identity', return_value={
+                        'boot_id': old_boot, 'start_ticks': '10'}):
+                with self.assertRaisesRegex(RuntimeError, 'lost owner'):
+                    with workload.reserve(home, 'evaluation') as slot:
+                        slot.record_result(result_id)
+                        raise RuntimeError('lost owner')
+                with self.assertRaises(workload.Busy):
+                    with workload.reserve(home, 'proctor'):
+                        self.fail('Same-boot quarantine was reclaimed')
+            root = Path(home) / '.local/state/argos-live/workload'
+            prior_id = json.loads((root / 'reservation.json').read_text())['id']
+
+            with patch.object(workload, 'current_boot_id', return_value=new_boot), \
+                    patch.object(workload, 'worker_identity', return_value={
+                        'boot_id': new_boot, 'start_ticks': '20'}):
+                with workload.reserve(home, 'proctor') as slot:
+                    self.assertEqual(slot.record['generation'], 2)
+                    self.assertEqual(slot.record['kind'], 'proctor')
+
+            # The receipt uses the quarantined generation's ID, not the new one.
+            receipt_files = list((root / 'recovered').glob('*.json'))
+            self.assertEqual(len(receipt_files), 1)
+            receipt = json.loads(receipt_files[0].read_text())
+            self.assertEqual(receipt['schema'], 'argos-workload-recovery/1')
+            self.assertEqual(receipt['reservation_id'], prior_id)
+            self.assertEqual(receipt['generation'], 1)
+            self.assertEqual(receipt['result_id'], result_id)
+            self.assertEqual(receipt['previous_boot_id'], old_boot)
+            self.assertEqual(receipt['current_boot_id'], new_boot)
+            self.assertEqual(receipt['reason'], 'verified-kernel-reboot-boundary')
+
+    def test_quarantine_without_a_verified_boot_boundary_stays_closed(self):
+        with tempfile.TemporaryDirectory() as home:
+            old_boot = '11111111-1111-4111-8111-111111111111'
+            with patch.object(workload, 'current_boot_id', return_value=old_boot), \
+                    patch.object(workload, 'worker_identity', return_value={
+                        'boot_id': old_boot, 'start_ticks': '10'}):
+                with self.assertRaises(RuntimeError):
+                    with workload.reserve(home, 'evaluation'):
+                        raise RuntimeError('unknown drain')
+
+            for unverified_boot in (None, 'not-a-boot-id'):
+                with self.subTest(current_boot_id=unverified_boot), \
+                        patch.object(workload, 'current_boot_id', return_value=unverified_boot):
+                    with self.assertRaises(workload.Busy) as failure:
+                        with workload.reserve(home, 'evaluation'):
+                            self.fail('Missing or malformed boot identity released quarantine')
+                    self.assertTrue(failure.exception.recovery)
+
+    def test_reboot_recovery_receipt_must_publish_before_admission_reopens(self):
+        with tempfile.TemporaryDirectory() as home:
+            old_boot = '11111111-1111-4111-8111-111111111111'
+            new_boot = '22222222-2222-4222-8222-222222222222'
+            with patch.object(workload, 'current_boot_id', return_value=old_boot), \
+                    patch.object(workload, 'worker_identity', return_value={
+                        'boot_id': old_boot, 'start_ticks': '10'}):
+                with self.assertRaises(RuntimeError):
+                    with workload.reserve(home, 'evaluation'):
+                        raise RuntimeError('lost owner')
+
+            write_json = workload.write_json
+            def fail_recovery(path, value):
+                if Path(path).parent.name == 'recovered':
+                    raise OSError('recovery receipt disk failure')
+                return write_json(path, value)
+            with patch.object(workload, 'current_boot_id', return_value=new_boot), \
+                    patch.object(workload, 'worker_identity', return_value={
+                        'boot_id': new_boot, 'start_ticks': '20'}), \
+                    patch.object(workload, 'write_json', side_effect=fail_recovery):
+                with self.assertRaisesRegex(OSError, 'receipt disk failure'):
+                    with workload.reserve(home, 'proctor'):
+                        self.fail('Admission reopened without a recovery receipt')
+
+            record = json.loads((Path(home) / '.local/state/argos-live/workload/reservation.json').read_text())
+            self.assertEqual(record['state'], 'quarantined')
+            self.assertEqual(list((Path(home) / '.local/state/argos-live/workload/recovered').glob('*.json')), [])
+
 
 if __name__ == '__main__':
     unittest.main()

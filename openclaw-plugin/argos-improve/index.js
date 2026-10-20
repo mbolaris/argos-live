@@ -3,6 +3,7 @@ import { Type } from "typebox";
 import { registerAdmission } from "./admission.js";
 
 const TOOL_TIMEOUT_MS = 30 * 60 * 1000;
+const TERMINATION_GRACE_MS = 5 * 1000;
 const MAX_OUTPUT = 2 * 1024 * 1024;
 const MAX_PROGRESS_LINE = 65536;
 const ARGOS_BIN = process.env.ARGOS_BIN || "argos";
@@ -25,21 +26,43 @@ function runArgos(command, args, signal, onUpdate) {
       return;
     }
     const child = spawn(ARGOS_BIN, [...argosPrefixArgs(), "bench", command, ...args],
-      { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, PYTHONUTF8: "1" } });
+      { stdio: ["ignore", "pipe", "pipe"], detached: process.platform !== "win32",
+        env: { ...process.env, PYTHONUTF8: "1" } });
     let stdout = "";
     let stderr = "";
     let progressBuffer = "";
     let discardProgressLine = false;
     let size = 0;
-    const timer = setTimeout(() => child.kill("SIGTERM"), TOOL_TIMEOUT_MS);
-    const abort = () => child.kill("SIGTERM");
+    let terminationTimer;
+    let terminationRequested = false;
+    let closed = false;
+    const signalChild = (signalName) => {
+      if (process.platform !== "win32" && child.pid) {
+        try {
+          process.kill(-child.pid, signalName);
+          return;
+        } catch { /* Fall back to the direct child when its process group is unavailable. */ }
+      }
+      child.kill(signalName);
+    };
+    const terminate = () => {
+      if (terminationRequested || closed) return;
+      terminationRequested = true;
+      signalChild("SIGTERM");
+      terminationTimer = setTimeout(() => {
+        if (!closed) signalChild("SIGKILL");
+      }, TERMINATION_GRACE_MS);
+      terminationTimer.unref?.();
+    };
+    const timer = setTimeout(terminate, TOOL_TIMEOUT_MS);
+    const abort = () => terminate();
     if (signal?.aborted) abort();
     else signal?.addEventListener("abort", abort, { once: true });
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
       size += Buffer.byteLength(chunk);
-      if (size > MAX_OUTPUT) child.kill("SIGTERM");
+      if (size > MAX_OUTPUT) terminate();
       else stdout += chunk;
     });
     child.stderr.on("data", (chunk) => {
@@ -62,7 +85,7 @@ function runArgos(command, args, signal, onUpdate) {
           const event = JSON.parse(line);
           if (!event || !["asking", "scored"].includes(event.phase) ||
               !Number.isInteger(event.completed) || !Number.isInteger(event.total) ||
-              ![20, 70].includes(event.total) || event.completed < 0 ||
+              ![20, 40, 70].includes(event.total) || event.completed < 0 ||
               event.completed > event.total ||
               (event.phase === "asking" && event.completed === event.total)) continue;
           const text = event.phase === "scored"
@@ -72,9 +95,16 @@ function runArgos(command, args, signal, onUpdate) {
         } catch { if (Buffer.byteLength(stderr) < 32768) stderr += line; }
       }
     });
-    child.on("error", () => { clearTimeout(timer); signal?.removeEventListener("abort", abort); reject(new Error("Argos benchmark command is unavailable.")); });
-    child.on("close", (code) => {
+    child.on("error", () => {
       clearTimeout(timer);
+      clearTimeout(terminationTimer);
+      signal?.removeEventListener("abort", abort);
+      reject(new Error("Argos benchmark command is unavailable."));
+    });
+    child.on("close", (code) => {
+      closed = true;
+      clearTimeout(timer);
+      clearTimeout(terminationTimer);
       signal?.removeEventListener("abort", abort);
       if (code !== 0) {
         if (code === 75) {
@@ -132,8 +162,8 @@ export default function register(api) {
     label: "Evaluate OpenClaw",
     description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
     parameters: Type.Object({
-      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard")],
-        { description: "Quick 20-task suite or full 70-task suite." }))
+      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge")],
+        { description: "Quick 20-task suite, standard 70-task suite, or separate 40-task challenge form." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const value = admission ? await admission.execute(_id, 'evaluation',

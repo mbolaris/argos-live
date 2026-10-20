@@ -26,11 +26,17 @@ def resolve_suite_item(suite, suite_version, item_id):
     if not isinstance(suite, str) or not isinstance(item_id, str):
         return None
     try:
-        if suite in ('quick', 'standard'):
+        suite_aliases = {'quick': 'quick', 'openclaw-quick': 'quick',
+                         'standard': 'standard', 'openclaw-standard': 'standard',
+                         'challenge': 'challenge', 'openclaw-challenge': 'challenge'}
+        if suite in suite_aliases:
             from . import ability as ability_mod
-            suite_data = ability_mod.load(suite)
+            canonical = suite_aliases[suite]
+            suite_data = ability_mod.load(canonical)
             expected_ver = suite_data.get('version', '')
-            if suite_version and suite_version not in (expected_ver, f"ability/{suite}/{expected_ver}"):
+            accepted_versions = {expected_ver, f'ability/{canonical}/{expected_ver}',
+                                 f'argos-openclaw-ability/{canonical}/{expected_ver}'}
+            if suite_version and suite_version not in accepted_versions:
                 return None
             return next((it for it in suite_data.get('items', []) if it.get('id') == item_id), None)
         elif suite in ('documents-short', 'short'):

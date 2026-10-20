@@ -119,7 +119,7 @@ class Bridge:
                 if not isinstance(params, dict):
                     raise ValueError('Bounded tool parameters required')
                 if kind == 'evaluation':
-                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {'quick', 'standard'}:
+                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {'quick', 'standard', 'challenge'}:
                         raise ValueError('Unsupported evaluation request')
                 elif kind == 'log':
                     if set(params) != {'text'} or not isinstance(params['text'], str) or not 0 < len(

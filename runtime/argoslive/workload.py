@@ -1,7 +1,8 @@
-"""Cooperating host workload admission; an abandoned worker is never auto-reclaimed.
+"""Cooperating host workload admission; same-boot orphans are never auto-reclaimed.
 
 This is exclusion, not an OS security boundary against an agent with shell access.
-The persistent active marker intentionally outlives the OS lock after a crash.
+The persistent active marker intentionally outlives the OS lock after a crash;
+only a verified kernel reboot can settle an orphaned reservation automatically.
 """
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -18,6 +19,18 @@ from . import storage
 from .pull_jobs import WorkerBusy, read_json, worker_lock, write_json
 
 PROCESS_NONCE = secrets.token_hex(32)
+BOOT_ID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+
+
+def current_boot_id():
+    """Return a verified Linux boot identity, or None when it is unavailable."""
+    if sys.platform != 'linux':
+        return None
+    try:
+        value = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+    except OSError:
+        return None
+    return value if BOOT_ID_PATTERN.fullmatch(value) else None
 
 
 def worker_identity(pid):
@@ -262,7 +275,47 @@ def reserve(home, kind, *, delegation=None):
     try:
         prior = read_json(path) if path.exists() else {}
         if prior.get('state') not in (None, 'released'):
-            raise Busy(recovery=True)
+            identity = prior.get('worker_identity')
+            prior_boot = identity.get('boot_id') if isinstance(identity, dict) else None
+            this_boot = current_boot_id()
+            if not (isinstance(prior_boot, str) and BOOT_ID_PATTERN.fullmatch(prior_boot) and
+                    isinstance(this_boot, str) and BOOT_ID_PATTERN.fullmatch(this_boot) and
+                    prior_boot != this_boot):
+                raise Busy(recovery=True)
+            # A different kernel boot is a hard drainage boundary: no process
+            # or in-flight local inference from the old boot can still exist.
+            # Publish an immutable recovery receipt before releasing the old
+            # generation; if either write fails, admission remains closed.
+            receipt = {'schema': 'argos-workload-recovery/1',
+                       'reservation_id': prior.get('id'),
+                       'generation': prior.get('generation'),
+                       'previous_state': prior.get('state'),
+                       'previous_kind': prior.get('kind'),
+                       'previous_phase': prior.get('phase'),
+                       'result_id': prior.get('result_id'),
+                       'previous_boot_id': prior_boot,
+                       'current_boot_id': this_boot,
+                       'reason': 'verified-kernel-reboot-boundary',
+                       'recovered': datetime.now(timezone.utc).isoformat()}
+            if not (isinstance(receipt['reservation_id'], str) and
+                    re.fullmatch('[a-f0-9]{32}', receipt['reservation_id']) and
+                    type(receipt['generation']) is int and receipt['generation'] > 0):
+                raise Busy(recovery=True)
+            recovered = storage.safe_local(root / 'recovered')
+            recovered.mkdir(mode=0o700, parents=True, exist_ok=True)
+            recovery_path = storage.safe_local(
+                recovered / f"{receipt['generation']}-{receipt['reservation_id']}.json")
+            if recovery_path.exists():
+                saved_receipt = read_json(recovery_path)
+                if any(saved_receipt.get(key) != value for key, value in receipt.items()
+                       if key != 'recovered') or not isinstance(saved_receipt.get('recovered'), str):
+                    raise Busy(recovery=True)
+                receipt = saved_receipt
+            else:
+                write_json(recovery_path, receipt)
+            prior.update(state='released', phase='recovered-after-reboot',
+                         recovered=receipt['recovered'], recovery_reason=receipt['reason'])
+            write_json(path, prior)
         record = {'schema': 'argos-workload/1', 'id': secrets.token_hex(16),
                   'generation': prior.get('generation', 0) + 1, 'kind': kind,
                   'pid': os.getpid(), 'worker_identity': worker_identity(os.getpid()),

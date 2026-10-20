@@ -62,15 +62,135 @@ def items():
     return groups
 
 
+def challenge_items():
+    """A separate higher-difficulty form; do not derive it from quick/standard."""
+    groups = {kind: [] for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
+    prefixes = {'numeric': 'calc', 'choice': 'logic', 'instruction': 'format',
+                'json': 'record', 'tool-call': 'action'}
+
+    def add(kind, index, prompt, expected, reference, wrong, malformed):
+        groups[kind].append({'id': f'{prefixes[kind]}-{index:02}', 'prompt': prompt,
+            'scorer': {'kind': kind, 'expected': expected}, 'reference': reference,
+            'wrong': wrong, 'malformed': malformed})
+
+    numeric = [
+        ('A workshop has 240 minutes. It schedules three 35-minute sessions, two 12-minute breaks, and 28 minutes of setup. How many minutes remain?', '83'),
+        ('A device costs $80. Apply a 15% discount first, then 8% tax to the discounted price. What is the final price in dollars?', '73.44'),
+        ('A score is 72 with weight 2, 88 with weight 3, and 94 with weight 5. What is the weighted mean?', '87.8'),
+        ('A recipe uses 4 cups of oats for every 3 cups of water. How many cups of water are needed for 10 cups of oats?', '7.5'),
+        ('A shipment contains 432 parts. Remove 24 damaged parts, then divide the remainder equally among 6 teams. How many parts per team?', '68'),
+        ('Inventory starts at 37 units, receives four boxes of 18, then ships three orders of 15. How many units remain?', '64'),
+        ('Five workers each process 6 tickets per hour for 4 hours. If 15% of processed tickets need rework, how many are accepted?', '102'),
+        ('A tank is one quarter full at 48 liters capacity. Add three containers of 7.5 liters each, then drain 5 liters. How many liters remain?', '29.5'),
+    ]
+    for i, (prompt, answer) in enumerate(numeric, 1):
+        add('numeric', i, prompt + ' Answer with one number only.', answer, answer,
+            str(int(float(answer)) + 1) if '.' not in answer else str(float(answer) + 1), 'The answer is about ' + answer)
+
+    choices = [
+        ('A team can do one task next. A is due at 14:00 and takes 20 minutes; B is due at 13:00 and takes 45 minutes; C is due at 13:30 and takes 10 minutes. It is now 12:00. Choose the task with the earliest deadline, not the shortest duration.', ['A', 'B', 'C', 'They have the same deadline'], 'B'),
+        ('Publish a report only when status is approved and at least two reviewers signed. Which record qualifies? A: approved, 1 signer; B: pending, 3 signers; C: approved, 2 signers; D: approved, 0 signers.', ['Record A', 'Record B', 'Record C', 'Record D'], 'C'),
+        ('A delivery must use a route under 30 km and with no toll. North is 24 km with a toll; East is 31 km without a toll; South is 27 km without a toll; West is 20 km with a toll. Which route meets both rules?', ['North', 'East', 'South', 'West'], 'C'),
+        ('A note says: “The spare key is stored in the cabinet. The cabinet code is not recorded.” Which claim is supported by the note?', ['The key is in the cabinet.', 'The code is 0000.', 'The cabinet is locked.', 'The key is missing.'], 'A'),
+        ('Choose a supplier that meets all requirements: delivery within 5 days, warranty at least 2 years, and price below $500. Alder: 4 days, 1 year, $420. Birch: 6 days, 3 years, $390. Cedar: 5 days, 2 years, $480. Dogwood: 3 days, 3 years, $510.', ['Alder', 'Birch', 'Cedar', 'Dogwood'], 'C'),
+        ('A job may start only after both review and backup are complete. Review is complete; backup is pending. What is the correct status?', ['Ready to start', 'Blocked until backup completes', 'Cancelled', 'Unknown because review is incomplete'], 'B'),
+        ('A sequence follows this rule: add 3, then multiply by 2, repeating those operations. It begins 2, 5, 10, 13, ... What is the next value?', ['16', '26', '32', '29'], 'B'),
+        ('A file is eligible for deletion only if it is duplicated, backed up, and not marked keep. Which file is eligible? A: duplicate, backed up, keep. B: duplicate, not backed up, not keep. C: unique, backed up, not keep. D: duplicate, backed up, not keep.', ['A', 'B', 'C', 'D'], 'D'),
+    ]
+    for i, (question, options, answer) in enumerate(choices, 1):
+        prompt = question + '\n' + '\n'.join(f'{letter}. {value}' for letter, value in zip('ABCD', options)) + '\nAnswer with one letter only.'
+        add('choice', i, prompt, answer, answer, 'A' if answer != 'A' else 'B', 'Option C')
+
+    instructions = [
+        (['backup', 'verify', 'owner'], False), (['private', 'review', 'first'], True),
+        (['measure', 'compare', 'repeat'], False), (['evidence', 'before', 'claim'], True),
+        (['restore', 'snapshot', 'safely'], False), (['uncertain', 'report', 'honestly'], True),
+        (['scope', 'limit', 'resources'], False), (['test', 'record', 'result'], True),
+    ]
+    for i, (keywords, uppercase) in enumerate(instructions, 1):
+        words = 6 if i % 2 else 7
+        casing = ' Use uppercase letters only.' if uppercase else ''
+        prompt = f'Write one line of {words} to {words + 2} words. Include every whole word: ' + ', '.join(f'"{word}"' for word in keywords) + '.' + casing
+        reference = ' '.join(keywords + ['carefully', 'before', 'proceeding', 'today'])
+        reference = ' '.join(reference.split()[:words])
+        if uppercase:
+            reference = reference.upper()
+        scorer = {'kind': 'instruction', 'min_words': words, 'max_words': words + 2,
+                  'keywords': keywords, 'one_line': True, 'uppercase': uppercase}
+        groups['instruction'].append({'id': f'format-{i:02}', 'prompt': prompt,
+            'scorer': scorer, 'reference': reference,
+            'wrong': 'WRONG ANSWER NOW' if uppercase else 'wrong answer now', 'malformed': ''})
+
+    records = [
+        ('From a repair log, report ticket 17, 2 attempts, resolved=true.',
+         {'ticket': 17, 'attempts': 2, 'resolved': True}, 'Return JSON with integer ticket=17, integer attempts=2, boolean resolved=true.'),
+        ('A crate has 12 items; 3 are damaged. Report received, damaged, usable.',
+         {'received': 12, 'damaged': 3, 'usable': 9}, 'Return JSON with integer received=12, damaged=3, usable=9.'),
+        ('A study has group A with 8 people and group B with 11. Report both counts and the total.',
+         {'groups': {'A': 8, 'B': 11}, 'total': 19}, 'Return JSON with groups object A=8 and B=11, and integer total=19.'),
+        ('A device is named Atlas, has 64 GB free, and is encrypted. Report these fields.',
+         {'device': 'Atlas', 'free_gb': 64, 'encrypted': True}, 'Return JSON with string device="Atlas", integer free_gb=64, boolean encrypted=true.'),
+        ('Three checks have statuses pass, pass, fail. Report the ordered statuses and pass count.',
+         {'statuses': ['pass', 'pass', 'fail'], 'passed': 2}, 'Return JSON with statuses array ["pass","pass","fail"] and integer passed=2.'),
+        ('A meeting starts at 09:15 and lasts 50 minutes. Report start and end as 24-hour HH:MM strings.',
+         {'start': '09:15', 'end': '10:05'}, 'Return JSON with string start="09:15" and end="10:05".'),
+        ('A request has id R-8, priority high, and is waiting. Report all three fields.',
+         {'id': 'R-8', 'priority': 'high', 'waiting': True}, 'Return JSON with string id="R-8", string priority="high", boolean waiting=true.'),
+        ('A batch expected 7 records and all 7 were processed: 5 accepted and 2 rejected. Report both counts and complete=true.',
+         {'accepted': 5, 'rejected': 2, 'complete': True}, 'Return JSON with integer accepted=5, integer rejected=2, boolean complete=true.'),
+    ]
+    def altered(value):
+        if type(value) is bool:
+            return not value
+        if type(value) is int:
+            return value + 1
+        if isinstance(value, str):
+            return value + 'x'
+        if isinstance(value, list):
+            return [altered(value[0]), *value[1:]]
+        if isinstance(value, dict):
+            result = dict(value)
+            key = next(iter(result))
+            result[key] = altered(result[key])
+            return result
+        raise ValueError('Unsupported challenge reference')
+    for i, (context, expected, instruction) in enumerate(records, 1):
+        prompt = context + ' ' + instruction + ' Return only JSON with exactly the requested fields.'
+        wrong = altered(expected)
+        add('json', i, prompt, expected, json.dumps(expected), json.dumps(wrong), '{not json}')
+
+    actions = [
+        ('lookup_record', {'record_id': 'R-14', 'include_history': True}, 'Propose lookup_record for record R-14 and include history.'),
+        ('compare_runs', {'baseline_id': 'base-3', 'candidate_id': 'cand-8'}, 'Propose compare_runs for baseline base-3 and candidate cand-8.'),
+        ('create_report', {'title': 'Cycle audit', 'format': 'json', 'include_private': False}, 'Propose a JSON Cycle audit report and exclude private data.'),
+        ('schedule_task', {'task': 'backup verification', 'hour': 6, 'enabled': True}, 'Propose scheduling backup verification at hour 6, enabled.'),
+        ('set_filter', {'field': 'state', 'value': 'completed', 'exact': True}, 'Propose an exact filter for state=completed.'),
+        ('summarize_range', {'start': 12, 'end': 18, 'unit': 'items'}, 'Propose summarizing items 12 through 18.'),
+        ('request_review', {'change_id': 'chg-21', 'reviewer': 'owner'}, 'Propose owner review for change chg-21.'),
+        ('export_receipt', {'run_id': 'run-44', 'redact_paths': True}, 'Propose exporting run-44 with paths redacted.'),
+    ]
+    for i, (name, arguments, prompt) in enumerate(actions, 1):
+        expected = {'name': name, 'arguments': arguments}
+        add('tool-call', i, prompt + ' Return only a JSON tool-call object; do not execute it.',
+            expected, json.dumps(expected), json.dumps({'name': 'wrong_tool', 'arguments': arguments}), 'Execute the action now.')
+    return groups
+
+
 def build(suite):
-    count = 4 if suite == 'quick' else 14
+    if suite == 'challenge':
+        selected = [item for group in challenge_items().values() for item in group]
+    elif suite in ('quick', 'standard'):
+        count = 4 if suite == 'quick' else 14
+        selected = [item for group in items().values() for item in group[:count]]
+    else:
+        raise ValueError('Unknown suite')
     return validate({'schema': 'argos-ability-suite/1', 'suite': suite, 'version': '1.0.0',
         'license': 'MIT', 'source': 'original-argos-live', 'omitted_categories': ['code-execution'],
-        'items': [item for group in items().values() for item in group[:count]]})
+        'items': selected})
 
 
 if __name__ == '__main__':
     destination = ROOT / 'runtime/argoslive/data/ability'
     destination.mkdir(parents=True, exist_ok=True)
-    for suite in ('quick', 'standard'):
+    for suite in ('quick', 'standard', 'challenge'):
         (destination / (suite + '.json')).write_text(json.dumps(build(suite), indent=2) + '\n', encoding='utf-8')

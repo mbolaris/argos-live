@@ -7,7 +7,7 @@ An agent-turn timeout must not destroy the only saved evidence of a long test.
 
 - One host thread holds both job exclusion and workload admission until saved
   publication and reservation settlement. An abandoned job never expires.
-- `start()` admits one fixed quick/standard evaluation and returns a job ID.
+- `start()` admits one fixed quick, standard, or challenge evaluation and returns a job ID.
 - `wait()` lasts at most eight minutes. Aborting the wait does not cancel work.
 - A different host reader can inspect the saved run without the original waiter.
 - `cancel_owner()` is a separate host-owner control. Cancellation after inference
@@ -47,6 +47,16 @@ resources. Process-wide host survival and explicit cancellation still require a
 separately supervised host service before claiming that an aborted SDK turn can
 always be recovered.
 
+The pinned compatibility gate now runs the patched 2026.10.4 activity tracker,
+not only a mock: it lets the tracker age 16 minutes, emits an owner-fenced
+`argos_evaluate` semantic progress event, drains the runtime's queued event, and
+asserts `lastProgressAgeMs` returns to zero. A saved report records the old and
+new ages. The same actual-runtime smoke also passes against OpenClaw 2026.10.5;
+CI fetches that package only after checking both npm's integrity metadata and
+the downloaded tarball against the checked-in SHA-512 pin. The image remains
+pinned to 2026.10.4. This verifies the liveness behavior that the earlier
+callback-only test could not establish.
+
 ## Integration gates before exposing start/wait tools
 
 The direct plugin rejects an already-aborted request before spawning any command.
@@ -55,7 +65,12 @@ malformed progress without cancelling evaluation work. Only asking/scored events
 with integer counts within the fixed 20/70 task bounds reach diagnostic liveness.
 Subprocess tests cover no launch before dispatch, oversized-line resynchronizing,
 and invalid progress followed by a valid saved-result response. Active cancellation
-still signals the direct child; this is not direct-path aborted-turn survival.
+first sends SIGTERM to the dedicated process group, allowing the CLI's existing
+handler to save a cancelled partial run. If the process group still holds pipes
+after five seconds, SIGKILL drains it before the tool settles. A regression
+fixture ignores SIGTERM in both parent and descendant and verifies group exit.
+An unresponsive process may still fail to save a run; the plugin reports that as
+an error rather than inventing a result ID.
 
 Both hostAdmission and direct runArgos adapters must use the same host service,
 not an agent-owned child. Tool abort cancels only the bounded wait. Owner cancel
@@ -82,6 +97,12 @@ a gated synthetic CLI, disconnects the client, aborts the outer context, verifie
 exclusion during teardown and checks the saved result and retained quarantine.
 It does not substitute for actual SDK abort/resource-mediation acceptance.
 Unknown cancellation drainage remains quarantined, never reclaimed by age.
+On Linux, a later workload may recover an orphan only when the persisted
+reservation contains a valid boot ID different from the current kernel's boot
+ID. That reboot boundary proves old processes and inference requests cannot
+survive; recovery first writes a per-generation receipt retaining the prior
+state and saved result ID. Missing, malformed or same-boot identities still
+leave admission quarantined.
 
 Tests must cover the real SDK/transport cancellation path, both adapters, bounded
 polling, persisted completion without polling, rejection of a second evaluation,
