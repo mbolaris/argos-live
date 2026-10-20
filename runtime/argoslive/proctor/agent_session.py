@@ -118,9 +118,21 @@ class AgentSession:
             raise ValueError('Scores are withheld for assessment and held-out sessions')
         envelope = self.host_transcript()
         payload = json.loads(envelope['payload_json'])
+        from .cartridge import correct_answer
+        answers = {row['item_id']: row['answer'] for row in payload['accepted_answers']}
+        delivered_modules = {row['module_id'] for row in payload['modules'] if row['started_ns'] is not None}
+        items = []
+        for item in self.engine.cart.items.values():
+            if item['module_id'] not in delivered_modules:
+                continue
+            submitted = answers.get(item['item_id'])
+            items.append({'item_id': item['item_id'], 'domain': item['domain'],
+                          'submitted_answer': submitted,
+                          'is_correct': submitted is not None and correct_answer(item, submitted),
+                          'expected_answer': item['correct']})
         return {'state': payload['outcome'], 'correct': payload['accepted_correct'],
                 'total': payload['total_items'], 'unanswered': payload['unanswered'],
-                'domains': payload['domains']}
+                'domains': payload['domains'], 'items': items}
 
     def _require_started(self):
         if self.session_id is None or self._token is None:

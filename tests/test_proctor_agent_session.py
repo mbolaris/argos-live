@@ -126,7 +126,7 @@ class AgentSessionTests(unittest.TestCase):
         exam = self.session(tier='practice')
         exam.start('practice-start')
         exam.answer('q1', 'B', 'practice-q1')
-        exam.answer('q2', '4', 'practice-q2')
+        exam.answer('q2', '3', 'practice-q2')
         exam.submit('m1', 'practice-submit-1')
         self.clock.now += 500_000_000
         exam.continue_module('practice-continue')
@@ -134,8 +134,11 @@ class AgentSessionTests(unittest.TestCase):
         exam.answer('q4', '-1.25', 'practice-q4')
         exam.submit('m2', 'practice-submit-2')
         feedback = exam.practice_feedback()
-        self.assertEqual((feedback['correct'], feedback['total'], feedback['unanswered']), (4, 4, 0))
+        self.assertEqual((feedback['correct'], feedback['total'], feedback['unanswered']), (3, 4, 0))
         self.assertEqual(feedback['domains']['reasoning'], {'correct': 2, 'total': 2, 'answered': 2})
+        items = {item['item_id']: item for item in feedback['items']}
+        self.assertEqual(items['q2'], {'item_id': 'q2', 'domain': 'math', 'submitted_answer': '3',
+                                       'is_correct': False, 'expected_answer': '4'})
         held_out = self.session(tier='held_out', subject=dict(self.subject,
             lineage_id='heldout-lineage', memory_id='heldout-memory'))
         held_out.start('heldout-no-feedback')

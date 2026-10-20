@@ -44,7 +44,9 @@ it does not by itself validate an instruction change or prove general ability.
 These tools are unavailable in ordinary improvement sessions.
 When the host specifically selects a practice session, use
 `argos_proctor_feedback` after completion to inspect aggregate score and domain
-counts, then choose a practice experiment. The tool refuses feedback for
+counts plus item-level submitted and expected answers, then identify the exact
+misses and choose a practice experiment. Expected answers are released only
+after a terminal host-selected practice session. The tool refuses feedback for
 assessment and held-out sessions.
 
 For an instruction experiment, use `argos_inspect` to read the canonical

@@ -11,9 +11,9 @@ The signed transcript is saved before the Proctor reservation is released.
 The command uses the bundled `pilot-a` cartridge unless the owner supplies a
 compiled cartridge and form. The bundled four-item pilot exists to exercise the
 tool flow and feedback path. It is explicitly uncalibrated and cannot verify
-general ability or establish an improvement. Only a host-selected `practice`
-tier returns aggregate feedback to the agent; assessment and held-out exams
-remain outside this entry point.
+general ability or establish an improvement. After a terminal practice session,
+the agent gets aggregate scores and item-level submitted/expected answers to
+support coaching. Assessment and held-out exams remain outside this entry point.
 
 The service refuses to start if the everyday OpenClaw gateway or Ollama already
 occupies its loopback port. Close the everyday assistant first; the Proctor
