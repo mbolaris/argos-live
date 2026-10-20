@@ -179,6 +179,7 @@ jobs:
             work/controller-bridge*.json
             work/controller-bridge.diagnostic.txt
             work/proctor-agent.json
+            work/proctor-agent-failure.json
             work/addon-inventory.json
             work/dashboard-desktop.png
             work/dashboard-narrow.png

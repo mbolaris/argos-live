@@ -204,12 +204,44 @@ def run(cli, report):
             owner_config_path.write_text(json.dumps(owner_config))
             owner_config_path.chmod(0o600)
             from unittest.mock import patch
+            real_finish = controller_bridge.Bridge.finish
+
+            def report_finish_failure(bridge, *, timeout=1900):
+                try:
+                    return real_finish(bridge, timeout=timeout)
+                except BaseException:
+                    raw = getattr(bridge, 'last_stdout', '')
+                    try:
+                        decoded = json.loads(raw)
+                        body = decoded.get('result', decoded) if isinstance(decoded, dict) else {}
+                        meta = body.get('meta', {}) if isinstance(body, dict) else {}
+                        payloads = body.get('payloads', []) if isinstance(body, dict) else []
+                    except (TypeError, ValueError):
+                        decoded, meta, payloads = {}, {}, []
+                    diagnostic = {
+                        'schema': 'argos-proctor-smoke-failure/1',
+                        'worker_returncode': bridge.worker.returncode if bridge.worker else None,
+                        'stdout_bytes': len(raw.encode()),
+                        'stderr_bytes': len(getattr(bridge, 'last_stderr', '').encode()),
+                        'stdout_sha256': hashlib.sha256(raw.encode()).hexdigest(),
+                        'stderr_sha256': hashlib.sha256(getattr(bridge, 'last_stderr', '').encode()).hexdigest(),
+                        'response_status': decoded.get('status') if isinstance(decoded, dict) else None,
+                        'response_error_present': bool(meta.get('error')) if isinstance(meta, dict) else False,
+                        'payload_count': len(payloads) if isinstance(payloads, list) else None,
+                        'tool_outcomes': list(bridge.outcomes),
+                        'sdk_end_observed': bool(bridge.active and bridge.active.get('ended')),
+                    }
+                    report.with_name('proctor-agent-failure.json').write_text(
+                        json.dumps(diagnostic, indent=2) + '\n')
+                    raise
+
             with patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
                     patch.object(proctor_service.startup, 'source',
                                  return_value=(model_storage, 'fixture:latest')), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
                     patch.object(proctor_service.owned_ollama, 'owned',
-                                 side_effect=lambda *args, **kwargs: nullcontext(None)):
+                                 side_effect=lambda *args, **kwargs: nullcontext(None)), \
+                    patch.object(controller_bridge.Bridge, 'finish', report_finish_failure):
                 service_result = proctor_service.run_practice(
                     service_home, None, 'pilot-a', executable=cli)
             if (service_result['status'] != 'completed' or service_result['result']['correct'] != 4 or
