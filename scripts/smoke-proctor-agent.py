@@ -185,7 +185,7 @@ def run(cli, report):
 
             # Exercise the owner-facing service entry point and its isolated,
             # tool-restricted gateway profile with the same synthetic model.
-            progress.update(tools=0, errors=[], phase='campaign')
+            progress.update(tools=0, errors=[], phase='practice')
             service_home = home / 'service-home'
             service_home.mkdir(mode=0o700)
             model_storage = service_home / 'Models'
@@ -276,7 +276,7 @@ def run(cli, report):
                 raise ValueError('Owner-facing Proctor service transcript signature did not verify')
             # Exercise the chained owner command: practice must finalize and
             # release before a separate campaign profile receives host tools.
-            progress.update(tools=0, errors=[])
+            progress.update(tools=0, errors=[], phase='campaign')
             improvement_result = proctor_service.run_improvement(
                 service_home, None, 'pilot-a', executable=cli)
             expected_campaign_calls = len(TOOLS) + len(CAMPAIGN_TOOLS)
