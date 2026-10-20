@@ -6,14 +6,14 @@ PR #116 now adds verified OpenClaw progress tracking, bounded process-group
 cancellation, and conservative reservation recovery after a confirmed reboot.
 This update also adds a separately authored 40-task challenge form to the
 assistant proctor, with deterministic scoring and an explicit repeated-gain bar
-for self-improvement comparisons. Linux CI passes. ISO build 39387571211
-(commit `3675823`) passed managed KVM acceptance and three cold encrypted
-virtual-USB shutdown cycles; physical firmware/card/GPU acceptance remains
-open. The exact ISO SHA256 is
-`662cbc4dd581c065c222a784ca2c3f46243eaab40c12e5bc9ce3f4db6c9dc6d6`.
-Toronado’s old generation-36 evaluation reservation remains quarantined on its
-current boot and was not modified. Do not treat the tested ISO as physically
-written to the owner’s USB.
+for self-improvement comparisons. Linux CI passes on the current PR head. ISO
+build 39395061863 (source commit `d5ddf66`) passed managed KVM acceptance and
+three cold encrypted virtual-USB shutdown cycles. Its SHA256 is
+`553048cda87cadf6ba21a59c387123b0f52efeba1a61a676a4632a95b475e61f`. Guest-mode
+acceptance is running against the same ISO; physical firmware/card/GPU
+acceptance remains open. Toronado’s generation-36 evaluation reservation and
+production configuration remain unchanged. Do not treat the tested ISO as
+physically written to the owner’s USB.
 
 ## Fresh self-improvement image — October 13 delivery checkpoint
 
