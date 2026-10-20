@@ -1,0 +1,60 @@
+{
+  "schema": "argos-qemu-managed/1",
+  "guest_ram_policy_verified": true,
+  "guest_reboot_reset_verified": false,
+  "desktop_started": true,
+  "network_routes": false,
+  "dashboard_authenticated": true,
+  "model_lab_launcher_available": true,
+  "model_lab_launch_command_succeeded": true,
+  "model_lab_ui_visible": true,
+  "model_lab_button_clicked": true,
+  "model_lab_baseline_completed": true,
+  "model_lab_speed_result_saved": true,
+  "model_lab_ability_result_saved": true,
+  "model_lab_assistant_resumed": true,
+  "model_lab_run_ids": [
+    "c4b8b7676acec6817c16a78814120bc6",
+    "848a912852978fe7a7b29bbd1c6422ca"
+  ],
+  "setup_mode": "managed",
+  "automatic_first_boot": true,
+  "bundled_read_only_source": true,
+  "model_reply_verified": true,
+  "startup_metrics": {
+    "raw": {
+      "total_duration": 1738299276,
+      "load_duration": 1570120120,
+      "prompt_eval_count": 23,
+      "prompt_eval_duration": 60290000,
+      "eval_count": 10,
+      "eval_duration": 105588000
+    },
+    "time_to_first_token_seconds": 1.6351448509999997,
+    "elapsed_seconds": 1.743269122000001,
+    "prompt_tokens_per_second": 381.48946757339525,
+    "generation_tokens_per_second": 94.70773193923552,
+    "backend": {
+      "mode": "CPU",
+      "size_bytes": 4401271929,
+      "vram_bytes": 0,
+      "offloaded_layers": null
+    }
+  },
+  "mission_control_visible": true,
+  "chat_destination_available": true,
+  "desktop_wait_seconds": 2.5774365050000014,
+  "managed_elapsed_seconds": 177.221929262,
+  "ready_seconds": 248.840621516,
+  "physical_acceptance": false,
+  "browser_chat_reply_verified": false,
+  "requires_screenshot_review": true,
+  "iso_sha256": "2b578d7b230986ac6beb2684a6dcd8e0ec7bf8d19600755b22a6dfcd97dfcafe",
+  "vm_elapsed_seconds": 266.711631595,
+  "vm_memory_mib": 8192,
+  "vm_acceleration": "kvm",
+  "boot_method": "direct kernel/initrd from original desktop entry; serial appended",
+  "firmware_boot_verified": false,
+  "screenshot_stage": "shipped Firefox after automatic gateway handoff; toolbar cropped before artifact",
+  "lab_progress_screenshot_stage": "shipped Firefox during a real Model Lab ability phase; toolbar cropped before artifact"
+}
