@@ -158,6 +158,42 @@ export default function register(api) {
     async execute(id, params, signal) { return controlled(id,'resolve',params,signal); }
   }, {optional:true});
   api.registerTool({
+    name:'argos_proctor_start', label:'Start the host-selected ability exam',
+    description:'Start only the exam preselected by the host. You cannot choose its form, exposure tier, model identity or assistance policy. The service withholds scores, answer keys and signed transcripts from these tools.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'proctor_start',params,signal); }
+  }, {optional:true});
+  api.registerTool({
+    name:'argos_proctor_status', label:'Check current exam status',
+    description:'Check the active host-selected Proctor session, remaining time and current module state. This does not reveal answers or scores.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'proctor_status',params,signal); }
+  }, {optional:true});
+  api.registerTool({
+    name:'argos_proctor_item', label:'Get an active exam question',
+    description:'Read one question from the currently active module. The host owns the cartridge and the service never returns the answer key or routing rules.',
+    parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96})},{additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'proctor_item',params,signal); }
+  }, {optional:true});
+  api.registerTool({
+    name:'argos_proctor_answer', label:'Submit an exam answer',
+    description:'Submit an answer for an item in the active module. The service assigns the revision and records the attempt; you cannot set exam conditions or revisions.',
+    parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96}),answer:Type.String({maxLength:8192})},{additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'proctor_answer',params,signal); }
+  }, {optional:true});
+  api.registerTool({
+    name:'argos_proctor_continue', label:'Continue to the next exam module',
+    description:'Begin the next server-selected module when its recorded break permits. You cannot choose or skip modules.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'proctor_continue',params,signal); }
+  }, {optional:true});
+  api.registerTool({
+    name:'argos_proctor_submit', label:'Submit the current exam module',
+    description:'Submit the module ID reported by the current Proctor status. The service verifies it is still active and withholds correctness, total scores and signed transcripts from the examinee tools.',
+    parameters:Type.Object({module_id:Type.String({minLength:1,maxLength:96})},{additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'proctor_submit',params,signal); }
+  }, {optional:true});
+  api.registerTool({
     name: "argos_evaluate",
     label: "Evaluate OpenClaw",
     description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",

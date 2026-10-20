@@ -5,6 +5,7 @@ on:
     paths:
       - scripts/smoke-admission-hook.py
       - scripts/smoke-controller-bridge.py
+      - scripts/smoke-proctor-agent.py
       - scripts/synthetic_http.py
       - runtime/argoslive/controller_bridge.py
       - runtime/argoslive/instruction_changes.py
@@ -43,6 +44,7 @@ on:
     paths:
       - scripts/smoke-admission-hook.py
       - scripts/smoke-controller-bridge.py
+      - scripts/smoke-proctor-agent.py
       - scripts/synthetic_http.py
       - runtime/argoslive/controller_bridge.py
       - runtime/argoslive/instruction_changes.py
@@ -137,6 +139,8 @@ jobs:
         run: python3 scripts/smoke-admission-hook.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/admission-hook.json
       - name: Native controller bridge and scoped host tools (synthetic, no inference)
         run: python3 scripts/smoke-controller-bridge.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/controller-bridge.json
+      - name: Native Proctor agent tools and signed result binding (synthetic answers)
+        run: python3 scripts/smoke-proctor-agent.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --report work/proctor-agent.json
       - name: Inspect pinned addon registration in disposable state
         run: python3 scripts/smoke-addon-inventory.py --openclaw work/compatibility-runtime/node_modules/.bin/openclaw --package-root work/compatibility-runtime/node_modules/openclaw --report work/addon-inventory.json
       - name: Browser dashboard smoke (Chromium proxy for Firefox ESR)
@@ -170,6 +174,7 @@ jobs:
             work/admission-hook.diagnostic.txt
             work/controller-bridge*.json
             work/controller-bridge.diagnostic.txt
+            work/proctor-agent.json
             work/addon-inventory.json
             work/dashboard-desktop.png
             work/dashboard-narrow.png

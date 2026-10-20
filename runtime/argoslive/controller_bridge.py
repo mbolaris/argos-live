@@ -25,6 +25,8 @@ from .pull_jobs import read_json, write_json
 from .results import Store, compare
 
 LIMIT = 32768
+PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
+                 'proctor_answer', 'proctor_continue', 'proctor_submit'}
 
 
 def identity(value):
@@ -32,12 +34,14 @@ def identity(value):
 
 
 class Bridge:
-    def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800):
+    def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800,
+                 exam_session=None):
         if not identity(session_key) or trigger not in {'user', 'heartbeat'}:
             raise ValueError('Host-selected controller identity required')
         self.home, self.parent = Path(home), parent
         self.session_key, self.trigger = session_key, trigger
         self.worker_timeout = worker_timeout
+        self.exam_session = exam_session
         self.secret = secrets.token_hex(32)
         self.active = None
         self.pending = None
@@ -118,6 +122,8 @@ class Bridge:
                 kind, params = request.get('kind'), request.get('params')
                 if not isinstance(params, dict):
                     raise ValueError('Bounded tool parameters required')
+                if self.exam_session is not None and kind not in PROCTOR_TOOLS:
+                    raise ValueError('Only Proctor tools are available during an exam')
                 if kind == 'evaluation':
                     if set(params) - {'suite'} or params.get('suite', 'quick') not in {'quick', 'standard', 'challenge'}:
                         raise ValueError('Unsupported evaluation request')
@@ -130,9 +136,20 @@ class Bridge:
                         raise ValueError('Invalid comparison request')
                 elif kind in {'inspect', 'edit', 'resolve'}:
                     instruction_changes.validate_request(kind, params)
+                elif kind in PROCTOR_TOOLS:
+                    self._validate_proctor_request(kind, params)
+                    if self.exam_session is None or self.parent.record.get('kind') != 'proctor':
+                        raise ValueError('No host-preauthorized exam is active')
                 else:
                     raise ValueError('Unsupported controller tool')
                 self.active['calls'].add(call)
+            if kind in PROCTOR_TOOLS:
+                value = self._proctor_tool(kind, params, call)
+                outcome = {'kind': kind, 'call_id': call, 'status': value.get('state', value.get('status'))}
+                with self.lock:
+                    self.outcomes.append(outcome)
+                    self.publish()
+                return {'status': 'completed', 'value': value}
             if kind == 'compare':
                 store = Store(self.home / '.local/share/argos-live/results')
                 return {'status': 'completed', 'value': compare([
@@ -150,6 +167,37 @@ class Bridge:
             return value
         finally:
             self.tool_lock.release()
+
+    @staticmethod
+    def _validate_proctor_request(kind, params):
+        if kind in {'proctor_start', 'proctor_status', 'proctor_continue'}:
+            if params:
+                raise ValueError('This Proctor operation takes no model-selected options')
+        elif kind == 'proctor_submit':
+            if set(params) != {'module_id'} or not identity(params.get('module_id')):
+                raise ValueError('Submission must name the server-selected module')
+        elif kind == 'proctor_item':
+            if set(params) != {'item_id'} or not identity(params.get('item_id')):
+                raise ValueError('Invalid Proctor item request')
+        elif kind == 'proctor_answer':
+            if (set(params) != {'item_id', 'answer'} or not identity(params.get('item_id')) or
+                    not isinstance(params.get('answer'), str) or len(params['answer'].encode('utf-8')) > 8192):
+                raise ValueError('Invalid Proctor answer request')
+
+    def _proctor_tool(self, kind, params, call_id):
+        if kind == 'proctor_start':
+            return self.exam_session.start(call_id)
+        if kind == 'proctor_status':
+            return self.exam_session.status()
+        if kind == 'proctor_item':
+            return self.exam_session.item(params['item_id'])
+        if kind == 'proctor_answer':
+            return self.exam_session.answer(params['item_id'], params['answer'], call_id)
+        if kind == 'proctor_continue':
+            return self.exam_session.continue_module(call_id)
+        if kind == 'proctor_submit':
+            return self.exam_session.submit(params['module_id'], call_id)
+        raise ValueError('Unsupported Proctor tool')
 
     def run_child(self, kind, params, *, on_update=None):
         maintenance = kind in {'inspect', 'edit', 'resolve'}
@@ -350,16 +398,43 @@ class Bridge:
             if (not self.verified or not self.worker or self.worker.poll() != 0 or self.tool_lock.locked() or self.pending or
                     self.uncertain or not self.active):
                 raise workload.Busy(recovery=True)
-            self.parent.complete()
+            if self.exam_session is not None:
+                try:
+                    # Require a terminal, privately persisted signed transcript
+                    # before releasing the exclusive Proctor reservation.
+                    envelope = self.exam_session.host_transcript()
+                except (ValueError, OSError):
+                    self.uncertain = True
+                    self.publish()
+                    raise workload.Busy(recovery=True) from None
+                transcript_hash = hashlib.sha256(envelope['payload_json'].encode('utf-8')).hexdigest()
+                session_id = self.exam_session.session_id
+                transcript_id = session_id.removeprefix('sess_')
+                if not re.fullmatch('[a-f0-9]{32}', transcript_id):
+                    self.uncertain = True
+                    self.publish()
+                    raise workload.Busy(recovery=True)
+                self.outcomes.append({'kind': 'proctor_finalize', 'transcript_id': transcript_id,
+                                      'transcript_sha256': transcript_hash})
+                # Journal the transcript receipt before release. If publication
+                # fails, the parent reservation remains quarantined.
+                self.publish()
+                self.parent.complete(transcript_id)
+            else:
+                self.parent.complete()
             self.closed = True
 
 
 @contextmanager
-def owned(home, *, session_key, trigger='user', worker_timeout=1800):
+def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None):
     if sys.platform != 'linux':
         raise ValueError('Native controller bridge requires Linux')
-    with workload.reserve(home, 'controller') as parent:
-        bridge = Bridge(home, parent, session_key=session_key, trigger=trigger, worker_timeout=worker_timeout)
+    if exam_session is not None and trigger != 'user':
+        raise ValueError('Proctor exam sessions require an owner-started user turn')
+    workload_kind = 'proctor' if exam_session is not None else 'controller'
+    with workload.reserve(home, workload_kind) as parent:
+        bridge = Bridge(home, parent, session_key=session_key, trigger=trigger,
+                        worker_timeout=worker_timeout, exam_session=exam_session)
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
                 work_bearing = False

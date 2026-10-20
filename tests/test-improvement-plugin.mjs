@@ -7,6 +7,20 @@ import test from 'node:test';
 import net from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { registerAdmission } from '../openclaw-plugin/argos-improve/admission.js';
+import registerPlugin from '../openclaw-plugin/argos-improve/index.js';
+
+test('dedicated Proctor tools are registered as optional managed-only tools', async () => {
+  const tools = new Map();
+  const options = new Map();
+  registerPlugin({registerTool(tool, metadata) { tools.set(tool.name, tool); options.set(tool.name, metadata); }});
+  for (const name of ['argos_proctor_start','argos_proctor_status','argos_proctor_item',
+    'argos_proctor_answer','argos_proctor_continue','argos_proctor_submit']) {
+    assert.equal(options.get(name)?.optional, true);
+    await assert.rejects(tools.get(name).execute('unmanaged', {}, undefined), /managed host controller/);
+  }
+  assert.deepEqual(tools.get('argos_proctor_item').parameters.additionalProperties, false);
+  assert.deepEqual(tools.get('argos_proctor_answer').parameters.additionalProperties, false);
+});
 
 test('plugin tools call the installed Argos benchmark commands', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-plugin-'));
@@ -218,12 +232,16 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.equal(updates.length,1);
     assert.match(updates[0].content[0].text,/Working on challenge 1\/20/);
     await assert.rejects(admission.execute('log-1','log',{text:'replay'}),/no current host admission/);
+    hooks.get('before_tool_call')({toolName:'argos_proctor_item',runId:'run-1',toolCallId:'exam-item'},ctx);
+    assert.deepEqual(await admission.execute('exam-item','proctor_item',{item_id:'q1'}),{status:'appended'});
     await hooks.get('agent_end')({},ctx);
-    assert.deepEqual(requests.map((value) => value.op),['begin','tool','ended']);
+    assert.deepEqual(requests.map((value) => value.op),['begin','tool','tool','ended']);
     assert.equal(requests[1].run_id,'run-1');
     assert.equal(requests[1].call_id,'log-1');
     assert.equal(requests[1].turn_token,'fictional-turn');
     assert.equal(requests[1].params.text,'Unicode note 你好');
+    assert.equal(requests[2].kind,'proctor_item');
+    assert.deepEqual(requests[2].params,{item_id:'q1'});
     assert.equal((await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'})).outcome,'block');
     assert.ok(requests.every((value) => value.auth === 'fictional-bridge-secret'));
   } finally {

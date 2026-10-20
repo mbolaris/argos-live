@@ -27,6 +27,15 @@ they do not run campaign steps or use the owner's gateway/session queue.
 Explain that the score describes this suite and configuration, not general
 intelligence.
 
+When the host launches a dedicated Proctor session and exposes `argos_proctor_*`
+tools, use them only for the host-selected exam. The host, not the agent, selects
+the form, exposure tier, tested model snapshot and assistance policy. Read only
+items from the active module, submit answers, and follow server-selected module
+transitions. The examinee tools intentionally return no scores, answer keys or
+signed transcript. A completed exam is evidence for the trusted host to review;
+it does not by itself validate an instruction change or prove general ability.
+These tools are unavailable in ordinary improvement sessions.
+
 For an instruction experiment, use `argos_inspect` to read the canonical
 workspace instructions, their hash, current configuration receipt, active
 change, and keep policy. Use one specific saved baseline from the current host
