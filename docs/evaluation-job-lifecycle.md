@@ -49,6 +49,14 @@ always be recovered.
 
 ## Integration gates before exposing start/wait tools
 
+The direct plugin rejects an already-aborted request before spawning any command.
+Its progress parser bounds unterminated stderr lines and discards oversized or
+malformed progress without cancelling evaluation work. Only asking/scored events
+with integer counts within the fixed 20/70 task bounds reach diagnostic liveness.
+Subprocess tests cover no launch before dispatch, oversized-line resynchronizing,
+and invalid progress followed by a valid saved-result response. Active cancellation
+still signals the direct child; this is not direct-path aborted-turn survival.
+
 Both hostAdmission and direct runArgos adapters must use the same host service,
 not an agent-owned child. Tool abort cancels only the bounded wait. Owner cancel
 requests actual job cancellation. The host must save a run without polling and

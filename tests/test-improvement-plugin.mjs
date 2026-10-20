@@ -25,6 +25,11 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
 } else if (args[1] === 'log') {
   console.log(JSON.stringify({status:'appended',observed:'2026-10-17T00:00:00+00:00',snapshot:'/private/snapshot',note_claims_verified:false}));
 } else if (args[1] === 'openclaw') {
+  process.stderr.write('x'.repeat(200000) + '\\n');
+  console.error(JSON.stringify({phase:'unrelated',completed:0,total:20}));
+  console.error(JSON.stringify({phase:'asking',completed:-1,total:20}));
+  console.error(JSON.stringify({phase:'asking',completed:20,total:20}));
+  console.error(JSON.stringify({phase:'scored',completed:1,total:999}));
   console.error(JSON.stringify({phase:'scored', completed:1, total:20, receipt:{score:true, output:'fixture answer'}}));
   console.log(JSON.stringify({path:'/private/fixture-result.json', result:{
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-quick', suite_version:'argos-openclaw-ability/quick/fixture1', state:'completed',
@@ -42,6 +47,12 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     const { default: register } = await import(`${pluginPath}?test=${Date.now()}`);
     const tools = new Map();
     register({ registerTool(tool) { tools.set(tool.name, tool); } });
+
+    const cancelled = new AbortController();
+    cancelled.abort();
+    await assert.rejects(tools.get('argos_evaluate').execute('aborted-before-start',
+      {suite:'quick'}, cancelled.signal), /cancelled before dispatch/);
+    await assert.rejects(readFile(capture), {code:'ENOENT'});
 
     const progress = [];
     const evaluated = await tools.get('argos_evaluate').execute('eval', { suite: 'quick' }, undefined,

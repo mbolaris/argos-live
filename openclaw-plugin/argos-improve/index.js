@@ -4,6 +4,7 @@ import { registerAdmission } from "./admission.js";
 
 const TOOL_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_OUTPUT = 2 * 1024 * 1024;
+const MAX_PROGRESS_LINE = 65536;
 const ARGOS_BIN = process.env.ARGOS_BIN || "argos";
 const EVALUATION_PATH = "openclaw embedded; ephemeral state; tools denied; v2";
 
@@ -19,11 +20,16 @@ function argosPrefixArgs() {
 
 function runArgos(command, args, signal, onUpdate) {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error("Argos request was cancelled before dispatch; no command started."));
+      return;
+    }
     const child = spawn(ARGOS_BIN, [...argosPrefixArgs(), "bench", command, ...args],
       { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, PYTHONUTF8: "1" } });
     let stdout = "";
     let stderr = "";
     let progressBuffer = "";
+    let discardProgressLine = false;
     let size = 0;
     const timer = setTimeout(() => child.kill("SIGTERM"), TOOL_TIMEOUT_MS);
     const abort = () => child.kill("SIGTERM");
@@ -37,12 +43,28 @@ function runArgos(command, args, signal, onUpdate) {
       else stdout += chunk;
     });
     child.stderr.on("data", (chunk) => {
+      if (discardProgressLine) {
+        const boundary = chunk.indexOf("\n");
+        if (boundary < 0) return;
+        chunk = chunk.slice(boundary + 1);
+        discardProgressLine = false;
+      }
       progressBuffer += chunk;
       const lines = progressBuffer.split(/\r?\n/);
       progressBuffer = lines.pop() ?? "";
+      if (Buffer.byteLength(progressBuffer) > MAX_PROGRESS_LINE) {
+        progressBuffer = "";
+        discardProgressLine = true;
+      }
       for (const line of lines) {
+        if (Buffer.byteLength(line) > MAX_PROGRESS_LINE) continue;
         try {
           const event = JSON.parse(line);
+          if (!event || !["asking", "scored"].includes(event.phase) ||
+              !Number.isInteger(event.completed) || !Number.isInteger(event.total) ||
+              ![20, 70].includes(event.total) || event.completed < 0 ||
+              event.completed > event.total ||
+              (event.phase === "asking" && event.completed === event.total)) continue;
           const text = event.phase === "scored"
             ? `Challenge ${event.completed}/${event.total}: ${event.receipt?.score ? "passed" : "not passed"}. ${event.receipt?.output ?? ""}`
             : `Working on challenge ${event.completed + 1}/${event.total}.`;
