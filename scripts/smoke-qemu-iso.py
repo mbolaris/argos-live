@@ -324,6 +324,9 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                         if stage not in reported_stages:
                             reported_stages.add(stage)
                             print(f'Guest stage: {stage}', flush=True)
+                            if stage == 'model-lab-button-activated':
+                                time.sleep(2)
+                                capture_graphical_dashboard(qmp, output / 'lab-click.ppm')
                     for line in re.findall(r'ARGOS_C3_LAB (\{[^\r\n]+\})\r?\n', tail):
                         phase = lab_progress_phase(line)
                         if phase and phase not in reported_lab_phases:
