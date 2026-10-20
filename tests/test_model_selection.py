@@ -80,6 +80,39 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(snap['previous_model'], 'qwen3:0.6b')
         self.assertTrue(model_selection.rollback_path(self.home).exists())
 
+    def test_reselect_preserves_target_reasoning_and_does_not_clone_first_row(self):
+        before = read_json(self.config)
+        target = dict(before['models']['providers']['ollama']['models'][0],
+                      id=self.tag, name='Owner model', reasoning=True,
+                      params={'think': True, 'num_ctx': 16384})
+        before['models']['providers']['ollama']['models'].append(target)
+        before['agents']['defaults']['models'] = {'ollama/' + self.tag: {'params': {'think': True}}}
+        write_json(self.config, before)
+        _, control, _ = self.controller()
+        control.start(tag=self.tag); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        after = read_json(self.config)
+        self.assertEqual(after['models'], before['models'])
+        self.assertEqual(after['agents']['defaults']['models'], before['agents']['defaults']['models'])
+
+    def test_new_model_does_not_inherit_other_models_generation_controls(self):
+        before = read_json(self.config)
+        before['models']['providers']['ollama']['models'][0]['params'] = {'think': True, 'num_ctx': 8192}
+        after = model_selection.selected_config(before, self.tag)
+        self.assertEqual(after['models']['providers']['ollama']['models'][0],
+                         before['models']['providers']['ollama']['models'][0])
+        self.assertNotIn('params', after['models']['providers']['ollama']['models'][1])
+        self.assertEqual(len(before['models']['providers']['ollama']['models']), 1)
+
+    def test_duplicate_target_rows_are_refused_without_mutation(self):
+        before = read_json(self.config)
+        rows = before['models']['providers']['ollama']['models']
+        rows.append(dict(rows[0]))
+        original = json.dumps(before, sort_keys=True)
+        with self.assertRaisesRegex(ValueError, 'metadata needs review'):
+            model_selection.selected_config(before, 'qwen3:0.6b')
+        self.assertEqual(json.dumps(before, sort_keys=True), original)
+
     def test_post_success_rollback_keep_and_owner_edit_protection(self):
         startup, control, _ = self.controller()
         control.start(tag=self.tag); self.finish(control)
