@@ -181,14 +181,16 @@ class ControllerBridgeTests(unittest.TestCase):
             _, turn = self.begin(bridge)
             updates = []
             tool = {**turn, 'op': 'tool', 'call_id': 'eval-call', 'kind': 'evaluation',
-                    'params': {'suite': 'quick'}}
+                    'params': {'suite': 'challenge'}}
             value = bridge.dispatch(tool, on_update=updates.append)
             self.assertEqual(value['status'], 'completed')
             self.assertEqual(value['value']['result']['state'], 'completed')
             self.assertTrue(updates)
             self.assertEqual(updates[0]['phase'], 'asking')
             self.assertEqual(updates[-1]['phase'], 'scored')
-            self.assertEqual(value['value']['result']['coverage']['completed'], 20)
+            self.assertEqual(value['value']['result']['suite'], 'openclaw-challenge')
+            self.assertEqual(value['value']['result']['coverage']['completed'], 40)
+            self.assertEqual(value['value']['result']['coverage']['total'], 40)
             self.assertEqual(parent.record['phase'], 'running')
             parent.complete()
 

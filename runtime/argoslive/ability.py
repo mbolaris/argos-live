@@ -6,6 +6,7 @@ import re
 
 DATA = Path(__file__).with_name('data') / 'ability'
 KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call'}
+SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40}
 LIMIT = 65536
 
 
@@ -105,12 +106,13 @@ def score(item, response):
 
 def validate(data):
     if (not isinstance(data, dict) or data.get('schema') != 'argos-ability-suite/1'
-            or data.get('suite') not in ('quick', 'standard')
+            or not isinstance(data.get('suite'), str)
+            or data.get('suite') not in SUITE_COUNTS
             or not re.fullmatch(r'\d+\.\d+\.\d+', data.get('version', ''))
             or data.get('license') != 'MIT' or data.get('source') != 'original-argos-live'
             or data.get('omitted_categories') != ['code-execution']
             or not isinstance(data.get('items'), list)
-            or len(data['items']) != (20 if data['suite'] == 'quick' else 70)):
+            or len(data['items']) != SUITE_COUNTS[data['suite']]):
         raise ValueError('Invalid ability suite')
     seen, kinds = set(), set()
     for item in data['items']:
@@ -151,8 +153,8 @@ def validate(data):
 
 
 def load(suite='quick'):
-    if suite not in ('quick', 'standard'):
-        raise ValueError('Choose quick or standard')
+    if not isinstance(suite, str) or suite not in SUITE_COUNTS:
+        raise ValueError('Choose quick, standard, or challenge')
     with (DATA / (suite + '.json')).open('rb') as stream:
         raw = stream.read(1024**2 + 1)
     if len(raw) > 1024**2:

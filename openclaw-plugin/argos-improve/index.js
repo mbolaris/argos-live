@@ -85,7 +85,7 @@ function runArgos(command, args, signal, onUpdate) {
           const event = JSON.parse(line);
           if (!event || !["asking", "scored"].includes(event.phase) ||
               !Number.isInteger(event.completed) || !Number.isInteger(event.total) ||
-              ![20, 70].includes(event.total) || event.completed < 0 ||
+              ![20, 40, 70].includes(event.total) || event.completed < 0 ||
               event.completed > event.total ||
               (event.phase === "asking" && event.completed === event.total)) continue;
           const text = event.phase === "scored"
@@ -162,8 +162,8 @@ export default function register(api) {
     label: "Evaluate OpenClaw",
     description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
     parameters: Type.Object({
-      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard")],
-        { description: "Quick 20-task suite or full 70-task suite." }))
+      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge")],
+        { description: "Quick 20-task suite, standard 70-task suite, or separate 40-task challenge form." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const value = admission ? await admission.execute(_id, 'evaluation',

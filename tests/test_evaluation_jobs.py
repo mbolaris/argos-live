@@ -37,7 +37,7 @@ class EvaluationJobTests(unittest.TestCase):
             while not self.gate.wait(.005):
                 if options['cancel'].is_set():
                     break
-            return bench_openclaw._run(**options, runner=FakeOpenClaw())
+            return bench_openclaw._run(**options, runner=FakeOpenClaw(suite=options.get('suite', 'quick')))
         self.jobs = Jobs(self.home, evaluate=evaluate)
         return self.jobs
 
@@ -57,6 +57,15 @@ class EvaluationJobTests(unittest.TestCase):
         self.assertFalse(finished['recovery_required'])
         with self.assertRaises(ValueError):
             jobs.wait(job_id, seconds=601)
+
+    def test_challenge_job_advertises_its_own_workload_size(self):
+        jobs = self.make_jobs()
+        started = jobs.start('challenge')
+        self.assertEqual(started['total'], 40)
+        self.gate.set()
+        finished = jobs.wait(started['job_id'], seconds=10)
+        self.assertEqual(finished['result']['suite'], 'openclaw-challenge')
+        self.assertEqual(finished['result']['coverage']['total'], 40)
 
     def test_aborted_wait_does_not_cancel_job_and_saves_without_polling(self):
         jobs = self.make_jobs()

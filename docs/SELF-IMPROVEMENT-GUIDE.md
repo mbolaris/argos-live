@@ -67,6 +67,8 @@ restore them automatically.
    first benchmark in one sentence; the owner need not design a curriculum.
 2. Run a quick check with fixed task IDs and the original scorer. Show a real
    example answer and why it passed or failed.
+   If the standard suite is saturated, use the separate challenge form to find
+   a new, repeatable weakness before proposing an experiment.
 3. Choose one modest prompt/configuration experiment supported by the misses.
    Preserve the original settings and verify the changed configuration is used.
 4. Retest and compare. Restore if it did not help; a working restore is a valid

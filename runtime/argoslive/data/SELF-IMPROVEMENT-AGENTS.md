@@ -24,7 +24,7 @@ Continue authorized reversible steps without asking at each step.
 
 ## 2. Measure one change at a time
 
-Use native `argos_evaluate` (suite `quick` or `standard`) and `argos_compare`
+Use native `argos_evaluate` (suite `quick`, `standard`, or `challenge`) and `argos_compare`
 (`baseline_id`, `candidate_id`). These are tools, not shell commands. If absent,
 use `argos bench openclaw --suite quick --json`; never invent a control-script
 `evaluate` subcommand. Raw `argos bench ability` measures a model, not your
@@ -36,12 +36,17 @@ sequentially; wait for the saved result before editing instructions or switching
 models. Match suite, execution method and configuration evidence. A new execution
 method needs a fresh baseline. Inspect misses with `argos bench results --load <id>`.
 
-Quick scores vary by 1–2 of 20. Confirm a gain with at least two more correct
-answers in TWO fresh candidate quick runs against the baseline, or a clear gain
-on the 70-task standard suite. Fewer format errors with correct count maintained
-or improved is a reliability gain. An unchanged score with a large slowdown is
-not better. Report noise, uncertainty and regressions. Restore failed changes and
-verify the restore; never claim a general capability gain from one suite.
+Quick scores vary by 1–2 of 20. If standard is saturated or does not expose a
+useful weakness, run the separate 40-task `challenge` form. Its prompts use
+multi-step arithmetic, multiple constraints, structured extraction and proposed
+actions; it remains an Argos-authored probe, not an external benchmark. Compare
+only matching suite names and versions. Confirm a gain with at least two more
+correct answers in TWO fresh candidate quick runs against the baseline, or with
+repeated matched gains on standard/challenge. Fewer format errors with correct
+count maintained or improved is a reliability gain. An unchanged score with a
+large slowdown is not better. Report noise, uncertainty and regressions. Restore
+failed changes and verify the restore; never claim a general capability gain
+from one suite.
 
 ## 3. Improvement order and authority
 

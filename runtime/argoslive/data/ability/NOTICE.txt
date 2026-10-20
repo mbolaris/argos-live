@@ -1,9 +1,10 @@
 Argos Live original ability fixtures, version 1.0.0
 
-The quick (20 items) and standard (70 items) suites are original Argos Live
-fixtures, not extracts from GSM8K, MMLU or another third-party dataset. They cover
-five basic formatting/ability categories, not a comprehensive intelligence test.
-The quick suite is a subset of standard; they are not independent evaluations.
+The quick (20 items), standard (70 items), and challenge (40 items) suites are
+original Argos Live fixtures, not extracts from GSM8K, MMLU or another third-party
+dataset. All cover five deterministic formatting and answer categories, not a
+comprehensive intelligence test. Quick is a subset of standard. Challenge is a
+separately authored form and is not a matched replacement for either suite.
 Generated-code execution is omitted until an enforced sandbox is implemented.
 
 Copyright (c) 2026 Argos Live contributors

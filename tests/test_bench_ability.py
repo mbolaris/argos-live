@@ -65,6 +65,13 @@ class AbilityRunTests(unittest.TestCase):
         self.assertEqual(result['suite_version'], 'ability/standard/1.0.0')
         self.assertIsNone(result['restoration']['previous_model'])
 
+    def test_challenge_form_runs_with_distinct_version_and_full_coverage(self):
+        result = bench.run(AbilityBackend(suite='challenge', previous=False), 'fixture:latest',
+                           suite='challenge', hardware=lambda: {})
+        self.assertEqual(result['summary']['correct'], 40)
+        self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+        self.assertEqual(result['suite_version'], 'ability/challenge/1.0.0')
+
     def test_cancel_preserves_partial_evidence_and_restores(self):
         backend = AbilityBackend()
         event = threading.Event()

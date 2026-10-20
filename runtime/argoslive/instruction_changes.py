@@ -25,7 +25,8 @@ from .results import Store, compare, identifier, same_hardware
 
 SCHEMA = 'argos-instruction-change/1'
 POLICY = {'id': 'argos-practice-keep/1', 'repeats_each': 2,
-          'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4},
+          'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4,
+                                    'openclaw-challenge': 3},
           'reliability_max_latency_ratio': 1.5}
 
 

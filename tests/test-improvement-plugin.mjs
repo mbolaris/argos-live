@@ -25,16 +25,19 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
 } else if (args[1] === 'log') {
   console.log(JSON.stringify({status:'appended',observed:'2026-10-17T00:00:00+00:00',snapshot:'/private/snapshot',note_claims_verified:false}));
 } else if (args[1] === 'openclaw') {
+  const suite = args[3] || 'quick';
+  const total = suite === 'challenge' ? 40 : suite === 'standard' ? 70 : 20;
+  const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
-  console.error(JSON.stringify({phase:'unrelated',completed:0,total:20}));
-  console.error(JSON.stringify({phase:'asking',completed:-1,total:20}));
-  console.error(JSON.stringify({phase:'asking',completed:20,total:20}));
+  console.error(JSON.stringify({phase:'unrelated',completed:0,total}));
+  console.error(JSON.stringify({phase:'asking',completed:-1,total}));
+  console.error(JSON.stringify({phase:'asking',completed:total,total}));
   console.error(JSON.stringify({phase:'scored',completed:1,total:999}));
-  console.error(JSON.stringify({phase:'scored', completed:1, total:20, receipt:{score:true, output:'fixture answer'}}));
+  console.error(JSON.stringify({phase:'scored', completed:1, total, receipt:{score:true, output:'fixture answer'}}));
   console.log(JSON.stringify({path:'/private/fixture-result.json', result:{
-    id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-quick', suite_version:'argos-openclaw-ability/quick/fixture1', state:'completed',
+    id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-'+suite, suite_version:'argos-openclaw-ability/'+suite+'/fixture1', state:'completed',
     settings:{suite_sha256:'b'.repeat(64),execution_path:'openclaw embedded; ephemeral state; tools denied; v2'}, prompt_fingerprint:{workspace_agents_sha256:'c'.repeat(64)},
-    summary:{correct:18,total:20}, coverage:{completed:20,total:20,complete:true}, elapsed_seconds:12
+    summary:{correct,total}, coverage:{completed:total,total,complete:true}, elapsed_seconds:12
   }}));
 } else {
   console.log(JSON.stringify({kind:'ability',suite_version:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'raw/quick/1':'argos-openclaw-ability/quick/fixture1',settings:{execution_path:'openclaw embedded; ephemeral state; tools denied; v2'},workspace_agents_changed:false, rows:[]}));
@@ -62,6 +65,15 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.equal(progress.length, 1);
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'quick', '--json']);
+
+    const challengeProgress = [];
+    const challenged = await tools.get('argos_evaluate').execute('challenge', {suite:'challenge'}, undefined,
+      (event) => challengeProgress.push(event));
+    assert.match(challenged.content[0].text, /38\/40 passed/);
+    assert.equal(challenged.details.coverage.total, 40);
+    assert.equal(challengeProgress.length, 1);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'challenge', '--json']);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)

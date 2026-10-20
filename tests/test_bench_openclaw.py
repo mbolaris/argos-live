@@ -14,8 +14,8 @@ from argoslive.assistant_trial import TrialTurnError
 
 
 class FakeOpenClaw:
-    def __init__(self, fail_at=None):
-        self.tasks = {item['prompt']: item for item in ability.load('quick')['items']}
+    def __init__(self, fail_at=None, suite='quick'):
+        self.tasks = {item['prompt']: item for item in ability.load(suite)['items']}
         self.calls = 0
         self.fail_at = fail_at
 
@@ -61,6 +61,14 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             self.assertEqual(result['prompt_fingerprint']['workspace_agents_sha256'],
                              hashlib.sha256(instructions.read_bytes()).hexdigest())
             self.assertEqual(len(result['prompt_fingerprint']['workspace_context_sha256']), 64)
+
+    def test_challenge_form_is_a_distinct_saved_suite_with_full_coverage(self):
+        result = bench_openclaw.run(suite='challenge', runner=FakeOpenClaw(suite='challenge'))
+        self.assertEqual(result['suite'], 'openclaw-challenge')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/challenge/1.0.0')
+        self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+        self.assertEqual(result['summary']['correct'], 40)
+        self.assertEqual(len(result['settings']['suite_sha256']), 64)
 
     def test_copied_context_presence_and_changes_invalidate_runs(self):
         with tempfile.TemporaryDirectory() as temp:

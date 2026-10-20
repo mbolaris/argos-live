@@ -267,7 +267,7 @@ class LiveBoard:
 
 def main(argv=None, *, delegation=None):
     parser = argparse.ArgumentParser(description='Evaluate the configured OpenClaw assistant with fixed Argos tasks.')
-    parser.add_argument('--suite', choices=('quick', 'standard'), default='quick')
+    parser.add_argument('--suite', choices=('quick', 'standard', 'challenge'), default='quick')
     parser.add_argument('--home', type=Path, default=Path.home())
     parser.add_argument('--results-dir', type=Path, default=Store().root)
     parser.add_argument('--json', action='store_true')

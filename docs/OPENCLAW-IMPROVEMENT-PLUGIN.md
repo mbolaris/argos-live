@@ -18,7 +18,8 @@ change, and no SD write has occurred. See the current backlog checkpoint.
 
 A first working prototype is installed on Toronado as OpenClaw plugin
 `argos-improve` version `0.1.3`. It registers
-`argos_evaluate` (fixed 20-task quick or 70-task standard Argos ability suite)
+`argos_evaluate` (fixed 20-task quick, 70-task standard, or separate 40-task
+challenge form)
 and `argos_compare` (compatible saved-run comparison). The runner creates fresh
 ordinary OpenClaw sessions per task, records provider/model identity, outputs,
 scorer receipts, elapsed time and suite version in private `argos-bench/1`

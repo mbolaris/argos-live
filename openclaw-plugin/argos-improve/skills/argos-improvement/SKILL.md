@@ -16,7 +16,11 @@ Use `argos_log` with one `text` field to append campaign notes and the complete
 `## Next` or `## Done`. It supplies the host timestamp and saved-run receipts;
 it does not verify prose claims about changes. Never overwrite the log.
 Use `argos_evaluate` to measure the configured assistant. Start with `quick`;
-use `standard` when the owner wants the longer evaluation. The tool creates a
+use `standard` for the broader original suite. When standard is saturated or
+does not expose a useful weakness, use the separate 40-task `challenge` form.
+It covers multi-step arithmetic, constraint selection, structured extraction
+and inert proposed actions. It is a fresh Argos form, not an external benchmark.
+The tool creates a
 tool-free embedded OpenClaw turn with temporary state and copied instructions for
 each fixed task, and saves a private result. Evaluation children answer the task;
 they do not run campaign steps or use the owner's gateway/session queue.

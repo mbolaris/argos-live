@@ -12,6 +12,9 @@ from test_bench_openclaw import FakeOpenClaw, configure_fake
 
 
 class InstructionChangeTests(unittest.TestCase):
+    def test_challenge_requires_a_meaningful_repeatable_gain(self):
+        self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-challenge'], 3)
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
