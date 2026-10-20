@@ -153,11 +153,7 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('pilot-a', cartridge.forms)
         self.assertEqual(len(cartridge.items), 4)
 
-    def test_session_subject_binds_manifest_and_can_start_exam(self):
-        model_storage = self.home / 'Models'
-        manifest = model_storage / 'manifests/registry.ollama.ai/library/fixture/latest'
-        manifest.parent.mkdir(parents=True)
-        manifest.write_bytes(b'synthetic fixture model manifest\n')
+    def test_session_subject_binds_verified_model_receipt_and_can_start_exam(self):
         original_read_text = Path.read_text
 
         def read_text(path, *args, **kwargs):
@@ -176,9 +172,35 @@ class ProctorServiceTests(unittest.TestCase):
         with patch.object(Path, 'read_text', read_text), \
              patch.object(proctor_service, 'generate_key', create_test_key), \
              patch.object(proctor_service, 'Ed25519Signer', TestSigner):
+            model_identity = {
+                'schema': 'argos-verified-model/1', 'tag': 'fixture:latest',
+                'catalog_manifest_digest': 'sha256:' + 'a' * 64,
+                'local_manifest_sha256': hashlib.sha256(
+                    b'synthetic fixture model manifest\n').hexdigest(),
+                'artifacts': [{'digest': 'sha256:' + 'b' * 64, 'size': 7,
+                               'media_type': 'application/vnd.ollama.image.model'}],
+                'verified_bytes': 7,
+                'verification': 'catalog manifest and every declared model blob SHA-256 verified',
+            }
+            model_identity['sha256'] = hashlib.sha256(json.dumps(
+                model_identity, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+            bad_identity = dict(model_identity, sha256='0' * 64)
+            with self.assertRaisesRegex(ValueError, 'checksum is invalid'):
+                proctor_service.make_session(
+                    self.home, cartridge, 'pilot-a', 'fixture:latest', 'b' * 64,
+                    model_identity=bad_identity)
+            incomplete_identity = dict(model_identity, verified_bytes=6)
+            unsigned_identity = {key: value for key, value in incomplete_identity.items() if key != 'sha256'}
+            incomplete_identity['sha256'] = hashlib.sha256(json.dumps(
+                unsigned_identity, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+            with self.assertRaisesRegex(ValueError, 'complete blob verification'):
+                proctor_service.make_session(
+                    self.home, cartridge, 'pilot-a', 'fixture:latest', 'b' * 64,
+                    model_identity=incomplete_identity)
+            self.assertFalse((self.home / '.local/state/argos-live/proctor/caller.token').exists())
             db, exam, _cart = proctor_service.make_session(
                 self.home, cartridge, 'pilot-a', 'fixture:latest', 'b' * 64,
-                model_storage=model_storage)
+                model_identity=model_identity)
         try:
             status = exam.start('start-operation')
             self.assertEqual(status['state'], 'ACTIVE')
@@ -186,8 +208,8 @@ class ProctorServiceTests(unittest.TestCase):
                              (exam.session_id,)).fetchone()
             subject = json.loads(row['subject_json'])
             self.assertEqual(subject['model_tag'], 'fixture:latest')
-            self.assertEqual(subject['model_digest'], hashlib.sha256(
-                b'synthetic fixture model manifest\n').hexdigest())
+            self.assertEqual(subject['model_digest'], model_identity['sha256'])
+            self.assertEqual(subject['model_identity'], model_identity)
             self.assertEqual(subject['configuration']['profile_sha256'], 'b' * 64)
         finally:
             db.close()

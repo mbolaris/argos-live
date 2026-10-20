@@ -200,7 +200,25 @@ def run(cli, report):
             (model_storage / '.argos-storage-id').write_text(storage_id + '\n')
             model_manifest = model_storage / 'manifests/registry.ollama.ai/library/fixture/latest'
             model_manifest.parent.mkdir(parents=True)
-            model_manifest.write_bytes(b'synthetic fixture model manifest\n')
+            synthetic_manifest = b'synthetic fixture model manifest\n'
+            model_manifest.write_bytes(synthetic_manifest)
+            model_blob = b'synthetic fixture model bytes'
+            model_identity = {
+                'schema': 'argos-verified-model/1', 'tag': 'fixture:latest',
+                'catalog_manifest_digest': 'sha256:' + hashlib.sha256(synthetic_manifest).hexdigest(),
+                'local_manifest_sha256': hashlib.sha256(synthetic_manifest).hexdigest(),
+                'artifacts': [{'digest': 'sha256:' + hashlib.sha256(model_blob).hexdigest(),
+                               'size': len(model_blob),
+                               'media_type': 'application/vnd.ollama.image.model'}],
+                'verified_bytes': len(model_blob),
+                'verification': 'catalog manifest and every declared model blob SHA-256 verified',
+            }
+            model_identity['sha256'] = hashlib.sha256(json.dumps(
+                model_identity, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+
+            def synthetic_source(_home, *, include_model_identity=False):
+                return ((model_storage, 'fixture:latest', model_identity) if include_model_identity
+                        else (model_storage, 'fixture:latest'))
             setup_state = service_home / '.config/argos-live/state.json'
             setup_state.parent.mkdir(parents=True, mode=0o700)
             setup_state.write_text(json.dumps({'storage': str(model_storage), 'storage_id': storage_id,
@@ -269,7 +287,7 @@ def run(cli, report):
 
             with patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
                     patch.object(proctor_service.startup, 'source',
-                                 return_value=(model_storage, 'fixture:latest')), \
+                                 side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
                     patch.object(proctor_service.owned_ollama, 'owned',
                                  side_effect=lambda *args, **kwargs: nullcontext(None)), \
@@ -295,14 +313,21 @@ def run(cli, report):
                 raise ValueError('Owner-facing Proctor service did not save its signed transcript')
             service_signer = Ed25519Signer(
                 service_home / '.local/state/argos-live/proctor/transcript-ed25519.pem')
-            if not verify_envelope(json.loads(row[0]), service_signer.public_key_der):
+            saved_envelope = json.loads(row[0])
+            if not verify_envelope(saved_envelope, service_signer.public_key_der):
                 raise ValueError('Owner-facing Proctor service transcript signature did not verify')
+            saved_subject = json.loads(saved_envelope['payload_json'])['subject']
+            model_identity_binding_verified = (
+                saved_subject.get('model_identity') == model_identity and
+                saved_subject.get('model_digest') == model_identity['sha256'])
+            if not model_identity_binding_verified:
+                raise ValueError('Signed Proctor transcript did not bind the host model identity receipt')
             # Exercise the chained owner command: practice must finalize and
             # release before a separate campaign profile receives host tools.
             progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[])
             with patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
                     patch.object(proctor_service.startup, 'source',
-                              return_value=(model_storage, 'fixture:latest')), \
+                              side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
                     patch.object(proctor_service.owned_ollama, 'owned',
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
@@ -325,7 +350,8 @@ def run(cli, report):
                 service_practice_score=service_result['result']['correct'],
                 service_practice_total=service_result['result']['total'],
                 service_transcript_id=service_result['transcript_id'],
-                service_signature_verified=True, improvement_campaign_completed=True,
+                service_signature_verified=True, verified_model_identity_binding=True,
+                actual_model_weights_verified=False, improvement_campaign_completed=True,
                 campaign_tool_calls=progress['tools'], campaign_saved_evaluations=0,
                 production_gateway_dispatch=False)
             receipt['passed'] = True

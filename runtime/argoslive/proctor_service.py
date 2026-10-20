@@ -183,8 +183,10 @@ def refuse_live_backend():
         return
 
 
-def make_session(home, cartridge_path, form_id, model, config_hash, *, model_storage, openssl='openssl'):
+def make_session(home, cartridge_path, form_id, model, config_hash, *, model_identity,
+                 openssl='openssl'):
     """Provision/reopen the service-owned practice database and host-only keys."""
+    model_verify.validate_identity_receipt(model_identity, model)
     root = _private_directory(Path(home) / '.local/state/argos-live/proctor')
     cart = proctor.Cartridge(cartridge_path)
     if form_id not in cart.forms:
@@ -205,13 +207,12 @@ def make_session(home, cartridge_path, form_id, model, config_hash, *, model_sto
                                    telemetry_trust='unavailable')},
         token_secret=token_secret, boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
         signer=signer)
-    manifest = model_verify.read_manifest(model_storage, model)
-    model_digest = hashlib.sha256(manifest).hexdigest()
     subject = {
         'lineage_id': hashlib.sha256((model + '\0' + config_hash).encode('utf-8')).hexdigest()[:32],
         'subject_type': 'deployed_agent_profile', 'model_tag': model,
-        'model_digest': model_digest,
+        'model_digest': model_identity['sha256'],
         'configuration': {'profile_sha256': config_hash, 'cartridge_sha256': cart.digest},
+        'model_identity': model_identity,
     }
     session = proctor.AgentSession(engine, caller_id=caller_id, caller_token=caller_token,
         form_id=form_id, tier='practice', subject=subject, policy=POLICY)
@@ -251,7 +252,7 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
         raise ValueError('Argos local model selection is unavailable')
     if cartridge_path is None:
         cartridge_path = default_cartridge(home)
-    target, selected_model = startup.source(home)
+    target, selected_model, model_identity = startup.source(home, include_model_identity=True)
     if selected_model != model:
         raise ValueError('Argos model selection changed during Proctor setup')
     root, workspace, config_path, config_hash = private_profile(
@@ -259,7 +260,7 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
     refuse_live_gateway(config_path)
     refuse_live_backend()
     db, exam, cart = make_session(home, cartridge_path, form_id, model, config_hash,
-                                  model_storage=target, openssl=openssl)
+                                  model_identity=model_identity, openssl=openssl)
     executable = executable or shutil.which('openclaw')
     if not executable:
         db.close()

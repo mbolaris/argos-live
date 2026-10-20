@@ -328,6 +328,21 @@ class StartupTests(unittest.TestCase):
                 with self.subTest(change=change), self.assertRaises(ValueError): startup.source(self.home)
                 verify.assert_not_called()
 
+    def test_managed_source_can_return_identity_only_after_full_blob_verification(self):
+        state = {'model': 'qwen3:0.6b', 'model_source': 'managed', 'storage': str(self.home / 'models')}
+        config = auto_setup.conversation_config(state['model'], self.home / 'workspace')
+        target = self.home / 'models'
+        identity = {'schema': 'argos-verified-model/1', 'tag': state['model'],
+                    'sha256': 'a' * 64, 'artifacts': [{'digest': 'sha256:' + 'b' * 64}],
+                    'verified_bytes': 123}
+        with patch('argoslive.startup.read_json', side_effect=[state, config]), \
+                patch('argoslive.startup.storage.validate_configured', return_value=target), \
+                patch('argoslive.startup.model_verify.verify', return_value=identity) as verify:
+            selected_root, selected_tag, selected_identity = startup.source(
+                self.home, include_model_identity=True)
+        self.assertEqual((selected_root, selected_tag, selected_identity), (target, state['model'], identity))
+        self.assertTrue(verify.call_args.kwargs['include_identity'])
+
 
 class StartupHTTPTests(unittest.TestCase):
     def test_only_authenticated_same_origin_empty_post_can_control_owned_startup(self):

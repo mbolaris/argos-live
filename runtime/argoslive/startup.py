@@ -22,7 +22,7 @@ PHASES = {'idle': 'Start your local assistant.', 'setup': 'Preparing your worksp
     'failed': 'Startup needs attention. Check the private startup diagnostics, then retry.'}
 
 
-def source(home):
+def source(home, *, include_model_identity=False):
     state = read_json(storage.safe_local(home / '.config/argos-live/state.json'))
     selected = storage.validate_configured(state)
     config = read_json(storage.safe_local(home / '.openclaw/openclaw.json'))
@@ -62,13 +62,19 @@ def source(home):
     if kind == 'bundled':
         if model != starter.TAG:
             raise ValueError('Unsupported bundled model')
-        starter.read_only(starter.ROOT)
+        verified = starter.read_only(starter.ROOT, include_model_identity=include_model_identity)
         target = starter.ROOT
+        identity = verified.get('model_identity')
     elif kind == 'managed':
-        model_verify.verify(selected, entry)
+        verified = model_verify.verify(selected, entry, include_identity=include_model_identity)
         target = selected
+        identity = verified if include_model_identity else None
     else:
         raise ValueError('Unrecognized inference source')
+    if include_model_identity:
+        if not isinstance(identity, dict):
+            raise ValueError('Selected model verification did not produce an identity receipt')
+        return target, model, identity
     return target, model
 
 

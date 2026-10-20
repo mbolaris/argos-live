@@ -7,6 +7,10 @@ tools, disables bundled skills and heartbeat activity, and enables the plugin's
 host admission hooks. The host owns the cartridge, caller and token keys,
 signing key, subject snapshot, workload reservation, and transcript finalization.
 The signed transcript is saved before the Proctor reservation is released.
+Before practice, the host verifies the selected catalog manifest and every
+declared model blob. The signed subject snapshot includes a digest of the
+catalog manifest, the local manifest bytes, and each verified artifact digest,
+size, and media type; it does not copy model weights into the transcript.
 
 The command uses the bundled `pilot-a` cartridge unless the owner supplies a
 compiled cartridge and form. The bundled four-item pilot exists to exercise the
@@ -39,8 +43,9 @@ argos proctor improve
 
 This is declared/cooperative enforcement within the same Argos user account.
 It does not protect keys or files against another process with the same UID,
-prove model identity, prevent direct access to the local Ollama API, or reserve
-the GPU against an unrelated gateway that bypasses Argos workload admission.
+prove which weights the inference backend actually loaded after startup,
+prevent direct access to the local Ollama API, or reserve the GPU against an
+unrelated gateway that bypasses Argos workload admission.
 The exact-image hosted service smoke verifies the owner entry point, scoped
 tools, managed gateway lifecycle, signed receipt, and reservation binding using
 a synthetic local model. A Toronado exam still requires a reviewed exclusive

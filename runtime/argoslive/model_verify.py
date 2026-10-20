@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from urllib.request import build_opener, ProxyHandler, Request
 
@@ -127,14 +128,82 @@ def verify_blob(path, item, cancel=None, progress=None, *, sync=True):
         raise ValueError('Artifact checksum mismatch')
 
 
-def verify(root, entry, cancel=None, progress=None, *, sync=True):
-    check_local_manifest(read_manifest(root, entry['tag']), entry, root)
+def verify(root, entry, cancel=None, progress=None, *, sync=True, include_identity=False):
+    raw_manifest = read_manifest(root, entry['tag'])
+    check_local_manifest(raw_manifest, entry, root)
     checked = 0
     for item in entry['artifacts']:
         verify_blob(blob_path(root, item), item, cancel,
                     lambda n: progress(checked + n) if progress else None, sync=sync)
         checked += item['size']
+    if include_identity:
+        return identity_receipt(entry, raw_manifest, checked)
     return checked
+
+
+def identity_receipt(entry, raw_manifest, verified_bytes):
+    """Describe the exact catalog artifacts whose bytes were just verified.
+
+    ``verify`` calls this only after hashing every blob. The transcript gets
+    the full expected artifact identities without copying model weights into
+    the Proctor database.
+    """
+    expected_bytes = sum(item['size'] for item in entry['artifacts'])
+    if type(verified_bytes) is not int or verified_bytes != expected_bytes:
+        raise ValueError('Model identity requires complete catalog blob verification')
+    check_local_manifest(raw_manifest, entry)
+    value = {
+        'schema': 'argos-verified-model/1',
+        'tag': entry['tag'],
+        'catalog_manifest_digest': entry['manifest_digest'],
+        'local_manifest_sha256': hashlib.sha256(raw_manifest).hexdigest(),
+        'artifacts': sorted(
+            ({'digest': item['digest'], 'size': item['size'], 'media_type': item['media_type']}
+             for item in entry['artifacts']),
+            key=lambda item: item['digest']),
+        'verified_bytes': verified_bytes,
+    }
+    value['verification'] = 'catalog manifest and every declared model blob SHA-256 verified'
+    unsigned = {key: item for key, item in value.items() if key != 'sha256'}
+    value['sha256'] = hashlib.sha256(
+        json.dumps(unsigned, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+    return value
+
+
+def validate_identity_receipt(value, expected_tag):
+    """Validate the canonical, complete receipt embedded in a Proctor subject."""
+    if not isinstance(value, dict) or value.get('schema') != 'argos-verified-model/1':
+        raise ValueError('A fully verified catalog model identity is required for Proctor')
+    if value.get('tag') != expected_tag:
+        raise ValueError('Proctor model identity tag does not match the selected model')
+    if (not isinstance(value.get('catalog_manifest_digest'), str) or
+            not re.fullmatch(r'sha256:[0-9a-f]{64}', value['catalog_manifest_digest']) or
+            not isinstance(value.get('local_manifest_sha256'), str) or
+            not re.fullmatch(r'[0-9a-f]{64}', value['local_manifest_sha256'])):
+        raise ValueError('Proctor model identity manifest digests are invalid')
+    artifacts = value.get('artifacts')
+    if not isinstance(artifacts, list) or not artifacts:
+        raise ValueError('Proctor model identity has no verified artifacts')
+    if any(not isinstance(item, dict) or
+           not isinstance(item.get('digest'), str) or
+           not re.fullmatch(r'sha256:[0-9a-f]{64}', item['digest']) or
+           type(item.get('size')) is not int or item['size'] <= 0 or
+           not isinstance(item.get('media_type'), str) or not item['media_type']
+           for item in artifacts):
+        raise ValueError('Proctor model identity has an invalid artifact descriptor')
+    if artifacts != sorted(artifacts, key=lambda item: item['digest']):
+        raise ValueError('Proctor model identity artifacts are not in canonical order')
+    verified_bytes = value.get('verified_bytes')
+    if type(verified_bytes) is not int or verified_bytes != sum(item['size'] for item in artifacts):
+        raise ValueError('Proctor model identity does not represent complete blob verification')
+    if value.get('verification') != 'catalog manifest and every declared model blob SHA-256 verified':
+        raise ValueError('Proctor model identity verification claim is invalid')
+    unsigned = {key: item for key, item in value.items() if key != 'sha256'}
+    expected_hash = hashlib.sha256(
+        json.dumps(unsigned, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+    if value.get('sha256') != expected_hash:
+        raise ValueError('Proctor model identity receipt checksum is invalid')
+    return value
 
 
 def publish(stage, target, entry, cancel=None):
