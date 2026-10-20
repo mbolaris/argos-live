@@ -83,6 +83,9 @@ class ControllerBridgeTests(unittest.TestCase):
                 bridge.dispatch({**tool, 'turn_token': 'wrong'})
             with self.assertRaises(ValueError):
                 bridge.dispatch({**tool, 'kind': 'exec', 'params': {'command': 'anything'}})
+            self.assertEqual(bridge.active['host_tool_requests'],2)
+            self.assertEqual(bridge.active['host_tool_failures'],[
+                {'kind':'log','error_class':'Busy'}, {'kind':'other','error_class':'ValueError'}])
             self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')

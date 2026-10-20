@@ -76,6 +76,8 @@ class Bridge:
                           ('run_id', 'session_id', 'session_key', 'trigger', 'ended')})
             if isinstance(self.active.get('diagnostics'), dict):
                 value['admission_diagnostics'] = self.active['diagnostics']
+            value['host_tool_requests'] = self.active.get('host_tool_requests', 0)
+            value['host_tool_failures'] = self.active.get('host_tool_failures', [])
         value['tools'] = self.outcomes
         write_json(self.events, value)
 
@@ -106,7 +108,24 @@ class Bridge:
                 self.publish()
             return {'status': 'recorded'}
         if operation == 'tool':
-            return self.tool(request, on_update=on_update)
+            with self.lock:
+                if self.active is not None:
+                    self.active['host_tool_requests'] = self.active.get('host_tool_requests', 0) + 1
+            try:
+                return self.tool(request, on_update=on_update)
+            except BaseException as error:
+                with self.lock:
+                    if self.active is not None:
+                        kind = request.get('kind')
+                        allowed_kinds = PROCTOR_TOOLS | {
+                            'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',
+                            'inspect', 'edit', 'resolve'}
+                        safe_kind = kind if isinstance(kind, str) and kind in allowed_kinds else 'other'
+                        failures = self.active.setdefault('host_tool_failures', [])
+                        if len(failures) < 32:
+                            failures.append({'kind': safe_kind, 'error_class': type(error).__name__})
+                        self.publish()
+                raise
         raise ValueError('Unknown bridge operation')
 
     def begin(self, request):
