@@ -33,7 +33,9 @@ each SDK worker and process group has exited before admitting another turn,
 retains the same exclusive workload reservation and exam, and fences off the
 previous turn's credentials. For an unanswered item, it supplies that active
 question and asks the agent to call the answer tool with its own solution. It
-can also request module submission. Breaks and deadlines remain host-owned.
+submits a module after every item has a recorded agent answer and the worker has
+drained. It never fills in an answer. This automatic submission policy is
+recorded in the signed administration conditions. Breaks and deadlines remain host-owned.
 The signed subject configuration records this administration mode. Sixteen
 turns, thirty minutes, or two consecutive turns without progress bound this
 coaching procedure; an unfinished exam is signed as ABANDONED. Uncertain

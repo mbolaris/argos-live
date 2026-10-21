@@ -314,9 +314,17 @@ class AgentSessionTests(unittest.TestCase):
             with self.assertRaises(workload.Busy):
                 bridge.next_practice_turn('agent:main:second')
             bridge.tool_lock.release()
+            bridge.last_stdout, bridge.session_id = 'fixture-worker', 'first-session'
+            self.assertFalse(bridge.submit_answered_practice_module())
+            exam.answer('q1', 'A', 'wrong-a1')
+            self.assertFalse(bridge.submit_answered_practice_module())
+            exam.answer('q2', '3', 'wrong-a2')
+            self.assertTrue(bridge.submit_answered_practice_module())
+            self.assertEqual(exam.status()['state'], 'BREAK')
+            self.assertFalse(bridge.submit_answered_practice_module())
             bridge.next_practice_turn('agent:main:second')
             self.assertFalse(parent.drained)
-            self.assertEqual(exam.status()['state'], 'ACTIVE')
+            self.assertEqual(exam.status()['state'], 'BREAK')
             with self.assertRaises(workload.Busy):
                 with workload.reserve(home, 'evaluation'):
                     self.fail('A second workload must not be admitted between practice turns')
@@ -336,9 +344,8 @@ class AgentSessionTests(unittest.TestCase):
         clock = self.clock
         actions = [lambda: exam.start('start'),
             lambda: exam.answer('q1', 'A', 'a1'), lambda: exam.answer('q2', '3', 'a2'),
-            lambda: exam.submit('m1', 's1'),
             lambda: exam.answer('q3', 'B', 'a3'),
-            lambda: exam.answer('q4', '0', 'a4'), lambda: exam.submit('m2', 's2')]
+            lambda: exam.answer('q4', '0', 'a4')]
         class ShortTurns:
             completed = False
             def launch(self, executable, message, **kwargs): messages.append(message)
@@ -347,6 +354,10 @@ class AgentSessionTests(unittest.TestCase):
                 actions.pop(0)()
                 return {'payloads': []}, ''
             def next_practice_turn(self, key): pass
+            def submit_answered_practice_module(self):
+                status = exam.status()
+                if status['state'] == 'ACTIVE' and all(status['answer_revisions'].get(i) for i in status['item_ids']):
+                    exam.submit(status['module_id'], 'host-submit-' + status['module_id'])
             def _complete(self): self.completed = True
         self_test = self
         bridge = ShortTurns()
@@ -354,9 +365,9 @@ class AgentSessionTests(unittest.TestCase):
                           side_effect=lambda seconds: setattr(clock, 'now', clock.now + int(seconds * 10**9))):
             result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
         self.assertTrue(bridge.completed)
-        self.assertEqual(result['host_turns'], 7)
+        self.assertEqual(result['host_turns'], 5)
         self.assertIn('argos_proctor_answer', messages[1])
-        self.assertIn('argos_proctor_submit', messages[3])
+        self.assertIn('"item_id": "q3"', messages[3])
         self.assertTrue(all('expected_answer' not in message for message in messages))
         self.assertEqual(exam.practice_feedback()['correct'], 0)
         self.assertEqual(exam.practice_feedback()['unanswered'], 0)
@@ -371,6 +382,7 @@ class AgentSessionTests(unittest.TestCase):
                 self.count += 1
                 return {'payloads': []}, ''
             def next_practice_turn(self, key): pass
+            def submit_answered_practice_module(self): pass
             def _complete(self): exam.host_abandon()
         result = proctor_service.run_practice_turns(StalledTurns(), exam, 'fixture', 'fixture-config')
         self.assertEqual(result['host_turns'], 3)

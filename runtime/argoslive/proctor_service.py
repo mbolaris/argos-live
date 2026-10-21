@@ -43,7 +43,8 @@ MESSAGE = ('Your first action must be to call argos_proctor_start with an empty 
            'Complete the host-selected Argos ability practice exam using only the '
            'argos_proctor_* tools. Start the exam, answer each active item, submit each '
            'module, continue when the host permits it, and request practice feedback '
-           'after the final module. Follow each response next_step by calling its tool '
+           'after the final module. The practice host also submits a fully answered module '
+           'after your turn ends. Follow each response next_step by calling its tool '
            'with its arguments. When argos_proctor_item returns a question, solve it '
            'yourself and call argos_proctor_answer with that item_id and your answer '
            'as a string. An accepted answer is only recorded, not graded feedback. '
@@ -225,8 +226,8 @@ def make_session(home, cartridge_path, form_id, model, config_hash, *, model_ide
         'subject_type': 'deployed_agent_profile', 'model_tag': model,
         'model_digest': model_identity['sha256'],
         'configuration': {'profile_sha256': config_hash, 'cartridge_sha256': cart.digest,
-            'administration': {'mode': 'host_bounded_turns/1', 'max_turns': PRACTICE_MAX_TURNS,
-                               'max_seconds': PRACTICE_MAX_SECONDS}},
+            'administration': {'mode': 'host_bounded_turns/2', 'max_turns': PRACTICE_MAX_TURNS,
+                               'max_seconds': PRACTICE_MAX_SECONDS, 'submit_when_all_answered': True}},
         'model_identity': model_identity,
     }
     session = proctor.AgentSession(engine, caller_id=caller_id, caller_token=caller_token,
@@ -282,6 +283,7 @@ def run_practice_turns(bridge, exam, executable, config_path):
         result, _stderr = bridge.finish(timeout=remaining + 30, finalize=False)
         turns += 1
         payloads.extend(result.get('result', result).get('payloads', []))
+        bridge.submit_answered_practice_module()
         after = practice_progress(exam)
         # Breaks and module deadlines belong to the host clock. Do not ask a
         # model to shorten a break or burn repeated turns polling it.

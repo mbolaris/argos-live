@@ -567,6 +567,28 @@ class Bridge:
             self.verified = False
             self.session_key = session_key
 
+    def submit_answered_practice_module(self):
+        """Host-only module closure after all agent answers and proven turn exit."""
+        with self.lock:
+            if (self.exam_session is None or self.exam_session.tier != 'practice' or
+                    not self.verified or not self.worker or self.worker.poll() != 0 or
+                    self.closed or self.uncertain or self.pending or self.tool_lock.locked() or not self.active):
+                raise workload.Busy(recovery=True)
+            if self.exam_session.session_id is None:
+                return False
+            self.exam_session.engine.tick()
+            status = self.exam_session.status()
+            if (status['state'] != 'ACTIVE' or not status['item_ids'] or
+                    any(not status['answer_revisions'].get(item) for item in status['item_ids'])):
+                return False
+            worker_hash = hashlib.sha256(self.last_stdout.encode()).hexdigest()
+            module = status['module_id']
+            self.exam_session.submit(module, 'host-all-answered-' + self.session_id + '-' + worker_hash)
+            self.outcomes.append({'kind': 'proctor_host_submit', 'module_id': module,
+                                  'worker_stdout_sha256': worker_hash})
+            self.publish()
+            return True
+
     def _complete(self):
         """Private host completion after finish() establishes the worker outcome."""
         with self.lock:

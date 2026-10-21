@@ -68,7 +68,7 @@ def run(cli, ollama, seed, report):
         receipt['tool_kinds'] = [row['kind'] for row in turn.get('tools', [])
                                 if isinstance(row, dict) and row.get('kind') in
                                 {'proctor_' + name for name in
-                                 ('start', 'status', 'item', 'answer', 'submit', 'continue', 'feedback', 'finalize')}]
+                                 ('start', 'status', 'item', 'answer', 'submit', 'host_submit', 'continue', 'feedback', 'finalize')}]
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps(receipt, indent=2) + '\n')
         # This fixture uses only the public pilot and disposable synthetic

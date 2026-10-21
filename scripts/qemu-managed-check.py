@@ -525,7 +525,7 @@ def proctor_failure_diagnostics(home):
     worker = metadata('controller-worker.json')
     reservation = metadata('reservation.json')
     names = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
-             'proctor_continue', 'proctor_submit', 'proctor_feedback', 'proctor_finalize'}
+             'proctor_continue', 'proctor_submit', 'proctor_host_submit', 'proctor_feedback', 'proctor_finalize'}
     tools = turn.get('tools', [])
     tools = tools if isinstance(tools, list) else []
     count = turn.get('host_tool_requests')
