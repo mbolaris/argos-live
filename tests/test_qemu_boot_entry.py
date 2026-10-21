@@ -87,6 +87,63 @@ class BootEntryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 module.guest_result(wire(changed), setup_mode='managed')
 
+    def test_real_proctor_smoke_requires_signed_uncalibrated_receipt_and_recovery(self):
+        value = {'schema': 'argos-qemu-managed/1', 'setup_mode': 'managed',
+            'desktop_started': True, 'dashboard_authenticated': True, 'automatic_first_boot': True,
+            'bundled_read_only_source': True, 'model_reply_verified': True,
+            'mission_control_visible': True, 'chat_destination_available': True,
+            'requires_screenshot_review': True, 'model_lab_launcher_available': True,
+            'model_lab_launch_command_succeeded': True, 'model_lab_ui_visible': True,
+            'model_lab_button_clicked': True, 'model_lab_baseline_completed': True,
+            'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
+            'model_lab_assistant_resumed': True, 'network_routes': False,
+            'physical_acceptance': False, 'browser_chat_reply_verified': False,
+            'startup_metrics': {'backend': {'mode': 'CPU'}},
+            'proctor_practice_recorded': True, 'proctor_practice_completed': True,
+            'proctor_practice_outcome': 'COMPLETED', 'proctor_transcript_saved': True,
+            'proctor_signature_verified': True, 'proctor_model_identity_bound': True,
+            'proctor_assistant_resumed': True, 'proctor_calibration_status': 'uncalibrated',
+            'proctor_campaign_started': False, 'proctor_backend_weights_loaded_attested': False,
+            'proctor_transcript_id': 'a' * 32, 'proctor_model_tag': 'qwen3:0.6b',
+            'proctor_score': {'correct': 3, 'total': 4}, 'proctor_answered': 4,
+            'proctor_modules_submitted': True}
+        wire = 'ARGOS_C3_RESULT ' + json.dumps(value) + '\n'
+        self.assertEqual(module.guest_result(wire, setup_mode='managed', proctor_smoke=True), value)
+        incomplete = dict(value, proctor_practice_completed=False, proctor_practice_outcome='ABANDONED',
+                          proctor_score={'correct': 1, 'total': 2})
+        with self.assertRaisesRegex(ValueError, 'practice did not complete'):
+            module.guest_result('ARGOS_C3_RESULT ' + json.dumps(incomplete) + '\n',
+                                setup_mode='managed', proctor_smoke=True)
+        for changed in (dict(value, proctor_signature_verified=False),
+                        dict(value, proctor_practice_recorded=False),
+                        dict(value, proctor_transcript_id='bad'),
+                        dict(value, proctor_practice_outcome='ABANDONED'),
+                        dict(value, proctor_calibration_status='calibrated'),
+                        dict(value, proctor_campaign_started=True),
+                        dict(value, proctor_backend_weights_loaded_attested=True),
+                        dict(value, proctor_score={'correct': 1, 'total': 1}),
+                        dict(value, proctor_score={'correct': 5, 'total': 4}),
+                        dict(value, proctor_answered=0), dict(value, proctor_answered=True)):
+            with self.assertRaises(ValueError):
+                module.guest_result('ARGOS_C3_RESULT ' + json.dumps(changed) + '\n',
+                                    setup_mode='managed', proctor_smoke=True)
+
+    def test_real_proctor_smoke_refuses_guest_tcg_and_nonmanaged_runs_before_io(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / 'empty'
+            for options in ({'setup_mode': 'managed', 'accel': 'tcg'},
+                            {'setup_mode': 'managed', 'guest_mode': True, 'accel': 'kvm'},
+                            {'setup_mode': 'interactive', 'accel': 'kvm'}):
+                with self.subTest(options=options), self.assertRaisesRegex(ValueError, 'requires managed'):
+                    module.run(Path('missing.iso'), output, proctor_smoke=True, **options)
+
+    def test_acceptance_payload_sets_modes_and_is_valid_python(self):
+        payload = module.acceptance_payload('managed', False, True)
+        self.assertTrue(payload.startswith(
+            b"ARGOS_QEMU_SETUP_MODE = 'managed'\nARGOS_QEMU_GUEST_MODE = False\n"
+            b"ARGOS_QEMU_PROCTOR_SMOKE = True\n"))
+        compile(payload, '<qemu-acceptance-payload>', 'exec')
+
     def test_large_guest_payload_is_chunked_checked_and_never_shell_source(self):
         source = b'$(untrusted shell text)' + b''.join(hashlib.sha256(str(i).encode()).digest() for i in range(200))
         commands = module.guest_commands(source)

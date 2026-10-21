@@ -19,6 +19,8 @@ export function observeRequests(original, reportPath) {
           metrics.body_inspected=true;
           metrics.request_bytes=Buffer.byteLength(init.body);
           const options=body?.options;
+          if (typeof options?.temperature==='number' && Number.isFinite(options.temperature) &&
+              options.temperature>=0 && options.temperature<=2) metrics.temperature=options.temperature;
           for (const key of ['num_predict','num_ctx']) {
             metrics[key+'_present']=typeof options?.[key]==='number';
             if (Number.isFinite(options?.[key]) && options[key]>=-2 && options[key]<=1e12)
@@ -28,6 +30,10 @@ export function observeRequests(original, reportPath) {
           if (Array.isArray(body?.messages)) metrics.message_chars=body.messages.reduce(
             (n,row)=>n+(typeof row?.content==='string'?row.content.length:0),0);
           metrics.tool_schema_chars=JSON.stringify(body?.tools??[]).length;
+          const allowed = new Set(['start','status','item','answer','continue','submit','feedback'].map(name=>'argos_proctor_'+name));
+          metrics.proctor_tools = [...new Set((Array.isArray(body?.tools)?body.tools:[])
+            .map(tool=>tool?.function?.name).filter(name=>allowed.has(name)))].sort();
+          metrics.tool_result_messages = Array.isArray(body?.messages) ? body.messages.filter(row=>row?.role==='tool').length : 0;
         }
         writeFileSync(reportPath,JSON.stringify(metrics),{mode:0o600});
       }

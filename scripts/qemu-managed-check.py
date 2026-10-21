@@ -1,3 +1,4 @@
+from contextlib import closing
 """Observe shipped autostart in an offline disposable guest; never start services."""
 import json
 import ctypes
@@ -460,6 +461,9 @@ def ready_cpu_metrics(report):
             'model_reply_verified': report.get('model_reply_verified') is True,
             'metrics_present': isinstance(metrics, dict),
             'backend_mode': mode if mode in ('CPU', 'GPU', 'split') else None,
+            'backend_bytes': {key: backend[key] for key in ('size_bytes', 'vram_bytes')
+                              if type(backend.get(key)) in (int, float) and
+                              0 <= backend[key] <= 10**15},
             'backend_size_recorded': type(backend.get('size_bytes')) in (int, float),
             'zero_vram_recorded': type(backend.get('vram_bytes')) in (int, float)
                 and backend['vram_bytes'] == 0}), flush=True)
@@ -470,6 +474,249 @@ def ready_cpu_metrics(report):
 def managed_check(started, desktop_seconds):
     with FirefoxLabSession() as native_lab:
         return managed_check_body(started, desktop_seconds, native_lab)
+
+
+def proctor_session_shape(home):
+    """Inspect private session structure without exporting prompts or responses."""
+    rows = []
+    names = {'argos_proctor_' + name for name in
+             ('start', 'status', 'item', 'answer', 'continue', 'submit', 'feedback')}
+    # State-directory overrides differ between SDK and gateway versions. Read
+    # bounded session files in this disposable home, never publish their paths.
+    for path in sorted(Path(home).rglob('*.jsonl'))[:16]:
+        if path.is_symlink() or path.stat().st_size > 4 * 1024 * 1024:
+            continue
+        for line in path.read_text().splitlines()[-128:]:
+            try:
+                value = json.loads(line).get('message', {})
+                if not isinstance(value, dict) or value.get('role') not in ('assistant', 'toolResult'):
+                    continue
+                content = value.get('content', [])
+                blocks = content if isinstance(content, list) else []
+                text = '\n'.join(block.get('text', '') for block in blocks
+                                 if isinstance(block, dict) and isinstance(block.get('text'), str))
+                reason = value.get('stopReason')
+                rows.append({'role': value['role'],
+                    'stop_reason': reason if reason in ('stop', 'toolUse', 'length', 'error', 'aborted') else 'other',
+                    'text_chars': len(text),
+                    'text_tool_names': sorted(name for name in names if name in text),
+                    'tool_calls': sorted({block['name'] if block.get('name') in names else 'other'
+                        for block in blocks if isinstance(block, dict) and block.get('type') == 'toolCall'}),
+                    'is_error': value.get('isError') is True})
+            except (ValueError, TypeError, AttributeError):
+                continue
+    return rows[-64:]
+
+
+def proctor_failure_diagnostics(home):
+    """Publish only bounded host lifecycle facts, never arbitrary text or answers."""
+    import sqlite3
+    root = Path(home) / '.local/state/argos-live'
+    def metadata(name):
+        try:
+            path = root / 'workload' / name
+            if path.stat().st_size > 1024 * 1024:
+                return {}
+            value = json.loads(path.read_bytes())
+            return value if isinstance(value, dict) else {}
+        except (OSError, ValueError):
+            return {}
+    turn = metadata('controller-turn.json')
+    worker = metadata('controller-worker.json')
+    reservation = metadata('reservation.json')
+    names = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
+             'proctor_continue', 'proctor_submit', 'proctor_host_submit', 'proctor_feedback', 'proctor_finalize'}
+    tools = turn.get('tools', [])
+    tools = tools if isinstance(tools, list) else []
+    count = turn.get('host_tool_requests')
+    receipt = {'turn_recorded': bool(turn), 'worker_recorded': bool(worker),
+        'session_shape': proctor_session_shape(home),
+        'worker_drained': worker.get('process_group_drained') is True,
+        'sdk_end_observed': worker.get('sdk_end_observed') is True,
+        'tool_requests': count if type(count) is int and 0 <= count <= 10000 else None,
+        'tool_kinds': sorted({row.get('kind') for row in tools[:10000]
+                              if isinstance(row, dict) and isinstance(row.get('kind'), str) and row['kind'] in names}),
+        'reservation_state': reservation.get('state') if reservation.get('state') in
+                             {'active', 'released', 'quarantined'} else 'unknown'}
+    failures = turn.get('host_tool_failures', [])
+    classes = {'Busy', 'ValueError', 'TypeError', 'KeyError', 'OSError', 'ProctorError',
+               'OperationalError', 'TimeoutExpired', 'RuntimeError'}
+    receipt['tool_failures'] = []
+    if isinstance(failures, list):
+        for row in failures[:32]:
+            if not isinstance(row, dict):
+                continue
+            kind, error = row.get('kind'), row.get('error_class')
+            receipt['tool_failures'].append({
+                'kind': kind if isinstance(kind, str) and kind in names else 'other',
+                'error_class': error if isinstance(error, str) and error in classes else 'other'})
+    receipt['worker_state'] = (worker.get('state') if worker.get('state') in
+                               ('starting', 'completed') else 'unknown')
+    stats = turn.get('admission_diagnostics', {})
+    receipt['admission_counters'] = {}
+    if isinstance(stats, dict):
+        rejected = stats.get('rejected', {})
+        allowed = {key: stats.get(key) for key in ('tool_hooks', 'bound_calls', 'executions')}
+        if isinstance(rejected, dict):
+            allowed.update({key: rejected.get(key) for key in
+                ('unknown_tool', 'missing_admission', 'invalid_call_id', 'stale_binding')})
+        receipt['admission_counters'] = {key: value for key, value in allowed.items()
+                                       if type(value) is int and 0 <= value <= 10000}
+    database = root / 'proctor/state.sqlite3'
+    states = {'READY', 'ACTIVE', 'BREAK', 'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
+    receipt['exam_states'] = {}
+    try:
+        with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True, timeout=2)) as db:
+            for state, count in db.execute('SELECT state, COUNT(*) FROM sessions GROUP BY state LIMIT 20'):
+                if state in states and type(count) is int:
+                    receipt['exam_states'][state] = min(count, 10000)
+    except (OSError, sqlite3.Error):
+        pass
+    print('ARGOS_PROCTOR_DIAGNOSTICS ' + json.dumps(receipt, sort_keys=True), flush=True)
+    return receipt
+
+
+def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag):
+    """Verify one real bundled-model Proctor practice, then return to ready state."""
+    import sqlite3
+    from argoslive import startup
+    from argoslive.proctor.signing import Ed25519Signer, verify_envelope
+
+    def dashboard_post(path):
+        request = Request(origin + path, data=b'', method='POST', headers={
+            'X-Argos-Token': token, 'Origin': origin})
+        with opener.open(request, timeout=15) as response:
+            raw = response.read(1048577)
+        if len(raw) > 1048576:
+            raise ValueError('Proctor startup control returned oversized status')
+        return json.loads(raw)
+
+    managed_stage('proctor-smoke-stop-assistant')
+    dashboard_post('/api/startup/stop')
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        state = dashboard_json('/api/startup')
+        if state.get('phase') == 'stopped':
+            break
+        if state.get('phase') == 'failed':
+            raise ValueError('Assistant did not stop cleanly for Proctor practice')
+        time.sleep(1)
+    else:
+        raise ValueError('Assistant did not stop before Proctor practice')
+
+    practice_error = None
+    receipt = None
+    failure_code = 'practice-command'
+    try:
+        managed_stage('proctor-practice')
+        completed = subprocess.run(['argos', 'proctor', 'practice', '--json'],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=2100, check=False)
+        if len(completed.stdout) > 1024 * 1024 or len(completed.stderr) > 1024 * 1024:
+            failure_code = 'practice-output-oversized'
+            raise ValueError('Bundled-model Proctor practice command failed')
+        if completed.returncode != 0:
+            proctor_failure_diagnostics(home)
+            failure_code = 'practice-command-nonzero'
+            stderr = completed.stderr.lower()
+            for marker, code in ((b'stop the existing ollama service', 'backend-still-running'),
+                                 (b'stop the existing openclaw gateway', 'gateway-still-running'),
+                                 (b'argos local model selection is unavailable', 'model-selection'),
+                                 (b'pinned openclaw executable is unavailable', 'openclaw-unavailable'),
+                                 (b'system openssl is required', 'openssl-unavailable')):
+                if marker in stderr:
+                    failure_code = code
+                    break
+            raise ValueError('Bundled-model Proctor practice command failed')
+        failure_code = 'practice-json'
+        practice = json.loads(completed.stdout)
+        failure_code = 'practice-receipt'
+        transcript_id = practice.get('transcript_id')
+        result_summary = practice.get('result')
+        outcome = result_summary.get('state') if isinstance(result_summary, dict) else None
+        if outcome != 'COMPLETED':
+            proctor_failure_diagnostics(home)
+        terminal_states = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
+        expected_status = ('completed' if outcome == 'COMPLETED' and
+                           result_summary.get('unanswered') == 0 else 'incomplete')
+        if (practice.get('status') != expected_status or practice.get('practice_only') is not True or
+                practice.get('calibration_status') != 'uncalibrated' or
+                outcome not in terminal_states or
+                not isinstance(transcript_id, str) or not re.fullmatch(r'[a-f0-9]{32}', transcript_id)):
+            raise ValueError('Bundled-model Proctor practice did not return a terminal host receipt')
+        managed_stage('proctor-result-' + outcome.lower())
+        failure_code = 'transcript-store'
+        proctor_root = home / '.local/state/argos-live/proctor'
+        database_path = proctor_root / 'state.sqlite3'
+        with closing(sqlite3.connect(database_path.as_uri() + '?mode=ro', uri=True, timeout=5)) as database:
+            row = database.execute('SELECT envelope_json FROM transcripts WHERE session_id=?',
+                                   ('sess_' + transcript_id,)).fetchone()
+        if not row:
+            raise ValueError('Proctor did not persist its signed transcript')
+        failure_code = 'transcript-signature'
+        signer = Ed25519Signer(proctor_root / 'transcript-ed25519.pem')
+        envelope = json.loads(row[0])
+        if not verify_envelope(envelope, signer.public_key_der):
+            raise ValueError('Proctor transcript signature did not verify')
+        managed_stage('proctor-signature-verified')
+        failure_code = 'model-identity'
+        payload = json.loads(envelope['payload_json'])
+        subject = payload.get('subject', {})
+        _target, verified_model, identity = startup.source(home, include_model_identity=True)
+        if (verified_model != model_tag or subject.get('model_tag') != model_tag or
+                subject.get('model_identity') != identity or
+                subject.get('model_digest') != identity.get('sha256')):
+            raise ValueError('Signed Proctor transcript does not bind the verified model source')
+        managed_stage('proctor-model-identity-verified')
+        failure_code = 'transcript-score'
+        score = result_summary
+        if (payload.get('outcome') != outcome or type(payload.get('total_items')) is not int or
+                not 0 <= payload['total_items'] <= 4 or
+                (outcome == 'COMPLETED' and payload['total_items'] != 4) or
+                type(payload.get('accepted_correct')) is not int or
+                not 0 <= payload['accepted_correct'] <= payload['total_items'] or
+                score.get('correct') != payload['accepted_correct'] or
+                score.get('total') != payload['total_items']):
+            raise ValueError('Proctor transcript and practice receipt disagree')
+        managed_stage('proctor-transcript-verified')
+        receipt = {'proctor_practice_recorded': True,
+            'proctor_practice_completed': expected_status == 'completed', 'proctor_practice_outcome': outcome,
+            'proctor_transcript_saved': True,
+            'proctor_signature_verified': True, 'proctor_model_identity_bound': True,
+            'proctor_calibration_status': 'uncalibrated', 'proctor_campaign_started': False,
+            'proctor_backend_weights_loaded_attested': False, 'proctor_transcript_id': transcript_id,
+            'proctor_model_tag': model_tag,
+            'proctor_answered': len(payload['accepted_answers']),
+            'proctor_modules_submitted': (len(payload['modules']) == 2 and
+                                         all(module['state'] == 'SUBMITTED' for module in payload['modules'])),
+            'proctor_score': {'correct': payload['accepted_correct'], 'total': payload['total_items']}}
+    except Exception:
+        practice_error = failure_code
+        managed_stage('proctor-practice-failed-' + failure_code)
+
+    restart_error = None
+    try:
+        dashboard_post('/api/startup/start')
+        deadline = time.monotonic() + 300
+        while time.monotonic() < deadline:
+            state = dashboard_json('/api/startup')
+            if (state.get('phase') == 'ready' and state.get('model_reply_verified') is True and
+                    state.get('model') == model_tag):
+                managed_stage('proctor-assistant-resumed')
+                break
+            if state.get('phase') == 'failed':
+                raise ValueError('Assistant restart failed')
+            time.sleep(2)
+        else:
+            raise ValueError('Assistant restart did not reach readiness')
+    except Exception:
+        restart_error = True
+    if restart_error:
+        raise ValueError('Assistant did not resume after Proctor practice')
+    if practice_error:
+        raise ValueError('Real-model Proctor practice failed verification after assistant recovery')
+    receipt['proctor_assistant_resumed'] = True
+    return receipt
 
 
 def managed_check_body(started, desktop_seconds, native_lab):
@@ -548,7 +795,7 @@ def managed_check_body(started, desktop_seconds, native_lab):
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
     managed_stage('model-lab-command-returned')
-    lab_deadline = time.monotonic() + 30
+    lab_deadline = time.monotonic() + 60
     while not firefox_model_lab_visible():
         focus_firefox_dashboard()
         if firefox_model_lab_visible():
@@ -644,6 +891,11 @@ def managed_check_body(started, desktop_seconds, native_lab):
     if not resumed or not firefox_model_lab_visible():
         raise ValueError('Assistant did not resume while keeping Model Lab open')
     managed_stage('model-lab-assistant-resumed')
+    proctor_receipt = {}
+    if globals().get('ARGOS_QEMU_PROCTOR_SMOKE', False):
+        if is_guest:
+            raise ValueError('Real-model Proctor smoke is unavailable in RAM-only guest mode')
+        proctor_receipt = real_proctor_practice(home, opener, origin, token, dashboard_json, state['model'])
     if is_guest:
         from argoslive import session_mode, storage_view
         from argoslive.web.status import mounts_and_blocks, persistence
@@ -671,6 +923,7 @@ def managed_check_body(started, desktop_seconds, native_lab):
         'desktop_wait_seconds': desktop_seconds,
         'managed_elapsed_seconds': report['elapsed_seconds'],
         'ready_seconds': time.monotonic() - started, 'physical_acceptance': False,
-        'browser_chat_reply_verified': False, 'requires_screenshot_review': True}), flush=True)
+        'browser_chat_reply_verified': False, 'requires_screenshot_review': True,
+        **proctor_receipt}), flush=True)
     # The host captures the actual shipped Firefox; no substitute test browser.
     time.sleep(30)

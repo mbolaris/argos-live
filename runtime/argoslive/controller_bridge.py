@@ -53,6 +53,7 @@ class Bridge:
         self.closed = False
         self.verified = False
         self.outcomes = []
+        self.presented_proctor_items = set()
         self.evaluation_job = None
         self.lock = threading.RLock()
         self.tool_lock = threading.Lock()
@@ -74,6 +75,10 @@ class Bridge:
         if self.active:
             value.update({key: self.active[key] for key in
                           ('run_id', 'session_id', 'session_key', 'trigger', 'ended')})
+            if isinstance(self.active.get('diagnostics'), dict):
+                value['admission_diagnostics'] = self.active['diagnostics']
+            value['host_tool_requests'] = self.active.get('host_tool_requests', 0)
+            value['host_tool_failures'] = self.active.get('host_tool_failures', [])
         value['tools'] = self.outcomes
         write_json(self.events, value)
 
@@ -87,11 +92,41 @@ class Bridge:
         if operation == 'ended':
             with self.lock:
                 self.check_turn(request)
+                diagnostics = request.get('diagnostics')
+                if isinstance(diagnostics, dict):
+                    counts = ('tool_hooks', 'bound_calls', 'executions')
+                    rejected = diagnostics.get('rejected')
+                    rejection_kinds = ('unknown_tool', 'missing_admission', 'invalid_call_id', 'stale_binding')
+                    if (set(diagnostics) != {*counts, 'rejected'} or
+                            any(type(diagnostics.get(key)) is not int or diagnostics[key] < 0
+                                for key in counts) or
+                            not isinstance(rejected, dict) or set(rejected) != set(rejection_kinds) or
+                            any(type(rejected.get(key)) is not int or rejected[key] < 0
+                                for key in rejection_kinds)):
+                        raise ValueError('Invalid bounded controller diagnostics')
+                    self.active['diagnostics'] = diagnostics
                 self.active['ended'] = True
                 self.publish()
             return {'status': 'recorded'}
         if operation == 'tool':
-            return self.tool(request, on_update=on_update)
+            with self.lock:
+                if self.active is not None:
+                    self.active['host_tool_requests'] = self.active.get('host_tool_requests', 0) + 1
+            try:
+                return self.tool(request, on_update=on_update)
+            except BaseException as error:
+                with self.lock:
+                    if self.active is not None:
+                        kind = request.get('kind')
+                        allowed_kinds = PROCTOR_TOOLS | {
+                            'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',
+                            'inspect', 'edit', 'resolve'}
+                        safe_kind = kind if isinstance(kind, str) and kind in allowed_kinds else 'other'
+                        failures = self.active.setdefault('host_tool_failures', [])
+                        if len(failures) < 32:
+                            failures.append({'kind': safe_kind, 'error_class': type(error).__name__})
+                        self.publish()
+                raise
         raise ValueError('Unknown bridge operation')
 
     def begin(self, request):
@@ -150,7 +185,7 @@ class Bridge:
                 elif kind == 'compare':
                     if set(params) != {'baseline_id', 'candidate_id'}:
                         raise ValueError('Invalid comparison request')
-                elif kind in {'inspect', 'edit', 'resolve'}:
+                elif kind in {'inspect', 'audit', 'edit', 'resolve'}:
                     instruction_changes.validate_request(kind, params)
                 elif kind in PROCTOR_TOOLS:
                     self._validate_proctor_request(kind, params)
@@ -295,7 +330,8 @@ class Bridge:
             if set(params) != {'item_id'} or not identity(params.get('item_id')):
                 raise ValueError('Invalid Proctor item request')
         elif kind == 'proctor_answer':
-            if (set(params) != {'item_id', 'answer'} or not identity(params.get('item_id')) or
+            if (set(params) not in ({'answer'}, {'item_id', 'answer'}) or
+                    ('item_id' in params and not identity(params.get('item_id'))) or
                     not isinstance(params.get('answer'), str) or len(params['answer'].encode('utf-8')) > 8192):
                 raise ValueError('Invalid Proctor answer request')
 
@@ -305,9 +341,19 @@ class Bridge:
         if kind == 'proctor_status':
             return self.exam_session.status()
         if kind == 'proctor_item':
-            return self.exam_session.item(params['item_id'])
+            return self.present_proctor_item(params['item_id'])
         if kind == 'proctor_answer':
-            return self.exam_session.answer(params['item_id'], params['answer'], call_id)
+            status = self.exam_session.status()
+            module_id = status.get('module_id')
+            item_id = params.get('item_id')
+            if item_id is None:
+                item_id = next((item for item in status.get('item_ids', [])
+                                if not status.get('answer_revisions', {}).get(item) and
+                                (module_id, item) in self.presented_proctor_items), None)
+            if not module_id or (module_id, item_id) not in self.presented_proctor_items:
+                raise ValueError('Read the active item before submitting its answer')
+            result = self.exam_session.answer(item_id, params['answer'], call_id)
+            return {'item_id': item_id, **result}
         if kind == 'proctor_continue':
             return self.exam_session.continue_module(call_id)
         if kind == 'proctor_submit':
@@ -315,6 +361,18 @@ class Bridge:
         if kind == 'proctor_feedback':
             return self.exam_session.practice_feedback()
         raise ValueError('Unsupported Proctor tool')
+
+    def present_proctor_item(self, item_id):
+        """Surface a live question through a host-controlled practice turn."""
+        if self.exam_session is None:
+            raise ValueError('No host-selected Proctor session is active')
+        status = self.exam_session.status()
+        module_id = status.get('module_id')
+        if (status.get('state') != 'ACTIVE' or item_id not in status.get('item_ids', [])):
+            raise ValueError('Only an active item in the current module may be surfaced')
+        value = self.exam_session.item(item_id)
+        self.presented_proctor_items.add((module_id, item_id))
+        return value
 
     def run_child(self, kind, params, *, on_update=None):
         maintenance = kind in {'inspect', 'edit', 'resolve'}
@@ -428,7 +486,7 @@ class Bridge:
                 for pipe in (process.stdin, process.stdout, process.stderr):
                     pipe.close()
 
-    def launch(self, executable, message, *, config_path=None, timeout=1800):
+    def launch(self, executable, message, *, config_path=None, timeout=1800, local=True):
         """Host-only launch; no worker PID or release claim is accepted from IPC."""
         from .owned_gateway import environment
         path = Path(config_path or self.home / '.openclaw/openclaw.json')
@@ -450,9 +508,13 @@ class Bridge:
             env = environment(self.home, path)
             env.update(self.transport_env, PATH=self.worker_path)
             self.session_id = str(uuid.uuid4())
-            self.worker = subprocess.Popen([str(executable), 'agent', '--local', '--agent', 'main',
-                '--session-id', self.session_id, '--session-key', self.session_key, '--message', message,
-                '--timeout', str(timeout), '--json'], env=env, stdin=subprocess.DEVNULL,
+            arguments = [str(executable), 'agent']
+            if local:
+                arguments.append('--local')
+            arguments.extend(['--agent', 'main', '--session-id', self.session_id,
+                '--session-key', self.session_key, '--message', message,
+                '--timeout', str(timeout), '--json'])
+            self.worker = subprocess.Popen(arguments, env=env, stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
             try:
                 write_json(self.parent.path.parent / 'controller-worker.json', {
@@ -465,7 +527,7 @@ class Bridge:
                 raise
             return self.worker
 
-    def finish(self, *, timeout=1900):
+    def finish(self, *, timeout=1900, finalize=True):
         """Confirm our exact embedded SDK worker and its process group exited.
 
         agent_end is intentionally not required or sufficient: the SDK dispatches
@@ -473,6 +535,8 @@ class Bridge:
         """
         if not self.worker:
             raise workload.Busy(recovery=True)
+        if not finalize and (self.exam_session is None or self.exam_session.tier != 'practice'):
+            raise ValueError('Only host-owned practice may retain a drained turn')
         try:
             stdout, stderr = self.worker.communicate(timeout=timeout)
             self.last_stdout, self.last_stderr = stdout, stderr
@@ -503,11 +567,51 @@ class Bridge:
                     'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
                     'stdout_sha256': hashlib.sha256(stdout.encode()).hexdigest(), 'tools': self.outcomes})
                 self.verified = True
-                self._complete()
+                if finalize:
+                    self._complete()
             return value, stderr
         except BaseException:
             self.uncertain = True
             raise
+
+    def next_practice_turn(self, session_key):
+        """Host-only transition between verified drained practice workers.
+
+        Keep the same exclusive reservation and exam. No agent IPC operation
+        can invoke this method, release the lease, or claim worker drainage.
+        """
+        with self.lock:
+            if (self.exam_session is None or self.exam_session.tier != 'practice' or
+                    not self.verified or not self.worker or self.worker.poll() != 0 or
+                    self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
+                    not self.active or not identity(session_key)):
+                raise workload.Busy(recovery=True)
+            self.worker = None
+            self.active = None
+            self.verified = False
+            self.session_key = session_key
+
+    def submit_answered_practice_module(self):
+        """Host-only module closure after all agent answers and proven turn exit."""
+        with self.lock:
+            if (self.exam_session is None or self.exam_session.tier != 'practice' or
+                    not self.verified or not self.worker or self.worker.poll() != 0 or
+                    self.closed or self.uncertain or self.pending or self.tool_lock.locked() or not self.active):
+                raise workload.Busy(recovery=True)
+            if self.exam_session.session_id is None:
+                return False
+            self.exam_session.engine.tick()
+            status = self.exam_session.status()
+            if (status['state'] != 'ACTIVE' or not status['item_ids'] or
+                    any(not status['answer_revisions'].get(item) for item in status['item_ids'])):
+                return False
+            worker_hash = hashlib.sha256(self.last_stdout.encode()).hexdigest()
+            module = status['module_id']
+            self.exam_session.submit(module, 'host-all-answered-' + self.session_id + '-' + worker_hash)
+            self.outcomes.append({'kind': 'proctor_host_submit', 'module_id': module,
+                                  'worker_stdout_sha256': worker_hash})
+            self.publish()
+            return True
 
     def _complete(self):
         """Private host completion after finish() establishes the worker outcome."""
@@ -519,6 +623,11 @@ class Bridge:
                 try:
                     # Require a terminal, privately persisted signed transcript
                     # before releasing the exclusive Proctor reservation.
+                    if (self.exam_session.tier == 'practice' and
+                            (self.exam_session.session_id is None or
+                             self.exam_session.status()['state'] not in
+                             {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'})):
+                        self.exam_session.host_abandon()
                     envelope = self.exam_session.host_transcript()
                 except (ValueError, OSError):
                     self.uncertain = True
@@ -609,6 +718,13 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                     bridge.closed = True
                     server.shutdown()
                     thread.join(timeout=5)
+                    # Startup can fail before an SDK worker or tool starts (for
+                    # example, a busy local backend or gateway port). Such a
+                    # reservation is safely releasable; no child inference was
+                    # admitted. Any started/uncertain worker still quarantines.
+                    if (not parent.drained and not bridge.uncertain and not bridge.worker and
+                            not bridge.pending and not bridge.active and not bridge.tool_lock.locked()):
+                        parent.complete()
                     # A caller cannot mark release before leaving a live tool
                     # worker behind. The durable parent remains quarantined.
                     if not parent.drained or bridge.pending or bridge.tool_lock.locked() or bridge.uncertain:

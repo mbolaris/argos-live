@@ -1,4 +1,5 @@
 import importlib.util
+from contextlib import closing
 import io
 import json
 import os
@@ -17,6 +18,67 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+
+    def test_session_shape_retains_stop_and_tool_flow_without_private_content(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            root = home / '.local/state/argos-live/proctor/profiles/practice/hash/agents/main/sessions'
+            root.mkdir(parents=True)
+            messages = [
+                {'role': 'user', 'content': 'private-canary'},
+                {'role': 'assistant', 'stopReason': 'toolUse', 'content': [
+                    {'type': 'toolCall', 'name': 'argos_proctor_start', 'arguments': {'secret': 'private-canary'}}]},
+                {'role': 'toolResult', 'content': [{'type': 'text', 'text': 'private-canary'}]},
+                {'role': 'assistant', 'stopReason': 'private-canary', 'content': [
+                    {'type': 'text', 'text': 'private-canary argos_proctor_item'}]},
+            ]
+            (root / 'fixture.jsonl').write_text('\n'.join(json.dumps({'message': row}) for row in messages))
+            rows = module.proctor_session_shape(home)
+            self.assertNotIn('private-canary', json.dumps(rows))
+            self.assertEqual([row['role'] for row in rows], ['assistant', 'toolResult', 'assistant'])
+            self.assertEqual(rows[0]['tool_calls'], ['argos_proctor_start'])
+            self.assertEqual(rows[0]['stop_reason'], 'toolUse')
+            self.assertEqual(rows[-1]['stop_reason'], 'other')
+            self.assertEqual(rows[-1]['text_tool_names'], ['argos_proctor_item'])
+
+    def test_proctor_failure_receipt_exposes_only_allowlisted_lifecycle_facts(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            root = home / '.local/state/argos-live'
+            (root / 'workload').mkdir(parents=True)
+            (root / 'proctor').mkdir()
+            secret = 'PRIVATE-PROMPT-ANSWER-TOKEN'
+            (root / 'workload/controller-turn.json').write_text(json.dumps({
+                'host_tool_requests': 3, 'prompt': secret,
+                'host_tool_failures': [{'kind': 'proctor_status', 'error_class': 'ValueError',
+                                        'error_text': secret},
+                                       {'kind': secret, 'error_class': secret}],
+                'admission_diagnostics': {'tool_hooks': 0, 'executions': secret,
+                    'rejected': {'unknown_tool': 0, 'private': secret}},
+                'tools': [{'kind': 'proctor_start', 'call_id': secret},
+                          {'kind': secret}, {'kind': [secret]}]}))
+            (root / 'workload/controller-worker.json').write_text(json.dumps({
+                'process_group_drained': True, 'stderr': secret}))
+            (root / 'workload/reservation.json').write_text(json.dumps({
+                'state': 'quarantined', 'secret': secret}))
+            with closing(sqlite3.connect(root / 'proctor/state.sqlite3')) as db:
+                db.execute('CREATE TABLE sessions(state TEXT)')
+                db.executemany('INSERT INTO sessions VALUES (?)', [('ACTIVE',), (secret,)])
+                db.commit()
+            with patch('sys.stdout', io.StringIO()) as output:
+                value = module.proctor_failure_diagnostics(home)
+            self.assertNotIn(secret, output.getvalue())
+            self.assertEqual(value['tool_kinds'], ['proctor_start'])
+            self.assertEqual(value['tool_failures'], [
+                {'kind': 'proctor_status', 'error_class': 'ValueError'},
+                {'kind': 'other', 'error_class': 'other'}])
+            self.assertEqual(value['exam_states'], {'ACTIVE': 1})
+            self.assertEqual(value['admission_counters'], {'tool_hooks': 0, 'unknown_tool': 0})
+            self.assertTrue(value['worker_drained'])
+            self.assertEqual(value['reservation_state'], 'quarantined')
+
+
     def test_startup_measurement_rejection_reports_only_fixed_indicators(self):
         for metrics in (None, {'backend': {'mode': 'private token', 'size_bytes': 'secret',
                 'vram_bytes': 0}}, {'backend': {'mode': 'GPU', 'size_bytes': 100, 'vram_bytes': 100}}):
@@ -27,7 +89,7 @@ class DiagnosticFlagsTests(unittest.TestCase):
             self.assertNotIn('secret', output.getvalue())
             value = json.loads(output.getvalue().split(' ', 1)[1])
             self.assertEqual(set(value), {'model_reply_verified', 'metrics_present', 'backend_mode',
-                                         'backend_size_recorded', 'zero_vram_recorded'})
+                                         'backend_size_recorded', 'zero_vram_recorded', 'backend_bytes'})
 
     def test_startup_measurement_still_requires_verified_reply_and_cpu(self):
         metrics = {'backend': {'mode': 'CPU', 'size_bytes': 100, 'vram_bytes': 0}}

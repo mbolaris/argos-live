@@ -44,8 +44,18 @@ it does not by itself validate an instruction change or prove general ability.
 These tools are unavailable in ordinary improvement sessions.
 When the host specifically selects a practice session, use
 `argos_proctor_feedback` after completion to inspect aggregate score and domain
-counts, then choose a practice experiment. The tool refuses feedback for
+counts plus item-level submitted and expected answers, then identify the exact
+misses and choose a practice experiment. Expected answers are released only
+after a terminal host-selected practice session. The tool refuses feedback for
 assessment and held-out sessions.
+
+When the owner starts `argos proctor improve`, treat the practice feedback only
+as coaching context. The host starts a separate admitted campaign after the
+practice transcript is saved and the practice reservation is released. Make an
+independent hypothesis from saved baseline evidence, collect at least two
+distinct matched baseline runs and two candidate runs after one reversible
+change, then keep or restore through the host tools. Preserve all run IDs and
+report the Proctor score separately; it cannot qualify an improvement.
 
 For an instruction experiment, use `argos_inspect` to read the canonical
 workspace instructions, their hash, current configuration receipt, active
@@ -68,6 +78,13 @@ Use a separate challenge or held-out form to check transfer when available. Call
 qualified change or restore the exact snapshot. The host verifies the resulting
 bytes and preserves concurrent owner edits. Never claim a keep or restore until
 that tool returns the verified result.
+
+Before reporting the campaign outcome, call `argos_audit_instructions`. Use its
+host-verified change IDs, saved run IDs, aggregate scores, and keep/restore state.
+An empty journal means no instruction experiment was recorded; a failed audit
+means stop and report that evidence could not be verified. The audit does not
+verify prose in `IMPROVEMENT-LOG.md`, independent model-weight identity, or
+generalization to held-out tasks. Keep those limitations explicit.
 
 If a plugin tool is unavailable, the equivalent assistant command is
 `argos bench openclaw --suite quick --json`. The raw-model `argos bench ability`

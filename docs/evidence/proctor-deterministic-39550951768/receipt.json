@@ -1,0 +1,51 @@
+{
+  "schema": "argos-real-proctor-service/1",
+  "transcript_id": "a2c760e2e71a9c490673c065867e57da",
+  "outcome": "COMPLETED",
+  "signature_verified": true,
+  "model_identity_bound": true,
+  "transcript_sha256": "e06a74f8d424bccf8cbbbe2671f2ff6fcd32780f3c855e4b30a8ee8c1d5c0cd1",
+  "model_tag": "qwen3:0.6b",
+  "total": 4,
+  "answered": 4,
+  "correct": 3,
+  "practice_only": true,
+  "calibration_status": "uncalibrated",
+  "host_turns": 3,
+  "requested_temperature": 0,
+  "image_acceptance": false,
+  "tool_kinds": [
+    "proctor_start",
+    "proctor_item",
+    "proctor_answer",
+    "proctor_item",
+    "proctor_answer",
+    "proctor_host_submit",
+    "proctor_answer",
+    "proctor_answer",
+    "proctor_host_submit",
+    "proctor_finalize"
+  ],
+  "wire_request": {
+    "probe_loaded": true,
+    "request_count": 10,
+    "body_inspected": true,
+    "request_bytes": 14256,
+    "temperature": 0,
+    "num_predict_present": false,
+    "num_ctx_present": false,
+    "think": false,
+    "message_chars": 8668,
+    "tool_schema_chars": 4981,
+    "proctor_tools": [
+      "argos_proctor_answer",
+      "argos_proctor_continue",
+      "argos_proctor_feedback",
+      "argos_proctor_item",
+      "argos_proctor_start",
+      "argos_proctor_status",
+      "argos_proctor_submit"
+    ],
+    "tool_result_messages": 1
+  }
+}

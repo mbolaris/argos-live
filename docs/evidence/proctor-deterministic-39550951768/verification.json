@@ -1,0 +1,10 @@
+{
+  "transcript_id": "a2c760e2e71a9c490673c065867e57da",
+  "sha256": "e06a74f8d424bccf8cbbbe2671f2ff6fcd32780f3c855e4b30a8ee8c1d5c0cd1",
+  "signature_verified_locally": true,
+  "key_basis": "same CI artifact fixture key; no independent production trust claim",
+  "temperature_zero_on_wire": true,
+  "all_four_answered": true,
+  "all_modules_submitted": true,
+  "ability_gain_claimed": false
+}

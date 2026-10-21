@@ -64,6 +64,10 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     const { default: register } = await import(`${pluginPath}?test=${Date.now()}`);
     const tools = new Map();
     register({ registerTool(tool) { tools.set(tool.name, tool); } });
+    const answerTool = tools.get('argos_proctor_answer').parameters;
+    assert.deepEqual(Object.keys(answerTool.properties), ['item_id', 'answer']);
+    assert.deepEqual(answerTool.required, ['item_id', 'answer']);
+    assert.match(tools.get('argos_proctor_item').description, /host binds answers to retrieved active items/);
 
     const cancelled = new AbortController();
     cancelled.abort();
@@ -302,14 +306,20 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     await assert.rejects(admission.execute('log-1','log',{text:'replay'}),/no current host admission/);
     hooks.get('before_tool_call')({toolName:'argos_proctor_item',runId:'run-1',toolCallId:'exam-item'},ctx);
     assert.deepEqual(await admission.execute('exam-item','proctor_item',{item_id:'q1'}),{status:'appended'});
+    hooks.get('before_tool_call')({toolName:'argos_audit_instructions',runId:'run-1',toolCallId:'audit-1'},ctx);
+    assert.deepEqual(await admission.execute('audit-1','audit',{}),{status:'appended'});
     await hooks.get('agent_end')({},ctx);
-    assert.deepEqual(requests.map((value) => value.op),['begin','tool','tool','ended']);
+    assert.deepEqual(requests.map((value) => value.op),['begin','tool','tool','tool','ended']);
+    assert.deepEqual(requests.at(-1).diagnostics,{tool_hooks:4,bound_calls:3,executions:3,
+      rejected:{unknown_tool:1,missing_admission:0,invalid_call_id:0,stale_binding:0}});
     assert.equal(requests[1].run_id,'run-1');
     assert.equal(requests[1].call_id,'log-1');
     assert.equal(requests[1].turn_token,'fictional-turn');
     assert.equal(requests[1].params.text,'Unicode note 你好');
     assert.equal(requests[2].kind,'proctor_item');
     assert.deepEqual(requests[2].params,{item_id:'q1'});
+    assert.equal(requests[3].kind,'audit');
+    assert.deepEqual(requests[3].params,{});
     assert.equal((await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'})).outcome,'block');
     assert.ok(requests.every((value) => value.auth === 'fictional-bridge-secret'));
   } finally {

@@ -4,7 +4,8 @@ const TOOLS = new Map([
   ['argos_evaluate', 'evaluation'], ['argos_compare', 'compare'], ['argos_log', 'log'],
   ['argos_evaluate_wait', 'evaluation_wait'],
   ['argos_evaluate_status', 'evaluation_status'],
-  ['argos_inspect', 'inspect'], ['argos_edit_instructions', 'edit'], ['argos_resolve_instructions', 'resolve'],
+  ['argos_inspect', 'inspect'], ['argos_audit_instructions', 'audit'],
+  ['argos_edit_instructions', 'edit'], ['argos_resolve_instructions', 'resolve'],
   ['argos_proctor_start', 'proctor_start'], ['argos_proctor_status', 'proctor_status'],
   ['argos_proctor_item', 'proctor_item'], ['argos_proctor_answer', 'proctor_answer'],
   ['argos_proctor_continue', 'proctor_continue'], ['argos_proctor_submit', 'proctor_submit'],
@@ -17,6 +18,7 @@ export function registerAdmission(api) {
   const auth = process.env.ARGOS_CONTROLLER_SECRET;
   const turns = new Map();
   const bindings = new Map();
+  const diagnostics = new Map();
 
   function request(value, signal, onUpdate) {
     return new Promise((resolve, reject) => {
@@ -81,6 +83,8 @@ export function registerAdmission(api) {
       if (value.status !== 'admitted' || typeof value.turn_token !== 'string')
         return {outcome:'block', reason:'Host controller slot is not available'};
       turns.set(ctx.runId, value.turn_token);
+      diagnostics.set(ctx.runId, {tool_hooks:0, bound_calls:0, executions:0,
+        rejected:{unknown_tool:0, missing_admission:0, invalid_call_id:0, stale_binding:0}});
       return {outcome:'pass'};
     } catch {
       return {outcome:'block', reason:'Host controller admission failed'};
@@ -90,24 +94,44 @@ export function registerAdmission(api) {
     const runId = event.runId ?? ctx.runId;
     const callId = event.toolCallId ?? ctx.toolCallId;
     const token = turns.get(runId);
-    if (!TOOLS.has(event.toolName) || !token || typeof callId !== 'string')
+    const stats = diagnostics.get(runId);
+    if (stats) stats.tool_hooks++;
+    if (!TOOLS.has(event.toolName)) {
+      if (stats) stats.rejected.unknown_tool++;
       return {block:true, blockReason:'This controller scope permits only admitted Argos host tools'};
+    }
+    if (!token) {
+      if (stats) stats.rejected.missing_admission++;
+      return {block:true, blockReason:'This controller scope permits only admitted Argos host tools'};
+    }
+    if (typeof callId !== 'string') {
+      if (stats) stats.rejected.invalid_call_id++;
+      return {block:true, blockReason:'This controller scope permits only admitted Argos host tools'};
+    }
     const prior = bindings.get(callId);
-    if (prior && (prior.runId !== runId || prior.kind !== TOOLS.get(event.toolName)))
+    if (prior && (prior.runId !== runId || prior.kind !== TOOLS.get(event.toolName))) {
+      if (stats) stats.rejected.stale_binding++;
       return {block:true, blockReason:'Stale controller tool binding'};
+    }
     bindings.set(callId, {runId, token, kind:TOOLS.get(event.toolName)});
+    if (stats) stats.bound_calls++;
   });
   api.on('agent_end', async (_event, ctx) => {
     const token = turns.get(ctx.runId);
     if (!token) return;
     turns.delete(ctx.runId);
     for (const [key, binding] of bindings) if (binding.runId === ctx.runId) bindings.delete(key);
-    try { await request({op:'ended', run_id:ctx.runId, turn_token:token}); }
+    const stats = diagnostics.get(ctx.runId);
+    diagnostics.delete(ctx.runId);
+    try { await request({op:'ended', run_id:ctx.runId, turn_token:token, diagnostics:stats}); }
     catch { /* Only the host supervisor may settle or release this scope. */ }
   });
 
   return {
     async execute(callId, kind, params, signal, onUpdate) {
+      const bindingForStats = bindings.get(callId);
+      const stats = bindingForStats && diagnostics.get(bindingForStats.runId);
+      if (stats) stats.executions++;
       const binding = bindings.get(callId);
       bindings.delete(callId);
       if (!binding || binding.kind !== kind || turns.get(binding.runId) !== binding.token)

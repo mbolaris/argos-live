@@ -27,7 +27,7 @@ class RuntimePackageTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('setup', result.stdout)
-        for name in ('bench', 'pull', 'pack', 'dashboard', 'desktop', 'addons'):
+        for name in ('bench', 'pull', 'pack', 'dashboard', 'desktop', 'addons', 'proctor'):
             self.assertIn(name, result.stdout)
         self.assertTrue(cli.argoslive.__version__)
 
@@ -62,7 +62,7 @@ class RuntimePackageTests(unittest.TestCase):
     def test_group_and_delegated_help(self):
         for command in (['bench'], ['pack'], ['bench', 'speed'], ['bench', 'ability'], ['bench', 'documents'], ['bench', 'results'], ['bench', 'all'], ['pull'],
                         ['pack', 'export'], ['pack', 'import'], ['pack', 'apply'],
-                        ['pack', 'rollback'], ['dashboard'], ['desktop'], ['addons']):
+                        ['pack', 'rollback'], ['dashboard'], ['desktop'], ['addons'], ['proctor']):
             with self.subTest(command=command):
                 result = subprocess.run([sys.executable, str(ROOT / 'runtime/argos.py'),
                                          *command, '--help'], capture_output=True, text=True, timeout=30)
@@ -103,8 +103,10 @@ class RuntimePackageTests(unittest.TestCase):
                        'from argoslive.web.server import ASSETS; '
                        'from argoslive.ability import load, DATA; '
                        'from argoslive.proctor.cartridge import DIRECTORY; '
+                       'from argoslive.proctor_service import PILOT_DEFINITION; '
                        'assert (DIRECTORY / "cartridge.sql").is_file(); '
                        'assert (DIRECTORY / "state.sql").is_file(); '
+                       'assert PILOT_DEFINITION.is_file(); '
                        'assert len(load()["items"]) == 20; assert len(load("standard")["items"]) == 70; '
                        'assert len(load("challenge")["items"]) == 40; '
                        'assert (DATA / "NOTICE.txt").is_file(); '

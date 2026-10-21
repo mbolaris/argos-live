@@ -68,6 +68,17 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertNotIn(token, json.dumps(observed))
         self.assertEqual(self.op('inspect', {'path': '/private/evaluator'})['status'], 'rejected')
 
+    def test_empty_audit_is_explicit_and_does_not_claim_gain_or_log_verification(self):
+        report = self.op('audit')
+        self.assertEqual(report['schema'], 'argos-instruction-audit/1')
+        self.assertEqual(report['status'], 'empty')
+        self.assertTrue(report['passed'])
+        self.assertEqual(report['qualified_experiments'], 0)
+        self.assertFalse(report['full_log_claims_verified'])
+        self.assertFalse(report['independent_gain_verified'])
+        changes.root_path(self.home)  # A first inspection creates the empty journal directory.
+        self.assertEqual(self.op('audit')['status'], 'empty')
+
     def test_patch_snapshot_restore_and_audit_match_actual_bytes(self):
         baseline = self.evaluate()
         edited = self.edit(baseline)
@@ -81,8 +92,9 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(restored['status'], 'restored')
         self.assertTrue(restored['qualified_experiment'])
         self.assertEqual(self.path.read_bytes(), self.original)
-        audit = changes.audit(self.home)
+        audit = self.op('audit')
         self.assertTrue(audit['passed'], audit)
+        self.assertEqual(audit['status'], 'verified')
         self.assertEqual(audit['qualified_experiments'], 1)
         self.assertFalse(audit['full_log_claims_verified'])
 
@@ -121,7 +133,22 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(kept['status'], 'kept', kept)
         self.assertEqual(kept['minimum_correct_gain'], 3)
         self.assertFalse(kept['independent_gain_verified'])
-        self.assertTrue(changes.audit(self.home)['passed'])
+        audit = self.op('audit')
+        self.assertTrue(audit['passed'], audit)
+        self.assertEqual(audit['status'], 'verified')
+        observed = audit['changes'][0]
+        self.assertEqual(observed['action'], 'keep')
+        self.assertEqual(observed['worst_case_correct_delta'], 3)
+        self.assertEqual(observed['baseline']['scores'], [
+            {'correct': 15, 'total': 20, 'format_errors': 5},
+            {'correct': 16, 'total': 20, 'format_errors': 4}])
+        self.assertEqual(observed['candidate']['scores'], [
+            {'correct': 19, 'total': 20, 'format_errors': 1},
+            {'correct': 20, 'total': 20, 'format_errors': 0}])
+        self.assertEqual(len(observed['baseline']['run_ids']), 2)
+        self.assertEqual(len(observed['candidate']['run_ids']), 2)
+        self.assertFalse(audit['full_log_claims_verified'])
+        self.assertFalse(audit['independent_gain_verified'])
 
     def test_single_run_or_noisy_non_gain_cannot_be_kept(self):
         baselines = [self.evaluate(), self.evaluate()]

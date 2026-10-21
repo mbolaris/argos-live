@@ -13,21 +13,24 @@ ROOT = Path('/usr/local/share/argos-live/seed-model')
 TAG = 'qwen3:0.6b'
 
 
-def verify(root=ROOT, *, data=None):
+def verify(root=ROOT, *, data=None, include_model_identity=False):
     """Check the exact reviewed manifest and every blob; no fsync on SquashFS."""
     root = safe_local(root)
     data = catalog.validate(data) if data is not None else catalog.load()
     entry = next((entry for entry in data['models'] if entry['tag'] == TAG), None)
     if entry is None:
         raise ValueError('Reviewed starter model is missing from the catalog')
-    count = model_verify.verify(root, entry, sync=False)
-    return {'tag': TAG, 'manifest_digest': entry['manifest_digest'], 'verified_bytes': count}
+    result = model_verify.verify(root, entry, sync=False, include_identity=include_model_identity)
+    if include_model_identity:
+        return {'tag': TAG, 'manifest_digest': entry['manifest_digest'],
+                'verified_bytes': result['verified_bytes'], 'model_identity': result}
+    return {'tag': TAG, 'manifest_digest': entry['manifest_digest'], 'verified_bytes': result}
 
 
-def read_only(root=ROOT, *, data=None):
+def read_only(root=ROOT, *, data=None, include_model_identity=False):
     """Verify both content identity and an unwritable model source."""
     root = safe_local(root)
-    identity = verify(root, data=data)
+    identity = verify(root, data=data, include_model_identity=include_model_identity)
     entry = next(entry for entry in (data or catalog.load())['models'] if entry['tag'] == TAG)
     manifest = model_verify.manifest_path(root, TAG)
     paths = {root, root / 'blobs', *manifest.parents}

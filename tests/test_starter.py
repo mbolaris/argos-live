@@ -56,6 +56,20 @@ class StarterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             starter.verify(self.root, data=self.data)
 
+    def test_full_verified_identity_receipt_binds_catalog_manifest_and_every_blob(self):
+        before = self.snapshot()
+        receipt = model_verify.verify(self.root, self.entry, sync=False, include_identity=True)
+        self.assertEqual(receipt['schema'], 'argos-verified-model/1')
+        self.assertEqual(receipt['tag'], starter.TAG)
+        self.assertEqual(receipt['catalog_manifest_digest'], self.entry['manifest_digest'])
+        self.assertEqual(receipt['verified_bytes'], self.entry['total_download_bytes'])
+        self.assertEqual([item['digest'] for item in receipt['artifacts']],
+                         sorted(item['digest'] for item in self.entry['artifacts']))
+        unsigned = {key: value for key, value in receipt.items() if key != 'sha256'}
+        self.assertEqual(receipt['sha256'], hashlib.sha256(
+            json.dumps(unsigned, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
+        self.assertEqual(self.snapshot(), before)
+
     def test_writable_source_refused_before_starting_daemon(self):
         with patch('argoslive.starter.owned') as backend:
             with self.assertRaisesRegex(ValueError, 'read-only'):

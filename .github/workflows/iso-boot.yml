@@ -21,6 +21,11 @@ on:
         required: false
         default: false
         type: boolean
+      proctor_smoke:
+        description: Run the real bundled-model Proctor practice smoke (requires managed setup and KVM)
+        required: false
+        default: false
+        type: boolean
       acceleration:
         description: Explicit VM acceleration (KVM requires runner hardware support)
         required: true
@@ -51,11 +56,12 @@ jobs:
   boot:
     if: ${{ !inputs.shutdown_only && !inputs.guest_reset_only }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    timeout-minutes: 90
     env:
       BUILD_RUN: ${{ inputs.build_run || '37216494685' }}
       SETUP_MODE: ${{ inputs.setup_mode || 'interactive' }}
       GUEST_MODE: ${{ inputs.guest_mode || false }}
+      PROCTOR_SMOKE: ${{ inputs.proctor_smoke || false }}
       VM_ACCEL: ${{ inputs.acceleration || 'tcg' }}
     steps:
       - uses: actions/checkout@v4
@@ -80,10 +86,16 @@ jobs:
         run: |
           args=()
           if [[ "$GUEST_MODE" == true ]]; then args+=(--guest); fi
+          if [[ "$PROCTOR_SMOKE" == true ]]; then
+            test "$SETUP_MODE" = managed
+            test "$GUEST_MODE" = false
+            test "$VM_ACCEL" = kvm
+            args+=(--proctor-smoke)
+          fi
           python3 scripts/smoke-qemu-iso.py work/iso-candidate/argos-live-amd64.iso --output work/vm-smoke --setup-mode "$SETUP_MODE" --accel "$VM_ACCEL" "${args[@]}"
       - name: Record acceptance
         run: |
-          echo "## Offline $VM_ACCEL guest acceptance" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Offline $VM_ACCEL guest acceptance (Proctor smoke: $PROCTOR_SMOKE)" >> "$GITHUB_STEP_SUMMARY"
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat work/vm-smoke/result.json >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

@@ -60,6 +60,8 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertEqual(config['gateway']['bind'], 'loopback')
                 self.assertEqual(len(config['gateway']['auth']['token']), 64)
                 self.assertFalse(config['tools']['elevated']['enabled'])
+                self.assertEqual(config['models']['providers']['ollama']['models'][0]['params'],
+                                 {'temperature': 0})
                 self.assertEqual(config['tools']['profile'], 'minimal')
                 self.assertEqual(config['tools']['deny'], ['gateway', 'browser'])
                 self.assertIn('group:runtime', config['tools']['alsoAllow'])
@@ -95,6 +97,7 @@ class AutoSetupTests(unittest.TestCase):
         self.configure()
         value = json.loads(self.config.read_text())
         value['tools']['elevated']['enabled'] = True  # Fictional owner-selected policy.
+        value['models']['providers']['ollama']['models'][0]['params'] = {'temperature': 0.73}
         self.config.write_text(json.dumps(value))
         before = self.state.read_bytes(), self.config.read_bytes()
         with patch('builtins.input', side_effect=AssertionError('prompt')):

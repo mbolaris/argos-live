@@ -70,6 +70,11 @@ or held-out form for that claim. If the change does not qualify or regresses,
 resolve it with `restore`; the host checks the exact snapshot and refuses to
 overwrite concurrent owner edits. Report the saved resolution before claiming
 the change was kept or restored. One unresolved instruction change at a time.
+Before reporting campaign results, call `argos_audit_instructions`. Use its
+verified change IDs, run IDs, aggregate scores and keep/restore state. An empty
+journal means no host-managed instruction experiment was recorded. A failed
+audit blocks claims based on that journal. It does not verify prose in the
+free-form log or establish independent transfer; state those limits plainly.
 
 ## 3. Improvement order and authority
 

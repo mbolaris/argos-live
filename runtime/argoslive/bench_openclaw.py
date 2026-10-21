@@ -85,6 +85,9 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
 
 def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None):
     """Run fixed text tasks with copied instructions and no execution capabilities."""
+    if home is not None:
+        from .evaluation_control import Cancellation
+        cancel = Cancellation(home, cancel)
     data = ability.load(suite)
     suite_path = ability.DATA / (suite + '.json')
     suite_digest = hashlib.sha256(suite_path.read_bytes()).hexdigest()

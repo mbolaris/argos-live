@@ -112,7 +112,7 @@ def lab_progress_phase(line):
     return phase if phase == 'ability' else None
 
 
-def guest_result(serial, *, setup_mode='interactive', guest=False):
+def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke=False):
     # Serial reads split anywhere, including after a nested JSON object's closing
     # brace. Only a complete newline-terminated record can establish acceptance.
     match = re.search(r'ARGOS_C3_RESULT (\{[^\r\n]+\})\r?\n', serial)
@@ -136,6 +136,31 @@ def guest_result(serial, *, setup_mode='interactive', guest=False):
         for field in ('network_routes', 'physical_acceptance', 'browser_chat_reply_verified'):
             if result.get(field) is not False:
                 raise ValueError('Unexpected managed guest scope')
+        if proctor_smoke:
+            for field in ('proctor_practice_recorded', 'proctor_transcript_saved',
+                          'proctor_signature_verified', 'proctor_model_identity_bound',
+                          'proctor_modules_submitted',
+                          'proctor_assistant_resumed'):
+                if result.get(field) is not True:
+                    raise ValueError('Managed guest did not establish Proctor acceptance')
+            outcome = result.get('proctor_practice_outcome')
+            if (outcome != 'COMPLETED' or
+                    result.get('proctor_practice_completed') is not True):
+                raise ValueError('Managed guest Proctor practice did not complete')
+            if (result.get('proctor_calibration_status') != 'uncalibrated' or
+                    result.get('proctor_campaign_started') is not False or
+                    result.get('proctor_backend_weights_loaded_attested') is not False):
+                raise ValueError('Unexpected Proctor acceptance scope')
+            if (not isinstance(result.get('proctor_transcript_id'), str) or
+                    not re.fullmatch(r'[a-f0-9]{32}', result['proctor_transcript_id']) or
+                    not isinstance(result.get('proctor_model_tag'), str) or not result['proctor_model_tag'] or
+                    not isinstance(result.get('proctor_score'), dict) or
+                    type(result['proctor_score'].get('correct')) is not int or
+                    type(result['proctor_score'].get('total')) is not int or
+                    type(result.get('proctor_answered')) is not int or result['proctor_answered'] != 4 or
+                    result['proctor_score']['total'] != 4 or
+                    not 0 <= result['proctor_score']['correct'] <= result['proctor_score']['total']):
+                raise ValueError('Managed guest Proctor receipt is incomplete')
         if result.get('setup_mode') != 'managed' or result.get('startup_metrics', {}).get('backend', {}).get('mode') != 'CPU':
             raise ValueError('Managed guest did not establish CPU startup')
         return result
@@ -193,11 +218,25 @@ def guest_commands(source):
     return commands
 
 
-def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=False, accel='tcg'):
+def acceptance_payload(setup_mode, guest_mode, proctor_smoke):
+    preamble = (f'ARGOS_QEMU_SETUP_MODE = {setup_mode!r}\n'
+                f'ARGOS_QEMU_GUEST_MODE = {guest_mode!r}\n'
+                f'ARGOS_QEMU_PROCTOR_SMOKE = {proctor_smoke!r}\n').encode()
+    return (preamble + (ROOT / 'scripts/qemu-firefox-check.py').read_bytes() + b'\n' +
+            (ROOT / 'scripts/qemu-managed-check.py').read_bytes() + b'\n' +
+            (ROOT / 'scripts/qemu-guest-check.py').read_bytes())
+
+
+def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=False,
+        proctor_smoke=False, accel='tcg'):
     if accel not in ('tcg', 'kvm'):
         raise ValueError('Unknown VM acceleration')
     if guest_mode and setup_mode != 'managed':
         raise ValueError('Guest acceptance requires managed startup')
+    if proctor_smoke and (setup_mode != 'managed' or guest_mode or accel != 'kvm'):
+        raise ValueError('Proctor smoke requires managed setup, persistent mode, and explicit KVM')
+    if proctor_smoke and timeout == 3600:
+        timeout = 5400
     if setup_mode not in ('interactive', 'auto', 'managed'):
         raise ValueError('Unknown disposable setup mode')
     if output.exists() and any(output.iterdir()):
@@ -212,10 +251,7 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
             digest.update(chunk)
     if digest.hexdigest() != record.split()[0]:
         raise ValueError('Candidate ISO checksum differs')
-    source = (f'ARGOS_QEMU_SETUP_MODE = {setup_mode!r}\nARGOS_QEMU_GUEST_MODE = {guest_mode!r}\n'.encode() +
-              (ROOT / 'scripts/qemu-firefox-check.py').read_bytes() + b'\n' +
-              (ROOT / 'scripts/qemu-managed-check.py').read_bytes() + b'\n' +
-              (ROOT / 'scripts/qemu-guest-check.py').read_bytes())
+    source = acceptance_payload(setup_mode, guest_mode, proctor_smoke)
     guest = guest_commands(source)
     with tempfile.TemporaryDirectory(prefix='argos-qemu-') as temp:
         work = Path(temp)
@@ -235,7 +271,7 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                     '-qmp', f'unix:{qmp},server=on,wait=off'], stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         started = time.monotonic()
-        print(f'Starting offline {accel} guest; acceptance timeout is 60 minutes.', flush=True)
+        print(f'Starting offline {accel} guest; acceptance timeout is {int(timeout / 60)} minutes.', flush=True)
         reported_stages = set()
         reported_lab_phases = set()
         browser_paint_acknowledged = False
@@ -311,7 +347,8 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                         screenshot_dashboard_content(qmp, output / 'lab-startup.ppm')
                     if re.search(r'ARGOS_C3_FAIL [A-Za-z]+(?: [a-z-]+)?\r?\n', tail):
                         raise ValueError('Guest acceptance failed; see console artifact')
-                    result = guest_result(tail, setup_mode=setup_mode, guest=guest_mode)
+                    result = guest_result(tail, setup_mode=setup_mode, guest=guest_mode,
+                                          proctor_smoke=proctor_smoke)
                     if result is not None:
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
                                       vm_memory_mib=8192 if setup_mode == 'managed' else 4096,
@@ -352,6 +389,9 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--setup-mode', choices=('interactive', 'auto', 'managed'), default='interactive')
     parser.add_argument('--guest', action='store_true', help='Test the RAM-only guest boot entry with managed startup')
+    parser.add_argument('--proctor-smoke', action='store_true',
+                        help='Run and verify a real bundled-model Proctor practice session; requires managed KVM')
     parser.add_argument('--accel', choices=('tcg', 'kvm'), default='tcg', help='Explicit acceleration; never silently fall back')
     args = parser.parse_args()
-    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode, guest_mode=args.guest, accel=args.accel)
+    run(args.iso.absolute(), args.output.absolute(), setup_mode=args.setup_mode, guest_mode=args.guest,
+        proctor_smoke=args.proctor_smoke, accel=args.accel)

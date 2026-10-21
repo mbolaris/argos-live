@@ -330,15 +330,15 @@ standard tasks without more format errors; alternatively, correct answers must
 be maintained with strictly fewer format errors and median latency at most 1.5
 times baseline. These are practice thresholds, not statistical significance or
 independent generalization evidence. Installed weight identity remains unproven.
-Before deployment, receipts must also bind every copied personality/context
-input across runs, not just AGENTS.md and projected configuration. The evaluator
-detects changes to existing bounded protected files during each individual run, but its current saved
-fingerprint does not prove those other files stayed identical between runs.
-The next receipt revision must record missing-versus-present states as well as
-bytes for every copied WORKSPACE_FILES input, reject changes before each turn
-and final publication, and require the non-AGENTS inputs to match for an
-instruction-only experiment. A newly created persona file needs the same
-invalidation behavior as editing or deleting an existing one.
+The current receipt also binds the copied personality/context inputs across
+runs. `workspace_context_receipt` hashes missing-versus-present states and the
+bytes of each non-AGENTS `WORKSPACE_FILES` input. Evaluation records that hash,
+checks for context changes before turns and final publication, and refuses to
+compare runs with different context hashes. Instruction-change admission and
+audit require the recorded non-AGENTS context hash to match. Tests include a
+newly created SOUL.md invalidating the run, not only changes to existing files.
+This covers those fixed copied inputs; it does not establish protected service
+ownership, backend-wide mediation, or a complete audit of free-form claims.
 
 Restoration does not require a successful exam. An unmeasured restoration is
 explicitly marked as such and does not count as a completed experiment. Unknown

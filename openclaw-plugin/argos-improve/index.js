@@ -216,13 +216,32 @@ export default function register(api) {
   const controlled = async (id, kind, params, signal, onUpdate) => {
     if (!admission) throw new Error('This tool requires a managed host controller.');
     const value = await admission.execute(id, kind, params, signal, onUpdate);
-    return textResult(JSON.stringify(value, null, 2), value);
+    let instruction = '';
+    if (kind.startsWith('proctor_') && value.status !== 'busy') {
+      if (value.next_step?.tool && value.next_step?.arguments) {
+        instruction = value.next_step.instruction ? value.next_step.instruction + ' Then '
+          : value.state === 'COMPLETED'
+          ? 'The exam is complete. Request the permitted practice feedback now. '
+          : 'The exam is not finished. Continue now; do not end your turn. ';
+        instruction += `Call ${value.next_step.tool} with ${JSON.stringify(value.next_step.arguments)}.`;
+      } else if (kind === 'proctor_item' && typeof value.item_id === 'string') {
+        const format = value.response_type === 'mcq_single' ? 'Use one choice key, not the choice text.' : 'Use only the number, with no units or explanation.';
+        instruction = `Solve the question below yourself. Your next action must call argos_proctor_answer with item_id ${JSON.stringify(value.item_id)} and your answer as a string. ${format} Do not end your turn.`;
+      }
+    }
+    return textResult((instruction ? instruction + '\n\n' : '') + JSON.stringify(value, null, 2), value);
   };
   api.registerTool({
     name:'argos_inspect', label:'Inspect current experiment setup',
     description:'Read your current AGENTS.md, its hash, safe configured generation settings, pending change and keep evidence policy. No arbitrary file paths or credentials.',
     parameters:Type.Object({}, {additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'inspect',params,signal); }
+  }, {optional:true});
+  api.registerTool({
+    name:'argos_audit_instructions', label:'Audit saved instruction experiments',
+    description:'Verify the host-managed instruction journal, snapshots, matched saved-run receipts, and keep/restore decisions. Returns run IDs and aggregate scores without answers. An empty journal is valid; this does not verify free-form log claims or independent transfer.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'audit',params,signal); }
   }, {optional:true});
   api.registerTool({
     name:'argos_edit_instructions', label:'Try one instruction change',
@@ -243,7 +262,7 @@ export default function register(api) {
   }, {optional:true});
   api.registerTool({
     name:'argos_proctor_start', label:'Start the host-selected ability exam',
-    description:'Start only the exam preselected by the host. You cannot choose its form, exposure tier, model identity or assistance policy. The service withholds scores, answer keys and signed transcripts from these tools.',
+    description:'Start only the exam preselected by the host, then call the tool in next_step with its arguments. Starting does not complete the exam. You cannot choose its form, exposure tier, model identity or assistance policy. Scores and answer keys are withheld until terminal practice feedback.',
     parameters:Type.Object({}, {additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'proctor_start',params,signal); }
   }, {optional:true});
@@ -255,14 +274,15 @@ export default function register(api) {
   }, {optional:true});
   api.registerTool({
     name:'argos_proctor_item', label:'Get an active exam question',
-    description:'Read one question from the currently active module. The host owns the cartridge and the service never returns the answer key or routing rules.',
+    description:'Read one question from the currently active module, solve it yourself, then call argos_proctor_answer with this item_id and your answer as a string. The host binds answers to retrieved active items. The service never returns the answer key or routing rules.',
     parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96})},{additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'proctor_item',params,signal); }
   }, {optional:true});
   api.registerTool({
     name:'argos_proctor_answer', label:'Submit an exam answer',
-    description:'Submit an answer for an item in the active module. The service assigns the revision and records the attempt; you cannot set exam conditions or revisions.',
-    parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96}),answer:Type.String({maxLength:8192})},{additionalProperties:false}),
+    description:'Record your own answer for a question surfaced by the host or returned by argos_proctor_item. Include that active item_id and answer as strings. The host rejects unseen, inactive, and cross-module items. Accepted means recorded, not correct. The service assigns the revision; you cannot set exam conditions or revisions.',
+    parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96}),
+      answer:Type.String({maxLength:8192})},{additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'proctor_answer',params,signal); }
   }, {optional:true});
   api.registerTool({

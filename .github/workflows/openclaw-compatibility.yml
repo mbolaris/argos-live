@@ -6,6 +6,8 @@ on:
       - scripts/smoke-admission-hook.py
       - scripts/smoke-controller-bridge.py
       - scripts/smoke-proctor-agent.py
+      - runtime/argoslive/proctor_service.py
+      - runtime/argoslive/data/proctor-practice-pilot.json
       - scripts/synthetic_http.py
       - runtime/argoslive/controller_bridge.py
       - runtime/argoslive/instruction_changes.py
@@ -45,6 +47,8 @@ on:
       - scripts/smoke-admission-hook.py
       - scripts/smoke-controller-bridge.py
       - scripts/smoke-proctor-agent.py
+      - runtime/argoslive/proctor_service.py
+      - runtime/argoslive/data/proctor-practice-pilot.json
       - scripts/synthetic_http.py
       - runtime/argoslive/controller_bridge.py
       - runtime/argoslive/instruction_changes.py
@@ -175,6 +179,7 @@ jobs:
             work/controller-bridge*.json
             work/controller-bridge.diagnostic.txt
             work/proctor-agent.json
+            work/proctor-agent-failure.json
             work/addon-inventory.json
             work/dashboard-desktop.png
             work/dashboard-narrow.png

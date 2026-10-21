@@ -67,9 +67,9 @@ def run_id(value):
 def validate_request(operation, params):
     if not isinstance(params, dict):
         raise Refused('invalid-request')
-    if operation == 'inspect':
+    if operation in {'inspect', 'audit'}:
         if params:
-            raise Refused('inspection-takes-no-path-or-arguments')
+            raise Refused('operation-takes-no-path-or-arguments')
     elif operation == 'edit':
         if set(params) != {'baseline_id', 'expected_sha256', 'find', 'replace', 'hypothesis'}:
             raise Refused('invalid-edit-fields')
@@ -360,13 +360,16 @@ def perform(home, operation, params, *, delegation=None):
     with workload.reserve(home, 'maintenance', delegation=delegation) as slot:
         try:
             validate_request(operation, params)
-            root = root_path(home)
-            if operation == 'inspect':
-                result = inspect(home, root)
-            elif operation == 'edit':
-                result = edit(home, root, params, slot)
+            if operation == 'audit':
+                result = audit(home)
             else:
-                result = resolve(home, root, params)
+                root = root_path(home)
+                if operation == 'inspect':
+                    result = inspect(home, root)
+                elif operation == 'edit':
+                    result = edit(home, root, params, slot)
+                else:
+                    result = resolve(home, root, params)
         except Refused as error:
             result = {'status': 'rejected', 'code': str(error), 'workspace_mutated': False}
         slot.complete()
@@ -379,10 +382,21 @@ def audit(home):
     This does not certify the free-form IMPROVEMENT-LOG or independent model gain.
     It is read-only and never repairs/reclaims an uncertain journal.
     """
-    report = {'scope': 'host instruction journal only', 'passed': False, 'changes': [],
+    report = {'schema': 'argos-instruction-audit/1', 'scope': 'host instruction journal only',
+              'status': 'failed', 'passed': False, 'changes': [],
               'full_log_claims_verified': False, 'independent_gain_verified': False}
     try:
         root = storage.safe_local(Path(home) / '.local/state/argos-live/instruction-changes')
+        if not root.exists():
+            report.update(status='empty', passed=True, qualified_experiments=0,
+                          note='No host-managed instruction experiments have been recorded.')
+            return report
+        if not (root / 'state.json').exists():
+            if any(root.iterdir()):
+                raise ValueError('journal-index-missing')
+            report.update(status='empty', passed=True, qualified_experiments=0,
+                          note='No host-managed instruction experiments have been recorded.')
+            return report
         current = read_json(root / 'state.json')
         if current['schema'] != SCHEMA or current['active'] is not None:
             raise ValueError('unfinished-change')
@@ -420,6 +434,10 @@ def audit(home):
             resulting = digest(before if resolved['action'] == 'restore' else after)
             if resolved['action'] not in {'keep', 'restore'} or resolved['result_sha256'] != resulting:
                 raise ValueError('resolution-byte-mismatch')
+            groups = [[], []]
+            measured = {'baseline_ids': resolved.get('baseline_ids', []),
+                        'candidate_ids': resolved.get('candidate_ids', []),
+                        'qualified_experiment': False, 'independent_gain_verified': False}
             if not resolved.get('rejected_evidence_code'):
                 measured, groups = evidence(home, intent, directory, {
                     'action': resolved['action'], 'baseline_ids': resolved['baseline_ids'],
@@ -433,16 +451,39 @@ def audit(home):
                             raise ValueError('saved-evidence-mismatch')
             elif resolved['action'] != 'restore' or resolved.get('qualified_experiment') is not False:
                 raise ValueError('unverified-evidence-claimed-as-gain')
+            def score_summary(group):
+                values = [pair[0] for pair in group]
+                return {'run_ids': [run['id'] for run in values],
+                        'scores': [{'correct': run['summary']['correct'], 'total': run['summary']['total'],
+                                    'format_errors': run['summary']['format_errors']} for run in values],
+                        'median_elapsed_seconds': (statistics.median(run['elapsed_seconds'] for run in values)
+                                                   if values else None)}
+
+            baseline_scores = [pair[0]['summary']['correct'] for pair in groups[0]]
+            candidate_scores = [pair[0]['summary']['correct'] for pair in groups[1]]
+            worst_case_delta = (min(candidate_scores) - max(baseline_scores)
+                                if baseline_scores and candidate_scores else None)
             report['changes'].append({'change_id': intent['id'], 'action': resolved['action'],
                 'before_sha256': digest(before), 'after_sha256': digest(after),
-                'qualified_experiment': resolved['qualified_experiment'], 'observed': resolved['observed']})
+                'qualified_experiment': resolved['qualified_experiment'], 'observed': resolved['observed'],
+                'baseline': score_summary(groups[0]), 'candidate': score_summary(groups[1]),
+                'worst_case_correct_delta': worst_case_delta,
+                'gain_kind': resolved.get('gain_kind'),
+                'minimum_correct_gain': resolved.get('minimum_correct_gain'),
+                'maximum_candidate_format_errors': resolved.get('maximum_candidate_format_errors'),
+                'policy': resolved.get('policy')})
             previous, previous_sha = intent['id'], resulting
         _path, live, _config, _receipt = inputs(home)
+        if (not entries and current['sequence'] == 0 and current['last_id'] is None):
+            report.update(status='empty', passed=True, qualified_experiments=0,
+                          note='No host-managed instruction experiments have been recorded.')
+            return report
         if (not entries or current['sequence'] != len(entries) or current['last_id'] != previous or
                 digest(live) != previous_sha or
                 workspace_context_receipt(_path.parent) != entries[-1][0]['workspace_context_sha256']):
             raise ValueError('current-instructions-or-index-mismatch')
-        report.update(passed=True, qualified_experiments=sum(item['qualified_experiment'] for item in report['changes']))
+        report.update(status='verified', passed=True,
+                      qualified_experiments=sum(item['qualified_experiment'] for item in report['changes']))
     except (ValueError, KeyError, OSError, TypeError) as error:
         report['error'] = type(error).__name__  # Never echo private inputs/paths.
     return report
