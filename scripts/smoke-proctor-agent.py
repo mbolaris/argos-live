@@ -45,7 +45,7 @@ def run(cli, report):
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or os.geteuid() == 0):
         raise ValueError('Proctor integration fixture requires an unprivileged disposable hosted runner')
     progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': [],
-                'provider_idless_calls': 0}
+                'provider_idless_calls': 0, 'start_result_on_wire_verified': False}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -74,6 +74,21 @@ def run(cli, report):
                 progress['errors'].append('unexpected-endpoint')
                 return self.respond(None)
             calls = progress['tools']
+            if progress['phase'] == 'proctor' and calls == 1:
+                # Do not let a scripted model conceal missing tool-result history.
+                # Require the actual start response on the follow-up wire request.
+                results = [row for row in request.get('messages', [])
+                           if isinstance(row, dict) and row.get('role') == 'tool']
+                try:
+                    started = json.loads(results[-1]['content'])
+                    step = started['next_step']
+                    if (started['state'] != 'ACTIVE' or step['tool'] != 'argos_proctor_item' or
+                            step['arguments']['item_id'] not in started['item_ids']):
+                        raise ValueError('Missing start navigation')
+                except (IndexError, KeyError, TypeError, ValueError):
+                    progress['errors'].append('start-result-not-forwarded')
+                    return self.respond(None)
+                progress['start_result_on_wire_verified'] = True
             campaign_end = len(TOOLS) + (len(CAMPAIGN_TOOLS) if progress['phase'] == 'campaign' else 0)
             if request.get('tools') and calls < campaign_end:
                 if calls < len(TOOLS):
@@ -189,6 +204,7 @@ def run(cli, report):
                 if not progress['provider_idless_calls']:
                     raise ValueError('Fixture did not exercise provider calls without IDs')
                 receipt.update(tool_calls=progress['tools'],
+                    start_result_on_wire_verified=progress['start_result_on_wire_verified'],
                     provider_idless_tool_calls=progress['provider_idless_calls'],
                     proctor_workload_released=True, transcript_id=transcript_id,
                     transcript_sha256=transcript_hash, signature_verified=True,
