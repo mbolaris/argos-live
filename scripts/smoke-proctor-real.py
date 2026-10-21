@@ -17,6 +17,43 @@ from argoslive import auto_setup, proctor_service, starter
 from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 
 
+def safe_controller_diagnostics(turn):
+    """Export bounded error classes and counters, never arguments or messages."""
+    if not isinstance(turn, dict):
+        return {}
+    result = {}
+    count = turn.get('host_tool_requests')
+    if type(count) is int and 0 <= count <= 10000:
+        result['host_tool_requests'] = count
+    allowed = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
+               'proctor_continue', 'proctor_submit', 'proctor_feedback'}
+    failures = turn.get('host_tool_failures')
+    if isinstance(failures, list):
+        result['host_tool_failures'] = [
+            {'kind': row['kind'], 'error_class': row['error_class']}
+            for row in failures[:32]
+            if (isinstance(row, dict) and row.get('kind') in allowed and
+                isinstance(row.get('error_class'), str) and len(row['error_class']) <= 64)]
+    outcomes = turn.get('tools')
+    if isinstance(outcomes, list):
+        result['tool_outcomes'] = [
+            {'kind': row['kind'], 'status': row['status']}
+            for row in outcomes[:64]
+            if (isinstance(row, dict) and row.get('kind') in allowed | {'proctor_host_submit', 'proctor_finalize'} and
+                isinstance(row.get('status'), str) and len(row['status']) <= 64)]
+    diagnostics = turn.get('admission_diagnostics')
+    safe_counts = ('tool_hooks', 'bound_calls', 'executions')
+    safe_rejections = ('unknown_tool', 'missing_admission', 'invalid_call_id', 'stale_binding')
+    if (isinstance(diagnostics, dict) and isinstance(diagnostics.get('rejected'), dict) and
+            all(type(diagnostics.get(name)) is int and 0 <= diagnostics[name] <= 10000 for name in safe_counts) and
+            all(type(diagnostics['rejected'].get(name)) is int and
+                0 <= diagnostics['rejected'][name] <= 10000 for name in safe_rejections)):
+        result['admission'] = {
+            **{name: diagnostics[name] for name in safe_counts},
+            'rejected': {name: diagnostics['rejected'][name] for name in safe_rejections}}
+    return result
+
+
 def run(cli, ollama, seed, report, *, deterministic_profile=False):
     scratch = Path(os.environ.get('RUNNER_TEMP', '/missing')).resolve()
     seed = seed.resolve(strict=True)
@@ -81,6 +118,7 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
                                 if isinstance(row, dict) and row.get('kind') in
                                 {'proctor_' + name for name in
                                  ('start', 'status', 'item', 'answer', 'submit', 'host_submit', 'continue', 'feedback', 'finalize')}]
+        receipt['controller_diagnostics'] = safe_controller_diagnostics(turn)
         wire = home / 'proctor-wire.json'
         receipt['wire_request'] = json.loads(wire.read_text()) if wire.is_file() else {}
         report.parent.mkdir(parents=True, exist_ok=True)
