@@ -94,7 +94,7 @@ class ProctorServiceTests(unittest.TestCase):
         state_path = self.home / '.config/argos-live/state.json'
         state_path.parent.mkdir(parents=True)
         state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
-        feedback = {'state': 'COMPLETED', 'correct': 3, 'total': 4}
+        feedback = {'state': 'COMPLETED', 'correct': 3, 'total': 4, 'unanswered': 0}
         campaign = {'status': 'completed', 'saved_evaluation_ids': ['run-1']}
         events = []
         with patch.object(proctor_service, 'run_practice', return_value={
@@ -111,6 +111,14 @@ class ProctorServiceTests(unittest.TestCase):
     def test_incomplete_practice_never_starts_campaign(self):
         with patch.object(proctor_service, 'run_practice', return_value={
                 'status': 'incomplete', 'result': {'state': 'ABANDONED'}}), \
+             patch.object(proctor_service, 'run_campaign') as campaign:
+            with self.assertRaisesRegex(ValueError, 'Practice did not complete'):
+                proctor_service.run_improvement(self.home)
+        campaign.assert_not_called()
+
+    def test_timed_terminal_exam_with_unanswered_items_cannot_start_campaign(self):
+        with patch.object(proctor_service, 'run_practice', return_value={
+                'status': 'completed', 'result': {'state': 'COMPLETED', 'unanswered': 4}}), \
              patch.object(proctor_service, 'run_campaign') as campaign:
             with self.assertRaisesRegex(ValueError, 'Practice did not complete'):
                 proctor_service.run_improvement(self.home)

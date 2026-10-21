@@ -637,7 +637,8 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         if outcome != 'COMPLETED':
             proctor_failure_diagnostics(home)
         terminal_states = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
-        expected_status = 'completed' if outcome == 'COMPLETED' else 'incomplete'
+        expected_status = ('completed' if outcome == 'COMPLETED' and
+                           result_summary.get('unanswered') == 0 else 'incomplete')
         if (practice.get('status') != expected_status or practice.get('practice_only') is not True or
                 practice.get('calibration_status') != 'uncalibrated' or
                 outcome not in terminal_states or
@@ -679,7 +680,7 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
             raise ValueError('Proctor transcript and practice receipt disagree')
         managed_stage('proctor-transcript-verified')
         receipt = {'proctor_practice_recorded': True,
-            'proctor_practice_completed': outcome == 'COMPLETED', 'proctor_practice_outcome': outcome,
+            'proctor_practice_completed': expected_status == 'completed', 'proctor_practice_outcome': outcome,
             'proctor_transcript_saved': True,
             'proctor_signature_verified': True, 'proctor_model_identity_bound': True,
             'proctor_calibration_status': 'uncalibrated', 'proctor_campaign_started': False,

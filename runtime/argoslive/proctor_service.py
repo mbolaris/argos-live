@@ -358,7 +358,9 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
         if status['state'] not in {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}:
             exam.host_abandon()
         feedback = exam.practice_feedback()
-        status = 'completed' if feedback['state'] == 'COMPLETED' else 'incomplete'
+        status = ('completed' if feedback['state'] == 'COMPLETED' and
+                  type(feedback.get('total')) is int and feedback['total'] > 0 and
+                  feedback.get('unanswered') == 0 else 'incomplete')
         return {'status': status, 'practice_only': True,
                 'calibration_status': cart.manifest['calibration_status'],
                 'cartridge_sha256': cart.digest, 'form_id': form_id,
@@ -397,7 +399,8 @@ def run_campaign(home, model, target, feedback, *, executable, openssl='openssl'
 def run_improvement(home, cartridge_path=None, form_id='pilot-a', *, executable=None, openssl='openssl'):
     """Run practice to completion, then start the agent's separate improvement campaign."""
     practice = run_practice(home, cartridge_path, form_id, executable=executable, openssl=openssl)
-    if practice['status'] != 'completed' or practice['result'].get('state') != 'COMPLETED':
+    if (practice['status'] != 'completed' or practice['result'].get('state') != 'COMPLETED' or
+            practice['result'].get('unanswered') != 0):
         raise ValueError('Practice did not complete; no improvement campaign was started')
     home = Path(home).resolve(strict=True)
     state = json.loads((home / '.config/argos-live/state.json').read_text(encoding='utf-8'))
