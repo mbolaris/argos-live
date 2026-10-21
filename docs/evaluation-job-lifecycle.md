@@ -50,12 +50,12 @@ not cancel a delegated evaluation.
 The patch runs only after npm verifies the upstream package against the checked
 in `package-lock.json`; it records hashes of the two modified runtime files.
 It refuses unrecognized source layouts. This addresses the observed no-progress
-watchdog path without exposing an asynchronous poll protocol. The asynchronous
-`Jobs` primitive above remains unexposed because returning `running` would let
-OpenClaw resume model generation while evaluation owns the same inference
-resources. Process-wide host survival and explicit cancellation still require a
-separately supervised host service before claiming that an aborted SDK turn can
-always be recovered.
+watchdog path in addition to the bounded start/wait protocol now exposed by both
+adapters. Returning `running` does not release workload admission: the managed
+bridge retains its delegated child and parent reservation, and the direct path
+retains the evaluator's admission. Host-process survival is not established.
+Explicit cancellation methods exist for trusted host callers, but an owner-facing
+command or UI is still required; a tool-wait abort is never owner cancellation.
 
 The pinned compatibility gate now runs the patched 2026.10.4 activity tracker,
 not only a mock: it lets the tracker age 16 minutes, emits an owner-fenced
