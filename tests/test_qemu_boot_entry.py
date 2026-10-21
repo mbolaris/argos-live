@@ -120,6 +120,7 @@ class BootEntryTests(unittest.TestCase):
                         dict(value, proctor_calibration_status='calibrated'),
                         dict(value, proctor_campaign_started=True),
                         dict(value, proctor_backend_weights_loaded_attested=True),
+                        dict(value, proctor_score={'correct': 1, 'total': 1}),
                         dict(value, proctor_score={'correct': 5, 'total': 4})):
             with self.assertRaises(ValueError):
                 module.guest_result('ARGOS_C3_RESULT ' + json.dumps(changed) + '\n',

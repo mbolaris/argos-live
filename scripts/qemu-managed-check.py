@@ -620,7 +620,8 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         failure_code = 'transcript-score'
         score = result_summary
         if (payload.get('outcome') != outcome or type(payload.get('total_items')) is not int or
-                not 1 <= payload['total_items'] <= 4 or
+                not 0 <= payload['total_items'] <= 4 or
+                (outcome == 'COMPLETED' and payload['total_items'] != 4) or
                 type(payload.get('accepted_correct')) is not int or
                 not 0 <= payload['accepted_correct'] <= payload['total_items'] or
                 score.get('correct') != payload['accepted_correct'] or

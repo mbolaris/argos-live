@@ -156,7 +156,7 @@ def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke
                     not isinstance(result.get('proctor_score'), dict) or
                     type(result['proctor_score'].get('correct')) is not int or
                     type(result['proctor_score'].get('total')) is not int or
-                    not 1 <= result['proctor_score']['total'] <= 4 or
+                    result['proctor_score']['total'] != 4 or
                     not 0 <= result['proctor_score']['correct'] <= result['proctor_score']['total']):
                 raise ValueError('Managed guest Proctor receipt is incomplete')
         if result.get('setup_mode') != 'managed' or result.get('startup_metrics', {}).get('backend', {}).get('mode') != 'CPU':
