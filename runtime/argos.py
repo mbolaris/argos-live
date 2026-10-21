@@ -283,6 +283,7 @@ def command_parser():
         commands.add_parser(name, help=help_text, add_help=False).set_defaults(delegate=module)
     bench = commands.add_parser('bench', help='Run local model benchmarks')
     benchmarks = bench.add_subparsers(dest='operation', required=True)
+    benchmarks.add_parser('control', help='Inspect or request cancellation of one evaluation', add_help=False).set_defaults(delegate='argoslive.evaluation_control')
     benchmarks.add_parser('speed', help='Measure Ollama speed', add_help=False).set_defaults(delegate='argoslive.bench_speed')
     benchmarks.add_parser('ability', help='Measure original ability probes', add_help=False).set_defaults(delegate='argoslive.bench_ability')
     benchmarks.add_parser('openclaw', help='Measure the configured OpenClaw assistant on the fixed ability suite', add_help=False).set_defaults(delegate='argoslive.bench_openclaw')

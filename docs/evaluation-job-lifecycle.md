@@ -28,7 +28,7 @@ separate trusted-host cancellation method requests cancellation; no agent cancel
 tool is registered.
 
 This still is not a supervisor that survives a host/gateway process kill, and
-the trusted-host cancellation hook is not wired to a production owner control.
+the owner control remains cooperative within the Argos account.
 Direct job IDs live in the plugin process; if that process dies, the benchmark
 can still save its result, but polling by job ID is unavailable and the workload
 reservation may require recovery. Saved metadata alone never proves that a
@@ -54,8 +54,8 @@ watchdog path in addition to the bounded start/wait protocol now exposed by both
 adapters. Returning `running` does not release workload admission: the managed
 bridge retains its delegated child and parent reservation, and the direct path
 retains the evaluator's admission. Host-process survival is not established.
-Explicit cancellation methods exist for trusted host callers, but an owner-facing
-command or UI is still required; a tool-wait abort is never owner cancellation.
+Explicit cancellation methods exist for trusted host callers. The owner CLI below
+requests cancellation through the evaluator; a tool-wait abort is never owner cancellation.
 
 The pinned compatibility gate now runs the patched 2026.10.4 activity tracker,
 not only a mock: it lets the tracker age 16 minutes, emits an owner-fenced
@@ -84,8 +84,7 @@ an error rather than inventing a result ID.
 
 Both hostAdmission and direct runArgos adapters now keep evaluation lifetime
 outside the individual tool wait. Tool abort cancels only the bounded wait.
-Owner cancellation remains an internal host method and still needs an owner UI
-or command integration. The benchmark itself saves the run without polling.
+Owner cancellation is also available through the identity-fenced CLI below. The benchmark itself saves the run without polling.
 
 Returning `running` must not resume controller inference while the delegated
 evaluation still owns inference resources. Existing bridge delegation explicitly
@@ -130,3 +129,25 @@ establish a 70-item result. Keep practice feedback separate from private held-ou
 verification; an agent's chosen change needs matched baseline/candidate evidence
 before an unseen form can establish transfer. Quick 20/20 is a smoke check, not
 evidence of further gain from a saturated test.
+
+## Owner cancellation command
+
+Run `argos bench control status` to read the recorded evaluation target. The
+receipt explicitly does not establish process liveness. To request Stop, copy
+its exact `id`, `generation`, and (for a delegated evaluation) `child_id`:
+
+```sh
+argos bench control stop --id ID --generation GENERATION
+argos bench control stop --id ID --generation GENERATION --child-id CHILD_ID
+```
+
+Stop writes a cancellation marker fenced to that reservation and child. The
+shared evaluator polls it through its existing cancellation path, including
+while waiting for a model turn. This covers direct CLI/plugin evaluations and
+managed delegated evaluations. A stale target, non-evaluation workload, or
+quarantine is refused. A request for an old child cannot stop its successor.
+`cancel_requested` proves only publication of the request: inspect the saved
+partial run and reservation afterward. This command never releases quarantine
+or claims backend drainage. Like the rest of this cooperative service, it is
+not protected against arbitrary same-UID filesystem access. Actual SDK and
+exact-image acceptance of this command remain required.
