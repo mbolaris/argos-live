@@ -241,15 +241,15 @@ def practice_turn_message(exam):
     if status['state'] == 'ACTIVE':
         unanswered = [item for item in status['item_ids'] if not status['answer_revisions'].get(item)]
         if unanswered:
-            item = exam.item(unanswered[0])
-            answer_format = ('For this multiple-choice item, answer with one choice key, not the choice text. '
-                             if item['response_type'] == 'mcq_single' else
-                             'For this numeric item, answer with only the number, with no units or explanation. ')
-            return ('The exam is still active. Your first action must be to call '
-                    'argos_proctor_answer with item_id ' + json.dumps(item['item_id']) +
-                    ' and your own answer as a string. Solve this question yourself. '
-                    'A prose reply does not record an answer. ' + answer_format + 'Use no outside tools.\n' +
-                    json.dumps(item, ensure_ascii=False))
+            # Let the model retrieve the item through its registered tool before
+            # answering. Supplying the full item here and asking the model to
+            # call answer directly led small models to print a textual imitation
+            # of a tool call instead of invoking the real tool.
+            return ('The exam is still active. Your first action must be a real tool call to '
+                    'argos_proctor_item with ' + json.dumps({'item_id': unanswered[0]}) +
+                    '. Wait for the item tool result, solve that question yourself, then make a real '
+                    'argos_proctor_answer tool call with the same item_id and your answer as a string. '
+                    'Do not write a tool call as ordinary text. Use no outside tools.')
     step = status.get('next_step')
     if not step:
         return None
