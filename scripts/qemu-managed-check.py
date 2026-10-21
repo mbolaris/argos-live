@@ -685,6 +685,7 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
             'proctor_calibration_status': 'uncalibrated', 'proctor_campaign_started': False,
             'proctor_backend_weights_loaded_attested': False, 'proctor_transcript_id': transcript_id,
             'proctor_model_tag': model_tag,
+            'proctor_answered': len(payload['accepted_answers']),
             'proctor_score': {'correct': payload['accepted_correct'], 'total': payload['total_items']}}
     except Exception:
         practice_error = failure_code

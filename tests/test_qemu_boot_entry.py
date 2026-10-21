@@ -105,7 +105,7 @@ class BootEntryTests(unittest.TestCase):
             'proctor_assistant_resumed': True, 'proctor_calibration_status': 'uncalibrated',
             'proctor_campaign_started': False, 'proctor_backend_weights_loaded_attested': False,
             'proctor_transcript_id': 'a' * 32, 'proctor_model_tag': 'qwen3:0.6b',
-            'proctor_score': {'correct': 3, 'total': 4}}
+            'proctor_score': {'correct': 3, 'total': 4}, 'proctor_answered': 4}
         wire = 'ARGOS_C3_RESULT ' + json.dumps(value) + '\n'
         self.assertEqual(module.guest_result(wire, setup_mode='managed', proctor_smoke=True), value)
         incomplete = dict(value, proctor_practice_completed=False, proctor_practice_outcome='ABANDONED',
@@ -121,7 +121,8 @@ class BootEntryTests(unittest.TestCase):
                         dict(value, proctor_campaign_started=True),
                         dict(value, proctor_backend_weights_loaded_attested=True),
                         dict(value, proctor_score={'correct': 1, 'total': 1}),
-                        dict(value, proctor_score={'correct': 5, 'total': 4})):
+                        dict(value, proctor_score={'correct': 5, 'total': 4}),
+                        dict(value, proctor_answered=0), dict(value, proctor_answered=True)):
             with self.assertRaises(ValueError):
                 module.guest_result('ARGOS_C3_RESULT ' + json.dumps(changed) + '\n',
                                     setup_mode='managed', proctor_smoke=True)

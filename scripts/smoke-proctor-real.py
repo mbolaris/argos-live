@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Disposable hosted real-model service test; no synthetic answers or model switch."""
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -69,6 +70,12 @@ def run(cli, ollama, seed, report):
                                  ('start', 'status', 'item', 'answer', 'submit', 'continue', 'feedback', 'finalize')}]
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps(receipt, indent=2) + '\n')
+        # This fixture uses only the public pilot and disposable synthetic
+        # configuration. Preserve the signed record and public verification key,
+        # never the private key, so the saved ID remains independently auditable.
+        report.with_name('proctor-real-transcript.json').write_text(json.dumps({
+            'envelope': envelope,
+            'public_key_der_base64': base64.b64encode(signer.public_key_der).decode()}, indent=2) + '\n')
         if (result['status'] != 'completed' or payload['outcome'] != 'COMPLETED' or
                 payload['total_items'] != 4 or len(payload['accepted_answers']) != 4 or
                 not verified or not receipt['model_identity_bound']):

@@ -72,6 +72,6 @@ jobs:
           path: |
             work/native-chat.json
             work/desktop-startup.json
-            work/proctor-real.json
+            work/proctor-real*.json
           if-no-files-found: error
           retention-days: 14

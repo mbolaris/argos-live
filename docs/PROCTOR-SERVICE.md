@@ -34,6 +34,11 @@ an answer. Practice feedback is suggested only after completion; held-out exams
 never offer it. These hints do not force an agent to continue, and the real-model
 image test must still prove completion.
 
+The plugin renders the next action in plain text as well as JSON. A question
+response explicitly asks the agent to solve it and call the answer tool;
+recording an answer explicitly asks it to continue or submit. These directions
+carry no answer hints and do not turn an incomplete attempt into a pass.
+
 `argos proctor improve` runs that practice session first, waits for its signed
 transcript to be saved and its reservation to drain, then starts a separate
 host-admitted improvement campaign. The campaign receives practice misses as
@@ -62,11 +67,18 @@ It does not protect keys or files against another process with the same UID,
 prove which weights the inference backend actually loaded after startup,
 prevent direct access to the local Ollama API, or reserve the GPU against an
 unrelated gateway that bypasses Argos workload admission.
-The exact-image hosted service smoke verifies the owner entry point, scoped
+The exact-image hosted service smoke requires the owner entry point, scoped
 tools, managed gateway lifecycle, a signed completed practice
-receipt bound to the bundled model identity, and assistant recovery. Incomplete
+receipt with all four items answered, bound to the bundled model identity, and assistant recovery. Incomplete
 receipts remain saved diagnostic evidence and fail the acceptance gate. Synthetic
 integration tests separately verify scoped tool and reservation behavior. The
 smoke does not attest which weights Ollama loaded at inference time. A Toronado
 exam still requires a reviewed exclusive slot, verified model/config snapshot,
 calibrated forms for ability claims, and independent transcript auditing.
+
+The native-chat CI workflow also exercises the real service with the same
+verified bundled model, before requiring an ISO rebuild. It uses disposable
+storage discovery and the real gateway, exam, model-generated answers and
+signer. It requires four recorded answers and signed completion, preserving the
+receipt, transcript and public verification key. It is a public-pilot regression
+test; it does not establish image acceptance or general ability.
