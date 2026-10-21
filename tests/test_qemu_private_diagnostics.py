@@ -19,6 +19,28 @@ spec.loader.exec_module(module)
 
 class DiagnosticFlagsTests(unittest.TestCase):
 
+    def test_session_shape_retains_stop_and_tool_flow_without_private_content(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            root = home / '.local/state/argos-live/proctor/profiles/practice/hash/agents/main/sessions'
+            root.mkdir(parents=True)
+            messages = [
+                {'role': 'user', 'content': 'private-canary'},
+                {'role': 'assistant', 'stopReason': 'toolUse', 'content': [
+                    {'type': 'toolCall', 'name': 'argos_proctor_start', 'arguments': {'secret': 'private-canary'}}]},
+                {'role': 'toolResult', 'content': [{'type': 'text', 'text': 'private-canary'}]},
+                {'role': 'assistant', 'stopReason': 'private-canary', 'content': [
+                    {'type': 'text', 'text': 'private-canary argos_proctor_item'}]},
+            ]
+            (root / 'fixture.jsonl').write_text('\n'.join(json.dumps({'message': row}) for row in messages))
+            rows = module.proctor_session_shape(home)
+            self.assertNotIn('private-canary', json.dumps(rows))
+            self.assertEqual([row['role'] for row in rows], ['assistant', 'toolResult', 'assistant'])
+            self.assertEqual(rows[0]['tool_calls'], ['argos_proctor_start'])
+            self.assertEqual(rows[0]['stop_reason'], 'toolUse')
+            self.assertEqual(rows[-1]['stop_reason'], 'other')
+            self.assertEqual(rows[-1]['text_tool_names'], ['argos_proctor_item'])
+
     def test_proctor_failure_receipt_exposes_only_allowlisted_lifecycle_facts(self):
         import sqlite3
         with tempfile.TemporaryDirectory() as temporary:
@@ -67,7 +89,7 @@ class DiagnosticFlagsTests(unittest.TestCase):
             self.assertNotIn('secret', output.getvalue())
             value = json.loads(output.getvalue().split(' ', 1)[1])
             self.assertEqual(set(value), {'model_reply_verified', 'metrics_present', 'backend_mode',
-                                         'backend_size_recorded', 'zero_vram_recorded'})
+                                         'backend_size_recorded', 'zero_vram_recorded', 'backend_bytes'})
 
     def test_startup_measurement_still_requires_verified_reply_and_cpu(self):
         metrics = {'backend': {'mode': 'CPU', 'size_bytes': 100, 'vram_bytes': 0}}

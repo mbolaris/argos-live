@@ -461,6 +461,9 @@ def ready_cpu_metrics(report):
             'model_reply_verified': report.get('model_reply_verified') is True,
             'metrics_present': isinstance(metrics, dict),
             'backend_mode': mode if mode in ('CPU', 'GPU', 'split') else None,
+            'backend_bytes': {key: backend[key] for key in ('size_bytes', 'vram_bytes')
+                              if type(backend.get(key)) in (int, float) and
+                              0 <= backend[key] <= 10**15},
             'backend_size_recorded': type(backend.get('size_bytes')) in (int, float),
             'zero_vram_recorded': type(backend.get('vram_bytes')) in (int, float)
                 and backend['vram_bytes'] == 0}), flush=True)
@@ -471,6 +474,37 @@ def ready_cpu_metrics(report):
 def managed_check(started, desktop_seconds):
     with FirefoxLabSession() as native_lab:
         return managed_check_body(started, desktop_seconds, native_lab)
+
+
+def proctor_session_shape(home):
+    """Inspect private session structure without exporting prompts or responses."""
+    rows = []
+    names = {'argos_proctor_' + name for name in
+             ('start', 'status', 'item', 'answer', 'continue', 'submit', 'feedback')}
+    root = Path(home) / '.local/state/argos-live/proctor/profiles/practice'
+    for path in sorted(root.glob('*/agents/main/sessions/*.jsonl'))[:8]:
+        if path.is_symlink() or path.stat().st_size > 4 * 1024 * 1024:
+            continue
+        for line in path.read_text().splitlines()[-128:]:
+            try:
+                value = json.loads(line).get('message', {})
+                if not isinstance(value, dict) or value.get('role') not in ('assistant', 'toolResult'):
+                    continue
+                content = value.get('content', [])
+                blocks = content if isinstance(content, list) else []
+                text = '\n'.join(block.get('text', '') for block in blocks
+                                 if isinstance(block, dict) and isinstance(block.get('text'), str))
+                reason = value.get('stopReason')
+                rows.append({'role': value['role'],
+                    'stop_reason': reason if reason in ('stop', 'toolUse', 'length', 'error', 'aborted') else 'other',
+                    'text_chars': len(text),
+                    'text_tool_names': sorted(name for name in names if name in text),
+                    'tool_calls': sorted({block['name'] if block.get('name') in names else 'other'
+                        for block in blocks if isinstance(block, dict) and block.get('type') == 'toolCall'}),
+                    'is_error': value.get('isError') is True})
+            except (ValueError, TypeError, AttributeError):
+                continue
+    return rows[-64:]
 
 
 def proctor_failure_diagnostics(home):
@@ -495,6 +529,7 @@ def proctor_failure_diagnostics(home):
     tools = tools if isinstance(tools, list) else []
     count = turn.get('host_tool_requests')
     receipt = {'turn_recorded': bool(turn), 'worker_recorded': bool(worker),
+        'session_shape': proctor_session_shape(home),
         'worker_drained': worker.get('process_group_drained') is True,
         'sdk_end_observed': worker.get('sdk_end_observed') is True,
         'tool_requests': count if type(count) is int and 0 <= count <= 10000 else None,
