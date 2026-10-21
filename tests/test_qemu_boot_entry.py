@@ -105,7 +105,8 @@ class BootEntryTests(unittest.TestCase):
             'proctor_assistant_resumed': True, 'proctor_calibration_status': 'uncalibrated',
             'proctor_campaign_started': False, 'proctor_backend_weights_loaded_attested': False,
             'proctor_transcript_id': 'a' * 32, 'proctor_model_tag': 'qwen3:0.6b',
-            'proctor_score': {'correct': 3, 'total': 4}, 'proctor_answered': 4}
+            'proctor_score': {'correct': 3, 'total': 4}, 'proctor_answered': 4,
+            'proctor_modules_submitted': True}
         wire = 'ARGOS_C3_RESULT ' + json.dumps(value) + '\n'
         self.assertEqual(module.guest_result(wire, setup_mode='managed', proctor_smoke=True), value)
         incomplete = dict(value, proctor_practice_completed=False, proctor_practice_outcome='ABANDONED',

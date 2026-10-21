@@ -74,7 +74,7 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
             'answered': len(payload['accepted_answers']), 'correct': payload['accepted_correct'],
             'practice_only': True, 'calibration_status': 'uncalibrated',
             'host_turns': result['host_turns'],
-            'requested_temperature': 0 if deterministic_profile else None,
+            'requested_temperature': config['models']['providers']['ollama']['models'][0].get('params', {}).get('temperature'),
             'image_acceptance': False}
         turn = json.loads((home / '.local/state/argos-live/workload/controller-turn.json').read_text())
         receipt['tool_kinds'] = [row['kind'] for row in turn.get('tools', [])
@@ -106,9 +106,11 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
             'public_key_der_base64': base64.b64encode(signer.public_key_der).decode()}, indent=2) + '\n')
         if (result['status'] != 'completed' or payload['outcome'] != 'COMPLETED' or
                 payload['total_items'] != 4 or len(payload['accepted_answers']) != 4 or
+                not all(module['state'] == 'SUBMITTED' for module in payload['modules']) or
                 not verified or not receipt['model_identity_bound']):
             raise ValueError('Real-model Proctor did not complete all four practice items; see receipt')
-        if deterministic_profile and receipt['wire_request'].get('temperature') != 0:
+        if (receipt['requested_temperature'] is not None and
+                receipt['wire_request'].get('temperature') != receipt['requested_temperature']):
             raise ValueError('Deterministic fixture request temperature was not observed on the wire')
 
 

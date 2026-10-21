@@ -139,6 +139,7 @@ def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke
         if proctor_smoke:
             for field in ('proctor_practice_recorded', 'proctor_transcript_saved',
                           'proctor_signature_verified', 'proctor_model_identity_bound',
+                          'proctor_modules_submitted',
                           'proctor_assistant_resumed'):
                 if result.get(field) is not True:
                     raise ValueError('Managed guest did not establish Proctor acceptance')
