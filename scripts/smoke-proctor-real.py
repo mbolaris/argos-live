@@ -5,6 +5,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -40,8 +41,16 @@ def run(cli, ollama, seed, report):
         # the same immutable seed; service, model, answers and signing are real.
         def source(_home, *, include_model_identity=False):
             return ((seed, starter.TAG, identity) if include_model_identity else (seed, starter.TAG))
+        original_environment = proctor_service.owned_gateway.environment
+        def observed_environment(home, config_path):
+            env = original_environment(home, config_path)
+            env.update(NODE_OPTIONS='--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri(),
+                ARGOS_NATIVE_REQUEST_REPORT=str(home / 'proctor-wire.json'),
+                ARGOS_NATIVE_OPENCLAW_ENTRY=str(cli.resolve()))
+            return env
         with patch.object(proctor_service.startup, 'source', side_effect=source), \
                 patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
+                patch.object(proctor_service.owned_gateway, 'environment', side_effect=observed_environment), \
                 patch.dict(os.environ, {'PATH': str(ollama.resolve().parent) + os.pathsep + os.environ['PATH']}):
             result = proctor_service.run_practice(home, executable=str(cli.absolute()))
         root = home / '.local/state/argos-live/proctor'
@@ -69,8 +78,23 @@ def run(cli, ollama, seed, report):
                                 if isinstance(row, dict) and row.get('kind') in
                                 {'proctor_' + name for name in
                                  ('start', 'status', 'item', 'answer', 'submit', 'host_submit', 'continue', 'feedback', 'finalize')}]
+        wire = home / 'proctor-wire.json'
+        receipt['wire_request'] = json.loads(wire.read_text()) if wire.is_file() else {}
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps(receipt, indent=2) + '\n')
+        # Only this public-pilot scratch fixture exports model reply text. There
+        # is no owner workspace or owner prompt. Strip exact ephemeral gateway
+        # tokens and identifier-shaped values; never export raw SDK output.
+        tokens = [config['gateway']['auth']['token']]
+        for path in (root / 'profiles').rglob('openclaw.json'):
+            tokens.append(json.loads(path.read_text())['gateway']['auth']['token'])
+        replies = []
+        for row in result.get('agent_summary', [])[:64]:
+            text = row.get('text') if isinstance(row, dict) else None
+            if not isinstance(text, str): continue
+            for token in tokens: text = text.replace(token, '[fixture-token]')
+            replies.append(re.sub(r'(?i)[a-f0-9]{32,}', '[identifier]', text)[:4096])
+        report.with_name('proctor-real-replies.json').write_text(json.dumps(replies, indent=2) + '\n')
         # This fixture uses only the public pilot and disposable synthetic
         # configuration. Preserve the signed record and public verification key,
         # never the private key, so the saved ID remains independently auditable.
