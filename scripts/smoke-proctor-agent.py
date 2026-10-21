@@ -80,7 +80,7 @@ def run(cli, report):
                 results = [row for row in request.get('messages', [])
                            if isinstance(row, dict) and row.get('role') == 'tool']
                 try:
-                    started = json.loads(results[-1]['content'])
+                    started = json.loads(results[-1]['content'].rsplit('\n\n', 1)[-1])
                     step = started['next_step']
                     if (started['state'] != 'ACTIVE' or step['tool'] != 'argos_proctor_item' or
                             step['arguments']['item_id'] not in started['item_ids']):

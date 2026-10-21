@@ -216,7 +216,19 @@ export default function register(api) {
   const controlled = async (id, kind, params, signal, onUpdate) => {
     if (!admission) throw new Error('This tool requires a managed host controller.');
     const value = await admission.execute(id, kind, params, signal, onUpdate);
-    return textResult(JSON.stringify(value, null, 2), value);
+    let instruction = '';
+    if (kind.startsWith('proctor_') && value.status !== 'busy') {
+      if (value.next_step?.tool && value.next_step?.arguments) {
+        instruction = value.next_step.instruction ? value.next_step.instruction + ' Then '
+          : value.state === 'COMPLETED'
+          ? 'The exam is complete. Request the permitted practice feedback now. '
+          : 'The exam is not finished. Continue now; do not end your turn. ';
+        instruction += `Call ${value.next_step.tool} with ${JSON.stringify(value.next_step.arguments)}.`;
+      } else if (kind === 'proctor_item' && typeof value.item_id === 'string') {
+        instruction = `Solve the question below yourself. Your next action must call argos_proctor_answer with item_id ${JSON.stringify(value.item_id)} and your answer as a string. Do not end your turn.`;
+      }
+    }
+    return textResult((instruction ? instruction + '\n\n' : '') + JSON.stringify(value, null, 2), value);
   };
   api.registerTool({
     name:'argos_inspect', label:'Inspect current experiment setup',

@@ -481,8 +481,9 @@ def proctor_session_shape(home):
     rows = []
     names = {'argos_proctor_' + name for name in
              ('start', 'status', 'item', 'answer', 'continue', 'submit', 'feedback')}
-    root = Path(home) / '.local/state/argos-live/proctor/profiles/practice'
-    for path in sorted(root.glob('*/agents/main/sessions/*.jsonl'))[:8]:
+    # State-directory overrides differ between SDK and gateway versions. Read
+    # bounded session files in this disposable home, never publish their paths.
+    for path in sorted(Path(home).rglob('*.jsonl'))[:16]:
         if path.is_symlink() or path.stat().st_size > 4 * 1024 * 1024:
             continue
         for line in path.read_text().splitlines()[-128:]:

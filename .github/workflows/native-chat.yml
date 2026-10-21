@@ -5,6 +5,9 @@ on:
     paths:
       - '.github/workflows/native-chat.yml'
       - 'scripts/smoke-native-chat.py'
+      - 'scripts/smoke-proctor-real.py'
+      - 'runtime/argoslive/proctor_service.py'
+      - 'runtime/argoslive/proctor/**'
       - 'scripts/smoke-desktop-startup.py'
       - 'runtime/argoslive/startup.py'
       - 'runtime/argoslive/desktop.py'
@@ -59,6 +62,9 @@ jobs:
       - name: Native managed desktop startup and authenticated controls
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
+      - name: Real bundled-model Proctor practice with signed completion
+        run: |
+          python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" --report work/proctor-real.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -66,5 +72,6 @@ jobs:
           path: |
             work/native-chat.json
             work/desktop-startup.json
+            work/proctor-real.json
           if-no-files-found: error
           retention-days: 14
