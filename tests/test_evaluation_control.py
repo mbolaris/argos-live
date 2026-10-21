@@ -1,8 +1,13 @@
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'runtime'))
 
 from argoslive import bench_openclaw, evaluation_control as control, workload
 from argoslive.results import Store
@@ -43,8 +48,12 @@ class OwnerControlTests(unittest.TestCase):
             def turn(self, prompt):
                 if self.calls == 2:
                     target = control.target(home)
-                    self_test.assertEqual(control.main(['stop', '--home', str(home),
-                        '--id', target['id'], '--generation', str(target['generation'])]), 0)
+                    completed = subprocess.run([sys.executable, str(ROOT / 'runtime/argos.py'),
+                        'bench', 'control', 'stop', '--home', str(home),
+                        '--id', target['id'], '--generation', str(target['generation'])],
+                        capture_output=True, text=True, timeout=15)
+                    self_test.assertEqual(completed.returncode, 0, completed.stderr)
+                    self_test.assertEqual(json.loads(completed.stdout)['status'], 'cancel_requested')
                 return super().turn(prompt)
 
         self_test = self
