@@ -110,7 +110,7 @@ class ProctorServiceTests(unittest.TestCase):
 
     def test_incomplete_practice_never_starts_campaign(self):
         with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'completed', 'result': {'state': 'INCOMPLETE'}}), \
+                'status': 'incomplete', 'result': {'state': 'ABANDONED'}}), \
              patch.object(proctor_service, 'run_campaign') as campaign:
             with self.assertRaisesRegex(ValueError, 'Practice did not complete'):
                 proctor_service.run_improvement(self.home)

@@ -16,8 +16,10 @@ The command uses the bundled `pilot-a` cartridge unless the owner supplies a
 compiled cartridge and form. The bundled four-item pilot exists to exercise the
 tool flow and feedback path. It is explicitly uncalibrated and cannot verify
 general ability or establish an improvement. After a terminal practice session,
-the agent gets aggregate scores and item-level submitted/expected answers to
-support coaching. Assessment and held-out exams remain outside this entry point.
+the host receives aggregate scores and item-level submitted/expected answers to
+support coaching. If the agent turn ends before submission, the host closes the
+session as `ABANDONED`, signs the partial transcript, and reports an incomplete
+practice. Assessment and held-out exams remain outside this entry point.
 
 `argos proctor improve` runs that practice session first, waits for its signed
 transcript to be saved and its reservation to drain, then starts a separate
@@ -28,6 +30,7 @@ workload reservation at a time, and the controller saves evaluations even if
 the campaign agent turn ends. Practice scores never count as evidence that an
 ability improved. The campaign follows the installed Argos improvement skill
 for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
+An incomplete practice is retained for review and never starts a campaign.
 
 The service refuses to start if the everyday OpenClaw gateway or Ollama already
 occupies its loopback port. Close the everyday assistant first; the Proctor
@@ -47,7 +50,9 @@ prove which weights the inference backend actually loaded after startup,
 prevent direct access to the local Ollama API, or reserve the GPU against an
 unrelated gateway that bypasses Argos workload admission.
 The exact-image hosted service smoke verifies the owner entry point, scoped
-tools, managed gateway lifecycle, signed receipt, and reservation binding using
-a synthetic local model. A Toronado exam still requires a reviewed exclusive
-slot, verified model/config snapshot, calibrated forms for ability claims, and
-independent transcript auditing.
+tools, managed gateway lifecycle, a signed complete or incomplete practice
+receipt bound to the bundled model identity, and assistant recovery. Synthetic
+integration tests separately verify scoped tool and reservation behavior. The
+smoke does not attest which weights Ollama loaded at inference time. A Toronado
+exam still requires a reviewed exclusive slot, verified model/config snapshot,
+calibrated forms for ability claims, and independent transcript auditing.

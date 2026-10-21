@@ -527,14 +527,16 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         practice = json.loads(completed.stdout)
         failure_code = 'practice-receipt'
         transcript_id = practice.get('transcript_id')
-        if (practice.get('status') != 'completed' or practice.get('practice_only') is not True or
-                practice.get('calibration_status') != 'uncalibrated' or
-                not isinstance(transcript_id, str) or not re.fullmatch(r'[a-f0-9]{32}', transcript_id)):
-            raise ValueError('Bundled-model Proctor practice did not return a complete host receipt')
         result_summary = practice.get('result')
-        if isinstance(result_summary, dict) and result_summary.get('state') in {
-                'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}:
-            managed_stage('proctor-result-' + result_summary['state'].lower())
+        outcome = result_summary.get('state') if isinstance(result_summary, dict) else None
+        terminal_states = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
+        expected_status = 'completed' if outcome == 'COMPLETED' else 'incomplete'
+        if (practice.get('status') != expected_status or practice.get('practice_only') is not True or
+                practice.get('calibration_status') != 'uncalibrated' or
+                outcome not in terminal_states or
+                not isinstance(transcript_id, str) or not re.fullmatch(r'[a-f0-9]{32}', transcript_id)):
+            raise ValueError('Bundled-model Proctor practice did not return a terminal host receipt')
+        managed_stage('proctor-result-' + outcome.lower())
         failure_code = 'transcript-store'
         proctor_root = home / '.local/state/argos-live/proctor'
         database_path = proctor_root / 'state.sqlite3'
@@ -559,14 +561,18 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
             raise ValueError('Signed Proctor transcript does not bind the verified model source')
         managed_stage('proctor-model-identity-verified')
         failure_code = 'transcript-score'
-        score = practice.get('result', {})
-        if (payload.get('outcome') != 'COMPLETED' or payload.get('total_items') != 4 or
+        score = result_summary
+        if (payload.get('outcome') != outcome or type(payload.get('total_items')) is not int or
+                not 1 <= payload['total_items'] <= 4 or
                 type(payload.get('accepted_correct')) is not int or
+                not 0 <= payload['accepted_correct'] <= payload['total_items'] or
                 score.get('correct') != payload['accepted_correct'] or
                 score.get('total') != payload['total_items']):
             raise ValueError('Proctor transcript and practice receipt disagree')
         managed_stage('proctor-transcript-verified')
-        receipt = {'proctor_practice_completed': True, 'proctor_transcript_saved': True,
+        receipt = {'proctor_practice_recorded': True,
+            'proctor_practice_completed': outcome == 'COMPLETED', 'proctor_practice_outcome': outcome,
+            'proctor_transcript_saved': True,
             'proctor_signature_verified': True, 'proctor_model_identity_bound': True,
             'proctor_calibration_status': 'uncalibrated', 'proctor_campaign_started': False,
             'proctor_backend_weights_loaded_attested': False, 'proctor_transcript_id': transcript_id,

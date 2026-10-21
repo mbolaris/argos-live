@@ -99,7 +99,8 @@ class BootEntryTests(unittest.TestCase):
             'model_lab_assistant_resumed': True, 'network_routes': False,
             'physical_acceptance': False, 'browser_chat_reply_verified': False,
             'startup_metrics': {'backend': {'mode': 'CPU'}},
-            'proctor_practice_completed': True, 'proctor_transcript_saved': True,
+            'proctor_practice_recorded': True, 'proctor_practice_completed': True,
+            'proctor_practice_outcome': 'COMPLETED', 'proctor_transcript_saved': True,
             'proctor_signature_verified': True, 'proctor_model_identity_bound': True,
             'proctor_assistant_resumed': True, 'proctor_calibration_status': 'uncalibrated',
             'proctor_campaign_started': False, 'proctor_backend_weights_loaded_attested': False,
@@ -107,8 +108,14 @@ class BootEntryTests(unittest.TestCase):
             'proctor_score': {'correct': 3, 'total': 4}}
         wire = 'ARGOS_C3_RESULT ' + json.dumps(value) + '\n'
         self.assertEqual(module.guest_result(wire, setup_mode='managed', proctor_smoke=True), value)
+        incomplete = dict(value, proctor_practice_completed=False, proctor_practice_outcome='ABANDONED',
+                          proctor_score={'correct': 1, 'total': 2})
+        self.assertEqual(module.guest_result('ARGOS_C3_RESULT ' + json.dumps(incomplete) + '\n',
+                         setup_mode='managed', proctor_smoke=True), incomplete)
         for changed in (dict(value, proctor_signature_verified=False),
+                        dict(value, proctor_practice_recorded=False),
                         dict(value, proctor_transcript_id='bad'),
+                        dict(value, proctor_practice_outcome='ABANDONED'),
                         dict(value, proctor_calibration_status='calibrated'),
                         dict(value, proctor_campaign_started=True),
                         dict(value, proctor_backend_weights_loaded_attested=True),

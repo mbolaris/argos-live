@@ -145,6 +145,22 @@ class AgentSessionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'withheld'):
             held_out.practice_feedback()
 
+    def test_host_abandon_saves_signed_partial_practice_and_invalidates_remaining_modules(self):
+        exam = self.session(tier='practice')
+        exam.start('practice-abandon-start')
+        exam.answer('q1', 'B', 'practice-abandon-answer')
+        status = exam.host_abandon()
+        self.assertEqual((status['state'], status['reason']), ('ABANDONED', 'HOST_TURN_ENDED'))
+        feedback = exam.practice_feedback()
+        self.assertEqual((feedback['state'], feedback['correct'], feedback['total']), ('ABANDONED', 1, 2))
+        self.assertEqual(feedback['unanswered'], 1)
+        envelope = exam.host_transcript()
+        payload = json.loads(envelope['payload_json'])
+        self.assertEqual((payload['outcome'], payload['reason']), ('ABANDONED', 'HOST_TURN_ENDED'))
+        self.assertTrue(all(module['state'] == 'INVALIDATED' for module in payload['modules']))
+        again = exam.host_abandon()
+        self.assertEqual((again['state'], again['reason']), ('ABANDONED', 'HOST_TURN_ENDED'))
+
     def test_agent_answer_cannot_choose_revision_or_rewrite_condition(self):
         exam = self.session()
         exam.start('host-start-0005')

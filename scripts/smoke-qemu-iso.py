@@ -137,11 +137,15 @@ def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke
             if result.get(field) is not False:
                 raise ValueError('Unexpected managed guest scope')
         if proctor_smoke:
-            for field in ('proctor_practice_completed', 'proctor_transcript_saved',
+            for field in ('proctor_practice_recorded', 'proctor_transcript_saved',
                           'proctor_signature_verified', 'proctor_model_identity_bound',
                           'proctor_assistant_resumed'):
                 if result.get(field) is not True:
                     raise ValueError('Managed guest did not establish Proctor acceptance')
+            outcome = result.get('proctor_practice_outcome')
+            if (outcome not in ('COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED') or
+                    result.get('proctor_practice_completed') is not (outcome == 'COMPLETED')):
+                raise ValueError('Managed guest Proctor outcome is missing or inconsistent')
             if (result.get('proctor_calibration_status') != 'uncalibrated' or
                     result.get('proctor_campaign_started') is not False or
                     result.get('proctor_backend_weights_loaded_attested') is not False):
@@ -152,8 +156,8 @@ def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke
                     not isinstance(result.get('proctor_score'), dict) or
                     type(result['proctor_score'].get('correct')) is not int or
                     type(result['proctor_score'].get('total')) is not int or
-                    result['proctor_score']['total'] != 4 or
-                    not 0 <= result['proctor_score']['correct'] <= 4):
+                    not 1 <= result['proctor_score']['total'] <= 4 or
+                    not 0 <= result['proctor_score']['correct'] <= result['proctor_score']['total']):
                 raise ValueError('Managed guest Proctor receipt is incomplete')
         if result.get('setup_mode') != 'managed' or result.get('startup_metrics', {}).get('backend', {}).get('mode') != 'CPU':
             raise ValueError('Managed guest did not establish CPU startup')

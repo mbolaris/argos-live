@@ -277,8 +277,12 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
                 controller_environment=controller_env))
             bridge.launch(executable, MESSAGE, config_path=config_path, timeout=1800, local=False)
             result, _stderr = bridge.finish(timeout=1900)
+        status = exam.status()
+        if status['state'] not in {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}:
+            exam.host_abandon()
         feedback = exam.practice_feedback()
-        return {'status': 'completed', 'practice_only': True,
+        status = 'completed' if feedback['state'] == 'COMPLETED' else 'incomplete'
+        return {'status': status, 'practice_only': True,
                 'calibration_status': cart.manifest['calibration_status'],
                 'cartridge_sha256': cart.digest, 'form_id': form_id,
                 'transcript_id': exam.session_id.removeprefix('sess_'),
@@ -347,8 +351,12 @@ def main(argv=None):
               (f"Improvement session ended: {len(value['campaign']['saved_evaluation_ids'])} saved evaluations; "
                f"practice transcript {value['practice']['transcript_id']} (uncalibrated coaching only)."
                if args.operation == 'improve' else
-               f"Practice complete: {value['result']['correct']}/{value['result']['total']}; "
-               f"transcript {value['transcript_id']} (uncalibrated practice only)."))
+              (f"Practice complete: {value['result']['correct']}/{value['result']['total']}; "
+               f"transcript {value['transcript_id']} (uncalibrated practice only)."
+               if value['status'] == 'completed' else
+               f"Practice ended incomplete ({value['result']['state']}): "
+               f"{value['result']['correct']}/{value['result']['total']}; "
+               f"signed transcript {value['transcript_id']} (uncalibrated practice only).")))
         return 0
     except (ValueError, OSError, KeyError, TypeError) as exc:
         parser.exit(1, f'Argos Proctor: {exc}\n')

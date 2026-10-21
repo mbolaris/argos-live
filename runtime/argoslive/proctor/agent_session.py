@@ -112,6 +112,12 @@ class AgentSession:
         self.engine.tick()
         return self.engine.get_transcript(self.session_id, self._token)
 
+    def host_abandon(self):
+        """Host-only close for an agent turn that ended before a terminal exam state."""
+        self._require_started()
+        self.engine.host_abandon(self.session_id, self._token)
+        return self.status()
+
     def practice_feedback(self):
         """Return aggregate coaching feedback only for a host-selected practice form."""
         if self.tier != 'practice':

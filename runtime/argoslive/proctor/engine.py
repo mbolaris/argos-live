@@ -507,6 +507,18 @@ class Proctor:
         return json.loads(row[0])
 
     @synchronized
+    def host_abandon(self, sid, token):
+        """Finalize a host-owned practice whose agent turn ended before submission."""
+        with transaction(self.db):
+            session = self._session(sid, token)
+            if session['state'] not in TERMINAL:
+                self.db.execute("UPDATE session_modules SET state='INVALIDATED' "
+                    "WHERE session_id=? AND state IN ('PENDING','ACTIVE','BREAK')", (sid,))
+                self._terminal(sid, 'ABANDONED', 'HOST_TURN_ENDED', self.clock())
+        self.issue_transcripts()
+        return self.get_transcript(sid, token)
+
+    @synchronized
     def tick(self):
         """Call from the daemon scheduler; also usable by an offline trusted runner."""
         rows = self.db.execute('SELECT session_id FROM sessions WHERE cartridge_digest=? AND state NOT IN (?,?,?,?)',
