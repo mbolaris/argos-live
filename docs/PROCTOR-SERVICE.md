@@ -25,6 +25,15 @@ and cannot pass image acceptance or start improvement. The launch prompt names
 argos_proctor_start({}) as the required first action. Assessment and held-out
 exams remain outside this entry point.
 
+Start, status, answer, submit and continue responses include a `next_step`
+tool name and arguments to help the agent navigate the exam. After fetching an
+item, the agent must solve it and supply its own answer. Navigation uses only
+the exam state and recorded answer revisions; an incorrect recorded answer
+advances the same way as a correct one. It never exposes correctness or chooses
+an answer. Practice feedback is suggested only after completion; held-out exams
+never offer it. These hints do not force an agent to continue, and the real-model
+image test must still prove completion.
+
 `argos proctor improve` runs that practice session first, waits for its signed
 transcript to be saved and its reservation to drain, then starts a separate
 host-admitted improvement campaign. The campaign receives practice misses as

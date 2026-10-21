@@ -77,12 +77,14 @@ class AgentSession:
             raise ValueError('No active exam module')
         prior = self._answers.get(item_id)
         if prior is not None and prior[1] == answer:
-            return {'status': 'accepted', 'revision': prior[0], 'idempotent_replay': True}
+            return {'status': 'accepted', 'revision': prior[0], 'idempotent_replay': True,
+                    'next_step': self.status()['next_step']}
         revision = status['answer_revisions'].get(item_id, 0) + 1
         self.engine.record_answer(self.session_id, self._token, module, item_id, answer,
                                   revision, self._key(operation_id))
         self._answers[item_id] = (revision, answer)
-        return {'status': 'accepted', 'revision': revision}
+        return {'status': 'accepted', 'revision': revision,
+                'next_step': self.status()['next_step']}
 
     def submit(self, module_id, operation_id):
         """Submit the active module and return state only, never the score."""
@@ -151,9 +153,26 @@ class AgentSession:
         if self.session_id is None or self._token is None:
             raise ValueError('Host-preauthorized exam has not started')
 
-    @staticmethod
-    def _public_status(status):
+    def _public_status(self, status):
         # Deliberately omit session capability, answers, score and transcript.
-        return {key: status[key] for key in
+        result = {key: status[key] for key in
                 ('state', 'reason', 'module_id', 'time_remaining_ms', 'item_ids',
                  'answer_revisions') if key in status}
+        # Navigation depends only on state and recorded attempts, never correctness.
+        # These are suggestions: the examinee may still revise an active answer.
+        step = None
+        if status['state'] == 'ACTIVE':
+            unanswered = [item for item in status['item_ids']
+                          if not status['answer_revisions'].get(item)]
+            step = ({'tool': 'argos_proctor_item', 'arguments': {'item_id': unanswered[0]}}
+                    if unanswered else
+                    {'tool': 'argos_proctor_submit', 'arguments': {'module_id': status['module_id']}})
+        elif status['state'] == 'READY':
+            step = {'tool': 'argos_proctor_continue', 'arguments': {}}
+        elif status['state'] == 'BREAK':
+            step = {'tool': 'argos_proctor_status', 'arguments': {},
+                    'instruction': 'Wait for the recorded break to end before checking again.'}
+        elif status['state'] == 'COMPLETED' and self.tier == 'practice':
+            step = {'tool': 'argos_proctor_feedback', 'arguments': {}}
+        result['next_step'] = step
+        return result

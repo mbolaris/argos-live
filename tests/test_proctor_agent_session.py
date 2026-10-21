@@ -64,7 +64,8 @@ class AgentSessionTests(unittest.TestCase):
         self.assertNotIn('correct', item)
         self.assertNotIn('routes', item)
         self.assertEqual(exam.answer('q1', 'B', 'answer-call-0001'),
-                         {'status': 'accepted', 'revision': 1})
+                         {'status': 'accepted', 'revision': 1, 'next_step':
+                          {'tool': 'argos_proctor_item', 'arguments': {'item_id': 'q2'}}})
         status = exam.submit('m1', 'submit-call-0001')
         self.assertEqual(status['state'], 'BREAK')
         self.assertNotIn('accepted_correct', status)
@@ -165,13 +166,52 @@ class AgentSessionTests(unittest.TestCase):
         exam = self.session()
         exam.start('host-start-0005')
         self.assertEqual(exam.answer('q1', 'B', 'answer-call-0005'),
-                         {'status': 'accepted', 'revision': 1})
+                         {'status': 'accepted', 'revision': 1, 'next_step':
+                          {'tool': 'argos_proctor_item', 'arguments': {'item_id': 'q2'}}})
         self.assertEqual(exam.answer('q1', 'B', 'answer-call-retry'),
-                         {'status': 'accepted', 'revision': 1, 'idempotent_replay': True})
+                         {'status': 'accepted', 'revision': 1, 'idempotent_replay': True,
+                          'next_step': {'tool': 'argos_proctor_item', 'arguments': {'item_id': 'q2'}}})
         with self.assertRaises(TypeError):
             exam.answer('q1', 'B', 'answer-call-0005', revision=99)
         self.assertEqual(exam.status()['answer_revisions'], {'q1': 1})
         self.assertEqual(exam.answer('q1', 'A', 'answer-correction')['revision'], 2)
+
+    def test_navigation_completes_practice_without_correctness_hints(self):
+        exam = self.session(tier='practice')
+        status = exam.start('navigation-start')
+        for number, module in enumerate(('m1', 'm2')):
+            for item_id in (('q1', 'q2'), ('q3', 'q4'))[number]:
+                step = status['next_step']
+                self.assertEqual(step, {'tool': 'argos_proctor_item',
+                                        'arguments': {'item_id': item_id}})
+                item = exam.item(**step['arguments'])
+                self.assertNotIn('correct', item)
+                # Wrong answers advance navigation exactly like correct answers.
+                wrong = {'q1': 'A', 'q2': '3', 'q3': 'B', 'q4': '0'}[item_id]
+                status = exam.answer(item_id, wrong, 'navigation-' + item_id)
+                self.assertNotIn('correct', status)
+                self.assertNotIn('score', status)
+            self.assertEqual(status['next_step'], {'tool': 'argos_proctor_submit',
+                                                   'arguments': {'module_id': module}})
+            status = exam.submit(**status['next_step']['arguments'],
+                                 operation_id='navigation-submit-' + module)
+            if number == 0:
+                self.assertEqual(status['next_step']['tool'], 'argos_proctor_status')
+                with self.assertRaises(ValueError):
+                    exam.practice_feedback()
+                self.clock.now += 500_000_000
+                self.engine.tick()
+                status = exam.status()
+                self.assertEqual(status['state'], 'ACTIVE')
+        self.assertEqual(status['state'], 'COMPLETED')
+        self.assertEqual(status['next_step'], {'tool': 'argos_proctor_feedback', 'arguments': {}})
+        self.assertEqual(exam.practice_feedback()['correct'], 0)
+
+    def test_navigation_never_offers_feedback_for_held_out_or_abandoned_exam(self):
+        exam = self.session(tier='held_out')
+        exam.start('navigation-heldout')
+        self.assertIsNone(exam._public_status({'state': 'COMPLETED'})['next_step'])
+        self.assertIsNone(exam.host_abandon()['next_step'])
 
     def test_dedicated_bridge_admits_only_scoped_exam_tools_and_keeps_signed_result_host_side(self):
         exam = self.session(tier='held_out')

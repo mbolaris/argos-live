@@ -249,7 +249,7 @@ export default function register(api) {
   }, {optional:true});
   api.registerTool({
     name:'argos_proctor_start', label:'Start the host-selected ability exam',
-    description:'Start only the exam preselected by the host. You cannot choose its form, exposure tier, model identity or assistance policy. The service withholds scores, answer keys and signed transcripts from these tools.',
+    description:'Start only the exam preselected by the host, then call the tool in next_step with its arguments. Starting does not complete the exam. You cannot choose its form, exposure tier, model identity or assistance policy. Scores and answer keys are withheld until terminal practice feedback.',
     parameters:Type.Object({}, {additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'proctor_start',params,signal); }
   }, {optional:true});
@@ -261,13 +261,13 @@ export default function register(api) {
   }, {optional:true});
   api.registerTool({
     name:'argos_proctor_item', label:'Get an active exam question',
-    description:'Read one question from the currently active module. The host owns the cartridge and the service never returns the answer key or routing rules.',
+    description:'Read one question from the currently active module, solve it yourself, then call argos_proctor_answer with this item_id and your answer as a string. The service never returns the answer key or routing rules.',
     parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96})},{additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'proctor_item',params,signal); }
   }, {optional:true});
   api.registerTool({
     name:'argos_proctor_answer', label:'Submit an exam answer',
-    description:'Submit an answer for an item in the active module. The service assigns the revision and records the attempt; you cannot set exam conditions or revisions.',
+    description:'Record an answer for an item in the active module, then follow next_step. Accepted means recorded, not correct. The service assigns the revision; you cannot set exam conditions or revisions.',
     parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96}),answer:Type.String({maxLength:8192})},{additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'proctor_answer',params,signal); }
   }, {optional:true});
