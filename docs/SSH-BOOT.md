@@ -6,6 +6,12 @@ live persistence. The owner no longer needs to run `systemctl start ssh` after
 each boot. A fresh image still needs one owner pairing; no owner key or private
 host key is distributed in the generic ISO.
 
+The service waits for `network-online.target` and retries startup every five
+seconds if its configured LAN address is not available yet. This covers systems
+whose network manager reports readiness before DHCP assigns that address. Each
+retry repeats the pairing gate; it never broadens the listener or authentication
+policy. A skipped pairing gate does not trigger retries.
+
 The unit's read-only startup gate requires the existing root-owned
 `/etc/ssh/sshd_config.d/00-argos-lan.conf` (or the earlier
 `00-argos-yugo-pairing.conf`), an existing private ED25519 host key,
