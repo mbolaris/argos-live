@@ -503,7 +503,7 @@ class Bridge:
                 raise
             return self.worker
 
-    def finish(self, *, timeout=1900):
+    def finish(self, *, timeout=1900, finalize=True):
         """Confirm our exact embedded SDK worker and its process group exited.
 
         agent_end is intentionally not required or sufficient: the SDK dispatches
@@ -511,6 +511,8 @@ class Bridge:
         """
         if not self.worker:
             raise workload.Busy(recovery=True)
+        if not finalize and (self.exam_session is None or self.exam_session.tier != 'practice'):
+            raise ValueError('Only host-owned practice may retain a drained turn')
         try:
             stdout, stderr = self.worker.communicate(timeout=timeout)
             self.last_stdout, self.last_stderr = stdout, stderr
@@ -541,11 +543,29 @@ class Bridge:
                     'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
                     'stdout_sha256': hashlib.sha256(stdout.encode()).hexdigest(), 'tools': self.outcomes})
                 self.verified = True
-                self._complete()
+                if finalize:
+                    self._complete()
             return value, stderr
         except BaseException:
             self.uncertain = True
             raise
+
+    def next_practice_turn(self, session_key):
+        """Host-only transition between verified drained practice workers.
+
+        Keep the same exclusive reservation and exam. No agent IPC operation
+        can invoke this method, release the lease, or claim worker drainage.
+        """
+        with self.lock:
+            if (self.exam_session is None or self.exam_session.tier != 'practice' or
+                    not self.verified or not self.worker or self.worker.poll() != 0 or
+                    self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
+                    not self.active or not identity(session_key)):
+                raise workload.Busy(recovery=True)
+            self.worker = None
+            self.active = None
+            self.verified = False
+            self.session_key = session_key
 
     def _complete(self):
         """Private host completion after finish() establishes the worker outcome."""

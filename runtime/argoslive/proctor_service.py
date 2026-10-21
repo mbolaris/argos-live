@@ -16,6 +16,7 @@ import secrets
 import shutil
 import socket
 import sys
+import time
 
 from . import auto_setup, controller_bridge, model_verify, owned_gateway, owned_ollama, proctor, session_mode, startup
 from .proctor.engine import Caller
@@ -35,6 +36,8 @@ CAMPAIGN_TOOL_NAMES = [
     'argos_resolve_instructions',
 ]
 POLICY = {'enforcement_level': 'declared', 'assistance_policy': 'closed_book'}
+PRACTICE_MAX_TURNS = 16
+PRACTICE_MAX_SECONDS = 1800
 MESSAGE = ('Your first action must be to call argos_proctor_start with an empty JSON object {}. '
            'Do not answer this message in prose or ask the owner to supply questions. '
            'Complete the host-selected Argos ability practice exam using only the '
@@ -221,12 +224,79 @@ def make_session(home, cartridge_path, form_id, model, config_hash, *, model_ide
         'lineage_id': hashlib.sha256((model + '\0' + config_hash).encode('utf-8')).hexdigest()[:32],
         'subject_type': 'deployed_agent_profile', 'model_tag': model,
         'model_digest': model_identity['sha256'],
-        'configuration': {'profile_sha256': config_hash, 'cartridge_sha256': cart.digest},
+        'configuration': {'profile_sha256': config_hash, 'cartridge_sha256': cart.digest,
+            'administration': {'mode': 'host_bounded_turns/1', 'max_turns': PRACTICE_MAX_TURNS,
+                               'max_seconds': PRACTICE_MAX_SECONDS}},
         'model_identity': model_identity,
     }
     session = proctor.AgentSession(engine, caller_id=caller_id, caller_token=caller_token,
         form_id=form_id, tier='practice', subject=subject, policy=POLICY)
     return db, session, cart
+
+
+def practice_turn_message(exam):
+    """Procedural host navigation only; the agent supplies every answer."""
+    status = exam.status()
+    if status['state'] == 'ACTIVE':
+        unanswered = [item for item in status['item_ids'] if not status['answer_revisions'].get(item)]
+        if unanswered:
+            item = exam.item(unanswered[0])
+            return ('The exam is still active. Your first action must be to call '
+                    'argos_proctor_answer with item_id ' + json.dumps(item['item_id']) +
+                    ' and your own answer as a string. Solve this question yourself. '
+                    'A prose reply does not record an answer. Use no outside tools.\n' +
+                    json.dumps(item, ensure_ascii=False))
+    step = status.get('next_step')
+    if not step:
+        return None
+    return ('The exam is not finished. Your first action must call ' + step['tool'] +
+            ' with ' + json.dumps(step['arguments']) + '. ' +
+            step.get('instruction', '') + ' Use only Proctor tools; do not choose exam conditions.')
+
+
+def practice_progress(exam):
+    if exam.session_id is None:
+        return None
+    exam.engine.tick()
+    status = exam.status()
+    return (status['state'], status.get('module_id'), status.get('answer_revisions'))
+
+
+def run_practice_turns(bridge, exam, executable, config_path):
+    """Retain one host lease across bounded, independently drained SDK turns."""
+    deadline = time.monotonic() + PRACTICE_MAX_SECONDS
+    message, stagnant, payloads = MESSAGE, 0, []
+    terminal = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
+    turns = 0
+    for number in range(PRACTICE_MAX_TURNS):
+        remaining = int(deadline - time.monotonic())
+        if remaining <= 0:
+            break
+        if number:
+            bridge.next_practice_turn('agent:main:argos_proctor_practice_' + str(number))
+        before = practice_progress(exam)
+        bridge.launch(executable, message, config_path=config_path, timeout=remaining, local=False)
+        result, _stderr = bridge.finish(timeout=remaining + 30, finalize=False)
+        turns += 1
+        payloads.extend(result.get('result', result).get('payloads', []))
+        after = practice_progress(exam)
+        # Breaks and module deadlines belong to the host clock. Do not ask a
+        # model to shorten a break or burn repeated turns polling it.
+        while after is not None and after[0] == 'BREAK' and time.monotonic() < deadline:
+            time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+            after = practice_progress(exam)
+        if after is not None and after[0] in terminal:
+            break
+        stagnant = stagnant + 1 if after == before else 0
+        if stagnant >= 2 or number + 1 == PRACTICE_MAX_TURNS or time.monotonic() >= deadline:
+            break
+        message = practice_turn_message(exam) if exam.session_id is not None else MESSAGE
+        if not message:
+            break
+    # This still requires proven worker drainage. An incomplete practice signs
+    # ABANDONED before release; failed/uncertain workers cannot reach this call.
+    bridge._complete()
+    return {'payloads': payloads, 'host_turns': turns}
 
 
 def default_cartridge(home):
@@ -283,8 +353,7 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
                 lease_store=home / '.local/state/argos-live'))
             stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
                 controller_environment=controller_env))
-            bridge.launch(executable, MESSAGE, config_path=config_path, timeout=1800, local=False)
-            result, _stderr = bridge.finish(timeout=1900)
+            result = run_practice_turns(bridge, exam, executable, config_path)
         status = exam.status()
         if status['state'] not in {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}:
             exam.host_abandon()
@@ -296,6 +365,7 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
                 'transcript_id': exam.session_id.removeprefix('sess_'),
                 'signing_key_id': exam.engine.signer.key_id,
                 'result': feedback,
+                'host_turns': result['host_turns'],
                 'agent_summary': result.get('result', result).get('payloads', [])}
     finally:
         db.close()

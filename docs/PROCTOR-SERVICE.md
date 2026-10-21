@@ -25,6 +25,18 @@ and cannot pass image acceptance or start improvement. The launch prompt names
 argos_proctor_start({}) as the required first action. Assessment and held-out
 exams remain outside this entry point.
 
+The host can continue a practice exam across short agent turns. It verifies
+each SDK worker and process group has exited before admitting another turn,
+retains the same exclusive workload reservation and exam, and fences off the
+previous turn's credentials. For an unanswered item, it supplies that active
+question and asks the agent to call the answer tool with its own solution. It
+can also request module submission. Breaks and deadlines remain host-owned.
+The signed subject configuration records this administration mode. Sixteen
+turns, thirty minutes, or two consecutive turns without progress bound this
+coaching procedure; an unfinished exam is signed as ABANDONED. Uncertain
+workers still quarantine the workload. Assessment and held-out sessions do not
+use this continuation policy.
+
 Start, status, answer, submit and continue responses include a `next_step`
 tool name and arguments to help the agent navigate the exam. After fetching an
 item, the agent must solve it and supply its own answer. Navigation uses only

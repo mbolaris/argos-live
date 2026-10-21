@@ -41,6 +41,7 @@ jobs:
         with:
           node-version: ${{ steps.pins.outputs.node }}
       - name: Install checksum-pinned disposable runtimes
+        id: runtimes
         shell: bash
         run: |
           set -euo pipefail
@@ -63,6 +64,7 @@ jobs:
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
       - name: Real bundled-model Proctor practice with signed completion
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' }}
         run: |
           python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" --report work/proctor-real.json
       - uses: actions/upload-artifact@v4

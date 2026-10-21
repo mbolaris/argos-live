@@ -260,9 +260,9 @@ def run(cli, report):
             from unittest.mock import patch
             real_finish = controller_bridge.Bridge.finish
 
-            def report_finish_failure(bridge, *, timeout=1900):
+            def report_finish_failure(bridge, *, timeout=1900, finalize=True):
                 try:
-                    return real_finish(bridge, timeout=timeout)
+                    return real_finish(bridge, timeout=timeout, finalize=finalize)
                 except BaseException:
                     raw = getattr(bridge, 'last_stdout', '')
                     stderr = getattr(bridge, 'last_stderr', '')

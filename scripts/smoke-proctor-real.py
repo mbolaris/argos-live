@@ -62,6 +62,7 @@ def run(cli, ollama, seed, report):
             'model_tag': starter.TAG, 'total': payload['total_items'],
             'answered': len(payload['accepted_answers']), 'correct': payload['accepted_correct'],
             'practice_only': True, 'calibration_status': 'uncalibrated',
+            'host_turns': result['host_turns'],
             'image_acceptance': False}
         turn = json.loads((home / '.local/state/argos-live/workload/controller-turn.json').read_text())
         receipt['tool_kinds'] = [row['kind'] for row in turn.get('tools', [])

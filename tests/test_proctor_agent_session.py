@@ -6,12 +6,13 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive.proctor import AgentSession, Caller, Cartridge, Proctor, compile_cartridge, open_state
 from argoslive.proctor.engine import digest
-from argoslive import controller_bridge, workload
+from argoslive import controller_bridge, workload, proctor_service
 
 
 class Clock:
@@ -289,6 +290,91 @@ class AgentSessionTests(unittest.TestCase):
             self.assertTrue(parent.drained)
         reservation = json.loads((home / '.local/state/argos-live/workload/reservation.json').read_text())
         self.assertEqual(reservation['state'], 'released')
+
+    def test_practice_continuation_keeps_reservation_and_fences_old_turn(self):
+        exam = self.session(tier='practice')
+        home = Path(self.tmp.name)
+        with workload.reserve(home, 'proctor') as parent:
+            bridge = controller_bridge.Bridge(home, parent, session_key='agent:main:first', exam_session=exam)
+            request = {'auth': bridge.secret, 'op': 'begin', 'run_id': 'first-run',
+                'session_id': 'first-session', 'session_key': 'agent:main:first', 'trigger': 'user'}
+            token = bridge.dispatch(request)['turn_token']
+            exam.start('first-start')
+            class Worker:
+                def poll(self): return 0
+            bridge.worker = Worker()
+            with self.assertRaises(workload.Busy):
+                bridge.next_practice_turn('agent:main:second')
+            bridge.verified = True
+            bridge.uncertain = True
+            with self.assertRaises(workload.Busy):
+                bridge.next_practice_turn('agent:main:second')
+            bridge.uncertain = False
+            bridge.tool_lock.acquire()
+            with self.assertRaises(workload.Busy):
+                bridge.next_practice_turn('agent:main:second')
+            bridge.tool_lock.release()
+            bridge.next_practice_turn('agent:main:second')
+            self.assertFalse(parent.drained)
+            self.assertEqual(exam.status()['state'], 'ACTIVE')
+            with self.assertRaises(workload.Busy):
+                with workload.reserve(home, 'evaluation'):
+                    self.fail('A second workload must not be admitted between practice turns')
+            with self.assertRaises(workload.Busy):
+                bridge.dispatch({'auth': bridge.secret, 'op': 'tool', 'run_id': 'first-run',
+                    'turn_token': token, 'call_id': 'stale-call', 'kind': 'proctor_status', 'params': {}})
+            bridge.dispatch({**request, 'run_id': 'second-run', 'session_id': 'second-session',
+                             'session_key': 'agent:main:second'})
+            bridge.worker, bridge.verified = Worker(), True
+            bridge._complete()
+            self.assertEqual(exam.status()['state'], 'ABANDONED')
+            self.assertTrue(parent.drained)
+
+    def test_host_navigation_records_agent_answers_across_short_turns(self):
+        exam = self.session(tier='practice')
+        messages = []
+        clock = self.clock
+        actions = [lambda: exam.start('start'),
+            lambda: exam.answer('q1', 'A', 'a1'), lambda: exam.answer('q2', '3', 'a2'),
+            lambda: exam.submit('m1', 's1'),
+            lambda: exam.answer('q3', 'B', 'a3'),
+            lambda: exam.answer('q4', '0', 'a4'), lambda: exam.submit('m2', 's2')]
+        class ShortTurns:
+            completed = False
+            def launch(self, executable, message, **kwargs): messages.append(message)
+            def finish(self, **kwargs):
+                self_test.assertFalse(kwargs['finalize'])
+                actions.pop(0)()
+                return {'payloads': []}, ''
+            def next_practice_turn(self, key): pass
+            def _complete(self): self.completed = True
+        self_test = self
+        bridge = ShortTurns()
+        with patch.object(proctor_service.time, 'sleep',
+                          side_effect=lambda seconds: setattr(clock, 'now', clock.now + int(seconds * 10**9))):
+            result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
+        self.assertTrue(bridge.completed)
+        self.assertEqual(result['host_turns'], 7)
+        self.assertIn('argos_proctor_answer', messages[1])
+        self.assertIn('argos_proctor_submit', messages[3])
+        self.assertTrue(all('expected_answer' not in message for message in messages))
+        self.assertEqual(exam.practice_feedback()['correct'], 0)
+        self.assertEqual(exam.practice_feedback()['unanswered'], 0)
+
+    def test_host_navigation_stops_after_two_turns_without_progress(self):
+        exam = self.session(tier='practice')
+        class StalledTurns:
+            count = 0
+            def launch(self, *args, **kwargs): pass
+            def finish(self, **kwargs):
+                if not self.count: exam.start('start-stalled')
+                self.count += 1
+                return {'payloads': []}, ''
+            def next_practice_turn(self, key): pass
+            def _complete(self): exam.host_abandon()
+        result = proctor_service.run_practice_turns(StalledTurns(), exam, 'fixture', 'fixture-config')
+        self.assertEqual(result['host_turns'], 3)
+        self.assertEqual(exam.status()['state'], 'ABANDONED')
 
     def test_clean_unstarted_practice_records_zero_item_abandonment(self):
         exam = self.session(tier='practice')
