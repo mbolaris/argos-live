@@ -355,7 +355,7 @@ class AgentSessionTests(unittest.TestCase):
         exam = self.session(tier='practice')
         messages = []
         clock = self.clock
-        actions = [lambda: exam.start('start'),
+        actions = [lambda: exam.start('start'), lambda: None,
             lambda: exam.answer('q1', 'A', 'a1'), lambda: exam.answer('q2', '3', 'a2'),
             lambda: exam.answer('q3', 'B', 'a3'),
             lambda: exam.answer('q4', '0', 'a4')]
@@ -379,11 +379,13 @@ class AgentSessionTests(unittest.TestCase):
                           side_effect=lambda seconds: setattr(clock, 'now', clock.now + int(seconds * 10**9))):
             result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
         self.assertTrue(bridge.completed)
-        self.assertEqual(result['host_turns'], 5)
+        self.assertEqual(result['host_turns'], 6)
         self.assertIn('argos_proctor_answer', messages[1])
-        self.assertIn('"item_id": "q3"', messages[3])
-        self.assertNotIn('expected_answer', messages[3])
-        self.assertIn('Do not write a tool call as ordinary text', messages[3])
+        self.assertIn('previous turn did not invoke an answer tool', messages[2].lower())
+        self.assertIn('do not print tool-call syntax as text', messages[2].lower())
+        self.assertIn('"item_id": "q3"', messages[4])
+        self.assertNotIn('expected_answer', messages[4])
+        self.assertIn('Do not write a tool call as ordinary text', messages[4])
         self.assertTrue(all('expected_answer' not in message for message in messages))
         self.assertEqual(exam.practice_feedback()['correct'], 0)
         self.assertEqual(exam.practice_feedback()['unanswered'], 0)
@@ -392,7 +394,8 @@ class AgentSessionTests(unittest.TestCase):
         exam = self.session(tier='practice')
         class StalledTurns:
             count = 0
-            def launch(self, *args, **kwargs): pass
+            messages = []
+            def launch(self, executable, message, **kwargs): self.messages.append(message)
             def present_proctor_item(self, item_id): return exam.item(item_id)
             def finish(self, **kwargs):
                 if not self.count: exam.start('start-stalled')
@@ -402,7 +405,8 @@ class AgentSessionTests(unittest.TestCase):
             def submit_answered_practice_module(self): pass
             def _complete(self): exam.host_abandon()
         result = proctor_service.run_practice_turns(StalledTurns(), exam, 'fixture', 'fixture-config')
-        self.assertEqual(result['host_turns'], 3)
+        self.assertEqual(result['host_turns'], 4)
+        self.assertIn('previous turn did not invoke an answer tool', StalledTurns.messages[-1].lower())
         self.assertEqual(exam.status()['state'], 'ABANDONED')
 
     def test_invalid_answer_format_gets_bounded_targeted_retry(self):
