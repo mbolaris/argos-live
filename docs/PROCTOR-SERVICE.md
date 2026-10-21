@@ -14,13 +14,16 @@ size, and media type; it does not copy model weights into the transcript.
 
 The command uses the bundled `pilot-a` cartridge unless the owner supplies a
 compiled cartridge and form. The bundled four-item pilot exists to exercise the
-tool flow and feedback path. It is explicitly uncalibrated and cannot verify
+tool flow and feedback path. Pilot v1.1 allows three minutes per module because
+native SDK round trips in the recorded CPU test took roughly twenty to thirty
+seconds each; the previous one-minute pilot expired before submission. This
+changes only the public uncalibrated pilot, not assessment timings. It cannot verify
 general ability or establish an improvement. After a terminal practice session,
 the host receives aggregate scores and item-level submitted/expected answers to
-support coaching. If the agent turn ends before submission, the host closes the
+support coaching. If bounded host continuation ends before submission, the host closes the
 session as `ABANDONED`, signs the partial transcript, and reports an incomplete
 practice. A clean worker that never starts the exam produces a signed zero-item
-ABANDONED receipt without releasing any questions; this is incomplete evidence
+ABANDONED receipt without releasing any questions after the bounded start attempts; this is incomplete evidence
 and cannot pass image acceptance or start improvement. The launch prompt names
 argos_proctor_start({}) as the required first action. Assessment and held-out
 exams remain outside this entry point.
@@ -61,6 +64,8 @@ the campaign agent turn ends. Practice scores never count as evidence that an
 ability improved. The campaign follows the installed Argos improvement skill
 for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
 An incomplete practice is retained for review and never starts a campaign.
+An exam whose timer reached a terminal state with unanswered items also remains
+incomplete for this purpose; timed completion cannot unlock a campaign.
 
 The service refuses to start if the everyday OpenClaw gateway or Ollama already
 occupies its loopback port. Close the everyday assistant first; the Proctor

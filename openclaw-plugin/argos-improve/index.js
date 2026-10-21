@@ -225,7 +225,8 @@ export default function register(api) {
           : 'The exam is not finished. Continue now; do not end your turn. ';
         instruction += `Call ${value.next_step.tool} with ${JSON.stringify(value.next_step.arguments)}.`;
       } else if (kind === 'proctor_item' && typeof value.item_id === 'string') {
-        instruction = `Solve the question below yourself. Your next action must call argos_proctor_answer with item_id ${JSON.stringify(value.item_id)} and your answer as a string. Do not end your turn.`;
+        const format = value.response_type === 'mcq_single' ? 'Use one choice key, not the choice text.' : 'Use only the number, with no units or explanation.';
+        instruction = `Solve the question below yourself. Your next action must call argos_proctor_answer with item_id ${JSON.stringify(value.item_id)} and your answer as a string. ${format} Do not end your turn.`;
       }
     }
     return textResult((instruction ? instruction + '\n\n' : '') + JSON.stringify(value, null, 2), value);

@@ -1,7 +1,7 @@
 {
   "manifest": {
     "cartridge_id": "argos-practice-pilot",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "title": "Argos Proctor tool-flow pilot",
     "content_origin": "argos_original",
     "calibration_status": "uncalibrated",
@@ -15,7 +15,7 @@
       {
         "module_id": "m1",
         "ordinal": 1,
-        "duration_ms": 60000,
+        "duration_ms": 180000,
         "break_ms": 0,
         "aids": [],
         "items": [
@@ -27,7 +27,7 @@
       {
         "module_id": "m2",
         "ordinal": 2,
-        "duration_ms": 60000,
+        "duration_ms": 180000,
         "break_ms": 0,
         "aids": [],
         "items": [

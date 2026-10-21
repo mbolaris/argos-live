@@ -241,10 +241,13 @@ def practice_turn_message(exam):
         unanswered = [item for item in status['item_ids'] if not status['answer_revisions'].get(item)]
         if unanswered:
             item = exam.item(unanswered[0])
+            answer_format = ('For this multiple-choice item, answer with one choice key, not the choice text. '
+                             if item['response_type'] == 'mcq_single' else
+                             'For this numeric item, answer with only the number, with no units or explanation. ')
             return ('The exam is still active. Your first action must be to call '
                     'argos_proctor_answer with item_id ' + json.dumps(item['item_id']) +
                     ' and your own answer as a string. Solve this question yourself. '
-                    'A prose reply does not record an answer. Use no outside tools.\n' +
+                    'A prose reply does not record an answer. ' + answer_format + 'Use no outside tools.\n' +
                     json.dumps(item, ensure_ascii=False))
     step = status.get('next_step')
     if not step:
