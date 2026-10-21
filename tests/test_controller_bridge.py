@@ -112,6 +112,29 @@ class ControllerBridgeTests(unittest.TestCase):
             parent.complete()
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
+    def test_audit_tool_uses_scoped_maintenance_and_preserves_parent_and_instructions(self):
+        instructions = self.home / '.openclaw/workspace/AGENTS.md'
+        before = instructions.read_bytes()
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            value = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'audit-empty-journal',
+                                     'kind': 'audit', 'params': {}})
+            self.assertEqual(value['value']['schema'], 'argos-instruction-audit/1')
+            self.assertEqual(value['value']['status'], 'empty')
+            self.assertTrue(value['value']['passed'])
+            self.assertFalse(value['value']['independent_gain_verified'])
+            self.assertEqual(instructions.read_bytes(), before)
+            self.assertEqual(parent.record['phase'], 'running')
+            self.assertIsNone(bridge.pending)
+            self.assertFalse(bridge.uncertain)
+            self.assertEqual(bridge.outcomes[-1]['kind'], 'audit')
+            with self.assertRaises(workload.Busy):
+                with workload.reserve(self.home, 'evaluation'):
+                    self.fail('Read-only audit released the parent reservation')
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_log_worker_is_one_use_and_cannot_release_controller(self):
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')

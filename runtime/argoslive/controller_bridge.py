@@ -128,7 +128,7 @@ class Bridge:
                         kind = request.get('kind')
                         allowed_kinds = PROCTOR_TOOLS | {
                             'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',
-                            'inspect', 'edit', 'resolve'}
+                            'inspect', 'audit', 'edit', 'resolve'}
                         safe_kind = kind if isinstance(kind, str) and kind in allowed_kinds else 'other'
                         failures = self.active.setdefault('host_tool_failures', [])
                         if len(failures) < 32:
@@ -387,7 +387,7 @@ class Bridge:
         return value
 
     def run_child(self, kind, params, *, on_update=None):
-        maintenance = kind in {'inspect', 'edit', 'resolve'}
+        maintenance = kind in {'inspect', 'audit', 'edit', 'resolve'}
         worker_kind = 'maintenance' if maintenance else kind
         capability = self.parent.delegate(worker_kind)
         command = [sys.executable, '-m', 'argoslive.workload_worker', worker_kind, '--home', str(self.home)]
@@ -477,7 +477,11 @@ class Bridge:
                     # Preserve the saved partial outcome/ID for the agent while
                     # keeping admission closed. A generic busy error would hide it.
                     return {'status': 'completed', 'value': value}
-            elif maintenance and value.get('status') not in {'inspected', 'changed', 'restored', 'kept', 'rejected'}:
+            elif kind == 'audit' and (value.get('schema') != 'argos-instruction-audit/1' or
+                    value.get('status') not in {'empty', 'verified', 'failed'} or
+                    type(value.get('passed')) is not bool):
+                raise workload.Busy(recovery=True)
+            elif maintenance and kind != 'audit' and value.get('status') not in {'inspected', 'changed', 'restored', 'kept', 'rejected'}:
                 raise workload.Busy(recovery=True)
             elif not maintenance and value.get('status') != 'appended':
                 raise workload.Busy(recovery=True)
