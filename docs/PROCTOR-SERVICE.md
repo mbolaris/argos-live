@@ -19,7 +19,11 @@ general ability or establish an improvement. After a terminal practice session,
 the host receives aggregate scores and item-level submitted/expected answers to
 support coaching. If the agent turn ends before submission, the host closes the
 session as `ABANDONED`, signs the partial transcript, and reports an incomplete
-practice. Assessment and held-out exams remain outside this entry point.
+practice. A clean worker that never starts the exam produces a signed zero-item
+ABANDONED receipt without releasing any questions; this is incomplete evidence
+and cannot pass image acceptance or start improvement. The launch prompt names
+argos_proctor_start({}) as the required first action. Assessment and held-out
+exams remain outside this entry point.
 
 `argos proctor improve` runs that practice session first, waits for its signed
 transcript to be saved and its reservation to drain, then starts a separate

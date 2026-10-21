@@ -502,6 +502,16 @@ def proctor_failure_diagnostics(home):
                               if isinstance(row, dict) and isinstance(row.get('kind'), str) and row['kind'] in names}),
         'reservation_state': reservation.get('state') if reservation.get('state') in
                              {'active', 'released', 'quarantined'} else 'unknown'}
+    stats = turn.get('admission_diagnostics', {})
+    receipt['admission_counters'] = {}
+    if isinstance(stats, dict):
+        rejected = stats.get('rejected', {})
+        allowed = {key: stats.get(key) for key in ('tool_hooks', 'bound_calls', 'executions')}
+        if isinstance(rejected, dict):
+            allowed.update({key: rejected.get(key) for key in
+                ('unknown_tool', 'missing_admission', 'invalid_call_id', 'stale_binding')})
+        receipt['admission_counters'] = {key: value for key, value in allowed.items()
+                                       if type(value) is int and 0 <= value <= 10000}
     database = root / 'proctor/state.sqlite3'
     states = {'READY', 'ACTIVE', 'BREAK', 'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
     receipt['exam_states'] = {}
@@ -574,6 +584,8 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         transcript_id = practice.get('transcript_id')
         result_summary = practice.get('result')
         outcome = result_summary.get('state') if isinstance(result_summary, dict) else None
+        if outcome != 'COMPLETED':
+            proctor_failure_diagnostics(home)
         terminal_states = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
         expected_status = 'completed' if outcome == 'COMPLETED' else 'incomplete'
         if (practice.get('status') != expected_status or practice.get('practice_only') is not True or

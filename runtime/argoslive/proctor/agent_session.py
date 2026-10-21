@@ -7,6 +7,7 @@ This is a cooperative API until a separate service identity protects its files.
 """
 import hashlib
 import json
+import secrets
 
 
 class AgentSession:
@@ -114,7 +115,13 @@ class AgentSession:
 
     def host_abandon(self):
         """Host-only close for an agent turn that ended before a terminal exam state."""
-        self._require_started()
+        if self.session_id is None:
+            if self.tier != 'practice':
+                raise ValueError('Only practice may record an unstarted host abandonment')
+            value = self.engine.enroll(self.caller_id, self.caller_token,
+                self._key('host-unstarted-' + secrets.token_hex(16)), form_id=self.form_id,
+                tier=self.tier, subject=self.subject, policy=self.policy)
+            self.session_id, self._token = value['session_id'], value['examinee_token']
         self.engine.host_abandon(self.session_id, self._token)
         return self.status()
 

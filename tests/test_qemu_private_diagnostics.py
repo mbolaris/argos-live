@@ -29,6 +29,8 @@ class DiagnosticFlagsTests(unittest.TestCase):
             secret = 'PRIVATE-PROMPT-ANSWER-TOKEN'
             (root / 'workload/controller-turn.json').write_text(json.dumps({
                 'host_tool_requests': 3, 'prompt': secret,
+                'admission_diagnostics': {'tool_hooks': 0, 'executions': secret,
+                    'rejected': {'unknown_tool': 0, 'private': secret}},
                 'tools': [{'kind': 'proctor_start', 'call_id': secret},
                           {'kind': secret}, {'kind': [secret]}]}))
             (root / 'workload/controller-worker.json').write_text(json.dumps({
@@ -44,6 +46,7 @@ class DiagnosticFlagsTests(unittest.TestCase):
             self.assertNotIn(secret, output.getvalue())
             self.assertEqual(value['tool_kinds'], ['proctor_start'])
             self.assertEqual(value['exam_states'], {'ACTIVE': 1})
+            self.assertEqual(value['admission_counters'], {'tool_hooks': 0, 'unknown_tool': 0})
             self.assertTrue(value['worker_drained'])
             self.assertEqual(value['reservation_state'], 'quarantined')
 

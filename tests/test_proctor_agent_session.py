@@ -250,6 +250,29 @@ class AgentSessionTests(unittest.TestCase):
         reservation = json.loads((home / '.local/state/argos-live/workload/reservation.json').read_text())
         self.assertEqual(reservation['state'], 'released')
 
+    def test_clean_unstarted_practice_records_zero_item_abandonment(self):
+        exam = self.session(tier='practice')
+        home = Path(self.tmp.name)
+        with workload.reserve(home, 'proctor') as parent:
+            bridge = controller_bridge.Bridge(home, parent,
+                session_key='agent:main:proctor-session', exam_session=exam)
+            bridge.dispatch({'auth': bridge.secret, 'op': 'begin', 'run_id': 'no-tools-run',
+                'session_id': 'no-tools-session', 'session_key': 'agent:main:proctor-session',
+                'trigger': 'user'})
+            class Worker:
+                @staticmethod
+                def poll():
+                    return 0
+            bridge.worker = Worker()
+            bridge.verified = True
+            bridge._complete()
+            payload = json.loads(exam.host_transcript()['payload_json'])
+            self.assertEqual(payload['outcome'], 'ABANDONED')
+            self.assertEqual(payload['total_items'], 0)
+            self.assertEqual(exam.practice_feedback()['total'], 0)
+            self.assertTrue(parent.drained)
+            self.assertTrue(all(row['started_ns'] is None for row in payload['modules']))
+
     def test_incomplete_exam_cannot_release_its_proctor_reservation(self):
         exam = self.session(tier='held_out')
         home = Path(self.tmp.name)
