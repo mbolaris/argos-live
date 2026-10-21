@@ -502,6 +502,20 @@ def proctor_failure_diagnostics(home):
                               if isinstance(row, dict) and isinstance(row.get('kind'), str) and row['kind'] in names}),
         'reservation_state': reservation.get('state') if reservation.get('state') in
                              {'active', 'released', 'quarantined'} else 'unknown'}
+    failures = turn.get('host_tool_failures', [])
+    classes = {'Busy', 'ValueError', 'TypeError', 'KeyError', 'OSError', 'ProctorError',
+               'OperationalError', 'TimeoutExpired', 'RuntimeError'}
+    receipt['tool_failures'] = []
+    if isinstance(failures, list):
+        for row in failures[:32]:
+            if not isinstance(row, dict):
+                continue
+            kind, error = row.get('kind'), row.get('error_class')
+            receipt['tool_failures'].append({
+                'kind': kind if isinstance(kind, str) and kind in names else 'other',
+                'error_class': error if isinstance(error, str) and error in classes else 'other'})
+    receipt['worker_state'] = (worker.get('state') if worker.get('state') in
+                               ('starting', 'completed') else 'unknown')
     stats = turn.get('admission_diagnostics', {})
     receipt['admission_counters'] = {}
     if isinstance(stats, dict):

@@ -29,6 +29,9 @@ class DiagnosticFlagsTests(unittest.TestCase):
             secret = 'PRIVATE-PROMPT-ANSWER-TOKEN'
             (root / 'workload/controller-turn.json').write_text(json.dumps({
                 'host_tool_requests': 3, 'prompt': secret,
+                'host_tool_failures': [{'kind': 'proctor_status', 'error_class': 'ValueError',
+                                        'error_text': secret},
+                                       {'kind': secret, 'error_class': secret}],
                 'admission_diagnostics': {'tool_hooks': 0, 'executions': secret,
                     'rejected': {'unknown_tool': 0, 'private': secret}},
                 'tools': [{'kind': 'proctor_start', 'call_id': secret},
@@ -45,6 +48,9 @@ class DiagnosticFlagsTests(unittest.TestCase):
                 value = module.proctor_failure_diagnostics(home)
             self.assertNotIn(secret, output.getvalue())
             self.assertEqual(value['tool_kinds'], ['proctor_start'])
+            self.assertEqual(value['tool_failures'], [
+                {'kind': 'proctor_status', 'error_class': 'ValueError'},
+                {'kind': 'other', 'error_class': 'other'}])
             self.assertEqual(value['exam_states'], {'ACTIVE': 1})
             self.assertEqual(value['admission_counters'], {'tool_hooks': 0, 'unknown_tool': 0})
             self.assertTrue(value['worker_drained'])
