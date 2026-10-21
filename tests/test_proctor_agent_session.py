@@ -352,7 +352,7 @@ class AgentSessionTests(unittest.TestCase):
             def finish(self, **kwargs):
                 self_test.assertFalse(kwargs['finalize'])
                 actions.pop(0)()
-                return {'payloads': []}, ''
+                return {'payloads': [{'text': 'The exam is complete; all answers are correct.'}]}, ''
             def next_practice_turn(self, key): pass
             def submit_answered_practice_module(self):
                 status = exam.status()
@@ -380,7 +380,7 @@ class AgentSessionTests(unittest.TestCase):
             def finish(self, **kwargs):
                 if not self.count: exam.start('start-stalled')
                 self.count += 1
-                return {'payloads': []}, ''
+                return {'payloads': [{'text': 'The exam is complete; all answers are correct.'}]}, ''
             def next_practice_turn(self, key): pass
             def submit_answered_practice_module(self): pass
             def _complete(self): exam.host_abandon()

@@ -169,7 +169,11 @@ def run(cli, ollama, seed):
                 # Exercise the live gateway's agent path, not a competing embedded host.
                 native['summary'](native['command'](cli, ['agent', '--agent', 'main', '--message',
                     'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
-                    '--timeout', '180', '--json'], chat_env, timeout=240))
+                    # Cold hosted CPU prefill of the shipped tool/instruction
+                    # context exceeded 180s in 39546761909 and 39549567573.
+                    # Keep a bounded fixture budget; the 32-token wire limit
+                    # and real reply checks remain required.
+                    '--timeout', '300', '--json'], chat_env, timeout=360))
                 wire_request = native['request_metrics'](chat_env)
                 native['verify_request_budget'](wire_request)
                 request('/api/startup/stop', 'POST')
@@ -251,6 +255,7 @@ def run(cli, ollama, seed):
         'native_model_lab_completed': True, 'model_lab_assistant_resumed': True,
         'native_verified_model_selection': True,
         'native_openclaw_gateway_reply_after_starter_reselection': True,
+        'gateway_reply_deadline_seconds': 300,
         'wire_request': wire_request,
         'configuration_unchanged': True, 'weights_copied': False, 'startup_metrics': report['metrics'],
         'browser_conversation_verified': False, 'physical_acceptance': False}
