@@ -17,7 +17,7 @@ from argoslive import auto_setup, proctor_service, starter
 from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 
 
-def run(cli, ollama, seed, report):
+def run(cli, ollama, seed, report, *, deterministic_profile=False):
     scratch = Path(os.environ.get('RUNNER_TEMP', '/missing')).resolve()
     seed = seed.resolve(strict=True)
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
@@ -31,6 +31,8 @@ def run(cli, ollama, seed, report):
         workspace.mkdir(mode=0o700, parents=True)
         config = auto_setup.conversation_config(starter.TAG, workspace,
             plugin_root=ROOT / 'openclaw-plugin/argos-improve')
+        if deterministic_profile:
+            config['models']['providers']['ollama']['models'][0]['params'] = {'temperature': 0}
         config_path = home / '.openclaw/openclaw.json'
         config_path.write_text(json.dumps(config))
         config_path.chmod(0o600)
@@ -72,6 +74,7 @@ def run(cli, ollama, seed, report):
             'answered': len(payload['accepted_answers']), 'correct': payload['accepted_correct'],
             'practice_only': True, 'calibration_status': 'uncalibrated',
             'host_turns': result['host_turns'],
+            'requested_temperature': 0 if deterministic_profile else None,
             'image_acceptance': False}
         turn = json.loads((home / '.local/state/argos-live/workload/controller-turn.json').read_text())
         receipt['tool_kinds'] = [row['kind'] for row in turn.get('tools', [])
@@ -105,11 +108,14 @@ def run(cli, ollama, seed, report):
                 payload['total_items'] != 4 or len(payload['accepted_answers']) != 4 or
                 not verified or not receipt['model_identity_bound']):
             raise ValueError('Real-model Proctor did not complete all four practice items; see receipt')
+        if deterministic_profile and receipt['wire_request'].get('temperature') != 0:
+            raise ValueError('Deterministic fixture request temperature was not observed on the wire')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('openclaw', 'ollama', 'seed', 'report'):
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--deterministic-profile', action='store_true')
     args = parser.parse_args()
-    run(args.openclaw, args.ollama, args.seed, args.report)
+    run(args.openclaw, args.ollama, args.seed, args.report, deterministic_profile=args.deterministic_profile)

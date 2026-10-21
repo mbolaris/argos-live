@@ -6,6 +6,10 @@ on:
         description: Run only the real Proctor service regression in disposable scratch
         type: boolean
         default: false
+      deterministic_profile:
+        description: Test temperature zero in the disposable Proctor fixture only
+        type: boolean
+        default: false
   push:
     paths:
       - '.github/workflows/native-chat.yml'
@@ -74,7 +78,9 @@ jobs:
       - name: Real bundled-model Proctor practice with signed completion
         if: ${{ !cancelled() && steps.runtimes.outcome == 'success' }}
         run: |
-          python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" --report work/proctor-real.json
+          args=()
+          if [[ '${{ inputs.deterministic_profile }}' == true ]]; then args+=(--deterministic-profile); fi
+          python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" --report work/proctor-real.json "${args[@]}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

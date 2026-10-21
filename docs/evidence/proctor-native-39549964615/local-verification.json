@@ -1,0 +1,11 @@
+{
+  "transcript_id": "84e82ab6b9c1189476fca2ecba37b98e",
+  "sha256": "8cf618eb673bc096308b8af8027b3a27ada7c401b079c73159f5aee9499799a4",
+  "signature_verified_locally": true,
+  "key_basis": "fixture public key from same CI artifact; not an independently trusted production key",
+  "all_four_answers_recorded": true,
+  "all_modules_submitted": true,
+  "correct": 3,
+  "administration_mode": "host_bounded_turns/2",
+  "ability_gain_claimed": false
+}
