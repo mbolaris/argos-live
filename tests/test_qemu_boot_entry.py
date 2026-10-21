@@ -110,8 +110,9 @@ class BootEntryTests(unittest.TestCase):
         self.assertEqual(module.guest_result(wire, setup_mode='managed', proctor_smoke=True), value)
         incomplete = dict(value, proctor_practice_completed=False, proctor_practice_outcome='ABANDONED',
                           proctor_score={'correct': 1, 'total': 2})
-        self.assertEqual(module.guest_result('ARGOS_C3_RESULT ' + json.dumps(incomplete) + '\n',
-                         setup_mode='managed', proctor_smoke=True), incomplete)
+        with self.assertRaisesRegex(ValueError, 'practice did not complete'):
+            module.guest_result('ARGOS_C3_RESULT ' + json.dumps(incomplete) + '\n',
+                                setup_mode='managed', proctor_smoke=True)
         for changed in (dict(value, proctor_signature_verified=False),
                         dict(value, proctor_practice_recorded=False),
                         dict(value, proctor_transcript_id='bad'),

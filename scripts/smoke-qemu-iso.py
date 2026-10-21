@@ -143,9 +143,9 @@ def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke
                 if result.get(field) is not True:
                     raise ValueError('Managed guest did not establish Proctor acceptance')
             outcome = result.get('proctor_practice_outcome')
-            if (outcome not in ('COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED') or
-                    result.get('proctor_practice_completed') is not (outcome == 'COMPLETED')):
-                raise ValueError('Managed guest Proctor outcome is missing or inconsistent')
+            if (outcome != 'COMPLETED' or
+                    result.get('proctor_practice_completed') is not True):
+                raise ValueError('Managed guest Proctor practice did not complete')
             if (result.get('proctor_calibration_status') != 'uncalibrated' or
                     result.get('proctor_campaign_started') is not False or
                     result.get('proctor_backend_weights_loaded_attested') is not False):
