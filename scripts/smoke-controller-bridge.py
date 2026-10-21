@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shlex
 import signal
+import subprocess
 import sys
 import tempfile
 import threading
@@ -18,7 +19,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import controller_bridge, instruction_changes, workload
+from argoslive import controller_bridge, evaluation_control, instruction_changes, workload
 from argoslive.auto_setup import conversation_config
 from argoslive.results import Store
 
@@ -364,6 +365,73 @@ def run(cli, report):
                 sdk_abort_controller_inference_stayed_stopped=True,
                 sdk_abort_reservation_quarantined=True, sdk_abort_controller_requests=counts['controller_requests'])
             receipt['sdk_abort_result_sha256'] = hashlib.sha256(abort_result_artifact.read_bytes()).hexdigest()
+            # Separate owner cancellation after a real SDK abort: the aborted
+            # waiter must not cancel evaluation, but the explicit owner CLI must.
+            stop_home = home / 'owner-stopped-controller'
+            stop_workspace = stop_home / '.openclaw/workspace'
+            stop_workspace.mkdir(parents=True, mode=0o700)
+            (stop_workspace / 'AGENTS.md').write_text('Run an ability check, then reply READY.')
+            stop_config = json.loads(json.dumps(abort_config))
+            stop_config['agents']['defaults']['workspace'] = str(stop_workspace)
+            (stop_workspace.parent / 'openclaw.json').write_text(json.dumps(stop_config))
+            (stop_workspace.parent / 'openclaw.json').chmod(0o600)
+            counts.update(controller_requests=0, evaluation_requests=0)
+            evaluation_started.clear()
+            release_evaluation.clear()
+            try:
+                try:
+                    with controller_bridge.owned(stop_home,
+                            session_key='agent:main:owner-stop-' + str(uuid.uuid4()),
+                            worker_timeout=300) as (stopped, _stop_env):
+                        stopped.launch(cli, 'Run the quick ability check, then reply READY.', timeout=600)
+                        if not evaluation_started.wait(45):
+                            raise ValueError('SDK did not dispatch owner-stop evaluation')
+                        stopped.worker.send_signal(signal.SIGTERM)
+                        stopped.worker.communicate(timeout=20)
+                        if not stopped.pending or stopped.pending.poll() is not None:
+                            raise ValueError('Agent abort cancelled evaluation before owner Stop')
+                        target = evaluation_control.target(stop_home)
+                        command = [sys.executable, str(ROOT / 'runtime/argos.py'),
+                            'bench', 'control', 'stop', '--home', str(stop_home),
+                            '--id', target['id'], '--generation', str(target['generation']),
+                            '--child-id', target['child_id']]
+                        requested = subprocess.run(command, capture_output=True, text=True, timeout=15)
+                        if requested.returncode or json.loads(requested.stdout).get('status') != 'cancel_requested':
+                            raise ValueError('Owner CLI did not publish cancellation')
+                        try:
+                            with workload.reserve(stop_home, 'evaluation'):
+                                raise ValueError('Owner Stop released admission before drainage')
+                        except workload.Busy:
+                            pass
+                        deadline = time.monotonic() + 45
+                        while stopped.pending and stopped.pending.poll() is None and time.monotonic() < deadline:
+                            time.sleep(.05)
+                        if stopped.pending and stopped.pending.poll() is None:
+                            raise ValueError('Owner cancellation did not drain evaluator worker')
+                        raise RuntimeError('synthetic owner Stop complete')
+                except RuntimeError as error:
+                    if str(error) != 'synthetic owner Stop complete':
+                        raise
+            finally:
+                release_evaluation.set()
+            stop_store = Store(stop_home / '.local/share/argos-live/results')
+            stop_listing = stop_store.list()
+            if stop_listing['rejected'] or len(stop_listing['runs']) != 1:
+                raise ValueError('Owner Stop did not preserve exactly one saved run')
+            stop_run = stop_store.load(stop_listing['runs'][0]['id'])
+            stop_reservation = json.loads((stop_home / '.local/state/argos-live/workload/reservation.json').read_text())
+            stop_child = json.loads((stop_home / '.local/state/argos-live/workload/child' /
+                                     (target['child_id'] + '.json')).read_text())
+            if (stop_run['state'] != 'cancelled' or stop_reservation['state'] != 'quarantined' or
+                    stop_reservation.get('child_id') != target['child_id'] or
+                    stop_child.get('result_id') != stop_run['id'] or failures):
+                raise ValueError('Owner Stop lost cancelled evidence or quarantine')
+            stop_artifact = report.with_name('controller-bridge-owner-stop-result.json')
+            stop_artifact.write_text(json.dumps(stop_run, indent=2) + '\n')
+            receipt.update(owner_cli_cancel_after_sdk_abort=True,
+                owner_cli_saved_run_id=stop_run['id'], owner_cli_saved_state=stop_run['state'],
+                owner_cli_quarantine_retained=True, owner_cli_competing_evaluation_refused=True,
+                owner_cli_result_sha256=hashlib.sha256(stop_artifact.read_bytes()).hexdigest())
             receipt['passed'] = True
             return receipt
     finally:
