@@ -65,9 +65,9 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     const tools = new Map();
     register({ registerTool(tool) { tools.set(tool.name, tool); } });
     const answerTool = tools.get('argos_proctor_answer').parameters;
-    assert.deepEqual(Object.keys(answerTool.properties), ['answer', 'item_id']);
-    assert.deepEqual(answerTool.required, ['answer']);
-    assert.match(tools.get('argos_proctor_item').description, /host binds it to the item you retrieved/);
+    assert.deepEqual(Object.keys(answerTool.properties), ['item_id', 'answer']);
+    assert.deepEqual(answerTool.required, ['item_id', 'answer']);
+    assert.match(tools.get('argos_proctor_item').description, /host binds answers to retrieved active items/);
 
     const cancelled = new AbortController();
     cancelled.abort();

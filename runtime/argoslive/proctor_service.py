@@ -236,20 +236,24 @@ def make_session(home, cartridge_path, form_id, model, config_hash, *, model_ide
     return db, session, cart
 
 
-def practice_turn_message(exam):
+def practice_turn_message(exam, bridge):
     """Procedural host navigation only; the agent supplies every answer."""
     status = exam.status()
     if status['state'] == 'ACTIVE':
         unanswered = [item for item in status['item_ids'] if not status['answer_revisions'].get(item)]
         if unanswered:
-            # Let the model retrieve the item through its registered tool before
-            # answering. The answer tool derives the surfaced active item on the
-            # host, so a small model need not reproduce a redundant item ID.
-            return ('The exam is still active. Your first action must be a real tool call to '
-                    'argos_proctor_item with ' + json.dumps({'item_id': unanswered[0]}) +
-                    '. Wait for the item tool result, solve that question yourself, then make a real '
-                    'argos_proctor_answer tool call with only your answer as a string. The host binds '
-                    'it to the item you retrieved. Do not write a tool call as ordinary text. Use no outside tools.')
+            # This fresh host turn surfaces exactly one live item. The bridge records
+            # that presentation before the model is asked for its own answer, so the
+            # answer remains bound to a retrieved/surfaced item without an extra tool hop.
+            item = bridge.present_proctor_item(unanswered[0])
+            answer_format = ('Use one choice key, not the choice text.'
+                             if item['response_type'] == 'mcq_single' else
+                             'Use only the number, with no units or explanation.')
+            return ('The exam is still active. Solve this question yourself. Your first action must be a real '
+                    'argos_proctor_answer tool call with ' + json.dumps({'item_id': item['item_id'],
+                    'answer': 'your answer as a string'}) + '. ' + answer_format +
+                    ' A prose reply does not record an answer. Do not write a tool call as ordinary text. '
+                    'Use no outside tools.\n' + json.dumps(item, ensure_ascii=False))
     step = status.get('next_step')
     if not step:
         return None
@@ -295,7 +299,7 @@ def run_practice_turns(bridge, exam, executable, config_path):
         stagnant = stagnant + 1 if after == before else 0
         if stagnant >= 2 or number + 1 == PRACTICE_MAX_TURNS or time.monotonic() >= deadline:
             break
-        message = practice_turn_message(exam) if exam.session_id is not None else MESSAGE
+        message = practice_turn_message(exam, bridge) if exam.session_id is not None else MESSAGE
         if not message:
             break
     # This still requires proven worker drainage. An incomplete practice signs

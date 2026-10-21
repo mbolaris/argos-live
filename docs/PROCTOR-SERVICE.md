@@ -31,10 +31,11 @@ exams remain outside this entry point.
 The host can continue a practice exam across short agent turns. It verifies
 each SDK worker and process group has exited before admitting another turn,
 retains the same exclusive workload reservation and exam, and fences off the
-previous turn's credentials. For an unanswered item, it directs the agent to
-fetch the question through the item tool. The answer tool accepts the agent's
-answer as a string; the host binds it to an unanswered item the agent retrieved,
-so the model need not repeat an item identifier. It submits a module after
+previous turn's credentials. For an unanswered item, the host surfaces exactly
+that active question in the next bounded turn and records which item was shown.
+The answer tool accepts the agent's item identifier and answer; the host binds
+it only to an item surfaced in the same active module. The model can also fetch
+questions through the item tool. It submits a module after
 every item has a recorded agent answer and the worker has drained. It never
 fills in an answer. This automatic submission policy is
 recorded in the signed administration conditions. Breaks and deadlines remain host-owned.
@@ -55,8 +56,9 @@ image test must still prove completion.
 
 The plugin renders the next action in plain text as well as JSON. A question
 response explicitly asks the agent to solve it and call the answer tool with
-only its answer; the controller resolves the active item from the item retrieval
-record. Recording an answer explicitly asks it to continue or submit. These
+the surfaced item identifier and its own answer; the controller accepts only
+items surfaced by the host or retrieved through the item tool. Recording an
+answer explicitly asks it to continue or submit. These
 directions carry no answer hints and do not turn an incomplete attempt into a
 pass.
 

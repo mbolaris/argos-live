@@ -341,11 +341,7 @@ class Bridge:
         if kind == 'proctor_status':
             return self.exam_session.status()
         if kind == 'proctor_item':
-            status = self.exam_session.status()
-            item_id = params['item_id']
-            value = self.exam_session.item(item_id)
-            self.presented_proctor_items.add((status.get('module_id'), item_id))
-            return value
+            return self.present_proctor_item(params['item_id'])
         if kind == 'proctor_answer':
             status = self.exam_session.status()
             module_id = status.get('module_id')
@@ -365,6 +361,18 @@ class Bridge:
         if kind == 'proctor_feedback':
             return self.exam_session.practice_feedback()
         raise ValueError('Unsupported Proctor tool')
+
+    def present_proctor_item(self, item_id):
+        """Surface a live question through a host-controlled practice turn."""
+        if self.exam_session is None:
+            raise ValueError('No host-selected Proctor session is active')
+        status = self.exam_session.status()
+        module_id = status.get('module_id')
+        if (status.get('state') != 'ACTIVE' or item_id not in status.get('item_ids', [])):
+            raise ValueError('Only an active item in the current module may be surfaced')
+        value = self.exam_session.item(item_id)
+        self.presented_proctor_items.add((module_id, item_id))
+        return value
 
     def run_child(self, kind, params, *, on_update=None):
         maintenance = kind in {'inspect', 'edit', 'resolve'}

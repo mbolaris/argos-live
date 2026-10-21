@@ -235,9 +235,11 @@ class AgentSessionTests(unittest.TestCase):
                 call('try-evaluate', 'evaluation', {'suite': 'quick'})
             with self.assertRaisesRegex(ValueError, 'Read the active item'):
                 call('answer-before-item', 'proctor_answer', {'answer': 'B'})
-            item = call('get-q1', 'proctor_item', {'item_id': 'q1'})
-            self.assertNotIn('correct', item)
-            answer = call('answer-q1', 'proctor_answer', {'answer': 'B'})
+            host_message = proctor_service.practice_turn_message(exam, bridge)
+            self.assertIn('Which number is even?', host_message)
+            self.assertIn('"item_id": "q1"', host_message)
+            self.assertNotIn('"correct"', host_message)
+            answer = call('answer-q1', 'proctor_answer', {'item_id': 'q1', 'answer': 'B'})
             self.assertEqual((answer['status'], answer['item_id']), ('accepted', 'q1'))
             call('get-q2', 'proctor_item', {'item_id': 'q2'})
             answer = call('answer-q2', 'proctor_answer', {'answer': '4'})
@@ -245,8 +247,10 @@ class AgentSessionTests(unittest.TestCase):
             self.assertEqual(call('submit-one', 'proctor_submit', {'module_id': 'm1'})['state'], 'BREAK')
             self.clock.now += 500_000_000
             self.assertEqual(call('continue', 'proctor_continue')['state'], 'ACTIVE')
-            call('get-q3', 'proctor_item', {'item_id': 'q3'})
-            answer = call('answer-q3', 'proctor_answer', {'answer': 'A'})
+            host_message = proctor_service.practice_turn_message(exam, bridge)
+            self.assertIn('item_id', host_message)
+            self.assertIn('q3', host_message)
+            answer = call('answer-q3', 'proctor_answer', {'item_id': 'q3', 'answer': 'A'})
             self.assertEqual(answer['item_id'], 'q3')
             call('get-q4', 'proctor_item', {'item_id': 'q4'})
             answer = call('answer-q4', 'proctor_answer', {'answer': '-1.25'})
@@ -358,6 +362,7 @@ class AgentSessionTests(unittest.TestCase):
         class ShortTurns:
             completed = False
             def launch(self, executable, message, **kwargs): messages.append(message)
+            def present_proctor_item(self, item_id): return exam.item(item_id)
             def finish(self, **kwargs):
                 self_test.assertFalse(kwargs['finalize'])
                 actions.pop(0)()
@@ -375,7 +380,7 @@ class AgentSessionTests(unittest.TestCase):
             result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
         self.assertTrue(bridge.completed)
         self.assertEqual(result['host_turns'], 5)
-        self.assertIn('argos_proctor_item', messages[1])
+        self.assertIn('argos_proctor_answer', messages[1])
         self.assertIn('"item_id": "q3"', messages[3])
         self.assertNotIn('expected_answer', messages[3])
         self.assertIn('Do not write a tool call as ordinary text', messages[3])
@@ -388,6 +393,7 @@ class AgentSessionTests(unittest.TestCase):
         class StalledTurns:
             count = 0
             def launch(self, *args, **kwargs): pass
+            def present_proctor_item(self, item_id): return exam.item(item_id)
             def finish(self, **kwargs):
                 if not self.count: exam.start('start-stalled')
                 self.count += 1

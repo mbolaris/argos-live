@@ -225,7 +225,8 @@ export default function register(api) {
           : 'The exam is not finished. Continue now; do not end your turn. ';
         instruction += `Call ${value.next_step.tool} with ${JSON.stringify(value.next_step.arguments)}.`;
       } else if (kind === 'proctor_item' && typeof value.item_id === 'string') {
-        instruction = `Solve the question below yourself. Your next action must call argos_proctor_answer with only {"answer":"your answer as a string"}. The host binds it to the item you just retrieved. Do not end your turn.`;
+        const format = value.response_type === 'mcq_single' ? 'Use one choice key, not the choice text.' : 'Use only the number, with no units or explanation.';
+        instruction = `Solve the question below yourself. Your next action must call argos_proctor_answer with item_id ${JSON.stringify(value.item_id)} and your answer as a string. ${format} Do not end your turn.`;
       }
     }
     return textResult((instruction ? instruction + '\n\n' : '') + JSON.stringify(value, null, 2), value);
@@ -273,15 +274,15 @@ export default function register(api) {
   }, {optional:true});
   api.registerTool({
     name:'argos_proctor_item', label:'Get an active exam question',
-    description:'Read one question from the currently active module, solve it yourself, then call argos_proctor_answer with only your answer as a string. The host binds it to the item you retrieved. The service never returns the answer key or routing rules.',
+    description:'Read one question from the currently active module, solve it yourself, then call argos_proctor_answer with this item_id and your answer as a string. The host binds answers to retrieved active items. The service never returns the answer key or routing rules.',
     parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96})},{additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'proctor_item',params,signal); }
   }, {optional:true});
   api.registerTool({
     name:'argos_proctor_answer', label:'Submit an exam answer',
-    description:'Record your answer for the active question returned by argos_proctor_item. Provide answer as a string; omit item_id for the next unanswered item, or supply it only to revise an item you already retrieved in this module. The host binds answers to retrieved active items. Accepted means recorded, not correct. The service assigns the revision; you cannot set exam conditions or revisions.',
-    parameters:Type.Object({answer:Type.String({maxLength:8192}),
-      item_id:Type.Optional(Type.String({minLength:1,maxLength:96}))},{additionalProperties:false}),
+    description:'Record your own answer for a question surfaced by the host or returned by argos_proctor_item. Include that active item_id and answer as strings. The host rejects unseen, inactive, and cross-module items. Accepted means recorded, not correct. The service assigns the revision; you cannot set exam conditions or revisions.',
+    parameters:Type.Object({item_id:Type.String({minLength:1,maxLength:96}),
+      answer:Type.String({maxLength:8192})},{additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'proctor_answer',params,signal); }
   }, {optional:true});
   api.registerTool({
