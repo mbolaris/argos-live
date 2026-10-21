@@ -248,10 +248,15 @@ def practice_turn_message(exam, bridge, *, retry_format=False):
             item = bridge.present_proctor_item(unanswered[0])
             answer_format = ('Use one choice key, not the choice text.'
                              if item['response_type'] == 'mcq_single' else
-                             'Use only the number, with no units or explanation.')
-            retry = ('The host rejected the previous answer format. Retry this same question now: submit only '
-                     'one choice key for multiple choice, or a plain numeric string for a numeric question. '
-                     'Do not include the choice text, units, punctuation, or explanation. ' if retry_format else '')
+                             'Use one exact number or simple fraction such as -5/4, with no units or explanation.')
+            if retry_format and item['response_type'] == 'mcq_single':
+                retry = ('The host rejected the previous answer format. Retry this same question now: submit '
+                         'one choice key only, without choice text or explanation. ')
+            elif retry_format:
+                retry = ('The host rejected the previous answer format. Retry this same question now: submit '
+                         'one exact number or simple fraction such as -5/4 only, without units or explanation. ')
+            else:
+                retry = ''
             return (retry + 'The exam is still active. Solve this question yourself. Your first action must be a real '
                     'argos_proctor_answer tool call with ' + json.dumps({'item_id': item['item_id'],
                     'answer': 'your answer as a string'}) + '. ' + answer_format +

@@ -89,13 +89,23 @@ class DiagnosticFlagsTests(unittest.TestCase):
             self.assertNotIn('secret', output.getvalue())
             value = json.loads(output.getvalue().split(' ', 1)[1])
             self.assertEqual(set(value), {'model_reply_verified', 'metrics_present', 'backend_mode',
-                                         'backend_size_recorded', 'zero_vram_recorded', 'backend_bytes'})
+                                         'backend_size_recorded', 'zero_vram_recorded', 'backend_bytes',
+                                         'qemu_has_no_compute_gpu_passthrough'})
 
     def test_startup_measurement_still_requires_verified_reply_and_cpu(self):
         metrics = {'backend': {'mode': 'CPU', 'size_bytes': 100, 'vram_bytes': 0}}
         self.assertIs(module.ready_cpu_metrics({'model_reply_verified': True, 'metrics': metrics}), metrics)
         with patch('sys.stdout', io.StringIO()), self.assertRaises(ValueError):
             module.ready_cpu_metrics({'model_reply_verified': False, 'metrics': metrics})
+
+    def test_managed_qemu_cpu_path_accepts_software_split_but_never_full_gpu(self):
+        metrics = {'backend': {'mode': 'split', 'size_bytes': 400, 'vram_bytes': 100}}
+        self.assertIs(module.ready_cpu_metrics({'model_reply_verified': True, 'metrics': metrics},
+            vm_has_no_compute_gpu_passthrough=True), metrics)
+        with patch('sys.stdout', io.StringIO()), self.assertRaises(ValueError):
+            module.ready_cpu_metrics({'model_reply_verified': True,
+                'metrics': {'backend': {'mode': 'GPU', 'size_bytes': 100, 'vram_bytes': 100}}},
+                vm_has_no_compute_gpu_passthrough=True)
 
     def test_chat_target_retries_bounded_readiness_conflict(self):
         class Response(io.BytesIO):

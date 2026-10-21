@@ -7,6 +7,7 @@ import re
 import zlib
 from pathlib import Path
 import unittest
+import unittest.mock
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('qemu_smoke', ROOT / 'scripts/smoke-qemu-iso.py')
@@ -54,6 +55,11 @@ class BootEntryTests(unittest.TestCase):
         for replacement in ('persistence', 'nopersistence persistence-encryption=luks', ''):
             with self.assertRaises(ValueError):
                 module.desktop_entry(entry.replace('nopersistence', replacement), guest=True)
+
+    def test_managed_qemu_cpu_check_uses_no_compute_gpu_passthrough(self):
+        harness = (ROOT / 'scripts/smoke-qemu-iso.py').read_text()
+        self.assertIn("'-vga', 'std'", harness)
+        self.assertNotIn('vfio-pci', harness)
 
     def test_managed_record_cannot_claim_physical_or_browser_reply_acceptance(self):
         value = {'schema': 'argos-qemu-managed/1', 'setup_mode': 'managed',
