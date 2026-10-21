@@ -22,6 +22,7 @@ from . import auto_setup, controller_bridge, model_verify, owned_gateway, owned_
 from .proctor.engine import Caller
 from .proctor.engine import digest
 from .proctor.signing import Ed25519Signer, generate_key
+from .evaluation_context import DEFAULT_SETTINGS, configuration_from
 
 PILOT_DEFINITION = Path(__file__).resolve().parent / 'data/proctor-practice-pilot.json'
 
@@ -121,8 +122,18 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
     root = _private_directory(home / '.local/state/argos-live/proctor')
     owner_config = (json.loads(Path(owner_config_path).read_text(encoding='utf-8'))
                     if owner_config_path is not None else None)
+    try:
+        generation = configuration_from(owner_config) if owner_config is not None else None
+    except (KeyError, TypeError, ValueError):
+        raise ValueError('Owner-selected local model profile needs review before Proctor use') from None
+    if generation is not None and generation['agents']['defaults']['model']['primary'] != 'ollama/' + model:
+        raise ValueError('Owner-selected local model profile needs review before Proctor use')
+    # Preserve prior profile bytes when the selected generation settings change.
+    # This bounded projection excludes owner credentials and permission policy.
+    profile_identity = model if generation is None else json.dumps(
+        {'model': model, 'generation': generation}, sort_keys=True, separators=(',', ':'))
     profile = _private_directory(root / 'profiles' / purpose /
-                                 hashlib.sha256(model.encode()).hexdigest()[:24])
+                                 hashlib.sha256(profile_identity.encode()).hexdigest()[:24])
     if purpose == 'practice':
         workspace = _private_directory(profile / 'workspace')
     else:
@@ -148,6 +159,10 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
             raise ValueError('Owner-selected local model profile needs review before Proctor use')
         config['agents']['defaults']['model'] = json.loads(json.dumps(primary))
         config['models']['providers']['ollama']['models'] = [json.loads(json.dumps(matches[0]))]
+        for field in (*DEFAULT_SETTINGS, 'params', 'models'):
+            if field in generation['agents']['defaults']:
+                config['agents']['defaults'][field] = json.loads(json.dumps(generation['agents']['defaults'][field]))
+        config['agents']['entries'] = json.loads(json.dumps(generation['agents']['entries']))
     config['agents']['defaults']['heartbeat'] = {'every': '0m'}
     allowed_tools = PROCTOR_TOOL_NAMES if purpose == 'practice' else CAMPAIGN_TOOL_NAMES
     config['tools'] = {'profile': 'minimal', 'alsoAllow': allowed_tools,

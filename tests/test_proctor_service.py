@@ -10,6 +10,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import auto_setup, proctor_service
+from argoslive.evaluation_context import configuration_from, receipt_from
 
 
 class ProctorServiceTests(unittest.TestCase):
@@ -67,6 +68,51 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertNotEqual(first[2], second[2])
         self.assertTrue(first[2].is_file())
         self.assertTrue(second[2].is_file())
+
+    def test_practice_and_campaign_preserve_selected_per_model_generation_overrides(self):
+        owner = json.loads(self.owner_config.read_text())
+        defaults = owner['agents']['defaults']
+        defaults['models'] = {
+            'ollama/qwen3.8:27b': {'params': {'temperature': 0, 'think': True}},
+            'ollama/unselected:example': {'params': {'temperature': 1}},
+        }
+        defaults['thinkingDefault'] = 'off'
+        defaults['contextTokens'] = 32768
+        owner['agents']['entries'] = {'main': {'params': {'topP': 0.7},
+            'models': {'ollama/qwen3.8:27b': {'params': {'num_predict': 256}}}}}
+        self.owner_config.write_text(json.dumps(owner))
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        for purpose in ('practice', 'campaign'):
+            with self.subTest(purpose=purpose):
+                _, _, path, _ = proctor_service.private_profile(
+                    self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+                    owner_config_path=self.owner_config, purpose=purpose)
+                copied = json.loads(path.read_text())['agents']['defaults']
+                self.assertEqual(set(copied['models']), {'ollama/qwen3.8:27b'})
+                self.assertEqual(copied['models']['ollama/qwen3.8:27b']['params'],
+                                 defaults['models']['ollama/qwen3.8:27b']['params'])
+                self.assertEqual(copied['thinkingDefault'], 'off')
+                self.assertEqual(copied['contextTokens'], 32768)
+                self.assertEqual(copied['heartbeat'], {'every': '0m'})
+                self.assertEqual(receipt_from(configuration_from(json.loads(path.read_text())))['configured_generation'],
+                                 receipt_from(configuration_from(owner))['configured_generation'])
+
+    def test_changed_owner_generation_settings_get_a_new_profile_without_overwriting(self):
+        owner = json.loads(self.owner_config.read_text())
+        owner['agents']['defaults']['models'] = {
+            'ollama/qwen3.8:27b': {'params': {'temperature': 0, 'think': True}}}
+        self.owner_config.write_text(json.dumps(owner))
+        first = proctor_service.private_profile(self.home, 'qwen3.8:27b',
+            plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config)
+        before = first[2].read_bytes()
+        owner['agents']['defaults']['models']['ollama/qwen3.8:27b']['params']['temperature'] = 0.4
+        self.owner_config.write_text(json.dumps(owner))
+        second = proctor_service.private_profile(self.home, 'qwen3.8:27b',
+            plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config)
+        self.assertNotEqual(first[2], second[2])
+        self.assertEqual(first[2].read_bytes(), before)
+        self.assertEqual(json.loads(second[2].read_text())['agents']['defaults']['models'][
+            'ollama/qwen3.8:27b']['params']['temperature'], 0.4)
 
     def test_remote_or_unmatched_owner_model_profile_is_rejected(self):
         owner = json.loads(self.owner_config.read_text())
