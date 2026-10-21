@@ -11,6 +11,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import controller_bridge, workload
+from argoslive.proctor import ProctorError
 from argoslive.results import Store
 from test_bench_openclaw import configure_fake
 
@@ -87,6 +88,28 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(bridge.active['host_tool_failures'],[
                 {'kind':'log','error_class':'Busy'}, {'kind':'other','error_class':'ValueError'}])
             self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
+
+    def test_proctor_failures_record_only_allowlisted_error_codes(self):
+        class Exam:
+            errors = [ProctorError(422, 'INVALID_ANSWER_FORMAT'),
+                      ProctorError(422, 'private raw error text')]
+            def status(self):
+                raise self.errors.pop(0)
+
+        with workload.reserve(self.home, 'proctor') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:host-session', exam_session=Exam())
+            request, turn = self.begin(bridge)
+            for call_id in ('format-error', 'untrusted-code'):
+                with self.assertRaises(ProctorError):
+                    bridge.dispatch({**turn, 'op': 'tool', 'call_id': call_id,
+                        'kind': 'proctor_status', 'params': {}})
+            self.assertEqual(bridge.active['host_tool_failures'], [
+                {'kind': 'proctor_status', 'error_class': 'ProctorError',
+                 'error_code': 'INVALID_ANSWER_FORMAT'},
+                {'kind': 'proctor_status', 'error_class': 'ProctorError'}])
+            self.assertNotIn('private raw error text', bridge.events.read_text())
+            parent.complete()
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_log_worker_is_one_use_and_cannot_release_controller(self):

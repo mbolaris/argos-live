@@ -27,13 +27,24 @@ def safe_controller_diagnostics(turn):
         result['host_tool_requests'] = count
     allowed = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
                'proctor_continue', 'proctor_submit', 'proctor_feedback'}
+    error_codes = {'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
+        'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
+        'INVALID_SUBMISSION_ARGUMENTS', 'ITEM_NOT_IN_MODULE', 'MODULE_NOT_RELEASED',
+        'INVALID_ANSWER_FORMAT', 'STALE_REVISION', 'AID_NOT_ALLOWED', 'UNKNOWN_AID',
+        'AID_COMPLETION_CONFLICT', 'AID_NO_LONGER_ACTIVE', 'MODULE_DEADLINE_EXPIRED',
+        'TRANSCRIPT_NOT_ISSUED'}
     failures = turn.get('host_tool_failures')
     if isinstance(failures, list):
-        result['host_tool_failures'] = [
-            {'kind': row['kind'], 'error_class': row['error_class']}
-            for row in failures[:32]
-            if (isinstance(row, dict) and row.get('kind') in allowed and
-                isinstance(row.get('error_class'), str) and len(row['error_class']) <= 64)]
+        safe_failures = []
+        for row in failures[:32]:
+            if (not isinstance(row, dict) or row.get('kind') not in allowed or
+                    not isinstance(row.get('error_class'), str) or len(row['error_class']) > 64):
+                continue
+            failure = {'kind': row['kind'], 'error_class': row['error_class']}
+            if row.get('kind') == 'proctor_answer' and row.get('error_code') in error_codes:
+                failure['error_code'] = row['error_code']
+            safe_failures.append(failure)
+        result['host_tool_failures'] = safe_failures
     outcomes = turn.get('tools')
     if isinstance(outcomes, list):
         result['tool_outcomes'] = [

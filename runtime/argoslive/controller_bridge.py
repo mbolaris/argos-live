@@ -28,6 +28,14 @@ LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
+PROCTOR_ERROR_CODES = frozenset({
+    'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
+    'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
+    'INVALID_SUBMISSION_ARGUMENTS', 'ITEM_NOT_IN_MODULE', 'MODULE_NOT_RELEASED',
+    'INVALID_ANSWER_FORMAT', 'STALE_REVISION', 'AID_NOT_ALLOWED', 'UNKNOWN_AID',
+    'AID_COMPLETION_CONFLICT', 'AID_NO_LONGER_ACTIVE', 'MODULE_DEADLINE_EXPIRED',
+    'TRANSCRIPT_NOT_ISSUED',
+})
 
 
 def identity(value):
@@ -124,7 +132,11 @@ class Bridge:
                         safe_kind = kind if isinstance(kind, str) and kind in allowed_kinds else 'other'
                         failures = self.active.setdefault('host_tool_failures', [])
                         if len(failures) < 32:
-                            failures.append({'kind': safe_kind, 'error_class': type(error).__name__})
+                            failure = {'kind': safe_kind, 'error_class': type(error).__name__}
+                            code = getattr(error, 'code', None)
+                            if safe_kind in PROCTOR_TOOLS and code in PROCTOR_ERROR_CODES:
+                                failure['error_code'] = code
+                            failures.append(failure)
                         self.publish()
                 raise
         raise ValueError('Unknown bridge operation')

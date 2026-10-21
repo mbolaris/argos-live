@@ -236,7 +236,7 @@ def make_session(home, cartridge_path, form_id, model, config_hash, *, model_ide
     return db, session, cart
 
 
-def practice_turn_message(exam, bridge):
+def practice_turn_message(exam, bridge, *, retry_format=False):
     """Procedural host navigation only; the agent supplies every answer."""
     status = exam.status()
     if status['state'] == 'ACTIVE':
@@ -249,7 +249,10 @@ def practice_turn_message(exam, bridge):
             answer_format = ('Use one choice key, not the choice text.'
                              if item['response_type'] == 'mcq_single' else
                              'Use only the number, with no units or explanation.')
-            return ('The exam is still active. Solve this question yourself. Your first action must be a real '
+            retry = ('The host rejected the previous answer format. Retry this same question now: submit only '
+                     'one choice key for multiple choice, or a plain numeric string for a numeric question. '
+                     'Do not include the choice text, units, punctuation, or explanation. ' if retry_format else '')
+            return (retry + 'The exam is still active. Solve this question yourself. Your first action must be a real '
                     'argos_proctor_answer tool call with ' + json.dumps({'item_id': item['item_id'],
                     'answer': 'your answer as a string'}) + '. ' + answer_format +
                     ' A prose reply does not record an answer. Do not write a tool call as ordinary text. '
@@ -274,6 +277,7 @@ def run_practice_turns(bridge, exam, executable, config_path):
     """Retain one host lease across bounded, independently drained SDK turns."""
     deadline = time.monotonic() + PRACTICE_MAX_SECONDS
     message, stagnant, payloads = MESSAGE, 0, []
+    format_retries_remaining = 2
     terminal = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
     turns = 0
     for number in range(PRACTICE_MAX_TURNS):
@@ -288,6 +292,11 @@ def run_practice_turns(bridge, exam, executable, config_path):
         turns += 1
         payloads.extend(result.get('result', result).get('payloads', []))
         bridge.submit_answered_practice_module()
+        active = getattr(bridge, 'active', None)
+        failures = active.get('host_tool_failures', []) if isinstance(active, dict) else []
+        format_error = (format_retries_remaining > 0 and isinstance(failures, list) and any(
+            isinstance(failure, dict) and failure.get('kind') == 'proctor_answer' and
+            failure.get('error_code') == 'INVALID_ANSWER_FORMAT' for failure in failures))
         after = practice_progress(exam)
         # Breaks and module deadlines belong to the host clock. Do not ask a
         # model to shorten a break or burn repeated turns polling it.
@@ -296,10 +305,15 @@ def run_practice_turns(bridge, exam, executable, config_path):
             after = practice_progress(exam)
         if after is not None and after[0] in terminal:
             break
+        retry_format = format_error and after == before
+        if retry_format:
+            format_retries_remaining -= 1
         stagnant = stagnant + 1 if after == before else 0
-        if stagnant >= 2 or number + 1 == PRACTICE_MAX_TURNS or time.monotonic() >= deadline:
+        if ((stagnant >= 2 and not retry_format) or number + 1 == PRACTICE_MAX_TURNS or
+                time.monotonic() >= deadline):
             break
-        message = practice_turn_message(exam, bridge) if exam.session_id is not None else MESSAGE
+        message = (practice_turn_message(exam, bridge, retry_format=retry_format)
+                   if exam.session_id is not None else MESSAGE)
         if not message:
             break
     # This still requires proven worker drainage. An incomplete practice signs
