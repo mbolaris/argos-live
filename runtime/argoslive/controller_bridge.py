@@ -557,6 +557,10 @@ class Bridge:
                 try:
                     # Require a terminal, privately persisted signed transcript
                     # before releasing the exclusive Proctor reservation.
+                    if (self.exam_session.tier == 'practice' and
+                            self.exam_session.status()['state'] not in
+                            {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}):
+                        self.exam_session.host_abandon()
                     envelope = self.exam_session.host_transcript()
                 except (ValueError, OSError):
                     self.uncertain = True
