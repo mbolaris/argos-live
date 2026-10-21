@@ -56,6 +56,13 @@ response explicitly asks the agent to solve it and call the answer tool;
 recording an answer explicitly asks it to continue or submit. These directions
 carry no answer hints and do not turn an incomplete attempt into a pass.
 
+Fresh image configurations request temperature zero explicitly. Two separate
+native fixture runs (39550951768 and 39550954625) completed all four pilot items
+at that setting, with the actual request temperature observed on the wire.
+Each scored 3/4; this is limited workflow repeatability evidence, not an ability
+gain. Existing owner configurations remain byte-for-byte unchanged, and the
+private Proctor profile still preserves their selected generation controls.
+
 `argos proctor improve` runs that practice session first, waits for its signed
 transcript to be saved and its reservation to drain, then starts a separate
 host-admitted improvement campaign. The campaign receives practice misses as

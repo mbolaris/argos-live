@@ -44,6 +44,9 @@ def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
         'models': {'providers': {'ollama': {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama',
             'models': [{'id': model, 'name': model, 'input': ['text'], 'reasoning': False,
                         'contextWindow': 32768, 'maxTokens': 4096,
+                        # Explicit decoding for fresh agent configurations;
+                        # existing owner profiles are never rewritten here.
+                        'params': {'temperature': 0},
                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
         'tools': {'profile': 'minimal',
                   'alsoAllow': ['group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_evaluate_wait',
