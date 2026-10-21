@@ -17,6 +17,8 @@ jobs:
           node-version: '24'
       - name: Verify pinned improvement-plugin dependency lock
         run: npm ci --prefix openclaw-plugin/argos-improve --ignore-scripts --no-audit --no-fund
+      - name: Install OpenSSH parser for paired-boot policy verification
+        run: sudo apt-get update && sudo apt-get install -y openssh-server
       - name: Python tests and shell syntax
         run: PYTHONFAULTHANDLER=1 timeout --signal=ABRT --kill-after=10s 5m bash scripts/check.sh
       - name: Node upstream tests

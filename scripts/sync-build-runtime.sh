@@ -16,6 +16,7 @@ install -m 755 "$src/runtime/welcome.py" "$work/config/includes.chroot/usr/local
 install -D -m 755 "$src/scripts/argos-collect-boot" "$work/config/includes.chroot/usr/local/sbin/argos-collect-boot"
 install -D -m 755 "$src/scripts/argos-export-boot" "$work/config/includes.chroot/usr/local/sbin/argos-export-boot"
 install -D -m 755 "$src/runtime/argos-refresh-runtime" "$work/config/includes.chroot/usr/local/sbin/argos-refresh-runtime"
+install -D -m 755 "$src/runtime/argos-ssh-ready" "$work/config/includes.chroot/usr/local/sbin/argos-ssh-ready"
 cp "$src/live/config/hooks/live/020-wallpaper.hook.chroot" "$src/live/config/hooks/live/030-diagnostics.hook.chroot" "$work/config/hooks/live/"
 chmod +x "$work/config/hooks/live/020-wallpaper.hook.chroot" "$work/config/hooks/live/030-diagnostics.hook.chroot"
 if [[ -d /var/lib/argos-live/seed-model ]]; then
@@ -37,6 +38,10 @@ if [[ -d "$work/chroot/usr/local/share/argos-live" ]]; then
   install -D -m 755 "$src/scripts/argos-collect-boot" "$work/chroot/usr/local/sbin/argos-collect-boot"
   install -D -m 755 "$src/scripts/argos-export-boot" "$work/chroot/usr/local/sbin/argos-export-boot"
   install -D -m 755 "$src/runtime/argos-refresh-runtime" "$work/chroot/usr/local/sbin/argos-refresh-runtime"
+  install -D -m 755 "$src/runtime/argos-ssh-ready" "$work/chroot/usr/local/sbin/argos-ssh-ready"
+  install -D -m 644 "$src/live/config/includes.chroot/etc/ssh/sshd_config.d/00-argos-defaults.conf" "$work/chroot/etc/ssh/sshd_config.d/00-argos-defaults.conf"
+  chroot "$work/chroot" systemctl enable ssh.service
+  chroot "$work/chroot" systemctl disable ssh.socket 2>/dev/null || true
   chroot "$work/chroot" /bin/sh -c 'ln -sfn /usr/share/backgrounds/argos-live/futuristic-coastline.png /usr/share/images/desktop-base/default; systemctl enable argos-boot-log.timer'
   if [[ -e "$work/chroot/usr/share/backgrounds/xfce/xfce-x.svg" ]]; then
     ln -sfn /usr/share/backgrounds/argos-live/futuristic-coastline.png "$work/chroot/usr/share/backgrounds/xfce/xfce-x.svg"
