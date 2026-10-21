@@ -7,7 +7,8 @@ each boot. A fresh image still needs one owner pairing; no owner key or private
 host key is distributed in the generic ISO.
 
 The unit's read-only startup gate requires the existing root-owned
-`/etc/ssh/sshd_config.d/00-argos-lan.conf`, an existing private ED25519 host key,
+`/etc/ssh/sshd_config.d/00-argos-lan.conf` (or the earlier
+`00-argos-yugo-pairing.conf`), an existing private ED25519 host key,
 and a valid local authorized_keys file for every allowlisted account. It checks
 the effective sshd configuration, including each user's connection context:
 public-key authentication only, non-root users explicitly restricted to owner

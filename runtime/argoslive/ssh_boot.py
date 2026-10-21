@@ -8,6 +8,7 @@ import subprocess
 from . import session_mode, storage_view
 
 PAIRING = Path('/etc/ssh/sshd_config.d/00-argos-lan.conf')
+LEGACY_PAIRING = Path('/etc/ssh/sshd_config.d/00-argos-yugo-pairing.conf')
 HOST_KEY = Path('/etc/ssh/ssh_host_ed25519_key')
 PRIVATE_NETS = tuple(ipaddress.ip_network(n) for n in
                      ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'))
@@ -83,16 +84,25 @@ def require_encrypted(path, mounts, blocks):
         raise ValueError('SSH pairing and host identity need unlocked encrypted live persistence')
 
 
+def pairing_files(candidates=(PAIRING, LEGACY_PAIRING)):
+    paths = [path for path in candidates if path.exists()]
+    if not paths:
+        raise ValueError('No existing owner LAN pairing was found')
+    return paths
+
+
 def ready():
     """Never create keys, alter configuration, enable units, or accept a new pin."""
     if session_mode.guest():
         raise ValueError('SSH automatic startup is unavailable in guest mode')
-    trusted_file(PAIRING, {0})
+    pairings = pairing_files()
+    for path in pairings:
+        trusted_file(path, {0})
     trusted_file(HOST_KEY, {0})
     if HOST_KEY.stat().st_mode & 0o077:
         raise ValueError('SSH host private key permissions are too broad')
     mounts, blocks, _ = storage_view.topology()
-    for path in (PAIRING, HOST_KEY):
+    for path in (*pairings, HOST_KEY):
         require_encrypted(path, mounts, blocks)
     # Test keys and configuration without starting a listener or generating keys.
     command(['/usr/sbin/sshd', '-t'])

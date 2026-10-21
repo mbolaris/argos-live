@@ -21,6 +21,16 @@ def policy(**overrides):
 
 
 class SshPolicyTests(unittest.TestCase):
+    def test_recognizes_both_owner_pairing_names_and_refuses_missing_pairing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            primary, legacy = Path(folder) / 'lan', Path(folder) / 'yugo'
+            with self.assertRaises(ValueError):
+                ssh_boot.pairing_files((primary, legacy))
+            legacy.write_text('paired owner LAN')
+            self.assertEqual(ssh_boot.pairing_files((primary, legacy)), [legacy])
+            primary.write_text('paired owner LAN')
+            self.assertEqual(ssh_boot.pairing_files((primary, legacy)), [primary, legacy])
+
     def test_paired_lan_allowed(self):
         self.assertEqual(ssh_boot.effective_policy(policy()), [('argos', '192.168.1.31')])
 
@@ -75,7 +85,7 @@ class SshPolicyTests(unittest.TestCase):
 class SshReadinessTests(unittest.TestCase):
     def setUp(self):
         for name, value in (
-                ('guest', False), ('trusted_file', None), ('require_encrypted', None),
+                ('guest', False), ('pairing_files', [ssh_boot.PAIRING]), ('trusted_file', None), ('require_encrypted', None),
                 ('account_for', SimpleNamespace(pw_uid=1000, pw_dir='/home/argos')),
                 ('command', policy())):
             target = ssh_boot.session_mode if name == 'guest' else ssh_boot
@@ -104,6 +114,12 @@ class SshReadinessTests(unittest.TestCase):
         self.assertEqual(ssh_boot.main(), 1)
         self.trusted_file.assert_not_called()
         self.command.assert_not_called()
+
+    def test_legacy_pairing_must_pass_the_same_encrypted_policy_checks(self):
+        self.pairing_files.return_value = [ssh_boot.LEGACY_PAIRING]
+        ssh_boot.ready()
+        self.trusted_file.assert_any_call(ssh_boot.LEGACY_PAIRING, {0})
+        self.require_encrypted.assert_any_call(ssh_boot.LEGACY_PAIRING, [], {})
 
     def test_unpaired_image_skips_before_starting_sshd(self):
         self.trusted_file.side_effect = FileNotFoundError('no pairing')
