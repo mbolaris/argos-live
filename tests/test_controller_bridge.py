@@ -114,6 +114,7 @@ class ControllerBridgeTests(unittest.TestCase):
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_audit_tool_uses_scoped_maintenance_and_preserves_parent_and_instructions(self):
         instructions = self.home / '.openclaw/workspace/AGENTS.md'
+        instructions.write_text('Owner instructions remain intact.\n', encoding='utf-8')
         before = instructions.read_bytes()
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
