@@ -1,3 +1,4 @@
+from contextlib import closing
 """Observe shipped autostart in an offline disposable guest; never start services."""
 import json
 import ctypes
@@ -472,6 +473,49 @@ def managed_check(started, desktop_seconds):
         return managed_check_body(started, desktop_seconds, native_lab)
 
 
+def proctor_failure_diagnostics(home):
+    """Publish only bounded host lifecycle facts, never arbitrary text or answers."""
+    import sqlite3
+    root = Path(home) / '.local/state/argos-live'
+    def metadata(name):
+        try:
+            path = root / 'workload' / name
+            if path.stat().st_size > 1024 * 1024:
+                return {}
+            value = json.loads(path.read_bytes())
+            return value if isinstance(value, dict) else {}
+        except (OSError, ValueError):
+            return {}
+    turn = metadata('controller-turn.json')
+    worker = metadata('controller-worker.json')
+    reservation = metadata('reservation.json')
+    names = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
+             'proctor_continue', 'proctor_submit', 'proctor_feedback', 'proctor_finalize'}
+    tools = turn.get('tools', [])
+    tools = tools if isinstance(tools, list) else []
+    count = turn.get('host_tool_requests')
+    receipt = {'turn_recorded': bool(turn), 'worker_recorded': bool(worker),
+        'worker_drained': worker.get('process_group_drained') is True,
+        'sdk_end_observed': worker.get('sdk_end_observed') is True,
+        'tool_requests': count if type(count) is int and 0 <= count <= 10000 else None,
+        'tool_kinds': sorted({row.get('kind') for row in tools[:10000]
+                              if isinstance(row, dict) and isinstance(row.get('kind'), str) and row['kind'] in names}),
+        'reservation_state': reservation.get('state') if reservation.get('state') in
+                             {'active', 'released', 'quarantined'} else 'unknown'}
+    database = root / 'proctor/state.sqlite3'
+    states = {'READY', 'ACTIVE', 'BREAK', 'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
+    receipt['exam_states'] = {}
+    try:
+        with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True, timeout=2)) as db:
+            for state, count in db.execute('SELECT state, COUNT(*) FROM sessions GROUP BY state LIMIT 20'):
+                if state in states and type(count) is int:
+                    receipt['exam_states'][state] = min(count, 10000)
+    except (OSError, sqlite3.Error):
+        pass
+    print('ARGOS_PROCTOR_DIAGNOSTICS ' + json.dumps(receipt, sort_keys=True), flush=True)
+    return receipt
+
+
 def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag):
     """Verify one real bundled-model Proctor practice, then return to ready state."""
     import sqlite3
@@ -512,6 +556,7 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
             failure_code = 'practice-output-oversized'
             raise ValueError('Bundled-model Proctor practice command failed')
         if completed.returncode != 0:
+            proctor_failure_diagnostics(home)
             failure_code = 'practice-command-nonzero'
             stderr = completed.stderr.lower()
             for marker, code in ((b'stop the existing ollama service', 'backend-still-running'),
@@ -540,7 +585,7 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         failure_code = 'transcript-store'
         proctor_root = home / '.local/state/argos-live/proctor'
         database_path = proctor_root / 'state.sqlite3'
-        with sqlite3.connect(database_path.as_uri() + '?mode=ro', uri=True, timeout=5) as database:
+        with closing(sqlite3.connect(database_path.as_uri() + '?mode=ro', uri=True, timeout=5)) as database:
             row = database.execute('SELECT envelope_json FROM transcripts WHERE session_id=?',
                                    ('sess_' + transcript_id,)).fetchone()
         if not row:

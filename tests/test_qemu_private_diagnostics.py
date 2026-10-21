@@ -1,4 +1,5 @@
 import importlib.util
+from contextlib import closing
 import io
 import json
 import os
@@ -17,6 +18,36 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+
+    def test_proctor_failure_receipt_exposes_only_allowlisted_lifecycle_facts(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            root = home / '.local/state/argos-live'
+            (root / 'workload').mkdir(parents=True)
+            (root / 'proctor').mkdir()
+            secret = 'PRIVATE-PROMPT-ANSWER-TOKEN'
+            (root / 'workload/controller-turn.json').write_text(json.dumps({
+                'host_tool_requests': 3, 'prompt': secret,
+                'tools': [{'kind': 'proctor_start', 'call_id': secret},
+                          {'kind': secret}, {'kind': [secret]}]}))
+            (root / 'workload/controller-worker.json').write_text(json.dumps({
+                'process_group_drained': True, 'stderr': secret}))
+            (root / 'workload/reservation.json').write_text(json.dumps({
+                'state': 'quarantined', 'secret': secret}))
+            with closing(sqlite3.connect(root / 'proctor/state.sqlite3')) as db:
+                db.execute('CREATE TABLE sessions(state TEXT)')
+                db.executemany('INSERT INTO sessions VALUES (?)', [('ACTIVE',), (secret,)])
+                db.commit()
+            with patch('sys.stdout', io.StringIO()) as output:
+                value = module.proctor_failure_diagnostics(home)
+            self.assertNotIn(secret, output.getvalue())
+            self.assertEqual(value['tool_kinds'], ['proctor_start'])
+            self.assertEqual(value['exam_states'], {'ACTIVE': 1})
+            self.assertTrue(value['worker_drained'])
+            self.assertEqual(value['reservation_state'], 'quarantined')
+
+
     def test_startup_measurement_rejection_reports_only_fixed_indicators(self):
         for metrics in (None, {'backend': {'mode': 'private token', 'size_bytes': 'secret',
                 'vram_bytes': 0}}, {'backend': {'mode': 'GPU', 'size_bytes': 100, 'vram_bytes': 100}}):
