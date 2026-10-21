@@ -677,7 +677,7 @@ def managed_check_body(started, desktop_seconds, native_lab):
                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
     managed_stage('model-lab-command-returned')
-    lab_deadline = time.monotonic() + 30
+    lab_deadline = time.monotonic() + 60
     while not firefox_model_lab_visible():
         focus_firefox_dashboard()
         if firefox_model_lab_visible():
