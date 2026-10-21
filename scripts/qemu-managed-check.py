@@ -508,8 +508,20 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         completed = subprocess.run(['argos', 'proctor', 'practice', '--json'],
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             timeout=2100, check=False)
-        if (completed.returncode != 0 or len(completed.stdout) > 1024 * 1024 or
-                len(completed.stderr) > 1024 * 1024):
+        if len(completed.stdout) > 1024 * 1024 or len(completed.stderr) > 1024 * 1024:
+            failure_code = 'practice-output-oversized'
+            raise ValueError('Bundled-model Proctor practice command failed')
+        if completed.returncode != 0:
+            failure_code = 'practice-command-nonzero'
+            stderr = completed.stderr.lower()
+            for marker, code in ((b'stop the existing ollama service', 'backend-still-running'),
+                                 (b'stop the existing openclaw gateway', 'gateway-still-running'),
+                                 (b'argos local model selection is unavailable', 'model-selection'),
+                                 (b'pinned openclaw executable is unavailable', 'openclaw-unavailable'),
+                                 (b'system openssl is required', 'openssl-unavailable')):
+                if marker in stderr:
+                    failure_code = code
+                    break
             raise ValueError('Bundled-model Proctor practice command failed')
         failure_code = 'practice-json'
         practice = json.loads(completed.stdout)
