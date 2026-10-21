@@ -31,10 +31,12 @@ exams remain outside this entry point.
 The host can continue a practice exam across short agent turns. It verifies
 each SDK worker and process group has exited before admitting another turn,
 retains the same exclusive workload reservation and exam, and fences off the
-previous turn's credentials. For an unanswered item, it supplies that active
-question and asks the agent to call the answer tool with its own solution. It
-submits a module after every item has a recorded agent answer and the worker has
-drained. It never fills in an answer. This automatic submission policy is
+previous turn's credentials. For an unanswered item, it directs the agent to
+fetch the question through the item tool. The answer tool accepts the agent's
+answer as a string; the host binds it to an unanswered item the agent retrieved,
+so the model need not repeat an item identifier. It submits a module after
+every item has a recorded agent answer and the worker has drained. It never
+fills in an answer. This automatic submission policy is
 recorded in the signed administration conditions. Breaks and deadlines remain host-owned.
 The signed subject configuration records this administration mode. Sixteen
 turns, thirty minutes, or two consecutive turns without progress bound this
@@ -52,9 +54,11 @@ never offer it. These hints do not force an agent to continue, and the real-mode
 image test must still prove completion.
 
 The plugin renders the next action in plain text as well as JSON. A question
-response explicitly asks the agent to solve it and call the answer tool;
-recording an answer explicitly asks it to continue or submit. These directions
-carry no answer hints and do not turn an incomplete attempt into a pass.
+response explicitly asks the agent to solve it and call the answer tool with
+only its answer; the controller resolves the active item from the item retrieval
+record. Recording an answer explicitly asks it to continue or submit. These
+directions carry no answer hints and do not turn an incomplete attempt into a
+pass.
 
 Fresh image configurations request temperature zero explicitly. Two separate
 native fixture runs (39550951768 and 39550954625) completed all four pilot items

@@ -53,6 +53,7 @@ class Bridge:
         self.closed = False
         self.verified = False
         self.outcomes = []
+        self.presented_proctor_items = set()
         self.evaluation_job = None
         self.lock = threading.RLock()
         self.tool_lock = threading.Lock()
@@ -329,7 +330,8 @@ class Bridge:
             if set(params) != {'item_id'} or not identity(params.get('item_id')):
                 raise ValueError('Invalid Proctor item request')
         elif kind == 'proctor_answer':
-            if (set(params) != {'item_id', 'answer'} or not identity(params.get('item_id')) or
+            if (set(params) not in ({'answer'}, {'item_id', 'answer'}) or
+                    ('item_id' in params and not identity(params.get('item_id'))) or
                     not isinstance(params.get('answer'), str) or len(params['answer'].encode('utf-8')) > 8192):
                 raise ValueError('Invalid Proctor answer request')
 
@@ -339,9 +341,23 @@ class Bridge:
         if kind == 'proctor_status':
             return self.exam_session.status()
         if kind == 'proctor_item':
-            return self.exam_session.item(params['item_id'])
+            status = self.exam_session.status()
+            item_id = params['item_id']
+            value = self.exam_session.item(item_id)
+            self.presented_proctor_items.add((status.get('module_id'), item_id))
+            return value
         if kind == 'proctor_answer':
-            return self.exam_session.answer(params['item_id'], params['answer'], call_id)
+            status = self.exam_session.status()
+            module_id = status.get('module_id')
+            item_id = params.get('item_id')
+            if item_id is None:
+                item_id = next((item for item in status.get('item_ids', [])
+                                if not status.get('answer_revisions', {}).get(item) and
+                                (module_id, item) in self.presented_proctor_items), None)
+            if not module_id or (module_id, item_id) not in self.presented_proctor_items:
+                raise ValueError('Read the active item before submitting its answer')
+            result = self.exam_session.answer(item_id, params['answer'], call_id)
+            return {'item_id': item_id, **result}
         if kind == 'proctor_continue':
             return self.exam_session.continue_module(call_id)
         if kind == 'proctor_submit':

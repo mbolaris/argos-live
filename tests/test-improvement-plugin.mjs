@@ -64,6 +64,10 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     const { default: register } = await import(`${pluginPath}?test=${Date.now()}`);
     const tools = new Map();
     register({ registerTool(tool) { tools.set(tool.name, tool); } });
+    const answerTool = tools.get('argos_proctor_answer').parameters;
+    assert.deepEqual(Object.keys(answerTool.properties), ['answer', 'item_id']);
+    assert.deepEqual(answerTool.required, ['answer']);
+    assert.match(tools.get('argos_proctor_item').description, /host binds it to the item you retrieved/);
 
     const cancelled = new AbortController();
     cancelled.abort();

@@ -46,8 +46,9 @@ MESSAGE = ('Your first action must be to call argos_proctor_start with an empty 
            'after the final module. The practice host also submits a fully answered module '
            'after your turn ends. Follow each response next_step by calling its tool '
            'with its arguments. When argos_proctor_item returns a question, solve it '
-           'yourself and call argos_proctor_answer with that item_id and your answer '
-           'as a string. An accepted answer is only recorded, not graded feedback. '
+           'yourself and call argos_proctor_answer with only your answer as a string. '
+           'The host binds it to the active question you retrieved. An accepted answer '
+           'is only recorded, not graded feedback. '
            'Keep calling tools until the exam is COMPLETED and you have called '
            'argos_proctor_feedback; starting the exam does not finish this task. '
            'Do not use outside tools or infer whether an answer '
@@ -242,14 +243,13 @@ def practice_turn_message(exam):
         unanswered = [item for item in status['item_ids'] if not status['answer_revisions'].get(item)]
         if unanswered:
             # Let the model retrieve the item through its registered tool before
-            # answering. Supplying the full item here and asking the model to
-            # call answer directly led small models to print a textual imitation
-            # of a tool call instead of invoking the real tool.
+            # answering. The answer tool derives the surfaced active item on the
+            # host, so a small model need not reproduce a redundant item ID.
             return ('The exam is still active. Your first action must be a real tool call to '
                     'argos_proctor_item with ' + json.dumps({'item_id': unanswered[0]}) +
                     '. Wait for the item tool result, solve that question yourself, then make a real '
-                    'argos_proctor_answer tool call with the same item_id and your answer as a string. '
-                    'Do not write a tool call as ordinary text. Use no outside tools.')
+                    'argos_proctor_answer tool call with only your answer as a string. The host binds '
+                    'it to the item you retrieved. Do not write a tool call as ordinary text. Use no outside tools.')
     step = status.get('next_step')
     if not step:
         return None

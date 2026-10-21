@@ -233,15 +233,24 @@ class AgentSessionTests(unittest.TestCase):
             self.assertNotIn('session_id', start)
             with self.assertRaises(ValueError):
                 call('try-evaluate', 'evaluation', {'suite': 'quick'})
+            with self.assertRaisesRegex(ValueError, 'Read the active item'):
+                call('answer-before-item', 'proctor_answer', {'answer': 'B'})
             item = call('get-q1', 'proctor_item', {'item_id': 'q1'})
             self.assertNotIn('correct', item)
-            self.assertEqual(call('answer-q1', 'proctor_answer', {'item_id': 'q1', 'answer': 'B'})['status'], 'accepted')
-            call('answer-q2', 'proctor_answer', {'item_id': 'q2', 'answer': '4'})
+            answer = call('answer-q1', 'proctor_answer', {'answer': 'B'})
+            self.assertEqual((answer['status'], answer['item_id']), ('accepted', 'q1'))
+            call('get-q2', 'proctor_item', {'item_id': 'q2'})
+            answer = call('answer-q2', 'proctor_answer', {'answer': '4'})
+            self.assertEqual(answer['item_id'], 'q2')
             self.assertEqual(call('submit-one', 'proctor_submit', {'module_id': 'm1'})['state'], 'BREAK')
             self.clock.now += 500_000_000
             self.assertEqual(call('continue', 'proctor_continue')['state'], 'ACTIVE')
-            call('answer-q3', 'proctor_answer', {'item_id': 'q3', 'answer': 'A'})
-            call('answer-q4', 'proctor_answer', {'item_id': 'q4', 'answer': '-1.25'})
+            call('get-q3', 'proctor_item', {'item_id': 'q3'})
+            answer = call('answer-q3', 'proctor_answer', {'answer': 'A'})
+            self.assertEqual(answer['item_id'], 'q3')
+            call('get-q4', 'proctor_item', {'item_id': 'q4'})
+            answer = call('answer-q4', 'proctor_answer', {'answer': '-1.25'})
+            self.assertEqual(answer['item_id'], 'q4')
             self.assertEqual(call('submit-two', 'proctor_submit', {'module_id': 'm2'})['state'], 'COMPLETED')
             with self.assertRaisesRegex(ValueError, 'withheld'):
                 call('heldout-feedback', 'proctor_feedback')
