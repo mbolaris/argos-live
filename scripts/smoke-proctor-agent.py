@@ -44,7 +44,8 @@ def run(cli, report):
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or os.geteuid() == 0):
         raise ValueError('Proctor integration fixture requires an unprivileged disposable hosted runner')
-    progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': []}
+    progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': [],
+                'provider_idless_calls': 0}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -80,9 +81,15 @@ def run(cli, report):
                 else:
                     tool, args = CAMPAIGN_TOOLS[calls - len(TOOLS)], CAMPAIGN_ARGS[calls - len(TOOLS)]
                 progress['tools'] += 1
-                message = {'role': 'assistant', 'content': '', 'tool_calls': [{
-                    'id': f'proctor-call-{calls}', 'type': 'function',
-                    'function': {'name': tool, 'arguments': args}}]}
+                # Ollama's documented native tool response need not contain an ID:
+                # https://docs.ollama.com/capabilities/tool-calling
+                call = {'type': 'function',
+                        'function': {'index': 0, 'name': tool, 'arguments': args}}
+                if calls % 2:
+                    call['id'] = f'proctor-call-{calls}'
+                else:
+                    progress['provider_idless_calls'] += 1
+                message = {'role': 'assistant', 'content': '', 'tool_calls': [call]}
             else:
                 message = {'role': 'assistant', 'content': 'PROCTOR_COMPLETE'}
             self.respond({'model': request['model'], 'message': message, 'done': True,
@@ -179,7 +186,10 @@ def run(cli, report):
                 transcript_id = profile.session_id.removeprefix('sess_')
                 if any(key in json.dumps(bridge.outcomes) for key in ('accepted_correct', 'payload_json', 'correct')):
                     raise ValueError('Agent-facing Proctor receipts exposed scoring or the signed transcript')
+                if not progress['provider_idless_calls']:
+                    raise ValueError('Fixture did not exercise provider calls without IDs')
                 receipt.update(tool_calls=progress['tools'],
+                    provider_idless_tool_calls=progress['provider_idless_calls'],
                     proctor_workload_released=True, transcript_id=transcript_id,
                     transcript_sha256=transcript_hash, signature_verified=True,
                     synthetic_score=payload['accepted_correct'], synthetic_total=payload['total_items'],
