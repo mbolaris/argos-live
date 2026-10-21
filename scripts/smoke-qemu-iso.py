@@ -112,7 +112,8 @@ def lab_progress_phase(line):
     return phase if phase == 'ability' else None
 
 
-def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke=False):
+def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke=False,
+                 vm_has_no_compute_gpu_passthrough=False):
     # Serial reads split anywhere, including after a nested JSON object's closing
     # brace. Only a complete newline-terminated record can establish acceptance.
     match = re.search(r'ARGOS_C3_RESULT (\{[^\r\n]+\})\r?\n', serial)
@@ -161,7 +162,10 @@ def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke
                     result['proctor_score']['total'] != 4 or
                     not 0 <= result['proctor_score']['correct'] <= result['proctor_score']['total']):
                 raise ValueError('Managed guest Proctor receipt is incomplete')
-        if result.get('setup_mode') != 'managed' or result.get('startup_metrics', {}).get('backend', {}).get('mode') != 'CPU':
+        backend = result.get('startup_metrics', {}).get('backend', {})
+        mode = backend.get('mode') if isinstance(backend, dict) else None
+        cpu_path = mode == 'CPU' or (vm_has_no_compute_gpu_passthrough and mode == 'split')
+        if result.get('setup_mode') != 'managed' or not cpu_path:
             raise ValueError('Managed guest did not establish CPU startup')
         return result
     if not isinstance(result, dict) or result.get('schema') != 'argos-qemu-smoke/1':
@@ -348,7 +352,8 @@ def run(image, output, *, timeout=3600, setup_mode='interactive', guest_mode=Fal
                     if re.search(r'ARGOS_C3_FAIL [A-Za-z]+(?: [a-z-]+)?\r?\n', tail):
                         raise ValueError('Guest acceptance failed; see console artifact')
                     result = guest_result(tail, setup_mode=setup_mode, guest=guest_mode,
-                                          proctor_smoke=proctor_smoke)
+                                          proctor_smoke=proctor_smoke,
+                                          vm_has_no_compute_gpu_passthrough=True)
                     if result is not None:
                         result.update(iso_sha256=digest.hexdigest(), vm_elapsed_seconds=time.monotonic() - started,
                                       vm_memory_mib=8192 if setup_mode == 'managed' else 4096,

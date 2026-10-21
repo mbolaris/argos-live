@@ -115,6 +115,17 @@ class BootEntryTests(unittest.TestCase):
             'proctor_modules_submitted': True}
         wire = 'ARGOS_C3_RESULT ' + json.dumps(value) + '\n'
         self.assertEqual(module.guest_result(wire, setup_mode='managed', proctor_smoke=True), value)
+        split_backend = dict(value, startup_metrics={'backend': {'mode': 'split'}})
+        split_wire = 'ARGOS_C3_RESULT ' + json.dumps(split_backend) + '\n'
+        with self.assertRaisesRegex(ValueError, 'CPU startup'):
+            module.guest_result(split_wire, setup_mode='managed', proctor_smoke=True)
+        self.assertEqual(module.guest_result(split_wire, setup_mode='managed', proctor_smoke=True,
+                                             vm_has_no_compute_gpu_passthrough=True), split_backend)
+        gpu_wire = 'ARGOS_C3_RESULT ' + json.dumps(dict(value, startup_metrics={
+            'backend': {'mode': 'GPU'}})) + '\n'
+        with self.assertRaisesRegex(ValueError, 'CPU startup'):
+            module.guest_result(gpu_wire, setup_mode='managed', proctor_smoke=True,
+                                vm_has_no_compute_gpu_passthrough=True)
         incomplete = dict(value, proctor_practice_completed=False, proctor_practice_outcome='ABANDONED',
                           proctor_score={'correct': 1, 'total': 2})
         with self.assertRaisesRegex(ValueError, 'practice did not complete'):
