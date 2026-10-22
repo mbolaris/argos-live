@@ -229,6 +229,22 @@ class Bridge:
             _stderr = b''.join(stderr_parts).decode('utf-8', errors='replace')
             self.last_child_stdout, self.last_child_stderr = stdout, _stderr
             if process.returncode or overflow.is_set() or len(stdout.encode()) > 2 * 1024**2:
+                # Campaign logging marks its delegated reservation drained before
+                # validating referenced run IDs and appending. A validation
+                # failure therefore exits nonzero even though the one-use log
+                # child is safely released. Resume only that fixed, non-inference
+                # operation after the workload layer verifies the exact released
+                # child; all other abnormal child exits remain quarantined.
+                if (kind == 'log' and process.returncode and not overflow.is_set()
+                        and len(stdout.encode()) <= 2 * 1024**2):
+                    try:
+                        failed = json.loads(stdout)
+                    except (json.JSONDecodeError, TypeError):
+                        failed = None
+                    if isinstance(failed, dict) and failed.get('status') == 'failed':
+                        self.parent.resume(capability, worker_drained=True)
+                        return {'status': 'failed',
+                                'message': 'Campaign log entry failed; the host workload remains available.'}
                 raise workload.Busy(recovery=True)
             value = json.loads(stdout)
             if kind == 'evaluation':
