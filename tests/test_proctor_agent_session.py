@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive.proctor import AgentSession, Caller, Cartridge, Proctor, compile_cartridge, open_state
+from argoslive.proctor import AgentSession, Caller, Cartridge, Proctor, ProctorError, compile_cartridge, open_state
 from argoslive.proctor.engine import digest
 from argoslive import controller_bridge, workload, proctor_service
 
@@ -355,7 +355,7 @@ class AgentSessionTests(unittest.TestCase):
         exam = self.session(tier='practice')
         messages = []
         clock = self.clock
-        actions = [lambda: exam.start('start'),
+        actions = [lambda: exam.start('start'), lambda: None,
             lambda: exam.answer('q1', 'A', 'a1'), lambda: exam.answer('q2', '3', 'a2'),
             lambda: exam.answer('q3', 'B', 'a3'),
             lambda: exam.answer('q4', '0', 'a4')]
@@ -379,11 +379,13 @@ class AgentSessionTests(unittest.TestCase):
                           side_effect=lambda seconds: setattr(clock, 'now', clock.now + int(seconds * 10**9))):
             result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
         self.assertTrue(bridge.completed)
-        self.assertEqual(result['host_turns'], 5)
+        self.assertEqual(result['host_turns'], 6)
         self.assertIn('argos_proctor_answer', messages[1])
-        self.assertIn('"item_id": "q3"', messages[3])
-        self.assertNotIn('expected_answer', messages[3])
-        self.assertIn('Do not write a tool call as ordinary text', messages[3])
+        self.assertIn('previous turn did not invoke an answer tool', messages[2].lower())
+        self.assertIn('do not print tool-call syntax as text', messages[2].lower())
+        self.assertIn('"item_id": "q3"', messages[4])
+        self.assertNotIn('expected_answer', messages[4])
+        self.assertIn('Do not write a tool call as ordinary text', messages[4])
         self.assertTrue(all('expected_answer' not in message for message in messages))
         self.assertEqual(exam.practice_feedback()['correct'], 0)
         self.assertEqual(exam.practice_feedback()['unanswered'], 0)
@@ -392,7 +394,8 @@ class AgentSessionTests(unittest.TestCase):
         exam = self.session(tier='practice')
         class StalledTurns:
             count = 0
-            def launch(self, *args, **kwargs): pass
+            messages = []
+            def launch(self, executable, message, **kwargs): self.messages.append(message)
             def present_proctor_item(self, item_id): return exam.item(item_id)
             def finish(self, **kwargs):
                 if not self.count: exam.start('start-stalled')
@@ -402,8 +405,62 @@ class AgentSessionTests(unittest.TestCase):
             def submit_answered_practice_module(self): pass
             def _complete(self): exam.host_abandon()
         result = proctor_service.run_practice_turns(StalledTurns(), exam, 'fixture', 'fixture-config')
-        self.assertEqual(result['host_turns'], 3)
+        self.assertEqual(result['host_turns'], 4)
+        self.assertIn('previous turn did not invoke an answer tool', StalledTurns.messages[-1].lower())
         self.assertEqual(exam.status()['state'], 'ABANDONED')
+
+    def test_invalid_answer_format_gets_bounded_targeted_retry(self):
+        exam = self.session(tier='practice')
+        messages = []
+        self_test = self
+
+        class RetryTurns:
+            completed = False
+            active = None
+            count = 0
+            def launch(self, executable, message, **kwargs):
+                messages.append(message)
+                self.active = {'host_tool_failures': []}
+            def present_proctor_item(self, item_id):
+                return exam.item(item_id)
+            def finish(self, **kwargs):
+                self_test.assertFalse(kwargs['finalize'])
+                if self.count == 0:
+                    exam.start('retry-start')
+                elif self.count == 1:
+                    with self_test.assertRaises(ProctorError):
+                        exam.answer('q1', 'B. 4', 'invalid-format')
+                    self.active['host_tool_failures'].append({
+                        'kind': 'proctor_answer', 'error_class': 'ProctorError',
+                        'error_code': 'INVALID_ANSWER_FORMAT'})
+                elif self.count == 2:
+                    self_test.assertIn('host rejected the previous answer format', messages[-1].lower())
+                    exam.answer('q1', 'B', 'corrected-format')
+                elif self.count == 3:
+                    exam.answer('q2', '4', 'answer-q2')
+                elif self.count == 4:
+                    exam.answer('q3', 'A', 'answer-q3')
+                elif self.count == 5:
+                    exam.answer('q4', '-1.25', 'answer-q4')
+                self.count += 1
+                return {'payloads': [{'text': 'continue'}]}, ''
+            def next_practice_turn(self, key):
+                pass
+            def submit_answered_practice_module(self):
+                status = exam.status()
+                if (status['state'] == 'ACTIVE' and status['item_ids'] and
+                        all(status['answer_revisions'].get(item) for item in status['item_ids'])):
+                    exam.submit(status['module_id'], 'retry-host-submit-' + status['module_id'])
+            def _complete(self):
+                self.completed = True
+
+        bridge = RetryTurns()
+        with patch.object(proctor_service.time, 'sleep', side_effect=lambda seconds: setattr(
+                self.clock, 'now', self.clock.now + int(seconds * 10**9))):
+            result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
+        self.assertEqual(result['host_turns'], 6)
+        self.assertTrue(bridge.completed)
+        self.assertEqual(exam.practice_feedback()['unanswered'], 0)
 
     def test_clean_unstarted_practice_records_zero_item_abandonment(self):
         exam = self.session(tier='practice')

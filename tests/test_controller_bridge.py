@@ -7,10 +7,12 @@ import threading
 import time
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import controller_bridge, workload
+from argoslive.proctor import ProctorError
 from argoslive.results import Store
 from test_bench_openclaw import configure_fake
 
@@ -88,6 +90,52 @@ class ControllerBridgeTests(unittest.TestCase):
                 {'kind':'log','error_class':'Busy'}, {'kind':'other','error_class':'ValueError'}])
             self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
 
+    def test_proctor_failures_record_only_allowlisted_error_codes(self):
+        class Exam:
+            errors = [ProctorError(422, 'INVALID_ANSWER_FORMAT'),
+                      ProctorError(422, 'private raw error text')]
+            def status(self):
+                raise self.errors.pop(0)
+
+        with workload.reserve(self.home, 'proctor') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:host-session', exam_session=Exam())
+            request, turn = self.begin(bridge)
+            for call_id in ('format-error', 'untrusted-code'):
+                with self.assertRaises(ProctorError):
+                    bridge.dispatch({**turn, 'op': 'tool', 'call_id': call_id,
+                        'kind': 'proctor_status', 'params': {}})
+            self.assertEqual(bridge.active['host_tool_failures'], [
+                {'kind': 'proctor_status', 'error_class': 'ProctorError',
+                 'error_code': 'INVALID_ANSWER_FORMAT'},
+                {'kind': 'proctor_status', 'error_class': 'ProctorError'}])
+            self.assertNotIn('private raw error text', bridge.events.read_text())
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
+    def test_audit_tool_uses_scoped_maintenance_and_preserves_parent_and_instructions(self):
+        instructions = self.home / '.openclaw/workspace/AGENTS.md'
+        instructions.write_text('Owner instructions remain intact.\n', encoding='utf-8')
+        before = instructions.read_bytes()
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            value = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'audit-empty-journal',
+                                     'kind': 'audit', 'params': {}})
+            self.assertEqual(value['value']['schema'], 'argos-instruction-audit/1')
+            self.assertEqual(value['value']['status'], 'empty')
+            self.assertTrue(value['value']['passed'])
+            self.assertFalse(value['value']['independent_gain_verified'])
+            self.assertEqual(instructions.read_bytes(), before)
+            self.assertEqual(parent.record['phase'], 'running')
+            self.assertIsNone(bridge.pending)
+            self.assertFalse(bridge.uncertain)
+            self.assertEqual(bridge.outcomes[-1]['kind'], 'audit')
+            with self.assertRaises(workload.Busy):
+                with workload.reserve(self.home, 'evaluation'):
+                    self.fail('Read-only audit released the parent reservation')
+            parent.complete()
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_log_worker_is_one_use_and_cannot_release_controller(self):
         with workload.reserve(self.home, 'controller') as parent:
@@ -122,8 +170,15 @@ class ControllerBridgeTests(unittest.TestCase):
         executable.chmod(0o700)
         failures = []
         releaser = None
+        original_wait = controller_bridge.Bridge.wait_evaluation
+
+        def short_wait(bridge, job_id, **kwargs):
+            kwargs['seconds'] = .01
+            return original_wait(bridge, job_id, **kwargs)
+
         try:
-            with self.assertRaisesRegex(RuntimeError, 'agent turn aborted'):
+            with self.assertRaisesRegex(RuntimeError, 'agent turn aborted'), \
+                 patch.object(controller_bridge.Bridge, 'wait_evaluation', short_wait):
                 with controller_bridge.owned(self.home, session_key='agent:main:host-session',
                                              worker_timeout=15) as (bridge, env):
                     bridge.worker_path = str(binary) + os.pathsep + bridge.worker_path
@@ -135,8 +190,16 @@ class ControllerBridgeTests(unittest.TestCase):
                         client.connect(env['ARGOS_CONTROLLER_SOCKET'])
                         client.sendall((json.dumps(tool) + '\n').encode())
                         with client.makefile('rb') as reader:
-                            self.assertEqual(json.loads(reader.readline())['status'], 'progress')
+                            response = json.loads(reader.readline())
+                            while response['status'] == 'progress':
+                                response = json.loads(reader.readline())
+                            self.assertEqual(response['status'], 'running')
                         client.shutdown(socket.SHUT_RDWR)
+                    deadline = time.monotonic() + 2
+                    while bridge.tool_lock.locked() and time.monotonic() < deadline:
+                        time.sleep(.01)
+                    self.assertFalse(bridge.tool_lock.locked(), 'Short caller wait did not return')
+                    self.assertTrue(bridge.evaluation_job['thread'].is_alive())
                     with self.assertRaises(workload.Busy):
                         bridge.dispatch({**tool, 'call_id': 'competing-evaluation'})
 

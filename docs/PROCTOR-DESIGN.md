@@ -17,6 +17,8 @@ P1 supports `mcq_single` and `numeric_grid` with deterministic grading. Cartridg
 are uncalibrated: scaled scores and scoring bases are null. Coding, arbitrary
 JSON schemas, in-process tests and imported executable graders are rejected.
 There is no SAT/MCAT/IQ equivalence or claimed general intelligence measurement.
+Grader `choice-numeric/2` accepts exact decimal values and simple exact fractions
+for numeric-grid responses; it does not evaluate arithmetic expressions or round.
 
 The engine accepts only `declared` enforcement and closed-book/reference-aided
 policies. A subject can describe a model driver, booth agent or deployed profile;

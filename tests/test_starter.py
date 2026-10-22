@@ -70,6 +70,30 @@ class StarterTests(unittest.TestCase):
             json.dumps(unsigned, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
         self.assertEqual(self.snapshot(), before)
 
+    def test_verified_identity_accepts_an_intact_reviewed_ollama_manifest_list(self):
+        listed = json.dumps({'mediaType': model_verify.LIST_TYPE,
+                             'manifests': [{'digest': self.entry['manifest_digest']}]}).encode()
+        digest = 'sha256:' + hashlib.sha256(listed).hexdigest()
+        blob = self.root / 'blobs' / digest.replace(':', '-')
+        blob.write_bytes(listed)
+        manifest = model_verify.manifest_path(self.root, starter.TAG)
+        value = json.loads(manifest.read_bytes())
+        value['layers'].append({'digest': digest, 'size': len(listed),
+                                'mediaType': model_verify.LIST_TYPE})
+        manifest.write_text(json.dumps(value))
+        before = self.snapshot()
+        receipt = model_verify.verify(self.root, self.entry, sync=False, include_identity=True)
+        self.assertEqual(receipt['local_manifest_sha256'], hashlib.sha256(manifest.read_bytes()).hexdigest())
+        self.assertEqual(receipt['verified_bytes'], self.entry['total_download_bytes'])
+        model_verify.validate_identity_receipt(receipt, starter.TAG)
+        self.assertEqual(self.snapshot(), before)
+        # A receipt constructor without the backing list cannot trust the extra descriptor.
+        with self.assertRaisesRegex(ValueError, 'Manifest descriptors differ'):
+            model_verify.identity_receipt(self.entry, manifest.read_bytes(), receipt['verified_bytes'])
+        blob.write_bytes(b'corrupt registry list')
+        with self.assertRaisesRegex(ValueError, 'Manifest descriptors differ'):
+            model_verify.verify(self.root, self.entry, sync=False, include_identity=True)
+
     def test_writable_source_refused_before_starting_daemon(self):
         with patch('argoslive.starter.owned') as backend:
             with self.assertRaisesRegex(ValueError, 'read-only'):

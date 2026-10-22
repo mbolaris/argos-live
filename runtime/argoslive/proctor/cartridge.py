@@ -1,5 +1,6 @@
 """Bounded, validated, immutable assessment content. No imported code executes."""
 from decimal import Decimal
+from fractions import Fraction
 import hashlib
 import json
 import os
@@ -15,6 +16,7 @@ MAX_BYTES = 4 * 1024 * 1024
 MAX_ITEMS = 1024
 IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,95}\Z')
 NUMBER = re.compile(r'[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)\Z')
+RATIONAL = re.compile(r'([+-]?[0-9]+)[ \t]*/[ \t]*([+-]?[0-9]+)\Z')
 AIDS = {'calculator', 'reference_sheet'}
 
 
@@ -37,14 +39,29 @@ def valid_answer(item, answer):
         return False
     if item['response_type'] == 'mcq_single':
         return answer in item['choices']
-    return bool(NUMBER.fullmatch(answer))
+    return numeric_value(answer) is not None
+
+
+def numeric_value(answer):
+    """Parse one exact decimal or rational value; never evaluate expressions."""
+    if not isinstance(answer, str) or len(answer) > 128:
+        return None
+    if NUMBER.fullmatch(answer):
+        return Fraction(Decimal(answer))
+    match = RATIONAL.fullmatch(answer)
+    if not match:
+        return None
+    numerator, denominator = (int(value) for value in match.groups())
+    if denominator == 0:
+        return None
+    return Fraction(numerator, denominator)
 
 
 def correct_answer(item, answer):
     if not valid_answer(item, answer):
         return False
     if item['response_type'] == 'numeric_grid':
-        return Decimal(answer) == Decimal(item['correct'])
+        return numeric_value(answer) == numeric_value(item['correct'])
     return answer == item['correct']
 
 

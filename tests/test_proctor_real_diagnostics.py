@@ -15,6 +15,10 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
             'host_tool_requests': 3,
             'host_tool_failures': [
                 {'kind': 'proctor_item', 'error_class': 'ValueError', 'message': 'private raw error'},
+                {'kind': 'proctor_answer', 'error_class': 'ProctorError',
+                 'error_code': 'INVALID_ANSWER_FORMAT'},
+                {'kind': 'proctor_answer', 'error_class': 'ProctorError',
+                 'error_code': 'private raw error'},
                 {'kind': 'other', 'error_class': 'RuntimeError'},
                 {'kind': 'proctor_answer', 'error_class': 'X' * 100},
             ],
@@ -33,7 +37,10 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
         result = smoke.safe_controller_diagnostics(turn)
         self.assertEqual(result['host_tool_requests'], 3)
         self.assertEqual(result['host_tool_failures'], [
-            {'kind': 'proctor_item', 'error_class': 'ValueError'}])
+            {'kind': 'proctor_item', 'error_class': 'ValueError'},
+            {'kind': 'proctor_answer', 'error_class': 'ProctorError',
+             'error_code': 'INVALID_ANSWER_FORMAT'},
+            {'kind': 'proctor_answer', 'error_class': 'ProctorError'}])
         self.assertEqual(result['tool_outcomes'], [{'kind': 'proctor_answer', 'status': 'accepted'}])
         self.assertEqual(result['admission']['executions'], 2)
         self.assertNotIn('private', repr(result))

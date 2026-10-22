@@ -160,7 +160,7 @@ class ProctorTests(unittest.TestCase):
         self.assertEqual(result['deadline_ns'], MS + 2500 * MS)
         self.assertLess(result['deadline_ns'], self.clock() + 1000 * MS)
 
-    def test_submit_is_idempotent_and_numeric_answers_use_exact_decimal(self):
+    def test_submit_is_idempotent_and_numeric_answers_use_exact_decimal_or_fraction(self):
         e = self.begin()
         self.answer(e)
         self.answer(e, '04.00', item='q2', key='numeric')
@@ -168,12 +168,19 @@ class ProctorTests(unittest.TestCase):
         self.assertTrue(self.engine.submit_module(e['session_id'], e['examinee_token'], 'm1', 'submit-one')['idempotent_replay'])
         self.engine.begin_module(e['session_id'], e['examinee_token'], 'm2', 'begin-two')
         self.answer(e, 'A', item='q3', module='m2', key='third')
-        self.answer(e, '-1.250', item='q4', module='m2', key='fourth')
+        self.answer(e, '-5/4', item='q4', module='m2', key='fourth')
         self.engine.submit_module(e['session_id'], e['examinee_token'], 'm2', 'submit-two')
         self.engine.issue_transcripts()
         t = json.loads(self.engine.get_transcript(e['session_id'], e['examinee_token'])['payload_json'])
         self.assertEqual(t['accepted_correct'], 4)
         self.assertEqual(t['unanswered'], 0)
+        self.assertEqual(t['grader_version'], 'choice-numeric/2')
+
+    def test_numeric_fraction_is_exact_and_rejects_expressions_and_zero_denominator(self):
+        e = self.begin()
+        for index, invalid in enumerate(('-5 / 0', '-5/4+0', 'answer -5/4', '1,25')):
+            self.assert_error('INVALID_ANSWER_FORMAT', lambda value=invalid, number=index:
+                self.answer(e, value, item='q2', key='invalid-' + str(number)))
 
     def test_get_item_is_pure_and_never_releases_keys(self):
         e = self.enroll()

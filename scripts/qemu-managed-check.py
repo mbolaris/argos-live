@@ -450,13 +450,14 @@ def managed_stage(name):
     print('ARGOS_C3_STAGE ' + name, flush=True)
 
 
-def ready_cpu_metrics(report):
+def ready_cpu_metrics(report, *, vm_has_no_compute_gpu_passthrough=False):
     """Explain a rejected startup measurement without publishing guest text."""
     metrics = report.get('metrics')
     backend = metrics.get('backend') if isinstance(metrics, dict) else None
     backend = backend if isinstance(backend, dict) else {}
     mode = backend.get('mode')
-    if report.get('model_reply_verified') is not True or mode != 'CPU':
+    cpu_path = mode == 'CPU' or (vm_has_no_compute_gpu_passthrough and mode == 'split')
+    if report.get('model_reply_verified') is not True or not cpu_path:
         print('ARGOS_C3_STARTUP_CHECK ' + json.dumps({
             'model_reply_verified': report.get('model_reply_verified') is True,
             'metrics_present': isinstance(metrics, dict),
@@ -466,7 +467,8 @@ def ready_cpu_metrics(report):
                               0 <= backend[key] <= 10**15},
             'backend_size_recorded': type(backend.get('size_bytes')) in (int, float),
             'zero_vram_recorded': type(backend.get('vram_bytes')) in (int, float)
-                and backend['vram_bytes'] == 0}), flush=True)
+                and backend['vram_bytes'] == 0,
+            'qemu_has_no_compute_gpu_passthrough': bool(vm_has_no_compute_gpu_passthrough)}), flush=True)
         raise ValueError('Automatic startup did not establish a measured CPU reply')
     return metrics
 
@@ -762,7 +764,10 @@ def managed_check_body(started, desktop_seconds, native_lab):
                 print('ARGOS_C3_BACKEND ' + json.dumps(observed), flush=True)
                 last_backend = observed
         if phase == 'ready':
-            metrics = ready_cpu_metrics(report)
+            # This harness launches only QEMU's standard VGA adapter and never
+            # passes through a compute GPU. Ollama may label a software Vulkan
+            # runner "split" even though all inference is on guest CPU cores.
+            metrics = ready_cpu_metrics(report, vm_has_no_compute_gpu_passthrough=True)
             globals()['ARGOS_C3_LAST_STAGE'] = 'managed-chat-check'
             chat_target = assistant_chat_target(opener, origin, token, home)
             chat_available = (chat_target.scheme == 'http' and chat_target.hostname == '127.0.0.1'

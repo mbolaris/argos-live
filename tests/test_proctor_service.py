@@ -5,11 +5,14 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from contextlib import contextmanager, ExitStack
+from types import SimpleNamespace
+from unittest.mock import patch, Mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import auto_setup, proctor_service
+from argoslive.evaluation_context import configuration_from, receipt_from
 
 
 class ProctorServiceTests(unittest.TestCase):
@@ -68,6 +71,51 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertTrue(first[2].is_file())
         self.assertTrue(second[2].is_file())
 
+    def test_practice_and_campaign_preserve_selected_per_model_generation_overrides(self):
+        owner = json.loads(self.owner_config.read_text())
+        defaults = owner['agents']['defaults']
+        defaults['models'] = {
+            'ollama/qwen3.8:27b': {'params': {'temperature': 0, 'think': True}},
+            'ollama/unselected:example': {'params': {'temperature': 1}},
+        }
+        defaults['thinkingDefault'] = 'off'
+        defaults['contextTokens'] = 32768
+        owner['agents']['entries'] = {'main': {'params': {'topP': 0.7},
+            'models': {'ollama/qwen3.8:27b': {'params': {'num_predict': 256}}}}}
+        self.owner_config.write_text(json.dumps(owner))
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        for purpose in ('practice', 'campaign'):
+            with self.subTest(purpose=purpose):
+                _, _, path, _ = proctor_service.private_profile(
+                    self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+                    owner_config_path=self.owner_config, purpose=purpose)
+                copied = json.loads(path.read_text())['agents']['defaults']
+                self.assertEqual(set(copied['models']), {'ollama/qwen3.8:27b'})
+                self.assertEqual(copied['models']['ollama/qwen3.8:27b']['params'],
+                                 defaults['models']['ollama/qwen3.8:27b']['params'])
+                self.assertEqual(copied['thinkingDefault'], 'off')
+                self.assertEqual(copied['contextTokens'], 32768)
+                self.assertEqual(copied['heartbeat'], {'every': '0m'})
+                self.assertEqual(receipt_from(configuration_from(json.loads(path.read_text())))['configured_generation'],
+                                 receipt_from(configuration_from(owner))['configured_generation'])
+
+    def test_changed_owner_generation_settings_get_a_new_profile_without_overwriting(self):
+        owner = json.loads(self.owner_config.read_text())
+        owner['agents']['defaults']['models'] = {
+            'ollama/qwen3.8:27b': {'params': {'temperature': 0, 'think': True}}}
+        self.owner_config.write_text(json.dumps(owner))
+        first = proctor_service.private_profile(self.home, 'qwen3.8:27b',
+            plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config)
+        before = first[2].read_bytes()
+        owner['agents']['defaults']['models']['ollama/qwen3.8:27b']['params']['temperature'] = 0.4
+        self.owner_config.write_text(json.dumps(owner))
+        second = proctor_service.private_profile(self.home, 'qwen3.8:27b',
+            plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config)
+        self.assertNotEqual(first[2], second[2])
+        self.assertEqual(first[2].read_bytes(), before)
+        self.assertEqual(json.loads(second[2].read_text())['agents']['defaults']['models'][
+            'ollama/qwen3.8:27b']['params']['temperature'], 0.4)
+
     def test_remote_or_unmatched_owner_model_profile_is_rejected(self):
         owner = json.loads(self.owner_config.read_text())
         owner['models']['providers']['ollama']['baseUrl'] = 'https://example.invalid'
@@ -107,6 +155,56 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(events, [('campaign', feedback)])
         self.assertEqual(result['campaign'], campaign)
         self.assertIs(result['practice_is_improvement_evidence'], False)
+
+    def test_interrupted_services_drain_evaluations_before_stopping_backends(self):
+        state_path = self.home / '.config/argos-live/state.json'
+        state_path.parent.mkdir(parents=True)
+        state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
+        for service in ('practice', 'campaign'):
+            with self.subTest(service=service), ExitStack() as mocks:
+                events, live = [], set()
+
+                @contextmanager
+                def resource(name, value=None):
+                    live.add(name)
+                    try:
+                        yield value
+                    finally:
+                        events.append(name + '-stop')
+                        live.remove(name)
+
+                def drain():
+                    self.assertTrue({'gateway', 'backend'} <= live)
+                    events.append('evaluation-saved')
+
+                bridge = SimpleNamespace(drain_before_backends_stop=drain,
+                    launch=Mock(), finish=Mock(side_effect=RuntimeError('agent deadline')))
+                db = Mock()
+                for target, name, value in (
+                    (proctor_service.controller_bridge, 'owned', lambda *a, **k: resource('bridge', (bridge, {}))),
+                    (proctor_service.owned_ollama, 'owned', lambda *a, **k: resource('backend')),
+                    (proctor_service.owned_gateway, 'owned', lambda *a, **k: resource('gateway')),
+                    (proctor_service, 'private_profile', Mock(return_value=(self.home, self.home, self.owner_config, 'a' * 64))),
+                    (proctor_service, 'refuse_live_gateway', Mock()),
+                    (proctor_service, 'refuse_live_backend', Mock()),
+                    (proctor_service.startup, 'source', Mock(return_value=(self.home, 'qwen3.8:27b', {}))),
+                    (proctor_service, 'make_session', Mock(return_value=(db, Mock(), Mock()))),
+                    (proctor_service.session_mode, 'guest', Mock(return_value=False)),
+                    (proctor_service, 'run_practice_turns', Mock(side_effect=RuntimeError('agent deadline'))),
+                    (proctor_service.sys, 'platform', 'linux')):
+                    mocks.enter_context(patch.object(target, name, value))
+                with self.assertRaisesRegex(RuntimeError, 'agent deadline'):
+                    if service == 'practice':
+                        proctor_service.run_practice(self.home, self.home / 'cartridge', executable='openclaw')
+                        self.fail('Practice swallowed the interruption')
+                    else:
+                        proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home, {}, executable='openclaw')
+                        self.fail('Campaign swallowed the interruption')
+                self.assertEqual(events, ['evaluation-saved', 'gateway-stop', 'backend-stop', 'bridge-stop'])
+                if service == 'campaign':
+                    self.assertEqual(bridge.launch.call_args.kwargs['timeout'], 7200)
+                else:
+                    db.close.assert_called_once()
 
     def test_incomplete_practice_never_starts_campaign(self):
         with patch.object(proctor_service, 'run_practice', return_value={

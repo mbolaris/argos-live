@@ -137,11 +137,11 @@ def verify(root, entry, cancel=None, progress=None, *, sync=True, include_identi
                     lambda n: progress(checked + n) if progress else None, sync=sync)
         checked += item['size']
     if include_identity:
-        return identity_receipt(entry, raw_manifest, checked)
+        return identity_receipt(entry, raw_manifest, checked, root=root)
     return checked
 
 
-def identity_receipt(entry, raw_manifest, verified_bytes):
+def identity_receipt(entry, raw_manifest, verified_bytes, *, root=None):
     """Describe the exact catalog artifacts whose bytes were just verified.
 
     ``verify`` calls this only after hashing every blob. The transcript gets
@@ -151,7 +151,7 @@ def identity_receipt(entry, raw_manifest, verified_bytes):
     expected_bytes = sum(item['size'] for item in entry['artifacts'])
     if type(verified_bytes) is not int or verified_bytes != expected_bytes:
         raise ValueError('Model identity requires complete catalog blob verification')
-    check_local_manifest(raw_manifest, entry)
+    check_local_manifest(raw_manifest, entry, root)
     value = {
         'schema': 'argos-verified-model/1',
         'tag': entry['tag'],

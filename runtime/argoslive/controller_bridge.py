@@ -28,6 +28,14 @@ LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
+PROCTOR_ERROR_CODES = frozenset({
+    'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
+    'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
+    'INVALID_SUBMISSION_ARGUMENTS', 'ITEM_NOT_IN_MODULE', 'MODULE_NOT_RELEASED',
+    'INVALID_ANSWER_FORMAT', 'STALE_REVISION', 'AID_NOT_ALLOWED', 'UNKNOWN_AID',
+    'AID_COMPLETION_CONFLICT', 'AID_NO_LONGER_ACTIVE', 'MODULE_DEADLINE_EXPIRED',
+    'TRANSCRIPT_NOT_ISSUED',
+})
 
 
 def identity(value):
@@ -120,11 +128,15 @@ class Bridge:
                         kind = request.get('kind')
                         allowed_kinds = PROCTOR_TOOLS | {
                             'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',
-                            'inspect', 'edit', 'resolve'}
+                            'inspect', 'audit', 'edit', 'resolve'}
                         safe_kind = kind if isinstance(kind, str) and kind in allowed_kinds else 'other'
                         failures = self.active.setdefault('host_tool_failures', [])
                         if len(failures) < 32:
-                            failures.append({'kind': safe_kind, 'error_class': type(error).__name__})
+                            failure = {'kind': safe_kind, 'error_class': type(error).__name__}
+                            code = getattr(error, 'code', None)
+                            if safe_kind in PROCTOR_TOOLS and code in PROCTOR_ERROR_CODES:
+                                failure['error_code'] = code
+                            failures.append(failure)
                         self.publish()
                 raise
         raise ValueError('Unknown bridge operation')
@@ -281,10 +293,10 @@ class Bridge:
                     'completed': job['completed'], 'total': job['total']}
         if job['error'] is not None:
             raise workload.Busy(recovery=True) from None
-        if not job['recorded']:
-            value = job['value']
-            result = value['value']['result']
-            with self.lock:
+        with self.lock:
+            if not job['recorded']:
+                value = job['value']
+                result = value['value']['result']
                 self.outcomes.append({'kind': 'evaluation', 'job_id': job_id,
                                       'result_id': result['id'], 'state': result['state']})
                 self.publish()
@@ -375,7 +387,7 @@ class Bridge:
         return value
 
     def run_child(self, kind, params, *, on_update=None):
-        maintenance = kind in {'inspect', 'edit', 'resolve'}
+        maintenance = kind in {'inspect', 'audit', 'edit', 'resolve'}
         worker_kind = 'maintenance' if maintenance else kind
         capability = self.parent.delegate(worker_kind)
         command = [sys.executable, '-m', 'argoslive.workload_worker', worker_kind, '--home', str(self.home)]
@@ -465,7 +477,11 @@ class Bridge:
                     # Preserve the saved partial outcome/ID for the agent while
                     # keeping admission closed. A generic busy error would hide it.
                     return {'status': 'completed', 'value': value}
-            elif maintenance and value.get('status') not in {'inspected', 'changed', 'restored', 'kept', 'rejected'}:
+            elif kind == 'audit' and (value.get('schema') != 'argos-instruction-audit/1' or
+                    value.get('status') not in {'empty', 'verified', 'failed'} or
+                    type(value.get('passed')) is not bool):
+                raise workload.Busy(recovery=True)
+            elif maintenance and kind != 'audit' and value.get('status') not in {'inspected', 'changed', 'restored', 'kept', 'rejected'}:
                 raise workload.Busy(recovery=True)
             elif not maintenance and value.get('status') != 'appended':
                 raise workload.Busy(recovery=True)
@@ -650,6 +666,47 @@ class Bridge:
                 self.parent.complete()
             self.closed = True
 
+    def drain_before_backends_stop(self):
+        """Host-only teardown while the admitted job's gateway/backend still live.
+
+        Ending an agent turn is not owner cancellation. The evaluation thread
+        can outlive its short IPC wait, so waiting only for tool_lock is not
+        sufficient. Uncertain controller outcomes retain quarantine throughout.
+        """
+        self.closed = True
+        if (not self.parent.drained and not self.uncertain and not self.worker
+                and not self.pending and not self.active and not self.tool_lock.locked()
+                and not self.evaluation_job):
+            self.parent.complete()
+            return
+        if (self.parent.drained and not self.pending and not self.tool_lock.locked()
+                and not self.uncertain):
+            return
+        self.parent.drained = False
+        self.uncertain = True
+        if self.worker and self.worker.poll() is None:
+            self.worker.terminate()
+            try:
+                self.worker.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                pass
+        job = self.evaluation_job
+        if job:
+            job['thread'].join(timeout=self.worker_timeout + 90)
+            if not job['thread'].is_alive() and job['error'] is None:
+                self.wait_evaluation(job['job_id'], seconds=0)
+        drained = self.tool_lock.acquire(timeout=self.worker_timeout + 90)
+        if drained:
+            self.tool_lock.release()
+        # Only the existing host worker deadline permits termination here.
+        # Never release admission based on this wait or a missing client.
+        if self.pending and self.pending.poll() is None:
+            self.pending.terminate()
+            try:
+                self.pending.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                pass
+
 
 @contextmanager
 def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None):
@@ -728,28 +785,4 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                     # A caller cannot mark release before leaving a live tool
                     # worker behind. The durable parent remains quarantined.
                     if not parent.drained or bridge.pending or bridge.tool_lock.locked() or bridge.uncertain:
-                        parent.drained = False
-                        bridge.uncertain = True
-                        # Stop the controller before draining its admitted tool.
-                        # A disappearing agent/client is not an owner cancellation
-                        # of an evaluation. Keep the parent lock and handler alive
-                        # through saved publication, even though this controller's
-                        # uncertain outcome must still leave quarantine in place.
-                        if bridge.worker and bridge.worker.poll() is None:
-                            bridge.worker.terminate()
-                            try:
-                                bridge.worker.wait(timeout=30)
-                            except subprocess.TimeoutExpired:
-                                pass
-                        drained = bridge.tool_lock.acquire(timeout=bridge.worker_timeout + 90)
-                        if drained:
-                            bridge.tool_lock.release()
-                        # The host's existing worker deadline still bounds failed
-                        # or stuck children. This is not host-process survival or
-                        # independent backend-drainage proof.
-                        if bridge.pending and bridge.pending.poll() is None:
-                            bridge.pending.terminate()
-                            try:
-                                bridge.pending.wait(timeout=30)
-                            except subprocess.TimeoutExpired:
-                                pass  # Quarantine persists; never infer exit from a deadline.
+                        bridge.drain_before_backends_stop()

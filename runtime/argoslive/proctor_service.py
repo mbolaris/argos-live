@@ -22,8 +22,10 @@ from . import auto_setup, controller_bridge, model_verify, owned_gateway, owned_
 from .proctor.engine import Caller
 from .proctor.engine import digest
 from .proctor.signing import Ed25519Signer, generate_key
+from .evaluation_context import DEFAULT_SETTINGS, configuration_from
 
 PILOT_DEFINITION = Path(__file__).resolve().parent / 'data/proctor-practice-pilot.json'
+CAMPAIGN_TIMEOUT_SECONDS = 7200
 
 PROCTOR_TOOL_NAMES = [
     'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
@@ -121,8 +123,18 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
     root = _private_directory(home / '.local/state/argos-live/proctor')
     owner_config = (json.loads(Path(owner_config_path).read_text(encoding='utf-8'))
                     if owner_config_path is not None else None)
+    try:
+        generation = configuration_from(owner_config) if owner_config is not None else None
+    except (KeyError, TypeError, ValueError):
+        raise ValueError('Owner-selected local model profile needs review before Proctor use') from None
+    if generation is not None and generation['agents']['defaults']['model']['primary'] != 'ollama/' + model:
+        raise ValueError('Owner-selected local model profile needs review before Proctor use')
+    # Preserve prior profile bytes when the selected generation settings change.
+    # This bounded projection excludes owner credentials and permission policy.
+    profile_identity = model if generation is None else json.dumps(
+        {'model': model, 'generation': generation}, sort_keys=True, separators=(',', ':'))
     profile = _private_directory(root / 'profiles' / purpose /
-                                 hashlib.sha256(model.encode()).hexdigest()[:24])
+                                 hashlib.sha256(profile_identity.encode()).hexdigest()[:24])
     if purpose == 'practice':
         workspace = _private_directory(profile / 'workspace')
     else:
@@ -148,6 +160,10 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
             raise ValueError('Owner-selected local model profile needs review before Proctor use')
         config['agents']['defaults']['model'] = json.loads(json.dumps(primary))
         config['models']['providers']['ollama']['models'] = [json.loads(json.dumps(matches[0]))]
+        for field in (*DEFAULT_SETTINGS, 'params', 'models'):
+            if field in generation['agents']['defaults']:
+                config['agents']['defaults'][field] = json.loads(json.dumps(generation['agents']['defaults'][field]))
+        config['agents']['entries'] = json.loads(json.dumps(generation['agents']['entries']))
     config['agents']['defaults']['heartbeat'] = {'every': '0m'}
     allowed_tools = PROCTOR_TOOL_NAMES if purpose == 'practice' else CAMPAIGN_TOOL_NAMES
     config['tools'] = {'profile': 'minimal', 'alsoAllow': allowed_tools,
@@ -236,7 +252,7 @@ def make_session(home, cartridge_path, form_id, model, config_hash, *, model_ide
     return db, session, cart
 
 
-def practice_turn_message(exam, bridge):
+def practice_turn_message(exam, bridge, *, retry_format=False, retry_tool_call=False):
     """Procedural host navigation only; the agent supplies every answer."""
     status = exam.status()
     if status['state'] == 'ACTIVE':
@@ -248,8 +264,20 @@ def practice_turn_message(exam, bridge):
             item = bridge.present_proctor_item(unanswered[0])
             answer_format = ('Use one choice key, not the choice text.'
                              if item['response_type'] == 'mcq_single' else
-                             'Use only the number, with no units or explanation.')
-            return ('The exam is still active. Solve this question yourself. Your first action must be a real '
+                             'Use one exact number or simple fraction such as -5/4, with no units or explanation.')
+            if retry_tool_call:
+                retry = ('The previous turn did not invoke an answer tool. Do not answer in prose and do not print '
+                         'tool-call syntax as text. Invoke the available argos_proctor_answer tool now with this '
+                         'item ID and your answer as a string. ')
+            elif retry_format and item['response_type'] == 'mcq_single':
+                retry = ('The host rejected the previous answer format. Retry this same question now: submit '
+                         'one choice key only, without choice text or explanation. ')
+            elif retry_format:
+                retry = ('The host rejected the previous answer format. Retry this same question now: submit '
+                         'one exact number or simple fraction such as -5/4 only, without units or explanation. ')
+            else:
+                retry = ''
+            return (retry + 'The exam is still active. Solve this question yourself. Your first action must be a real '
                     'argos_proctor_answer tool call with ' + json.dumps({'item_id': item['item_id'],
                     'answer': 'your answer as a string'}) + '. ' + answer_format +
                     ' A prose reply does not record an answer. Do not write a tool call as ordinary text. '
@@ -274,6 +302,8 @@ def run_practice_turns(bridge, exam, executable, config_path):
     """Retain one host lease across bounded, independently drained SDK turns."""
     deadline = time.monotonic() + PRACTICE_MAX_SECONDS
     message, stagnant, payloads = MESSAGE, 0, []
+    format_retries_remaining = 2
+    no_answer_retries_remaining = 2
     terminal = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
     turns = 0
     for number in range(PRACTICE_MAX_TURNS):
@@ -283,11 +313,24 @@ def run_practice_turns(bridge, exam, executable, config_path):
         if number:
             bridge.next_practice_turn('agent:main:argos_proctor_practice_' + str(number))
         before = practice_progress(exam)
+        outcomes = getattr(bridge, 'outcomes', [])
+        outcomes_before = len(outcomes) if isinstance(outcomes, list) else 0
         bridge.launch(executable, message, config_path=config_path, timeout=remaining, local=False)
         result, _stderr = bridge.finish(timeout=remaining + 30, finalize=False)
         turns += 1
         payloads.extend(result.get('result', result).get('payloads', []))
         bridge.submit_answered_practice_module()
+        active = getattr(bridge, 'active', None)
+        failures = active.get('host_tool_failures', []) if isinstance(active, dict) else []
+        outcomes = getattr(bridge, 'outcomes', [])
+        new_outcomes = outcomes[outcomes_before:] if isinstance(outcomes, list) else []
+        answer_attempted = (any(isinstance(outcome, dict) and outcome.get('kind') == 'proctor_answer'
+                                for outcome in new_outcomes) or
+                            (isinstance(failures, list) and any(isinstance(failure, dict) and
+                                failure.get('kind') == 'proctor_answer' for failure in failures)))
+        format_error = (format_retries_remaining > 0 and isinstance(failures, list) and any(
+            isinstance(failure, dict) and failure.get('kind') == 'proctor_answer' and
+            failure.get('error_code') == 'INVALID_ANSWER_FORMAT' for failure in failures))
         after = practice_progress(exam)
         # Breaks and module deadlines belong to the host clock. Do not ask a
         # model to shorten a break or burn repeated turns polling it.
@@ -296,10 +339,20 @@ def run_practice_turns(bridge, exam, executable, config_path):
             after = practice_progress(exam)
         if after is not None and after[0] in terminal:
             break
+        retry_format = format_error and after == before
+        if retry_format:
+            format_retries_remaining -= 1
+        retry_tool_call = (no_answer_retries_remaining > 0 and after is not None and after[0] == 'ACTIVE' and
+                           after == before and not answer_attempted)
+        if retry_tool_call:
+            no_answer_retries_remaining -= 1
         stagnant = stagnant + 1 if after == before else 0
-        if stagnant >= 2 or number + 1 == PRACTICE_MAX_TURNS or time.monotonic() >= deadline:
+        if ((stagnant >= 2 and not (retry_format or retry_tool_call)) or number + 1 == PRACTICE_MAX_TURNS or
+                time.monotonic() >= deadline):
             break
-        message = practice_turn_message(exam, bridge) if exam.session_id is not None else MESSAGE
+        message = (practice_turn_message(exam, bridge, retry_format=retry_format,
+                                         retry_tool_call=retry_tool_call)
+                   if exam.session_id is not None else MESSAGE)
         if not message:
             break
     # This still requires proven worker drainage. An incomplete practice signs
@@ -362,6 +415,7 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
                 lease_store=home / '.local/state/argos-live'))
             stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
                 controller_environment=controller_env))
+            stack.callback(bridge.drain_before_backends_stop)
             result = run_practice_turns(bridge, exam, executable, config_path)
         status = exam.status()
         if status['state'] not in {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}:
@@ -396,8 +450,10 @@ def run_campaign(home, model, target, feedback, *, executable, openssl='openssl'
             lease_store=Path(home) / '.local/state/argos-live'))
         stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
             controller_environment=controller_env))
-        bridge.launch(executable, prompt, config_path=config_path, timeout=3600, local=False)
-        result, _stderr = bridge.finish(timeout=3700)
+        # LIFO: drain admitted tools before tearing down their dependencies.
+        stack.callback(bridge.drain_before_backends_stop)
+        bridge.launch(executable, prompt, config_path=config_path, timeout=CAMPAIGN_TIMEOUT_SECONDS, local=False)
+        result, _stderr = bridge.finish(timeout=CAMPAIGN_TIMEOUT_SECONDS + 100)
         outcomes = list(bridge.outcomes)
     saved_ids = [item.get('result_id') for item in outcomes
                  if item.get('kind') == 'evaluation' and isinstance(item.get('result_id'), str)]
