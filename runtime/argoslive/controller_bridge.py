@@ -293,10 +293,10 @@ class Bridge:
                     'completed': job['completed'], 'total': job['total']}
         if job['error'] is not None:
             raise workload.Busy(recovery=True) from None
-        if not job['recorded']:
-            value = job['value']
-            result = value['value']['result']
-            with self.lock:
+        with self.lock:
+            if not job['recorded']:
+                value = job['value']
+                result = value['value']['result']
                 self.outcomes.append({'kind': 'evaluation', 'job_id': job_id,
                                       'result_id': result['id'], 'state': result['state']})
                 self.publish()
