@@ -25,6 +25,7 @@ from .proctor.signing import Ed25519Signer, generate_key
 from .evaluation_context import DEFAULT_SETTINGS, configuration_from
 
 PILOT_DEFINITION = Path(__file__).resolve().parent / 'data/proctor-practice-pilot.json'
+CAMPAIGN_TIMEOUT_SECONDS = 7200
 
 PROCTOR_TOOL_NAMES = [
     'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
@@ -414,6 +415,7 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
                 lease_store=home / '.local/state/argos-live'))
             stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
                 controller_environment=controller_env))
+            stack.callback(bridge.drain_before_backends_stop)
             result = run_practice_turns(bridge, exam, executable, config_path)
         status = exam.status()
         if status['state'] not in {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}:
@@ -448,8 +450,10 @@ def run_campaign(home, model, target, feedback, *, executable, openssl='openssl'
             lease_store=Path(home) / '.local/state/argos-live'))
         stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
             controller_environment=controller_env))
-        bridge.launch(executable, prompt, config_path=config_path, timeout=3600, local=False)
-        result, _stderr = bridge.finish(timeout=3700)
+        # LIFO: drain admitted tools before tearing down their dependencies.
+        stack.callback(bridge.drain_before_backends_stop)
+        bridge.launch(executable, prompt, config_path=config_path, timeout=CAMPAIGN_TIMEOUT_SECONDS, local=False)
+        result, _stderr = bridge.finish(timeout=CAMPAIGN_TIMEOUT_SECONDS + 100)
         outcomes = list(bridge.outcomes)
     saved_ids = [item.get('result_id') for item in outcomes
                  if item.get('kind') == 'evaluation' and isinstance(item.get('result_id'), str)]

@@ -7,6 +7,7 @@ import threading
 import time
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
@@ -169,8 +170,15 @@ class ControllerBridgeTests(unittest.TestCase):
         executable.chmod(0o700)
         failures = []
         releaser = None
+        original_wait = controller_bridge.Bridge.wait_evaluation
+
+        def short_wait(bridge, job_id, **kwargs):
+            kwargs['seconds'] = .01
+            return original_wait(bridge, job_id, **kwargs)
+
         try:
-            with self.assertRaisesRegex(RuntimeError, 'agent turn aborted'):
+            with self.assertRaisesRegex(RuntimeError, 'agent turn aborted'), \
+                 patch.object(controller_bridge.Bridge, 'wait_evaluation', short_wait):
                 with controller_bridge.owned(self.home, session_key='agent:main:host-session',
                                              worker_timeout=15) as (bridge, env):
                     bridge.worker_path = str(binary) + os.pathsep + bridge.worker_path
@@ -182,8 +190,16 @@ class ControllerBridgeTests(unittest.TestCase):
                         client.connect(env['ARGOS_CONTROLLER_SOCKET'])
                         client.sendall((json.dumps(tool) + '\n').encode())
                         with client.makefile('rb') as reader:
-                            self.assertEqual(json.loads(reader.readline())['status'], 'progress')
+                            response = json.loads(reader.readline())
+                            while response['status'] == 'progress':
+                                response = json.loads(reader.readline())
+                            self.assertEqual(response['status'], 'running')
                         client.shutdown(socket.SHUT_RDWR)
+                    deadline = time.monotonic() + 2
+                    while bridge.tool_lock.locked() and time.monotonic() < deadline:
+                        time.sleep(.01)
+                    self.assertFalse(bridge.tool_lock.locked(), 'Short caller wait did not return')
+                    self.assertTrue(bridge.evaluation_job['thread'].is_alive())
                     with self.assertRaises(workload.Busy):
                         bridge.dispatch({**tool, 'call_id': 'competing-evaluation'})
 

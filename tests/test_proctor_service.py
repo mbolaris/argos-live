@@ -5,7 +5,9 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from contextlib import contextmanager, ExitStack
+from types import SimpleNamespace
+from unittest.mock import patch, Mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
@@ -153,6 +155,56 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(events, [('campaign', feedback)])
         self.assertEqual(result['campaign'], campaign)
         self.assertIs(result['practice_is_improvement_evidence'], False)
+
+    def test_interrupted_services_drain_evaluations_before_stopping_backends(self):
+        state_path = self.home / '.config/argos-live/state.json'
+        state_path.parent.mkdir(parents=True)
+        state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
+        for service in ('practice', 'campaign'):
+            with self.subTest(service=service), ExitStack() as mocks:
+                events, live = [], set()
+
+                @contextmanager
+                def resource(name, value=None):
+                    live.add(name)
+                    try:
+                        yield value
+                    finally:
+                        events.append(name + '-stop')
+                        live.remove(name)
+
+                def drain():
+                    self.assertTrue({'gateway', 'backend'} <= live)
+                    events.append('evaluation-saved')
+
+                bridge = SimpleNamespace(drain_before_backends_stop=drain,
+                    launch=Mock(), finish=Mock(side_effect=RuntimeError('agent deadline')))
+                db = Mock()
+                for target, name, value in (
+                    (proctor_service.controller_bridge, 'owned', lambda *a, **k: resource('bridge', (bridge, {}))),
+                    (proctor_service.owned_ollama, 'owned', lambda *a, **k: resource('backend')),
+                    (proctor_service.owned_gateway, 'owned', lambda *a, **k: resource('gateway')),
+                    (proctor_service, 'private_profile', Mock(return_value=(self.home, self.home, self.owner_config, 'a' * 64))),
+                    (proctor_service, 'refuse_live_gateway', Mock()),
+                    (proctor_service, 'refuse_live_backend', Mock()),
+                    (proctor_service.startup, 'source', Mock(return_value=(self.home, 'qwen3.8:27b', {}))),
+                    (proctor_service, 'make_session', Mock(return_value=(db, Mock(), Mock()))),
+                    (proctor_service.session_mode, 'guest', Mock(return_value=False)),
+                    (proctor_service, 'run_practice_turns', Mock(side_effect=RuntimeError('agent deadline'))),
+                    (proctor_service.sys, 'platform', 'linux')):
+                    mocks.enter_context(patch.object(target, name, value))
+                with self.assertRaisesRegex(RuntimeError, 'agent deadline'):
+                    if service == 'practice':
+                        proctor_service.run_practice(self.home, self.home / 'cartridge', executable='openclaw')
+                        self.fail('Practice swallowed the interruption')
+                    else:
+                        proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home, {}, executable='openclaw')
+                        self.fail('Campaign swallowed the interruption')
+                self.assertEqual(events, ['evaluation-saved', 'gateway-stop', 'backend-stop', 'bridge-stop'])
+                if service == 'campaign':
+                    self.assertEqual(bridge.launch.call_args.kwargs['timeout'], 7200)
+                else:
+                    db.close.assert_called_once()
 
     def test_incomplete_practice_never_starts_campaign(self):
         with patch.object(proctor_service, 'run_practice', return_value={
