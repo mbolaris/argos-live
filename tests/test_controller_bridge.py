@@ -154,6 +154,30 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertIsNone(bridge.pending)
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
+    def test_failed_log_worker_resumes_only_after_its_child_is_released(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            missing_run_id = 'a' * 32
+            tool = {**turn, 'op': 'tool', 'call_id': 'invalid-log', 'kind': 'log',
+                    'params': {'text': f'Attempted run {missing_run_id}.'}}
+
+            value = bridge.dispatch(tool)
+
+            self.assertEqual(value['status'], 'failed')
+            self.assertFalse(bridge.uncertain)
+            self.assertEqual(parent.record['phase'], 'running')
+            self.assertIsNone(parent.record.get('child_id'))
+            self.assertIsNone(bridge.pending)
+            self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
+
+            valid = {**turn, 'op': 'tool', 'call_id': 'valid-log', 'kind': 'log',
+                     'params': {'text': 'A drained failed log attempt was safely reported.'}}
+            self.assertEqual(bridge.dispatch(valid)['value']['status'], 'appended')
+            self.assertEqual(parent.record['phase'], 'running')
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_disconnected_evaluation_saves_during_aborted_host_scope_without_releasing_admission(self):
         binary = self.home / 'bin'
         binary.mkdir()
