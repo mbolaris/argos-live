@@ -1,0 +1,8 @@
+#!/usr/bin/python3
+"""Systemd ExecCondition for paired LAN SSH; no writes or key generation."""
+import sys
+
+sys.path.insert(0, '/usr/local/lib/argos-live')
+from argoslive.ssh_boot import main
+
+raise SystemExit(main())

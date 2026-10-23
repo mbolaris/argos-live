@@ -48,8 +48,10 @@ update-initramfs -u -k all
 # A new image must pass encrypted-VM offline filesystem checks before acceptance.
 bash /usr/local/share/argos-live/prepare-shutdown-root.sh --build
 systemctl enable argos-shutdown-root.service
-# SSH is opt-in after a trusted owner key and LAN restriction are installed.
-systemctl disable ssh.service || true
+# Start already-paired SSH automatically after encrypted persistence unlock.
+# The unit's read-only gate refuses guest/unpaired/unsafe configurations.
+systemctl disable ssh.socket 2>/dev/null || true
+systemctl enable ssh.service
 systemctl enable argos-refresh-runtime.service
 rm -f /etc/ssh/ssh_host_*key /etc/ssh/ssh_host_*key.pub
 truncate -s 0 /etc/machine-id
