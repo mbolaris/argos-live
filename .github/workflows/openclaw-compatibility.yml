@@ -88,7 +88,7 @@ permissions:
 jobs:
   schema-and-recovery:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Verify synthetic TCP reuse cannot share a live listener

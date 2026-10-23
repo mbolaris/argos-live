@@ -230,12 +230,25 @@ class Bridge:
                 return {'status': 'completed', 'value': value}
             if kind == 'compare':
                 store = Store(self.home / '.local/share/argos-live/results')
-                return {'status': 'completed', 'value': compare([
-                    store.load(params['baseline_id']), store.load(params['candidate_id'])])}
+                value = compare([store.load(params['baseline_id']), store.load(params['candidate_id'])])
+                outcome = {'kind': 'compare', 'call_id': call,
+                           'baseline_id': params['baseline_id'], 'candidate_id': params['candidate_id']}
+                with self.lock:
+                    self.outcomes.append(outcome)
+                    self.publish()
+                return {'status': 'completed', 'value': value}
             value = self.run_child(kind, params, on_update=on_update)
             outcome = {'kind': kind, 'call_id': call}
             if kind in {'edit', 'resolve'}:
                 outcome.update(status=value['value']['status'], change_id=value['value'].get('change_id'))
+                if kind == 'resolve':
+                    for key in ('baseline_ids', 'candidate_ids', 'qualified_experiment',
+                                'independent_gain_verified', 'configuration_preserved',
+                                'rejected_evidence_code'):
+                        if key in value['value']:
+                            outcome[key] = value['value'][key]
+            if kind == 'audit':
+                outcome.update(status=value['value'].get('status'), passed=value['value'].get('passed'))
             if kind == 'evaluation':
                 outcome['result_id'] = value['value']['result']['id']
                 outcome['state'] = value['value']['result']['state']
@@ -559,7 +572,7 @@ class Bridge:
                 raise
             return self.worker
 
-    def finish(self, *, timeout=1900, finalize=True):
+    def finish(self, *, timeout=1900, finalize=True, retain_controller=False):
         """Confirm our exact embedded SDK worker and its process group exited.
 
         agent_end is intentionally not required or sufficient: the SDK dispatches
@@ -567,8 +580,15 @@ class Bridge:
         """
         if not self.worker:
             raise workload.Busy(recovery=True)
-        if not finalize and (self.exam_session is None or self.exam_session.tier != 'practice'):
-            raise ValueError('Only host-owned practice may retain a drained turn')
+        if not finalize:
+            practice_turn = self.exam_session is not None and self.exam_session.tier == 'practice'
+            campaign_turn = (retain_controller and self.exam_session is None and
+                             self.parent.record.get('kind') == 'controller' and
+                             self.session_key.startswith('agent:main:argos_proctor_improvement_'))
+            if not (practice_turn or campaign_turn):
+                raise ValueError('Only host-owned practice or controller campaigns may retain a drained turn')
+        elif retain_controller:
+            raise ValueError('A retained controller turn must be explicitly finalized by its host')
         try:
             stdout, stderr = self.worker.communicate(timeout=timeout)
             self.last_stdout, self.last_stderr = stdout, stderr
@@ -622,6 +642,58 @@ class Bridge:
             self.active = None
             self.verified = False
             self.session_key = session_key
+
+    def _settle_campaign_evaluation(self):
+        job = self.evaluation_job
+        if job is None or job.get('consumed'):
+            return
+        if job['thread'].is_alive():
+            job['thread'].join(self.worker_timeout + 90)
+        if job['thread'].is_alive():
+            raise workload.Busy(recovery=True)
+        if job['error'] is not None:
+            raise workload.Busy(recovery=True)
+        self.wait_evaluation(job['job_id'], seconds=0)
+
+    def drain_campaign_evaluation(self):
+        """Host-only wait until the campaign's one admitted evaluation is saved."""
+        if self.exam_session is not None or self.parent.record.get('kind') != 'controller':
+            raise ValueError('Only controller campaigns may drain an evaluation between turns')
+        self._settle_campaign_evaluation()
+
+    def next_campaign_turn(self, session_key):
+        """Host-only continuation after a fully drained campaign worker turn."""
+        prefix = 'agent:main:argos_proctor_improvement_'
+        if (self.exam_session is not None or self.parent.record.get('kind') != 'controller' or
+                not self.session_key.startswith(prefix) or not isinstance(session_key, str) or
+                not session_key.startswith(prefix) or session_key == self.session_key or
+                not identity(session_key)):
+            raise ValueError('Only the host-owned Proctor campaign may continue controller turns')
+        self._settle_campaign_evaluation()
+        with self.lock:
+            job = self.evaluation_job
+            if (not self.verified or not self.worker or self.worker.poll() != 0 or
+                    self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
+                    not self.active or job is not None and not job.get('consumed')):
+                raise workload.Busy(recovery=True)
+            self.worker = None
+            self.active = None
+            self.verified = False
+            self.session_key = session_key
+
+    def complete_campaign(self):
+        """Release a drained Proctor campaign after the host checks its evidence."""
+        prefix = 'agent:main:argos_proctor_improvement_'
+        if (self.exam_session is not None or self.parent.record.get('kind') != 'controller' or
+                not self.session_key.startswith(prefix)):
+            raise ValueError('Only the host-owned Proctor campaign may complete this controller')
+        self._settle_campaign_evaluation()
+        with self.lock:
+            if (not self.verified or not self.worker or self.worker.poll() != 0 or
+                    self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
+                    not self.active):
+                raise workload.Busy(recovery=True)
+        self._complete()
 
     def submit_answered_practice_module(self):
         """Host-only module closure after all agent answers and proven turn exit."""
