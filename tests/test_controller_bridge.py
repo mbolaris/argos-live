@@ -7,6 +7,7 @@ import threading
 import time
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +29,7 @@ class ControllerBridgeTests(unittest.TestCase):
 
     def begin(self, bridge):
         request = {'auth': bridge.secret, 'op': 'begin', 'run_id': 'framework-run',
-                   'session_id': 'framework-session', 'session_key': 'agent:main:host-session', 'trigger': 'user'}
+                   'session_id': 'framework-session', 'session_key': bridge.session_key, 'trigger': 'user'}
         value = bridge.dispatch(request)
         return request, {'auth': bridge.secret, 'run_id': request['run_id'], 'turn_token': value['turn_token']}
 
@@ -75,6 +76,58 @@ class ControllerBridgeTests(unittest.TestCase):
             saved = bridge.events.read_text()
             self.assertNotIn(bridge.secret, saved)
             self.assertNotIn(turn['turn_token'], saved)
+
+    def test_campaign_compare_and_audit_results_are_host_recorded(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:argos_proctor_improvement_test')
+            _, turn = self.begin(bridge)
+            bridge.run_child = lambda kind, params, **kwargs: {
+                'status': 'completed', 'value': {'status': 'empty', 'passed': True}}
+            with patch.object(controller_bridge, 'Store') as store_type, \
+                 patch.object(controller_bridge, 'compare', return_value={'delta': 0}):
+                store_type.return_value.load.side_effect = [
+                    {'id': 'base-run'}, {'id': 'candidate-run'}]
+                compared = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'compare-1',
+                    'kind': 'compare', 'params': {'baseline_id': 'base-run',
+                                                  'candidate_id': 'candidate-run'}})
+                audited = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'audit-1',
+                    'kind': 'audit', 'params': {}})
+            self.assertEqual(compared['value'], {'delta': 0})
+            self.assertTrue(audited['value']['passed'])
+            self.assertEqual(bridge.outcomes[-2], {'kind': 'compare', 'call_id': 'compare-1',
+                'baseline_id': 'base-run', 'candidate_id': 'candidate-run'})
+            self.assertEqual(bridge.outcomes[-1], {'kind': 'audit', 'call_id': 'audit-1',
+                'status': 'empty', 'passed': True})
+            parent.complete()
+
+    def test_host_campaign_turn_transition_keeps_the_same_reservation(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:argos_proctor_improvement_test')
+            bridge.worker = SimpleNamespace(poll=lambda: 0)
+            bridge.active = {'ended': True}
+            bridge.verified = True
+            with self.assertRaisesRegex(ValueError, 'Only the host-owned Proctor campaign'):
+                bridge.next_campaign_turn('agent:main:unrelated')
+            bridge.next_campaign_turn('agent:main:argos_proctor_improvement_followup_2')
+            self.assertEqual(bridge.session_key, 'agent:main:argos_proctor_improvement_followup_2')
+            self.assertIsNone(bridge.worker)
+            self.assertIsNone(bridge.active)
+            self.assertFalse(bridge.verified)
+            self.assertEqual(parent.record['phase'], 'running')
+            parent.complete()
+
+    def test_host_campaign_completion_releases_only_a_verified_drained_turn(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:argos_proctor_improvement_followup_2')
+            bridge.worker = SimpleNamespace(poll=lambda: 0)
+            bridge.active = {'ended': True}
+            bridge.verified = True
+            bridge.complete_campaign()
+            self.assertTrue(bridge.closed)
+            self.assertTrue(parent.drained)
 
     def test_stale_turn_and_unknown_tools_cannot_dispatch(self):
         with workload.reserve(self.home, 'controller') as parent:

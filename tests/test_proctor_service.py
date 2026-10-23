@@ -154,7 +154,122 @@ class ProctorServiceTests(unittest.TestCase):
         practice.assert_called_once()
         self.assertEqual(events, [('campaign', feedback)])
         self.assertEqual(result['campaign'], campaign)
+        self.assertEqual(result['status'], 'completed')
         self.assertIs(result['practice_is_improvement_evidence'], False)
+
+    def test_campaign_assessment_requires_comparison_then_audit_for_no_change(self):
+        runs = [{'kind': 'evaluation', 'state': 'completed', 'result_id': run_id}
+                for run_id in ('baseline-one', 'baseline-two')]
+        outcomes = [{'kind': 'inspect'}, *runs,
+                    {'kind': 'compare', 'baseline_id': 'baseline-one', 'candidate_id': 'baseline-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+        self.assertEqual(assessment['status'], 'completed')
+        self.assertEqual(assessment['outcome'], 'no_change_audited')
+        self.assertEqual(assessment['saved_evaluation_ids'], ['baseline-one', 'baseline-two'])
+
+        outcomes = [outcomes[0], *runs, outcomes[-1], outcomes[-2]]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertIn('a passed host instruction audit supporting the no-change decision',
+                      assessment['missing'])
+
+    def test_campaign_assessment_requires_host_resolution_and_audit_after_kept_change(self):
+        outcomes = [{'kind': 'inspect'},
+                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'base-one'},
+                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'base-two'},
+                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'candidate-one'},
+                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'candidate-two'},
+                    {'kind': 'edit', 'status': 'changed', 'change_id': 'change-1'},
+                    {'kind': 'compare', 'baseline_id': 'base-one', 'candidate_id': 'candidate-one'},
+                    {'kind': 'resolve', 'status': 'kept', 'change_id': 'change-1',
+                     'configuration_preserved': True, 'qualified_experiment': True,
+                     'baseline_ids': ['base-one', 'base-two'],
+                     'candidate_ids': ['candidate-one', 'candidate-two']},
+                    {'kind': 'audit', 'status': 'verified', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+        self.assertEqual(assessment['outcome'], 'kept')
+
+        outcomes[-1], outcomes[-2] = outcomes[-2], outcomes[-1]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertIn('a passed host instruction audit after the keep/restore decision',
+                      assessment['missing'])
+
+    def test_campaign_continues_clean_turns_until_host_evidence_is_complete(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement', outcomes=[],
+                                 launches=[], continuations=[], completed=False)
+
+        def launch(_executable, _prompt, **_kwargs):
+            bridge.launches.append(True)
+
+        def finish(**kwargs):
+            self.assertFalse(kwargs['finalize'])
+            self.assertTrue(kwargs['retain_controller'])
+            if len(bridge.launches) == 1:
+                bridge.outcomes.extend([
+                    {'kind': 'inspect'},
+                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'base-one'},
+                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'base-two'},
+                ])
+            else:
+                bridge.outcomes.extend([
+                    {'kind': 'compare', 'baseline_id': 'base-one', 'candidate_id': 'base-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True},
+                ])
+            return {'result': {'payloads': []}}, ''
+
+        bridge.launch = launch
+        bridge.finish = finish
+        bridge.drain_campaign_evaluation = Mock()
+        bridge.drain_before_backends_stop = Mock()
+
+        def next_turn(session_key):
+            bridge.continuations.append(session_key)
+            bridge.session_key = session_key
+
+        bridge.next_campaign_turn = next_turn
+        bridge.complete_campaign = lambda: setattr(bridge, 'completed', True)
+
+        @contextmanager
+        def owned_bridge(*_args, **_kwargs):
+            yield bridge, {}
+
+        @contextmanager
+        def owned_resource(*_args, **_kwargs):
+            yield object()
+
+        with patch.object(proctor_service, 'private_profile', return_value=(
+                 self.home, self.home, self.owner_config, 'a' * 64)), \
+             patch.object(proctor_service, 'refuse_live_gateway'), \
+             patch.object(proctor_service, 'refuse_live_backend'), \
+             patch.object(proctor_service.controller_bridge, 'owned', owned_bridge), \
+             patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
+             patch.object(proctor_service.owned_gateway, 'owned', owned_resource):
+            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home, {},
+                                                  executable='openclaw')
+
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['controller_turns'], 2)
+        self.assertEqual(result['saved_evaluation_ids'], ['base-one', 'base-two'])
+        self.assertEqual(len(bridge.continuations), 1)
+        self.assertTrue(bridge.completed)
+
+    def test_run_improvement_reports_campaign_incomplete(self):
+        state_path = self.home / '.config/argos-live/state.json'
+        state_path.parent.mkdir(parents=True)
+        state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
+        campaign = {'status': 'incomplete', 'saved_evaluation_ids': ['run-1']}
+        with patch.object(proctor_service, 'run_practice', return_value={
+                'status': 'completed', 'result': {'state': 'COMPLETED', 'unanswered': 0},
+                'transcript_id': 'transcript-1'}), \
+             patch.object(proctor_service.startup, 'source', return_value=(self.home / 'Models', 'qwen3.8:27b')), \
+             patch.object(proctor_service, 'run_campaign', return_value=campaign):
+            result = proctor_service.run_improvement(self.home, executable='openclaw')
+        self.assertEqual(result['status'], 'incomplete')
 
     def test_interrupted_services_drain_evaluations_before_stopping_backends(self):
         state_path = self.home / '.config/argos-live/state.json'
