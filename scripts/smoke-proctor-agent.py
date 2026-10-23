@@ -90,13 +90,11 @@ def run(cli, report):
                     progress['errors'].append('start-result-not-forwarded')
                     return self.respond(None)
                 progress['start_result_on_wire_verified'] = True
-            campaign_end = len(TOOLS) + (len(CAMPAIGN_TOOLS) if progress['phase'] == 'campaign' else 0)
-            if request.get('tools') and calls < campaign_end:
-                if calls < len(TOOLS):
-                    tool, args = TOOLS[calls], ARGS[calls]
-                else:
-                    plan_index = calls - len(TOOLS)
-                    tool, args = CAMPAIGN_TOOLS[plan_index], CAMPAIGN_ARGS[plan_index]
+            campaign_phase = progress['phase'] == 'campaign'
+            phase_tools = CAMPAIGN_TOOLS if campaign_phase else TOOLS
+            if request.get('tools') and calls < len(phase_tools):
+                if campaign_phase:
+                    tool, args = CAMPAIGN_TOOLS[calls], CAMPAIGN_ARGS[calls]
                     if tool == 'argos_compare':
                         run_ids = list(dict.fromkeys(re.findall(r'Run ID: ([a-f0-9]{32})',
                                                                 json.dumps(request.get('messages', [])))))
@@ -104,6 +102,8 @@ def run(cli, report):
                             progress['errors'].append('campaign-missing-two-saved-baseline-ids')
                         else:
                             args = {'baseline_id': run_ids[-2], 'candidate_id': run_ids[-1]}
+                else:
+                    tool, args = TOOLS[calls], ARGS[calls]
                 progress['tools'] += 1
                 # Ollama's documented native tool response need not contain an ID:
                 # https://docs.ollama.com/capabilities/tool-calling
