@@ -359,11 +359,24 @@ def run(cli, report):
                 raise ValueError('Signed Proctor transcript did not bind the host model identity receipt')
             # Exercise the chained owner command: practice must finalize and
             # release before a separate campaign profile receives host tools.
-            progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[])
+            progress.update(tools=0, errors=[], phase='practice', model_tool_names=[])
+            chained_practice_errors = []
+            real_run_campaign = proctor_service.run_campaign
+
+            def campaign_after_practice(*args, **kwargs):
+                progress['practice_tool_calls'] = progress['tools']
+                chained_practice_errors.extend(progress['errors'])
+                progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[])
+                campaign = real_run_campaign(*args, **kwargs)
+                progress['campaign_tool_calls'] = progress['tools']
+                progress['tools'] += progress['practice_tool_calls']
+                return campaign
+
             with patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
                     patch.object(proctor_service.startup, 'source',
                               side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
+                    patch.object(proctor_service, 'run_campaign', side_effect=campaign_after_practice), \
                     patch.object(proctor_service.owned_ollama, 'owned',
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
                 improvement_result = proctor_service.run_improvement(
@@ -371,7 +384,9 @@ def run(cli, report):
             expected_campaign_calls = len(TOOLS) + len(CAMPAIGN_TOOLS)
             if (improvement_result['status'] != 'completed' or
                     improvement_result['practice_is_improvement_evidence'] is not False or
-                    progress['tools'] != expected_campaign_calls or progress['errors']):
+                    progress['tools'] != expected_campaign_calls or progress['errors'] or
+                    chained_practice_errors or progress['practice_tool_calls'] != len(TOOLS) or
+                    progress['campaign_tool_calls'] != len(CAMPAIGN_TOOLS)):
                 raise ValueError('Owner-facing chained improvement flow did not complete its scoped campaign')
             if not improvement_result['practice']['transcript_id']:
                 raise ValueError('Chained improvement flow lacks its saved practice transcript ID')
@@ -394,7 +409,9 @@ def run(cli, report):
                 service_transcript_id=service_result['transcript_id'],
                 service_signature_verified=True, verified_model_identity_binding=True,
                 actual_model_weights_verified=False, improvement_campaign_completed=True,
-                campaign_tool_calls=progress['tools'], campaign_saved_evaluations=len(campaign_evaluations),
+                practice_tool_calls=progress['practice_tool_calls'],
+                campaign_tool_calls=progress['campaign_tool_calls'],
+                campaign_saved_evaluations=len(campaign_evaluations),
                 production_gateway_dispatch=False)
             receipt['passed'] = True
             state.close()
