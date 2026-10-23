@@ -36,8 +36,9 @@ ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'}, {'item_id':
         {'item_id': 'q4', 'answer': '-1.25'}, {'module_id': 'm2'}, {}]
 if len(TOOLS) != len(ARGS):
     raise RuntimeError('Synthetic Proctor tool plan is inconsistent')
-CAMPAIGN_TOOLS = ['argos_inspect', 'argos_audit_instructions']
-CAMPAIGN_ARGS = [{}, {}]
+CAMPAIGN_TOOLS = ['argos_inspect', 'argos_evaluate', 'argos_evaluate',
+                  'argos_compare', 'argos_audit_instructions']
+CAMPAIGN_ARGS = [{}, {'suite': 'quick'}, {'suite': 'quick'}, None, {}]
 
 
 def run(cli, report):
@@ -94,7 +95,15 @@ def run(cli, report):
                 if calls < len(TOOLS):
                     tool, args = TOOLS[calls], ARGS[calls]
                 else:
-                    tool, args = CAMPAIGN_TOOLS[calls - len(TOOLS)], CAMPAIGN_ARGS[calls - len(TOOLS)]
+                    plan_index = calls - len(TOOLS)
+                    tool, args = CAMPAIGN_TOOLS[plan_index], CAMPAIGN_ARGS[plan_index]
+                    if tool == 'argos_compare':
+                        run_ids = list(dict.fromkeys(re.findall(r'Run ID: ([a-f0-9]{32})',
+                                                                json.dumps(request.get('messages', [])))))
+                        if len(run_ids) < 2:
+                            progress['errors'].append('campaign-missing-two-saved-baseline-ids')
+                        else:
+                            args = {'baseline_id': run_ids[-2], 'candidate_id': run_ids[-1]}
                 progress['tools'] += 1
                 # Ollama's documented native tool response need not contain an ID:
                 # https://docs.ollama.com/capabilities/tool-calling
@@ -369,16 +378,23 @@ def run(cli, report):
             campaign_reservation = json.loads((service_home / '.local/state/argos-live/workload/reservation.json').read_text())
             if campaign_reservation.get('state') != 'released':
                 raise ValueError('Improvement campaign reservation was not released after its worker drained')
-            if any(item['kind'] in {'evaluation', 'edit', 'resolve'}
-                   for item in improvement_result['campaign']['tool_outcomes']):
-                raise ValueError('Synthetic no-experiment campaign unexpectedly changed or evaluated anything')
+            campaign_outcomes = improvement_result['campaign']['tool_outcomes']
+            campaign_evaluations = [item for item in campaign_outcomes if item['kind'] == 'evaluation' and
+                                    item.get('state') == 'completed' and item.get('result_id')]
+            campaign_comparisons = [item for item in campaign_outcomes if item['kind'] == 'compare']
+            campaign_audits = [item for item in campaign_outcomes if item['kind'] == 'audit']
+            if (len(campaign_evaluations) != 2 or not campaign_comparisons or
+                    not campaign_audits or campaign_audits[-1].get('status') != 'empty' or
+                    campaign_audits[-1].get('passed') is not True or
+                    any(item['kind'] in {'edit', 'resolve'} for item in campaign_outcomes)):
+                raise ValueError('Synthetic no-experiment campaign did not compare two saved baselines and audit')
             receipt.update(managed_gateway_service_path=True,
                 service_practice_score=service_result['result']['correct'],
                 service_practice_total=service_result['result']['total'],
                 service_transcript_id=service_result['transcript_id'],
                 service_signature_verified=True, verified_model_identity_binding=True,
                 actual_model_weights_verified=False, improvement_campaign_completed=True,
-                campaign_tool_calls=progress['tools'], campaign_saved_evaluations=0,
+                campaign_tool_calls=progress['tools'], campaign_saved_evaluations=len(campaign_evaluations),
                 production_gateway_dispatch=False)
             receipt['passed'] = True
             state.close()
