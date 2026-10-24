@@ -281,7 +281,8 @@ def practice_turn_message(exam, bridge, *, retry_format=False, retry_tool_call=F
                         'Use no outside tools.\n' + json.dumps(item, ensure_ascii=False))
             answer_format = ('Use one choice key, not the choice text.'
                              if item['response_type'] == 'mcq_single' else
-                             'Use one exact number or simple fraction such as -5/4, with no units or explanation.')
+                             'Use one exact integer, decimal, or simple fraction as the answer, with no units or explanation. '
+                             'Solve from this question alone; do not reuse another item\'s answer.')
             if retry_tool_call:
                 retry = ('The previous turn did not invoke an answer tool. Do not answer in prose and do not print '
                          'tool-call syntax as text. Invoke the available argos_proctor_answer tool now with this '
@@ -291,7 +292,8 @@ def practice_turn_message(exam, bridge, *, retry_format=False, retry_tool_call=F
                          'one choice key only, without choice text or explanation. ')
             elif retry_format:
                 retry = ('The host rejected the previous answer format. Retry this same question now: submit '
-                         'one exact number or simple fraction such as -5/4 only, without units or explanation. ')
+                         'one exact integer, decimal, or simple fraction only, without units or explanation. '
+                         'Solve from this question alone; do not reuse another item\'s answer. ')
             else:
                 retry = ''
             return (retry + 'The exam is still active. Solve this question yourself. Your first action must be a real '

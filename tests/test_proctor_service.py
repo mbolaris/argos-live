@@ -398,6 +398,26 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('previous turn did not make the requested tool call', retry)
         self.assertIn('argos_evaluate_wait', retry)
 
+    def test_numeric_practice_prompt_does_not_anchor_to_a_sample_answer(self):
+        class Exam:
+            def status(self):
+                return {'state': 'ACTIVE', 'item_ids': ['q2'], 'answer_revisions': {}}
+
+        class Bridge:
+            def present_proctor_item(self, item_id):
+                self.item_id = item_id
+                return {'item_id': 'q2', 'domain': 'math', 'response_type': 'numeric_grid',
+                        'prompt': 'What is 2 + 2?'}
+
+        bridge = Bridge()
+        message = proctor_service.practice_turn_message(Exam(), bridge)
+        self.assertIn('Solve from this question alone', message)
+        self.assertIn('do not reuse another item\'s answer', message)
+        self.assertNotIn('-5/4', message)
+        retry = proctor_service.practice_turn_message(Exam(), bridge, retry_format=True)
+        self.assertIn('Solve from this question alone', retry)
+        self.assertNotIn('-5/4', retry)
+
     def test_session_subject_binds_verified_model_receipt_and_can_start_exam(self):
         original_read_text = Path.read_text
 
