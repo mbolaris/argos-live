@@ -37,7 +37,8 @@ permissions:
 jobs:
   native-chat:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Practice permits 30 minutes of model turns; allow setup and signed cleanup too.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin
