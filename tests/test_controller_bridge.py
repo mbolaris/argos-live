@@ -45,6 +45,34 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertFalse(bridge.events.exists())
             parent.complete()  # No SDK worker or inference was started in this fixture.
 
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
+    def test_session_bound_incomplete_practice_turn_is_drained_and_retryable(self):
+        exam = SimpleNamespace(tier='practice')
+        with workload.reserve(self.home, 'proctor') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:practice',
+                                              exam_session=exam)
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'incomplete_turn', 'message': 'private message is not exported'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+            result, stderr = bridge.finish(timeout=1, finalize=False)
+            self.assertEqual(stderr, '')
+            self.assertEqual(result['status'], 'error')
+            self.assertTrue(bridge.verified)
+            self.assertFalse(bridge.uncertain)
+            self.assertEqual(bridge.worker_outcome, 'incomplete-turn')
+            worker = json.loads((self.home / '.local/state/argos-live/workload/controller-worker.json').read_text())
+            self.assertEqual(worker['turn_outcome'], 'incomplete-turn')
+            self.assertEqual(worker['returncode'], 1)
+            bridge.next_practice_turn('agent:main:practice-retry')
+            self.assertIsNone(bridge.worker)
+            self.assertFalse(bridge.verified)
+            self.assertEqual(parent.record['phase'], 'running')
+            parent.complete()
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned workload lifecycle')
     def test_prelaunch_gateway_failure_releases_unstarted_proctor_reservation(self):
         with controller_bridge.owned(self.home, session_key='agent:main:prelaunch',
