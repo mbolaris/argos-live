@@ -28,6 +28,7 @@ LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
+MAX_WORKER_TURN_RECORDS = 32
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
     'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
@@ -56,6 +57,7 @@ class Bridge:
         self.pending = None
         self.worker = None
         self.worker_outcome = None
+        self.worker_turns = []
         self.transport_env = None
         self.worker_path = os.environ.get('PATH', '')
         self.uncertain = False
@@ -90,6 +92,7 @@ class Bridge:
             value['host_tool_requests'] = self.active.get('host_tool_requests', 0)
             value['host_tool_failures'] = self.active.get('host_tool_failures', [])
         value['tools'] = self.outcomes
+        value['worker_turns'] = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
         write_json(self.events, value)
 
     def dispatch(self, request, on_update=None):
@@ -681,15 +684,33 @@ class Bridge:
                     self._publish_finish_failure()
                     raise workload.Busy(recovery=True)
                 self.worker_outcome = 'incomplete-turn' if incomplete_turn else 'completed'
+                turn_record = {
+                    'turn': len(self.worker_turns) + 1,
+                    'outcome': self.worker_outcome,
+                    'returncode': self.worker.returncode,
+                    'stdout_bytes': stdout_bytes,
+                    'stderr_bytes': stderr_bytes,
+                    'process_group_drained': True,
+                    'session_bound': True,
+                    'host_tool_requests': self.active.get('host_tool_requests', 0),
+                    'host_tool_failures': len(self.active.get('host_tool_failures', [])),
+                    'response_status': value.get('status', 'ok'),
+                }
+                if incomplete_turn:
+                    turn_record['sdk_error_kind'] = 'incomplete_turn'
+                self.worker_turns.append(turn_record)
+                self.worker_turns = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
                 write_json(self.parent.path.parent / 'controller-worker.json', {
                     'schema': 'argos-controller-worker/1', 'parent_id': self.parent.record['id'],
                     'generation': self.parent.record['generation'], 'pid': self.worker.pid,
                     'session_id': self.session_id, 'session_key': self.session_key,
                     'state': 'completed', 'process_group_drained': True,
                     'turn_outcome': 'incomplete-turn' if incomplete_turn else 'completed',
+                    'turn_number': turn_record['turn'],
                     'returncode': self.worker.returncode,
                     'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
                     'stdout_sha256': hashlib.sha256(stdout.encode()).hexdigest(), 'tools': self.outcomes})
+                self.publish()
                 self.verified = True
                 if finalize:
                     self._complete()

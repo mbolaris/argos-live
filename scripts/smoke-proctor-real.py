@@ -18,7 +18,7 @@ from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 
 
 def safe_controller_diagnostics(turn):
-    """Export bounded error classes and counters, never arguments or messages."""
+    """Export bounded worker outcomes, error classes and counters, never text."""
     if not isinstance(turn, dict):
         return {}
     result = {}
@@ -52,6 +52,30 @@ def safe_controller_diagnostics(turn):
             for row in outcomes[:64]
             if (isinstance(row, dict) and row.get('kind') in allowed | {'proctor_host_submit', 'proctor_finalize'} and
                 isinstance(row.get('status'), str) and len(row['status']) <= 64)]
+    worker_turns = turn.get('worker_turns')
+    if isinstance(worker_turns, list):
+        safe_turns = []
+        for row in worker_turns[:32]:
+            if (not isinstance(row, dict) or row.get('outcome') not in {'completed', 'incomplete-turn'} or
+                    type(row.get('turn')) is not int or not 1 <= row['turn'] <= 10000 or
+                    type(row.get('returncode')) is not int or not -255 <= row['returncode'] <= 255 or
+                    any(type(row.get(key)) is not int or not 0 <= row[key] <= 2 * 1024**2
+                        for key in ('stdout_bytes', 'stderr_bytes')) or
+                    any(type(row.get(key)) is not bool for key in
+                        ('process_group_drained', 'session_bound')) or
+                    type(row.get('host_tool_requests')) is not int or
+                    not 0 <= row['host_tool_requests'] <= 10000 or
+                    type(row.get('host_tool_failures')) is not int or
+                    not 0 <= row['host_tool_failures'] <= 32 or
+                    row.get('response_status') not in {'ok', 'error'}):
+                continue
+            safe = {key: row[key] for key in ('turn', 'outcome', 'returncode', 'stdout_bytes',
+                    'stderr_bytes', 'process_group_drained', 'session_bound',
+                    'host_tool_requests', 'host_tool_failures', 'response_status')}
+            if row.get('sdk_error_kind') == 'incomplete_turn':
+                safe['sdk_error_kind'] = 'incomplete_turn'
+            safe_turns.append(safe)
+        result['worker_turns'] = safe_turns
     diagnostics = turn.get('admission_diagnostics')
     safe_counts = ('tool_hooks', 'bound_calls', 'executions')
     safe_rejections = ('unknown_tool', 'missing_admission', 'invalid_call_id', 'stale_binding')
@@ -221,6 +245,10 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
                 not all(module['state'] == 'SUBMITTED' for module in payload['modules']) or
                 not verified or not receipt['model_identity_bound']):
             raise ValueError('Real-model Proctor did not complete and verify all five practice items; see receipt')
+        worker_turns = receipt['controller_diagnostics'].get('worker_turns', [])
+        if (len(worker_turns) != result['host_turns'] or
+                any(not row['process_group_drained'] or not row['session_bound'] for row in worker_turns)):
+            raise ValueError('Real-model Proctor receipt did not verify every drained, session-bound worker turn')
         if (receipt['requested_temperature'] is not None and
                 receipt['wire_request'].get('temperature') != receipt['requested_temperature']):
             raise ValueError('Deterministic fixture request temperature was not observed on the wire')

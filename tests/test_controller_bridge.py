@@ -67,6 +67,14 @@ class ControllerBridgeTests(unittest.TestCase):
             worker = json.loads((self.home / '.local/state/argos-live/workload/controller-worker.json').read_text())
             self.assertEqual(worker['turn_outcome'], 'incomplete-turn')
             self.assertEqual(worker['returncode'], 1)
+            turn = json.loads(bridge.events.read_text())
+            self.assertEqual(turn['worker_turns'], [{
+                'turn': 1, 'outcome': 'incomplete-turn', 'returncode': 1,
+                'stdout_bytes': len(json.dumps(response).encode()), 'stderr_bytes': 0,
+                'process_group_drained': True, 'session_bound': True,
+                'host_tool_requests': 0, 'host_tool_failures': 0,
+                'response_status': 'error', 'sdk_error_kind': 'incomplete_turn'}])
+            self.assertNotIn('private message', bridge.events.read_text())
             bridge.next_practice_turn('agent:main:practice-retry')
             self.assertIsNone(bridge.worker)
             self.assertFalse(bridge.verified)
