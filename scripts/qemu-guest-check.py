@@ -65,6 +65,12 @@ def main():
         raise ValueError('Fresh desktop did not load the one-hour screensaver default')
     if not saver_ui.is_file():
         raise ValueError('Screensaver preferences are unavailable for manual control')
+    saver_deadline = time.monotonic() + 30
+    while subprocess.run(['pgrep', '-u', 'argos', '-f', r'(^|/)xfce4-screensaver($| )'],
+                         stdout=subprocess.DEVNULL).returncode:
+        if time.monotonic() >= saver_deadline:
+            raise ValueError('XFCE screensaver did not start from the desktop autostart entry')
+        time.sleep(1)
     for action in ('--activate', '--deactivate'):
         session_command(['xfce4-screensaver-command', action])
     refresh = subprocess.run(['systemctl', 'is-active', '--quiet', 'argos-refresh-runtime.service'],
