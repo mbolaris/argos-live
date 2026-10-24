@@ -15,6 +15,7 @@ on:
       - '.github/workflows/native-chat.yml'
       - 'scripts/smoke-native-chat.py'
       - 'scripts/smoke-proctor-real.py'
+      - 'runtime/argoslive/controller_bridge.py'
       - 'runtime/argoslive/proctor_service.py'
       - 'runtime/argoslive/proctor/**'
       - 'scripts/smoke-desktop-startup.py'
