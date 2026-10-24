@@ -628,12 +628,6 @@ class Bridge:
             stdout, stderr = self.worker.communicate(timeout=timeout)
             self.last_stdout, self.last_stderr = stdout, stderr
             stdout_bytes, stderr_bytes = len(stdout.encode()), len(stderr.encode())
-            if self.worker.returncode:
-                self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
-                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
-                                            'worker_response': self._safe_worker_response(stdout)}
-                self._publish_finish_failure()
-                raise workload.Busy(recovery=True)
             if stdout_bytes > 2 * 1024**2:
                 self.last_finish_failure = {'code': 'worker-output-limit', 'returncode': self.worker.returncode,
                                             'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes}
@@ -641,8 +635,15 @@ class Bridge:
                 raise workload.Busy(recovery=True)
             value = json.loads(stdout)
             body = value.get('result', value)
+            incomplete_turn = self._is_incomplete_turn(value)
+            if self.worker.returncode and not incomplete_turn:
+                self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
+                                            'worker_response': self._safe_worker_response(stdout)}
+                self._publish_finish_failure()
+                raise workload.Busy(recovery=True)
             if (value.get('status', 'ok') != 'ok' or not isinstance(body.get('payloads'), list) or
-                    body.get('meta', {}).get('agentMeta', {}).get('sessionId') != self.session_id):
+                    body.get('meta', {}).get('agentMeta', {}).get('sessionId') != self.session_id) and not incomplete_turn:
                 self.last_finish_failure = {'code': 'worker-response-invalid',
                                             'returncode': self.worker.returncode,
                                             'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
@@ -652,20 +653,24 @@ class Bridge:
                                                 'sessionId') == self.session_id}
                 self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
+            live_group_members = 0
             for entry in Path('/proc').iterdir():
                 if not entry.name.isdigit():
                     continue
                 try:
                     fields = (entry / 'stat').read_text().rsplit(') ', 1)[1].split()
                     if int(fields[2]) == self.worker.pid and fields[0] not in ('Z', 'X'):
-                        self.last_finish_failure = {'code': 'worker-still-live',
-                                                    'returncode': self.worker.returncode,
-                                                    'stdout_bytes': stdout_bytes,
-                                                    'stderr_bytes': stderr_bytes}
-                        self._publish_finish_failure()
-                        raise workload.Busy(recovery=True)
+                        live_group_members += 1
                 except (FileNotFoundError, ProcessLookupError):
                     continue
+            if live_group_members:
+                self.last_finish_failure = {'code': 'worker-group-still-live',
+                                            'live_group_members': min(live_group_members, 10000),
+                                            'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes,
+                                            'stderr_bytes': stderr_bytes}
+                self._publish_finish_failure()
+                raise workload.Busy(recovery=True)
             with self.lock:
                 if not self.active:
                     self.last_finish_failure = {'code': 'turn-not-active',
@@ -679,6 +684,8 @@ class Bridge:
                     'generation': self.parent.record['generation'], 'pid': self.worker.pid,
                     'session_id': self.session_id, 'session_key': self.session_key,
                     'state': 'completed', 'process_group_drained': True,
+                    'turn_outcome': 'incomplete-turn' if incomplete_turn else 'completed',
+                    'returncode': self.worker.returncode,
                     'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
                     'stdout_sha256': hashlib.sha256(stdout.encode()).hexdigest(), 'tools': self.outcomes})
                 self.verified = True
@@ -705,6 +712,25 @@ class Bridge:
                  'session_id': self.session_id,
                  'failure': self.last_finish_failure}
         write_json(self.parent.path.parent / 'controller-failure.json', value)
+
+    def _is_incomplete_turn(self, value):
+        """Recognize only the pinned SDK's terminal, no-answer result for this session."""
+        if not isinstance(value, dict) or value.get('status') != 'error' or self.worker is None or \
+                self.worker.returncode == 0:
+            return False
+        body = value.get('result')
+        if not isinstance(body, dict) or not isinstance(body.get('payloads'), list):
+            return False
+        meta = body.get('meta')
+        if not isinstance(meta, dict):
+            return False
+        agent_meta = meta.get('agentMeta')
+        error = meta.get('error')
+        return (isinstance(agent_meta, dict) and agent_meta.get('sessionId') == self.session_id and
+                isinstance(error, dict) and error.get('kind') == 'incomplete_turn' and
+                isinstance(self.active, dict) and self.active.get('session_id') == self.session_id and
+                self.active.get('host_tool_requests', 0) == 0 and not self.active.get('host_tool_failures') and
+                self.pending is None and not self.tool_lock.locked())
 
     def _safe_worker_response(self, stdout):
         """Summarize SDK JSON structure without persisting reply or error text."""
@@ -740,6 +766,11 @@ class Bridge:
         agent_meta = meta.get('agentMeta') if isinstance(meta, dict) else None
         if isinstance(agent_meta, dict):
             result['session_bound'] = agent_meta.get('sessionId') == self.session_id
+        error = meta.get('error') if isinstance(meta, dict) else None
+        if isinstance(error, dict):
+            kind = error.get('kind')
+            if isinstance(kind, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', kind):
+                result['error_kind'] = kind
         return result
 
     def next_practice_turn(self, session_key):

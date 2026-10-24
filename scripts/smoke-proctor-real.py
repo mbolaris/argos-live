@@ -80,7 +80,7 @@ def safe_finish_failure(path):
         item = failure.get(key)
         if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', item):
             result[key] = item
-    for key in ('returncode', 'stdout_bytes', 'stderr_bytes'):
+    for key in ('returncode', 'stdout_bytes', 'stderr_bytes', 'live_group_members'):
         item = failure.get(key)
         if type(item) is int and -255 <= item <= 2 * 1024**2:
             result[key] = item
@@ -96,7 +96,7 @@ def safe_finish_failure(path):
             item = response.get(key)
             if type(item) is bool:
                 safe_response[key] = item
-        for key in ('status', 'error_code', 'error_name', 'error_type'):
+        for key in ('status', 'error_code', 'error_name', 'error_type', 'error_kind'):
             item = response.get(key)
             if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,96}', item):
                 safe_response[key] = item
