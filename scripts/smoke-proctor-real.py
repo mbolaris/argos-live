@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import auto_setup, proctor_service, starter
+from argoslive import auto_setup, catalog, model_verify, proctor_service
 from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 
 
@@ -133,19 +133,22 @@ def safe_finish_failure(path):
     return result
 
 
-def run(cli, ollama, seed, report, *, deterministic_profile=False):
+def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=False):
     scratch = Path(os.environ.get('RUNNER_TEMP', '/missing')).resolve()
-    seed = seed.resolve(strict=True)
+    model_store = model_store.resolve(strict=True)
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or
-            scratch not in seed.parents or os.geteuid() == 0):
+            scratch not in model_store.parents or os.geteuid() == 0):
         raise ValueError('Real Proctor smoke requires an unprivileged disposable hosted fixture')
-    identity = starter.read_only(seed, include_model_identity=True)['model_identity']
+    entry = next((row for row in catalog.load()['models'] if row['tag'] == model_tag), None)
+    if entry is None or 'tools' not in entry['capabilities']:
+        raise ValueError('Real Proctor smoke requires an exact catalog-pinned tool-capable model')
+    identity = model_verify.verify(model_store, entry, sync=False, include_identity=True)
     with tempfile.TemporaryDirectory(prefix='argos-proctor-real-', dir=scratch) as temporary:
         home = Path(temporary)
         workspace = home / '.openclaw/workspace'
         workspace.mkdir(mode=0o700, parents=True)
-        config = auto_setup.conversation_config(starter.TAG, workspace,
+        config = auto_setup.conversation_config(model_tag, workspace,
             plugin_root=ROOT / 'openclaw-plugin/argos-improve')
         if deterministic_profile:
             config['models']['providers']['ollama']['models'][0]['params'] = {'temperature': 0}
@@ -154,11 +157,12 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
         config_path.chmod(0o600)
         state = home / '.config/argos-live/state.json'
         state.parent.mkdir(mode=0o700, parents=True)
-        state.write_text(json.dumps({'model': starter.TAG}))
+        state.write_text(json.dumps({'model': model_tag}))
         # Substitute only fixture storage discovery. Identity is verified from
-        # the same immutable seed; service, model, answers and signing are real.
+        # the catalog-pinned model store; service, model, answers and signing are real.
         def source(_home, *, include_model_identity=False):
-            return ((seed, starter.TAG, identity) if include_model_identity else (seed, starter.TAG))
+            return ((model_store, model_tag, identity) if include_model_identity
+                    else (model_store, model_tag))
         original_environment = proctor_service.owned_gateway.environment
         def observed_environment(home, config_path):
             env = original_environment(home, config_path)
@@ -199,7 +203,7 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
             'signature_verified': verified,
             'model_identity_bound': payload['subject']['model_identity'] == identity,
             'transcript_sha256': hashlib.sha256(envelope['payload_json'].encode()).hexdigest(),
-            'model_tag': starter.TAG, 'total': payload['total_items'],
+            'model_tag': model_tag, 'total': payload['total_items'],
             'answered': len(payload['accepted_answers']), 'correct': payload['accepted_correct'],
             'practice_only': True, 'calibration_status': 'uncalibrated',
             'host_turns': result['host_turns'],
@@ -257,8 +261,10 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('openclaw', 'ollama', 'seed', 'report'):
+    for name in ('openclaw', 'ollama', 'model-store', 'report'):
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--model-tag', required=True)
     parser.add_argument('--deterministic-profile', action='store_true')
     args = parser.parse_args()
-    run(args.openclaw, args.ollama, args.seed, args.report, deterministic_profile=args.deterministic_profile)
+    run(args.openclaw, args.ollama, args.model_store, args.model_tag, args.report,
+        deterministic_profile=args.deterministic_profile)
