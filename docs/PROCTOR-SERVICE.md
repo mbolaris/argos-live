@@ -49,6 +49,13 @@ coaching procedure; an unfinished exam is signed as ABANDONED. Uncertain
 workers still quarantine the workload. Assessment and held-out sessions do not
 use this continuation policy.
 
+A practice worker that exits on OpenClaw's `hook_block` may enter the existing
+no-answer retry path only when the response is bound to the current session,
+the agent-end hook was observed, no host tool was requested or failed, and the
+worker process group drained. The blocked turn receives no answer credit. Any
+unresolved attempt ends as signed incomplete practice; this recovery rule does
+not apply to assessment or held-out sessions.
+
 Start, status, answer, submit and continue responses include a `next_step`
 tool name and arguments to help the agent navigate the exam. After fetching an
 item, the agent must solve it and supply its own answer. Navigation uses only

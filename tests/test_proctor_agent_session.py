@@ -401,7 +401,10 @@ class AgentSessionTests(unittest.TestCase):
             def present_proctor_item(self, item_id): return exam.item(item_id)
             def finish(self, **kwargs):
                 self_test.assertFalse(kwargs['finalize'])
+                turn = len(messages)
                 actions.pop(0)()
+                if turn == 2:
+                    return {'status': 'error', 'result': {'payloads': []}}, ''
                 return {'payloads': [{'text': 'The exam is complete; all answers are correct.'}]}, ''
             def next_practice_turn(self, key): pass
             def submit_answered_practice_module(self):

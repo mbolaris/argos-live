@@ -640,14 +640,16 @@ class Bridge:
             value = json.loads(stdout)
             body = value.get('result', value)
             incomplete_turn = self._is_incomplete_turn(value)
-            if self.worker.returncode and not incomplete_turn:
+            blocked_turn = self._is_blocked_practice_turn(value)
+            retryable_turn = incomplete_turn or blocked_turn
+            if self.worker.returncode and not retryable_turn:
                 self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
                                             'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
                                             'worker_response': self._safe_worker_response(stdout)}
                 self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
             if (value.get('status', 'ok') != 'ok' or not isinstance(body.get('payloads'), list) or
-                    body.get('meta', {}).get('agentMeta', {}).get('sessionId') != self.session_id) and not incomplete_turn:
+                    body.get('meta', {}).get('agentMeta', {}).get('sessionId') != self.session_id) and not retryable_turn:
                 self.last_finish_failure = {'code': 'worker-response-invalid',
                                             'returncode': self.worker.returncode,
                                             'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
@@ -683,7 +685,8 @@ class Bridge:
                                                 'stderr_bytes': stderr_bytes}
                     self._publish_finish_failure()
                     raise workload.Busy(recovery=True)
-                self.worker_outcome = 'incomplete-turn' if incomplete_turn else 'completed'
+                self.worker_outcome = ('incomplete-turn' if incomplete_turn else
+                                       'blocked-turn' if blocked_turn else 'completed')
                 turn_record = {
                     'turn': len(self.worker_turns) + 1,
                     'outcome': self.worker_outcome,
@@ -698,6 +701,8 @@ class Bridge:
                 }
                 if incomplete_turn:
                     turn_record['sdk_error_kind'] = 'incomplete_turn'
+                elif blocked_turn:
+                    turn_record['sdk_error_kind'] = 'hook_block'
                 self.worker_turns.append(turn_record)
                 self.worker_turns = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
                 write_json(self.parent.path.parent / 'controller-worker.json', {
@@ -705,7 +710,7 @@ class Bridge:
                     'generation': self.parent.record['generation'], 'pid': self.worker.pid,
                     'session_id': self.session_id, 'session_key': self.session_key,
                     'state': 'completed', 'process_group_drained': True,
-                    'turn_outcome': 'incomplete-turn' if incomplete_turn else 'completed',
+                    'turn_outcome': self.worker_outcome,
                     'turn_number': turn_record['turn'],
                     'returncode': self.worker.returncode,
                     'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
@@ -755,6 +760,27 @@ class Bridge:
                 isinstance(self.active, dict) and self.active.get('session_id') == self.session_id and
                 self.active.get('host_tool_requests', 0) == 0 and not self.active.get('host_tool_failures') and
                 self.pending is None and not self.tool_lock.locked())
+
+    def _is_blocked_practice_turn(self, value):
+        """Accept only an admitted, ended, side-effect-free practice hook block for retry."""
+        if (not isinstance(value, dict) or value.get('status') != 'error' or self.worker is None or
+                self.worker.returncode == 0 or self.exam_session is None or
+                self.exam_session.tier != 'practice'):
+            return False
+        body = value.get('result')
+        if not isinstance(body, dict) or not isinstance(body.get('payloads'), list):
+            return False
+        meta = body.get('meta')
+        if not isinstance(meta, dict):
+            return False
+        agent_meta, error = meta.get('agentMeta'), meta.get('error')
+        active = self.active
+        return (isinstance(agent_meta, dict) and agent_meta.get('sessionId') == self.session_id and
+                isinstance(error, dict) and error.get('kind') == 'hook_block' and
+                isinstance(active, dict) and active.get('session_id') == self.session_id and
+                active.get('ended') is True and active.get('host_tool_requests', 0) == 0 and
+                not active.get('host_tool_failures') and self.pending is None and
+                not self.tool_lock.locked())
 
     def _safe_worker_response(self, stdout):
         """Summarize SDK JSON structure without persisting reply or error text."""
@@ -894,7 +920,8 @@ class Bridge:
         with self.lock:
             if (not self.verified or not self.worker or
                     not (self.worker.poll() == 0 or self.exam_session is not None and
-                         self.exam_session.tier == 'practice' and self.worker_outcome == 'incomplete-turn') or
+                         self.exam_session.tier == 'practice' and self.worker_outcome in
+                         {'incomplete-turn', 'blocked-turn'}) or
                     self.tool_lock.locked() or self.pending or
                     self.uncertain or not self.active):
                 raise workload.Busy(recovery=True)
@@ -930,10 +957,11 @@ class Bridge:
             self.closed = True
 
     def _accepted_practice_worker_exit(self):
-        """Only a clean SDK success or the session-bound incomplete-turn may continue."""
+        """Only a clean SDK success or a safe, drained practice failure may continue."""
         return bool(self.worker and (self.worker.poll() == 0 or
                      self.exam_session is not None and self.exam_session.tier == 'practice' and
-                     self.worker_outcome == 'incomplete-turn' and self.worker.poll() is not None))
+                     self.worker_outcome in {'incomplete-turn', 'blocked-turn'} and
+                     self.worker.poll() is not None))
 
     def drain_before_backends_stop(self):
         """Host-only teardown while the admitted job's gateway/backend still live.

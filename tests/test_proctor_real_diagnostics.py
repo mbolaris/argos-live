@@ -39,7 +39,11 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
                 'stdout_bytes': 240, 'stderr_bytes': 0,
                 'process_group_drained': True, 'session_bound': True,
                 'host_tool_requests': 3, 'host_tool_failures': 0,
-                'response_status': 'ok'}],
+                'response_status': 'ok'}, {'turn': 3, 'outcome': 'blocked-turn', 'returncode': 1,
+                'stdout_bytes': 120, 'stderr_bytes': 0,
+                'process_group_drained': True, 'session_bound': True,
+                'host_tool_requests': 0, 'host_tool_failures': 0,
+                'response_status': 'error', 'sdk_error_kind': 'hook_block'}],
             'admission_diagnostics': {
                 'tool_hooks': 4, 'bound_calls': 2, 'executions': 2,
                 'rejected': {'unknown_tool': 0, 'missing_admission': 0,
@@ -63,6 +67,10 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
              'stdout_bytes': 240, 'stderr_bytes': 0, 'process_group_drained': True,
              'session_bound': True, 'host_tool_requests': 3, 'host_tool_failures': 0,
              'response_status': 'ok'},
+            {'turn': 3, 'outcome': 'blocked-turn', 'returncode': 1,
+             'stdout_bytes': 120, 'stderr_bytes': 0, 'process_group_drained': True,
+             'session_bound': True, 'host_tool_requests': 0, 'host_tool_failures': 0,
+             'response_status': 'error', 'sdk_error_kind': 'hook_block'},
         ])
         self.assertEqual(result['admission']['executions'], 2)
         self.assertNotIn('private', repr(result))

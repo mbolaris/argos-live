@@ -81,6 +81,61 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(parent.record['phase'], 'running')
             parent.complete()
 
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
+    def test_admitted_side_effect_free_hook_block_in_practice_is_drained_and_retryable(self):
+        exam = SimpleNamespace(tier='practice')
+        with workload.reserve(self.home, 'proctor') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:practice-hook-block',
+                                              exam_session=exam)
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            bridge.active['ended'] = True
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'hook_block', 'message': 'private blocked-tool details'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+            result, stderr = bridge.finish(timeout=1, finalize=False)
+            self.assertEqual(stderr, '')
+            self.assertEqual(result['status'], 'error')
+            self.assertTrue(bridge.verified)
+            self.assertFalse(bridge.uncertain)
+            self.assertEqual(bridge.worker_outcome, 'blocked-turn')
+            worker = json.loads((self.home / '.local/state/argos-live/workload/controller-worker.json').read_text())
+            self.assertEqual(worker['turn_outcome'], 'blocked-turn')
+            turn = json.loads(bridge.events.read_text())
+            self.assertEqual(turn['worker_turns'], [{
+                'turn': 1, 'outcome': 'blocked-turn', 'returncode': 1,
+                'stdout_bytes': len(json.dumps(response).encode()), 'stderr_bytes': 0,
+                'process_group_drained': True, 'session_bound': True,
+                'host_tool_requests': 0, 'host_tool_failures': 0,
+                'response_status': 'error', 'sdk_error_kind': 'hook_block'}])
+            self.assertNotIn('private blocked-tool details', bridge.events.read_text())
+            bridge.next_practice_turn('agent:main:practice-hook-block-retry')
+            self.assertIsNone(bridge.worker)
+            self.assertFalse(bridge.verified)
+            self.assertEqual(parent.record['phase'], 'running')
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
+    def test_practice_hook_block_after_host_tool_activity_is_not_retryable(self):
+        exam = SimpleNamespace(tier='practice')
+        with workload.reserve(self.home, 'proctor') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:practice-hook-block-active',
+                                              exam_session=exam)
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            bridge.active.update(ended=True, host_tool_requests=1)
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'hook_block'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+            with self.assertRaises(workload.Busy):
+                bridge.finish(timeout=1, finalize=False)
+            self.assertFalse(bridge.verified)
+            parent.complete()
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned workload lifecycle')
     def test_prelaunch_gateway_failure_releases_unstarted_proctor_reservation(self):
         with controller_bridge.owned(self.home, session_key='agent:main:prelaunch',
