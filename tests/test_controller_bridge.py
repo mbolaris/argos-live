@@ -165,6 +165,48 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertNotIn('private raw error text', bridge.events.read_text())
             parent.complete()
 
+    def test_proctor_wait_tool_is_observed_and_simulated_without_running_evaluation(self):
+        class Exam:
+            tier = 'practice'
+            def __init__(self):
+                self.engine = SimpleNamespace(cart=SimpleNamespace(items={
+                    'q5': {'domain': 'tool_call_format'}}))
+                self.calls = []
+            def status(self):
+                return {'state': 'ACTIVE', 'module_id': 'm1', 'item_ids': ['q5'],
+                        'answer_revisions': {}}
+            def host_record_tool_call(self, item_id, name, arguments, call_id):
+                self.calls.append((item_id, name, arguments, call_id))
+            def answer(self, *_args, **_kwargs):
+                self.fail('Tool-call items cannot receive credit from typed answers')
+
+        with workload.reserve(self.home, 'proctor') as parent:
+            exam = Exam()
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:proctor-tool-call-test', exam_session=exam)
+            _, turn = self.begin(bridge)
+            bridge.presented_proctor_items.add(('m1', 'q5'))
+            with self.assertRaisesRegex(ValueError, 'must be completed through its observed tool call'):
+                bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'typed-answer-bypass',
+                    'kind': 'proctor_answer', 'params': {'item_id': 'q5',
+                    'answer': '{"name":"argos_evaluate_wait","arguments":{"job_id":"0123456789abcdef0123456789abcdef"}}'}})
+            bridge.wait_evaluation = lambda *_args, **_kwargs: self.fail(
+                'Proctor simulation must not wait on or resume a real evaluation')
+            with self.assertRaisesRegex(ValueError, 'Invalid evaluation job identity'):
+                bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'invalid-wait-call',
+                    'kind': 'evaluation_wait', 'params': {'job_id': 'not-a-job'}})
+            result = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'wait-call-1',
+                'kind': 'evaluation_wait',
+                'params': {'job_id': '0123456789abcdef0123456789abcdef'}})
+            self.assertEqual(result['status'], 'completed')
+            self.assertTrue(result['value']['proctor_simulation'])
+            self.assertIn('no evaluation was started', result['value']['message'])
+            self.assertEqual(exam.calls, [('q5', 'argos_evaluate_wait',
+                {'job_id': '0123456789abcdef0123456789abcdef'}, 'wait-call-1')])
+            self.assertEqual(bridge.outcomes[-1]['kind'], 'proctor_tool_call')
+            self.assertIsNone(bridge.evaluation_job)
+            parent.complete()
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_audit_tool_uses_scoped_maintenance_and_preserves_parent_and_instructions(self):
         instructions = self.home / '.openclaw/workspace/AGENTS.md'

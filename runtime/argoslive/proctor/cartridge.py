@@ -18,6 +18,8 @@ IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,95}\Z')
 NUMBER = re.compile(r'[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)\Z')
 RATIONAL = re.compile(r'([+-]?[0-9]+)[ \t]*/[ \t]*([+-]?[0-9]+)\Z')
 AIDS = {'calculator', 'reference_sheet'}
+JSON_ANSWER_LIMIT = 4096
+SCHEMA_TYPES = {'object', 'array', 'string', 'integer', 'boolean', 'null'}
 
 
 def json_text(value):
@@ -35,11 +37,100 @@ def identifier(value):
 
 
 def valid_answer(item, answer):
-    if not isinstance(answer, str) or len(answer) > 128:
+    if not isinstance(answer, str):
         return False
     if item['response_type'] == 'mcq_single':
-        return answer in item['choices']
-    return numeric_value(answer) is not None
+        return len(answer) <= 128 and answer in item['choices']
+    if item['response_type'] == 'numeric_grid':
+        return len(answer) <= 128 and numeric_value(answer) is not None
+    try:
+        answer_size = len(answer.encode('utf-8'))
+    except UnicodeError:
+        return False
+    if answer_size > JSON_ANSWER_LIMIT:
+        return False
+    try:
+        value = _decode_json_object(answer)
+    except (ValueError, TypeError, UnicodeError, RecursionError):
+        return False
+    return _matches_schema(value, item['schema'])
+
+
+def _decode_json_object(value):
+    def unique(pairs):
+        result = {}
+        for key, item in pairs:
+            if key in result:
+                raise ValueError('Duplicate JSON object key')
+            result[key] = item
+        return result
+    parsed = json.loads(value, object_pairs_hook=unique,
+                        parse_constant=lambda _: (_ for _ in ()).throw(ValueError('Invalid JSON number')))
+    if not isinstance(parsed, dict):
+        raise ValueError('Expected a JSON object')
+    return parsed
+
+
+def _matches_schema(value, schema, depth=0):
+    if depth > 8 or not isinstance(schema, dict):
+        return False
+    kind = schema.get('type')
+    if kind == 'object':
+        if not isinstance(value, dict) or len(value) > 32:
+            return False
+        properties = schema.get('properties', {})
+        if any(key not in properties for key in value):
+            return False
+        if any(key not in value for key in schema.get('required', [])):
+            return False
+        return all(_matches_schema(item, properties[key], depth + 1) for key, item in value.items())
+    if kind == 'array':
+        return (isinstance(value, list) and len(value) <= 64 and
+                all(_matches_schema(item, schema['items'], depth + 1) for item in value))
+    if kind == 'string':
+        return isinstance(value, str) and len(value) <= schema.get('maxLength', JSON_ANSWER_LIMIT)
+    if kind == 'integer':
+        return type(value) is int
+    if kind == 'boolean':
+        return type(value) is bool
+    if kind == 'null':
+        return value is None
+    return False
+
+
+def _validate_schema(schema, depth=0):
+    if depth > 8 or not isinstance(schema, dict) or schema.get('type') not in SCHEMA_TYPES:
+        raise ValueError('Invalid structured-answer schema')
+    kind = schema['type']
+    allowed = {'type'}
+    if kind == 'object':
+        allowed |= {'properties', 'required'}
+        properties = schema.get('properties')
+        required = schema.get('required')
+        if (not isinstance(properties, dict) or len(properties) > 32 or
+                not isinstance(required, list) or len(required) > len(properties) or
+                any(not isinstance(k, str) for k in required) or
+                len(set(required)) != len(required) or any(k not in properties for k in required)):
+            raise ValueError('Invalid structured object schema')
+        for key, child in properties.items():
+            if not isinstance(key, str) or not key or len(key) > 96:
+                raise ValueError('Invalid structured property name')
+            _validate_schema(child, depth + 1)
+    elif kind == 'array':
+        allowed.add('items')
+        _validate_schema(schema.get('items'), depth + 1)
+    elif kind == 'string':
+        allowed.add('maxLength')
+        if type(schema.get('maxLength', JSON_ANSWER_LIMIT)) is not int or not 0 <= schema.get('maxLength', JSON_ANSWER_LIMIT) <= JSON_ANSWER_LIMIT:
+            raise ValueError('Invalid structured string bound')
+    elif kind in {'integer', 'boolean', 'null'}:
+        pass
+    if set(schema) - allowed:
+        raise ValueError('Unsupported structured-answer schema keyword')
+
+
+def _json_equal(left, right):
+    return json_text(left) == json_text(right)
 
 
 def numeric_value(answer):
@@ -62,12 +153,18 @@ def correct_answer(item, answer):
         return False
     if item['response_type'] == 'numeric_grid':
         return numeric_value(answer) == numeric_value(item['correct'])
+    if item['response_type'] == 'json_object':
+        try:
+            return _json_equal(_decode_json_object(answer), _decode_json_object(item['correct']))
+        except (ValueError, TypeError, UnicodeError, RecursionError):
+            return False
     return answer == item['correct']
 
 
 def validate(conn):
     """Validate all rows, routing coverage, reachability, and supported scorers."""
-    if conn.execute('PRAGMA user_version').fetchone()[0] != 1:
+    cartridge_version = conn.execute('PRAGMA user_version').fetchone()[0]
+    if cartridge_version not in (1, 2):
         raise ValueError('Unsupported cartridge version')
     if [r[0] for r in conn.execute('PRAGMA integrity_check')] != ['ok']:
         raise ValueError('Invalid cartridge integrity')
@@ -85,6 +182,9 @@ def validate(conn):
     forms = {r['form_id']: dict(r) for r in conn.execute('SELECT * FROM forms')}
     modules = {r['module_id']: dict(r) for r in conn.execute('SELECT * FROM modules')}
     items = {r['item_id']: dict(r) for r in conn.execute('SELECT * FROM items')}
+    if cartridge_version == 1:
+        for item in items.values():
+            item['schema_json'] = '{}'
     if not forms or not modules or len(forms) > 32 or len(modules) > 128 or len(items) > MAX_ITEMS:
         raise ValueError('Cartridge size outside supported bounds')
     for item_id, item in items.items():
@@ -93,9 +193,10 @@ def validate(conn):
             raise ValueError('Invalid item prompt')
         if not isinstance(item['domain'], str) or not 0 < len(item['domain']) <= 96:
             raise ValueError('Invalid item domain')
-        if item['response_type'] not in ('mcq_single', 'numeric_grid'):
-            raise ValueError('Unsupported response type; coding and JSON graders are not enabled')
+        if item['response_type'] not in ('mcq_single', 'numeric_grid', 'json_object'):
+            raise ValueError('Unsupported response type; only choice, numeric and bounded JSON grading are enabled')
         choices = decode(item.pop('choices_json'))
+        schema = decode(item.pop('schema_json'))
         if not isinstance(choices, dict):
             raise ValueError('Expected a choice mapping')
         if item['response_type'] == 'mcq_single':
@@ -106,6 +207,15 @@ def validate(conn):
         elif choices:
             raise ValueError('Numeric questions must not carry choices')
         item['choices'] = choices
+        if item['response_type'] == 'json_object':
+            _validate_schema(schema)
+            if schema['type'] != 'object':
+                raise ValueError('Structured answers require an object schema')
+            item['schema'] = schema
+        else:
+            if schema:
+                raise ValueError('Only structured-answer items may declare a schema')
+            item['schema'] = {}
         if not valid_answer(item, item['correct']):
             raise ValueError('Answer key violates response contract')
     for form_id, form in forms.items():
@@ -198,9 +308,10 @@ def compile_cartridge(source, destination):
                                  (mod_id, form['form_id'], module['ordinal'], module['duration_ms'],
                                   module['break_ms'], json_text(module['aids'])))
                     for i in module['items']:
-                        conn.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?)',
+                        conn.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?)',
                                      (i['item_id'], mod_id, i['position'], i['domain'], i['prompt'],
-                                      i['response_type'], json_text(i['choices']), i['correct']))
+                                      i['response_type'], json_text(i['choices']),
+                                      json_text(i.get('schema', {})), i['correct']))
                     for r in module['routes']:
                         conn.execute('INSERT INTO routes VALUES (?,?,?,?,?)',
                                      (mod_id, form['form_id'], r['minimum'], r['maximum'], r['next_module_id']))

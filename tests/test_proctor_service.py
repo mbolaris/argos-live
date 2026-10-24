@@ -373,7 +373,9 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(cartridge.manifest['calibration_status'], 'uncalibrated')
         self.assertEqual(cartridge.manifest['cartridge_id'], 'argos-practice-pilot')
         self.assertIn('pilot-a', cartridge.forms)
-        self.assertEqual(len(cartridge.items), 4)
+        self.assertEqual(len(cartridge.items), 5)
+        self.assertEqual(cartridge.items['q5']['domain'], 'tool_call_format')
+        self.assertEqual(cartridge.items['q5']['response_type'], 'json_object')
 
     def test_session_subject_binds_verified_model_receipt_and_can_start_exam(self):
         original_read_text = Path.read_text

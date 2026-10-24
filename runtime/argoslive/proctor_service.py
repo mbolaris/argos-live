@@ -31,7 +31,7 @@ CAMPAIGN_MAX_TURNS = 4
 PROCTOR_TOOL_NAMES = [
     'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
     'argos_proctor_answer', 'argos_proctor_continue', 'argos_proctor_submit',
-    'argos_proctor_feedback',
+    'argos_proctor_feedback', 'argos_evaluate_wait',
 ]
 CAMPAIGN_TOOL_NAMES = [
     'argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status',
@@ -44,12 +44,15 @@ PRACTICE_MAX_SECONDS = 1800
 MESSAGE = ('Your first action must be to call argos_proctor_start with an empty JSON object {}. '
            'Do not answer this message in prose or ask the owner to supply questions. '
            'Complete the host-selected Argos ability practice exam using only the '
-           'argos_proctor_* tools. Start the exam, answer each active item, submit each '
+           'argos_proctor_* tools, except that a tool_call_format item may require the '
+           'host-intercepted argos_evaluate_wait simulation described in that item. '
+           'Start the exam, answer each active item, submit each '
            'module, continue when the host permits it, and request practice feedback '
            'after the final module. The practice host also submits a fully answered module '
            'after your turn ends. Follow each response next_step by calling its tool '
-           'with its arguments. When argos_proctor_item returns a question, solve it '
-           'yourself and call argos_proctor_answer with only your answer as a string. '
+           'with its arguments. For ordinary questions, call argos_proctor_answer with '
+           'only your answer as a string. For a tool_call_format question, follow its '
+           'requested simulated tool call instead; the host records that actual call. '
            'The host binds it to the active question you retrieved. An accepted answer '
            'is only recorded, not graded feedback. '
            'Keep calling tools until the exam is COMPLETED and you have called '
@@ -592,7 +595,7 @@ def main(argv=None):
     improve = commands.add_parser('improve', help='Practice, then let the agent run its evidence-based improvement campaign')
     for command in (practice, improve):
         command.add_argument('--cartridge', type=Path,
-                             help='Optional host-selected compiled cartridge (default: bundled four-item pilot)')
+                             help='Optional host-selected compiled cartridge (default: bundled five-item pilot)')
         command.add_argument('--form', default='pilot-a')
         command.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)

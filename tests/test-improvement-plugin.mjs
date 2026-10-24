@@ -350,6 +350,10 @@ test('managed admission returns bounded evaluation jobs and supports a follow-up
       if (value.op === 'begin') response = {status:'admitted',turn_token:'turn-job'};
       else if (value.op === 'tool' && value.kind === 'evaluation')
         response = {status:'running',job_id:'b'.repeat(32),suite:'standard',completed:0,total:70};
+      else if (value.op === 'tool' && value.kind === 'evaluation_wait' &&
+               value.params.job_id === 'd'.repeat(32))
+        response = {status:'completed',value:{status:'completed',proctor_simulation:true,
+          message:'Proctor simulation only; no evaluation was started.'}};
       else if (value.op === 'tool' && value.kind === 'evaluation_wait')
         response = {status:'completed',value:{result:{id:'c'.repeat(32),state:'completed',
           suite:'openclaw-standard',suite_version:'argos-openclaw-ability/standard/test',
@@ -364,18 +368,26 @@ test('managed admission returns bounded evaluation jobs and supports a follow-up
     process.env.ARGOS_CONTROLLER_SOCKET = endpoint;
     process.env.ARGOS_CONTROLLER_SECRET = 'job-bridge-secret';
     const hooks = new Map();
-    const admission = registerAdmission({pluginConfig:{hostAdmission:true}, on(name, handler) {hooks.set(name, handler);}});
+    const tools = new Map();
+    registerPlugin({pluginConfig:{hostAdmission:true},
+      registerTool(tool) {tools.set(tool.name, tool);},
+      on(name, handler) {hooks.set(name, handler);}});
     const ctx = {runId:'run-job',sessionId:'session-job',sessionKey:'agent:main:host-session',trigger:'user'};
     assert.deepEqual(await hooks.get('before_agent_run')({}, ctx), {outcome:'pass'});
     hooks.get('before_tool_call')({toolName:'argos_evaluate',runId:'run-job',toolCallId:'eval-job'},ctx);
-    const started = await admission.execute('eval-job','evaluation',{suite:'standard'});
-    assert.equal(started.status, 'running');
-    assert.equal(started.total, 70);
+    const started = await tools.get('argos_evaluate').execute('eval-job',{suite:'standard'});
+    assert.equal(started.details.status, 'running');
+    assert.equal(started.details.total, 70);
     hooks.get('before_tool_call')({toolName:'argos_evaluate_wait',runId:'run-job',toolCallId:'wait-job'},ctx);
-    const finished = await admission.execute('wait-job','evaluation_wait',{job_id:started.job_id});
-    assert.equal(finished.result.coverage.completed,70);
+    const finished = await tools.get('argos_evaluate_wait').execute('wait-job',
+      {job_id:started.details.job_id});
+    assert.equal(finished.details.coverage.completed,70);
+    hooks.get('before_tool_call')({toolName:'argos_evaluate_wait',runId:'run-job',toolCallId:'wait-sim'},ctx);
+    const simulated = await tools.get('argos_evaluate_wait').execute('wait-sim',
+      {job_id:'d'.repeat(32)});
+    assert.match(simulated.content[0].text,/Proctor simulation only; no evaluation was started/);
     assert.deepEqual(requests.filter(item => item.op === 'tool').map(item => item.kind),
-      ['evaluation','evaluation_wait']);
+      ['evaluation','evaluation_wait','evaluation_wait']);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET; else process.env.ARGOS_CONTROLLER_SOCKET = priorPath;

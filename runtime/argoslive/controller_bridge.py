@@ -176,7 +176,8 @@ class Bridge:
                 kind, params = request.get('kind'), request.get('params')
                 if not isinstance(params, dict):
                     raise ValueError('Bounded tool parameters required')
-                if self.exam_session is not None and kind not in PROCTOR_TOOLS:
+                if (self.exam_session is not None and kind not in PROCTOR_TOOLS and
+                        not (kind == 'evaluation_wait' and self.exam_session.tier == 'practice')):
                     raise ValueError('Only Proctor tools are available during an exam')
                 if (self.evaluation_job and not self.evaluation_job.get('consumed') and
                         kind not in {'evaluation_wait', 'evaluation_status'}):
@@ -185,7 +186,8 @@ class Bridge:
                     if set(params) - {'suite'} or params.get('suite', 'quick') not in {'quick', 'standard', 'challenge'}:
                         raise ValueError('Unsupported evaluation request')
                 elif kind == 'evaluation_wait':
-                    if set(params) != {'job_id'} or not identity(params.get('job_id')):
+                    if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or
+                            not re.fullmatch(r'[a-f0-9]{32}', params['job_id'])):
                         raise ValueError('Invalid evaluation job identity')
                 elif kind == 'evaluation_status':
                     if params:
@@ -219,6 +221,15 @@ class Bridge:
                     return value
                 return {'status': 'completed', 'value': value}
             if kind == 'evaluation_wait':
+                if self.exam_session is not None:
+                    value, item_id = self._proctor_evaluation_wait(params, call)
+                    outcome = {'kind': 'proctor_tool_call', 'call_id': call,
+                               'tool': 'argos_evaluate_wait', 'item_id': item_id,
+                               'status': 'simulated'}
+                    with self.lock:
+                        self.outcomes.append(outcome)
+                        self.publish()
+                    return {'status': 'completed', 'value': value}
                 value = self.wait_evaluation(params['job_id'], on_update=on_update)
                 if value.get('status') == 'running':
                     return value
@@ -258,6 +269,26 @@ class Bridge:
             return value
         finally:
             self.tool_lock.release()
+
+    def _proctor_evaluation_wait(self, params, call_id):
+        """Handle the registered wait tool as a no-inference Proctor simulation."""
+        if (self.parent.record.get('kind') != 'proctor' or self.exam_session is None or
+                self.exam_session.tier != 'practice'):
+            raise ValueError('No host-preauthorized Proctor simulation is active')
+        status = self.exam_session.status()
+        module_id = status.get('module_id')
+        candidates = [item_id for (module, item_id) in self.presented_proctor_items
+                      if module == module_id and item_id in status.get('item_ids', []) and
+                      not status.get('answer_revisions', {}).get(item_id) and
+                      self.exam_session.engine.cart.items[item_id]['domain'] == 'tool_call_format']
+        if len(candidates) != 1:
+            raise ValueError('No uniquely surfaced Proctor tool-call task is active')
+        item_id = candidates[0]
+        self.exam_session.host_record_tool_call(item_id, 'argos_evaluate_wait', params, call_id)
+        return ({'status': 'completed', 'proctor_simulation': True,
+                 'message': 'Proctor simulation only: the tool call was recorded; no evaluation was started. '
+                            'Continue with argos_proctor_status and follow its next_step.'},
+                item_id)
 
     def start_evaluation(self, params, *, on_update=None, seconds=EVALUATION_WAIT_SECONDS):
         """Run one bounded tool wait over a host-owned evaluation worker."""
@@ -377,6 +408,9 @@ class Bridge:
                                 (module_id, item) in self.presented_proctor_items), None)
             if not module_id or (module_id, item_id) not in self.presented_proctor_items:
                 raise ValueError('Read the active item before submitting its answer')
+            item = self.exam_session.engine.cart.items.get(item_id)
+            if item and item.get('domain') == 'tool_call_format':
+                raise ValueError('This item must be completed through its observed tool call')
             result = self.exam_session.answer(item_id, params['answer'], call_id)
             return {'item_id': item_id, **result}
         if kind == 'proctor_continue':

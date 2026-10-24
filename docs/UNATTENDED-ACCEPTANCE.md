@@ -156,6 +156,8 @@ Before approving the next image for physical use:
 5. Document the exact owner shutdown procedure. After a backed-up physical
    acceptance run, check the card offline before reusing it. Filesystem errors
    require stopping and asking the owner; preserve the damaged evidence.
+6. Make the default screensaver timeout much longer for the next image, then
+   verify the default on a fresh boot. Keep manual screensaver controls available.
 
 ## Executable storage test
 

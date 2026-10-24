@@ -225,8 +225,14 @@ export default function register(api) {
           : 'The exam is not finished. Continue now; do not end your turn. ';
         instruction += `Call ${value.next_step.tool} with ${JSON.stringify(value.next_step.arguments)}.`;
       } else if (kind === 'proctor_item' && typeof value.item_id === 'string') {
-        const format = value.response_type === 'mcq_single' ? 'Use one choice key, not the choice text.' : 'Use only the number, with no units or explanation.';
-        instruction = `Solve the question below yourself. Your next action must call argos_proctor_answer with item_id ${JSON.stringify(value.item_id)} and your answer as a string. ${format} Do not end your turn.`;
+        if (value.domain === 'tool_call_format') {
+          instruction = `Follow the tool-call task yourself. Make the requested argos_evaluate_wait tool call; the host records that actual call as your answer. This is a Proctor simulation and starts no evaluation. Do not submit JSON through argos_proctor_answer. Do not end your turn.`;
+        } else {
+          const format = value.response_type === 'mcq_single' ? 'Use one choice key, not the choice text.' :
+            value.response_type === 'numeric_grid' ? 'Use only the number, with no units or explanation.' :
+              'Return one JSON object matching the supplied schema.';
+          instruction = `Solve the question below yourself. Your next action must call argos_proctor_answer with item_id ${JSON.stringify(value.item_id)} and your answer as a string. ${format} Do not end your turn.`;
+        }
       }
     }
     return textResult((instruction ? instruction + '\n\n' : '') + JSON.stringify(value, null, 2), value);
@@ -337,6 +343,7 @@ export default function register(api) {
       if (result?.status === "running") return textResult(
         `Evaluation is still running (${result.completed}/${result.total}). Use argos_evaluate_wait again with job ID ${result.job_id}.`, result);
       if (result?.status === "busy") return textResult("Host workload needs attention; do not start another evaluation.", result);
+      if (result?.proctor_simulation === true) return textResult(result.message, result);
       return renderEvaluation(result);
     }
   }, {optional:true});
