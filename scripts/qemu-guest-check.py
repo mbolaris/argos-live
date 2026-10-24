@@ -184,4 +184,5 @@ if __name__ == '__main__':
     except BaseException as error:
         stage = globals().get('ARGOS_C3_LAST_STAGE', 'unknown')
         print('ARGOS_C3_FAIL ' + type(error).__name__ + ' ' + stage, flush=True)
+        print('ARGOS_C3_ERROR ' + ' '.join(str(error).split()), flush=True)
         raise SystemExit(1)
