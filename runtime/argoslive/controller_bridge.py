@@ -55,6 +55,7 @@ class Bridge:
         self.active = None
         self.pending = None
         self.worker = None
+        self.worker_outcome = None
         self.transport_env = None
         self.worker_path = os.environ.get('PATH', '')
         self.uncertain = False
@@ -679,6 +680,7 @@ class Bridge:
                                                 'stderr_bytes': stderr_bytes}
                     self._publish_finish_failure()
                     raise workload.Busy(recovery=True)
+                self.worker_outcome = 'incomplete-turn' if incomplete_turn else 'completed'
                 write_json(self.parent.path.parent / 'controller-worker.json', {
                     'schema': 'argos-controller-worker/1', 'parent_id': self.parent.record['id'],
                     'generation': self.parent.record['generation'], 'pid': self.worker.pid,
@@ -716,7 +718,8 @@ class Bridge:
     def _is_incomplete_turn(self, value):
         """Recognize only the pinned SDK's terminal, no-answer result for this session."""
         if not isinstance(value, dict) or value.get('status') != 'error' or self.worker is None or \
-                self.worker.returncode == 0:
+                self.worker.returncode == 0 or self.exam_session is None or \
+                self.exam_session.tier != 'practice':
             return False
         body = value.get('result')
         if not isinstance(body, dict) or not isinstance(body.get('payloads'), list):
@@ -781,11 +784,12 @@ class Bridge:
         """
         with self.lock:
             if (self.exam_session is None or self.exam_session.tier != 'practice' or
-                    not self.verified or not self.worker or self.worker.poll() != 0 or
+                    not self.verified or not self._accepted_practice_worker_exit() or
                     self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
                     not self.active or not identity(session_key)):
                 raise workload.Busy(recovery=True)
             self.worker = None
+            self.worker_outcome = None
             self.active = None
             self.verified = False
             self.session_key = session_key
@@ -846,7 +850,7 @@ class Bridge:
         """Host-only module closure after all agent answers and proven turn exit."""
         with self.lock:
             if (self.exam_session is None or self.exam_session.tier != 'practice' or
-                    not self.verified or not self.worker or self.worker.poll() != 0 or
+                    not self.verified or not self._accepted_practice_worker_exit() or
                     self.closed or self.uncertain or self.pending or self.tool_lock.locked() or not self.active):
                 raise workload.Busy(recovery=True)
             if self.exam_session.session_id is None:
@@ -867,7 +871,10 @@ class Bridge:
     def _complete(self):
         """Private host completion after finish() establishes the worker outcome."""
         with self.lock:
-            if (not self.verified or not self.worker or self.worker.poll() != 0 or self.tool_lock.locked() or self.pending or
+            if (not self.verified or not self.worker or
+                    not (self.worker.poll() == 0 or self.exam_session is not None and
+                         self.exam_session.tier == 'practice' and self.worker_outcome == 'incomplete-turn') or
+                    self.tool_lock.locked() or self.pending or
                     self.uncertain or not self.active):
                 raise workload.Busy(recovery=True)
             if self.exam_session is not None:
@@ -900,6 +907,12 @@ class Bridge:
             else:
                 self.parent.complete()
             self.closed = True
+
+    def _accepted_practice_worker_exit(self):
+        """Only a clean SDK success or the session-bound incomplete-turn may continue."""
+        return bool(self.worker and (self.worker.poll() == 0 or
+                     self.exam_session is not None and self.exam_session.tier == 'practice' and
+                     self.worker_outcome == 'incomplete-turn' and self.worker.poll() is not None))
 
     def drain_before_backends_stop(self):
         """Host-only teardown while the admitted job's gateway/backend still live.
