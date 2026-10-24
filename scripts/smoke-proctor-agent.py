@@ -36,6 +36,18 @@ ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'}, {'item_id':
         {'item_id': 'q4', 'answer': '-1.25'}, {'module_id': 'm2'}, {}]
 if len(TOOLS) != len(ARGS):
     raise RuntimeError('Synthetic Proctor tool plan is inconsistent')
+PRACTICE_TOOLS = ['argos_proctor_start', 'argos_proctor_status',
+    'argos_proctor_item', 'argos_proctor_answer', 'argos_proctor_item', 'argos_proctor_answer',
+    'argos_proctor_item', 'argos_evaluate_wait', 'argos_proctor_status', 'argos_proctor_submit',
+    'argos_proctor_continue', 'argos_proctor_item', 'argos_proctor_answer',
+    'argos_proctor_item', 'argos_proctor_answer', 'argos_proctor_submit', 'argos_proctor_feedback']
+PRACTICE_ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'},
+    {'item_id': 'q2'}, {'item_id': 'q2', 'answer': '4'}, {'item_id': 'q5'},
+    {'job_id': '0123456789abcdef0123456789abcdef'}, {}, {'module_id': 'm1'}, {},
+    {'item_id': 'q3'}, {'item_id': 'q3', 'answer': 'A'}, {'item_id': 'q4'},
+    {'item_id': 'q4', 'answer': '-1.25'}, {'module_id': 'm2'}, {}]
+if len(PRACTICE_TOOLS) != len(PRACTICE_ARGS):
+    raise RuntimeError('Synthetic practice tool plan is inconsistent')
 CAMPAIGN_TOOLS = ['argos_inspect', 'argos_evaluate', 'argos_evaluate',
                   'argos_compare', 'argos_audit_instructions']
 CAMPAIGN_ARGS = [{}, {'suite': 'quick'}, {'suite': 'quick'}, None, {}]
@@ -91,7 +103,8 @@ def run(cli, report):
                     return self.respond(None)
                 progress['start_result_on_wire_verified'] = True
             campaign_phase = progress['phase'] == 'campaign'
-            phase_tools = CAMPAIGN_TOOLS if campaign_phase else TOOLS
+            phase_tools = (CAMPAIGN_TOOLS if campaign_phase else
+                           PRACTICE_TOOLS if progress['phase'] == 'practice' else TOOLS)
             if request.get('tools') and calls < len(phase_tools):
                 if campaign_phase:
                     tool, args = CAMPAIGN_TOOLS[calls], CAMPAIGN_ARGS[calls]
@@ -102,6 +115,8 @@ def run(cli, report):
                             progress['errors'].append('campaign-missing-two-saved-baseline-ids')
                         else:
                             args = {'baseline_id': run_ids[-2], 'candidate_id': run_ids[-1]}
+                elif progress['phase'] == 'practice':
+                    tool, args = PRACTICE_TOOLS[calls], PRACTICE_ARGS[calls]
                 else:
                     tool, args = TOOLS[calls], ARGS[calls]
                 progress['tools'] += 1
@@ -136,7 +151,7 @@ def run(cli, report):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     receipt = {'schema': 'argos-native-proctor-agent/1', 'passed': False,
-        'scope': 'real pinned OpenClaw SDK, host tools, and managed private gateway/service; synthetic model and answers; four-item pilot only',
+        'scope': 'real pinned OpenClaw SDK, host tools, and managed private gateway/service; synthetic model and answers; five-item practice pilot only',
         'managed_gateway_service_path': False, 'production_gateway_dispatch': False,
         'protected_service_identity': False,
         'model_identity_attested': False, 'calibrated_ability_claim': False}
@@ -329,8 +344,8 @@ def run(cli, report):
                     patch.object(controller_bridge.Bridge, 'finish', report_finish_failure):
                 service_result = proctor_service.run_practice(
                     service_home, None, 'pilot-a', executable=cli)
-            if (service_result['status'] != 'completed' or service_result['result']['correct'] != 4 or
-                    progress['tools'] != len(TOOLS) or progress['errors']):
+            if (service_result['status'] != 'completed' or service_result['result']['correct'] != 5 or
+                    progress['tools'] != len(PRACTICE_TOOLS) or progress['errors']):
                 raise ValueError('Owner-facing Proctor service did not complete the synthetic practice exam')
             if (not set(proctor_service.PROCTOR_TOOL_NAMES).issubset(progress['model_tool_names']) or
                     set(proctor_service.CAMPAIGN_TOOL_NAMES) & set(progress['model_tool_names'])):
@@ -381,11 +396,11 @@ def run(cli, report):
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
                 improvement_result = proctor_service.run_improvement(
                     service_home, None, 'pilot-a', executable=cli)
-            expected_campaign_calls = len(TOOLS) + len(CAMPAIGN_TOOLS)
+            expected_campaign_calls = len(PRACTICE_TOOLS) + len(CAMPAIGN_TOOLS)
             if (improvement_result['status'] != 'completed' or
                     improvement_result['practice_is_improvement_evidence'] is not False or
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
-                    chained_practice_errors or progress['practice_tool_calls'] != len(TOOLS) or
+                    chained_practice_errors or progress['practice_tool_calls'] != len(PRACTICE_TOOLS) or
                     progress['campaign_tool_calls'] != len(CAMPAIGN_TOOLS)):
                 raise ValueError('Owner-facing chained improvement flow did not complete its scoped campaign')
             if not improvement_result['practice']['transcript_id']:
