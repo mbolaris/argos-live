@@ -29,23 +29,34 @@ def main():
         if time.monotonic() >= deadline:
             raise ValueError('Desktop session did not start')
         time.sleep(2)
+    session_pid = int(subprocess.check_output(
+        ['pgrep', '-u', 'argos', '-x', 'xfce4-session'], text=True).splitlines()[0])
+    session_env = dict(os.environ)
+    for item in Path(f'/proc/{session_pid}/environ').read_bytes().split(b'\0'):
+        if b'=' in item:
+            key, value = item.split(b'=', 1)
+            session_env[key.decode()] = value.decode(errors='replace')
+
+    def session_command(command):
+        result = subprocess.run(command, env=session_env, capture_output=True, text=True,
+                                timeout=10)
+        if result.returncode:
+            details = (result.stderr or result.stdout).strip()
+            raise ValueError(f"{' '.join(command)} failed ({result.returncode}): {details}")
+        return result
+
     # The next image ships a one-hour screensaver delay, while leaving idle
     # activation and the preferences UI available to the owner.
-    saver_delay = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
-                                  '/saver/idle-activation/delay'], check=True,
-                                 capture_output=True, text=True, timeout=10)
-    saver_enabled = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
-                                    '/saver/idle-activation/enabled'], check=True,
-                                   capture_output=True, text=True, timeout=10)
-    saver_service_enabled = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
-                                            '/saver/enabled'], check=True,
-                                           capture_output=True, text=True, timeout=10)
-    lock_enabled = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
-                                   '/lock/enabled'], check=True,
-                                  capture_output=True, text=True, timeout=10)
-    lock_on_saver = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
-                                    '/lock/saver-activation/enabled'], check=True,
-                                   capture_output=True, text=True, timeout=10)
+    saver_delay = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                   '/saver/idle-activation/delay'])
+    saver_enabled = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                     '/saver/idle-activation/enabled'])
+    saver_service_enabled = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                             '/saver/enabled'])
+    lock_enabled = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                    '/lock/enabled'])
+    lock_on_saver = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                     '/lock/saver-activation/enabled'])
     saver_ui = Path('/usr/bin/xfce4-screensaver-preferences')
     if (saver_delay.stdout.strip() != '60' or saver_enabled.stdout.strip().lower() != 'true' or
             saver_service_enabled.stdout.strip().lower() != 'true' or
@@ -55,8 +66,7 @@ def main():
     if not saver_ui.is_file():
         raise ValueError('Screensaver preferences are unavailable for manual control')
     for action in ('--activate', '--deactivate'):
-        subprocess.run(['xfce4-screensaver-command', action], check=True,
-                       capture_output=True, text=True, timeout=10)
+        session_command(['xfce4-screensaver-command', action])
     refresh = subprocess.run(['systemctl', 'is-active', '--quiet', 'argos-refresh-runtime.service'],
                              timeout=10)
     if refresh.returncode:
@@ -72,11 +82,10 @@ def main():
             r'^Exec=argos desktop --model-lab\s*$', lab_menu, re.M):
         raise ValueError('The installed Model Lab menu does not open its dedicated dashboard view')
     desktop_seconds = time.monotonic() - started
-    env = dict(os.environ, DISPLAY=':0', XAUTHORITY='/home/argos/.Xauthority')
     # Long TCG inference is unattended. Test-only anti-idle settings prevent
     # DPMS from replacing the captured VGA surface with QEMU's placeholder.
     for command in (['xset', 's', 'off'], ['xset', '-dpms'], ['xset', 's', 'noblank']):
-        subprocess.run(command, env=env, check=True, timeout=15,
+        subprocess.run(command, env=session_env, check=True, timeout=15,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if subprocess.check_output(['ip', 'route'], text=True).strip():
         raise ValueError('Test guest unexpectedly has a network route')
