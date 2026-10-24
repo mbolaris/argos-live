@@ -1073,6 +1073,9 @@ Depends on: J7.
 - Owner requested October8: next personal USB rebuild should default to Argos
   desktop with encrypted persistence. Keep explicit no-passphrase guest/reset and
   basic graphics entries. This supersedes G1's default choice for that rebuild.
+- Owner requested October 24: make the default screensaver timeout much longer
+  in the next image; keep manual screensaver controls available and verify the
+  default after a fresh boot.
 - Accept: boot-menu tests/docs updated; actual default selection verified and guest
   entry isolation retained. GRUB selects desktop index1 and BIOS selects only the
   desktop label by default. Shell fixture checks both menu outputs; actual ISO

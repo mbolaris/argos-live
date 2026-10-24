@@ -63,6 +63,7 @@ class Bridge:
         self.outcomes = []
         self.presented_proctor_items = set()
         self.evaluation_job = None
+        self.last_finish_failure = None
         self.lock = threading.RLock()
         self.tool_lock = threading.Lock()
         self.events = self.parent.path.parent / 'controller-turn.json'
@@ -626,12 +627,29 @@ class Bridge:
         try:
             stdout, stderr = self.worker.communicate(timeout=timeout)
             self.last_stdout, self.last_stderr = stdout, stderr
-            if self.worker.returncode or len(stdout.encode()) > 2 * 1024**2:
+            stdout_bytes, stderr_bytes = len(stdout.encode()), len(stderr.encode())
+            if self.worker.returncode:
+                self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes}
+                self._publish_finish_failure()
+                raise workload.Busy(recovery=True)
+            if stdout_bytes > 2 * 1024**2:
+                self.last_finish_failure = {'code': 'worker-output-limit', 'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes}
+                self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
             value = json.loads(stdout)
             body = value.get('result', value)
             if (value.get('status', 'ok') != 'ok' or not isinstance(body.get('payloads'), list) or
                     body.get('meta', {}).get('agentMeta', {}).get('sessionId') != self.session_id):
+                self.last_finish_failure = {'code': 'worker-response-invalid',
+                                            'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
+                                            'status_ok': value.get('status', 'ok') == 'ok',
+                                            'payloads_list': isinstance(body.get('payloads'), list),
+                                            'session_bound': body.get('meta', {}).get('agentMeta', {}).get(
+                                                'sessionId') == self.session_id}
+                self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
             for entry in Path('/proc').iterdir():
                 if not entry.name.isdigit():
@@ -639,11 +657,21 @@ class Bridge:
                 try:
                     fields = (entry / 'stat').read_text().rsplit(') ', 1)[1].split()
                     if int(fields[2]) == self.worker.pid and fields[0] not in ('Z', 'X'):
+                        self.last_finish_failure = {'code': 'worker-still-live',
+                                                    'returncode': self.worker.returncode,
+                                                    'stdout_bytes': stdout_bytes,
+                                                    'stderr_bytes': stderr_bytes}
+                        self._publish_finish_failure()
                         raise workload.Busy(recovery=True)
                 except (FileNotFoundError, ProcessLookupError):
                     continue
             with self.lock:
                 if not self.active:
+                    self.last_finish_failure = {'code': 'turn-not-active',
+                                                'returncode': self.worker.returncode,
+                                                'stdout_bytes': stdout_bytes,
+                                                'stderr_bytes': stderr_bytes}
+                    self._publish_finish_failure()
                     raise workload.Busy(recovery=True)
                 write_json(self.parent.path.parent / 'controller-worker.json', {
                     'schema': 'argos-controller-worker/1', 'parent_id': self.parent.record['id'],
@@ -656,9 +684,26 @@ class Bridge:
                 if finalize:
                     self._complete()
             return value, stderr
-        except BaseException:
+        except BaseException as error:
+            if self.last_finish_failure is None:
+                self.last_finish_failure = {'code': 'finish-exception',
+                                            'exception_class': type(error).__name__,
+                                            'returncode': self.worker.returncode if self.worker else None,
+                                            'stdout_bytes': len(self.last_stdout.encode()) if self.last_stdout else 0,
+                                            'stderr_bytes': len(self.last_stderr.encode()) if self.last_stderr else 0}
+                self._publish_finish_failure()
             self.uncertain = True
             raise
+
+    def _publish_finish_failure(self):
+        """Persist bounded diagnostics without agent text, raw output, or secrets."""
+        value = {'schema': 'argos-controller-failure/1',
+                 'parent_id': self.parent.record['id'],
+                 'generation': self.parent.record['generation'],
+                 'worker_pid': self.worker.pid if self.worker else None,
+                 'session_id': self.session_id,
+                 'failure': self.last_finish_failure}
+        write_json(self.parent.path.parent / 'controller-failure.json', value)
 
     def next_practice_turn(self, session_key):
         """Host-only transition between verified drained practice workers.

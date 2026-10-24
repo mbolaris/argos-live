@@ -65,6 +65,32 @@ def safe_controller_diagnostics(turn):
     return result
 
 
+def safe_finish_failure(path):
+    """Copy only fixed-schema controller failure facts; never export text output."""
+    if not path.is_file():
+        return None
+    value = json.loads(path.read_text(encoding='utf-8'))
+    if value.get('schema') != 'argos-controller-failure/1':
+        return {'schema_valid': False}
+    failure = value.get('failure')
+    if not isinstance(failure, dict):
+        return {'schema_valid': False}
+    result = {'schema_valid': True}
+    for key in ('code', 'exception_class'):
+        item = failure.get(key)
+        if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', item):
+            result[key] = item
+    for key in ('returncode', 'stdout_bytes', 'stderr_bytes'):
+        item = failure.get(key)
+        if type(item) is int and -255 <= item <= 2 * 1024**2:
+            result[key] = item
+    for key in ('status_ok', 'payloads_list', 'session_bound'):
+        item = failure.get(key)
+        if type(item) is bool:
+            result[key] = item
+    return result
+
+
 def run(cli, ollama, seed, report, *, deterministic_profile=False):
     scratch = Path(os.environ.get('RUNNER_TEMP', '/missing')).resolve()
     seed = seed.resolve(strict=True)
@@ -98,11 +124,24 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
                 ARGOS_NATIVE_REQUEST_REPORT=str(home / 'proctor-wire.json'),
                 ARGOS_NATIVE_OPENCLAW_ENTRY=str(cli.resolve()))
             return env
-        with patch.object(proctor_service.startup, 'source', side_effect=source), \
+        try:
+            with patch.object(proctor_service.startup, 'source', side_effect=source), \
                 patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
                 patch.object(proctor_service.owned_gateway, 'environment', side_effect=observed_environment), \
                 patch.dict(os.environ, {'PATH': str(ollama.resolve().parent) + os.pathsep + os.environ['PATH']}):
-            result = proctor_service.run_practice(home, executable=str(cli.absolute()))
+                result = proctor_service.run_practice(home, executable=str(cli.absolute()))
+        except BaseException as error:
+            state_root = home / '.local/state/argos-live/workload'
+            turn_path = state_root / 'controller-turn.json'
+            turn = json.loads(turn_path.read_text(encoding='utf-8')) if turn_path.is_file() else {}
+            failure = {'schema': 'argos-real-proctor-service-failure/1',
+                       'failure_class': type(error).__name__,
+                       'controller_failure': safe_finish_failure(state_root / 'controller-failure.json'),
+                       'controller_diagnostics': safe_controller_diagnostics(turn),
+                       'practice_only': True, 'image_acceptance': False}
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(json.dumps(failure, indent=2) + '\n')
+            raise
         root = home / '.local/state/argos-live/proctor'
         import sqlite3
         from contextlib import closing
