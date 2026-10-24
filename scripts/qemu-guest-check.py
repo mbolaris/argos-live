@@ -29,6 +29,23 @@ def main():
         if time.monotonic() >= deadline:
             raise ValueError('Desktop session did not start')
         time.sleep(2)
+    # The next image ships a one-hour screensaver delay, while leaving idle
+    # activation and the preferences UI available to the owner.
+    saver_delay = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                  '/saver/idle-activation/delay'], check=True,
+                                 capture_output=True, text=True, timeout=10)
+    saver_enabled = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                    '/saver/idle-activation/enabled'], check=True,
+                                   capture_output=True, text=True, timeout=10)
+    saver_service_enabled = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                            '/saver/enabled'], check=True,
+                                           capture_output=True, text=True, timeout=10)
+    saver_ui = Path('/usr/bin/xfce4-screensaver-preferences')
+    if (saver_delay.stdout.strip() != '60' or saver_enabled.stdout.strip().lower() != 'true' or
+            saver_service_enabled.stdout.strip().lower() != 'true'):
+        raise ValueError('Fresh desktop did not load the one-hour screensaver default')
+    if not saver_ui.is_file():
+        raise ValueError('Screensaver preferences are unavailable for manual control')
     refresh = subprocess.run(['systemctl', 'is-active', '--quiet', 'argos-refresh-runtime.service'],
                              timeout=10)
     if refresh.returncode:
