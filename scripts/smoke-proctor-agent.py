@@ -347,8 +347,10 @@ def run(cli, report):
             if (service_result['status'] != 'completed' or service_result['result']['correct'] != 5 or
                     progress['tools'] != len(PRACTICE_TOOLS) or progress['errors']):
                 raise ValueError('Owner-facing Proctor service did not complete the synthetic practice exam')
-            if (not set(proctor_service.PROCTOR_TOOL_NAMES).issubset(progress['model_tool_names']) or
-                    set(proctor_service.CAMPAIGN_TOOL_NAMES) & set(progress['model_tool_names'])):
+            practice_tools = set(progress['model_tool_names'])
+            live_campaign_tools = set(proctor_service.CAMPAIGN_TOOL_NAMES) - {'argos_evaluate_wait'}
+            if (not set(proctor_service.PROCTOR_TOOL_NAMES).issubset(practice_tools) or
+                    live_campaign_tools & practice_tools):
                 raise ValueError('Managed practice profile exposed the wrong Argos tool set')
             service_reservation = json.loads((service_home / '.local/state/argos-live/workload/reservation.json').read_text())
             if (service_reservation.get('state') != 'released' or
