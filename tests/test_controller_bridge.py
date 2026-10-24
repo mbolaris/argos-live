@@ -56,7 +56,7 @@ class ControllerBridgeTests(unittest.TestCase):
             response = {'status': 'error', 'result': {'payloads': [], 'meta': {
                 'agentMeta': {'sessionId': bridge.session_id},
                 'error': {'kind': 'incomplete_turn', 'message': 'private message is not exported'}}}}
-            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1,
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
                 communicate=lambda timeout: (json.dumps(response), ''))
             result, stderr = bridge.finish(timeout=1, finalize=False)
             self.assertEqual(stderr, '')
