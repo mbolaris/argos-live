@@ -267,6 +267,18 @@ def practice_turn_message(exam, bridge, *, retry_format=False, retry_tool_call=F
             # that presentation before the model is asked for its own answer, so the
             # answer remains bound to a retrieved/surfaced item without an extra tool hop.
             item = bridge.present_proctor_item(unanswered[0])
+            if item.get('domain') == 'tool_call_format':
+                if retry_tool_call:
+                    retry = ('The previous turn did not make the requested tool call. Do not answer in prose or '
+                             'print tool-call syntax as text. Call argos_evaluate_wait with the exact arguments '
+                             'required by this item now. ')
+                else:
+                    retry = ''
+                return (retry + 'The exam is still active. Complete this tool-call item by making the actual '
+                        'argos_evaluate_wait tool call with the arguments requested below. The Proctor host '
+                        'intercepts it and returns a synthetic response without starting or resuming an evaluation. '
+                        'Do not call argos_proctor_answer for this item. Do not write the tool call as ordinary text. '
+                        'Use no outside tools.\n' + json.dumps(item, ensure_ascii=False))
             answer_format = ('Use one choice key, not the choice text.'
                              if item['response_type'] == 'mcq_single' else
                              'Use one exact number or simple fraction such as -5/4, with no units or explanation.')
