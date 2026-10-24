@@ -630,7 +630,8 @@ class Bridge:
             stdout_bytes, stderr_bytes = len(stdout.encode()), len(stderr.encode())
             if self.worker.returncode:
                 self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
-                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes}
+                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
+                                            'worker_response': self._safe_worker_response(stdout)}
                 self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
             if stdout_bytes > 2 * 1024**2:
@@ -704,6 +705,42 @@ class Bridge:
                  'session_id': self.session_id,
                  'failure': self.last_finish_failure}
         write_json(self.parent.path.parent / 'controller-failure.json', value)
+
+    def _safe_worker_response(self, stdout):
+        """Summarize SDK JSON structure without persisting reply or error text."""
+        if len(stdout.encode()) > 2 * 1024**2:
+            return {'json_valid': False, 'size_limited': True}
+        try:
+            value = json.loads(stdout)
+        except (json.JSONDecodeError, TypeError):
+            return {'json_valid': False}
+        if not isinstance(value, dict):
+            return {'json_valid': True, 'object': False}
+        body = value.get('result', value)
+        if not isinstance(body, dict):
+            return {'json_valid': True, 'object': True, 'result_object': False}
+        result = {'json_valid': True, 'object': True, 'result_object': True}
+        for key in ('status',):
+            item = value.get(key)
+            if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', item):
+                result[key] = item
+        payloads = body.get('payloads')
+        if isinstance(payloads, list):
+            result['payload_count'] = len(payloads)
+        error = value.get('error', body.get('error'))
+        if isinstance(error, dict):
+            for key in ('code', 'name', 'type'):
+                item = error.get(key)
+                if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,96}', item):
+                    result['error_' + key] = item
+            result['error_present'] = True
+        elif error is not None:
+            result['error_present'] = True
+        meta = body.get('meta')
+        agent_meta = meta.get('agentMeta') if isinstance(meta, dict) else None
+        if isinstance(agent_meta, dict):
+            result['session_bound'] = agent_meta.get('sessionId') == self.session_id
+        return result
 
     def next_practice_turn(self, session_key):
         """Host-only transition between verified drained practice workers.

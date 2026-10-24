@@ -88,6 +88,23 @@ def safe_finish_failure(path):
         item = failure.get(key)
         if type(item) is bool:
             result[key] = item
+    response = failure.get('worker_response')
+    if isinstance(response, dict):
+        safe_response = {}
+        for key in ('json_valid', 'size_limited', 'object', 'result_object', 'error_present',
+                    'session_bound'):
+            item = response.get(key)
+            if type(item) is bool:
+                safe_response[key] = item
+        for key in ('status', 'error_code', 'error_name', 'error_type'):
+            item = response.get(key)
+            if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,96}', item):
+                safe_response[key] = item
+        for key in ('payload_count',):
+            item = response.get(key)
+            if type(item) is int and 0 <= item <= 10000:
+                safe_response[key] = item
+        result['worker_response'] = safe_response
     return result
 
 
