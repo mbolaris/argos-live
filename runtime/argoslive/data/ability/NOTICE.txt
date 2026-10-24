@@ -1,10 +1,14 @@
 Argos Live original ability fixtures, version 1.0.0
 
-The quick (20 items), standard (70 items), and challenge (40 items) suites are
-original Argos Live fixtures, not extracts from GSM8K, MMLU or another third-party
-dataset. All cover five deterministic formatting and answer categories, not a
-comprehensive intelligence test. Quick is a subset of standard. Challenge is a
-separately authored form and is not a matched replacement for either suite.
+The quick (20 items), standard (70 items), challenge (40 items), and
+tool-schema (40 items) suites are original Argos Live fixtures, not extracts
+from GSM8K, MMLU or another third-party dataset. Quick, standard and challenge
+cover five deterministic formatting and answer categories, not a comprehensive
+intelligence test. Quick is a subset of standard. Challenge is separately
+authored. Tool-schema is a tool-call-only probe with 20 practice and 20 held-out
+items; their tool names and argument keys are disjoint. Both are Argos-authored
+forms, not external benchmarks or proof that real tools execute. Neither is a
+matched replacement for quick or standard.
 Generated-code execution is omitted until an enforced sandbox is implemented.
 
 Copyright (c) 2026 Argos Live contributors

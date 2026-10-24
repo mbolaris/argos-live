@@ -12,7 +12,7 @@ from argoslive import ability
 
 class AbilityTests(unittest.TestCase):
     def test_every_reference_wrong_and_malformed_answer(self):
-        for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40)]:
+        for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40), ('tool-schema', 40)]:
             data = ability.load(suite)
             self.assertEqual(len(data['items']), count)
             self.assertEqual(data['omitted_categories'], ['code-execution'])
@@ -29,13 +29,28 @@ class AbilityTests(unittest.TestCase):
         generator = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generator)
         standard = {item['id']: item for item in ability.load('standard')['items']}
-        for suite in ('quick', 'standard', 'challenge'):
+        for suite in ('quick', 'standard', 'challenge', 'tool-schema'):
             self.assertEqual(ability.load(suite), generator.build(suite))
         for item in ability.load()['items']:
             self.assertEqual(item, standard[item['id']])
         self.assertFalse({item['id'] for item in ability.load('challenge')['items']} & set(standard))
         categories = Counter(item['scorer']['kind'] for item in ability.load('challenge')['items'])
         self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8, 'json': 8, 'tool-call': 8})
+
+    def test_tool_schema_has_disjoint_vocabulary_and_explicit_schemas(self):
+        data = ability.load('tool-schema')
+        partitions = {name: [item for item in data['items'] if item['scorer']['partition'] == name]
+                      for name in ('practice', 'heldout')}
+        names = {name: {schema['name'] for item in items for schema in item['scorer']['available_tools']}
+                 for name, items in partitions.items()}
+        keys = {name: {key for item in items for schema in item['scorer']['available_tools']
+                       for key in schema['arguments']} for name, items in partitions.items()}
+        self.assertEqual([len(partitions[name]) for name in ('practice', 'heldout')], [20, 20])
+        self.assertFalse(names['practice'] & names['heldout'])
+        self.assertFalse(keys['practice'] & keys['heldout'])
+        for item in data['items']:
+            self.assertIn('Available tool schemas:', item['prompt'])
+            self.assertIn(item['scorer']['expected']['name'], item['prompt'])
 
     def test_numeric_format_tolerance_and_ambiguous_rejection(self):
         item = {'id': 'math-01', 'scorer': {'kind': 'numeric', 'expected': '1234.5'}}

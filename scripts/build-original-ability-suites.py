@@ -176,9 +176,76 @@ def challenge_items():
     return groups
 
 
+def tool_schema_items():
+    """Schema-grounded tool calls with fully disjoint practice and held-out vocabularies."""
+    descriptions = {
+        'lookup_record': 'Find a record by ID and optionally include its history.',
+        'compare_runs': 'Compare the baseline run with the candidate run.',
+        'set_threshold': 'Set the minimum for a metric and enable or disable that threshold.',
+        'schedule_backup': 'Schedule a labeled backup at a UTC hour and choose whether to notify.',
+        'fetch_invoice': 'Retrieve an invoice by reference and optionally include its line items.',
+        'diff_snapshots': 'Compare an older snapshot with a newer snapshot.',
+        'set_retention': 'Set how many days to retain an artifact kind and activate or deactivate it.',
+        'queue_audit': 'Queue an audit for a scope at a specified urgency and choose whether to notify the owner.',
+    }
+    definitions = {
+        'practice': [
+            ('lookup_record', {'record_id': 'string', 'include_history': 'boolean'},
+             lambda n: {'record_id': f'R-{n:02}', 'include_history': n % 2 == 0},
+             lambda args: f"Find record {args['record_id']} and include its history: {str(args['include_history']).lower()}."),
+            ('compare_runs', {'baseline_id': 'string', 'candidate_id': 'string'},
+             lambda n: {'baseline_id': f'base-{n}', 'candidate_id': f'cand-{n + 3}'},
+             lambda args: f"Compare baseline {args['baseline_id']} with candidate {args['candidate_id']}."),
+            ('set_threshold', {'metric': 'string', 'minimum': 'integer', 'enabled': 'boolean'},
+             lambda n: {'metric': f'latency_{n}', 'minimum': n * 10, 'enabled': n % 2 == 1},
+             lambda args: f"Set {args['metric']} minimum to {args['minimum']} and enabled={str(args['enabled']).lower()}."),
+            ('schedule_backup', {'label': 'string', 'hour_utc': 'integer', 'notify': 'boolean'},
+             lambda n: {'label': f'archive-{n}', 'hour_utc': n + 1, 'notify': n % 2 == 0},
+             lambda args: f"Schedule backup {args['label']} at UTC hour {args['hour_utc']}; notify={str(args['notify']).lower()}."),
+        ],
+        'heldout': [
+            ('fetch_invoice', {'invoice_ref': 'string', 'with_lines': 'boolean'},
+             lambda n: {'invoice_ref': f'INV-{n:03}', 'with_lines': n % 2 == 0},
+             lambda args: f"Retrieve invoice {args['invoice_ref']} with line items={str(args['with_lines']).lower()}."),
+            ('diff_snapshots', {'older_snapshot': 'string', 'newer_snapshot': 'string'},
+             lambda n: {'older_snapshot': f'snap-{n}', 'newer_snapshot': f'snap-{n + 4}'},
+             lambda args: f"Compare older snapshot {args['older_snapshot']} to newer snapshot {args['newer_snapshot']}."),
+            ('set_retention', {'artifact_kind': 'string', 'retention_days': 'integer', 'active': 'boolean'},
+             lambda n: {'artifact_kind': f'log-{n}', 'retention_days': n * 7, 'active': n % 2 == 1},
+             lambda args: f"Set {args['artifact_kind']} retention to {args['retention_days']} days; active={str(args['active']).lower()}."),
+            ('queue_audit', {'audit_scope': 'string', 'urgency_rank': 'integer', 'notify_owner': 'boolean'},
+             lambda n: {'audit_scope': f'workspace-{n}', 'urgency_rank': n, 'notify_owner': n % 2 == 0},
+             lambda args: f"Queue an audit for {args['audit_scope']} at urgency {args['urgency_rank']}; notify owner={str(args['notify_owner']).lower()}."),
+        ],
+    }
+    result = []
+    for partition, tools in definitions.items():
+        for tool_index, (name, properties, values, request) in enumerate(tools):
+            for variant in range(1, 6):
+                arguments = values(variant)
+                available = [tools[index % len(tools)] for index in
+                             (tool_index, tool_index + 1, tool_index + 2)]
+                schemas = [{'name': entry[0], 'description': descriptions[entry[0]],
+                            'arguments': entry[1]} for entry in available]
+                prompt = ('Choose the available tool that performs the request. Available tool schemas: '
+                          + json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False)
+                          + '\nRequest: ' + request(arguments)
+                          + '\nReturn only JSON with exactly the selected tool name and an arguments object '
+                          'matching that tool schema. Do not execute the tool.')
+                expected = {'name': name, 'arguments': arguments}
+                wrong = {'name': 'not_a_provided_tool', 'arguments': arguments}
+                result.append({'id': f'{partition}-{tool_index * 5 + variant:02}', 'prompt': prompt,
+                    'scorer': {'kind': 'tool-call', 'expected': expected, 'partition': partition,
+                               'available_tools': schemas},
+                    'reference': json.dumps(expected), 'wrong': json.dumps(wrong), 'malformed': '{not json}'})
+    return result
+
+
 def build(suite):
     if suite == 'challenge':
         selected = [item for group in challenge_items().values() for item in group]
+    elif suite == 'tool-schema':
+        selected = tool_schema_items()
     elif suite in ('quick', 'standard'):
         count = 4 if suite == 'quick' else 14
         selected = [item for group in items().values() for item in group[:count]]
@@ -192,5 +259,5 @@ def build(suite):
 if __name__ == '__main__':
     destination = ROOT / 'runtime/argoslive/data/ability'
     destination.mkdir(parents=True, exist_ok=True)
-    for suite in ('quick', 'standard', 'challenge'):
+    for suite in ('quick', 'standard', 'challenge', 'tool-schema'):
         (destination / (suite + '.json')).write_text(json.dumps(build(suite), indent=2) + '\n', encoding='utf-8')

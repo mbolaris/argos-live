@@ -45,6 +45,8 @@ The current USB candidate and internal disks are recorded in [docs/INVENTORY.md]
 
 `argos bench ability --model qwen3:0.6b --suite quick` runs 20 original reasoning, knowledge, instruction, JSON and tool-format probes with measured progress. `--suite standard` runs 70. Results distinguish wrong answers from format errors and save scores, output and timings privately. Generated code is excluded until execution isolation is verified. See [ability method and limits](docs/ABILITY-BENCHMARK.md).
 
+`argos bench openclaw --suite tool-schema --json` evaluates the configured assistant on 40 schema-grounded proposed tool calls. It reports separate 20-item practice and held-out scores; the two halves use disjoint tool names and argument keys. These authored probes check formatting and schema selection, not actual tool execution.
+
 `argos bench results` lists saved run IDs. `--compare ID ID` compares matching complete runs, `--csv` exports that comparison, `--load ID` shows raw JSON and `--delete ID` removes a selected result. See [comparison requirements](docs/BENCHMARK-RESULTS.md).
 
 `argos bench all --model qwen3:0.6b --suite quick --size short` runs speed followed by ability without setup. Omit `--size short` for the full speed workload. Both save independent results; `--json` emits one batch containing them. A failed ability stage keeps an already-saved speed result. `--ollama URL`, `--timeout 1–600` and `--results-dir PATH` work across benchmark commands. Stop competing workloads before benchmarking.

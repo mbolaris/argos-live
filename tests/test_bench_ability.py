@@ -72,6 +72,15 @@ class AbilityRunTests(unittest.TestCase):
         self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
         self.assertEqual(result['suite_version'], 'ability/challenge/1.0.0')
 
+    def test_tool_schema_form_keeps_practice_and_heldout_scores_separate(self):
+        result = bench.run(AbilityBackend(suite='tool-schema', previous=False), 'fixture:latest',
+                           suite='tool-schema', hardware=lambda: {})
+        self.assertEqual(result['summary']['correct'], 40)
+        self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+        self.assertEqual(result['summary']['partitions']['practice']['correct'], 20)
+        self.assertEqual(result['summary']['partitions']['heldout']['correct'], 20)
+        self.assertEqual(result['suite_version'], 'ability/tool-schema/1.0.0')
+
     def test_cancel_preserves_partial_evidence_and_restores(self):
         backend = AbilityBackend()
         event = threading.Event()

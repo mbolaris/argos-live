@@ -24,7 +24,7 @@ Continue authorized reversible steps without asking at each step.
 
 ## 2. Measure one change at a time
 
-Use native `argos_evaluate` (suite `quick`, `standard`, or `challenge`) and `argos_compare`
+Use native `argos_evaluate` (suite `quick`, `standard`, `challenge`, or `tool-schema`) and `argos_compare`
 (`baseline_id`, `candidate_id`). These are tools, not shell commands. If absent,
 use `argos bench openclaw --suite quick --json`; never invent a control-script
 `evaluate` subcommand. Raw `argos bench ability` measures a model, not your
@@ -51,6 +51,14 @@ large slowdown is not better. Report noise, uncertainty and regressions. Restore
 failed changes and verify the restore; never claim a general capability gain
 from one suite.
 
+When tool-call formatting is the measured weakness, use `tool-schema`. Every
+item supplies the exact available tool names and argument schemas. Its 20
+practice and 20 held-out tasks use disjoint tool names and argument keys. For an
+instruction change to qualify on this form, repeated runs must gain at least
+3/40 overall, avoid more format errors, and each candidate held-out score must
+match or exceed the strongest baseline held-out score. This checks transfer to
+new schema vocabulary; the form remains an Argos-authored probe.
+
 For a workspace-instruction experiment, use `argos_inspect` first. It returns
 the canonical `AGENTS.md`, current hash, configuration receipt, active change,
 and exact host keep policy. Establish a saved baseline through this controller,
@@ -62,7 +70,7 @@ or another instruction path through that experiment tool.
 To keep an instruction change, supply two distinct compatible baseline IDs
 (including the original baseline) and two distinct fresh candidate IDs to
 `argos_resolve_instructions`. Its host policy requires minimum gains of 2/20
-quick, 4/70 standard, or 3/40 challenge, with format errors no higher than
+quick, 4/70 standard, or 3/40 challenge or tool-schema, with format errors no higher than
 baseline. A reliability gain instead requires unchanged-or-higher correct
 count, fewer format errors, and median latency no more than 1.5 times baseline.
 These practice comparisons do not establish transfer. Use a separate challenge

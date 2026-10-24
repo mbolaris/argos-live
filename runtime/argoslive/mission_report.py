@@ -28,7 +28,8 @@ def resolve_suite_item(suite, suite_version, item_id):
     try:
         suite_aliases = {'quick': 'quick', 'openclaw-quick': 'quick',
                          'standard': 'standard', 'openclaw-standard': 'standard',
-                         'challenge': 'challenge', 'openclaw-challenge': 'challenge'}
+                         'challenge': 'challenge', 'openclaw-challenge': 'challenge',
+                         'tool-schema': 'tool-schema', 'openclaw-tool-schema': 'tool-schema'}
         if suite in suite_aliases:
             from . import ability as ability_mod
             canonical = suite_aliases[suite]
@@ -172,6 +173,7 @@ def summarize(runs):
             rep_item = {
                 'item_id': item.get('item_id'),
                 'category': cat,
+                'partition': item.get('partition'),
                 'category_label': CATEGORY_LABELS.get(cat, cat.replace('_', ' ')),
                 'outcome': outcome,
                 'score': item.get('score', 0),

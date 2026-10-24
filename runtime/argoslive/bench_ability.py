@@ -19,18 +19,29 @@ OUTPUT_LIMIT = 8192
 
 def summaries(items):
     categories = {}
+    partitions = {}
     for item in items:
         category = categories.setdefault(item['category'], {'correct': 0, 'total': 0, 'format_errors': 0})
         category['total'] += 1
         category['correct'] += item['score']
         category['format_errors'] += int(item['outcome'] == 'format_error')
+        if item.get('partition') in ('practice', 'heldout'):
+            partition = partitions.setdefault(item['partition'], {'correct': 0, 'total': 0, 'format_errors': 0})
+            partition['total'] += 1
+            partition['correct'] += item['score']
+            partition['format_errors'] += int(item['outcome'] == 'format_error')
     for category in categories.values():
         category['accuracy'] = category['correct'] / category['total']
+    for partition in partitions.values():
+        partition['accuracy'] = partition['correct'] / partition['total']
     total = len(items)
-    return {'correct': sum(i['score'] for i in items), 'total': total,
-            'accuracy': sum(i['score'] for i in items) / total if total else None,
-            'format_errors': sum(i['outcome'] == 'format_error' for i in items),
-            'categories': categories}
+    result = {'correct': sum(i['score'] for i in items), 'total': total,
+              'accuracy': sum(i['score'] for i in items) / total if total else None,
+              'format_errors': sum(i['outcome'] == 'format_error' for i in items),
+              'categories': categories}
+    if partitions:
+        result['partitions'] = partitions
+    return result
 
 
 def run(client, model, *, suite='quick', hardware=hw.snapshot, clock=time.monotonic,
@@ -136,6 +147,8 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
                 scored.update(notes, category=category(item), output=output,
                               output_truncated=len(encoded) > OUTPUT_LIMIT,
                               latency_seconds=max(0, clock() - item_started), measurement=measured)
+                if item.get('scorer', {}).get('partition') in ('practice', 'heldout'):
+                    scored['partition'] = item['scorer']['partition']
                 result['items'].append(scored)
                 receipt = copy.deepcopy(scored)
             done += 1
@@ -162,7 +175,7 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Run original ability probes; code execution is excluded.')
     parser.add_argument('--model', required=True)
-    parser.add_argument('--suite', choices=['quick', 'standard', 'challenge'], default='quick')
+    parser.add_argument('--suite', choices=['quick', 'standard', 'challenge', 'tool-schema'], default='quick')
     parser.add_argument('--ollama', default='http://127.0.0.1:11434')
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--timeout', type=int, default=120, help='API read timeout, 1–600 seconds.')

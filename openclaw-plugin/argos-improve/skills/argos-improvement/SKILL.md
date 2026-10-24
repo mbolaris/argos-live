@@ -34,6 +34,14 @@ cancellation.
 Explain that the score describes this suite and configuration, not general
 intelligence.
 
+When tool-call formatting is the measured weakness, use `tool-schema`. Each
+question supplies exact tool schemas; 20 practice and 20 held-out questions use
+disjoint tool names and argument keys. A tool-schema instruction change can be
+kept only after repeated overall improvement, no increase in format errors,
+and both candidate held-out scores meeting or exceeding the strongest baseline
+held-out score. The host enforces a 3/40 overall gain threshold. This is a
+transfer check on an Argos-authored form, not an external benchmark.
+
 When the host launches a dedicated Proctor session and exposes `argos_proctor_*`
 tools, use them only for the host-selected exam. The host, not the agent, selects
 the form, exposure tier, tested model snapshot and assistance policy. Read only
@@ -69,7 +77,7 @@ controller runs, ambiguous replacements, and a second unresolved edit.
 After the edit, collect two distinct matched baseline runs and two distinct
 candidate runs with the same suite, model/configuration, and execution method.
 The host checks the saved receipts and practice policy: quick needs at least 2
-additional correct answers, standard 4, and challenge 3, with format errors no
+additional correct answers, standard 4, and challenge or tool-schema 3, with format errors no
 higher than baseline. A reliability gain instead needs unchanged-or-higher
 correct count, fewer format errors, and median latency no more than 1.5 times
 baseline. These are practice thresholds, not independent proof of transfer.

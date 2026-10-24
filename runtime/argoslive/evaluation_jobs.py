@@ -79,7 +79,7 @@ class Jobs:
         return storage.safe_local(self.root / (identifier(job_id) + '.control.json'))
 
     def start(self, suite='quick'):
-        if suite not in ('quick', 'standard', 'challenge'):
+        if suite not in ('quick', 'standard', 'challenge', 'tool-schema'):
             raise ValueError('Unsupported evaluation suite')
         job_id = secrets.token_hex(16)
         ready = threading.Event()

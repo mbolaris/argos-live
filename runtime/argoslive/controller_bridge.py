@@ -188,7 +188,8 @@ class Bridge:
                         kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
                 if kind == 'evaluation':
-                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {'quick', 'standard', 'challenge'}:
+                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {
+                            'quick', 'standard', 'challenge', 'tool-schema'}:
                         raise ValueError('Unsupported evaluation request')
                 elif kind == 'evaluation_wait':
                     if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or
@@ -303,7 +304,7 @@ class Bridge:
                 raise workload.Busy()
             job_id = secrets.token_hex(16)
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
-                   'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40}[
+                   'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40}[
                        params.get('suite', 'quick')], 'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
             self.evaluation_job = job

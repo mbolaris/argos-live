@@ -69,7 +69,10 @@ not change model settings or grant new tools.
 2. Run a quick check with fixed task IDs and the original scorer. Show a real
    example answer and why it passed or failed.
    If the standard suite is saturated, use the separate challenge form to find
-   a new, repeatable weakness before proposing an experiment.
+   a new, repeatable weakness before proposing an experiment. For tool-call
+   formatting, use `tool-schema`; its 20 held-out items use unseen tool names
+   and argument keys, and the host rejects a keep if either candidate run falls
+   below the strongest baseline held-out score.
 3. Choose one modest instruction experiment supported by the misses. For
    `AGENTS.md`, use `argos_inspect`, then `argos_edit_instructions` with a saved
    baseline from the current controller and its inspected hash. The tool

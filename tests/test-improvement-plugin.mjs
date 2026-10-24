@@ -40,7 +40,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   console.log(JSON.stringify({status:'appended',observed:'2026-10-17T00:00:00+00:00',snapshot:'/private/snapshot',note_claims_verified:false}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
-  const total = suite === 'challenge' ? 40 : suite === 'standard' ? 70 : 20;
+  const total = suite === 'challenge' || suite === 'tool-schema' ? 40 : suite === 'standard' ? 70 : 20;
   const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
   console.error(JSON.stringify({phase:'unrelated',completed:0,total}));
@@ -92,6 +92,15 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.equal(challengeProgress.length, 1);
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'challenge', '--json']);
+
+    const schemaProgress = [];
+    const schemaRun = await tools.get('argos_evaluate').execute('schema-eval', {suite:'tool-schema'}, undefined,
+      (event) => schemaProgress.push(event));
+    assert.match(schemaRun.content[0].text, /38\/40 passed/);
+    assert.equal(schemaRun.details.coverage.total, 40);
+    assert.equal(schemaProgress.length, 1);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'tool-schema', '--json']);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)

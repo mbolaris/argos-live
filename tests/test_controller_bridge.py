@@ -483,6 +483,31 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(parent.record['phase'], 'running')
             parent.complete()
 
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
+    def test_schema_grounded_suite_is_admitted_by_host_controller(self):
+        binary = self.home / 'bin'
+        binary.mkdir()
+        executable = binary / 'openclaw'
+        executable.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+            'session=sys.argv[sys.argv.index("--session-id")+1]\n'
+            'print(json.dumps({"payloads":[{"text":"{}"}],"meta":{"agentMeta":{'
+            '"sessionId":session,"provider":"ollama","model":"qwen3:4b-instruct-2507-q4_K_M"}}}))\n')
+        executable.chmod(0o700)
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            bridge.worker_path = str(binary) + os.pathsep + bridge.worker_path
+            _, turn = self.begin(bridge)
+            request = {**turn, 'op': 'tool', 'call_id': 'schema-eval', 'kind': 'evaluation',
+                       'params': {'suite': 'tool-schema'}}
+            value = bridge.dispatch(request)
+            self.assertEqual(value['status'], 'completed')
+            result = value['value']['result']
+            self.assertEqual(result['suite'], 'openclaw-tool-schema')
+            self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+            self.assertEqual(result['summary']['partitions']['practice']['total'], 20)
+            self.assertEqual(result['summary']['partitions']['heldout']['total'], 20)
+            parent.complete()
+
     def test_bounded_evaluation_wait_keeps_host_job_for_followup_after_turn_ends(self):
         started = threading.Event()
         release = threading.Event()
