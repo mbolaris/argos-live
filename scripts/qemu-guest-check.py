@@ -40,9 +40,17 @@ def main():
     saver_service_enabled = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
                                             '/saver/enabled'], check=True,
                                            capture_output=True, text=True, timeout=10)
+    lock_enabled = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                   '/lock/enabled'], check=True,
+                                  capture_output=True, text=True, timeout=10)
+    lock_on_saver = subprocess.run(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
+                                    '/lock/saver-activation/enabled'], check=True,
+                                   capture_output=True, text=True, timeout=10)
     saver_ui = Path('/usr/bin/xfce4-screensaver-preferences')
     if (saver_delay.stdout.strip() != '60' or saver_enabled.stdout.strip().lower() != 'true' or
-            saver_service_enabled.stdout.strip().lower() != 'true'):
+            saver_service_enabled.stdout.strip().lower() != 'true' or
+            lock_enabled.stdout.strip().lower() != 'false' or
+            lock_on_saver.stdout.strip().lower() != 'false'):
         raise ValueError('Fresh desktop did not load the one-hour screensaver default')
     if not saver_ui.is_file():
         raise ValueError('Screensaver preferences are unavailable for manual control')

@@ -51,7 +51,7 @@ def report(root, commit):
     if not 1 <= packages.stat().st_size <= 16 * 1024**2:
         raise ValueError('Invalid package manifest size')
     manifest = packages.read_text()
-    for package in ('linux-image-amd64', 'xfce4', 'lightdm', 'python3'):
+    for package in ('linux-image-amd64', 'xfce4', 'xfce4-screensaver', 'lightdm', 'python3'):
         if not re.search(r'^' + re.escape(package) + r'\s', manifest, re.M):
             raise ValueError('Required image package is missing: ' + package)
     scan_log(root / 'build.log')
