@@ -95,9 +95,31 @@ def main():
             last_saver_error = 'screensaver process has not started'
         time.sleep(1)
     if not saver_ready:
-        saver_processes = subprocess.run(
-            ['pgrep', '-a', '-u', 'argos', '-f', r'(^|/)xfce4-screensaver($| )'],
+        saver_pids = subprocess.run(
+            ['pgrep', '-u', 'argos', '-f', r'(^|/)xfce4-screensaver($| )'],
             capture_output=True, text=True, timeout=10)
+        saver_processes = []
+        saver_env = []
+        for pid in saver_pids.stdout.split():
+            status = Path(f'/proc/{pid}/status')
+            if status.is_file():
+                fields = [line for line in status.read_text(errors='replace').splitlines()
+                          if line.startswith(('Name:', 'State:', 'PPid:'))]
+                saver_processes.append(f'{pid}: {", ".join(fields)}')
+            environment = Path(f'/proc/{pid}/environ')
+            if environment.is_file():
+                values = dict(item.split(b'=', 1) for item in environment.read_bytes().split(b'\0')
+                              if b'=' in item)
+                saver_env.append({key: (values.get(key.encode(), b'').decode(errors='replace')
+                                        if key in ('DISPLAY', 'XDG_SESSION_TYPE') else
+                                        bool(values.get(key.encode())))
+                                  for key in ('DISPLAY', 'XDG_SESSION_TYPE',
+                                              'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR')})
+        dbus_owner = subprocess.run(
+            ['gdbus', 'call', '--session', '--dest', 'org.freedesktop.DBus',
+             '--object-path', '/org/freedesktop/DBus', '--method',
+             'org.freedesktop.DBus.NameHasOwner', 'org.xfce.ScreenSaver'],
+            env=session_env, capture_output=True, text=True, timeout=10)
         user_journal = subprocess.run(
             ['journalctl', '--user', '-b', '--no-pager', '-n', '100',
              '--grep=xfce4-screensaver|screensaver'],
@@ -110,7 +132,9 @@ def main():
             session_error_tail = '\n'.join(saver_lines[-30:])
         raise ValueError('XFCE screensaver did not become ready within 30 seconds: '
                          f'{last_saver_error}; user processes: {user_process_names()}; '
-                         f'screensaver processes: {saver_processes.stdout.strip()}; '
+                         f'screensaver process status: {saver_processes}; '
+                         f'screensaver environment: {saver_env}; '
+                         f'D-Bus owner: {dbus_owner.stdout.strip() or dbus_owner.stderr.strip()}; '
                          f'user journal: {user_journal.stdout.strip() or user_journal.stderr.strip()}; '
                          f'session log: {session_error_tail}')
     session_command(['xfce4-screensaver-command', '--deactivate'])
