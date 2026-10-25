@@ -1,0 +1,1852 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "tool-schema",
+  "version": "1.1.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "practice-01",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}}]}\nRequest: Find record R-01 and include its history: false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "lookup_record",
+          "arguments": {
+            "record_id": "R-01",
+            "include_history": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"lookup_record\", \"arguments\": {\"record_id\": \"R-01\", \"include_history\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"record_id\": \"R-01\", \"include_history\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-02",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}}]}\nRequest: Find record R-02 and include its history: true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "lookup_record",
+          "arguments": {
+            "record_id": "R-02",
+            "include_history": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"lookup_record\", \"arguments\": {\"record_id\": \"R-02\", \"include_history\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"record_id\": \"R-02\", \"include_history\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-03",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}}]}\nRequest: Find record R-03 and include its history: false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "lookup_record",
+          "arguments": {
+            "record_id": "R-03",
+            "include_history": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"lookup_record\", \"arguments\": {\"record_id\": \"R-03\", \"include_history\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"record_id\": \"R-03\", \"include_history\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-04",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}}]}\nRequest: Find record R-04 and include its history: true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "lookup_record",
+          "arguments": {
+            "record_id": "R-04",
+            "include_history": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"lookup_record\", \"arguments\": {\"record_id\": \"R-04\", \"include_history\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"record_id\": \"R-04\", \"include_history\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-05",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}}]}\nRequest: Find record R-05 and include its history: false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "lookup_record",
+          "arguments": {
+            "record_id": "R-05",
+            "include_history": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"lookup_record\", \"arguments\": {\"record_id\": \"R-05\", \"include_history\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"record_id\": \"R-05\", \"include_history\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-06",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}}]}\nRequest: Compare baseline base-1 with candidate cand-4.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_runs",
+          "arguments": {
+            "baseline_id": "base-1",
+            "candidate_id": "cand-4"
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_runs\", \"arguments\": {\"baseline_id\": \"base-1\", \"candidate_id\": \"cand-4\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"baseline_id\": \"base-1\", \"candidate_id\": \"cand-4\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-07",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}}]}\nRequest: Compare baseline base-2 with candidate cand-5.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_runs",
+          "arguments": {
+            "baseline_id": "base-2",
+            "candidate_id": "cand-5"
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_runs\", \"arguments\": {\"baseline_id\": \"base-2\", \"candidate_id\": \"cand-5\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"baseline_id\": \"base-2\", \"candidate_id\": \"cand-5\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-08",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}}]}\nRequest: Compare baseline base-3 with candidate cand-6.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_runs",
+          "arguments": {
+            "baseline_id": "base-3",
+            "candidate_id": "cand-6"
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_runs\", \"arguments\": {\"baseline_id\": \"base-3\", \"candidate_id\": \"cand-6\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"baseline_id\": \"base-3\", \"candidate_id\": \"cand-6\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-09",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}}]}\nRequest: Compare baseline base-4 with candidate cand-7.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_runs",
+          "arguments": {
+            "baseline_id": "base-4",
+            "candidate_id": "cand-7"
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_runs\", \"arguments\": {\"baseline_id\": \"base-4\", \"candidate_id\": \"cand-7\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"baseline_id\": \"base-4\", \"candidate_id\": \"cand-7\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-10",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}}]}\nRequest: Compare baseline base-5 with candidate cand-8.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_runs",
+          "arguments": {
+            "baseline_id": "base-5",
+            "candidate_id": "cand-8"
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_runs\", \"arguments\": {\"baseline_id\": \"base-5\", \"candidate_id\": \"cand-8\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"baseline_id\": \"base-5\", \"candidate_id\": \"cand-8\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-11",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}}]}\nRequest: Set latency_1 minimum to 10 and enabled=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_threshold",
+          "arguments": {
+            "metric": "latency_1",
+            "minimum": 10,
+            "enabled": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_threshold\", \"arguments\": {\"metric\": \"latency_1\", \"minimum\": 10, \"enabled\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"metric\": \"latency_1\", \"minimum\": 10, \"enabled\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-12",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}}]}\nRequest: Set latency_2 minimum to 20 and enabled=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_threshold",
+          "arguments": {
+            "metric": "latency_2",
+            "minimum": 20,
+            "enabled": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_threshold\", \"arguments\": {\"metric\": \"latency_2\", \"minimum\": 20, \"enabled\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"metric\": \"latency_2\", \"minimum\": 20, \"enabled\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-13",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}}]}\nRequest: Set latency_3 minimum to 30 and enabled=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_threshold",
+          "arguments": {
+            "metric": "latency_3",
+            "minimum": 30,
+            "enabled": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_threshold\", \"arguments\": {\"metric\": \"latency_3\", \"minimum\": 30, \"enabled\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"metric\": \"latency_3\", \"minimum\": 30, \"enabled\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-14",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}}]}\nRequest: Set latency_4 minimum to 40 and enabled=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_threshold",
+          "arguments": {
+            "metric": "latency_4",
+            "minimum": 40,
+            "enabled": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_threshold\", \"arguments\": {\"metric\": \"latency_4\", \"minimum\": 40, \"enabled\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"metric\": \"latency_4\", \"minimum\": 40, \"enabled\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-15",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"set_threshold\",\"description\":\"Set the minimum for a metric and enable or disable that threshold.\",\"arguments\":{\"metric\":\"string\",\"minimum\":\"integer\",\"enabled\":\"boolean\"}}]}\nRequest: Set latency_5 minimum to 50 and enabled=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_threshold",
+          "arguments": {
+            "metric": "latency_5",
+            "minimum": 50,
+            "enabled": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "set_threshold",
+            "description": "Set the minimum for a metric and enable or disable that threshold.",
+            "arguments": {
+              "metric": "string",
+              "minimum": "integer",
+              "enabled": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_threshold\", \"arguments\": {\"metric\": \"latency_5\", \"minimum\": 50, \"enabled\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"metric\": \"latency_5\", \"minimum\": 50, \"enabled\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-16",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}}]}\nRequest: Schedule backup archive-1 at UTC hour 2; notify=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "schedule_backup",
+          "arguments": {
+            "label": "archive-1",
+            "hour_utc": 2,
+            "notify": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"schedule_backup\", \"arguments\": {\"label\": \"archive-1\", \"hour_utc\": 2, \"notify\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"label\": \"archive-1\", \"hour_utc\": 2, \"notify\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-17",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}}]}\nRequest: Schedule backup archive-2 at UTC hour 3; notify=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "schedule_backup",
+          "arguments": {
+            "label": "archive-2",
+            "hour_utc": 3,
+            "notify": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"schedule_backup\", \"arguments\": {\"label\": \"archive-2\", \"hour_utc\": 3, \"notify\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"label\": \"archive-2\", \"hour_utc\": 3, \"notify\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-18",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}}]}\nRequest: Schedule backup archive-3 at UTC hour 4; notify=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "schedule_backup",
+          "arguments": {
+            "label": "archive-3",
+            "hour_utc": 4,
+            "notify": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"schedule_backup\", \"arguments\": {\"label\": \"archive-3\", \"hour_utc\": 4, \"notify\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"label\": \"archive-3\", \"hour_utc\": 4, \"notify\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-19",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}}]}\nRequest: Schedule backup archive-4 at UTC hour 5; notify=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "schedule_backup",
+          "arguments": {
+            "label": "archive-4",
+            "hour_utc": 5,
+            "notify": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"schedule_backup\", \"arguments\": {\"label\": \"archive-4\", \"hour_utc\": 5, \"notify\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"label\": \"archive-4\", \"hour_utc\": 5, \"notify\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-20",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"lookup_record\",\"description\":\"Find a record by ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"schedule_backup\",\"description\":\"Schedule a labeled backup at a UTC hour and choose whether to notify.\",\"arguments\":{\"label\":\"string\",\"hour_utc\":\"integer\",\"notify\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare the baseline run with the candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}}]}\nRequest: Schedule backup archive-5 at UTC hour 6; notify=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "schedule_backup",
+          "arguments": {
+            "label": "archive-5",
+            "hour_utc": 6,
+            "notify": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "lookup_record",
+            "description": "Find a record by ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "schedule_backup",
+            "description": "Schedule a labeled backup at a UTC hour and choose whether to notify.",
+            "arguments": {
+              "label": "string",
+              "hour_utc": "integer",
+              "notify": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare the baseline run with the candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"schedule_backup\", \"arguments\": {\"label\": \"archive-5\", \"hour_utc\": 6, \"notify\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"label\": \"archive-5\", \"hour_utc\": 6, \"notify\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-01",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}}]}\nRequest: Retrieve invoice INV-001 with line items=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "fetch_invoice",
+          "arguments": {
+            "invoice_ref": "INV-001",
+            "with_lines": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"fetch_invoice\", \"arguments\": {\"invoice_ref\": \"INV-001\", \"with_lines\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"invoice_ref\": \"INV-001\", \"with_lines\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-02",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}}]}\nRequest: Retrieve invoice INV-002 with line items=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "fetch_invoice",
+          "arguments": {
+            "invoice_ref": "INV-002",
+            "with_lines": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"fetch_invoice\", \"arguments\": {\"invoice_ref\": \"INV-002\", \"with_lines\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"invoice_ref\": \"INV-002\", \"with_lines\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-03",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}}]}\nRequest: Retrieve invoice INV-003 with line items=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "fetch_invoice",
+          "arguments": {
+            "invoice_ref": "INV-003",
+            "with_lines": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"fetch_invoice\", \"arguments\": {\"invoice_ref\": \"INV-003\", \"with_lines\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"invoice_ref\": \"INV-003\", \"with_lines\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-04",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}}]}\nRequest: Retrieve invoice INV-004 with line items=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "fetch_invoice",
+          "arguments": {
+            "invoice_ref": "INV-004",
+            "with_lines": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"fetch_invoice\", \"arguments\": {\"invoice_ref\": \"INV-004\", \"with_lines\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"invoice_ref\": \"INV-004\", \"with_lines\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-05",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}}]}\nRequest: Retrieve invoice INV-005 with line items=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "fetch_invoice",
+          "arguments": {
+            "invoice_ref": "INV-005",
+            "with_lines": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"fetch_invoice\", \"arguments\": {\"invoice_ref\": \"INV-005\", \"with_lines\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"invoice_ref\": \"INV-005\", \"with_lines\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-06",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}}]}\nRequest: Compare older snapshot snap-1 to newer snapshot snap-5.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_snapshots",
+          "arguments": {
+            "older_snapshot": "snap-1",
+            "newer_snapshot": "snap-5"
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_snapshots\", \"arguments\": {\"older_snapshot\": \"snap-1\", \"newer_snapshot\": \"snap-5\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"older_snapshot\": \"snap-1\", \"newer_snapshot\": \"snap-5\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-07",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: Compare older snapshot snap-2 to newer snapshot snap-6.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_snapshots",
+          "arguments": {
+            "older_snapshot": "snap-2",
+            "newer_snapshot": "snap-6"
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_snapshots\", \"arguments\": {\"older_snapshot\": \"snap-2\", \"newer_snapshot\": \"snap-6\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"older_snapshot\": \"snap-2\", \"newer_snapshot\": \"snap-6\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-08",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: Compare older snapshot snap-3 to newer snapshot snap-7.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_snapshots",
+          "arguments": {
+            "older_snapshot": "snap-3",
+            "newer_snapshot": "snap-7"
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_snapshots\", \"arguments\": {\"older_snapshot\": \"snap-3\", \"newer_snapshot\": \"snap-7\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"older_snapshot\": \"snap-3\", \"newer_snapshot\": \"snap-7\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-09",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}}]}\nRequest: Compare older snapshot snap-4 to newer snapshot snap-8.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_snapshots",
+          "arguments": {
+            "older_snapshot": "snap-4",
+            "newer_snapshot": "snap-8"
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_snapshots\", \"arguments\": {\"older_snapshot\": \"snap-4\", \"newer_snapshot\": \"snap-8\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"older_snapshot\": \"snap-4\", \"newer_snapshot\": \"snap-8\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-10",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: Compare older snapshot snap-5 to newer snapshot snap-9.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_snapshots",
+          "arguments": {
+            "older_snapshot": "snap-5",
+            "newer_snapshot": "snap-9"
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_snapshots\", \"arguments\": {\"older_snapshot\": \"snap-5\", \"newer_snapshot\": \"snap-9\"}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"older_snapshot\": \"snap-5\", \"newer_snapshot\": \"snap-9\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-11",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}}]}\nRequest: Set log-1 retention to 7 days; active=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_retention",
+          "arguments": {
+            "artifact_kind": "log-1",
+            "retention_days": 7,
+            "active": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_retention\", \"arguments\": {\"artifact_kind\": \"log-1\", \"retention_days\": 7, \"active\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"artifact_kind\": \"log-1\", \"retention_days\": 7, \"active\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-12",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}}]}\nRequest: Set log-2 retention to 14 days; active=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_retention",
+          "arguments": {
+            "artifact_kind": "log-2",
+            "retention_days": 14,
+            "active": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_retention\", \"arguments\": {\"artifact_kind\": \"log-2\", \"retention_days\": 14, \"active\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"artifact_kind\": \"log-2\", \"retention_days\": 14, \"active\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-13",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}}]}\nRequest: Set log-3 retention to 21 days; active=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_retention",
+          "arguments": {
+            "artifact_kind": "log-3",
+            "retention_days": 21,
+            "active": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_retention\", \"arguments\": {\"artifact_kind\": \"log-3\", \"retention_days\": 21, \"active\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"artifact_kind\": \"log-3\", \"retention_days\": 21, \"active\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-14",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}}]}\nRequest: Set log-4 retention to 28 days; active=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_retention",
+          "arguments": {
+            "artifact_kind": "log-4",
+            "retention_days": 28,
+            "active": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_retention\", \"arguments\": {\"artifact_kind\": \"log-4\", \"retention_days\": 28, \"active\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"artifact_kind\": \"log-4\", \"retention_days\": 28, \"active\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-15",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"set_retention\",\"description\":\"Set how many days to retain an artifact kind and activate or deactivate it.\",\"arguments\":{\"artifact_kind\":\"string\",\"retention_days\":\"integer\",\"active\":\"boolean\"}}]}\nRequest: Set log-5 retention to 35 days; active=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_retention",
+          "arguments": {
+            "artifact_kind": "log-5",
+            "retention_days": 35,
+            "active": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "set_retention",
+            "description": "Set how many days to retain an artifact kind and activate or deactivate it.",
+            "arguments": {
+              "artifact_kind": "string",
+              "retention_days": "integer",
+              "active": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_retention\", \"arguments\": {\"artifact_kind\": \"log-5\", \"retention_days\": 35, \"active\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"artifact_kind\": \"log-5\", \"retention_days\": 35, \"active\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-16",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}}]}\nRequest: Queue an audit for workspace-1 at urgency 1; notify owner=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "queue_audit",
+          "arguments": {
+            "audit_scope": "workspace-1",
+            "urgency_rank": 1,
+            "notify_owner": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"queue_audit\", \"arguments\": {\"audit_scope\": \"workspace-1\", \"urgency_rank\": 1, \"notify_owner\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"audit_scope\": \"workspace-1\", \"urgency_rank\": 1, \"notify_owner\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-17",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}}]}\nRequest: Queue an audit for workspace-2 at urgency 2; notify owner=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "queue_audit",
+          "arguments": {
+            "audit_scope": "workspace-2",
+            "urgency_rank": 2,
+            "notify_owner": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"queue_audit\", \"arguments\": {\"audit_scope\": \"workspace-2\", \"urgency_rank\": 2, \"notify_owner\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"audit_scope\": \"workspace-2\", \"urgency_rank\": 2, \"notify_owner\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-18",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: Queue an audit for workspace-3 at urgency 3; notify owner=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "queue_audit",
+          "arguments": {
+            "audit_scope": "workspace-3",
+            "urgency_rank": 3,
+            "notify_owner": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"queue_audit\", \"arguments\": {\"audit_scope\": \"workspace-3\", \"urgency_rank\": 3, \"notify_owner\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"audit_scope\": \"workspace-3\", \"urgency_rank\": 3, \"notify_owner\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-19",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}}]}\nRequest: Queue an audit for workspace-4 at urgency 4; notify owner=true.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "queue_audit",
+          "arguments": {
+            "audit_scope": "workspace-4",
+            "urgency_rank": 4,
+            "notify_owner": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"queue_audit\", \"arguments\": {\"audit_scope\": \"workspace-4\", \"urgency_rank\": 4, \"notify_owner\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"audit_scope\": \"workspace-4\", \"urgency_rank\": 4, \"notify_owner\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-20",
+      "prompt": "Choose the available tool that performs the request. Available tool schemas: {\"tools\":[{\"name\":\"fetch_invoice\",\"description\":\"Retrieve an invoice by reference and optionally include its line items.\",\"arguments\":{\"invoice_ref\":\"string\",\"with_lines\":\"boolean\"}},{\"name\":\"queue_audit\",\"description\":\"Queue an audit for a scope at a specified urgency and choose whether to notify the owner.\",\"arguments\":{\"audit_scope\":\"string\",\"urgency_rank\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"diff_snapshots\",\"description\":\"Compare an older snapshot with a newer snapshot.\",\"arguments\":{\"older_snapshot\":\"string\",\"newer_snapshot\":\"string\"}}]}\nRequest: Queue an audit for workspace-5 at urgency 5; notify owner=false.\nReturn only JSON with exactly the selected tool name and an arguments object matching that tool schema. Do not execute the tool.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "queue_audit",
+          "arguments": {
+            "audit_scope": "workspace-5",
+            "urgency_rank": 5,
+            "notify_owner": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "fetch_invoice",
+            "description": "Retrieve an invoice by reference and optionally include its line items.",
+            "arguments": {
+              "invoice_ref": "string",
+              "with_lines": "boolean"
+            }
+          },
+          {
+            "name": "queue_audit",
+            "description": "Queue an audit for a scope at a specified urgency and choose whether to notify the owner.",
+            "arguments": {
+              "audit_scope": "string",
+              "urgency_rank": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "diff_snapshots",
+            "description": "Compare an older snapshot with a newer snapshot.",
+            "arguments": {
+              "older_snapshot": "string",
+              "newer_snapshot": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"queue_audit\", \"arguments\": {\"audit_scope\": \"workspace-5\", \"urgency_rank\": 5, \"notify_owner\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"audit_scope\": \"workspace-5\", \"urgency_rank\": 5, \"notify_owner\": false}}",
+      "malformed": "{not json}"
+    }
+  ]
+}

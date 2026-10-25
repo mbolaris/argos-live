@@ -7,7 +7,7 @@ An agent-turn timeout must not destroy the only saved evidence of a long test.
 
 - One host thread holds both job exclusion and workload admission until saved
   publication and reservation settlement. An abandoned job never expires.
-- `start()` admits one fixed quick, standard, or challenge evaluation and returns a job ID.
+- `start()` admits one fixed quick, standard, challenge, or tool-schema evaluation and returns a job ID.
 - `wait()` lasts at most eight minutes. Aborting the wait does not cancel work.
 - A different host reader can inspect the saved run without the original waiter.
 - `cancel_owner()` is a separate host-owner control. Cancellation after inference

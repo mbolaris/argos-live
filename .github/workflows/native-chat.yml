@@ -15,6 +15,8 @@ on:
       - '.github/workflows/native-chat.yml'
       - 'scripts/smoke-native-chat.py'
       - 'scripts/smoke-proctor-real.py'
+      - 'scripts/fetch-catalog-model.py'
+      - 'runtime/argoslive/controller_bridge.py'
       - 'runtime/argoslive/proctor_service.py'
       - 'runtime/argoslive/proctor/**'
       - 'scripts/smoke-desktop-startup.py'
@@ -37,7 +39,8 @@ permissions:
 jobs:
   native-chat:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Practice permits 30 minutes of model turns; allow setup and signed cleanup too.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin
@@ -67,6 +70,8 @@ jobs:
           tar --zstd -xf "$RUNNER_TEMP/argos-ollama.tar.zst" -C "$RUNNER_TEMP/argos-ollama"
           python3 scripts/fetch-seed-model.py "$RUNNER_TEMP/argos-native-seed"
           chmod -R a-w "$RUNNER_TEMP/argos-native-seed"
+          python3 scripts/fetch-catalog-model.py qwen3:4b-instruct-2507-q4_K_M "$RUNNER_TEMP/argos-proctor-model"
+          chmod -R a-w "$RUNNER_TEMP/argos-proctor-model"
       - name: Native conversation-only CPU reply without seed copies
         if: ${{ !inputs.proctor_only }}
         run: |
@@ -75,12 +80,12 @@ jobs:
         if: ${{ !inputs.proctor_only }}
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
-      - name: Real bundled-model Proctor practice with signed completion
+      - name: Real tool-capable-model Proctor practice with signed completion
         if: ${{ !cancelled() && steps.runtimes.outcome == 'success' }}
         run: |
           args=()
           if [[ '${{ inputs.deterministic_profile }}' == true ]]; then args+=(--deterministic-profile); fi
-          python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" --report work/proctor-real.json "${args[@]}"
+          python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/proctor-real.json "${args[@]}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

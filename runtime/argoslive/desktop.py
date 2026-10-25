@@ -58,10 +58,19 @@ def dashboard_url(url, view=None):
 
 
 def open_browser(url):
-    browser = next((shutil.which(name) for name in ('firefox-esr', 'firefox', 'xdg-open') if shutil.which(name)), None)
-    if not browser:
-        raise ValueError('A desktop browser is unavailable')
-    subprocess.Popen([browser, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    browser = next((path for name in ('firefox-esr', 'firefox')
+                    if (path := shutil.which(name))), None)
+    if browser:
+        command = [browser, '--new-window', url]
+    else:
+        opener = shutil.which('xdg-open')
+        if not opener:
+            raise ValueError('A desktop browser is unavailable')
+        command = [opener, url]
+    # Reconnects can request a different dashboard view while the default
+    # Mission Control window remains open. Make that navigation visible instead
+    # of relying on Firefox to replace or foreground an existing kiosk tab.
+    subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def reconnect(home, *, browser=open_browser, view=None):

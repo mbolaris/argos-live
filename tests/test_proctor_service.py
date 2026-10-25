@@ -373,7 +373,50 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(cartridge.manifest['calibration_status'], 'uncalibrated')
         self.assertEqual(cartridge.manifest['cartridge_id'], 'argos-practice-pilot')
         self.assertIn('pilot-a', cartridge.forms)
-        self.assertEqual(len(cartridge.items), 4)
+        self.assertEqual(len(cartridge.items), 5)
+        self.assertEqual(cartridge.items['q5']['domain'], 'tool_call_format')
+        self.assertEqual(cartridge.items['q5']['response_type'], 'json_object')
+
+    def test_practice_turn_surfaces_tool_call_item_as_a_real_simulated_tool_call(self):
+        class Exam:
+            def status(self):
+                return {'state': 'ACTIVE', 'item_ids': ['q5'], 'answer_revisions': {}}
+
+        class Bridge:
+            def present_proctor_item(self, item_id):
+                self.item_id = item_id
+                return {'item_id': item_id, 'domain': 'tool_call_format',
+                    'response_type': 'json_object', 'prompt': 'Call with job_id 0123456789abcdef0123456789abcdef.'}
+
+        bridge = Bridge()
+        message = proctor_service.practice_turn_message(Exam(), bridge)
+        self.assertIn('actual argos_evaluate_wait tool call', message)
+        self.assertIn('0123456789abcdef0123456789abcdef', message)
+        self.assertIn('Do not call argos_proctor_answer', message)
+        self.assertEqual(bridge.item_id, 'q5')
+        retry = proctor_service.practice_turn_message(Exam(), bridge, retry_tool_call=True)
+        self.assertIn('previous turn did not make the requested tool call', retry)
+        self.assertIn('argos_evaluate_wait', retry)
+
+    def test_numeric_practice_prompt_does_not_anchor_to_a_sample_answer(self):
+        class Exam:
+            def status(self):
+                return {'state': 'ACTIVE', 'item_ids': ['q2'], 'answer_revisions': {}}
+
+        class Bridge:
+            def present_proctor_item(self, item_id):
+                self.item_id = item_id
+                return {'item_id': 'q2', 'domain': 'math', 'response_type': 'numeric_grid',
+                        'prompt': 'What is 2 + 2?'}
+
+        bridge = Bridge()
+        message = proctor_service.practice_turn_message(Exam(), bridge)
+        self.assertIn('Solve from this question alone', message)
+        self.assertIn('do not reuse another item\'s answer', message)
+        self.assertNotIn('-5/4', message)
+        retry = proctor_service.practice_turn_message(Exam(), bridge, retry_format=True)
+        self.assertIn('Solve from this question alone', retry)
+        self.assertNotIn('-5/4', retry)
 
     def test_session_subject_binds_verified_model_receipt_and_can_start_exam(self):
         original_read_text = Path.read_text

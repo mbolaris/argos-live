@@ -429,7 +429,7 @@ class Proctor:
         if not item or item['module_id'] != module_id:
             raise ProctorError(404, 'ITEM_NOT_IN_MODULE')
         return {k: json.loads(json_text(item[k])) for k in
-                ('item_id', 'position', 'domain', 'prompt', 'response_type', 'choices')}
+                ('item_id', 'position', 'domain', 'prompt', 'response_type', 'choices', 'schema')}
 
     @synchronized
     def status(self, sid, token):
@@ -469,7 +469,7 @@ class Proctor:
             if a['outcome'] == 'ACCEPTED' and first[a['item_id']] != 'ACCEPTED':
                 corrected.add(a['item_id'])
         payload = {'schema_version': 'argos.proctor.transcript.v1', 'session_id': sid,
-                   'proctor_version': 'core/1', 'grader_version': 'choice-numeric/2',
+                   'proctor_version': 'core/1', 'grader_version': 'choice-numeric-json/3',
                    'cartridge_id': self.cart.manifest['cartridge_id'], 'cartridge_digest': self.cart.digest,
                    'form_id': s['form_id'], 'content_origin': self.cart.manifest['content_origin'],
                    'calibration_status': 'uncalibrated', 'scaled_score': None, 'scale_range': None, 'scoring_basis': None,

@@ -119,6 +119,14 @@ try {
   await page.waitForFunction(() => !document.getElementById('lab-start').disabled &&
     document.getElementById('lab-status').textContent.includes('Test cancelled'));
   if (labCalls.join(',') !== 'start,cancel') throw new Error('Lab controls did not run');
+  lab = {...lab, active: false, phase: 'failed', failure_kind: 'model-service-unreachable',
+    arena: {...lab.arena, phase: 'failed', failure_kind: 'model-service-unreachable'}};
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById('lab-status').textContent.includes(
+    'The local model service stopped responding during the trial.'));
+  if ((await page.locator('#lab-status').textContent()).includes('PRIVATE')) {
+    throw new Error('Lab failure diagnostic exposed private error text');
+  }
   let acquisition = {available: true, active: false, phase: 'idle'};
   const modelCalls = [];
   await page.route('**/api/models/control', route => route.fulfill({json: acquisition}));

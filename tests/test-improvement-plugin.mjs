@@ -40,7 +40,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   console.log(JSON.stringify({status:'appended',observed:'2026-10-17T00:00:00+00:00',snapshot:'/private/snapshot',note_claims_verified:false}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
-  const total = suite === 'challenge' ? 40 : suite === 'standard' ? 70 : 20;
+  const total = suite === 'challenge' || suite === 'tool-schema' ? 40 : suite === 'standard' ? 70 : 20;
   const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
   console.error(JSON.stringify({phase:'unrelated',completed:0,total}));
@@ -51,7 +51,8 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   console.log(JSON.stringify({path:'/private/fixture-result.json', result:{
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-'+suite, suite_version:'argos-openclaw-ability/'+suite+'/fixture1', state:'completed',
     settings:{suite_sha256:'b'.repeat(64),execution_path:'openclaw embedded; ephemeral state; tools denied; v2'}, prompt_fingerprint:{workspace_agents_sha256:'c'.repeat(64)},
-    summary:{correct,total}, coverage:{completed:total,total,complete:true}, elapsed_seconds:12
+    summary:{correct,total,...(suite === 'tool-schema' ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
+    coverage:{completed:total,total,complete:true}, elapsed_seconds:12
   }}));
 } else {
   console.log(JSON.stringify({kind:'ability',suite_version:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'raw/quick/1':'argos-openclaw-ability/quick/fixture1',settings:{execution_path:'openclaw embedded; ephemeral state; tools denied; v2'},workspace_agents_changed:false, rows:[]}));
@@ -92,6 +93,18 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.equal(challengeProgress.length, 1);
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'challenge', '--json']);
+
+    const schemaProgress = [];
+    const schemaRun = await tools.get('argos_evaluate').execute('schema-eval', {suite:'tool-schema'}, undefined,
+      (event) => schemaProgress.push(event));
+    assert.match(schemaRun.content[0].text, /38\/40 passed/);
+    assert.match(schemaRun.content[0].text, /unseen-vocabulary: 20\/20 \(same bundled suite, not independent validation\)/);
+    assert.equal(schemaRun.details.coverage.total, 40);
+    assert.equal(schemaProgress.length, 1);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'tool-schema', '--json']);
+    assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite),
+      /same bundled suite, not independent validation/);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)
@@ -350,6 +363,10 @@ test('managed admission returns bounded evaluation jobs and supports a follow-up
       if (value.op === 'begin') response = {status:'admitted',turn_token:'turn-job'};
       else if (value.op === 'tool' && value.kind === 'evaluation')
         response = {status:'running',job_id:'b'.repeat(32),suite:'standard',completed:0,total:70};
+      else if (value.op === 'tool' && value.kind === 'evaluation_wait' &&
+               value.params.job_id === 'd'.repeat(32))
+        response = {status:'completed',value:{status:'completed',proctor_simulation:true,
+          message:'Proctor simulation only; no evaluation was started.'}};
       else if (value.op === 'tool' && value.kind === 'evaluation_wait')
         response = {status:'completed',value:{result:{id:'c'.repeat(32),state:'completed',
           suite:'openclaw-standard',suite_version:'argos-openclaw-ability/standard/test',
@@ -364,18 +381,26 @@ test('managed admission returns bounded evaluation jobs and supports a follow-up
     process.env.ARGOS_CONTROLLER_SOCKET = endpoint;
     process.env.ARGOS_CONTROLLER_SECRET = 'job-bridge-secret';
     const hooks = new Map();
-    const admission = registerAdmission({pluginConfig:{hostAdmission:true}, on(name, handler) {hooks.set(name, handler);}});
+    const tools = new Map();
+    registerPlugin({pluginConfig:{hostAdmission:true},
+      registerTool(tool) {tools.set(tool.name, tool);},
+      on(name, handler) {hooks.set(name, handler);}});
     const ctx = {runId:'run-job',sessionId:'session-job',sessionKey:'agent:main:host-session',trigger:'user'};
     assert.deepEqual(await hooks.get('before_agent_run')({}, ctx), {outcome:'pass'});
     hooks.get('before_tool_call')({toolName:'argos_evaluate',runId:'run-job',toolCallId:'eval-job'},ctx);
-    const started = await admission.execute('eval-job','evaluation',{suite:'standard'});
-    assert.equal(started.status, 'running');
-    assert.equal(started.total, 70);
+    const started = await tools.get('argos_evaluate').execute('eval-job',{suite:'standard'});
+    assert.equal(started.details.status, 'running');
+    assert.equal(started.details.total, 70);
     hooks.get('before_tool_call')({toolName:'argos_evaluate_wait',runId:'run-job',toolCallId:'wait-job'},ctx);
-    const finished = await admission.execute('wait-job','evaluation_wait',{job_id:started.job_id});
-    assert.equal(finished.result.coverage.completed,70);
+    const finished = await tools.get('argos_evaluate_wait').execute('wait-job',
+      {job_id:started.details.job_id});
+    assert.equal(finished.details.coverage.completed,70);
+    hooks.get('before_tool_call')({toolName:'argos_evaluate_wait',runId:'run-job',toolCallId:'wait-sim'},ctx);
+    const simulated = await tools.get('argos_evaluate_wait').execute('wait-sim',
+      {job_id:'d'.repeat(32)});
+    assert.match(simulated.content[0].text,/Proctor simulation only; no evaluation was started/);
     assert.deepEqual(requests.filter(item => item.op === 'tool').map(item => item.kind),
-      ['evaluation','evaluation_wait']);
+      ['evaluation','evaluation_wait','evaluation_wait']);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET; else process.env.ARGOS_CONTROLLER_SOCKET = priorPath;

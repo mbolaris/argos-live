@@ -382,6 +382,17 @@ const labPhases = {idle: 'Ready to measure your model.', pausing: 'Pausing chat 
   debrief: 'Argos is reflecting on the measured results…', task: 'Reading your document…', ability: 'Testing ability with fixed scored tasks…', documents: 'Reading short documents and answering from them…', cancelling: 'Cancelling; waiting for the current request and cleanup…',
   completed: 'Baseline saved. Compare the results below.', cancelled: 'Test cancelled. Any completed results remain saved.',
   failed: 'Test could not finish. Any completed results remain saved. Check model setup before retrying.'};
+const labFailureMessages = {
+  'model-service-unreachable': 'The local model service stopped responding during the trial.',
+  'model-unavailable': 'The selected model became unavailable during the trial.',
+  'model-response-interrupted': 'The model response ended before the trial could finish.',
+  'model-service-error': 'The local model service returned an error during the trial.',
+  'timed-out': 'The trial exceeded its response time limit.',
+  'system-io-error': 'A local system or storage error interrupted the trial.',
+  'invalid-result': 'The trial returned data that could not be scored.',
+  'trial-error': 'An unexpected error interrupted the trial.'
+};
+function labFailureMessage(kind) { return labFailureMessages[kind] || ''; }
 let arenaRunId = null;
 let arenaCursor = 0;
 let arenaPolling = false;
@@ -832,7 +843,7 @@ function renderArenaState(arena, active, phase, model, elapsed) {
         };
       }
       headline.textContent = 'Trial failed · incomplete';
-      detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
+      detail.textContent = [labFailureMessage(arena?.failure_kind), 'Check model setup and compute resources before retrying. Partial results do not qualify.'].filter(Boolean).join(' ');
     } else {
       banner.hidden = true;
       if (nextActionBtn) nextActionBtn.hidden = true;
@@ -1038,7 +1049,7 @@ function applyArenaEvent(ev) {
           };
         }
         if (headline) headline.textContent = 'Trial failed · incomplete';
-        if (detail) detail.textContent = 'Check model setup and compute resources before retrying. Partial results do not qualify.';
+        if (detail) detail.textContent = [labFailureMessage(ev.failure_kind), 'Check model setup and compute resources before retrying. Partial results do not qualify.'].filter(Boolean).join(' ');
       }
     }
     document.querySelector('#cc-schematic [data-system="power-core"]')?.classList.remove('working');
@@ -1122,6 +1133,7 @@ async function refreshLab() {
     }
     document.getElementById('lab-cancel').disabled = !value.active || value.phase === 'cancelling';
     let message = labPhases[value.phase] || 'Checking test status…';
+    if (value.phase === 'failed' && value.failure_kind) message += ' ' + labFailureMessage(value.failure_kind);
     if (value.model) message += ' · ' + value.model;
     if (Number.isFinite(value.elapsed_seconds)) message += ` · ${Math.round(value.elapsed_seconds)} s`;
     const progress = value.progress;

@@ -6,7 +6,7 @@ import threading
 import time
 
 from . import bench_ability, bench_speed, doc_trial, mission_report
-from .ollama import Cancelled
+from .ollama import Cancelled, Interrupted, ModelMissing, NotRunning, OllamaError
 from .results import Store
 
 
@@ -18,6 +18,27 @@ PLANS = {'baseline': (('speed', 'speed', {'sizes': ('short',)}), ('ability', 'ab
          'task': (('task', 'task', {}),)}
 
 MAX_EVENTS = 1200
+
+
+def _failure_kind(error):
+    """Return a fixed, non-sensitive failure category for dashboard diagnostics."""
+    if isinstance(error, Cancelled):
+        return 'cancelled'
+    if isinstance(error, NotRunning):
+        return 'model-service-unreachable'
+    if isinstance(error, ModelMissing):
+        return 'model-unavailable'
+    if isinstance(error, Interrupted):
+        return 'model-response-interrupted'
+    if isinstance(error, OllamaError):
+        return 'model-service-error'
+    if isinstance(error, TimeoutError):
+        return 'timed-out'
+    if isinstance(error, OSError):
+        return 'system-io-error'
+    if isinstance(error, ValueError):
+        return 'invalid-result'
+    return 'trial-error'
 
 
 class Controller:
@@ -38,6 +59,7 @@ class Controller:
         self.cancel_event = threading.Event()
         self.worker = None
         self.phase = 'idle'
+        self.failure_kind = None
         self.progress = None
         self.runs = []
         self.started = None
@@ -140,6 +162,7 @@ class Controller:
                 self.arena['recovery'] = recovery
             return {'available': not self.closed, 'active': active,
                     'phase': 'cancelling' if active and self.cancel_event.is_set() else self.phase,
+                    'failure_kind': self.failure_kind,
                     'model': self.model, 'plan': self.plan, 'progress': copy.deepcopy(self.progress),
                     'recipe': copy.deepcopy(self.recipe),
                     'selected_recipe': copy.deepcopy(self.selected_recipe),
@@ -195,6 +218,7 @@ class Controller:
             self.recipe = resolved_recipe
             self.cancel_event.clear()
             self.phase, self.started = 'pausing', self.clock()
+            self.failure_kind = None
             self.finished = None
             self.progress, self.runs, self.model = None, [], None
             self.debrief = None
@@ -209,6 +233,7 @@ class Controller:
                 'recipe': copy.deepcopy(resolved_recipe),
                 'model': None,
                 'phase': 'pausing',
+                'failure_kind': None,
                 'current_item': None,
                 'receipts': [],
                 'completed': 0,
@@ -367,8 +392,10 @@ class Controller:
             if self.cancel_event.is_set():
                 raise Cancelled('Cancelled before benchmark')
             outcome = self.execute()
-        except Exception:
+        except Exception as error:
             # Never export private configuration paths or exception text to HTTP.
+            with self.lock:
+                self.failure_kind = _failure_kind(error)
             outcome = self.failure_outcome()
             try:
                 self.settle_unstarted()
@@ -399,6 +426,7 @@ class Controller:
                 elapsed = max(0, self.finished - self.started) if self.started is not None else 0
                 if self.arena:
                     self.arena['phase'] = outcome
+                    self.arena['failure_kind'] = self.failure_kind if outcome == 'failed' else None
                     self.arena['elapsed_seconds'] = elapsed
                     self.arena['recovery'] = self.recovery_status()
                     if outcome in ('cancelled', 'failed') and self.arena.get('current_item'):
@@ -412,6 +440,7 @@ class Controller:
                                    total=self.arena.get('total', 0),
                                    correct=self.arena.get('correct', 0),
                                    format_errors=self.arena.get('format_errors', 0),
+                                   failure_kind=self.failure_kind if outcome == 'failed' else None,
                                    elapsed_seconds=elapsed, runs=list(self.runs),
                                    recovery=self.arena['recovery'])
 

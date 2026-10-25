@@ -77,6 +77,42 @@ class AgentSessionTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             exam.transcript()
 
+    def test_host_observed_tool_call_is_scored_in_the_signed_exam_transcript(self):
+        source = json.loads((ROOT / 'tests/fixtures/proctor/fixed.json').read_text())
+        item = source['forms'][0]['modules'][0]['items'][0]
+        item.update({'domain': 'tool_call_format', 'response_type': 'json_object', 'choices': {},
+            'schema': {'type': 'object', 'properties': {'name': {'type': 'string'},
+                'arguments': {'type': 'object', 'properties': {'job_id': {'type': 'string'}},
+                              'required': ['job_id']}}, 'required': ['name', 'arguments']},
+            'correct': '{"name":"argos_evaluate_wait","arguments":{"job_id":"0123456789abcdef0123456789abcdef"}}'})
+        path = self.cart_path.parent / 'tool-call.db'
+        compile_cartridge(source, path)
+        db = open_state(self.cart_path.parent / 'tool-call-state.db')
+        self.addCleanup(db.close)
+        engine = Proctor(Cartridge(path), db,
+            callers={'host': Caller(digest('host-secret'))}, token_secret=secrets.token_bytes(32),
+            boot_id='boot-tool-call', signer=Signer(), clock=self.clock)
+        exam = AgentSession(engine, caller_id='host', caller_token='host-secret', form_id='fixed-a',
+            tier='practice', subject=self.subject, policy=self.policy)
+        exam.start('tool-call-start')
+        item_view = exam.item('q1')
+        self.assertEqual(item_view['domain'], 'tool_call_format')
+        self.assertNotIn('correct', item_view)
+        exam.host_record_tool_call('q1', 'argos_evaluate_wait',
+            {'job_id': '0123456789abcdef0123456789abcdef'}, 'observed-wait-call')
+        exam.answer('q2', '4', 'tool-call-answer-q2')
+        exam.submit('m1', 'tool-call-submit-m1')
+        self.clock.now += 500_000_000
+        exam.continue_module('tool-call-continue-m2')
+        exam.answer('q3', 'A', 'tool-call-answer-q3')
+        exam.answer('q4', '-5/4', 'tool-call-answer-q4')
+        exam.submit('m2', 'tool-call-submit-m2')
+        transcript = json.loads(exam.host_transcript()['payload_json'])
+        recorded = next(row for row in transcript['accepted_answers'] if row['item_id'] == 'q1')
+        self.assertEqual(json.loads(recorded['answer']), {'name': 'argos_evaluate_wait',
+            'arguments': {'job_id': '0123456789abcdef0123456789abcdef'}})
+        self.assertEqual(transcript['accepted_correct'], 4)
+
     def test_host_sdk_thread_can_use_engine_created_on_setup_thread(self):
         exam = self.session()
         result = []
@@ -365,7 +401,10 @@ class AgentSessionTests(unittest.TestCase):
             def present_proctor_item(self, item_id): return exam.item(item_id)
             def finish(self, **kwargs):
                 self_test.assertFalse(kwargs['finalize'])
+                turn = len(messages)
                 actions.pop(0)()
+                if turn == 2:
+                    return {'status': 'error', 'result': {'payloads': []}}, ''
                 return {'payloads': [{'text': 'The exam is complete; all answers are correct.'}]}, ''
             def next_practice_turn(self, key): pass
             def submit_answered_practice_module(self):

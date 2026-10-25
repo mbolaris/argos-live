@@ -263,7 +263,8 @@ def compare(values):
                   'created': value['created']}
         if value['kind'] == 'ability':
             rows.append(dict(common, metric='accuracy', value=value['summary']['accuracy'],
-                             format_errors=value['summary']['format_errors']))
+                             format_errors=value['summary']['format_errors'],
+                             partitions=value['summary'].get('partitions')))
         else:
             from .bench_speed import numeric, summary
             for prompt in value['prompts']:
@@ -314,6 +315,7 @@ def matched_details(values):
             summary = value['summary']
             entry.update(accuracy=summary['accuracy'], correct=summary['correct'], total=summary['total'],
                          format_errors=summary['format_errors'], categories=summary['categories'],
+                         partitions=summary.get('partitions'),
                          qualification=value.get('qualification'), document_context=value.get('document_context'),
                          context=value['settings'].get('context'))
         else:
@@ -346,7 +348,7 @@ def matched_details(values):
         items = []
         for item in ordered[0]['items']:
             row = {'item_id': item['item_id'], 'category': item['category'], 'passage_id': item.get('passage_id'),
-                   'question': item.get('question'), 'runs': {}}
+                   'question': item.get('question'), 'partition': item.get('partition'), 'runs': {}}
             for value in ordered:
                 scored = next((x for x in value['items'] if x['item_id'] == item['item_id']), None)
                 if scored is None:
@@ -531,6 +533,17 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
                 'delta_format_errors': c_cat.get('format_errors', 0) - b_cat.get('format_errors', 0),
             }
 
+        partition_deltas = {}
+        for partition, b_part in b_sum.get('partitions', {}).items():
+            c_part = c_sum.get('partitions', {}).get(partition, {})
+            partition_deltas[partition] = {
+                'baseline_correct': b_part.get('correct', 0),
+                'candidate_correct': c_part.get('correct', 0),
+                'total': b_part.get('total', 0),
+                'delta_correct': c_part.get('correct', 0) - b_part.get('correct', 0),
+                'delta_format_errors': c_part.get('format_errors', 0) - b_part.get('format_errors', 0),
+            }
+
         label = c_rec['preset'] if detected == 'recipe' else candidate['model']
         if corr_delta > 0:
             verdict = 'observed_gain'
@@ -558,6 +571,7 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
             item_rows.append({
                 'item_id': item_id,
                 'category': b_it['category'],
+                'partition': b_it.get('partition'),
                 'passage_id': b_it.get('passage_id'),
                 'question': b_it.get('question'),
                 'baseline_outcome': b_it['outcome'],
@@ -572,6 +586,7 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
             'correct_delta': corr_delta,
             'format_error_delta': fmt_delta,
             'category_deltas': cat_deltas,
+            'partition_deltas': partition_deltas,
             'verdict': verdict,
             'summary': summary_text,
         }
@@ -637,13 +652,17 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
 
 def export_csv(comparison):
     output = io.StringIO(newline='')
-    fields = ['id', 'model', 'manifest_digest', 'created', 'metric', 'value', 'format_errors']
+    fields = ['id', 'model', 'manifest_digest', 'created', 'metric', 'value', 'format_errors', 'partitions']
     writer = csv.DictWriter(output, fieldnames=fields, lineterminator='\n')
     writer.writeheader()
     for row in comparison['rows']:
         # Protect spreadsheet consumers from formula-bearing untrusted model labels.
         safe = {key: ("'" + value if isinstance(value, str) and value.lstrip().startswith(('=', '+', '-', '@')) else value)
                 for key, value in row.items()}
+        if isinstance(safe.get('partitions'), dict):
+            safe['partitions'] = json.dumps(safe['partitions'], sort_keys=True, separators=(',', ':'))
+        elif safe.get('partitions') is None:
+            safe['partitions'] = ''
         writer.writerow(safe)
     return output.getvalue()
 

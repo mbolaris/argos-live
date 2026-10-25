@@ -13,12 +13,12 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import auto_setup, proctor_service, starter
+from argoslive import auto_setup, catalog, model_verify, proctor_service
 from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 
 
 def safe_controller_diagnostics(turn):
-    """Export bounded error classes and counters, never arguments or messages."""
+    """Export bounded worker outcomes, error classes and counters, never text."""
     if not isinstance(turn, dict):
         return {}
     result = {}
@@ -26,7 +26,7 @@ def safe_controller_diagnostics(turn):
     if type(count) is int and 0 <= count <= 10000:
         result['host_tool_requests'] = count
     allowed = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
-               'proctor_continue', 'proctor_submit', 'proctor_feedback'}
+               'proctor_continue', 'proctor_submit', 'proctor_feedback', 'proctor_tool_call'}
     error_codes = {'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
         'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
         'INVALID_SUBMISSION_ARGUMENTS', 'ITEM_NOT_IN_MODULE', 'MODULE_NOT_RELEASED',
@@ -52,6 +52,31 @@ def safe_controller_diagnostics(turn):
             for row in outcomes[:64]
             if (isinstance(row, dict) and row.get('kind') in allowed | {'proctor_host_submit', 'proctor_finalize'} and
                 isinstance(row.get('status'), str) and len(row['status']) <= 64)]
+    worker_turns = turn.get('worker_turns')
+    if isinstance(worker_turns, list):
+        safe_turns = []
+        for row in worker_turns[:32]:
+            if (not isinstance(row, dict) or row.get('outcome') not in
+                    {'completed', 'incomplete-turn', 'blocked-turn'} or
+                    type(row.get('turn')) is not int or not 1 <= row['turn'] <= 10000 or
+                    type(row.get('returncode')) is not int or not -255 <= row['returncode'] <= 255 or
+                    any(type(row.get(key)) is not int or not 0 <= row[key] <= 2 * 1024**2
+                        for key in ('stdout_bytes', 'stderr_bytes')) or
+                    any(type(row.get(key)) is not bool for key in
+                        ('process_group_drained', 'session_bound')) or
+                    type(row.get('host_tool_requests')) is not int or
+                    not 0 <= row['host_tool_requests'] <= 10000 or
+                    type(row.get('host_tool_failures')) is not int or
+                    not 0 <= row['host_tool_failures'] <= 32 or
+                    row.get('response_status') not in {'ok', 'error'}):
+                continue
+            safe = {key: row[key] for key in ('turn', 'outcome', 'returncode', 'stdout_bytes',
+                    'stderr_bytes', 'process_group_drained', 'session_bound',
+                    'host_tool_requests', 'host_tool_failures', 'response_status')}
+            if row.get('sdk_error_kind') in {'incomplete_turn', 'hook_block'}:
+                safe['sdk_error_kind'] = row['sdk_error_kind']
+            safe_turns.append(safe)
+        result['worker_turns'] = safe_turns
     diagnostics = turn.get('admission_diagnostics')
     safe_counts = ('tool_hooks', 'bound_calls', 'executions')
     safe_rejections = ('unknown_tool', 'missing_admission', 'invalid_call_id', 'stale_binding')
@@ -65,19 +90,65 @@ def safe_controller_diagnostics(turn):
     return result
 
 
-def run(cli, ollama, seed, report, *, deterministic_profile=False):
+def safe_finish_failure(path):
+    """Copy only fixed-schema controller failure facts; never export text output."""
+    if not path.is_file():
+        return None
+    value = json.loads(path.read_text(encoding='utf-8'))
+    if value.get('schema') != 'argos-controller-failure/1':
+        return {'schema_valid': False}
+    failure = value.get('failure')
+    if not isinstance(failure, dict):
+        return {'schema_valid': False}
+    result = {'schema_valid': True}
+    for key in ('code', 'exception_class'):
+        item = failure.get(key)
+        if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', item):
+            result[key] = item
+    for key in ('returncode', 'stdout_bytes', 'stderr_bytes', 'live_group_members'):
+        item = failure.get(key)
+        if type(item) is int and -255 <= item <= 2 * 1024**2:
+            result[key] = item
+    for key in ('status_ok', 'payloads_list', 'session_bound'):
+        item = failure.get(key)
+        if type(item) is bool:
+            result[key] = item
+    response = failure.get('worker_response')
+    if isinstance(response, dict):
+        safe_response = {}
+        for key in ('json_valid', 'size_limited', 'object', 'result_object', 'error_present',
+                    'session_bound'):
+            item = response.get(key)
+            if type(item) is bool:
+                safe_response[key] = item
+        for key in ('status', 'error_code', 'error_name', 'error_type', 'error_kind'):
+            item = response.get(key)
+            if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,96}', item):
+                safe_response[key] = item
+        for key in ('payload_count',):
+            item = response.get(key)
+            if type(item) is int and 0 <= item <= 10000:
+                safe_response[key] = item
+        result['worker_response'] = safe_response
+    return result
+
+
+def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=False):
     scratch = Path(os.environ.get('RUNNER_TEMP', '/missing')).resolve()
-    seed = seed.resolve(strict=True)
+    model_store = model_store.resolve(strict=True)
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or
-            scratch not in seed.parents or os.geteuid() == 0):
+            scratch not in model_store.parents or os.geteuid() == 0):
         raise ValueError('Real Proctor smoke requires an unprivileged disposable hosted fixture')
-    identity = starter.read_only(seed, include_model_identity=True)['model_identity']
+    entry = next((row for row in catalog.load()['models'] if row['tag'] == model_tag), None)
+    if entry is None or 'tools' not in entry['capabilities']:
+        raise ValueError('Real Proctor smoke requires an exact catalog-pinned tool-capable model')
+    identity = model_verify.verify(model_store, entry, sync=False, include_identity=True)
     with tempfile.TemporaryDirectory(prefix='argos-proctor-real-', dir=scratch) as temporary:
         home = Path(temporary)
         workspace = home / '.openclaw/workspace'
         workspace.mkdir(mode=0o700, parents=True)
-        config = auto_setup.conversation_config(starter.TAG, workspace,
+        config = auto_setup.conversation_config(model_tag, workspace,
             plugin_root=ROOT / 'openclaw-plugin/argos-improve')
         if deterministic_profile:
             config['models']['providers']['ollama']['models'][0]['params'] = {'temperature': 0}
@@ -86,11 +157,12 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
         config_path.chmod(0o600)
         state = home / '.config/argos-live/state.json'
         state.parent.mkdir(mode=0o700, parents=True)
-        state.write_text(json.dumps({'model': starter.TAG}))
+        state.write_text(json.dumps({'model': model_tag}))
         # Substitute only fixture storage discovery. Identity is verified from
-        # the same immutable seed; service, model, answers and signing are real.
+        # the catalog-pinned model store; service, model, answers and signing are real.
         def source(_home, *, include_model_identity=False):
-            return ((seed, starter.TAG, identity) if include_model_identity else (seed, starter.TAG))
+            return ((model_store, model_tag, identity) if include_model_identity
+                    else (model_store, model_tag))
         original_environment = proctor_service.owned_gateway.environment
         def observed_environment(home, config_path):
             env = original_environment(home, config_path)
@@ -98,11 +170,24 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
                 ARGOS_NATIVE_REQUEST_REPORT=str(home / 'proctor-wire.json'),
                 ARGOS_NATIVE_OPENCLAW_ENTRY=str(cli.resolve()))
             return env
-        with patch.object(proctor_service.startup, 'source', side_effect=source), \
+        try:
+            with patch.object(proctor_service.startup, 'source', side_effect=source), \
                 patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
                 patch.object(proctor_service.owned_gateway, 'environment', side_effect=observed_environment), \
                 patch.dict(os.environ, {'PATH': str(ollama.resolve().parent) + os.pathsep + os.environ['PATH']}):
-            result = proctor_service.run_practice(home, executable=str(cli.absolute()))
+                result = proctor_service.run_practice(home, executable=str(cli.absolute()))
+        except BaseException as error:
+            state_root = home / '.local/state/argos-live/workload'
+            turn_path = state_root / 'controller-turn.json'
+            turn = json.loads(turn_path.read_text(encoding='utf-8')) if turn_path.is_file() else {}
+            failure = {'schema': 'argos-real-proctor-service-failure/1',
+                       'failure_class': type(error).__name__,
+                       'controller_failure': safe_finish_failure(state_root / 'controller-failure.json'),
+                       'controller_diagnostics': safe_controller_diagnostics(turn),
+                       'practice_only': True, 'image_acceptance': False}
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(json.dumps(failure, indent=2) + '\n')
+            raise
         root = home / '.local/state/argos-live/proctor'
         import sqlite3
         from contextlib import closing
@@ -118,7 +203,7 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
             'signature_verified': verified,
             'model_identity_bound': payload['subject']['model_identity'] == identity,
             'transcript_sha256': hashlib.sha256(envelope['payload_json'].encode()).hexdigest(),
-            'model_tag': starter.TAG, 'total': payload['total_items'],
+            'model_tag': model_tag, 'total': payload['total_items'],
             'answered': len(payload['accepted_answers']), 'correct': payload['accepted_correct'],
             'practice_only': True, 'calibration_status': 'uncalibrated',
             'host_turns': result['host_turns'],
@@ -128,8 +213,12 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
         receipt['tool_kinds'] = [row['kind'] for row in turn.get('tools', [])
                                 if isinstance(row, dict) and row.get('kind') in
                                 {'proctor_' + name for name in
-                                 ('start', 'status', 'item', 'answer', 'submit', 'host_submit', 'continue', 'feedback', 'finalize')}]
+                                 ('start', 'status', 'item', 'answer', 'submit', 'host_submit', 'continue', 'feedback', 'finalize', 'tool_call')}]
         receipt['controller_diagnostics'] = safe_controller_diagnostics(turn)
+        tool_call_answer = next((row for row in payload['accepted_answers']
+                                 if row.get('item_id') == 'q5'), None)
+        expected_tool_call = {'name': 'argos_evaluate_wait',
+                              'arguments': {'job_id': '0123456789abcdef0123456789abcdef'}}
         wire = home / 'proctor-wire.json'
         receipt['wire_request'] = json.loads(wire.read_text()) if wire.is_file() else {}
         report.parent.mkdir(parents=True, exist_ok=True)
@@ -154,10 +243,17 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
             'envelope': envelope,
             'public_key_der_base64': base64.b64encode(signer.public_key_der).decode()}, indent=2) + '\n')
         if (result['status'] != 'completed' or payload['outcome'] != 'COMPLETED' or
-                payload['total_items'] != 4 or len(payload['accepted_answers']) != 4 or
+                payload['total_items'] != 5 or len(payload['accepted_answers']) != 5 or
+                tool_call_answer is None or json.loads(tool_call_answer['answer']) != expected_tool_call or
+                not any(row.get('kind') == 'proctor_tool_call' and row.get('status') == 'simulated'
+                        for row in turn.get('tools', []) if isinstance(row, dict)) or
                 not all(module['state'] == 'SUBMITTED' for module in payload['modules']) or
                 not verified or not receipt['model_identity_bound']):
-            raise ValueError('Real-model Proctor did not complete all four practice items; see receipt')
+            raise ValueError('Real-model Proctor did not complete and verify all five practice items; see receipt')
+        worker_turns = receipt['controller_diagnostics'].get('worker_turns', [])
+        if (len(worker_turns) != result['host_turns'] or
+                any(not row['process_group_drained'] or not row['session_bound'] for row in worker_turns)):
+            raise ValueError('Real-model Proctor receipt did not verify every drained, session-bound worker turn')
         if (receipt['requested_temperature'] is not None and
                 receipt['wire_request'].get('temperature') != receipt['requested_temperature']):
             raise ValueError('Deterministic fixture request temperature was not observed on the wire')
@@ -165,8 +261,10 @@ def run(cli, ollama, seed, report, *, deterministic_profile=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('openclaw', 'ollama', 'seed', 'report'):
+    for name in ('openclaw', 'ollama', 'model-store', 'report'):
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--model-tag', required=True)
     parser.add_argument('--deterministic-profile', action='store_true')
     args = parser.parse_args()
-    run(args.openclaw, args.ollama, args.seed, args.report, deterministic_profile=args.deterministic_profile)
+    run(args.openclaw, args.ollama, args.model_store, args.model_tag, args.report,
+        deterministic_profile=args.deterministic_profile)

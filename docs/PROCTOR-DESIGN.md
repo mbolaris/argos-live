@@ -13,12 +13,24 @@ do not protect these secrets from root. The signature establishes that the holde
 of a particular installation key issued the record; it does not attest hardware
 or defend against the machine owner.
 
-P1 supports `mcq_single` and `numeric_grid` with deterministic grading. Cartridges
-are uncalibrated: scaled scores and scoring bases are null. Coding, arbitrary
-JSON schemas, in-process tests and imported executable graders are rejected.
+P1 supports `mcq_single`, `numeric_grid`, and bounded `json_object` responses
+with deterministic grading. Structured responses use a deliberately small
+schema subset: closed objects, arrays, bounded strings, integers, booleans, and
+null. Duplicate keys, unknown schema keywords, extra object properties, and
+non-finite JSON numbers are rejected. JSON answers are compared as parsed
+objects, so key order and whitespace do not affect a score. This can check
+tool-argument shape and exact values. The bundled practice item observes an
+actual `argos_evaluate_wait` plugin call inside the Proctor slot, records its
+name and arguments in the signed transcript, and returns a labeled synthetic
+response without running an evaluation. It checks tool selection and argument
+format in this controlled path, not performance on live jobs. Cartridges are
+uncalibrated: scaled scores and scoring
+bases are null. Coding, general JSON Schema, in-process tests and imported
+executable graders are rejected.
 There is no SAT/MCAT/IQ equivalence or claimed general intelligence measurement.
-Grader `choice-numeric/2` accepts exact decimal values and simple exact fractions
-for numeric-grid responses; it does not evaluate arithmetic expressions or round.
+Grader `choice-numeric-json/3` accepts exact decimal values and simple exact
+fractions for numeric-grid responses; it does not evaluate arithmetic
+expressions or round.
 
 The engine accepts only `declared` enforcement and closed-book/reference-aided
 policies. A subject can describe a model driver, booth agent or deployed profile;

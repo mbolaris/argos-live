@@ -70,6 +70,15 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         self.assertEqual(result['summary']['correct'], 40)
         self.assertEqual(len(result['settings']['suite_sha256']), 64)
 
+    def test_tool_schema_form_records_partition_scores_and_full_coverage(self):
+        result = bench_openclaw.run(suite='tool-schema', runner=FakeOpenClaw(suite='tool-schema'))
+        self.assertEqual(result['suite'], 'openclaw-tool-schema')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/tool-schema/1.1.0')
+        self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+        self.assertEqual(result['summary']['partitions']['practice']['correct'], 20)
+        self.assertEqual(result['summary']['partitions']['heldout']['correct'], 20)
+        self.assertTrue(all(item.get('partition') in ('practice', 'heldout') for item in result['items']))
+
     def test_copied_context_presence_and_changes_invalidate_runs(self):
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp)

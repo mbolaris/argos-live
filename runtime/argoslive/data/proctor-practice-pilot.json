@@ -1,7 +1,7 @@
 {
   "manifest": {
     "cartridge_id": "argos-practice-pilot",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "title": "Argos Proctor tool-flow pilot",
     "content_origin": "argos_original",
     "calibration_status": "uncalibrated",
@@ -20,9 +20,10 @@
         "aids": [],
         "items": [
           {"item_id": "q1", "position": 1, "domain": "reasoning", "prompt": "Which number is even?", "response_type": "mcq_single", "choices": {"A": "3", "B": "4", "C": "5", "D": "7"}, "correct": "B"},
-          {"item_id": "q2", "position": 2, "domain": "math", "prompt": "What is 2 + 2?", "response_type": "numeric_grid", "choices": {}, "correct": "4"}
+          {"item_id": "q2", "position": 2, "domain": "math", "prompt": "What is 2 + 2?", "response_type": "numeric_grid", "choices": {}, "correct": "4"},
+          {"item_id": "q5", "position": 3, "domain": "tool_call_format", "prompt": "Make the actual argos_evaluate_wait tool call with job_id 0123456789abcdef0123456789abcdef. This is an isolated Proctor simulation: the host will record your tool name and arguments, then return a synthetic response without starting an evaluation.", "response_type": "json_object", "choices": {}, "schema": {"type": "object", "properties": {"name": {"type": "string"}, "arguments": {"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]}}, "required": ["name", "arguments"]}, "correct": "{\"name\":\"argos_evaluate_wait\",\"arguments\":{\"job_id\":\"0123456789abcdef0123456789abcdef\"}}"}
         ],
-        "routes": [{"minimum": 0, "maximum": 2, "next_module_id": "m2"}]
+          "routes": [{"minimum": 0, "maximum": 3, "next_module_id": "m2"}]
       },
       {
         "module_id": "m2",
