@@ -166,7 +166,7 @@ def main():
         dashboard_seconds = time.monotonic() - started
         stage('firefox')
         # Test-only profile and loopback driver; fail before slow TCG inference.
-        browser = ready_firefox(env, base + '/?token=' + token)
+        browser = ready_firefox(session_env, base + '/?token=' + token)
         stage('cpu-inference')
         from argoslive import bench_speed
         from argoslive.ollama import Client
