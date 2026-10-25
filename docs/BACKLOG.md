@@ -1075,11 +1075,11 @@ Depends on: J7.
   basic graphics entries. This supersedes G1's default choice for that rebuild.
 - Owner requested October 24: make the default screensaver timeout much longer
   in the next image; keep manual screensaver controls available and verify the
-  default after a fresh boot. Set the next image to a 240-minute delay (four
+  default after a fresh boot. Set the next image to a 720-minute delay (twelve
   hours), keep automatic locking disabled, and retain manual screensaver controls.
 - Accept: boot-menu tests/docs updated; actual default selection verified and guest
   entry isolation retained. GRUB selects desktop index1 and BIOS selects only the
-  desktop label by default. Fresh-boot checks confirm the 240-minute delay, no
+  desktop label by default. Fresh-boot checks confirm the 720-minute delay, no
   automatic lock, manual controls, and successful XFCE screensaver D-Bus
   registration. Shell fixture checks both menu outputs; actual ISO menu inspection
   and physical default boot remain separate acceptance.
@@ -1096,6 +1096,21 @@ Depends on: J7.
   settle interval, and the QEMU readiness bound is 90 seconds. This revision is
   not yet built or accepted; rerun CI, build a pinned ISO, and boot-test that exact
   artifact before calling the next image ready.
+
+- October 25 fresh boot follow-up: pinned ISO build `40162468714` contains the
+  240-minute default. QEMU run `40163715416` exposed an artifact-layout assumption
+  before boot; commit `a661775` now locates exactly one ISO while retaining the
+  adjacent SHA-256 check. Subsequent exact-image runs reached and passed the
+  desktop/screensaver acceptance, then exposed that the QEMU smoke bypassed
+  Argos's owned Ollama shadow and tried to create metadata in the read-only seed.
+  The sanitized error was `mkdir <path> permission denied`. Commit `ecb45f6` makes
+  the smoke use the production `startup.source` and `owned_ollama` path. Fresh
+  QEMU run `40166381376` passed the exact image in offline QEMU: desktop and
+  dashboard were ready, the production-owned model path served the bundled
+  read-only model, and the CPU benchmark completed and round-tripped its result.
+  Main tests and schema/recovery CI both passed. No Toronado or SSD changes were
+  made. This QEMU-passed candidate has the old 240-minute setting; the new
+  720-minute source change requires a fresh pinned image build and QEMU run.
 
 ### J1 Live test arena and incremental receipts — `in progress`
 - Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.
