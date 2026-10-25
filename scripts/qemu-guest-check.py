@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -121,6 +122,36 @@ def main():
              '--object-path', '/org/freedesktop/DBus', '--method',
              'org.freedesktop.DBus.NameHasOwner', 'org.xfce.ScreenSaver'],
             env=session_env, capture_output=True, text=True, timeout=10)
+        debug_probe = 'not-run'
+        debug_output = ''
+        for pid in saver_pids.stdout.split():
+            try:
+                os.kill(int(pid), signal.SIGTERM)
+            except (ProcessLookupError, ValueError):
+                pass
+        time.sleep(1)
+        try:
+            probe = subprocess.Popen(['xfce4-screensaver', '--debug'], env=session_env,
+                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     text=True, errors='replace')
+            time.sleep(4)
+            debug_owner = subprocess.run(
+                ['gdbus', 'call', '--session', '--dest', 'org.freedesktop.DBus',
+                 '--object-path', '/org/freedesktop/DBus', '--method',
+                 'org.freedesktop.DBus.NameHasOwner', 'org.xfce.ScreenSaver'],
+                env=session_env, capture_output=True, text=True, timeout=10)
+            debug_probe = debug_owner.stdout.strip() or 'owner-query-failed'
+            try:
+                output, _ = probe.communicate(timeout=3)
+            except subprocess.TimeoutExpired:
+                probe.terminate()
+                output, _ = probe.communicate(timeout=5)
+            debug_output = '\n'.join(
+                line for line in output.splitlines()
+                if any(term in line.lower() for term in ('screensaver', 'xfconf',
+                                                          'error', 'warning')))[-4000:]
+        except (OSError, subprocess.TimeoutExpired) as error:
+            debug_probe = type(error).__name__
         user_journal = subprocess.run(
             ['journalctl', '--user', '-b', '--no-pager', '-n', '100',
              '--grep=xfce4-screensaver|screensaver'],
@@ -136,6 +167,8 @@ def main():
                          f'screensaver process status: {saver_processes}; '
                          f'screensaver environment: {saver_env}; '
                          f'D-Bus owner: {dbus_owner.stdout.strip() or dbus_owner.stderr.strip()}; '
+                         f'debug restart D-Bus owner: {debug_probe}; '
+                         f'debug restart output: {debug_output}; '
                          f'user journal: {user_journal.stdout.strip() or user_journal.stderr.strip()}; '
                          f'session log: {session_error_tail}')
     session_command(['xfce4-screensaver-command', '--deactivate'])
