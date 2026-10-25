@@ -820,8 +820,10 @@ def managed_check_body(started, desktop_seconds, native_lab):
     # native Marionette session waits for the actual enabled DOM control, then
     # sends a trusted WebDriver click; it does not call the start API directly.
     managed_stage('model-lab-button-click')
+    # Under offline TCG the assistant is still finishing heavyweight startup
+    # work here; allow Firefox time to create its Marionette session too.
     native_lab.start(lab_env, origin + '/?' + urlencode({'token': token, 'view': 'lab'})
-                     + '#lab-start', timeout=30)
+                     + '#lab-start', timeout=120)
     native_lab.click_baseline()
     managed_stage('model-lab-button-activated')
 
