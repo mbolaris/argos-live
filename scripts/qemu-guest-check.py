@@ -36,6 +36,18 @@ def main():
         if b'=' in item:
             key, value = item.split(b'=', 1)
             session_env[key.decode()] = value.decode(errors='replace')
+    print('ARGOS_C3_SESSION_ENV ' + json.dumps({
+        key: (session_env.get(key) if key in ('DISPLAY', 'XDG_CURRENT_DESKTOP',
+                                              'XDG_SESSION_TYPE') else
+              bool(session_env.get(key)))
+        for key in ('DISPLAY', 'XDG_CURRENT_DESKTOP', 'XDG_SESSION_TYPE',
+                    'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR')
+    }, sort_keys=True), flush=True)
+
+    def user_process_names():
+        result = subprocess.run(['ps', '-u', 'argos', '-o', 'pid=,comm='],
+                                capture_output=True, text=True, timeout=10)
+        return ' | '.join(line.strip() for line in result.stdout.splitlines())
 
     def session_command(command):
         result = subprocess.run(command, env=session_env, capture_output=True, text=True,
@@ -69,7 +81,8 @@ def main():
     while subprocess.run(['pgrep', '-u', 'argos', '-f', r'(^|/)xfce4-screensaver($| )'],
                          stdout=subprocess.DEVNULL).returncode:
         if time.monotonic() >= saver_deadline:
-            raise ValueError('XFCE screensaver did not start from the desktop autostart entry')
+            raise ValueError('XFCE screensaver did not start from the desktop autostart entry; '
+                             f'user processes: {user_process_names()}')
         time.sleep(1)
     for action in ('--activate', '--deactivate'):
         session_command(['xfce4-screensaver-command', action])
