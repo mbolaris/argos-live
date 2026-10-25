@@ -1398,4 +1398,4 @@ improved · 7 unchanged · 0 worse”) so the marks are immediately understandab
 
 ## October 25 — next-image screensaver follow-up
 
-The owner wants the default screensaver timeout on the next image to be much longer than the current 1,440-minute (24-hour) default. Treat this as a follow-up beyond the current 24-hour candidate; settle and document the exact longer interval when preparing that image. Keep the manual screensaver controls available and automatic locking disabled, then verify the configured default on a fresh boot.
+The owner wants the default screensaver timeout on the next image to be much longer than the current 1,440-minute (24-hour) default. Apply this to the next image intended for USB: change the default to an interval substantially longer than 24 hours. Set and document the exact interval when preparing that image. Keep the manual screensaver controls available and automatic locking disabled, then verify the configured default on a fresh boot.
