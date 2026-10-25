@@ -593,7 +593,7 @@ def proctor_failure_diagnostics(home):
 def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag):
     """Verify one real bundled-model Proctor practice, then return to ready state."""
     import sqlite3
-    from argoslive import startup
+    from argoslive import startup, proctor_service
     from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 
     def dashboard_post(path):
@@ -684,11 +684,14 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         managed_stage('proctor-model-identity-verified')
         failure_code = 'transcript-score'
         score = result_summary
+        definition = json.loads(proctor_service.PILOT_DEFINITION.read_text(encoding='utf-8'))
+        form = next(form for form in definition['forms'] if form['form_id'] == 'pilot-a')
+        expected_items = sum(len(module['items']) for module in form['modules'])
         if (payload.get('outcome') != outcome or type(payload.get('total_items')) is not int or
-                not 0 <= payload['total_items'] <= 4 or
-                (outcome == 'COMPLETED' and payload['total_items'] != 4) or
+                payload['total_items'] != expected_items or
                 type(payload.get('accepted_correct')) is not int or
                 not 0 <= payload['accepted_correct'] <= payload['total_items'] or
+                len(payload.get('accepted_answers', [])) != expected_items or
                 score.get('correct') != payload['accepted_correct'] or
                 score.get('total') != payload['total_items']):
             raise ValueError('Proctor transcript and practice receipt disagree')
