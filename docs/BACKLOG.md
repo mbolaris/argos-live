@@ -1074,12 +1074,15 @@ Depends on: J7.
   desktop with encrypted persistence. Keep explicit no-passphrase guest/reset and
   basic graphics entries. This supersedes G1's default choice for that rebuild.
 - Owner requested October 24: make the default screensaver timeout much longer
-  in the next image; keep manual screensaver controls available and verify the
-  default after a fresh boot. Set the next image to a 720-minute delay (twelve
-  hours), keep automatic locking disabled, and retain manual screensaver controls.
+  in the then-next image; keep manual screensaver controls available and verify
+  the default after a fresh boot. The current candidate set it to 720 minutes
+  (twelve hours), kept automatic locking disabled, and retained manual controls.
+- Owner requested October 25: make the image after that 12-hour candidate much
+  longer. Set its default to 1,440 minutes (24 hours), retain manual screensaver
+  controls, and keep automatic locking disabled.
 - Accept: boot-menu tests/docs updated; actual default selection verified and guest
   entry isolation retained. GRUB selects desktop index1 and BIOS selects only the
-  desktop label by default. Fresh-boot checks confirm the 720-minute delay, no
+  desktop label by default. Fresh-boot checks confirm the 1,440-minute delay, no
   automatic lock, manual controls, and successful XFCE screensaver D-Bus
   registration. Shell fixture checks both menu outputs; actual ISO menu inspection
   and physical default boot remain separate acceptance.
