@@ -4502,7 +4502,7 @@ function renderAutoClimb() {
         const evidence = document.createElement('p');
         evidence.className = 'history-evidence';
         evidence.textContent = runIds.length
-          ? `Saved run IDs: ${runIds.join(', ')}`
+          ? `Local trace run IDs (checksum only, not signed proof): ${runIds.join(', ')}`
           : 'Saved run IDs are unavailable for this older record.';
         div.append(head, reason, evidence);
         return div;
