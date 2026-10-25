@@ -2,8 +2,8 @@
 Type=Application
 Name=Argos Screensaver
 Comment=Start the Argos desktop screensaver
-Exec=/usr/bin/xfce4-screensaver
-TryExec=/usr/bin/xfce4-screensaver
+Exec=/usr/local/sbin/argos-start-screensaver
+TryExec=/usr/local/sbin/argos-start-screensaver
 Terminal=false
 NoDisplay=true
 Hidden=false
