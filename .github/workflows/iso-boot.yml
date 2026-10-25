@@ -92,7 +92,9 @@ jobs:
             test "$VM_ACCEL" = kvm
             args+=(--proctor-smoke)
           fi
-          python3 scripts/smoke-qemu-iso.py work/iso-candidate/argos-live-amd64.iso --output work/vm-smoke --setup-mode "$SETUP_MODE" --accel "$VM_ACCEL" "${args[@]}"
+          mapfile -t images < <(find work/iso-candidate -type f -name argos-live-amd64.iso -print)
+          test "${#images[@]}" -eq 1
+          python3 scripts/smoke-qemu-iso.py "${images[0]}" --output work/vm-smoke --setup-mode "$SETUP_MODE" --accel "$VM_ACCEL" "${args[@]}"
       - name: Record acceptance
         run: |
           echo "## Offline $VM_ACCEL guest acceptance (Proctor smoke: $PROCTOR_SMOKE)" >> "$GITHUB_STEP_SUMMARY"
