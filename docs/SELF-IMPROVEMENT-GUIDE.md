@@ -70,10 +70,13 @@ not change model settings or grant new tools.
    example answer and why it passed or failed.
    If the standard suite is saturated, use the separate challenge form to find
    a new, repeatable weakness before proposing an experiment. For tool-call
-   formatting, use `tool-schema`; its 20 held-out items use unseen tool names
-   and argument keys, with the target balanced across all three tool positions.
-   Always choosing the first listed tool cannot score above 7/20. The host rejects
-   a keep if either candidate run falls below the strongest baseline held-out score.
+   formatting, use `tool-schema`; its 20 unseen-vocabulary items use tool names
+   and argument keys absent from its practice partition, with the target balanced
+   across all three positions. This is a within-suite transfer signal: the tasks
+   and answers are bundled in the image, so it is not independent or sealed
+   validation. Always choosing the first listed tool cannot score above 7/20.
+   The host rejects a keep if either candidate falls below the strongest baseline
+   on that unseen-vocabulary partition.
 3. Choose one modest instruction experiment supported by the misses. For
    `AGENTS.md`, use `argos_inspect`, then `argos_edit_instructions` with a saved
    baseline from the current controller and its inspected hash. The tool
@@ -81,7 +84,8 @@ not change model settings or grant new tools.
 4. Collect two distinct matched baseline runs and two fresh candidate runs.
    `argos_resolve_instructions` enforces the practice policy and verifies
    Keep/Restore against the host snapshot. Confirm any claimed broader
-   improvement on a separate challenge or held-out form.
+   improvement on a distinct challenge or separately administered Proctor form;
+   the tool-schema unseen-vocabulary partition alone is not independent validation.
 5. Call `argos_audit_instructions` before reporting. It checks the host journal,
    exact snapshots, saved run receipts and resolution policy, then returns safe
    aggregate scores and run IDs without answer text. An empty journal is a valid

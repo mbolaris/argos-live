@@ -35,13 +35,15 @@ Explain that the score describes this suite and configuration, not general
 intelligence.
 
 When tool-call formatting is the measured weakness, use `tool-schema`. Each
-question supplies exact tool schemas; 20 practice and 20 held-out questions use
-disjoint tool names and argument keys, with target position balanced across the
-three options. A tool-schema instruction change can be
-kept only after repeated overall improvement, no increase in format errors,
-and both candidate held-out scores meeting or exceeding the strongest baseline
-held-out score. The host enforces a 3/40 overall gain threshold. This is a
-transfer check on an Argos-authored form, not an external benchmark.
+question supplies exact tool schemas; 20 practice and 20 unseen-vocabulary
+questions use disjoint tool names and argument keys, with target position
+balanced across the three options. Both partitions and answer keys are bundled
+with the image, so this is a within-suite transfer signal, not independent or
+sealed validation. A tool-schema instruction change can be kept only after
+repeated overall improvement, no increase in format errors, and both candidate
+unseen-vocabulary scores meeting or exceeding the strongest baseline on that
+partition. The host enforces a 3/40 overall gain threshold. This is an
+Argos-authored probe, not an external benchmark.
 
 When the host launches a dedicated Proctor session and exposes `argos_proctor_*`
 tools, use them only for the host-selected exam. The host, not the agent, selects

@@ -53,12 +53,14 @@ from one suite.
 
 When tool-call formatting is the measured weakness, use `tool-schema`. Every
 item supplies the exact available tool names and argument schemas. Its 20
-practice and 20 held-out tasks use disjoint tool names and argument keys, and
-target position is balanced so always choosing the first tool is insufficient. For an
-instruction change to qualify on this form, repeated runs must gain at least
-3/40 overall, avoid more format errors, and each candidate held-out score must
-match or exceed the strongest baseline held-out score. This checks transfer to
-new schema vocabulary; the form remains an Argos-authored probe.
+practice and 20 unseen-vocabulary tasks use disjoint tool names and argument
+keys, and target position is balanced so always choosing the first tool is
+insufficient. Both partitions and answer keys ship in the image, so the
+unseen-vocabulary score is a within-suite transfer signal, not independent or
+sealed validation. For an instruction change to qualify on this form, repeated
+runs must gain at least 3/40 overall, avoid more format errors, and each
+candidate unseen-vocabulary score must match or exceed the strongest baseline
+on that partition. The form remains an Argos-authored probe.
 
 For a workspace-instruction experiment, use `argos_inspect` first. It returns
 the canonical `AGENTS.md`, current hash, configuration receipt, active change,

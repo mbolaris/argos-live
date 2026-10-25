@@ -142,7 +142,7 @@ function renderEvaluation(value) {
     ? `${summary.correct}/${summary.total} passed`
     : `stopped after ${progress} (${run.failure_code ?? run.state}); this partial run cannot be compared`;
   const partitions = summary.partitions
-    ? ` Practice: ${summary.partitions.practice?.correct ?? 0}/20; held-out: ${summary.partitions.heldout?.correct ?? 0}/20.`
+    ? ` Practice: ${summary.partitions.practice?.correct ?? 0}/20; unseen-vocabulary: ${summary.partitions.heldout?.correct ?? 0}/20 (same bundled suite, not independent validation).`
     : "";
   const next = run.state === "completed"
     ? "Next: append the saved run ID and score to IMPROVEMENT-LOG.md. Compare matched runs and repeat a candidate to confirm a gain. Change only one thing between experiments; do not change setup during a run."
@@ -318,7 +318,7 @@ export default function register(api) {
     description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
     parameters: Type.Object({
       suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema")],
-        { description: "Quick (20), standard (70), challenge (40), or schema-grounded tool practice with disjoint held-out validation (40)." }))
+        { description: "Quick (20), standard (70), challenge (40), or tool-call practice (40; 20 unseen-vocabulary items in the same bundled suite, not independent validation)." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const suite = params.suite ?? 'quick';

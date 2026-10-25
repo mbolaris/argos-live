@@ -51,7 +51,8 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   console.log(JSON.stringify({path:'/private/fixture-result.json', result:{
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-'+suite, suite_version:'argos-openclaw-ability/'+suite+'/fixture1', state:'completed',
     settings:{suite_sha256:'b'.repeat(64),execution_path:'openclaw embedded; ephemeral state; tools denied; v2'}, prompt_fingerprint:{workspace_agents_sha256:'c'.repeat(64)},
-    summary:{correct,total}, coverage:{completed:total,total,complete:true}, elapsed_seconds:12
+    summary:{correct,total,...(suite === 'tool-schema' ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
+    coverage:{completed:total,total,complete:true}, elapsed_seconds:12
   }}));
 } else {
   console.log(JSON.stringify({kind:'ability',suite_version:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'raw/quick/1':'argos-openclaw-ability/quick/fixture1',settings:{execution_path:'openclaw embedded; ephemeral state; tools denied; v2'},workspace_agents_changed:false, rows:[]}));
@@ -97,10 +98,13 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     const schemaRun = await tools.get('argos_evaluate').execute('schema-eval', {suite:'tool-schema'}, undefined,
       (event) => schemaProgress.push(event));
     assert.match(schemaRun.content[0].text, /38\/40 passed/);
+    assert.match(schemaRun.content[0].text, /unseen-vocabulary: 20\/20 \(same bundled suite, not independent validation\)/);
     assert.equal(schemaRun.details.coverage.total, 40);
     assert.equal(schemaProgress.length, 1);
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'tool-schema', '--json']);
+    assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite),
+      /same bundled suite, not independent validation/);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)
