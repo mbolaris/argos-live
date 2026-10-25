@@ -108,10 +108,11 @@ suite/instruction/code digests as each task completes. Raw assistant answer text
 copied into this ledger. Interrupted suite records remain incomplete and cannot support
 Keep. A candidate can be kept only when its practice baseline, candidate practice run,
 both fresh-partition baselines, and both candidate validation runs are all saved and
-complete. The record's SHA-256 is unkeyed: it detects accidental damage, but does not
-prove who wrote the record or prevent a same-user process from changing and recomputing
-it. These records improve traceability; they are not signed Proctor receipts or
-independent validation.
+complete, uniquely referenced, and matched by their declared role, campaign, partition,
+suite digest and task IDs. The record's SHA-256 is unkeyed: it detects accidental damage,
+but does not prove who wrote the record or prevent a same-user process from changing and
+recomputing it. These records improve traceability; they are not signed Proctor receipts
+or independent validation.
 
 ## Models and later adapters
 

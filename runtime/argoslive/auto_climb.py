@@ -656,6 +656,64 @@ class Controller:
         runs = self.session.get('suite_runs', {}) if isinstance(self.session, dict) else {}
         return all(_suite_run_is_complete(runs.get(run_id)) for run_id in run_ids)
 
+    def _suite_run_evidence_matches(self, refs, candidate_id, partition_ids):
+        """Require every promotion receipt to match its intended role and task set."""
+        if not isinstance(refs, dict) or not isinstance(partition_ids, (list, tuple)) or len(partition_ids) != 2:
+            return False
+        p1, p2 = partition_ids
+        baseline_refs = refs.get('fresh_validation_baselines')
+        candidate_refs = refs.get('candidate_validation')
+        if not isinstance(baseline_refs, dict) or not isinstance(candidate_refs, dict):
+            return False
+        ids = [refs.get('kept_practice_baseline'), refs.get('candidate_practice'),
+               baseline_refs.get(p1), baseline_refs.get(p2),
+               candidate_refs.get(p1), candidate_refs.get(p2)]
+        if any(not isinstance(run_id, str) or not run_id for run_id in ids) or len(set(ids)) != len(ids):
+            return False
+        if not self._suite_run_refs_valid(ids):
+            return False
+
+        runs = self.session.get('suite_runs', {})
+        records = [runs[run_id] for run_id in ids]
+        session_id = self.session.get('session_id')
+        if not isinstance(session_id, str) or not session_id:
+            return False
+        if any(record.get('run_id') != run_id or record.get('campaign_session_id') != session_id
+               for run_id, record in zip(ids, records)):
+            return False
+
+        kept_practice, candidate_practice, baseline_p1, baseline_p2, candidate_p1, candidate_p2 = records
+        if (kept_practice.get('side') != 'baseline' or
+                kept_practice.get('comparison_role') not in ('practice_baseline', 'candidate_practice') or
+                candidate_practice.get('side') != 'practice' or
+                candidate_practice.get('comparison_role') != 'candidate_practice' or
+                candidate_practice.get('candidate_id') != candidate_id):
+            return False
+
+        for partition_id, baseline, candidate in ((p1, baseline_p1, candidate_p1),
+                                                   (p2, baseline_p2, candidate_p2)):
+            if (baseline.get('side') != 'baseline' or
+                    baseline.get('comparison_role') != f'validation_baseline:{partition_id}' or
+                    baseline.get('candidate_id') != candidate_id or
+                    candidate.get('side') != 'validation' or
+                    candidate.get('comparison_role') != f'candidate_validation:{partition_id}' or
+                    candidate.get('candidate_id') != candidate_id or
+                    baseline.get('suite_sha256') != candidate.get('suite_sha256') or
+                    baseline.get('task_ids') != candidate.get('task_ids')):
+                return False
+
+        if (kept_practice.get('suite_sha256') != candidate_practice.get('suite_sha256') or
+                kept_practice.get('task_ids') != candidate_practice.get('task_ids')):
+            return False
+
+        # A candidate may change its model/configuration, but the runner and scorer
+        # implementation must be identical across its matched evidence set.
+        for key in ('assistant_trial_code_sha256', 'auto_climb_code_sha256', 'runner_type'):
+            values = [record.get(key) for record in records]
+            if not isinstance(values[0], str) or not values[0] or any(value != values[0] for value in values[1:]):
+                return False
+        return True
+
     def _restart_assistant(self, timeout=900, expected_model=None):
         """Wait for owned shutdown, then use the established assistant startup budget."""
         if not self.startup:
@@ -1539,18 +1597,9 @@ class Controller:
                                f'{len(practice_comp["regressions"])} regressions; needs ≥2 gains, 0 regressions).')
 
         if verdict == 'kept':
-            required_run_ids = [
-                run_refs.get('kept_practice_baseline'),
-                run_refs.get('candidate_practice'),
-                run_refs.get('fresh_validation_baselines', {}).get(p1['id']),
-                run_refs.get('fresh_validation_baselines', {}).get(p2['id']),
-                run_refs.get('candidate_validation', {}).get(p1['id']),
-                run_refs.get('candidate_validation', {}).get(p2['id']),
-            ]
-            if (any(not isinstance(run_id, str) for run_id in required_run_ids) or
-                    not self._suite_run_refs_valid(required_run_ids)):
+            if not self._suite_run_evidence_matches(run_refs, candidate['id'], (p1['id'], p2['id'])):
                 verdict = 'restored'
-                decision_reason = ('The measured improvement lacked complete, checksum-checked saved run records; '
+                decision_reason = ('The measured improvement lacked complete, correctly matched saved run records; '
                                    'the candidate was restored.')
 
         # 5. Keep or Restore
