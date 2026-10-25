@@ -22,7 +22,9 @@ screen_saver_has_dbus_owner() {
 
 start_saver_and_wait_for_registration() {
     timeout_seconds=$1
-    "$saver" &
+    # Keep the daemon in the supervisor's process tree so its session-bus
+    # registration can be observed before startup is declared ready.
+    "$saver" --no-daemon &
     saver_pid=$!
     attempt=0
     while [ "$attempt" -lt "$timeout_seconds" ]; do
