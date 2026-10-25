@@ -78,14 +78,26 @@ def main():
     if not saver_ui.is_file():
         raise ValueError('Screensaver preferences are unavailable for manual control')
     saver_deadline = time.monotonic() + 30
-    while subprocess.run(['pgrep', '-u', 'argos', '-f', r'(^|/)xfce4-screensaver($| )'],
-                         stdout=subprocess.DEVNULL).returncode:
-        if time.monotonic() >= saver_deadline:
-            raise ValueError('XFCE screensaver did not start from the desktop autostart entry; '
-                             f'user processes: {user_process_names()}')
+    saver_ready = False
+    last_saver_error = 'screensaver process has not started'
+    while time.monotonic() < saver_deadline:
+        process = subprocess.run(['pgrep', '-u', 'argos', '-f',
+                                  r'(^|/)xfce4-screensaver($| )'],
+                                 stdout=subprocess.DEVNULL)
+        if process.returncode == 0:
+            activate = subprocess.run(['xfce4-screensaver-command', '--activate'], env=session_env,
+                                       capture_output=True, text=True, timeout=10)
+            if activate.returncode == 0:
+                saver_ready = True
+                break
+            last_saver_error = (activate.stderr or activate.stdout).strip()
+        else:
+            last_saver_error = 'screensaver process has not started'
         time.sleep(1)
-    for action in ('--activate', '--deactivate'):
-        session_command(['xfce4-screensaver-command', action])
+    if not saver_ready:
+        raise ValueError('XFCE screensaver did not become ready within 30 seconds: '
+                         f'{last_saver_error}; user processes: {user_process_names()}')
+    session_command(['xfce4-screensaver-command', '--deactivate'])
     refresh = subprocess.run(['systemctl', 'is-active', '--quiet', 'argos-refresh-runtime.service'],
                              timeout=10)
     if refresh.returncode:
