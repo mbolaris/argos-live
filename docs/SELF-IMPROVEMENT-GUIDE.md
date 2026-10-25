@@ -56,6 +56,11 @@ not change model settings or grant new tools.
 > unclear, and for support when a better model, hardware, API access or compute
 > credits could help. Do not request or reveal secrets in public progress logs.
 >
+> An owner-dependent `## Next` is paused. Heartbeats must return `HEARTBEAT_OK`
+> without repeating the waiting log entry, taking an action or making a new
+> snapshot. Resume only after the owner gives explicit direction in the campaign
+> controller conversation.
+>
 > Respect the configured permissions and resource allowance. Stop promptly when
 > requested. Before each mutation, make a private recoverable snapshot appropriate
 > to the change. Do not overwrite later owner edits. If you cannot recover or
