@@ -15,6 +15,7 @@ Owner-approved product contract:
 - Reuses OpenClaw runner, transactions, scoring, hardware probing, and recovery.
 """
 from datetime import datetime, timezone
+import hashlib
 import json
 import math
 import os
@@ -47,6 +48,24 @@ SCHEMA = 'argos-auto-climb/1'
 SESSION_REL_PATH = Path('.local/share/argos-live/auto-climb/session.json')
 INVENTORY_REL_PATH = Path('.local/share/argos-live/auto-climb/exposure-inventory.json')
 INVENTORY_SCHEMA = 'argos-auto-climb-inventory/1'
+MAX_SUITE_RUN_RECORDS = 512
+
+
+def _canonical_digest(value):
+    raw = json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _suite_run_digest(record):
+    payload = dict(record)
+    payload.pop('record_sha256', None)
+    return _canonical_digest(payload)
+
+
+def _suite_run_is_valid(record):
+    return (isinstance(record, dict) and isinstance(record.get('record_sha256'), str) and
+            re.fullmatch(r'[a-f0-9]{64}', record['record_sha256']) is not None and
+            _suite_run_digest(record) == record['record_sha256'])
 
 
 def get_model_catalog_entry(tag):
@@ -351,6 +370,7 @@ class Controller:
         # Ephemeral watch streaming data
         self.current_progress = None
         self.current_receipts = []
+        self.latest_suite_run_id = None
 
     def _load_inventory(self):
         if not self.inventory_path.exists():
@@ -458,10 +478,40 @@ class Controller:
             data = read_json(self.session_path)
             if data.get('schema') != SCHEMA:
                 return None
+            suite_runs = data.get('suite_runs', {})
+            if not isinstance(suite_runs, dict):
+                data['phase'] = 'blocked'
+                data['failure_code'] = 'invalid-suite-run-ledger'
+                data['message'] = 'Saved evaluation run records are invalid; automatic recovery is blocked.'
+                self.startup.lab_active = True
+                write_json(self.session_path, data)
+                return data
+            interrupted_runs = []
+            for run_id, record in suite_runs.items():
+                if not isinstance(record, dict) or record.get('run_id') != run_id:
+                    data['phase'] = 'blocked'
+                    data['failure_code'] = 'invalid-suite-run-ledger'
+                    data['message'] = 'Saved evaluation run records are invalid; automatic recovery is blocked.'
+                    self.startup.lab_active = True
+                    write_json(self.session_path, data)
+                    return data
+                if not _suite_run_is_valid(record):
+                    data['phase'] = 'blocked'
+                    data['failure_code'] = 'invalid-suite-run-ledger'
+                    data['message'] = 'A saved evaluation run record failed its checksum check; automatic recovery is blocked.'
+                    self.startup.lab_active = True
+                    write_json(self.session_path, data)
+                    return data
+                if record.get('status') == 'running':
+                    record['status'] = 'interrupted'
+                    record['finished_at'] = datetime.now(timezone.utc).isoformat()
+                    record['interruption'] = 'Controller restarted before the suite run completed.'
+                    record['record_sha256'] = _suite_run_digest(record)
+                    interrupted_runs.append(run_id)
             phase = data.get('phase')
             mutation = data.get('mutation')
 
-            if phase in ('staging', 'stage', 'retest', 'validate', 'countdown', 'acquire', 'undoing') or mutation:
+            if phase in ('assess', 'staging', 'stage', 'retest', 'validate', 'countdown', 'acquire', 'undoing') or mutation:
                 if mutation and mutation.get('kind') == 'model':
                     expected_model = data.get('active_model', {}).get('model')
                     try:
@@ -521,6 +571,13 @@ class Controller:
                     else:
                         data['phase'] = 'paused'
                         data['message'] = 'Recovered from restart. Workspace reset; session paused.'
+                if interrupted_runs and data.get('phase') != 'blocked':
+                    data['phase'] = 'paused'
+                    data['message'] = 'Recovered from restart. The interrupted evaluation run is marked incomplete; the session is paused.'
+                write_json(self.session_path, data)
+            elif interrupted_runs:
+                data['phase'] = 'paused'
+                data['message'] = 'An incomplete evaluation run was found and marked interrupted; the session is paused.'
                 write_json(self.session_path, data)
             return data
         except (OSError, ValueError):
@@ -539,6 +596,41 @@ class Controller:
                         if attempt == 4:
                             raise
                         time.sleep(0.05)
+
+    def _store_suite_run(self, record):
+        """Persist the current durable record for one assistant task suite."""
+        if not isinstance(self.session, dict):
+            return
+        with self.lock:
+            runs = self.session.setdefault('suite_runs', {})
+            if not isinstance(runs, dict):
+                raise Refused('Saved evaluation run records are invalid; automatic improvement is blocked.')
+            if record['run_id'] not in runs and len(runs) >= MAX_SUITE_RUN_RECORDS:
+                raise Refused('The session run-record limit was reached; start a new reviewed session.')
+            record['record_sha256'] = _suite_run_digest(record)
+            runs[record['run_id']] = record
+            self._save_session()
+
+    def _suite_run_refs_valid(self, refs):
+        """Check that each referenced completed suite record exists and matches its checksum."""
+        def flatten(value):
+            if isinstance(value, str):
+                return [value]
+            if isinstance(value, dict):
+                return [run_id for child in value.values() for run_id in flatten(child)]
+            if isinstance(value, list):
+                return [run_id for child in value for run_id in flatten(child)]
+            return []
+
+        run_ids = flatten(refs)
+        if not run_ids or any(not isinstance(run_id, str) for run_id in run_ids):
+            return False
+        runs = self.session.get('suite_runs', {}) if isinstance(self.session, dict) else {}
+        return all(isinstance(runs.get(run_id), dict) and
+                   runs[run_id].get('status') == 'completed' and
+                   _suite_run_is_valid(runs[run_id]) and
+                   runs[run_id].get('completed_task_count') == runs[run_id].get('task_count')
+                   for run_id in run_ids)
 
     def _restart_assistant(self, timeout=900, expected_model=None):
         """Wait for owned shutdown, then use the established assistant startup budget."""
@@ -633,6 +725,12 @@ class Controller:
                 'progress': self.current_progress,
                 'receipts': list(self.current_receipts),
                 'history': sess.get('history', []),
+                'active_experiment': sess.get('active_experiment'),
+                'suite_runs': {
+                    run_id: {**record, 'integrity_valid': _suite_run_is_valid(record)}
+                    for run_id, record in (sess.get('suite_runs', {}) or {}).items()
+                    if isinstance(record, dict)
+                },
                 'message': sess.get('message', ''),
                 'stopping_reason': sess.get('stopping_reason'),
                 'failure_code': sess.get('failure_code'),
@@ -691,6 +789,9 @@ class Controller:
                     'consumed_partitions': [],
                 },
                 'history': [],
+                'suite_runs': {},
+                'practice_baseline_run_id': None,
+                'partition_baseline_run_ids': {},
                 'completed_candidates': [],
                 'experiments_since_last_gain': 0,
                 'starting_level': None,
@@ -944,13 +1045,25 @@ class Controller:
         slice_start_time = self.clock()
         self._active_slice_start = slice_start_time
         try:
+            if (self.session.get('starting_level') and
+                    not self.session.get('practice_baseline_run_id')):
+                # Older sessions did not persist suite run IDs. Re-establish the
+                # kept-build baseline before allowing any new candidate to win.
+                self.session.pop('practice_baseline', None)
+                self.session['starting_level'] = None
+                self.session['current_level'] = None
+                self.session['message'] = 'Refreshing the baseline to create traceable saved run evidence…'
+                self._save_session()
+
             # 1. Assessment / Baseline check
             if not self.session.get('starting_level'):
                 self.session['phase'] = 'assess'
                 self.session['message'] = 'Assessing your AI’s current baseline on foundation challenges…'
                 self._save_session()
 
-                practice_baseline = self._run_task_suite('baseline', self.practice_tasks, 'practice', slice_start_time=slice_start_time)
+                practice_baseline = self._run_task_suite(
+                    'baseline', self.practice_tasks, 'practice', slice_start_time=slice_start_time,
+                    comparison_role='practice_baseline')
                 if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
                     return
 
@@ -966,6 +1079,7 @@ class Controller:
                 self.session['starting_level'] = baseline_level
                 self.session['current_level'] = baseline_level
                 self.session['practice_baseline'] = practice_baseline
+                self.session['practice_baseline_run_id'] = self.latest_suite_run_id
                 self._save_session()
 
             # Main experiment loop
@@ -1238,14 +1352,30 @@ class Controller:
 
         self.session['phase'] = 'assess'
         self.session['message'] = 'Checking the current kept build before trying this change...'
+        run_refs = {
+            'kept_practice_baseline': self.session.get('practice_baseline_run_id'),
+            'fresh_validation_baselines': {},
+            'candidate_practice': None,
+            'candidate_validation': {},
+        }
+        self.session['active_experiment'] = {'candidate_id': candidate['id'], 'run_ids': run_refs}
         self._save_session()
         p_baselines = self.session.setdefault('partition_baselines', {})
-        p1_baseline = self._run_task_suite('baseline', p1, f'kept-{p1["id"]}', slice_start_time=slice_start_time)
+        p1_baseline = self._run_task_suite(
+            'baseline', p1, f'kept-{p1["id"]}', slice_start_time=slice_start_time,
+            candidate_id=candidate['id'], comparison_role='validation_baseline:' + p1['id'])
         if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
             return
-        p2_baseline = self._run_task_suite('baseline', p2, f'kept-{p2["id"]}', slice_start_time=slice_start_time)
+        run_refs['fresh_validation_baselines'][p1['id']] = self.latest_suite_run_id
+        self.session.setdefault('partition_baseline_run_ids', {})[p1['id']] = self.latest_suite_run_id
+        self._save_session()
+        p2_baseline = self._run_task_suite(
+            'baseline', p2, f'kept-{p2["id"]}', slice_start_time=slice_start_time,
+            candidate_id=candidate['id'], comparison_role='validation_baseline:' + p2['id'])
         if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
             return
+        run_refs['fresh_validation_baselines'][p2['id']] = self.latest_suite_run_id
+        self.session.setdefault('partition_baseline_run_ids', {})[p2['id']] = self.latest_suite_run_id
         p_baselines[p1['id']] = p1_baseline
         p_baselines[p2['id']] = p2_baseline
         self._save_session()
@@ -1276,8 +1406,10 @@ class Controller:
                     'candidate': candidate,
                     'verdict': 'failed',
                     'reason': f'Assistant model switch to {candidate["tag"]} failed; restored previous model {prev_model}.',
+                    'evidence_run_ids': run_refs,
                     'timestamp': datetime.now(timezone.utc).isoformat(),
                 })
+                self.session.pop('active_experiment', None)
                 self._save_session()
                 return
 
@@ -1286,7 +1418,11 @@ class Controller:
         self.session['message'] = f'Evaluating {candidate["title"]} on practice challenges…'
         self._save_session()
 
-        practice_retest = self._run_task_suite('practice', self.practice_tasks, candidate['title'], slice_start_time=slice_start_time)
+        practice_retest = self._run_task_suite(
+            'practice', self.practice_tasks, candidate['title'], slice_start_time=slice_start_time,
+            candidate_id=candidate['id'], comparison_role='candidate_practice')
+        run_refs['candidate_practice'] = self.latest_suite_run_id
+        self._save_session()
         if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
             try:
                 if kind == 'instruction':
@@ -1315,7 +1451,11 @@ class Controller:
             self.session['message'] = 'Practice showed gains. Verifying on fresh independent validation partition…'
             self._save_session()
 
-            val1_retest = self._run_task_suite('validation', p1, candidate['title'], slice_start_time=slice_start_time)
+            val1_retest = self._run_task_suite(
+                'validation', p1, candidate['title'], slice_start_time=slice_start_time,
+                candidate_id=candidate['id'], comparison_role='candidate_validation:' + p1['id'])
+            run_refs['candidate_validation'][p1['id']] = self.latest_suite_run_id
+            self._save_session()
             if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
                 try:
                     if kind == 'instruction':
@@ -1339,7 +1479,11 @@ class Controller:
                 validation_comp = comp1
             else:
                 # 4. Confirmation on a SECOND disjoint fresh partition!
-                val2_retest = self._run_task_suite('validation', p2, candidate['title'], slice_start_time=slice_start_time)
+                val2_retest = self._run_task_suite(
+                    'validation', p2, candidate['title'], slice_start_time=slice_start_time,
+                    candidate_id=candidate['id'], comparison_role='candidate_validation:' + p2['id'])
+                run_refs['candidate_validation'][p2['id']] = self.latest_suite_run_id
+                self._save_session()
                 if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
                     try:
                         if kind == 'instruction':
@@ -1370,6 +1514,21 @@ class Controller:
             decision_reason = (f'Practice challenges did not meet win threshold ({len(practice_comp["gains"])} gains, '
                                f'{len(practice_comp["regressions"])} regressions; needs ≥2 gains, 0 regressions).')
 
+        if verdict == 'kept':
+            required_run_ids = [
+                run_refs.get('kept_practice_baseline'),
+                run_refs.get('candidate_practice'),
+                run_refs.get('fresh_validation_baselines', {}).get(p1['id']),
+                run_refs.get('fresh_validation_baselines', {}).get(p2['id']),
+                run_refs.get('candidate_validation', {}).get(p1['id']),
+                run_refs.get('candidate_validation', {}).get(p2['id']),
+            ]
+            if (any(not isinstance(run_id, str) for run_id in required_run_ids) or
+                    not self._suite_run_refs_valid(required_run_ids)):
+                verdict = 'restored'
+                decision_reason = ('The measured improvement lacked complete, checksum-checked saved run records; '
+                                   'the candidate was restored.')
+
         # 5. Keep or Restore
         self.session['phase'] = 'keep-or-restore'
         self.session['message'] = f'Decision: {verdict.upper()} ({decision_reason})'
@@ -1378,8 +1537,11 @@ class Controller:
         if verdict == 'kept':
             # Rebase practice baseline onto the newly verified kept build!
             self.session['practice_baseline'] = practice_retest
+            self.session['practice_baseline_run_id'] = run_refs.get('candidate_practice')
             p_baselines[p1['id']] = val1_retest
             p_baselines[p2['id']] = val2_retest
+            self.session.setdefault('partition_baseline_run_ids', {})[p1['id']] = run_refs['candidate_validation'][p1['id']]
+            self.session.setdefault('partition_baseline_run_ids', {})[p2['id']] = run_refs['candidate_validation'][p2['id']]
             if kind == 'instruction':
                 self.session['current_kept_raw'] = read_text(agents_path(self.home))
                 self.session['raw_before'] = self.session['current_kept_raw']
@@ -1435,8 +1597,10 @@ class Controller:
                 'regressions': validation_comp.get('regressions', []) if validation_comp else [],
                 'totals': validation_comp.get('totals', {}) if validation_comp else {},
             } if validation_comp else None,
+            'evidence_run_ids': run_refs,
             'timestamp': datetime.now(timezone.utc).isoformat(),
         })
+        self.session.pop('active_experiment', None)
         self._save_session()
 
     def _restore_instruction(self, raw_before, raw_after):
@@ -1667,8 +1831,9 @@ class Controller:
         if hasattr(self.runner, 'expected_model'):
             self.runner.expected_model = target_tag
 
-    def _run_task_suite(self, side, suite, label, slice_start_time=None):
-        """Run tasks through OpenClaw runner turn-by-turn with live streaming progress."""
+    def _run_task_suite(self, side, suite, label, slice_start_time=None, *,
+                        candidate_id=None, comparison_role=None):
+        """Run one assistant suite and durably record traceable, hash-bound outcomes."""
         if self.runner is None or not hasattr(self.runner, 'turn'):
             raise TrialTurnError('missing-runner')
 
@@ -1676,80 +1841,149 @@ class Controller:
         passages = suite.get('passages', {})
         tasks = suite.get('tasks', [])
         total = len(tasks)
-
+        run_id = str(uuid.uuid4())
+        self.latest_suite_run_id = run_id
         self.current_receipts = []
 
-        for idx, task in enumerate(tasks):
-            if self._should_stop():
-                break
-            if slice_start_time is not None and self._check_budget_exhaustion(slice_start_time):
-                break
-            remaining = self._remaining_duration(slice_start_time) if slice_start_time is not None else None
-            if remaining is not None and remaining <= 0:
-                self._check_budget_exhaustion(slice_start_time)
-                break
-
-            prompt_msg = message(task, passages)
-            current_item = {
-                'id': task['id'],
-                'kind': task['kind'],
-                'question': task.get('question') or task.get('message'),
-                'passage': passages.get(task.get('passage')),
-            }
-
-            self.current_progress = {
-                'side': side,
-                'label': label,
-                'done': idx,
-                'total': total,
-                'current': current_item,
-            }
-
-            start_t = self.clock()
+        def file_digest(path):
             try:
-                if remaining is not None and isinstance(self.runner, assistant_trial.OpenClawRunner):
-                    turn_res = self.runner.turn(prompt_msg, timeout=remaining)
+                path = storage.safe_local(Path(path))
+                return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+            except (OSError, ValueError):
+                return None
+
+        runner_expected_model = getattr(self.runner, 'expected_model', None)
+
+        record = {
+            'schema': 'argos-auto-climb-suite-run/1',
+            'integrity_scheme': 'sha256-unkeyed',
+            'run_id': run_id,
+            'campaign_session_id': self.session.get('session_id') if isinstance(self.session, dict) else None,
+            'side': side,
+            'label': label,
+            'candidate_id': candidate_id,
+            'comparison_role': comparison_role,
+            'status': 'running',
+            'started_at': datetime.now(timezone.utc).isoformat(),
+            'finished_at': None,
+            'task_count': total,
+            'completed_task_count': 0,
+            'task_ids': [task.get('id') for task in tasks],
+            'items': [],
+            'model_identity': {
+                'session_active_model': dict(self.session.get('active_model') or {})
+                if isinstance(self.session, dict) else {},
+                'runner_expected_model': runner_expected_model,
+            },
+            'config_fingerprint': fingerprint(self.home) if self.home else {},
+            'instructions_sha256': file_digest(agents_path(self.home)) if self.home else None,
+            'suite_sha256': _canonical_digest(suite),
+            'assistant_trial_code_sha256': file_digest(assistant_trial.__file__),
+            'auto_climb_code_sha256': file_digest(__file__),
+            'runner_type': f'{type(self.runner).__module__}.{type(self.runner).__qualname__}',
+        }
+        active_experiment = self.session.get('active_experiment') if isinstance(self.session, dict) else None
+        if (isinstance(active_experiment, dict) and active_experiment.get('candidate_id') == candidate_id and
+                isinstance(comparison_role, str) and comparison_role):
+            active_experiment.setdefault('run_ids', {})[comparison_role] = run_id
+        self._store_suite_run(record)
+
+        try:
+            for idx, task in enumerate(tasks):
+                if self._should_stop():
+                    break
+                if slice_start_time is not None and self._check_budget_exhaustion(slice_start_time):
+                    break
+                remaining = self._remaining_duration(slice_start_time) if slice_start_time is not None else None
+                if remaining is not None and remaining <= 0:
+                    self._check_budget_exhaustion(slice_start_time)
+                    break
+
+                prompt_msg = message(task, passages)
+                current_item = {
+                    'id': task['id'],
+                    'kind': task['kind'],
+                    'question': task.get('question') or task.get('message'),
+                    'passage': passages.get(task.get('passage')),
+                }
+
+                self.current_progress = {
+                    'side': side,
+                    'label': label,
+                    'done': idx,
+                    'total': total,
+                    'current': current_item,
+                }
+
+                start_t = self.clock()
+                try:
+                    if remaining is not None and isinstance(self.runner, assistant_trial.OpenClawRunner):
+                        turn_res = self.runner.turn(prompt_msg, timeout=remaining)
+                    else:
+                        turn_res = self.runner.turn(prompt_msg)
+                except TrialTurnError as exc:
+                    if self._should_stop() or (hasattr(exc, 'code') and exc.code == 'cancelled'):
+                        break
+                    if (slice_start_time is not None and
+                            hasattr(exc, 'code') and exc.code == 'turn-timeout' and
+                            self._check_budget_exhaustion(slice_start_time)):
+                        break
+                    raise
+                if isinstance(turn_res, dict):
+                    reply_text = turn_res.get('text', '')
+                    elapsed = turn_res.get('elapsed_seconds', round(self.clock() - start_t, 2))
+                    turn_session_id = turn_res.get('session_id')
+                elif isinstance(turn_res, str):
+                    reply_text = turn_res
+                    elapsed = round(self.clock() - start_t, 2)
+                    turn_session_id = None
                 else:
-                    turn_res = self.runner.turn(prompt_msg)
-            except TrialTurnError as exc:
-                if self._should_stop() or (hasattr(exc, 'code') and exc.code == 'cancelled'):
-                    break
-                if (slice_start_time is not None and
-                        hasattr(exc, 'code') and exc.code == 'turn-timeout' and
-                        self._check_budget_exhaustion(slice_start_time)):
-                    break
-                raise
-            if isinstance(turn_res, dict):
-                reply_text = turn_res.get('text', '')
-                elapsed = turn_res.get('elapsed_seconds', round(self.clock() - start_t, 2))
-            elif isinstance(turn_res, str):
-                reply_text = turn_res
-                elapsed = round(self.clock() - start_t, 2)
-            else:
-                raise TrialTurnError('invalid-reply')
+                    raise TrialTurnError('invalid-reply')
 
-            if not reply_text or not reply_text.strip():
-                raise TrialTurnError('empty-reply')
+                if not reply_text or not reply_text.strip():
+                    raise TrialTurnError('empty-reply')
 
-            score_res = score(task, passages, reply_text)
-            receipt = {
-                'id': task['id'],
-                'kind': task['kind'],
-                'question': current_item['question'],
-                'passage': current_item['passage'],
-                'passed': score_res['passed'],
-                'checks': score_res['checks'],
-                'reply': {
-                    'text': reply_text,
+                score_res = score(task, passages, reply_text)
+                runner_session_id = (turn_session_id or getattr(self.runner, 'session_id', None) or
+                                     f'turn-{idx}')
+                receipt = {
+                    'id': task['id'],
+                    'kind': task['kind'],
+                    'question': current_item['question'],
+                    'passage': current_item['passage'],
+                    'passed': score_res['passed'],
+                    'checks': score_res['checks'],
+                    'reply': {
+                        'text': reply_text,
+                        'elapsed_seconds': elapsed,
+                        'session_id': runner_session_id,
+                    },
                     'elapsed_seconds': elapsed,
-                    'session_id': getattr(self.runner, 'session_id', None) or f'turn-{idx}',
-                },
-                'elapsed_seconds': elapsed,
-            }
+                }
 
-            results.append(receipt)
-            self.current_receipts.append(receipt)
-            self.current_progress['latest'] = receipt
-            self.current_progress['done'] = idx + 1
+                results.append(receipt)
+                self.current_receipts.append(receipt)
+                record['items'].append({
+                    'task_id': task['id'],
+                    'passed': bool(score_res['passed']),
+                    'checks': score_res['checks'],
+                    'answer_sha256': hashlib.sha256(reply_text.encode('utf-8')).hexdigest(),
+                    'elapsed_seconds': elapsed,
+                    'assistant_session_id': runner_session_id,
+                })
+                record['completed_task_count'] = len(results)
+                self._store_suite_run(record)
+                self.current_progress['latest'] = receipt
+                self.current_progress['done'] = idx + 1
 
+        except Exception as exc:
+            record['status'] = 'failed'
+            record['finished_at'] = datetime.now(timezone.utc).isoformat()
+            record['failure_code'] = getattr(exc, 'code', None) or type(exc).__name__
+            self._store_suite_run(record)
+            raise
+
+        record['status'] = 'completed' if len(results) == total else 'partial'
+        record['finished_at'] = datetime.now(timezone.utc).isoformat()
+        self._store_suite_run(record)
         return results

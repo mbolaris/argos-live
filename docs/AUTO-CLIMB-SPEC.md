@@ -101,6 +101,18 @@ comparisons on the verified kept build. Preserve original starting evidence for 
 Durable verified Undo survives completion/reboot. Do not relax criteria to produce a win;
 saturated accuracy or speed-only gains require a separately specified policy.
 
+Auto Climb evidence records use stable per-suite run IDs and save task IDs, scorer checks,
+answer hashes, elapsed times, runner session IDs, model/configuration fingerprints, and
+the session's active model and runner's expected model, configuration fingerprints, and
+suite/instruction/code digests as each task completes. Raw assistant answer text is not
+copied into this ledger. Interrupted suite records remain incomplete and cannot support
+Keep. A candidate can be kept only when its practice baseline, candidate practice run,
+both fresh-partition baselines, and both candidate validation runs are all saved and
+complete. The record's SHA-256 is unkeyed: it detects accidental damage, but does not
+prove who wrote the record or prevent a same-user process from changing and recomputing
+it. These records improve traceability; they are not signed Proctor receipts or
+independent validation.
+
 ## Models and later adapters
 
 Use a small reviewed catalog and actual tested-context memory overhead. Filter all eligible
