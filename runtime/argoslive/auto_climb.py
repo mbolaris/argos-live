@@ -727,7 +727,7 @@ class Controller:
                 'history': sess.get('history', []),
                 'active_experiment': sess.get('active_experiment'),
                 'suite_runs': {
-                    run_id: {**record, 'integrity_valid': _suite_run_is_valid(record)}
+                    run_id: {**record, 'checksum_valid': _suite_run_is_valid(record)}
                     for run_id, record in (sess.get('suite_runs', {}) or {}).items()
                     if isinstance(record, dict)
                 },

@@ -265,6 +265,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             self.assertTrue(all(len(item['answer_sha256']) == 64 for item in record['items']))
             self.assertTrue(auto_climb._suite_run_is_valid(record))
             self.assertEqual(record['integrity_scheme'], 'sha256-unkeyed')
+            public_record = controller.snapshot()['suite_runs'][run_id]
+            self.assertTrue(public_record['checksum_valid'])
+            self.assertNotIn('integrity_valid', public_record)
             self.assertEqual(record['model_identity']['session_active_model']['digest'], 'a' * 64)
             self.assertEqual(record['model_identity']['runner_expected_model'], 'test-model')
             self.assertNotIn(results[0]['reply']['text'], json.dumps(record))
