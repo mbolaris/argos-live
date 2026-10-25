@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from urllib.error import HTTPError
 
 sys.path.insert(0, '/usr/local/lib/argos-live')
 
@@ -187,6 +188,7 @@ def main():
     stage('ollama')
     # The acceptance VM has no compute GPU. Avoid Ollama's Vulkan probe under
     # TCG and retain backend diagnostics for the fixed public smoke prompt.
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     os.environ['OLLAMA_VULKAN'] = '0'
     os.environ['OLLAMA_DEBUG'] = '1'
     daemon = argos.server(state)
@@ -219,7 +221,50 @@ def main():
         # The result records the changed limit, so normal 128-token runs cannot
         # be compared to it. The installed runtime and ISO stay unchanged.
         bench_speed.LIMIT = 8
-        result = bench_speed.run(Client(timeout=600), 'qwen3:0.6b', sizes=['short'])
+        client = Client(timeout=600)
+        try:
+            result = bench_speed.run(client, 'qwen3:0.6b', sizes=['short'])
+        except Exception as error:
+            # Keep server details private: classify only a small, fixed set of
+            # likely causes after retrying with a fixed, one-token diagnostic.
+            diagnosis = 'diagnostic-request-failed'
+            payload = json.dumps({'model': 'qwen3:0.6b', 'prompt': 'Reply OK.',
+                                  'stream': False,
+                                  'options': {'num_ctx': 512, 'num_predict': 1,
+                                              'temperature': 0}}).encode()
+            request = urllib.request.Request('http://127.0.0.1:11434/api/generate',
+                                             data=payload,
+                                             headers={'Content-Type': 'application/json'})
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            try:
+                with opener.open(request, timeout=120):
+                    diagnosis = 'diagnostic-request-passed'
+            except HTTPError as response_error:
+                try:
+                    detail = json.loads(response_error.read(65536)).get('error', '').lower()
+                except (ValueError, UnicodeError, AttributeError):
+                    detail = ''
+                finally:
+                    response_error.close()
+                if any(term in detail for term in ('out of memory', 'not enough memory',
+                                                    'failed to allocate', 'could not allocate')):
+                    diagnosis = 'insufficient-memory'
+                elif any(term in detail for term in ('unsupported architecture',
+                                                      'unsupported model', 'unknown model')):
+                    diagnosis = 'unsupported-model'
+                elif any(term in detail for term in ('no such file', 'cannot open',
+                                                      'failed to open')):
+                    diagnosis = 'missing-model-file'
+                elif any(term in detail for term in ('context length', 'num_ctx')):
+                    diagnosis = 'context-setting'
+                elif any(term in detail for term in ('runner', 'backend', 'llama-server')):
+                    diagnosis = 'runner-startup'
+                else:
+                    diagnosis = f'http-{response_error.code}-unclassified'
+            except (OSError, TimeoutError, ValueError):
+                diagnosis = 'diagnostic-request-unreachable'
+            raise ValueError(f'Starter speed benchmark failed ({type(error).__name__}); '
+                             f'fixed CPU inference diagnostic: {diagnosis}') from error
         if result['prompts'][0]['skipped'] or len(result['prompts'][0]['runs']) != 3:
             raise ValueError('Starter speed benchmark did not complete')
         if any(item['backend']['mode'] != 'CPU' for item in result['prompts'][0]['runs']):
