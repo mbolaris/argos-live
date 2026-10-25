@@ -1109,8 +1109,18 @@ Depends on: J7.
   dashboard were ready, the production-owned model path served the bundled
   read-only model, and the CPU benchmark completed and round-tripped its result.
   Main tests and schema/recovery CI both passed. No Toronado or SSD changes were
-  made. This QEMU-passed candidate has the old 240-minute setting; the new
-  720-minute source change requires a fresh pinned image build and QEMU run.
+  made. At this point in the log the QEMU-passed candidate still had the old
+  240-minute setting; the following entry records the completed 720-minute build.
+
+- October 25 — next-image screensaver extension completed: commit `e1d67bd`
+  sets the default to 720 minutes (12 hours), retains manual controls, and keeps
+  automatic locking off. Full tests passed (`40167871453`), pinned OpenClaw
+  compatibility passed (`40167871457`), and pinned ISO build `40167878715`
+  passed. Fresh offline QEMU boot of that exact build passed (`40169084905`),
+  including the 720-minute setting gate, screensaver D-Bus readiness, authenticated
+  dashboard, bundled read-only model startup, and CPU inference/result round-trip.
+  ISO SHA-256: `6d68aae6e0ffae1fe7b93da3fbdad0012872e7984bff1da58ada1588263204ab`.
+  QEMU is not physical firmware/GPU or USB persistence acceptance; no SSD was written.
 
 ### J1 Live test arena and incremental receipts — `in progress`
 - Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.
