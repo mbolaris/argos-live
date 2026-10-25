@@ -181,6 +181,21 @@ class ExperimentComparisonTests(unittest.TestCase):
         self.assertEqual(exp['delta']['correct_delta'], len(c['items']))
         self.assertIn('Observed +1 is not confirmed general improvement', exp['limitations'])
 
+    def test_tool_schema_experiment_reports_practice_and_heldout_deltas(self):
+        b = make_ability_run(answer='wrong', run_id='1' * 32)
+        c = make_ability_run(answer='reference', run_id='2' * 32)
+        b['model'], c['model'] = 'model-a:latest', 'model-b:latest'
+        b['suite_version'] = c['suite_version'] = 'argos-openclaw-ability/tool-schema/1.0.0'
+        b['suite'] = c['suite'] = 'openclaw-tool-schema'
+        for run in (b, c):
+            for index, item in enumerate(run['items']):
+                item['partition'] = 'practice' if index < 10 else 'heldout'
+            run['summary'] = bench_ability.summaries(run['items'])
+        exp = results.compare_experiment(b, c, allowed_intervention='model')
+        self.assertEqual(exp['delta']['partition_deltas']['practice']['delta_correct'], 10)
+        self.assertEqual(exp['delta']['partition_deltas']['heldout']['delta_correct'], 10)
+        self.assertEqual(exp['items'][0]['partition'], 'practice')
+
     def test_valid_speed_experiment_comparison(self):
         b = make_speed_run(digest=VALID_DIGEST_A, run_id='1' * 32)
         c = make_speed_run(digest=VALID_DIGEST_B, run_id='2' * 32)

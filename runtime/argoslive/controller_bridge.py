@@ -28,6 +28,7 @@ LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
+MAX_WORKER_TURN_RECORDS = 32
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
     'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
@@ -55,6 +56,8 @@ class Bridge:
         self.active = None
         self.pending = None
         self.worker = None
+        self.worker_outcome = None
+        self.worker_turns = []
         self.transport_env = None
         self.worker_path = os.environ.get('PATH', '')
         self.uncertain = False
@@ -63,6 +66,7 @@ class Bridge:
         self.outcomes = []
         self.presented_proctor_items = set()
         self.evaluation_job = None
+        self.last_finish_failure = None
         self.lock = threading.RLock()
         self.tool_lock = threading.Lock()
         self.events = self.parent.path.parent / 'controller-turn.json'
@@ -88,6 +92,7 @@ class Bridge:
             value['host_tool_requests'] = self.active.get('host_tool_requests', 0)
             value['host_tool_failures'] = self.active.get('host_tool_failures', [])
         value['tools'] = self.outcomes
+        value['worker_turns'] = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
         write_json(self.events, value)
 
     def dispatch(self, request, on_update=None):
@@ -176,16 +181,19 @@ class Bridge:
                 kind, params = request.get('kind'), request.get('params')
                 if not isinstance(params, dict):
                     raise ValueError('Bounded tool parameters required')
-                if self.exam_session is not None and kind not in PROCTOR_TOOLS:
+                if (self.exam_session is not None and kind not in PROCTOR_TOOLS and
+                        not (kind == 'evaluation_wait' and self.exam_session.tier == 'practice')):
                     raise ValueError('Only Proctor tools are available during an exam')
                 if (self.evaluation_job and not self.evaluation_job.get('consumed') and
                         kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
                 if kind == 'evaluation':
-                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {'quick', 'standard', 'challenge'}:
+                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {
+                            'quick', 'standard', 'challenge', 'tool-schema'}:
                         raise ValueError('Unsupported evaluation request')
                 elif kind == 'evaluation_wait':
-                    if set(params) != {'job_id'} or not identity(params.get('job_id')):
+                    if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or
+                            not re.fullmatch(r'[a-f0-9]{32}', params['job_id'])):
                         raise ValueError('Invalid evaluation job identity')
                 elif kind == 'evaluation_status':
                     if params:
@@ -219,6 +227,15 @@ class Bridge:
                     return value
                 return {'status': 'completed', 'value': value}
             if kind == 'evaluation_wait':
+                if self.exam_session is not None:
+                    value, item_id = self._proctor_evaluation_wait(params, call)
+                    outcome = {'kind': 'proctor_tool_call', 'call_id': call,
+                               'tool': 'argos_evaluate_wait', 'item_id': item_id,
+                               'status': 'simulated'}
+                    with self.lock:
+                        self.outcomes.append(outcome)
+                        self.publish()
+                    return {'status': 'completed', 'value': value}
                 value = self.wait_evaluation(params['job_id'], on_update=on_update)
                 if value.get('status') == 'running':
                     return value
@@ -259,6 +276,26 @@ class Bridge:
         finally:
             self.tool_lock.release()
 
+    def _proctor_evaluation_wait(self, params, call_id):
+        """Handle the registered wait tool as a no-inference Proctor simulation."""
+        if (self.parent.record.get('kind') != 'proctor' or self.exam_session is None or
+                self.exam_session.tier != 'practice'):
+            raise ValueError('No host-preauthorized Proctor simulation is active')
+        status = self.exam_session.status()
+        module_id = status.get('module_id')
+        candidates = [item_id for (module, item_id) in self.presented_proctor_items
+                      if module == module_id and item_id in status.get('item_ids', []) and
+                      not status.get('answer_revisions', {}).get(item_id) and
+                      self.exam_session.engine.cart.items[item_id]['domain'] == 'tool_call_format']
+        if len(candidates) != 1:
+            raise ValueError('No uniquely surfaced Proctor tool-call task is active')
+        item_id = candidates[0]
+        self.exam_session.host_record_tool_call(item_id, 'argos_evaluate_wait', params, call_id)
+        return ({'status': 'completed', 'proctor_simulation': True,
+                 'message': 'Proctor simulation only: the tool call was recorded; no evaluation was started. '
+                            'Continue with argos_proctor_status and follow its next_step.'},
+                item_id)
+
     def start_evaluation(self, params, *, on_update=None, seconds=EVALUATION_WAIT_SECONDS):
         """Run one bounded tool wait over a host-owned evaluation worker."""
         with self.lock:
@@ -267,7 +304,7 @@ class Bridge:
                 raise workload.Busy()
             job_id = secrets.token_hex(16)
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
-                   'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40}[
+                   'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40}[
                        params.get('suite', 'quick')], 'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
             self.evaluation_job = job
@@ -377,6 +414,9 @@ class Bridge:
                                 (module_id, item) in self.presented_proctor_items), None)
             if not module_id or (module_id, item_id) not in self.presented_proctor_items:
                 raise ValueError('Read the active item before submitting its answer')
+            item = self.exam_session.engine.cart.items.get(item_id)
+            if item and item.get('domain') == 'tool_call_format':
+                raise ValueError('This item must be completed through its observed tool call')
             result = self.exam_session.answer(item_id, params['answer'], call_id)
             return {'item_id': item_id, **result}
         if kind == 'proctor_continue':
@@ -592,39 +632,197 @@ class Bridge:
         try:
             stdout, stderr = self.worker.communicate(timeout=timeout)
             self.last_stdout, self.last_stderr = stdout, stderr
-            if self.worker.returncode or len(stdout.encode()) > 2 * 1024**2:
+            stdout_bytes, stderr_bytes = len(stdout.encode()), len(stderr.encode())
+            if stdout_bytes > 2 * 1024**2:
+                self.last_finish_failure = {'code': 'worker-output-limit', 'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes}
+                self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
             value = json.loads(stdout)
             body = value.get('result', value)
-            if (value.get('status', 'ok') != 'ok' or not isinstance(body.get('payloads'), list) or
-                    body.get('meta', {}).get('agentMeta', {}).get('sessionId') != self.session_id):
+            incomplete_turn = self._is_incomplete_turn(value)
+            blocked_turn = self._is_blocked_practice_turn(value)
+            retryable_turn = incomplete_turn or blocked_turn
+            if self.worker.returncode and not retryable_turn:
+                self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
+                                            'worker_response': self._safe_worker_response(stdout)}
+                self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
+            if (value.get('status', 'ok') != 'ok' or not isinstance(body.get('payloads'), list) or
+                    body.get('meta', {}).get('agentMeta', {}).get('sessionId') != self.session_id) and not retryable_turn:
+                self.last_finish_failure = {'code': 'worker-response-invalid',
+                                            'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
+                                            'status_ok': value.get('status', 'ok') == 'ok',
+                                            'payloads_list': isinstance(body.get('payloads'), list),
+                                            'session_bound': body.get('meta', {}).get('agentMeta', {}).get(
+                                                'sessionId') == self.session_id}
+                self._publish_finish_failure()
+                raise workload.Busy(recovery=True)
+            live_group_members = 0
             for entry in Path('/proc').iterdir():
                 if not entry.name.isdigit():
                     continue
                 try:
                     fields = (entry / 'stat').read_text().rsplit(') ', 1)[1].split()
                     if int(fields[2]) == self.worker.pid and fields[0] not in ('Z', 'X'):
-                        raise workload.Busy(recovery=True)
+                        live_group_members += 1
                 except (FileNotFoundError, ProcessLookupError):
                     continue
+            if live_group_members:
+                self.last_finish_failure = {'code': 'worker-group-still-live',
+                                            'live_group_members': min(live_group_members, 10000),
+                                            'returncode': self.worker.returncode,
+                                            'stdout_bytes': stdout_bytes,
+                                            'stderr_bytes': stderr_bytes}
+                self._publish_finish_failure()
+                raise workload.Busy(recovery=True)
             with self.lock:
                 if not self.active:
+                    self.last_finish_failure = {'code': 'turn-not-active',
+                                                'returncode': self.worker.returncode,
+                                                'stdout_bytes': stdout_bytes,
+                                                'stderr_bytes': stderr_bytes}
+                    self._publish_finish_failure()
                     raise workload.Busy(recovery=True)
+                self.worker_outcome = ('incomplete-turn' if incomplete_turn else
+                                       'blocked-turn' if blocked_turn else 'completed')
+                turn_record = {
+                    'turn': len(self.worker_turns) + 1,
+                    'outcome': self.worker_outcome,
+                    'returncode': self.worker.returncode,
+                    'stdout_bytes': stdout_bytes,
+                    'stderr_bytes': stderr_bytes,
+                    'process_group_drained': True,
+                    'session_bound': True,
+                    'host_tool_requests': self.active.get('host_tool_requests', 0),
+                    'host_tool_failures': len(self.active.get('host_tool_failures', [])),
+                    'response_status': value.get('status', 'ok'),
+                }
+                if incomplete_turn:
+                    turn_record['sdk_error_kind'] = 'incomplete_turn'
+                elif blocked_turn:
+                    turn_record['sdk_error_kind'] = 'hook_block'
+                self.worker_turns.append(turn_record)
+                self.worker_turns = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
                 write_json(self.parent.path.parent / 'controller-worker.json', {
                     'schema': 'argos-controller-worker/1', 'parent_id': self.parent.record['id'],
                     'generation': self.parent.record['generation'], 'pid': self.worker.pid,
                     'session_id': self.session_id, 'session_key': self.session_key,
                     'state': 'completed', 'process_group_drained': True,
+                    'turn_outcome': self.worker_outcome,
+                    'turn_number': turn_record['turn'],
+                    'returncode': self.worker.returncode,
                     'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
                     'stdout_sha256': hashlib.sha256(stdout.encode()).hexdigest(), 'tools': self.outcomes})
+                self.publish()
                 self.verified = True
                 if finalize:
                     self._complete()
             return value, stderr
-        except BaseException:
+        except BaseException as error:
+            if self.last_finish_failure is None:
+                self.last_finish_failure = {'code': 'finish-exception',
+                                            'exception_class': type(error).__name__,
+                                            'returncode': self.worker.returncode if self.worker else None,
+                                            'stdout_bytes': len(self.last_stdout.encode()) if self.last_stdout else 0,
+                                            'stderr_bytes': len(self.last_stderr.encode()) if self.last_stderr else 0}
+                self._publish_finish_failure()
             self.uncertain = True
             raise
+
+    def _publish_finish_failure(self):
+        """Persist bounded diagnostics without agent text, raw output, or secrets."""
+        value = {'schema': 'argos-controller-failure/1',
+                 'parent_id': self.parent.record['id'],
+                 'generation': self.parent.record['generation'],
+                 'worker_pid': self.worker.pid if self.worker else None,
+                 'session_id': self.session_id,
+                 'failure': self.last_finish_failure}
+        write_json(self.parent.path.parent / 'controller-failure.json', value)
+
+    def _is_incomplete_turn(self, value):
+        """Recognize only the pinned SDK's terminal, no-answer result for this session."""
+        if not isinstance(value, dict) or value.get('status') != 'error' or self.worker is None or \
+                self.worker.returncode == 0 or self.exam_session is None or \
+                self.exam_session.tier != 'practice':
+            return False
+        body = value.get('result')
+        if not isinstance(body, dict) or not isinstance(body.get('payloads'), list):
+            return False
+        meta = body.get('meta')
+        if not isinstance(meta, dict):
+            return False
+        agent_meta = meta.get('agentMeta')
+        error = meta.get('error')
+        return (isinstance(agent_meta, dict) and agent_meta.get('sessionId') == self.session_id and
+                isinstance(error, dict) and error.get('kind') == 'incomplete_turn' and
+                isinstance(self.active, dict) and self.active.get('session_id') == self.session_id and
+                self.active.get('host_tool_requests', 0) == 0 and not self.active.get('host_tool_failures') and
+                self.pending is None and not self.tool_lock.locked())
+
+    def _is_blocked_practice_turn(self, value):
+        """Accept only an admitted, ended, side-effect-free practice hook block for retry."""
+        if (not isinstance(value, dict) or value.get('status') != 'error' or self.worker is None or
+                self.worker.returncode == 0 or self.exam_session is None or
+                self.exam_session.tier != 'practice'):
+            return False
+        body = value.get('result')
+        if not isinstance(body, dict) or not isinstance(body.get('payloads'), list):
+            return False
+        meta = body.get('meta')
+        if not isinstance(meta, dict):
+            return False
+        agent_meta, error = meta.get('agentMeta'), meta.get('error')
+        active = self.active
+        return (isinstance(agent_meta, dict) and agent_meta.get('sessionId') == self.session_id and
+                isinstance(error, dict) and error.get('kind') == 'hook_block' and
+                isinstance(active, dict) and active.get('session_id') == self.session_id and
+                active.get('ended') is True and active.get('host_tool_requests', 0) == 0 and
+                not active.get('host_tool_failures') and self.pending is None and
+                not self.tool_lock.locked())
+
+    def _safe_worker_response(self, stdout):
+        """Summarize SDK JSON structure without persisting reply or error text."""
+        if len(stdout.encode()) > 2 * 1024**2:
+            return {'json_valid': False, 'size_limited': True}
+        try:
+            value = json.loads(stdout)
+        except (json.JSONDecodeError, TypeError):
+            return {'json_valid': False}
+        if not isinstance(value, dict):
+            return {'json_valid': True, 'object': False}
+        body = value.get('result', value)
+        if not isinstance(body, dict):
+            return {'json_valid': True, 'object': True, 'result_object': False}
+        result = {'json_valid': True, 'object': True, 'result_object': True}
+        for key in ('status',):
+            item = value.get(key)
+            if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', item):
+                result[key] = item
+        payloads = body.get('payloads')
+        if isinstance(payloads, list):
+            result['payload_count'] = len(payloads)
+        error = value.get('error', body.get('error'))
+        if isinstance(error, dict):
+            for key in ('code', 'name', 'type'):
+                item = error.get(key)
+                if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,96}', item):
+                    result['error_' + key] = item
+            result['error_present'] = True
+        elif error is not None:
+            result['error_present'] = True
+        meta = body.get('meta')
+        agent_meta = meta.get('agentMeta') if isinstance(meta, dict) else None
+        if isinstance(agent_meta, dict):
+            result['session_bound'] = agent_meta.get('sessionId') == self.session_id
+        error = meta.get('error') if isinstance(meta, dict) else None
+        if isinstance(error, dict):
+            kind = error.get('kind')
+            if isinstance(kind, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', kind):
+                result['error_kind'] = kind
+        return result
 
     def next_practice_turn(self, session_key):
         """Host-only transition between verified drained practice workers.
@@ -634,11 +832,12 @@ class Bridge:
         """
         with self.lock:
             if (self.exam_session is None or self.exam_session.tier != 'practice' or
-                    not self.verified or not self.worker or self.worker.poll() != 0 or
+                    not self.verified or not self._accepted_practice_worker_exit() or
                     self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
                     not self.active or not identity(session_key)):
                 raise workload.Busy(recovery=True)
             self.worker = None
+            self.worker_outcome = None
             self.active = None
             self.verified = False
             self.session_key = session_key
@@ -699,7 +898,7 @@ class Bridge:
         """Host-only module closure after all agent answers and proven turn exit."""
         with self.lock:
             if (self.exam_session is None or self.exam_session.tier != 'practice' or
-                    not self.verified or not self.worker or self.worker.poll() != 0 or
+                    not self.verified or not self._accepted_practice_worker_exit() or
                     self.closed or self.uncertain or self.pending or self.tool_lock.locked() or not self.active):
                 raise workload.Busy(recovery=True)
             if self.exam_session.session_id is None:
@@ -720,7 +919,11 @@ class Bridge:
     def _complete(self):
         """Private host completion after finish() establishes the worker outcome."""
         with self.lock:
-            if (not self.verified or not self.worker or self.worker.poll() != 0 or self.tool_lock.locked() or self.pending or
+            if (not self.verified or not self.worker or
+                    not (self.worker.poll() == 0 or self.exam_session is not None and
+                         self.exam_session.tier == 'practice' and self.worker_outcome in
+                         {'incomplete-turn', 'blocked-turn'}) or
+                    self.tool_lock.locked() or self.pending or
                     self.uncertain or not self.active):
                 raise workload.Busy(recovery=True)
             if self.exam_session is not None:
@@ -753,6 +956,13 @@ class Bridge:
             else:
                 self.parent.complete()
             self.closed = True
+
+    def _accepted_practice_worker_exit(self):
+        """Only a clean SDK success or a safe, drained practice failure may continue."""
+        return bool(self.worker and (self.worker.poll() == 0 or
+                     self.exam_session is not None and self.exam_session.tier == 'practice' and
+                     self.worker_outcome in {'incomplete-turn', 'blocked-turn'} and
+                     self.worker.poll() is not None))
 
     def drain_before_backends_stop(self):
         """Host-only teardown while the admitted job's gateway/backend still live.

@@ -28,6 +28,22 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
                 {'kind': 'proctor_host_submit', 'module_id': 'private-module'},
                 {'kind': 'proctor_finalize', 'transcript_id': 'private-transcript'},
             ],
+            'worker_turns': [{
+                'turn': 1, 'outcome': 'incomplete-turn', 'returncode': 1,
+                'stdout_bytes': 80, 'stderr_bytes': 0,
+                'process_group_drained': True, 'session_bound': True,
+                'host_tool_requests': 0, 'host_tool_failures': 0,
+                'response_status': 'error', 'sdk_error_kind': 'incomplete_turn',
+                'model_text': 'must not be exported',
+            }, {'turn': 2, 'outcome': 'completed', 'returncode': 0,
+                'stdout_bytes': 240, 'stderr_bytes': 0,
+                'process_group_drained': True, 'session_bound': True,
+                'host_tool_requests': 3, 'host_tool_failures': 0,
+                'response_status': 'ok'}, {'turn': 3, 'outcome': 'blocked-turn', 'returncode': 1,
+                'stdout_bytes': 120, 'stderr_bytes': 0,
+                'process_group_drained': True, 'session_bound': True,
+                'host_tool_requests': 0, 'host_tool_failures': 0,
+                'response_status': 'error', 'sdk_error_kind': 'hook_block'}],
             'admission_diagnostics': {
                 'tool_hooks': 4, 'bound_calls': 2, 'executions': 2,
                 'rejected': {'unknown_tool': 0, 'missing_admission': 0,
@@ -42,6 +58,20 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
              'error_code': 'INVALID_ANSWER_FORMAT'},
             {'kind': 'proctor_answer', 'error_class': 'ProctorError'}])
         self.assertEqual(result['tool_outcomes'], [{'kind': 'proctor_answer', 'status': 'accepted'}])
+        self.assertEqual(result['worker_turns'], [
+            {'turn': 1, 'outcome': 'incomplete-turn', 'returncode': 1,
+             'stdout_bytes': 80, 'stderr_bytes': 0, 'process_group_drained': True,
+             'session_bound': True, 'host_tool_requests': 0, 'host_tool_failures': 0,
+             'response_status': 'error', 'sdk_error_kind': 'incomplete_turn'},
+            {'turn': 2, 'outcome': 'completed', 'returncode': 0,
+             'stdout_bytes': 240, 'stderr_bytes': 0, 'process_group_drained': True,
+             'session_bound': True, 'host_tool_requests': 3, 'host_tool_failures': 0,
+             'response_status': 'ok'},
+            {'turn': 3, 'outcome': 'blocked-turn', 'returncode': 1,
+             'stdout_bytes': 120, 'stderr_bytes': 0, 'process_group_drained': True,
+             'session_bound': True, 'host_tool_requests': 0, 'host_tool_failures': 0,
+             'response_status': 'error', 'sdk_error_kind': 'hook_block'},
+        ])
         self.assertEqual(result['admission']['executions'], 2)
         self.assertNotIn('private', repr(result))
 
@@ -53,6 +83,21 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
             'admission_diagnostics': {'tool_hooks': -1},
         })
         self.assertEqual(result, {})
+
+    def test_worker_turn_diagnostics_drop_unbounded_or_malformed_rows(self):
+        result = smoke.safe_controller_diagnostics({'worker_turns': [
+            {'turn': 1, 'outcome': 'completed', 'returncode': 0, 'stdout_bytes': 10,
+             'stderr_bytes': 0, 'process_group_drained': True, 'session_bound': True,
+             'host_tool_requests': 0, 'host_tool_failures': 0, 'response_status': 'ok'},
+            {'turn': 2, 'outcome': 'invented', 'returncode': 0, 'stdout_bytes': 10,
+             'stderr_bytes': 0, 'process_group_drained': True, 'session_bound': True,
+             'host_tool_requests': 0, 'host_tool_failures': 0, 'response_status': 'ok'},
+            {'turn': 3, 'outcome': 'completed', 'returncode': 0, 'stdout_bytes': 10,
+             'stderr_bytes': 0, 'process_group_drained': True, 'session_bound': 1,
+             'host_tool_requests': 0, 'host_tool_failures': 0, 'response_status': 'ok'},
+        ]})
+        self.assertEqual(len(result['worker_turns']), 1)
+        self.assertEqual(result['worker_turns'][0]['outcome'], 'completed')
 
 
 if __name__ == '__main__':

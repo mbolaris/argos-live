@@ -1073,12 +1073,80 @@ Depends on: J7.
 - Owner requested October8: next personal USB rebuild should default to Argos
   desktop with encrypted persistence. Keep explicit no-passphrase guest/reset and
   basic graphics entries. This supersedes G1's default choice for that rebuild.
+- Owner requested October 24: make the default screensaver timeout much longer
+  in the then-next image; keep manual screensaver controls available and verify
+  the default after a fresh boot. The current candidate set it to 720 minutes
+  (twelve hours), kept automatic locking disabled, and retained manual controls.
+- Owner requested October 25: make the image after that 12-hour candidate much
+  longer. Set its default to 1,440 minutes (24 hours), retain manual screensaver
+  controls, and keep automatic locking disabled.
 - Accept: boot-menu tests/docs updated; actual default selection verified and guest
   entry isolation retained. GRUB selects desktop index1 and BIOS selects only the
-  desktop label by default. Shell fixture checks both menu outputs; actual ISO
-  menu inspection and physical default boot remain separate acceptance.
+  desktop label by default. Fresh-boot checks confirm the 1,440-minute delay, no
+  automatic lock, manual controls, and successful XFCE screensaver D-Bus
+  registration. Shell fixture checks both menu outputs; actual ISO menu inspection
+  and physical default boot remain separate acceptance.
   Missing/locked persistence handled honestly. No firmware
   changes or mutation of a running USB; physical preservation remains local deployment.
+
+- October 25 follow-up: screensaver default, no-auto-lock and manual controls all
+  passed static checks in the pinned `aaa8205` build, and OpenClaw compatibility
+  passed. Its exact fresh QEMU boot (`40161215559`) still failed: the autostarted
+  process was alive but did not own `org.xfce.ScreenSaver` at 30 seconds; starting
+  the supported debug foreground process after the check did claim it. The QEMU
+  evidence points to an early-session startup race, not SSD/model failure. The
+  supervisor now stores boot-local diagnostics, retries four times with a 20-second
+  settle interval, and the QEMU readiness bound is 90 seconds. This revision is
+  not yet built or accepted; rerun CI, build a pinned ISO, and boot-test that exact
+  artifact before calling the next image ready.
+
+- October 25 fresh boot follow-up: pinned ISO build `40162468714` contains the
+  240-minute default. QEMU run `40163715416` exposed an artifact-layout assumption
+  before boot; commit `a661775` now locates exactly one ISO while retaining the
+  adjacent SHA-256 check. Subsequent exact-image runs reached and passed the
+  desktop/screensaver acceptance, then exposed that the QEMU smoke bypassed
+  Argos's owned Ollama shadow and tried to create metadata in the read-only seed.
+  The sanitized error was `mkdir <path> permission denied`. Commit `ecb45f6` makes
+  the smoke use the production `startup.source` and `owned_ollama` path. Fresh
+  QEMU run `40166381376` passed the exact image in offline QEMU: desktop and
+  dashboard were ready, the production-owned model path served the bundled
+  read-only model, and the CPU benchmark completed and round-tripped its result.
+  Main tests and schema/recovery CI both passed. No Toronado or SSD changes were
+  made. At this point in the log the QEMU-passed candidate still had the old
+  240-minute setting; the following entry records the completed 720-minute build.
+
+- October 25 — next-image screensaver extension completed: commit `e1d67bd`
+  sets the default to 720 minutes (12 hours), retains manual controls, and keeps
+  automatic locking off. Full tests passed (`40167871453`), pinned OpenClaw
+  compatibility passed (`40167871457`), and pinned ISO build `40167878715`
+  passed. Fresh offline QEMU boot of that exact build passed (`40169084905`),
+  including the 720-minute setting gate, screensaver D-Bus readiness, authenticated
+  dashboard, bundled read-only model startup, and CPU inference/result round-trip.
+  ISO SHA-256: `6d68aae6e0ffae1fe7b93da3fbdad0012872e7984bff1da58ada1588263204ab`.
+  QEMU is not physical firmware/GPU or USB persistence acceptance; no SSD was written.
+  A subsequent Proctor dataset audit found every correct tool in suite 1.0.0 was
+  listed first, allowing a positional shortcut. Version 1.1.0 now balances target
+  positions 6/7/7 in each partition and validates against an always-first strategy.
+  This runtime dataset change requires a new pinned ISO build and fresh QEMU pass;
+  the prior 12-hour ISO does not include it.
+
+- October 25 — corrected-suite next-image candidate accepted in disposable QEMU:
+  pinned build `40170325091` for commit `8b1ea4c` and exact-image QEMU run
+  `40172754718` passed. The fresh-boot assertions include the 720-minute
+  screensaver delay, manual controls, disabled automatic lock, and XFCE
+  screensaver D-Bus readiness. The same boot established the authenticated
+  dashboard, bundled read-only model startup, CPU inference, and saved-result
+  round-trip. ISO SHA-256:
+  `bbf98942ca111aac0aaf3e2013f37bc8d86ebbcbc499a598c64f7cb79c47ff8b`.
+  TCG benchmark: 3 measured runs, median 0.341 tokens/s, generation limit 8;
+  this is a VM acceptance measurement, not Toronado's 27B ability score.
+  First run `40171372406` failed after a 600-second model request with
+  `NotRunning`, but its one-token diagnostic passed; retrying the same immutable
+  ISO passed. Record this as TCG cold-start variability, not as proven SSD or
+  product failure. Current-commit tests `40170270745`, pinned OpenClaw
+  compatibility `40170270743`, native chat `40170267612`, and onboarding smoke
+  `40170267508` all passed. No physical firmware, GPU, encrypted-USB retention,
+  or deployed 27B evaluation was established; no SSD was written.
 
 ### J1 Live test arena and incremental receipts — `in progress`
 - Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.
@@ -1327,3 +1395,7 @@ unrelated skill maps, examples, journals, mission briefs and hardware diagnostic
 After Keep, focus the real-question next step and leave Restore as an undo; after
 Restore, return the normal navigation. Spell out checkpoint counts (“1 challenge
 improved · 7 unchanged · 0 worse”) so the marks are immediately understandable.
+
+## October 25 — next-image screensaver follow-up
+
+The owner wants the default screensaver timeout on the next image to be much longer than the current 1,440-minute (24-hour) default. Apply this to the next image intended for USB: change the default to an interval substantially longer than 24 hours. Set and document the exact interval when preparing that image. Keep the manual screensaver controls available and automatic locking disabled, then verify the configured default on a fresh boot.

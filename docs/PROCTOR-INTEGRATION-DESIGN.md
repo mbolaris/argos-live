@@ -113,8 +113,12 @@ transcript.
 
 `argos_proctor_feedback` returns aggregate score and domain counts only when the
 host preselected the practice tier and the session is terminal. This lets the
-agent choose a follow-up practice experiment. Assessment and held-out sessions
-refuse feedback and preserve scores for the trusted host.
+agent choose a follow-up practice experiment. In the bundled practice form only,
+the profile also exposes `argos_evaluate_wait`; the bridge intercepts it during
+the designated item, records its actual function name and arguments as the
+host-scored response, and returns a synthetic no-op. It cannot start or resume
+a real evaluation. Assessment and held-out sessions refuse feedback and preserve
+scores for the trusted host.
 
 This adapter is declared enforcement only and is not active in the default
 profile or production gateway. The host must build the exam profile from a

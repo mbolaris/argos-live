@@ -165,6 +165,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                               no_reply=True, latency_seconds=max(0, clock() - item_started),
                               measurement={'source': 'OpenClaw CLI elapsed time', 'elapsed_seconds': None},
                               session_id=None)
+                if task['scorer'].get('partition') in ('practice', 'heldout'):
+                    scored['partition'] = task['scorer']['partition']
                 protect(task['id'])
                 result['items'].append(scored)
                 if progress:
@@ -187,6 +189,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                 measurement={'source': 'OpenClaw CLI elapsed time',
                              'elapsed_seconds': answer['elapsed_seconds']},
                 session_id=answer['session_id'])
+            if task['scorer'].get('partition') in ('practice', 'heldout'):
+                scored['partition'] = task['scorer']['partition']
             result['items'].append(scored)
             if progress:
                 progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
@@ -270,7 +274,7 @@ class LiveBoard:
 
 def main(argv=None, *, delegation=None):
     parser = argparse.ArgumentParser(description='Evaluate the configured OpenClaw assistant with fixed Argos tasks.')
-    parser.add_argument('--suite', choices=('quick', 'standard', 'challenge'), default='quick')
+    parser.add_argument('--suite', choices=('quick', 'standard', 'challenge', 'tool-schema'), default='quick')
     parser.add_argument('--home', type=Path, default=Path.home())
     parser.add_argument('--results-dir', type=Path, default=Store().root)
     parser.add_argument('--json', action='store_true')

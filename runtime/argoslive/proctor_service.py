@@ -31,7 +31,7 @@ CAMPAIGN_MAX_TURNS = 4
 PROCTOR_TOOL_NAMES = [
     'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
     'argos_proctor_answer', 'argos_proctor_continue', 'argos_proctor_submit',
-    'argos_proctor_feedback',
+    'argos_proctor_feedback', 'argos_evaluate_wait',
 ]
 CAMPAIGN_TOOL_NAMES = [
     'argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status',
@@ -44,12 +44,15 @@ PRACTICE_MAX_SECONDS = 1800
 MESSAGE = ('Your first action must be to call argos_proctor_start with an empty JSON object {}. '
            'Do not answer this message in prose or ask the owner to supply questions. '
            'Complete the host-selected Argos ability practice exam using only the '
-           'argos_proctor_* tools. Start the exam, answer each active item, submit each '
+           'argos_proctor_* tools, except that a tool_call_format item may require the '
+           'host-intercepted argos_evaluate_wait simulation described in that item. '
+           'Start the exam, answer each active item, submit each '
            'module, continue when the host permits it, and request practice feedback '
            'after the final module. The practice host also submits a fully answered module '
            'after your turn ends. Follow each response next_step by calling its tool '
-           'with its arguments. When argos_proctor_item returns a question, solve it '
-           'yourself and call argos_proctor_answer with only your answer as a string. '
+           'with its arguments. For ordinary questions, call argos_proctor_answer with '
+           'only your answer as a string. For a tool_call_format question, follow its '
+           'requested simulated tool call instead; the host records that actual call. '
            'The host binds it to the active question you retrieved. An accepted answer '
            'is only recorded, not graded feedback. '
            'Keep calling tools until the exam is COMPLETED and you have called '
@@ -264,9 +267,22 @@ def practice_turn_message(exam, bridge, *, retry_format=False, retry_tool_call=F
             # that presentation before the model is asked for its own answer, so the
             # answer remains bound to a retrieved/surfaced item without an extra tool hop.
             item = bridge.present_proctor_item(unanswered[0])
+            if item.get('domain') == 'tool_call_format':
+                if retry_tool_call:
+                    retry = ('The previous turn did not make the requested tool call. Do not answer in prose or '
+                             'print tool-call syntax as text. Call argos_evaluate_wait with the exact arguments '
+                             'required by this item now. ')
+                else:
+                    retry = ''
+                return (retry + 'The exam is still active. Complete this tool-call item by making the actual '
+                        'argos_evaluate_wait tool call with the arguments requested below. The Proctor host '
+                        'intercepts it and returns a synthetic response without starting or resuming an evaluation. '
+                        'Do not call argos_proctor_answer for this item. Do not write the tool call as ordinary text. '
+                        'Use no outside tools.\n' + json.dumps(item, ensure_ascii=False))
             answer_format = ('Use one choice key, not the choice text.'
                              if item['response_type'] == 'mcq_single' else
-                             'Use one exact number or simple fraction such as -5/4, with no units or explanation.')
+                             'Use one exact integer, decimal, or simple fraction as the answer, with no units or explanation. '
+                             'Solve from this question alone; do not reuse another item\'s answer.')
             if retry_tool_call:
                 retry = ('The previous turn did not invoke an answer tool. Do not answer in prose and do not print '
                          'tool-call syntax as text. Invoke the available argos_proctor_answer tool now with this '
@@ -276,7 +292,8 @@ def practice_turn_message(exam, bridge, *, retry_format=False, retry_tool_call=F
                          'one choice key only, without choice text or explanation. ')
             elif retry_format:
                 retry = ('The host rejected the previous answer format. Retry this same question now: submit '
-                         'one exact number or simple fraction such as -5/4 only, without units or explanation. ')
+                         'one exact integer, decimal, or simple fraction only, without units or explanation. '
+                         'Solve from this question alone; do not reuse another item\'s answer. ')
             else:
                 retry = ''
             return (retry + 'The exam is still active. Solve this question yourself. Your first action must be a real '
@@ -592,7 +609,7 @@ def main(argv=None):
     improve = commands.add_parser('improve', help='Practice, then let the agent run its evidence-based improvement campaign')
     for command in (practice, improve):
         command.add_argument('--cartridge', type=Path,
-                             help='Optional host-selected compiled cartridge (default: bundled four-item pilot)')
+                             help='Optional host-selected compiled cartridge (default: bundled five-item pilot)')
         command.add_argument('--form', default='pilot-a')
         command.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)

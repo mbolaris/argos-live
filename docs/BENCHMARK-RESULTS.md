@@ -13,8 +13,9 @@ names. `--delete ID` removes only that run, without touching models or profiles.
 
 Comparison requires identical kind, suite version, settings and item/prompt
 coverage. Cancelled/incomplete ability runs and failed restoration are refused.
-Quick, standard and challenge are distinct suites. Ability accuracy and format-error counts
-are recomputed from item evidence. Speed medians are recomputed from measured
+Quick, standard, challenge and tool-schema are distinct suites. Tool-schema
+comparisons report practice and held-out deltas separately. Ability accuracy
+and format-error counts are recomputed from item evidence. Speed medians are recomputed from measured
 runs; all three generation-rate measurements must be known to rank a prompt size.
 Unknown or skipped values stay unknown. Each prompt size has its own rows.
 

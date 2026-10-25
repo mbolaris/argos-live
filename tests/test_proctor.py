@@ -14,7 +14,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive.proctor import Caller, Cartridge, Proctor, ProctorError, compile_cartridge, open_state
-from argoslive.proctor.cartridge import json_text, validate
+from argoslive.proctor.cartridge import correct_answer, json_text, valid_answer, validate
 from argoslive.proctor.engine import MS, digest, transaction
 
 FIXTURE = ROOT / 'tests/fixtures/proctor/fixed.json'
@@ -174,7 +174,59 @@ class ProctorTests(unittest.TestCase):
         t = json.loads(self.engine.get_transcript(e['session_id'], e['examinee_token'])['payload_json'])
         self.assertEqual(t['accepted_correct'], 4)
         self.assertEqual(t['unanswered'], 0)
-        self.assertEqual(t['grader_version'], 'choice-numeric/2')
+        self.assertEqual(t['grader_version'], 'choice-numeric-json/3')
+
+    def test_structured_tool_arguments_are_schema_checked_and_semantically_graded(self):
+        definition = copy.deepcopy(self.definition)
+        item = definition['forms'][0]['modules'][0]['items'][0]
+        item.update({
+            'domain': 'tool_use',
+            'prompt': 'Return the exact evaluation request as one JSON object.',
+            'response_type': 'json_object',
+            'choices': {},
+            'schema': {'type': 'object', 'properties': {
+                'tool': {'type': 'string'},
+                'arguments': {'type': 'object', 'properties': {
+                    'job_id': {'type': 'string'}}, 'required': ['job_id']}},
+                'required': ['tool', 'arguments']},
+            'correct': '{"tool":"argos_evaluate_wait","arguments":{"job_id":"0123456789abcdef0123456789abcdef"}}',
+        })
+        path = self.root / 'structured.exam.db'
+        compile_cartridge(definition, path)
+        cart = Cartridge(path)
+        expected = cart.items['q1']
+        self.assertTrue(valid_answer(expected,
+            '{ "arguments": {"job_id":"0123456789abcdef0123456789abcdef"}, "tool":"argos_evaluate_wait" }'))
+        self.assertTrue(correct_answer(expected,
+            '{ "arguments": {"job_id":"0123456789abcdef0123456789abcdef"}, "tool":"argos_evaluate_wait" }'))
+        for invalid in (
+                '{"tool":"argos_evaluate_wait","tool":"wrong","arguments":{"job_id":"0123456789abcdef0123456789abcdef"}}',
+                '{"tool":"argos_evaluate_wait","arguments":{"job_id":"0123456789abcdef0123456789abcdef","extra":1}}',
+                '["argos_evaluate_wait"]', 'NaN'):
+            self.assertFalse(valid_answer(expected, invalid), invalid)
+        db = open_state(self.root / 'structured-state.db')
+        self.addCleanup(db.close)
+        engine = Proctor(cart, db, callers=self.callers, token_secret=self.secret,
+                         boot_id='boot-structured', signer=FixtureSigner(db), clock=self.clock)
+        enrollment = engine.enroll('host', 'host-secret', 'structured-enroll', form_id='fixed-a',
+            tier='assessment', subject=self.subject, policy=self.policy)
+        sid, token = enrollment['session_id'], enrollment['examinee_token']
+        engine.begin_module(sid, token, 'm1', 'structured-begin')
+        public_item = engine.get_item(sid, token, 'm1', 'q1')
+        self.assertEqual(public_item['schema'], expected['schema'])
+        self.assertNotIn('correct', public_item)
+        engine.record_answer(sid, token, 'm1', 'q1',
+            '{ "arguments": {"job_id":"0123456789abcdef0123456789abcdef"}, "tool":"argos_evaluate_wait" }', 1, 'json-answer')
+        engine.record_answer(sid, token, 'm1', 'q2', '4', 1, 'numeric-answer')
+        engine.submit_module(sid, token, 'm1', 'submit-one')
+        engine.begin_module(sid, token, 'm2', 'begin-two')
+        engine.record_answer(sid, token, 'm2', 'q3', 'A', 1, 'choice-answer')
+        engine.record_answer(sid, token, 'm2', 'q4', '-5/4', 1, 'fraction-answer')
+        engine.submit_module(sid, token, 'm2', 'submit-two')
+        engine.issue_transcripts()
+        transcript = json.loads(engine.get_transcript(sid, token)['payload_json'])
+        self.assertEqual((transcript['accepted_correct'], transcript['total_items']), (4, 4))
+        self.assertEqual(transcript['grader_version'], 'choice-numeric-json/3')
 
     def test_numeric_fraction_is_exact_and_rejects_expressions_and_zero_denominator(self):
         e = self.begin()
@@ -370,6 +422,7 @@ class ProctorTests(unittest.TestCase):
         d = copy.deepcopy(self.definition); d['forms'][0]['modules'][1]['routes'][0]['next_module_id'] = 'm1'; cases.append(d)
         d = copy.deepcopy(self.definition); d['forms'][0]['modules'][0]['routes'][0]['next_module_id'] = None; cases.append(d)
         d = copy.deepcopy(self.definition); d['forms'][0]['modules'][0]['items'][0]['response_type'] = 'code_submission'; cases.append(d)
+        d = copy.deepcopy(self.definition); d['forms'][0]['modules'][0]['items'][0]['schema'] = {'type': 'object', 'pattern': '.*'}; cases.append(d)
         d = copy.deepcopy(self.definition); d['forms'][0]['modules'][0]['aids'] = ['shell']; cases.append(d)
         d = copy.deepcopy(self.definition); d['forms'][0]['modules'][0]['items'][0]['correct'] = 'Z'; cases.append(d)
         for index, definition in enumerate(cases):
@@ -399,6 +452,18 @@ class ProctorTests(unittest.TestCase):
         e = self.begin()
         self.assertEqual(self.engine.get_item(e['session_id'], e['examinee_token'], 'm1', 'q1')['prompt'], 'Which number is even?')
         self.assertEqual(self.cart.digest, hashlib.sha256(original).hexdigest())
+
+    def test_legacy_v1_cartridges_load_without_structured_schemas(self):
+        conn = sqlite3.connect(':memory:')
+        self.addCleanup(conn.close)
+        conn.deserialize(self.cart_path.read_bytes())
+        conn.execute('ALTER TABLE items DROP COLUMN schema_json')
+        conn.execute('PRAGMA user_version=1')
+        legacy = self.root / 'legacy-v1.exam.db'
+        legacy.write_bytes(conn.serialize())
+        cart = Cartridge(legacy)
+        self.assertEqual(cart.manifest['cartridge_id'], 'original-core-fixture')
+        self.assertEqual(cart.items['q1']['schema'], {})
 
     def test_compiler_command_and_runtime_package_resources(self):
         destination = self.root / 'cli.db'

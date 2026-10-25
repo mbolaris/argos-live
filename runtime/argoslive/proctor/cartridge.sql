@@ -1,4 +1,4 @@
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;
 CREATE TABLE manifest (
     cartridge_id TEXT PRIMARY KEY NOT NULL,
     version TEXT NOT NULL,
@@ -29,8 +29,9 @@ CREATE TABLE items (
     position INTEGER NOT NULL CHECK(position > 0),
     domain TEXT NOT NULL,
     prompt TEXT NOT NULL,
-    response_type TEXT NOT NULL CHECK(response_type IN ('mcq_single', 'numeric_grid')),
+    response_type TEXT NOT NULL CHECK(response_type IN ('mcq_single', 'numeric_grid', 'json_object')),
     choices_json TEXT NOT NULL,
+    schema_json TEXT NOT NULL DEFAULT '{}',
     correct TEXT NOT NULL,
     UNIQUE(module_id, position)
 ) STRICT;

@@ -19,6 +19,13 @@ spec.loader.exec_module(module)
 
 class DiagnosticFlagsTests(unittest.TestCase):
 
+    def test_model_lab_failure_kind_only_exposes_fixed_categories(self):
+        self.assertEqual(module.safe_model_lab_failure_kind('model-service-unreachable'),
+                         'model-service-unreachable')
+        self.assertEqual(module.safe_model_lab_failure_kind('timed-out'), 'timed-out')
+        self.assertIsNone(module.safe_model_lab_failure_kind('private-token-and-exception'))
+        self.assertIsNone(module.safe_model_lab_failure_kind({'secret': 'private-token'}))
+
     def test_session_shape_retains_stop_and_tool_flow_without_private_content(self):
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)

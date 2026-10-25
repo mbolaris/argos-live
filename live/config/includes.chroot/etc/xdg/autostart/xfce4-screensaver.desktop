@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Argos Screensaver
+Comment=Start the Argos desktop screensaver
+Exec=/usr/local/sbin/argos-start-screensaver
+TryExec=/usr/local/sbin/argos-start-screensaver
+Terminal=false
+NoDisplay=true
+Hidden=false
+X-XFCE-Autostart-enabled=true
+X-XFCE-Autostart-Phase=Application
+X-XFCE-Autostart-Notify=true

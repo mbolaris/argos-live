@@ -4,6 +4,7 @@ live-boot
 live-config
 systemd-sysv
 xfce4
+xfce4-screensaver
 lightdm
 firefox-esr
 network-manager

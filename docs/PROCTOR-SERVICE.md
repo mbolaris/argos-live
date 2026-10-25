@@ -2,9 +2,10 @@
 
 `argos proctor practice` starts a host-selected practice session through a fresh,
 private OpenClaw gateway profile. The profile preserves the selected local
-Ollama model and its reasoning controls, grants only the `argos_proctor_*`
-tools, disables bundled skills and heartbeat activity, and enables the plugin's
-host admission hooks. The host owns the cartridge, caller and token keys,
+Ollama model and its reasoning controls, grants `argos_proctor_*` tools plus
+`argos_evaluate_wait` for one host-intercepted practice simulation, disables
+bundled skills and heartbeat activity, and enables the plugin's host admission
+hooks. The host owns the cartridge, caller and token keys,
 signing key, subject snapshot, workload reservation, and transcript finalization.
 The signed transcript is saved before the Proctor reservation is released.
 Before practice, the host verifies the selected catalog manifest and every
@@ -13,9 +14,12 @@ catalog manifest, the local manifest bytes, and each verified artifact digest,
 size, and media type; it does not copy model weights into the transcript.
 
 The command uses the bundled `pilot-a` cartridge unless the owner supplies a
-compiled cartridge and form. The bundled four-item pilot exists to exercise the
-tool flow and feedback path. Pilot v1.1 allows three minutes per module because
-native SDK round trips in the recorded CPU test took roughly twenty to thirty
+compiled cartridge and form. The bundled five-item pilot exists to exercise the
+tool flow and feedback path, including one `argos_evaluate_wait` call. During
+that item, the host intercepts the registered wait tool, records its actual
+name and arguments in the signed transcript, and returns a labeled synthetic
+response without starting an evaluation. Pilot v1.2 allows
+three minutes per module because native SDK round trips in the recorded CPU test took roughly twenty to thirty
 seconds each; the previous one-minute pilot expired before submission. This
 changes only the public uncalibrated pilot, not assessment timings. It cannot verify
 general ability or establish an improvement. After a terminal practice session,
@@ -45,6 +49,13 @@ coaching procedure; an unfinished exam is signed as ABANDONED. Uncertain
 workers still quarantine the workload. Assessment and held-out sessions do not
 use this continuation policy.
 
+A practice worker that exits on OpenClaw's `hook_block` may enter the existing
+no-answer retry path only when the response is bound to the current session,
+the agent-end hook was observed, no host tool was requested or failed, and the
+worker process group drained. The blocked turn receives no answer credit. Any
+unresolved attempt ends as signed incomplete practice; this recovery rule does
+not apply to assessment or held-out sessions.
+
 Start, status, answer, submit and continue responses include a `next_step`
 tool name and arguments to help the agent navigate the exam. After fetching an
 item, the agent must solve it and supply its own answer. Navigation uses only
@@ -63,7 +74,7 @@ directions carry no answer hints and do not turn an incomplete attempt into a
 pass.
 
 Fresh image configurations request temperature zero explicitly. Two separate
-native fixture runs (39550951768 and 39550954625) completed all four pilot items
+native fixture runs (39550951768 and 39550954625) completed all four v1.1 pilot items
 at that setting, with the actual request temperature observed on the wire.
 Each scored 3/4; this is limited workflow repeatability evidence, not an ability
 gain. Existing owner configurations remain byte-for-byte unchanged, and the

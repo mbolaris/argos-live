@@ -86,6 +86,21 @@ class AgentSession:
         return {'status': 'accepted', 'revision': revision,
                 'next_step': self.status()['next_step']}
 
+    def host_record_tool_call(self, item_id, tool_name, arguments, operation_id):
+        """Record a tool call observed by the trusted bridge as the item's answer."""
+        from .cartridge import json_text
+        self._require_started()
+        if self.tier != 'practice':
+            raise ValueError('Host-simulated tool calls are limited to practice sessions')
+        status = self.engine.status(self.session_id, self._token)
+        item = self.engine.cart.items.get(item_id)
+        if (status.get('state') != 'ACTIVE' or item_id not in status.get('item_ids', []) or
+                not item or item['domain'] != 'tool_call_format' or
+                item['response_type'] != 'json_object'):
+            raise ValueError('No active host-observed tool-call item')
+        envelope = json_text({'name': tool_name, 'arguments': arguments})
+        return self.answer(item_id, envelope, operation_id)
+
     def submit(self, module_id, operation_id):
         """Submit the active module and return state only, never the score."""
         self._require_started()

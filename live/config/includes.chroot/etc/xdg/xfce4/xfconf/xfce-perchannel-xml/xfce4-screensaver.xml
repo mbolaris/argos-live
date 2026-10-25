@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-screensaver" version="1.0">
+  <property name="lock" type="empty">
+    <property name="enabled" type="bool" value="false"/>
+    <property name="saver-activation" type="empty">
+      <property name="enabled" type="bool" value="false"/>
+    </property>
+  </property>
+  <property name="saver" type="empty">
+    <property name="enabled" type="bool" value="true"/>
+    <property name="idle-activation" type="empty">
+      <property name="enabled" type="bool" value="true"/>
+      <!-- XFCE measures this delay in minutes; one week avoids interrupting long sessions. -->
+      <property name="delay" type="int" value="10080"/>
+    </property>
+  </property>
+</channel>

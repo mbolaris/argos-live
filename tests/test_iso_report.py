@@ -15,7 +15,8 @@ class ISOReportTests(unittest.TestCase):
         data = b'\0' * 0x8001 + b'CD001' + b'public fixture'
         (root / 'argos-live-amd64.iso').write_bytes(data)
         (root / 'SHA256SUMS').write_text(hashlib.sha256(data).hexdigest() + '  argos-live-amd64.iso\n')
-        (root / 'packages.txt').write_text('linux-image-amd64 1\nxfce4 1\nlightdm 1\npython3 1\n')
+        (root / 'packages.txt').write_text(
+            'linux-image-amd64 1\nxfce4 1\nxfce4-screensaver 1\nlightdm 1\npython3 1\n')
         (root / 'build.log').write_text('Public isolated build fixture\n')
 
     def test_report_verifies_output_without_claiming_boot(self):

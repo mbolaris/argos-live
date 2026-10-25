@@ -26,7 +26,7 @@ from .results import Store, compare, identifier, same_hardware
 SCHEMA = 'argos-instruction-change/1'
 POLICY = {'id': 'argos-practice-keep/1', 'repeats_each': 2,
           'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4,
-                                    'openclaw-challenge': 3},
+                                    'openclaw-challenge': 3, 'openclaw-tool-schema': 3},
           'reliability_max_latency_ratio': 1.5}
 
 
@@ -98,6 +98,23 @@ def validate_request(operation, params):
             raise Refused('keep-needs-two-baseline-and-two-candidate-runs')
     else:
         raise Refused('unsupported-instruction-operation')
+
+
+def tool_schema_transfer(baselines, candidates):
+    """Require both repeated candidate runs to preserve the best baseline transfer score."""
+    try:
+        baseline_scores = [run['summary']['partitions']['heldout']['correct'] for run in baselines]
+        candidate_scores = [run['summary']['partitions']['heldout']['correct'] for run in candidates]
+        if (len(baseline_scores) < 2 or len(candidate_scores) < 2 or
+                any(type(score) is not int or not 0 <= score <= 20
+                    for score in baseline_scores + candidate_scores)):
+            raise KeyError('incomplete-heldout-repeats')
+    except (KeyError, TypeError):
+        raise Refused('tool-schema-evidence-missing-partition-scores') from None
+    return ({'baseline_scores': baseline_scores, 'candidate_scores': candidate_scores,
+             'minimum_candidate': min(candidate_scores), 'maximum_baseline': max(baseline_scores),
+             'nonregression_met': min(candidate_scores) >= max(baseline_scores)},
+            min(candidate_scores) >= max(baseline_scores))
 
 
 def root_path(home):
@@ -287,16 +304,24 @@ def evidence(home, intent, directory, params):
         candidate_score = min(run['summary']['correct'] for run in candidates)
         base_errors = min(run['summary']['format_errors'] for run in bases)
         candidate_errors = max(run['summary']['format_errors'] for run in candidates)
+        heldout_validation = None
+        transfer_preserved = True
+        if bases[0]['suite'] == 'openclaw-tool-schema':
+            heldout_validation, transfer_preserved = tool_schema_transfer(bases, candidates)
         ratio = statistics.median(run['elapsed_seconds'] for run in candidates) / max(
             .000001, statistics.median(run['elapsed_seconds'] for run in bases))
-        accuracy = candidate_score - base_score >= minimum and candidate_errors <= base_errors
+        accuracy = (candidate_score - base_score >= minimum and candidate_errors <= base_errors
+                    and transfer_preserved)
         reliability = (candidate_score >= base_score and candidate_errors < base_errors and
-                       ratio <= POLICY['reliability_max_latency_ratio'])
+                       ratio <= POLICY['reliability_max_latency_ratio'] and transfer_preserved)
+        if not transfer_preserved:
+            raise Refused('heldout-tool-schema-regression')
         if not (accuracy or reliability):
             raise Refused('repeated-practice-gain-rule-not-met')
         result.update(policy=copy.deepcopy(POLICY), minimum_correct_gain=candidate_score - base_score,
                       maximum_candidate_format_errors=candidate_errors, latency_ratio=ratio,
                       gain_kind='accuracy' if accuracy else 'reliability',
+                      heldout_validation=heldout_validation,
                       limitation='Configured model tag matched; installed weight identity/generalization need independent verification')
     return result, groups
 

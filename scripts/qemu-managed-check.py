@@ -450,6 +450,18 @@ def managed_stage(name):
     print('ARGOS_C3_STAGE ' + name, flush=True)
 
 
+MODEL_LAB_FAILURE_KINDS = frozenset({
+    'cancelled', 'model-service-unreachable', 'model-unavailable',
+    'model-response-interrupted', 'model-service-error', 'timed-out',
+    'system-io-error', 'invalid-result', 'trial-error',
+})
+
+
+def safe_model_lab_failure_kind(value):
+    """Expose the fixed dashboard category without leaking exception text."""
+    return value if isinstance(value, str) and value in MODEL_LAB_FAILURE_KINDS else None
+
+
 def ready_cpu_metrics(report, *, vm_has_no_compute_gpu_passthrough=False):
     """Explain a rejected startup measurement without publishing guest text."""
     metrics = report.get('metrics')
@@ -581,7 +593,7 @@ def proctor_failure_diagnostics(home):
 def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag):
     """Verify one real bundled-model Proctor practice, then return to ready state."""
     import sqlite3
-    from argoslive import startup
+    from argoslive import startup, proctor_service
     from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 
     def dashboard_post(path):
@@ -672,11 +684,14 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
         managed_stage('proctor-model-identity-verified')
         failure_code = 'transcript-score'
         score = result_summary
+        definition = json.loads(proctor_service.PILOT_DEFINITION.read_text(encoding='utf-8'))
+        form = next(form for form in definition['forms'] if form['form_id'] == 'pilot-a')
+        expected_items = sum(len(module['items']) for module in form['modules'])
         if (payload.get('outcome') != outcome or type(payload.get('total_items')) is not int or
-                not 0 <= payload['total_items'] <= 4 or
-                (outcome == 'COMPLETED' and payload['total_items'] != 4) or
+                payload['total_items'] != expected_items or
                 type(payload.get('accepted_correct')) is not int or
                 not 0 <= payload['accepted_correct'] <= payload['total_items'] or
+                len(payload.get('accepted_answers', [])) != expected_items or
                 score.get('correct') != payload['accepted_correct'] or
                 score.get('total') != payload['total_items']):
             raise ValueError('Proctor transcript and practice receipt disagree')
@@ -820,8 +835,10 @@ def managed_check_body(started, desktop_seconds, native_lab):
     # native Marionette session waits for the actual enabled DOM control, then
     # sends a trusted WebDriver click; it does not call the start API directly.
     managed_stage('model-lab-button-click')
+    # Under offline TCG the assistant is still finishing heavyweight startup
+    # work here; allow Firefox time to create its Marionette session too.
     native_lab.start(lab_env, origin + '/?' + urlencode({'token': token, 'view': 'lab'})
-                     + '#lab-start', timeout=30)
+                     + '#lab-start', timeout=120)
     native_lab.click_baseline()
     managed_stage('model-lab-button-activated')
 
@@ -852,7 +869,10 @@ def managed_check_body(started, desktop_seconds, native_lab):
             except Exception as error:
                 print('ARGOS_C3_DIAG ' + path + ' ' + type(error).__name__, flush=True)
         raise ValueError('Visible Model Lab button did not start the baseline')
-    print('ARGOS_C3_LAB ' + json.dumps({'phase': lab_value['phase']}), flush=True)
+    print('ARGOS_C3_LAB ' + json.dumps({
+        'phase': lab_value['phase'],
+        'failure_kind': safe_model_lab_failure_kind(lab_value.get('failure_kind')),
+    }), flush=True)
 
     lab_deadline = time.monotonic() + 900
     last_lab_phase = lab_value['phase']
@@ -862,12 +882,19 @@ def managed_check_body(started, desktop_seconds, native_lab):
         if phase != last_lab_phase:
             if phase in ('pausing', 'model-service', 'speed', 'ability', 'cancelling',
                          'completed', 'cancelled', 'failed'):
-                print('ARGOS_C3_LAB ' + json.dumps({'phase': phase}), flush=True)
+                print('ARGOS_C3_LAB ' + json.dumps({
+                    'phase': phase,
+                    'failure_kind': safe_model_lab_failure_kind(lab_value.get('failure_kind')),
+                }), flush=True)
             last_lab_phase = phase
         if phase in ('completed', 'cancelled', 'failed'):
             break
         time.sleep(2)
     if not lab_value or lab_value.get('phase') != 'completed':
+        failure_kind = safe_model_lab_failure_kind(
+            lab_value.get('failure_kind') if isinstance(lab_value, dict) else None)
+        if failure_kind:
+            raise ValueError(f'Visible Model Lab baseline did not complete successfully ({failure_kind})')
         raise ValueError('Visible Model Lab baseline did not complete successfully')
     run_ids = lab_value.get('runs')
     if not isinstance(run_ids, list) or len(run_ids) != 2 or any(

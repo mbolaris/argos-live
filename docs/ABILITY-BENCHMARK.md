@@ -1,20 +1,28 @@
 # Original ability suites and deterministic scoring
 
-B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items) and
-`challenge` (40 items) fixtures at `argoslive/data/ability/`, version 1.0.0.
+B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items),
+`challenge` (40 items) and `tool-schema` (40 items) fixtures at
+`argoslive/data/ability/`. Quick, standard and challenge are version 1.0.0;
+tool-schema is version 1.1.0.
 Quick contains four items from each of five categories; standard contains
 fourteen per category and includes quick as an exact subset. Challenge is a
 separately authored form with eight items per category and multi-step numeric,
 constraint-selection, structured extraction and inert action-format prompts.
-Challenge is a distinct form, not a held-out external benchmark. These remain
-Argos probes, not GSM8K, MMLU, a comprehensive intelligence evaluation or real
-tool acceptance.
+Challenge is a distinct form, not a held-out external benchmark. Tool-schema
+contains only inert proposed tool calls: every prompt supplies three available
+tool schemas with descriptions and typed arguments; 20 practice and 20 held-out
+items use disjoint tool names and argument keys. Correct tools appear in all
+three list positions, balanced 6/7/7 per partition, so always choosing the first
+entry cannot pass. Held-out means held out from the practice vocabulary, not an
+external benchmark. These remain Argos probes,
+not GSM8K, MMLU, a comprehensive intelligence evaluation or real tool
+acceptance.
 
 `scripts/build-original-ability-suites.py` reproduces all checked-in fixtures
 without downloads. Every item has an original prompt, stable ID, deterministic
 scoring rule, passing reference, semantically wrong answer and malformed answer.
 The packaged NOTICE includes provenance, limits and the MIT license. The normal
-runtime package installer includes all three suites and the notice in the image.
+runtime package installer includes all four suites and the notice in the image.
 Changes to prompts, expected answers or scoring semantics require a suite version
 change; later results comparison must refuse mixed versions.
 
