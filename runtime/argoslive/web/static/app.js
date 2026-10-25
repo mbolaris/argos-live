@@ -4494,13 +4494,29 @@ function renderAutoClimb() {
         const verdictClass = item.verdict || 'unknown';
         const candTitle = item.candidate?.title || 'Experiment';
         const rText = item.reason || '';
-        div.innerHTML = `
-          <div class="history-item-head">
-            <strong>${candTitle}</strong>
-            <span class="history-verdict ${verdictClass}">${item.verdict || ''}</span>
-          </div>
-          <p>${rText}</p>
-        `;
+        const head = document.createElement('div');
+        head.className = 'history-item-head';
+        const title = document.createElement('strong');
+        title.textContent = candTitle;
+        const verdict = document.createElement('span');
+        verdict.className = `history-verdict ${verdictClass}`;
+        verdict.textContent = item.verdict || '';
+        head.append(title, verdict);
+        const reason = document.createElement('p');
+        reason.textContent = rText;
+        const collect = value => {
+          if (typeof value === 'string') return [value];
+          if (Array.isArray(value)) return value.flatMap(collect);
+          if (value && typeof value === 'object') return Object.values(value).flatMap(collect);
+          return [];
+        };
+        const runIds = [...new Set(collect(item.evidence_run_ids))];
+        const evidence = document.createElement('p');
+        evidence.className = 'history-evidence';
+        evidence.textContent = runIds.length
+          ? `Local trace run IDs (checksum only, not signed proof): ${runIds.join(', ')}`
+          : 'Saved run IDs are unavailable for this older record.';
+        div.append(head, reason, evidence);
         return div;
       }));
     }

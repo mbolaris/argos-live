@@ -242,6 +242,82 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
+    def test_task_suite_saves_a_traceable_run_id_and_checksum_checked_receipts(self):
+        controller = auto_climb.Controller(self.startup, home=self.home, runner=self.runner)
+        controller.session = {
+            'session_id': 'suite-run-test',
+            'active_model': {'model': 'test-model', 'digest': 'a' * 64},
+            'suite_runs': {},
+        }
+        self.runner.expected_model = 'test-model'
+        try:
+            suite = copy.deepcopy(controller.practice_tasks)
+            suite['tasks'] = suite['tasks'][:2]
+            results = controller._run_task_suite('practice', suite, 'practice')
+            run_id = controller.latest_suite_run_id
+            persisted = json.loads(controller.session_path.read_text())
+            record = persisted['suite_runs'][run_id]
+
+            self.assertEqual(run_id, record['run_id'])
+            self.assertEqual(record['status'], 'completed')
+            self.assertEqual(record['completed_task_count'], 2)
+            self.assertEqual([item['task_id'] for item in record['items']], [task['id'] for task in suite['tasks']])
+            self.assertTrue(all(len(item['answer_sha256']) == 64 for item in record['items']))
+            self.assertTrue(auto_climb._suite_run_is_valid(record))
+            self.assertEqual(record['integrity_scheme'], 'sha256-unkeyed')
+            public_record = controller.snapshot()['suite_runs'][run_id]
+            self.assertTrue(public_record['checksum_valid'])
+            self.assertNotIn('integrity_valid', public_record)
+            self.assertEqual(record['model_identity']['session_active_model']['digest'], 'a' * 64)
+            self.assertEqual(record['model_identity']['runner_expected_model'], 'test-model')
+            self.assertNotIn(results[0]['reply']['text'], json.dumps(record))
+
+            structurally_incomplete = copy.deepcopy(record)
+            structurally_incomplete['items'].pop()
+            structurally_incomplete['record_sha256'] = auto_climb._suite_run_digest(structurally_incomplete)
+            controller.session['suite_runs']['incomplete-but-checksummed'] = structurally_incomplete
+            self.assertFalse(controller._suite_run_refs_valid(['incomplete-but-checksummed']))
+        finally:
+            controller.close()
+
+    def test_restart_marks_running_suite_record_interrupted_without_scoring_it(self):
+        run_id = 'suite-run-interrupted'
+        record = {
+            'schema': 'argos-auto-climb-suite-run/1',
+            'integrity_scheme': 'sha256-unkeyed',
+            'run_id': run_id,
+            'status': 'running',
+            'task_count': 2,
+            'completed_task_count': 1,
+            'task_ids': ['a', 'b'],
+            'items': [{'task_id': 'a', 'passed': True, 'checks': {'ok': True},
+                       'answer_sha256': 'b' * 64, 'elapsed_seconds': 1, 'assistant_session_id': 's1'}],
+            'started_at': '2026-10-25T00:00:00+00:00',
+            'finished_at': None,
+        }
+        record['record_sha256'] = auto_climb._suite_run_digest(record)
+        state_path = self.home / '.local/share/argos-live/auto-climb/session.json'
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        auto_climb.write_json(state_path, {
+            'schema': auto_climb.SCHEMA,
+            'session_id': 'interrupted-campaign',
+            'phase': 'retest',
+            'raw_before': self.original_agents_content,
+            'suite_runs': {run_id: record},
+        })
+
+        recovered = auto_climb.Controller(self.startup, home=self.home, runner=self.runner)
+        try:
+            saved = json.loads(state_path.read_text())
+            self.assertEqual(recovered.session['phase'], 'paused')
+            self.assertEqual(saved['suite_runs'][run_id]['status'], 'interrupted')
+            self.assertEqual(saved['suite_runs'][run_id]['completed_task_count'], 1)
+            self.assertTrue(auto_climb._suite_run_is_valid(saved['suite_runs'][run_id]))
+            self.assertEqual(saved['suite_runs'][run_id]['interruption'],
+                             'Controller restarted before the suite run completed.')
+        finally:
+            recovered.close()
+
     def test_restart_assistant_verified_ready_and_failure(self):
         """_restart_assistant requires verified readiness and raises on startup failure."""
         startup = FakeStartup(self.home, active=True, phase='ready')
@@ -571,6 +647,25 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             self.assertEqual(len(snap['history']), 1)
             self.assertEqual(snap['history'][0]['verdict'], 'kept')
             self.assertIn('Show the source', self.agents_file.read_text())
+
+            refs = snap['history'][0]['evidence_run_ids']
+            required_run_ids = [
+                refs['kept_practice_baseline'], refs['candidate_practice'],
+                *refs['fresh_validation_baselines'].values(),
+                *refs['candidate_validation'].values(),
+            ]
+            self.assertEqual(len(required_run_ids), 6)
+            self.assertEqual(len(set(required_run_ids)), 6)
+            self.assertTrue(all(run_id in controller.session['suite_runs'] for run_id in required_run_ids))
+            self.assertTrue(all(auto_climb._suite_run_is_valid(controller.session['suite_runs'][run_id])
+                                for run_id in required_run_ids))
+            self.assertTrue(controller._suite_run_evidence_matches(refs, 'quote-evidence', ('val-p1', 'val-p2')))
+            cross_wired = copy.deepcopy(refs)
+            cross_wired['candidate_validation']['val-p1'], cross_wired['candidate_validation']['val-p2'] = (
+                refs['candidate_validation']['val-p2'], refs['candidate_validation']['val-p1'])
+            self.assertFalse(controller._suite_run_evidence_matches(
+                cross_wired, 'quote-evidence', ('val-p1', 'val-p2')))
+            self.assertEqual(controller.session['practice_baseline_run_id'], refs['candidate_practice'])
 
             # Exposure ledger consumed both val-p1 and val-p2
             consumed = controller.session.get('exposure_ledger', {}).get('consumed_partitions', [])
