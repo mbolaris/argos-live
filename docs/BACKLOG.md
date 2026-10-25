@@ -1127,6 +1127,24 @@ Depends on: J7.
   This runtime dataset change requires a new pinned ISO build and fresh QEMU pass;
   the prior 12-hour ISO does not include it.
 
+- October 25 — corrected-suite next-image candidate accepted in disposable QEMU:
+  pinned build `40170325091` for commit `8b1ea4c` and exact-image QEMU run
+  `40172754718` passed. The fresh-boot assertions include the 720-minute
+  screensaver delay, manual controls, disabled automatic lock, and XFCE
+  screensaver D-Bus readiness. The same boot established the authenticated
+  dashboard, bundled read-only model startup, CPU inference, and saved-result
+  round-trip. ISO SHA-256:
+  `bbf98942ca111aac0aaf3e2013f37bc8d86ebbcbc499a598c64f7cb79c47ff8b`.
+  TCG benchmark: 3 measured runs, median 0.341 tokens/s, generation limit 8;
+  this is a VM acceptance measurement, not Toronado's 27B ability score.
+  First run `40171372406` failed after a 600-second model request with
+  `NotRunning`, but its one-token diagnostic passed; retrying the same immutable
+  ISO passed. Record this as TCG cold-start variability, not as proven SSD or
+  product failure. Current-commit tests `40170270745`, pinned OpenClaw
+  compatibility `40170270743`, native chat `40170267612`, and onboarding smoke
+  `40170267508` all passed. No physical firmware, GPU, encrypted-USB retention,
+  or deployed 27B evaluation was established; no SSD was written.
+
 ### J1 Live test arena and incremental receipts — `in progress`
 - Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.
 - Show real streamed output, completed items/total, growing outcomes and Stop. Reconnect without restarting; distinguish incomplete/cancelled observations from completed qualification. Keep existing workload ownership and deadlines.
