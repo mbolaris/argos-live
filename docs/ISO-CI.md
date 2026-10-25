@@ -64,9 +64,9 @@ in acknowledged, hash-checked serial chunks; credentials are never printed.
 Blank/placeholder screenshots fail acceptance, and the captured desktop still
 requires visual review. See Mozilla's [Marionette protocol](https://firefox-source-docs.mozilla.org/remote/marionette/Protocol.html).
 On fresh desktop startup, the guest verifies the shipped XFCE screensaver is
-enabled with a 240-minute idle delay, its Application-phase autostart starts
-the daemon from the image's Argos
-desktop launch path, automatic screen locking remains disabled, and both
+enabled with a 240-minute idle delay, its Application-phase autostart uses the
+image's D-Bus readiness supervisor and claims the session service name,
+automatic screen locking remains disabled, and both
 the preferences UI and manual activate/deactivate commands are available. After
 those checks, the disposable guest disables X screensaver/DPMS
 only for the dashboard capture, before the long CPU-emulated benchmark. This

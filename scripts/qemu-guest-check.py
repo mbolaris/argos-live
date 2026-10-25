@@ -68,6 +68,10 @@ def main():
     if ('X-XFCE-Autostart-Phase=Application' not in autostart_lines or
             'X-XFCE-Autostart-Notify=true' not in autostart_lines):
         raise ValueError('XFCE screensaver must use the application autostart phase and notify readiness')
+    if ('Exec=/usr/local/sbin/argos-start-screensaver' not in autostart_lines or
+            'TryExec=/usr/local/sbin/argos-start-screensaver' not in autostart_lines or
+            not Path('/usr/local/sbin/argos-start-screensaver').is_file()):
+        raise ValueError('XFCE screensaver autostart must use the installed D-Bus readiness supervisor')
     saver_delay = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
                                    '/saver/idle-activation/delay'])
     saver_enabled = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',

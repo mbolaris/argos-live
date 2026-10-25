@@ -158,8 +158,8 @@ Before approving the next image for physical use:
    require stopping and asking the owner; preserve the damaged evidence.
 6. Set the next image's screensaver idle delay to 240 minutes (four hours),
    without enabling automatic screen locking. Verify the delay, daemon autostart,
-   lock setting and preferences UI on a fresh boot; keep manual screensaver
-   controls available.
+   D-Bus service registration, lock setting and preferences UI on a fresh boot;
+   keep manual screensaver controls available.
 
 ## Executable storage test
 
