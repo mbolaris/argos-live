@@ -59,8 +59,15 @@ def main():
             raise ValueError(f"{' '.join(command)} failed ({result.returncode}): {details}")
         return result
 
-    # The next image ships a one-hour screensaver delay, while leaving idle
+    # The next image ships a four-hour screensaver delay, while leaving idle
     # activation and the preferences UI available to the owner.
+    saver_autostart = Path('/etc/xdg/autostart/xfce4-screensaver.desktop')
+    if not saver_autostart.is_file():
+        raise ValueError('XFCE screensaver autostart entry is unavailable')
+    autostart_lines = saver_autostart.read_text(errors='replace').splitlines()
+    if ('X-XFCE-Autostart-Phase=Application' not in autostart_lines or
+            'X-XFCE-Autostart-Notify=true' not in autostart_lines):
+        raise ValueError('XFCE screensaver must use the application autostart phase and notify readiness')
     saver_delay = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
                                    '/saver/idle-activation/delay'])
     saver_enabled = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
@@ -72,11 +79,11 @@ def main():
     lock_on_saver = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
                                      '/lock/saver-activation/enabled'])
     saver_ui = Path('/usr/bin/xfce4-screensaver-preferences')
-    if (saver_delay.stdout.strip() != '60' or saver_enabled.stdout.strip().lower() != 'true' or
+    if (saver_delay.stdout.strip() != '240' or saver_enabled.stdout.strip().lower() != 'true' or
             saver_service_enabled.stdout.strip().lower() != 'true' or
             lock_enabled.stdout.strip().lower() != 'false' or
             lock_on_saver.stdout.strip().lower() != 'false'):
-        raise ValueError('Fresh desktop did not load the one-hour screensaver default')
+        raise ValueError('Fresh desktop did not load the four-hour screensaver default')
     if not saver_ui.is_file():
         raise ValueError('Screensaver preferences are unavailable for manual control')
     saver_deadline = time.monotonic() + 30

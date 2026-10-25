@@ -10,8 +10,8 @@
     <property name="enabled" type="bool" value="true"/>
     <property name="idle-activation" type="empty">
       <property name="enabled" type="bool" value="true"/>
-      <!-- XFCE measures this delay in minutes. One hour keeps the display usable during long runs. -->
-      <property name="delay" type="int" value="60"/>
+      <!-- XFCE measures this delay in minutes; four hours avoids interrupting long sessions. -->
+      <property name="delay" type="int" value="240"/>
     </property>
   </property>
 </channel>
