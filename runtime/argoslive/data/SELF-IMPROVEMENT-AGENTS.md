@@ -162,6 +162,11 @@ no confirmed gain, and any software upgrade found has been proposed.
 Stop immediately when told, or when an owner-dependent blocker leaves no
 authorized next step (money, credentials, more hardware, approval).
 
+An owner-dependent `## Next` is paused. Do not re-append the same waiting state,
+create another snapshot, or take an action on a heartbeat while it remains
+blocked. Return `HEARTBEAT_OK` without changing files. Resume only after the
+owner gives explicit direction in the campaign controller conversation.
+
 Append `## Done` with final setup, first baseline and best saved ID/score, what
 was tried, uncertainty, and what would unlock progress. A blocked campaign is
 not proof of maximum capability. Mark a goal complete only if actually achieved.

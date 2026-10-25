@@ -1,5 +1,6 @@
 """Questionless fresh Live configuration; never replace an owner configuration."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import secrets
@@ -17,14 +18,29 @@ WORKSPACE_FILES = (('AGENTS.md', 'SELF-IMPROVEMENT-AGENTS.md'), ('SOUL.md', 'SEL
 HEARTBEAT_PROMPT = ('Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
                     '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
                     'recovery, or the assistant is not ready, reply exactly HEARTBEAT_OK. Never start a new '
-                    'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. If it has a '
-                    '"## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
+                    'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. A "## Next" '
+                    'entry that says it is awaiting owner direction, approval, or another owner-dependent decision is '
+                    'paused: reply exactly HEARTBEAT_OK without changing files, snapshots, or the log. Resume it only '
+                    'after the owner gives explicit direction in the campaign controller conversation. If it has a '
+                    'runnable "## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
                     'following AGENTS.md, then append one short entry with argos_log. Call argos_evaluate and '
                     'argos_compare as tools. If evaluation returns running, use argos_evaluate_wait until saved; '
                     'if a turn ended before its job ID returned, call argos_evaluate_status first. Never start a '
                     'second evaluation or edit during a running job. Never install software, use sudo, clone repositories or request secrets. '
                     'If there is no active campaign, '
                     'reply exactly HEARTBEAT_OK.')
+
+# Exact heartbeat prompt observed in the deployed pre-guard Toronado profile.
+# Only this generated default is eligible for the one-field migration below.
+LEGACY_HEARTBEAT_PROMPT = ('Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
+                           '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
+                           'recovery, or the assistant is not ready, reply exactly HEARTBEAT_OK. Never start a new '
+                           'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. If it has a '
+                           '"## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
+                           'following AGENTS.md, then append one short entry with argos_log. Call argos_evaluate and '
+                           'argos_compare as tools. Never install software, use sudo, clone repositories or request secrets. '
+                           'If there is no active campaign, '
+                           'reply exactly HEARTBEAT_OK.')
 
 
 def workspace_file(name):
@@ -91,6 +107,61 @@ def publish_new(path, value, journal):
         temp.unlink(missing_ok=True)
 
 
+def upgrade_legacy_heartbeat(home, config_path):
+    """Update only the known generated heartbeat prompt, after a private snapshot."""
+    config_path = storage.safe_local(config_path)
+    raw = config_path.read_bytes()
+    config = json.loads(raw)
+    try:
+        heartbeat = config['agents']['defaults']['heartbeat']
+    except (KeyError, TypeError):
+        return {'status': 'not-managed'}
+    if not isinstance(heartbeat, dict) or heartbeat.get('prompt') != LEGACY_HEARTBEAT_PROMPT:
+        return {'status': 'not-legacy-default'}
+
+    updated = json.loads(json.dumps(config))
+    updated['agents']['defaults']['heartbeat']['prompt'] = HEARTBEAT_PROMPT
+    new_raw = (json.dumps(updated, indent=2) + '\n').encode()
+    state_root = storage.safe_local(home / '.local/state/argos-live')
+    snapshots = storage.safe_local(state_root / 'snapshots')
+    state_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    snapshots.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if os.name != 'nt':
+        for directory in (state_root, snapshots):
+            metadata = directory.stat()
+            if metadata.st_uid != os.getuid() or metadata.st_mode & 0o077:
+                return {'status': 'snapshot-directory-not-private'}
+
+    snapshot = snapshots / ('openclaw-before-heartbeat-guard-' + secrets.token_hex(12) + '.json')
+    descriptor = os.open(snapshot, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, 'wb') as stream:
+        stream.write(raw)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary = config_path.parent / ('.heartbeat-config-' + secrets.token_hex(12))
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(new_raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # Do not overwrite a concurrent owner edit made after the snapshot.
+        if config_path.read_bytes() != raw:
+            return {'status': 'config-changed-during-migration'}
+        os.replace(temporary, config_path)
+        if os.name != 'nt':
+            descriptor = os.open(config_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {'status': 'updated', 'snapshot': snapshot.name,
+            'before_sha256': hashlib.sha256(raw).hexdigest(),
+            'after_sha256': hashlib.sha256(new_raw).hexdigest()}
+
+
 def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
               probe_persistence=persistence, progress=None):
     """No prompts, mounts, downloads or daemon startup; retained state is reused."""
@@ -107,8 +178,16 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
         state = read_json(state_path)
         storage.validate_configured(state)
         read_json(config_path)
+        try:
+            heartbeat_migration = upgrade_legacy_heartbeat(home, config_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            # The migration is opportunistic; a failed private snapshot or a
+            # concurrent config edit must not prevent the existing assistant
+            # from starting with its current owner configuration.
+            heartbeat_migration = {'status': 'not-applied'}
         return {'status': 'existing', **{key: state.get(key) for key in
-                ('mode', 'model', 'model_source', 'storage', 'permissions')}}
+                ('mode', 'model', 'model_source', 'storage', 'permissions')},
+                'heartbeat_prompt_migration': heartbeat_migration}
     if config_path.exists() or (config_path.parent.exists() and any(config_path.parent.iterdir())):
         raise ValueError('Existing OpenClaw state needs review; automatic setup will not replace it')
     report('verify-starter')

@@ -85,6 +85,11 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertEqual((heartbeat['session'], heartbeat['target']), ('main', 'none'))
                 self.assertIs(heartbeat['isolatedSession'], True)
                 self.assertIn('## Done', heartbeat['prompt'])
+                self.assertIn('awaiting owner direction, approval', heartbeat['prompt'])
+                self.assertIn('without changing files, snapshots, or the log', heartbeat['prompt'])
+                agents_guide = (workspace / 'AGENTS.md').read_text(encoding='utf-8')
+                self.assertIn('An owner-dependent `## Next` is paused.', agents_guide)
+                self.assertIn('Do not re-append the same waiting state', agents_guide)
                 self.assertFalse(config['commands']['bash'])
                 self.assertNotIn('token', json.dumps(result))
                 self.assertEqual(events[-1]['phase'], 'configured')
@@ -103,11 +108,37 @@ class AutoSetupTests(unittest.TestCase):
         with patch('builtins.input', side_effect=AssertionError('prompt')):
             result = self.configure()
         self.assertEqual(result['status'], 'existing')
+        self.assertEqual(result['heartbeat_prompt_migration']['status'], 'not-legacy-default')
         self.assertEqual((self.state.read_bytes(), self.config.read_bytes()), before)
         (self.models / '.argos-storage-id').write_text('wrong identity')
         with self.assertRaises(ValueError):
             self.configure()
         self.assertEqual((self.state.read_bytes(), self.config.read_bytes()), before)
+
+    def test_existing_exact_legacy_heartbeat_prompt_is_snapshotted_and_upgraded(self):
+        self.configure()
+        config = json.loads(self.config.read_text())
+        config['agents']['defaults']['heartbeat']['prompt'] = auto_setup.LEGACY_HEARTBEAT_PROMPT
+        config['tools']['elevated']['enabled'] = True
+        config['models']['providers']['ollama']['models'][0]['params'] = {'temperature': 0.73}
+        self.config.write_text(json.dumps(config, indent=2) + '\n')
+        before = self.config.read_bytes()
+
+        result = self.configure()
+
+        self.assertEqual(result['heartbeat_prompt_migration']['status'], 'updated')
+        snapshot = self.home / '.local/state/argos-live/snapshots' / result['heartbeat_prompt_migration']['snapshot']
+        self.assertEqual(snapshot.read_bytes(), before)
+        updated = json.loads(self.config.read_text())
+        self.assertEqual(updated['agents']['defaults']['heartbeat']['prompt'], auto_setup.HEARTBEAT_PROMPT)
+        updated['agents']['defaults']['heartbeat']['prompt'] = auto_setup.LEGACY_HEARTBEAT_PROMPT
+        self.assertEqual(updated, config)
+        self.assertEqual(len(list(snapshot.parent.glob('openclaw-before-heartbeat-guard-*.json'))), 1)
+        again = self.configure()
+        self.assertEqual(again['heartbeat_prompt_migration']['status'], 'not-legacy-default')
+        self.assertEqual(len(list(snapshot.parent.glob('openclaw-before-heartbeat-guard-*.json'))), 1)
+        if os.name != 'nt':
+            self.assertEqual(snapshot.stat().st_mode & 0o777, 0o600)
 
     def test_owner_config_without_state_and_nonempty_model_location_are_not_adopted(self):
         self.config.parent.mkdir()
