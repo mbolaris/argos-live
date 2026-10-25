@@ -271,6 +271,12 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             self.assertEqual(record['model_identity']['session_active_model']['digest'], 'a' * 64)
             self.assertEqual(record['model_identity']['runner_expected_model'], 'test-model')
             self.assertNotIn(results[0]['reply']['text'], json.dumps(record))
+
+            structurally_incomplete = copy.deepcopy(record)
+            structurally_incomplete['items'].pop()
+            structurally_incomplete['record_sha256'] = auto_climb._suite_run_digest(structurally_incomplete)
+            controller.session['suite_runs']['incomplete-but-checksummed'] = structurally_incomplete
+            self.assertFalse(controller._suite_run_refs_valid(['incomplete-but-checksummed']))
         finally:
             controller.close()
 

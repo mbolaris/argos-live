@@ -68,6 +68,34 @@ def _suite_run_is_valid(record):
             _suite_run_digest(record) == record['record_sha256'])
 
 
+def _suite_run_is_complete(record):
+    """Require a structurally complete, checksum-valid scored task set."""
+    if not _suite_run_is_valid(record) or record.get('status') != 'completed':
+        return False
+    task_ids = record.get('task_ids')
+    items = record.get('items')
+    count = record.get('task_count')
+    if (type(count) is not int or count < 1 or not isinstance(task_ids, list) or
+            not isinstance(items, list) or len(task_ids) != count or len(items) != count or
+            record.get('completed_task_count') != count or
+            any(not isinstance(task_id, str) or not task_id for task_id in task_ids) or
+            len(set(task_ids)) != count):
+        return False
+    if [item.get('task_id') if isinstance(item, dict) else None for item in items] != task_ids:
+        return False
+    for item in items:
+        checks = item.get('checks')
+        if (type(item.get('passed')) is not bool or not isinstance(checks, dict) or
+                not checks or any(type(value) is not bool for value in checks.values()) or
+                item['passed'] != all(checks.values()) or
+                not isinstance(item.get('answer_sha256'), str) or
+                re.fullmatch(r'[a-f0-9]{64}', item['answer_sha256']) is None or
+                not isinstance(item.get('assistant_session_id'), str) or
+                not item['assistant_session_id']):
+            return False
+    return True
+
+
 def get_model_catalog_entry(tag):
     if not tag:
         return None
@@ -626,11 +654,7 @@ class Controller:
         if not run_ids or any(not isinstance(run_id, str) for run_id in run_ids):
             return False
         runs = self.session.get('suite_runs', {}) if isinstance(self.session, dict) else {}
-        return all(isinstance(runs.get(run_id), dict) and
-                   runs[run_id].get('status') == 'completed' and
-                   _suite_run_is_valid(runs[run_id]) and
-                   runs[run_id].get('completed_task_count') == runs[run_id].get('task_count')
-                   for run_id in run_ids)
+        return all(_suite_run_is_complete(runs.get(run_id)) for run_id in run_ids)
 
     def _restart_assistant(self, timeout=900, expected_model=None):
         """Wait for owned shutdown, then use the established assistant startup budget."""
