@@ -14,6 +14,8 @@ from urllib.error import HTTPError
 
 sys.path.insert(0, '/usr/local/lib/argos-live')
 
+SCREENSAVER_DELAY_MINUTES = 10080
+
 
 def main():
     started = time.monotonic()
@@ -59,7 +61,7 @@ def main():
             raise ValueError(f"{' '.join(command)} failed ({result.returncode}): {details}")
         return result
 
-    # The next image ships a 24-hour screensaver delay, while leaving idle
+    # The next image ships a 7-day screensaver delay, while leaving idle
     # activation and the preferences UI available to the owner.
     saver_autostart = Path('/etc/xdg/autostart/xfce4-screensaver.desktop')
     if not saver_autostart.is_file():
@@ -83,11 +85,12 @@ def main():
     lock_on_saver = session_command(['xfconf-query', '-c', 'xfce4-screensaver', '-p',
                                      '/lock/saver-activation/enabled'])
     saver_ui = Path('/usr/bin/xfce4-screensaver-preferences')
-    if (saver_delay.stdout.strip() != '1440' or saver_enabled.stdout.strip().lower() != 'true' or
+    if (saver_delay.stdout.strip() != str(SCREENSAVER_DELAY_MINUTES) or
+            saver_enabled.stdout.strip().lower() != 'true' or
             saver_service_enabled.stdout.strip().lower() != 'true' or
             lock_enabled.stdout.strip().lower() != 'false' or
             lock_on_saver.stdout.strip().lower() != 'false'):
-        raise ValueError('Fresh desktop did not load the 24-hour screensaver default')
+        raise ValueError('Fresh desktop did not load the 7-day screensaver default')
     if not saver_ui.is_file():
         raise ValueError('Screensaver preferences are unavailable for manual control')
     # XFCE's early autostart can race the first session-bus initialization on

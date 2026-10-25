@@ -156,7 +156,7 @@ Before approving the next image for physical use:
 5. Document the exact owner shutdown procedure. After a backed-up physical
    acceptance run, check the card offline before reusing it. Filesystem errors
    require stopping and asking the owner; preserve the damaged evidence.
-6. Set the next image's screensaver idle delay to 1,440 minutes (24 hours),
+6. Set the next image's screensaver idle delay to 10,080 minutes (7 days),
    without enabling automatic screen locking. Verify the delay, daemon autostart,
    D-Bus service registration, lock setting and preferences UI on a fresh boot;
    keep manual screensaver controls available.
