@@ -1077,12 +1077,12 @@ Depends on: J7.
   in the then-next image; keep manual screensaver controls available and verify
   the default after a fresh boot. The current candidate set it to 720 minutes
   (twelve hours), kept automatic locking disabled, and retained manual controls.
-- Owner requested October 25: make the image after that 12-hour candidate much
-  longer. Set its default to 1,440 minutes (24 hours), retain manual screensaver
-  controls, and keep automatic locking disabled.
+- Owner requested October 25: make the image after the 24-hour candidate much
+  longer. The current next-image candidate now uses 10,080 minutes (7 days),
+  retaining manual screensaver controls and keeping automatic locking disabled.
 - Accept: boot-menu tests/docs updated; actual default selection verified and guest
   entry isolation retained. GRUB selects desktop index1 and BIOS selects only the
-  desktop label by default. Fresh-boot checks confirm the 1,440-minute delay, no
+  desktop label by default. Fresh-boot checks confirm the 10,080-minute delay, no
   automatic lock, manual controls, and successful XFCE screensaver D-Bus
   registration. Shell fixture checks both menu outputs; actual ISO menu inspection
   and physical default boot remain separate acceptance.
@@ -1398,4 +1398,4 @@ improved · 7 unchanged · 0 worse”) so the marks are immediately understandab
 
 ## October 25 — next-image screensaver follow-up
 
-The owner wants the default screensaver timeout on the next image to be much longer than the current 1,440-minute (24-hour) default. Apply this to the next image intended for USB: change the default to an interval substantially longer than 24 hours. Set and document the exact interval when preparing that image. Keep the manual screensaver controls available and automatic locking disabled, then verify the configured default on a fresh boot.
+The owner wants the default screensaver timeout on the image after the current 7-day candidate to be much longer than seven days. Set and document the exact interval when preparing that image. Keep the manual screensaver controls available and automatic locking disabled, then verify the configured default on a fresh boot.
