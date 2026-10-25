@@ -90,7 +90,9 @@ def main():
         raise ValueError('Fresh desktop did not load the four-hour screensaver default')
     if not saver_ui.is_file():
         raise ValueError('Screensaver preferences are unavailable for manual control')
-    saver_deadline = time.monotonic() + 30
+    # XFCE's early autostart can race the first session-bus initialization on
+    # the clean image. The supervisor retries with a deliberate settle interval.
+    saver_deadline = time.monotonic() + 90
     saver_ready = False
     last_saver_error = 'screensaver process has not started'
     while time.monotonic() < saver_deadline:
@@ -167,6 +169,9 @@ def main():
             ['journalctl', '--user', '-b', '--no-pager', '-n', '100',
              '--grep=xfce4-screensaver|screensaver'],
             env=session_env, capture_output=True, text=True, timeout=10)
+        saver_runtime_log = Path(session_env.get('XDG_RUNTIME_DIR', '/run/user/1000')) / 'argos-screensaver.log'
+        saver_runtime_tail = '\n'.join(saver_runtime_log.read_text(errors='replace').splitlines()[-60:]) \
+            if saver_runtime_log.is_file() else ''
         session_errors = Path.home() / '.xsession-errors'
         session_error_tail = ''
         if session_errors.is_file():
@@ -180,6 +185,7 @@ def main():
                          f'D-Bus owner: {dbus_owner.stdout.strip() or dbus_owner.stderr.strip()}; '
                          f'debug restart D-Bus owner: {debug_probe}; '
                          f'debug restart output: {debug_output}; '
+                         f'supervisor startup output: {saver_runtime_tail}; '
                          f'user journal: {user_journal.stdout.strip() or user_journal.stderr.strip()}; '
                          f'session log: {session_error_tail}')
     session_command(['xfce4-screensaver-command', '--deactivate'])

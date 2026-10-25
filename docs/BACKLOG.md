@@ -1086,6 +1086,17 @@ Depends on: J7.
   Missing/locked persistence handled honestly. No firmware
   changes or mutation of a running USB; physical preservation remains local deployment.
 
+- October 25 follow-up: screensaver default, no-auto-lock and manual controls all
+  passed static checks in the pinned `aaa8205` build, and OpenClaw compatibility
+  passed. Its exact fresh QEMU boot (`40161215559`) still failed: the autostarted
+  process was alive but did not own `org.xfce.ScreenSaver` at 30 seconds; starting
+  the supported debug foreground process after the check did claim it. The QEMU
+  evidence points to an early-session startup race, not SSD/model failure. The
+  supervisor now stores boot-local diagnostics, retries four times with a 20-second
+  settle interval, and the QEMU readiness bound is 90 seconds. This revision is
+  not yet built or accepted; rerun CI, build a pinned ISO, and boot-test that exact
+  artifact before calling the next image ready.
+
 ### J1 Live test arena and incremental receipts — `in progress`
 - Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.
 - Show real streamed output, completed items/total, growing outcomes and Stop. Reconnect without restarting; distinguish incomplete/cancelled observations from completed qualification. Keep existing workload ownership and deadlines.
