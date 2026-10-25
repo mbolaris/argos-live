@@ -1122,6 +1122,10 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                     break
                 time.sleep(0.05)
 
+            worker = controller.worker
+            self.assertIsNotNone(worker)
+            worker.join(timeout=10)
+            self.assertFalse(worker.is_alive(), 'Auto Climb worker did not reach a terminal state')
             snap = controller.snapshot()
             self.assertTrue(len(restored) > 0)
             self.assertEqual(snap['history'][0]['verdict'], 'restored')
