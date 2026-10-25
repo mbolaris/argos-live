@@ -661,7 +661,8 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                                 for run_id in required_run_ids))
             self.assertTrue(controller._suite_run_evidence_matches(refs, 'quote-evidence', ('val-p1', 'val-p2')))
             cross_wired = copy.deepcopy(refs)
-            cross_wired['candidate_validation']['val-p1'] = refs['fresh_validation_baselines']['val-p1']
+            cross_wired['candidate_validation']['val-p1'], cross_wired['candidate_validation']['val-p2'] = (
+                refs['candidate_validation']['val-p2'], refs['candidate_validation']['val-p1'])
             self.assertFalse(controller._suite_run_evidence_matches(
                 cross_wired, 'quote-evidence', ('val-p1', 'val-p2')))
             self.assertEqual(controller.session['practice_baseline_run_id'], refs['candidate_practice'])
