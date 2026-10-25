@@ -95,8 +95,24 @@ def main():
             last_saver_error = 'screensaver process has not started'
         time.sleep(1)
     if not saver_ready:
+        saver_processes = subprocess.run(
+            ['pgrep', '-a', '-u', 'argos', '-f', r'(^|/)xfce4-screensaver($| )'],
+            capture_output=True, text=True, timeout=10)
+        user_journal = subprocess.run(
+            ['journalctl', '--user', '-b', '--no-pager', '-n', '100',
+             '--grep=xfce4-screensaver|screensaver'],
+            env=session_env, capture_output=True, text=True, timeout=10)
+        session_errors = Path.home() / '.xsession-errors'
+        session_error_tail = ''
+        if session_errors.is_file():
+            saver_lines = [line for line in session_errors.read_text(errors='replace').splitlines()
+                           if 'screensaver' in line.lower()]
+            session_error_tail = '\n'.join(saver_lines[-30:])
         raise ValueError('XFCE screensaver did not become ready within 30 seconds: '
-                         f'{last_saver_error}; user processes: {user_process_names()}')
+                         f'{last_saver_error}; user processes: {user_process_names()}; '
+                         f'screensaver processes: {saver_processes.stdout.strip()}; '
+                         f'user journal: {user_journal.stdout.strip() or user_journal.stderr.strip()}; '
+                         f'session log: {session_error_tail}')
     session_command(['xfce4-screensaver-command', '--deactivate'])
     refresh = subprocess.run(['systemctl', 'is-active', '--quiet', 'argos-refresh-runtime.service'],
                              timeout=10)
