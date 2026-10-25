@@ -450,6 +450,18 @@ def managed_stage(name):
     print('ARGOS_C3_STAGE ' + name, flush=True)
 
 
+MODEL_LAB_FAILURE_KINDS = frozenset({
+    'cancelled', 'model-service-unreachable', 'model-unavailable',
+    'model-response-interrupted', 'model-service-error', 'timed-out',
+    'system-io-error', 'invalid-result', 'trial-error',
+})
+
+
+def safe_model_lab_failure_kind(value):
+    """Expose the fixed dashboard category without leaking exception text."""
+    return value if isinstance(value, str) and value in MODEL_LAB_FAILURE_KINDS else None
+
+
 def ready_cpu_metrics(report, *, vm_has_no_compute_gpu_passthrough=False):
     """Explain a rejected startup measurement without publishing guest text."""
     metrics = report.get('metrics')
@@ -854,7 +866,10 @@ def managed_check_body(started, desktop_seconds, native_lab):
             except Exception as error:
                 print('ARGOS_C3_DIAG ' + path + ' ' + type(error).__name__, flush=True)
         raise ValueError('Visible Model Lab button did not start the baseline')
-    print('ARGOS_C3_LAB ' + json.dumps({'phase': lab_value['phase']}), flush=True)
+    print('ARGOS_C3_LAB ' + json.dumps({
+        'phase': lab_value['phase'],
+        'failure_kind': safe_model_lab_failure_kind(lab_value.get('failure_kind')),
+    }), flush=True)
 
     lab_deadline = time.monotonic() + 900
     last_lab_phase = lab_value['phase']
@@ -864,12 +879,19 @@ def managed_check_body(started, desktop_seconds, native_lab):
         if phase != last_lab_phase:
             if phase in ('pausing', 'model-service', 'speed', 'ability', 'cancelling',
                          'completed', 'cancelled', 'failed'):
-                print('ARGOS_C3_LAB ' + json.dumps({'phase': phase}), flush=True)
+                print('ARGOS_C3_LAB ' + json.dumps({
+                    'phase': phase,
+                    'failure_kind': safe_model_lab_failure_kind(lab_value.get('failure_kind')),
+                }), flush=True)
             last_lab_phase = phase
         if phase in ('completed', 'cancelled', 'failed'):
             break
         time.sleep(2)
     if not lab_value or lab_value.get('phase') != 'completed':
+        failure_kind = safe_model_lab_failure_kind(
+            lab_value.get('failure_kind') if isinstance(lab_value, dict) else None)
+        if failure_kind:
+            raise ValueError(f'Visible Model Lab baseline did not complete successfully ({failure_kind})')
         raise ValueError('Visible Model Lab baseline did not complete successfully')
     run_ids = lab_value.get('runs')
     if not isinstance(run_ids, list) or len(run_ids) != 2 or any(
