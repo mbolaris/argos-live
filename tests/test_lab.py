@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
 from argoslive import lab, startup, bench_speed
 from argoslive.results import Store
-from argoslive.ollama import Cancelled
+from argoslive.ollama import Cancelled, NotRunning
 from argoslive.web.server import DashboardServer
 from test_bench_speed import Backend
 from test_results import ability_result
@@ -146,9 +146,22 @@ class LabTests(unittest.TestCase):
         self.lab.start()
         self.finish()
         self.assertEqual(self.lab.snapshot()['phase'], 'failed')
+        self.assertEqual(self.lab.snapshot()['failure_kind'], 'invalid-result')
         self.assertNotIn('PRIVATE', str(self.lab.snapshot()))
         self.assertEqual(len(self.lab.snapshot()['runs']), 1)
         self.assertEqual(self.assistant.calls[-2:], ['backend-stop', 'resume'])
+    def test_model_service_failure_is_safely_classified_in_status_and_event(self):
+        def unavailable(*args, **kw): raise NotRunning('PRIVATE backend address')
+        self.lab.speed = unavailable
+        self.lab.start()
+        self.finish()
+        value = self.lab.snapshot()
+        self.assertEqual(value['phase'], 'failed')
+        self.assertEqual(value['failure_kind'], 'model-service-unreachable')
+        self.assertEqual(value['arena']['failure_kind'], 'model-service-unreachable')
+        self.assertNotIn('PRIVATE', str(value))
+        final = [event for event in self.lab.events_after()['events'] if event['type'] == 'final'][-1]
+        self.assertEqual(final['failure_kind'], 'model-service-unreachable')
     def test_close_cancels_without_restarting_or_accepting_new_jobs(self):
         entered = threading.Event()
         def speed(*args, cancel, **kw):

@@ -1395,3 +1395,7 @@ unrelated skill maps, examples, journals, mission briefs and hardware diagnostic
 After Keep, focus the real-question next step and leave Restore as an undo; after
 Restore, return the normal navigation. Spell out checkpoint counts (“1 challenge
 improved · 7 unchanged · 0 worse”) so the marks are immediately understandable.
+
+## October 25 — next-image screensaver follow-up
+
+The owner wants the default screensaver timeout on the next image to be much longer than the current 1,440-minute (24-hour) default. Treat this as a follow-up beyond the current 24-hour candidate; settle and document the exact longer interval when preparing that image. Keep the manual screensaver controls available and automatic locking disabled, then verify the configured default on a fresh boot.
