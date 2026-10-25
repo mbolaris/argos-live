@@ -145,6 +145,10 @@ def main():
         if any(path.name != '.argos-storage-id' for path in Path(state['storage']).iterdir()):
             raise ValueError('Automatic setup copied weights to writable storage')
     stage('ollama')
+    # The acceptance VM has no compute GPU. Avoid Ollama's Vulkan probe under
+    # TCG and retain backend diagnostics for the fixed public smoke prompt.
+    os.environ['OLLAMA_VULKAN'] = '0'
+    os.environ['OLLAMA_DEBUG'] = '1'
     daemon = argos.server(state)
     dashboard = None
     browser = None
