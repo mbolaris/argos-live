@@ -310,7 +310,14 @@ def main():
                 elif any(term in detail for term in ('runner', 'backend', 'llama-server')):
                     diagnosis = 'runner-startup'
                 else:
-                    diagnosis = f'http-{response_error.code}-unclassified'
+                    # Preserve enough controlled diagnostic context to distinguish
+                    # a backend failure without exposing paths or opaque IDs in CI.
+                    safe_detail = re.sub(r'(?<!\w)(?:/[^\s,;)]*|[A-Za-z]:\\[^\s,;)]*)',
+                                         '<path>', detail)
+                    safe_detail = re.sub(r'\b[0-9a-f]{32,}\b', '<id>', safe_detail)
+                    safe_detail = re.sub(r'\s+', ' ', safe_detail).strip().lower()
+                    safe_detail = re.sub(r'[^a-z0-9 .,:;_()<>-]', '?', safe_detail)[:160]
+                    diagnosis = f'http-{response_error.code}-detail-{safe_detail or "empty"}'
             except (OSError, TimeoutError, ValueError):
                 diagnosis = 'diagnostic-request-unreachable'
             raise ValueError(f'Starter speed benchmark failed ({type(error).__name__}); '
