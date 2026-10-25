@@ -194,11 +194,18 @@ def validate(data):
                                 for schema in item['scorer']['available_tools']}
             argument_keys[partition] = {key for item in items for schema in item['scorer']['available_tools']
                                         for key in schema['arguments']}
+            target_positions = [0, 0, 0]
             counts = {}
             for item in items:
-                counts[item['scorer']['expected']['name']] = counts.get(item['scorer']['expected']['name'], 0) + 1
+                expected_name = item['scorer']['expected']['name']
+                counts[expected_name] = counts.get(expected_name, 0) + 1
+                position = next(index for index, schema in enumerate(item['scorer']['available_tools'])
+                                if schema['name'] == expected_name)
+                target_positions[position] += 1
             if len({item['scorer']['expected']['name'] for item in items}) != 4 or set(counts.values()) != {5}:
                 raise ValueError('Each tool-schema partition requires four balanced target tools')
+            if max(target_positions) - min(target_positions) > 1:
+                raise ValueError('Tool-schema target position must be balanced across available tools')
         if (names['practice'] & names['heldout'] or
                 argument_keys['practice'] & argument_keys['heldout']):
             raise ValueError('Practice and held-out tool names and argument keys must be disjoint')

@@ -225,6 +225,9 @@ def tool_schema_items():
                 arguments = values(variant)
                 available = [tools[index % len(tools)] for index in
                              (tool_index, tool_index + 1, tool_index + 2)]
+                target = available.pop(0)
+                target_position = (tool_index * 5 + variant - 1) % 3
+                available.insert(target_position, target)
                 schemas = [{'name': entry[0], 'description': descriptions[entry[0]],
                             'arguments': entry[1]} for entry in available]
                 prompt = ('Choose the available tool that performs the request. Available tool schemas: '
@@ -251,7 +254,8 @@ def build(suite):
         selected = [item for group in items().values() for item in group[:count]]
     else:
         raise ValueError('Unknown suite')
-    return validate({'schema': 'argos-ability-suite/1', 'suite': suite, 'version': '1.0.0',
+    version = '1.1.0' if suite == 'tool-schema' else '1.0.0'
+    return validate({'schema': 'argos-ability-suite/1', 'suite': suite, 'version': version,
         'license': 'MIT', 'source': 'original-argos-live', 'omitted_categories': ['code-execution'],
         'items': selected})
 

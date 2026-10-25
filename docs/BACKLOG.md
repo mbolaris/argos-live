@@ -1121,6 +1121,11 @@ Depends on: J7.
   dashboard, bundled read-only model startup, and CPU inference/result round-trip.
   ISO SHA-256: `6d68aae6e0ffae1fe7b93da3fbdad0012872e7984bff1da58ada1588263204ab`.
   QEMU is not physical firmware/GPU or USB persistence acceptance; no SSD was written.
+  A subsequent Proctor dataset audit found every correct tool in suite 1.0.0 was
+  listed first, allowing a positional shortcut. Version 1.1.0 now balances target
+  positions 6/7/7 in each partition and validates against an always-first strategy.
+  This runtime dataset change requires a new pinned ISO build and fresh QEMU pass;
+  the prior 12-hour ISO does not include it.
 
 ### J1 Live test arena and incremental receipts — `in progress`
 - Primary product focus: configure → watch → qualify → improve. Extend existing lab progress callbacks with bounded sequenced per-item public prompt, answer output, status, elapsed time and scored receipt events; no hidden reasoning, private profile/text or configuration in event logs.

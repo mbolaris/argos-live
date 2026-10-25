@@ -79,7 +79,7 @@ class AbilityRunTests(unittest.TestCase):
         self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
         self.assertEqual(result['summary']['partitions']['practice']['correct'], 20)
         self.assertEqual(result['summary']['partitions']['heldout']['correct'], 20)
-        self.assertEqual(result['suite_version'], 'ability/tool-schema/1.0.0')
+        self.assertEqual(result['suite_version'], 'ability/tool-schema/1.1.0')
 
     def test_cancel_preserves_partial_evidence_and_restores(self):
         backend = AbilityBackend()

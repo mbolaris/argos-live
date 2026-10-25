@@ -36,7 +36,8 @@ intelligence.
 
 When tool-call formatting is the measured weakness, use `tool-schema`. Each
 question supplies exact tool schemas; 20 practice and 20 held-out questions use
-disjoint tool names and argument keys. A tool-schema instruction change can be
+disjoint tool names and argument keys, with target position balanced across the
+three options. A tool-schema instruction change can be
 kept only after repeated overall improvement, no increase in format errors,
 and both candidate held-out scores meeting or exceeding the strongest baseline
 held-out score. The host enforces a 3/40 overall gain threshold. This is a

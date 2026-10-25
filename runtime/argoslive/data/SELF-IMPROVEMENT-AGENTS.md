@@ -53,7 +53,8 @@ from one suite.
 
 When tool-call formatting is the measured weakness, use `tool-schema`. Every
 item supplies the exact available tool names and argument schemas. Its 20
-practice and 20 held-out tasks use disjoint tool names and argument keys. For an
+practice and 20 held-out tasks use disjoint tool names and argument keys, and
+target position is balanced so always choosing the first tool is insufficient. For an
 instruction change to qualify on this form, repeated runs must gain at least
 3/40 overall, avoid more format errors, and each candidate held-out score must
 match or exceed the strongest baseline held-out score. This checks transfer to
