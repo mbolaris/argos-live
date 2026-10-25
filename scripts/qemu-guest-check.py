@@ -241,7 +241,12 @@ def main():
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     os.environ['OLLAMA_VULKAN'] = '0'
     os.environ['OLLAMA_DEBUG'] = '1'
-    daemon = argos.server(state)
+    from argoslive.startup import source
+    from argoslive.owned_ollama import owned as owned_ollama
+    target, model = source(Path.home())
+    backend = owned_ollama(target, port=11434, context_tokens=32768)
+    client = backend.__enter__()
+    client.timeout = 600
     dashboard = None
     browser = None
     try:
@@ -265,20 +270,18 @@ def main():
         browser = ready_firefox(session_env, base + '/?token=' + token)
         stage('cpu-inference')
         from argoslive import bench_speed
-        from argoslive.ollama import Client
         # Only this disposable VM process uses eight tokens: TCG is instruction
         # emulation, not a representative machine performance measurement.
         # The result records the changed limit, so normal 128-token runs cannot
         # be compared to it. The installed runtime and ISO stay unchanged.
         bench_speed.LIMIT = 8
-        client = Client(timeout=600)
         try:
-            result = bench_speed.run(client, 'qwen3:0.6b', sizes=['short'])
+            result = bench_speed.run(client, model, sizes=['short'])
         except Exception as error:
             # Keep server details private: classify only a small, fixed set of
             # likely causes after retrying with a fixed, one-token diagnostic.
             diagnosis = 'diagnostic-request-failed'
-            payload = json.dumps({'model': 'qwen3:0.6b', 'prompt': 'Reply OK.',
+            payload = json.dumps({'model': model, 'prompt': 'Reply OK.',
                                   'stream': False,
                                   'options': {'num_ctx': 512, 'num_predict': 1,
                                               'temperature': 0}}).encode()
@@ -351,8 +354,7 @@ def main():
         if dashboard:
             dashboard.terminate()
             dashboard.wait(timeout=10)
-        daemon.terminate()
-        daemon.wait(timeout=30)
+        backend.__exit__(*sys.exc_info())
 
 
 if __name__ == '__main__':
