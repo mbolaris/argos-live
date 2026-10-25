@@ -22,9 +22,9 @@ screen_saver_has_dbus_owner() {
 
 start_saver_and_wait_for_registration() {
     timeout_seconds=$1
-    # Keep the daemon in the supervisor's process tree so its session-bus
-    # registration can be observed before startup is declared ready.
-    "$saver" --no-daemon &
+    # In the shipped 4.18.4 build, --no-daemon is unsupported. Debug mode stays
+    # in the foreground and can be supervised; keep its diagnostic stream quiet.
+    "$saver" --debug >/dev/null 2>&1 &
     saver_pid=$!
     attempt=0
     while [ "$attempt" -lt "$timeout_seconds" ]; do
