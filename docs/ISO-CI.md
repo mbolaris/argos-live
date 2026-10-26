@@ -20,6 +20,14 @@ check, not proof of the absence of every possible secret. The build uses only
 public inputs, disables checkout credential persistence and receives no owner
 exports or release credentials.
 
+Before uploading the candidate, the same disposable runner installs QEMU and
+boots that exact ISO with KVM in managed mode. It verifies the shipped desktop,
+bundled model reply, saved ability round, and signed Proctor practice. The smoke
+rechecks the ISO checksum and uploads its result/screenshots separately from the
+ISO artifact. Keeping build and boot in one job avoids transferring the 4 GB ISO
+between runners. A failed boot still preserves the ISO and diagnostic artifacts,
+but a green workflow requires the exact-image smoke to pass.
+
 Download the candidate artifact with ISO, `SHA256SUMS`, `packages.txt` and
 `build-report.json`; verify SHA256 before using it. Large already-compressed ISO
 artifacts use compression level 0, as recommended by
@@ -27,18 +35,20 @@ artifacts use compression level 0, as recommended by
 is three days; build logs remain seven days. These artifacts are development
 outputs; public Drive release publishing remains C4.
 
-A green build establishes image creation and artifact integrity. QEMU desktop,
-offline starter inference/dashboard timing and screenshots are C3. Physical
-NVIDIA support, USB persistence and owner personality acceptance remain separate.
-Do not rewrite the owner's USB from a build-only result.
+A green pinned build establishes image creation, artifact integrity, and the
+same-runner KVM/Proctor acceptance above. Physical NVIDIA support, USB persistence
+and owner personality acceptance remain separate. Do not rewrite the owner's USB
+until the physical write is explicitly approved.
 
 ## Offline guest check
 
-The **Offline QEMU ISO acceptance** workflow accepts a successful build run ID,
-downloads that candidate and verifies its ISO SHA256 again. It boots the original
-desktop kernel/initrd under CPU software emulation with no NIC or host disk. A
-serial-console argument is added only to this VM launch; the ISO is unchanged.
-The [Debian Live factory test user](https://live-team.pages.debian.net/live-manual/html/live-manual/customizing-run-time-behaviours.en.html)
+The **Offline QEMU ISO acceptance** workflow remains available for alternate
+setup modes and repeated checks. It accepts a successful build run ID, downloads
+that candidate and verifies its ISO SHA256 again. Its standard desktop check boots
+the original kernel/initrd under CPU software emulation with no NIC or host disk;
+the managed Proctor smoke requires explicit KVM. A serial-console argument is
+added only to the VM launch; the ISO is unchanged. The [Debian Live factory test
+user](https://live-team.pages.debian.net/live-manual/html/live-manual/customizing-run-time-behaviours.en.html)
 is used only in a fresh disposable guest. No owner password or persistence is used.
 
 The guest checks XFCE, runs existing setup with fixed public test answers, starts
@@ -64,7 +74,7 @@ in acknowledged, hash-checked serial chunks; credentials are never printed.
 Blank/placeholder screenshots fail acceptance, and the captured desktop still
 requires visual review. See Mozilla's [Marionette protocol](https://firefox-source-docs.mozilla.org/remote/marionette/Protocol.html).
 On fresh desktop startup, the guest verifies the shipped XFCE screensaver is
-enabled with a 10,080-minute (7-day) idle delay, its Application-phase autostart uses the
+enabled with a 43,200-minute (30-day) idle delay, its Application-phase autostart uses the
 image's foreground D-Bus readiness supervisor and claims the session service name,
 automatic screen locking remains disabled, and both
 the preferences UI and manual activate/deactivate commands are available. After

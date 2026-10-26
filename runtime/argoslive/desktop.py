@@ -20,7 +20,7 @@ from .startup import Controller
 from .lab import Controller as LabController
 from .model_controls import Controller as ModelController
 from .results import Store
-from . import auto_climb, command_center
+from . import auto_climb, command_center, proctor_campaign
 from .web.server import DashboardServer
 from .web.benchmarks import View as BenchmarkView
 from .web import models as model_view, status as status_view
@@ -129,10 +129,12 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
     selection = Selection(controller, store=results)
     trial = assistant_trial.Controller(controller, home=home)
     auto_climb_controller = auto_climb.Controller(controller, home=home, selection=selection, downloads=downloads)
+    proctor_campaign_controller = proctor_campaign.Controller(controller, home=home)
     storage_controller = storage_view.Controller(controller, home=home)
     command = command_center.Controller(home, results, lab=lab, storage=storage_controller)
     with DashboardServer(port=port, startup=controller, lab=lab, downloads=downloads, selection=selection,
             storage=storage_controller, command=command, assistant_trial=trial, auto_climb=auto_climb_controller,
+            proctor_campaign=proctor_campaign_controller,
             benchmarks=BenchmarkView(results), models_provider=lambda: model_view.snapshot(home),
             status_provider=lambda: status_view.snapshot(home)) as server:
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)
@@ -156,6 +158,7 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
             stop.wait()
         finally:
             temporary.unlink(missing_ok=True)
+            proctor_campaign_controller.close()
             auto_climb_controller.close()
             trial.close()
             selection.close()

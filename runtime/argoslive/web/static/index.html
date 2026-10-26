@@ -588,6 +588,22 @@
     <section aria-labelledby="improve-title" id="improve">
       <h2 id="improve-title">Self-improvement</h2>
       <p>Tell your assistant <strong>"improve yourself"</strong> in chat. It benchmarks itself, upgrades and reconfigures, and keeps only what measurably helps. Watch its tool calls in the chat; follow its scores here.</p>
+      <article class="card proctor-campaign-card" id="proctor-campaign-card" hidden>
+        <div class="proctor-campaign-header">
+          <div><p class="mission-label">Managed ability check</p><h3>Proctor + self-improvement</h3></div>
+          <span id="proctor-campaign-phase" class="auto-climb-badge">Ready</span>
+        </div>
+        <p>One dashboard action runs signed practice, then gives Argos up to four bounded campaign turns to inspect its instructions, test a reversible idea, compare saved runs, and audit the result. It can take a while, but no terminal commands or reboot are needed. Practice is coaching only; no gain is claimed without audited benchmark evidence.</p>
+        <p class="proctor-campaign-disclosure">Starting pauses everyday chat and writes signed practice, benchmark records, and any reversible instruction trial to verified encrypted persistent Argos storage. Argos may keep a change only through the existing evidence and host-resolution rules. The dashboard restarts Argos and verifies a reply afterward. No terminal commands or reboot are needed.</p>
+        <div class="proctor-campaign-actions">
+          <button id="proctor-campaign-start" type="button">Start Proctor campaign</button>
+          <button id="proctor-campaign-recover" type="button" hidden>Retry Argos recovery</button>
+          <span id="proctor-campaign-elapsed"></span>
+        </div>
+        <p id="proctor-campaign-message" role="status" aria-live="polite">Checking Argos and storage readiness…</p>
+        <p id="proctor-campaign-progress" class="proctor-campaign-progress" aria-live="polite" hidden></p>
+        <p id="proctor-campaign-result" class="proctor-campaign-result" hidden></p>
+      </article>
       <div class="improve-stats">
         <div class="improve-stat"><span>Model</span><strong id="improve-model">-</strong></div>
         <div class="improve-stat"><span>Best score</span><strong id="improve-best">-</strong></div>
