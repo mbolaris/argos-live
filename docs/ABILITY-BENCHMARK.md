@@ -3,7 +3,7 @@
 B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items),
 `challenge` (40 items) and `tool-schema` (40 items) fixtures at
 `argoslive/data/ability/`. Quick, standard and challenge are version 1.0.0;
-tool-schema is version 1.1.0.
+tool-schema is version 1.2.0.
 Quick contains four items from each of five categories; standard contains
 fourteen per category and includes quick as an exact subset. Challenge is a
 separately authored form with eight items per category and multi-step numeric,
@@ -17,6 +17,10 @@ entry cannot pass. Held-out means held out from the practice vocabulary, not an
 external benchmark. These remain Argos probes,
 not GSM8K, MMLU, a comprehensive intelligence evaluation or real tool
 acceptance.
+
+Tool-schema 1.2.0 states the exact JSON call shape (`name` and `arguments`),
+rejects the common `tool` alias, and forbids Markdown fences. Its scores are a
+new baseline and must not be compared with 1.1.0.
 
 `scripts/build-original-ability-suites.py` reproduces all checked-in fixtures
 without downloads. Every item has an original prompt, stable ID, deterministic

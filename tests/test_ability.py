@@ -53,6 +53,8 @@ class AbilityTests(unittest.TestCase):
         for item in data['items']:
             self.assertIn('Available tool schemas:', item['prompt'])
             self.assertIn(item['scorer']['expected']['name'], item['prompt'])
+            self.assertIn('exactly two top-level keys: "name" and "arguments"', item['prompt'])
+            self.assertIn('Do not use "tool" as a key', item['prompt'])
         for items in partitions.values():
             positions = Counter(next(index for index, schema in enumerate(item['scorer']['available_tools'])
                                      if schema['name'] == item['scorer']['expected']['name'])
