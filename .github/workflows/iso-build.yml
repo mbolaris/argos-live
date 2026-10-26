@@ -32,6 +32,7 @@ jobs:
           mkdir -p artifacts
           sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh 2>&1 | tee artifacts/build.log
       - name: Verify artifacts and record checksum
+        id: verify
         shell: bash
         run: |
           python3 scripts/report-iso-build.py artifacts --commit "$GITHUB_SHA" > artifacts/build-report.json
@@ -41,10 +42,33 @@ jobs:
             echo '```text'
             cat artifacts/SHA256SUMS
             echo '```'
-            echo 'Build candidate only. QEMU boot and physical GPU/persistence acceptance remain required.'
+            echo 'Exact-image KVM/Proctor smoke follows in this job; physical GPU and persistence acceptance remain separate.'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Install QEMU tools for same-runner acceptance
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso
+      - name: Enable KVM for same-runner acceptance
+        shell: bash
+        run: |
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Boot built ISO with managed Proctor smoke
+        run: python3 scripts/smoke-qemu-iso.py artifacts/argos-live-amd64.iso --output work/vm-smoke --setup-mode managed --accel kvm --proctor-smoke
+      - name: Record exact-image acceptance
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f work/vm-smoke/result.json ]]; then
+            {
+              echo '## Exact-image KVM/Proctor acceptance'
+              echo '```json'
+              cat work/vm-smoke/result.json
+              echo '```'
+              echo 'Direct-kernel VM test; physical GPU and USB persistence acceptance remain separate.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: always() && steps.verify.outcome == 'success'
         with:
           name: argos-live-iso-${{ github.run_id }}
           path: |
@@ -55,6 +79,13 @@ jobs:
           compression-level: 0
           retention-days: 3
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: argos-live-qemu-${{ github.run_id }}
+          path: work/vm-smoke/
+          retention-days: 7
+          if-no-files-found: warn
       - name: Check failure log before upload
         id: log-scan
         if: always()
