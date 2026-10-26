@@ -4634,3 +4634,88 @@ async function refreshImprove() {
 }
 setInterval(refreshImprove, 2000);
 refreshImprove();
+
+let proctorCampaignStarting = false;
+function renderProctorCampaignResult(result) {
+  const node = document.getElementById('proctor-campaign-result');
+  if (!result) { node.hidden = true; node.textContent = ''; return; }
+  const practice = result.practice || {}, campaign = result.campaign || {};
+  const ids = Array.isArray(campaign.saved_evaluation_ids) ? campaign.saved_evaluation_ids : [];
+  const missing = Array.isArray(campaign.missing) ? campaign.missing : [];
+  const parts = [];
+  if (practice.transcript_id) {
+    parts.push(`Practice: ${practice.correct ?? '?'} / ${practice.total ?? '?'} · transcript ${practice.transcript_id} · coaching only`);
+  }
+  if (campaign.outcome) parts.push(`Campaign: ${campaign.outcome} · audit ${campaign.audit_status || 'not verified'} · ${campaign.controller_turns ?? '?'} turns`);
+  if (ids.length) parts.push(`Saved evaluation IDs: ${ids.join(', ')}`);
+  if (missing.length) parts.push(`Evidence still missing: ${missing.join('; ')}`);
+  node.textContent = parts.join('\n') || 'No saved result details were returned.';
+  node.hidden = false;
+}
+
+async function refreshProctorCampaign() {
+  const card = document.getElementById('proctor-campaign-card');
+  if (!card) return;
+  try {
+    const data = await api('/api/proctor-campaign');
+    card.hidden = !data.available;
+    if (!data.available) return;
+    const labels = {idle: 'Ready', pausing: 'Pausing chat', practice: 'Practice', campaign: 'Campaign',
+      restarting: 'Restarting Argos', completed: 'Complete', incomplete: 'Incomplete', failed: 'Failed',
+      'recovery-failed': 'Recovery needed'};
+    document.getElementById('proctor-campaign-phase').textContent = labels[data.phase] || 'Checking';
+    const button = document.getElementById('proctor-campaign-start');
+    button.disabled = proctorCampaignStarting || !data.can_start;
+    const recoverButton = document.getElementById('proctor-campaign-recover');
+    recoverButton.hidden = !data.can_recover;
+    recoverButton.disabled = proctorCampaignStarting || !data.can_recover;
+    document.getElementById('proctor-campaign-message').textContent = data.message || 'Proctor status unavailable.';
+    document.getElementById('proctor-campaign-elapsed').textContent = data.active && Number.isFinite(data.elapsed_seconds)
+      ? `${Math.floor(data.elapsed_seconds / 60)}m ${data.elapsed_seconds % 60}s` : '';
+    renderProctorCampaignResult(data.result);
+  } catch (_) {}
+}
+
+document.getElementById('proctor-campaign-start')?.addEventListener('click', async event => {
+  if (proctorCampaignStarting) return;
+  proctorCampaignStarting = true;
+  const button = event.currentTarget;
+  button.disabled = true;
+  const message = document.getElementById('proctor-campaign-message');
+  message.textContent = 'Starting the managed campaign…';
+  try {
+    const response = await fetch('/api/proctor-campaign/start', {
+      method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body?.error || 'Proctor campaign unavailable.');
+    message.textContent = body.message || 'Campaign started.';
+  } catch (error) {
+    message.textContent = error.message || 'Proctor campaign unavailable.';
+  } finally {
+    proctorCampaignStarting = false;
+    refreshProctorCampaign();
+  }
+});
+document.getElementById('proctor-campaign-recover')?.addEventListener('click', async event => {
+  if (proctorCampaignStarting) return;
+  proctorCampaignStarting = true;
+  event.currentTarget.disabled = true;
+  const message = document.getElementById('proctor-campaign-message');
+  message.textContent = 'Retrying Argos startup and reply verification…';
+  try {
+    const response = await fetch('/api/proctor-campaign/recover', {
+      method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body?.error || 'Argos recovery retry unavailable.');
+    message.textContent = body.message || 'Recovery retry started.';
+  } catch (error) {
+    message.textContent = error.message || 'Argos recovery retry unavailable.';
+  } finally {
+    proctorCampaignStarting = false;
+    refreshProctorCampaign();
+  }
+});
+setInterval(refreshProctorCampaign, 2000);
+refreshProctorCampaign();

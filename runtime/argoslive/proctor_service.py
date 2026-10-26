@@ -585,8 +585,10 @@ def run_campaign(home, model, target, feedback, *, executable, openssl='openssl'
             'tool_outcomes': outcomes, 'saved_evaluation_ids': assessment['saved_evaluation_ids']}
 
 
-def run_improvement(home, cartridge_path=None, form_id='pilot-a', *, executable=None, openssl='openssl'):
+def run_improvement(home, cartridge_path=None, form_id='pilot-a', *, executable=None, openssl='openssl', on_phase=None):
     """Run practice to completion, then start the agent's separate improvement campaign."""
+    if on_phase is not None:
+        on_phase('practice')
     practice = run_practice(home, cartridge_path, form_id, executable=executable, openssl=openssl)
     if (practice['status'] != 'completed' or practice['result'].get('state') != 'COMPLETED' or
             practice['result'].get('unanswered') != 0):
@@ -596,6 +598,8 @@ def run_improvement(home, cartridge_path=None, form_id='pilot-a', *, executable=
     target, model = startup.source(home)
     if model != state.get('model'):
         raise ValueError('Argos model selection changed before the improvement campaign')
+    if on_phase is not None:
+        on_phase('campaign')
     campaign = run_campaign(home, model, target, practice['result'],
                             executable=executable or shutil.which('openclaw'), openssl=openssl)
     return {'status': 'completed' if campaign.get('status') == 'completed' else 'incomplete', 'practice': practice,

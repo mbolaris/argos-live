@@ -28,7 +28,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -41,6 +41,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.selection = selection
         self.assistant_trial = assistant_trial
         self.auto_climb = auto_climb
+        self.proctor_campaign = proctor_campaign
         self.storage = storage
         self.command = command
         self.status_provider = status_provider
@@ -117,6 +118,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
+        if path == '/api/proctor-campaign':
+            self.reply(200, self.server.proctor_campaign.snapshot() if self.server.proctor_campaign else {'available': False}, head=head)
+            return
         if path == '/api/auto-climb':
             self.reply(200, self.server.auto_climb.snapshot() if self.server.auto_climb else {'available': False}, head=head)
             return
@@ -256,6 +260,18 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized(mutation=True):
             return
         path = urlsplit(self.path).path
+        if self.command == 'POST' and self.server.proctor_campaign and path in (
+                '/api/proctor-campaign/start', '/api/proctor-campaign/recover'):
+            if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                self.reply(400, {'error': 'An empty request is required'})
+                return
+            try:
+                action = self.server.proctor_campaign.start if path.endswith('/start') else self.server.proctor_campaign.recover
+                self.reply(200, action())
+            except (ValueError, OSError) as exc:
+                from argoslive.proctor_campaign import Refused
+                self.reply(409, {'error': str(exc) if isinstance(exc, Refused) else 'Proctor campaign unavailable'})
+            return
         if self.command == 'POST' and ((self.server.downloads and path == '/api/models/download') or
                                       (self.server.selection and path == '/api/models/select')):
             lengths = self.headers.get_all('Content-Length')
