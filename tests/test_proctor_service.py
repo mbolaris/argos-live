@@ -233,6 +233,7 @@ class ProctorServiceTests(unittest.TestCase):
 
         bridge.next_campaign_turn = next_turn
         bridge.complete_campaign = lambda: setattr(bridge, 'completed', True)
+        progress = []
 
         @contextmanager
         def owned_bridge(*_args, **_kwargs):
@@ -250,13 +251,18 @@ class ProctorServiceTests(unittest.TestCase):
              patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
              patch.object(proctor_service.owned_gateway, 'owned', owned_resource):
             result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home, {},
-                                                  executable='openclaw')
+                                                  executable='openclaw', on_progress=progress.append)
 
         self.assertEqual(result['status'], 'completed')
         self.assertEqual(result['controller_turns'], 2)
         self.assertEqual(result['saved_evaluation_ids'], ['base-one', 'base-two'])
         self.assertEqual(len(bridge.continuations), 1)
         self.assertTrue(bridge.completed)
+        self.assertEqual([event['stage'] for event in progress],
+                         ['turn-start', 'turn-finished', 'turn-start', 'turn-finished'])
+        self.assertEqual(progress[1]['saved_evaluation_count'], 2)
+        self.assertEqual(progress[2]['saved_evaluation_count'], 2)
+        self.assertEqual(progress[-1]['audit_status'], 'empty')
 
     def test_run_improvement_reports_campaign_incomplete(self):
         state_path = self.home / '.config/argos-live/state.json'

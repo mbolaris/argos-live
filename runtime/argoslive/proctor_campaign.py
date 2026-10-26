@@ -42,6 +42,7 @@ class Controller:
         self.finished = None
         self.model = None
         self.result = None
+        self.progress = None
         self.failure_code = None
         self.recovery_target_phase = None
         self.storage_checked_at = None
@@ -87,7 +88,8 @@ class Controller:
     def snapshot(self):
         with self.lock:
             active = self.worker is not None and self.worker.is_alive()
-            phase, result, failure_code = self.phase, copy.deepcopy(self.result), self.failure_code
+            phase, result, progress, failure_code = (self.phase, copy.deepcopy(self.result),
+                                                       copy.deepcopy(self.progress), self.failure_code)
             started, finished, model, closed = self.started, self.finished, self.model, self.closed
         try:
             assistant = self.startup.snapshot()
@@ -121,7 +123,7 @@ class Controller:
             'available': True, 'active': active, 'phase': phase, 'message': message,
             'can_start': can_start, 'can_recover': can_recover,
             'elapsed_seconds': elapsed, 'model': model,
-            'failure_code': failure_code, 'result': result,
+            'failure_code': failure_code, 'result': result, 'progress': progress,
             'assistant_phase': assistant.get('phase'), 'assistant_ready': assistant.get('phase') == 'ready',
             'storage_confirmed': storage_confirmed,
         }
@@ -142,6 +144,7 @@ class Controller:
                 raise Refused('Confirm encrypted persistent storage for Argos models, profile, results, and settings.')
             self.model = assistant.get('model')
             self.result = None
+            self.progress = {'phase': 'practice', 'stage': 'starting'}
             self.failure_code = None
             self.recovery_target_phase = None
             self.started = self.clock()
@@ -217,6 +220,37 @@ class Controller:
         with self.lock:
             if self.worker is not None and self.worker.is_alive():
                 self.phase = phase
+                if self.progress is None or self.progress.get('phase') != phase:
+                    self.progress = {'phase': phase, 'stage': 'starting'}
+
+    def _set_progress(self, event):
+        """Expose only bounded host progress fields, never agent text or tool payloads."""
+        if (not isinstance(event, dict) or not isinstance(event.get('phase'), str) or
+                event.get('phase') not in {'practice', 'campaign'}):
+            return
+        phase, stage = event['phase'], event.get('stage')
+        allowed_stages = {'starting', 'turn-start', 'turn-finished'}
+        if not isinstance(stage, str) or stage not in allowed_stages:
+            return
+        value = {'phase': phase, 'stage': stage}
+        if phase == 'practice':
+            state = event.get('state')
+            if isinstance(state, str) and state in {'ACTIVE', 'BREAK', 'COMPLETED', 'ABANDONED', 'TIMED_OUT',
+                                                     'INVALIDATED', 'starting', 'unavailable'}:
+                value['state'] = state
+        turn, total = event.get('turn'), event.get('total')
+        if type(turn) is int and type(total) is int and 0 <= turn <= 32 and 1 <= total <= 32:
+            value.update(turn=turn, total=total)
+        count = event.get('saved_evaluation_count')
+        if type(count) is int and 0 <= count <= 128:
+            value['saved_evaluation_count'] = count
+        audit_status = event.get('audit_status')
+        if audit_status is None or (isinstance(audit_status, str) and
+                                    audit_status in {'empty', 'verified', 'unverified', 'failed', 'pending'}):
+            value['audit_status'] = audit_status
+        with self.lock:
+            if self.worker is not None and self.worker.is_alive():
+                self.progress = value
 
     def _wait_stopped(self):
         deadline = self.clock() + self.stop_timeout
@@ -258,7 +292,7 @@ class Controller:
             if runner is None:
                 from .proctor_service import run_improvement
                 runner = run_improvement
-            result = runner(self.home, on_phase=self._set_phase)
+            result = runner(self.home, on_phase=self._set_phase, on_progress=self._set_progress)
             public_result = self._public_result(result)
             with self.lock:
                 self.result = public_result

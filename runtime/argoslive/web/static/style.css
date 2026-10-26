@@ -2339,6 +2339,7 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .proctor-campaign-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .proctor-campaign-actions button { min-height: 42px; }
 .proctor-campaign-actions span { color: var(--muted); font-size: 13px; }
+.proctor-campaign-progress { padding: 9px 12px; border-radius: 8px; background: #10272a; border: 1px solid #315b55; font-size: 13px; }
 .proctor-campaign-result { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-radius: 8px; background: #101b27; font-size: 13px; }
 .improve-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 10px; margin: 16px 0; }
 .improve-stat { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--raised); min-width: 0; }

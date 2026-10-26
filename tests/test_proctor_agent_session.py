@@ -390,6 +390,7 @@ class AgentSessionTests(unittest.TestCase):
     def test_host_navigation_records_agent_answers_across_short_turns(self):
         exam = self.session(tier='practice')
         messages = []
+        progress = []
         clock = self.clock
         actions = [lambda: exam.start('start'), lambda: None,
             lambda: exam.answer('q1', 'A', 'a1'), lambda: exam.answer('q2', '3', 'a2'),
@@ -416,9 +417,16 @@ class AgentSessionTests(unittest.TestCase):
         bridge = ShortTurns()
         with patch.object(proctor_service.time, 'sleep',
                           side_effect=lambda seconds: setattr(clock, 'now', clock.now + int(seconds * 10**9))):
-            result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
+            result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config',
+                                                        on_progress=progress.append)
         self.assertTrue(bridge.completed)
         self.assertEqual(result['host_turns'], 6)
+        self.assertEqual(len(progress), 12)
+        self.assertEqual([event['stage'] for event in progress].count('turn-start'), 6)
+        self.assertEqual([event['stage'] for event in progress].count('turn-finished'), 6)
+        self.assertEqual(progress[-1]['phase'], 'practice')
+        self.assertEqual(progress[-1]['turn'], 6)
+        self.assertEqual(progress[-1]['state'], 'COMPLETED')
         self.assertIn('argos_proctor_answer', messages[1])
         self.assertIn('previous turn did not invoke an answer tool', messages[2].lower())
         self.assertIn('do not print tool-call syntax as text', messages[2].lower())

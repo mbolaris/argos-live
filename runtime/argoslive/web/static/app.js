@@ -4653,6 +4653,34 @@ function renderProctorCampaignResult(result) {
   node.hidden = false;
 }
 
+function renderProctorCampaignProgress(progress) {
+  const node = document.getElementById('proctor-campaign-progress');
+  if (!progress || !['practice', 'campaign'].includes(progress.phase)) {
+    node.hidden = true;
+    node.textContent = '';
+    return;
+  }
+  const turn = Number.isInteger(progress.turn) && Number.isInteger(progress.total)
+    ? `${progress.turn}/${progress.total}` : null;
+  if (progress.phase === 'practice') {
+    const state = progress.state ? ` · exam ${progress.state.toLowerCase()}` : '';
+    node.textContent = turn
+      ? `Proctor practice lap ${turn}: ${progress.stage === 'turn-start' ? 'Argos is answering' : 'checkpoint recorded'}${state}. Practice is coaching, not a score claim.`
+      : 'Proctor is getting the signed practice session ready.';
+  } else {
+    const saved = Number.isInteger(progress.saved_evaluation_count)
+      ? `${progress.saved_evaluation_count} saved evaluation${progress.saved_evaluation_count === 1 ? '' : 's'}` : null;
+    const audit = progress.audit_status === 'verified' ? 'audit verified'
+      : progress.audit_status === 'empty' ? 'no-change audit passed'
+      : progress.audit_status ? `audit ${progress.audit_status}` : 'audit still pending';
+    const waiting = progress.stage === 'turn-start' ? 'underway' : 'checked';
+    node.textContent = turn
+      ? `Evidence round ${turn} ${waiting}${saved ? ` · ${saved}` : ''} · ${audit}. Argos must finish the evidence ledger before any improvement is claimed.`
+      : 'Argos is setting up its evidence campaign.';
+  }
+  node.hidden = false;
+}
+
 async function refreshProctorCampaign() {
   const card = document.getElementById('proctor-campaign-card');
   if (!card) return;
@@ -4672,6 +4700,7 @@ async function refreshProctorCampaign() {
     document.getElementById('proctor-campaign-message').textContent = data.message || 'Proctor status unavailable.';
     document.getElementById('proctor-campaign-elapsed').textContent = data.active && Number.isFinite(data.elapsed_seconds)
       ? `${Math.floor(data.elapsed_seconds / 60)}m ${data.elapsed_seconds % 60}s` : '';
+    renderProctorCampaignProgress(data.progress);
     renderProctorCampaignResult(data.result);
   } catch (_) {}
 }

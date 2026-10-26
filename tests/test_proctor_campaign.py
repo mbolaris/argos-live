@@ -64,9 +64,14 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.release = threading.Event()
         self.storage_status = self.persistent_storage
 
-        def runner(home, *, on_phase):
+        def runner(home, *, on_phase, on_progress):
             on_phase('practice')
+            on_progress({'phase': 'practice', 'stage': 'turn-finished', 'turn': 2,
+                         'total': 12, 'state': 'ACTIVE', 'agent_text': 'must never be exposed'})
             on_phase('campaign')
+            on_progress({'phase': 'campaign', 'stage': 'turn-start', 'turn': 1, 'total': 4,
+                         'saved_evaluation_count': 2, 'audit_status': 'pending',
+                         'agent_text': 'must never be exposed'})
             self.entered.set()
             self.release.wait(2)
             return result()
@@ -101,6 +106,9 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.wait_finished()
         status = self.controller.snapshot()
         self.assertEqual(status['phase'], 'completed')
+        self.assertEqual(status['progress'], {'phase': 'campaign', 'stage': 'turn-start',
+                                              'turn': 1, 'total': 4, 'saved_evaluation_count': 2,
+                                              'audit_status': 'pending'})
         self.assertEqual(status['result']['campaign']['saved_evaluation_ids'], ['run-a', 'run-b'])
         self.assertTrue(status['assistant_ready'])
         self.assertFalse(self.startup.lab_active)
@@ -122,7 +130,7 @@ class ProctorCampaignControllerTests(unittest.TestCase):
             self.controller.start()
 
     def test_failed_campaign_still_restarts_argos(self):
-        self.controller.runner = lambda home, *, on_phase: (_ for _ in ()).throw(ValueError('private detail'))
+        self.controller.runner = lambda home, **_callbacks: (_ for _ in ()).throw(ValueError('private detail'))
         self.controller.start()
         self.wait_finished()
         status = self.controller.snapshot()
@@ -133,7 +141,7 @@ class ProctorCampaignControllerTests(unittest.TestCase):
 
     def test_failed_restart_keeps_shared_workload_reservation_closed(self):
         self.startup.recovery_fails = True
-        self.controller.runner = lambda home, *, on_phase: result()
+        self.controller.runner = lambda home, **_callbacks: result()
         self.controller.start()
         self.wait_finished()
         self.assertEqual(self.controller.snapshot()['phase'], 'recovery-failed')
