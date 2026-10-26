@@ -233,8 +233,10 @@ def tool_schema_items():
                 prompt = ('Choose the available tool that performs the request. Available tool schemas: '
                           + json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False)
                           + '\nRequest: ' + request(arguments)
-                          + '\nReturn only JSON with exactly the selected tool name and an arguments object '
-                          'matching that tool schema. Do not execute the tool.')
+                          + '\nReturn only a JSON object with exactly two top-level keys: "name" and "arguments". '
+                          'Set "name" to the selected tool\'s exact name, and set "arguments" to an object '
+                          'matching that tool schema. Do not use "tool" as a key, add other keys, use Markdown '
+                          'fences, or execute the tool.')
                 expected = {'name': name, 'arguments': arguments}
                 wrong = {'name': 'not_a_provided_tool', 'arguments': arguments}
                 result.append({'id': f'{partition}-{tool_index * 5 + variant:02}', 'prompt': prompt,
@@ -254,7 +256,7 @@ def build(suite):
         selected = [item for group in items().values() for item in group[:count]]
     else:
         raise ValueError('Unknown suite')
-    version = '1.1.0' if suite == 'tool-schema' else '1.0.0'
+    version = '1.2.0' if suite == 'tool-schema' else '1.0.0'
     return validate({'schema': 'argos-ability-suite/1', 'suite': suite, 'version': version,
         'license': 'MIT', 'source': 'original-argos-live', 'omitted_categories': ['code-execution'],
         'items': selected})
