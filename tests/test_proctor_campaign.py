@@ -62,6 +62,7 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.startup = FakeStartup(self.home)
         self.entered = threading.Event()
         self.release = threading.Event()
+        self.storage_status = self.persistent_storage
 
         def runner(home, *, on_phase):
             on_phase('practice')
@@ -70,7 +71,14 @@ class ProctorCampaignControllerTests(unittest.TestCase):
             self.release.wait(2)
             return result()
 
-        self.controller = proctor_campaign.Controller(self.startup, runner=runner)
+        self.controller = proctor_campaign.Controller(self.startup, runner=runner,
+                                                       storage_snapshot=lambda _home: self.storage_status())
+
+    @staticmethod
+    def persistent_storage():
+        return {'confirmed': True, 'locations': [
+            {'key': key, 'backing': {'encrypted': True, 'persistent': True}}
+            for key in ('models', 'profile', 'results', 'settings')]}
 
     def tearDown(self):
         self.release.set()
@@ -100,14 +108,15 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertNotIn('tool_outcomes', status['result']['campaign'])
 
     def test_refuses_unconfirmed_storage_and_other_workload(self):
-        state = self.home / '.config/argos-live/state.json'
-        configured = json.loads(state.read_text())
-        configured.pop('storage_confirmed')
-        state.write_text(json.dumps(configured))
+        self.storage_status = lambda: {'confirmed': False, 'locations': []}
         with self.assertRaises(proctor_campaign.Refused):
             self.controller.start()
-        configured['storage_confirmed'] = {'path': configured['storage'], 'storage_id': configured['storage_id'], 'at': 'now'}
-        state.write_text(json.dumps(configured))
+        self.storage_status = lambda: {'confirmed': True, 'locations': [
+            {'key': key, 'backing': {'encrypted': key != 'results', 'persistent': True}}
+            for key in ('models', 'profile', 'results', 'settings')]}
+        with self.assertRaises(proctor_campaign.Refused):
+            self.controller.start()
+        self.storage_status = self.persistent_storage
         self.startup.lab_active = True
         with self.assertRaises(proctor_campaign.Refused):
             self.controller.start()

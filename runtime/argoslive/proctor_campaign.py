@@ -27,10 +27,12 @@ class Controller:
     """Reserve shared assistant resources until Proctor is finished and Argos is verified again."""
 
     def __init__(self, startup, *, home=None, runner=None,
+                 storage_snapshot=storage_view.snapshot,
                  stop_timeout=180, ready_timeout=900, clock=time.monotonic, sleep=time.sleep):
         self.startup = startup
         self.home = startup.home if home is None else home
         self.runner = runner
+        self.storage_snapshot = storage_snapshot
         self.stop_timeout, self.ready_timeout = stop_timeout, ready_timeout
         self.clock, self.sleep = clock, sleep
         self.lock = threading.RLock()
@@ -42,6 +44,8 @@ class Controller:
         self.result = None
         self.failure_code = None
         self.recovery_target_phase = None
+        self.storage_checked_at = None
+        self.storage_is_safe = False
         self.closed = False
 
     @staticmethod
@@ -95,11 +99,7 @@ class Controller:
                      assistant.get('model_reply_verified') is True)
         can_recover = (not closed and not active and phase == 'recovery-failed' and
                        getattr(self.startup, 'lab_active', False))
-        try:
-            configured = storage_view.read_state(self.home)
-            storage_confirmed = storage_view.confirmed(configured)
-        except (OSError, ValueError, TypeError, KeyError):
-            storage_confirmed = False
+        storage_confirmed = self._persistent_storage_ready()
         can_start = can_start and storage_confirmed
         elapsed = None
         if started is not None:
@@ -108,7 +108,7 @@ class Controller:
         message = MESSAGES.get(phase, 'Proctor campaign status unavailable.')
         if phase == 'idle' and not can_start:
             if not storage_confirmed:
-                message = 'Confirm Argos storage before saving Proctor records.'
+                message = 'Confirm encrypted persistent storage for Argos models, profile, results, and settings.'
             elif assistant.get('phase') != 'ready' or assistant.get('model_reply_verified') is not True:
                 message = 'Wait for Argos to reach ready with a verified model reply.'
             elif getattr(self.startup, 'lab_active', False):
@@ -138,12 +138,8 @@ class Controller:
             if (assistant.get('phase') != 'ready' or assistant.get('active') is not True or
                     assistant.get('model_reply_verified') is not True):
                 raise Refused('Start Argos and wait for its verified reply before starting Proctor.')
-            try:
-                configured = storage_view.read_state(self.home)
-            except (OSError, ValueError, TypeError, KeyError):
-                raise Refused('Confirmed Argos storage is unavailable. Check Models & setup first.') from None
-            if not storage_view.confirmed(configured):
-                raise Refused('Confirm Argos storage before saving Proctor records.')
+            if not self._persistent_storage_ready(fresh=True):
+                raise Refused('Confirm encrypted persistent storage for Argos models, profile, results, and settings.')
             self.model = assistant.get('model')
             self.result = None
             self.failure_code = None
@@ -157,6 +153,29 @@ class Controller:
             self.worker = threading.Thread(target=self._run, daemon=True, name='argos-proctor-campaign')
             self.worker.start()
             return self.snapshot()
+
+    def _persistent_storage_ready(self, *, fresh=False):
+        now = self.clock()
+        with self.lock:
+            if (not fresh and self.storage_checked_at is not None and
+                    now - self.storage_checked_at < 10):
+                return self.storage_is_safe
+        safe = False
+        try:
+            view = self.storage_snapshot(self.home)
+            locations = view.get('locations', []) if isinstance(view, dict) else []
+            by_key = {item.get('key'): item.get('backing') for item in locations
+                      if isinstance(item, dict)}
+            required = ('models', 'profile', 'results', 'settings')
+            safe = bool(isinstance(view, dict) and view.get('confirmed') is True and all(
+                isinstance(by_key.get(key), dict) and by_key[key].get('encrypted') is True and
+                by_key[key].get('persistent') is True for key in required))
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            safe = False
+        with self.lock:
+            self.storage_checked_at = now
+            self.storage_is_safe = safe
+        return safe
 
     def recover(self):
         """Retry assistant startup while retaining the reservation after a failed recovery."""
