@@ -29,6 +29,32 @@ class ProctorServiceTests(unittest.TestCase):
             reasoning=True, params={'think': True, 'temperature': 0})
         self.owner_config.write_text(json.dumps(owner))
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
+    def test_private_directory_tightens_existing_owned_state_directories(self):
+        runtime_root = self.home / '.local/state/argos-live'
+        cartridges = runtime_root / 'proctor/cartridges'
+        cartridges.mkdir(parents=True)
+        runtime_root.chmod(0o755)
+        cartridges.chmod(0o755)
+
+        result = proctor_service._private_directory(cartridges)
+
+        self.assertEqual(result, cartridges)
+        self.assertEqual(runtime_root.stat().st_mode & 0o777, 0o700)
+        self.assertEqual(cartridges.stat().st_mode & 0o777, 0o700)
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
+    def test_private_directory_does_not_change_directory_owned_by_another_user(self):
+        runtime_root = self.home / '.local/state/argos-live'
+        runtime_root.mkdir(parents=True)
+        runtime_root.chmod(0o755)
+
+        with patch.object(proctor_service.os, 'getuid', return_value=os.getuid() + 1):
+            with self.assertRaisesRegex(ValueError, 'private to the Argos account'):
+                proctor_service._private_directory(runtime_root / 'proctor/cartridges')
+
+        self.assertEqual(runtime_root.stat().st_mode & 0o777, 0o755)
+
     def test_profile_is_persistent_restricted_and_preserves_model_controls(self):
         root, workspace, config_path, first_hash = proctor_service.private_profile(
             self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
