@@ -21,7 +21,7 @@ class ScreensaverConfigTests(unittest.TestCase):
             return value.attrib['value']
 
         self.assertEqual(prop("./property[@name='saver']/property[@name='idle-activation']/property[@name='delay']"),
-                         '10080')
+                         '43200')
         self.assertEqual(prop("./property[@name='saver']/property[@name='idle-activation']/property[@name='enabled']"),
                          'true')
         self.assertEqual(prop("./property[@name='lock']/property[@name='enabled']"), 'false')
@@ -31,7 +31,7 @@ class ScreensaverConfigTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('argos_qemu_guest_check', GUEST_CHECK)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        self.assertEqual(module.SCREENSAVER_DELAY_MINUTES, 10080)
+        self.assertEqual(module.SCREENSAVER_DELAY_MINUTES, 43200)
 
 
 if __name__ == '__main__':

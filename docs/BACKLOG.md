@@ -1399,3 +1399,10 @@ improved · 7 unchanged · 0 worse”) so the marks are immediately understandab
 ## October 25 — next-image screensaver follow-up
 
 The owner wants the default screensaver timeout on the image after the current 7-day candidate to be much longer than seven days. Set and document the exact interval when preparing that image. Keep the manual screensaver controls available and automatic locking disabled, then verify the configured default on a fresh boot.
+
+## October 26 — next-image screensaver extension
+
+The next-image candidate now uses a 30-day idle delay (43,200 minutes). Idle
+activation remains enabled, automatic locking remains disabled, and the manual
+screensaver preferences remain available. Fresh-image QEMU acceptance must verify
+the exact 43,200-minute setting and screensaver D-Bus readiness.
