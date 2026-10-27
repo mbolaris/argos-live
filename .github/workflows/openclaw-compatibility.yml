@@ -2,6 +2,10 @@ name: Pinned OpenClaw compatibility
 on:
   workflow_dispatch:
   push:
+    # Pull requests run this expensive native suite via pull_request. Keep the
+    # push trigger for main only so a PR head push cannot duplicate the run.
+    branches:
+      - main
     paths:
       - scripts/smoke-admission-hook.py
       - scripts/smoke-controller-bridge.py

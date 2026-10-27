@@ -90,13 +90,24 @@ def _private_directory(path):
         # this shared secret-bearing runtime root directly before its children
         # so the managed gateway accepts the same private state directory.
         runtime_root.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if os.name != 'nt' and (runtime_root.stat().st_uid != os.getuid() or
-                                runtime_root.stat().st_mode & 0o077):
-            raise ValueError('Argos runtime state directory must be private to the Argos account')
+        if os.name != 'nt':
+            _restrict_owned_directory(runtime_root,
+                                      'Argos runtime state directory must be private to the Argos account')
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if os.name != 'nt' and (path.stat().st_uid != os.getuid() or path.stat().st_mode & 0o077):
-        raise ValueError('Proctor state directory must be private to the Argos account')
+    if os.name != 'nt':
+        _restrict_owned_directory(path, 'Proctor state directory must be private to the Argos account')
     return path
+
+
+def _restrict_owned_directory(path, error):
+    """Tighten legacy permissions only when the existing directory is ours."""
+    info = path.stat()
+    if info.st_uid != os.getuid():
+        raise ValueError(error)
+    if info.st_mode & 0o077:
+        path.chmod(0o700)
+    if path.stat().st_mode & 0o077:
+        raise ValueError(error)
 
 
 def _secret(path):
