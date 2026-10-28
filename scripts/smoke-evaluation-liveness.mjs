@@ -6,8 +6,8 @@ import { pathToFileURL } from 'node:url';
 const packageRoot = path.resolve(process.argv[2] ?? '');
 if (!process.argv[2]) throw new Error('Usage: node smoke-evaluation-liveness.mjs OPENCLAW_PACKAGE_ROOT');
 const metadata = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8'));
-if (metadata.name !== 'openclaw' || !['2026.10.4', '2026.10.5'].includes(metadata.version))
-  throw new Error('Smoke test requires a reviewed OpenClaw 2026.10.4 or 2026.10.5 package.');
+if (metadata.name !== 'openclaw' || !['2026.10.4', '2026.10.5', '2026.10.8'].includes(metadata.version))
+  throw new Error('Smoke test requires a reviewed OpenClaw 2026.10.4, 2026.10.5, or 2026.10.8 package.');
 
 const dist = path.join(packageRoot, 'dist');
 const matches = (await readdir(dist)).filter((name) => /^diagnostic-run-activity-[A-Za-z0-9_-]+\.mjs$/.test(name));
