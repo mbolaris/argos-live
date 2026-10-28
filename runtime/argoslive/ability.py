@@ -6,8 +6,8 @@ import re
 
 DATA = Path(__file__).with_name('data') / 'ability'
 KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call'}
-SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40}
-SUITE_KINDS = {'tool-schema': {'tool-call'}}
+SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40, 'tool-plan': 40}
+SUITE_KINDS = {'tool-schema': {'tool-call'}, 'tool-plan': {'tool-call'}}
 LIMIT = 65536
 
 
@@ -145,12 +145,13 @@ def validate(data):
                     or not isinstance(expected['arguments'], dict) or not isinstance(expected['name'], str)
                     or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', expected['name'])):
                 raise ValueError('Invalid inert tool reference')
-            if data['suite'] == 'tool-schema':
+            if data['suite'] in ('tool-schema', 'tool-plan'):
                 partition = rule.get('partition')
                 schemas = rule.get('available_tools')
+                schema_count = 3 if data['suite'] == 'tool-schema' else 4
                 if (partition not in ('practice', 'heldout') or not isinstance(schemas, list)
-                        or len(schemas) != 3):
-                    raise ValueError('Invalid tool-schema partition or available tools')
+                        or len(schemas) != schema_count):
+                    raise ValueError('Invalid tool-suite partition or available tools')
                 names = set()
                 target = None
                 for schema in schemas:
@@ -182,7 +183,7 @@ def validate(data):
     expected_kinds = SUITE_KINDS.get(data['suite'], KINDS)
     if kinds != expected_kinds:
         raise ValueError('Missing scorer category')
-    if data['suite'] == 'tool-schema':
+    if data['suite'] in ('tool-schema', 'tool-plan'):
         partitions = {partition: [item for item in data['items']
                                   if item['scorer'].get('partition') == partition]
                       for partition in ('practice', 'heldout')}
@@ -194,7 +195,7 @@ def validate(data):
                                 for schema in item['scorer']['available_tools']}
             argument_keys[partition] = {key for item in items for schema in item['scorer']['available_tools']
                                         for key in schema['arguments']}
-            target_positions = [0, 0, 0]
+            target_positions = [0] * (3 if data['suite'] == 'tool-schema' else 4)
             counts = {}
             for item in items:
                 expected_name = item['scorer']['expected']['name']
@@ -203,9 +204,9 @@ def validate(data):
                                 if schema['name'] == expected_name)
                 target_positions[position] += 1
             if len({item['scorer']['expected']['name'] for item in items}) != 4 or set(counts.values()) != {5}:
-                raise ValueError('Each tool-schema partition requires four balanced target tools')
+                raise ValueError('Each tool partition requires four balanced target tools')
             if max(target_positions) - min(target_positions) > 1:
-                raise ValueError('Tool-schema target position must be balanced across available tools')
+                raise ValueError('Tool target position must be balanced across available tools')
         if (names['practice'] & names['heldout'] or
                 argument_keys['practice'] & argument_keys['heldout']):
             raise ValueError('Practice and held-out tool names and argument keys must be disjoint')
@@ -214,7 +215,7 @@ def validate(data):
 
 def load(suite='quick'):
     if not isinstance(suite, str) or suite not in SUITE_COUNTS:
-        raise ValueError('Choose quick, standard, challenge, or tool-schema')
+        raise ValueError('Choose quick, standard, challenge, tool-schema, or tool-plan')
     with (DATA / (suite + '.json')).open('rb') as stream:
         raw = stream.read(1024**2 + 1)
     if len(raw) > 1024**2:

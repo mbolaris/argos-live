@@ -175,7 +175,7 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Run original ability probes; code execution is excluded.')
     parser.add_argument('--model', required=True)
-    parser.add_argument('--suite', choices=['quick', 'standard', 'challenge', 'tool-schema'], default='quick')
+    parser.add_argument('--suite', choices=['quick', 'standard', 'challenge', 'tool-schema', 'tool-plan'], default='quick')
     parser.add_argument('--ollama', default='http://127.0.0.1:11434')
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--timeout', type=int, default=120, help='API read timeout, 1–600 seconds.')

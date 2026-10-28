@@ -40,7 +40,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   console.log(JSON.stringify({status:'appended',observed:'2026-10-17T00:00:00+00:00',snapshot:'/private/snapshot',note_claims_verified:false}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
-  const total = suite === 'challenge' || suite === 'tool-schema' ? 40 : suite === 'standard' ? 70 : 20;
+  const total = suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' ? 40 : suite === 'standard' ? 70 : 20;
   const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
   console.error(JSON.stringify({phase:'unrelated',completed:0,total}));
@@ -51,7 +51,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   console.log(JSON.stringify({path:'/private/fixture-result.json', result:{
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-'+suite, suite_version:'argos-openclaw-ability/'+suite+'/fixture1', state:'completed',
     settings:{suite_sha256:'b'.repeat(64),execution_path:'openclaw embedded; ephemeral state; tools denied; v2'}, prompt_fingerprint:{workspace_agents_sha256:'c'.repeat(64)},
-    summary:{correct,total,...(suite === 'tool-schema' ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
+    summary:{correct,total,...(['tool-schema','tool-plan'].includes(suite) ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
     coverage:{completed:total,total,complete:true}, elapsed_seconds:12
   }}));
 } else {
@@ -104,7 +104,15 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'tool-schema', '--json']);
     assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite),
-      /same bundled suite, not independent validation/);
+      /20 bundled held-out-vocabulary items, not independent validation/);
+
+    const planRun = await tools.get('argos_evaluate').execute('plan-eval', {suite:'tool-plan'}, undefined,
+      () => {});
+    assert.match(planRun.content[0].text, /38\/40 passed/);
+    assert.match(planRun.content[0].text, /unseen-vocabulary: 20\/20 \(same bundled suite, not independent validation\)/);
+    assert.equal(planRun.details.coverage.total, 40);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'tool-plan', '--json']);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)

@@ -45,6 +45,14 @@ unseen-vocabulary scores meeting or exceeding the strongest baseline on that
 partition. The host enforces a 3/40 overall gain threshold. This is an
 Argos-authored probe, not an external benchmark.
 
+When direct schema calls are saturated, use `tool-plan` to check multi-constraint
+selection among four tools, value derivation and full argument assembly. It has
+20 practice and 20 bundled held-out items with disjoint tool names and argument
+keys. Held-out items provide an internal vocabulary-transfer signal, not
+independent validation or evidence of real tool execution. The same host gate
+applies: repeated 3/40 overall gains, no format-error increase, and both
+candidate held-out scores at least the strongest matched baseline.
+
 When the host launches a dedicated Proctor session and exposes `argos_proctor_*`
 tools, use them only for the host-selected exam. The host, not the agent, selects
 the form, exposure tier, tested model snapshot and assistance policy. Read only
@@ -80,7 +88,7 @@ controller runs, ambiguous replacements, and a second unresolved edit.
 After the edit, collect two distinct matched baseline runs and two distinct
 candidate runs with the same suite, model/configuration, and execution method.
 The host checks the saved receipts and practice policy: quick needs at least 2
-additional correct answers, standard 4, and challenge or tool-schema 3, with format errors no
+additional correct answers, standard 4, and challenge, tool-schema or tool-plan 3, with format errors no
 higher than baseline. A reliability gain instead needs unchanged-or-higher
 correct count, fewer format errors, and median latency no more than 1.5 times
 baseline. These are practice thresholds, not independent proof of transfer.

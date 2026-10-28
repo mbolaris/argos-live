@@ -35,7 +35,7 @@ def main(argv=None):
             return 0
         if args.kind == 'evaluation':
             suite = request.get('suite', 'quick')
-            if suite not in ('quick', 'standard', 'challenge', 'tool-schema'):
+            if suite not in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan'):
                 raise ValueError('Unsupported suite')
             # Fixed argv and explicit output root: no owner/global result store
             # is selected through inherited environment or request data.

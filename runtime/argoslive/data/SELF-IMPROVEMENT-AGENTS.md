@@ -32,7 +32,7 @@ Continue authorized reversible steps without asking at each step.
 
 ## 2. Measure one change at a time
 
-Use native `argos_evaluate` (suite `quick`, `standard`, `challenge`, or `tool-schema`) and `argos_compare`
+Use native `argos_evaluate` (suite `quick`, `standard`, `challenge`, `tool-schema`, or `tool-plan`) and `argos_compare`
 (`baseline_id`, `candidate_id`). These are tools, not shell commands. If absent,
 use `argos bench openclaw --suite quick --json`; never invent a control-script
 `evaluate` subcommand. Raw `argos bench ability` measures a model, not your
@@ -77,6 +77,15 @@ runs must gain at least 3/40 overall, avoid more format errors, and each
 candidate unseen-vocabulary score must match or exceed the strongest baseline
 on that partition. The form remains an Argos-authored probe.
 
+When direct schema-grounded calls saturate, use `tool-plan`: it tests selecting
+among four tools, resolving multiple request constraints, deriving small values
+and assembling full arguments. Its 20 practice and 20 bundled held-out items
+use disjoint tool names and argument keys. The held-out half is an internal
+vocabulary-transfer signal only; prompts and answer keys ship with the image.
+Require repeated 3/40 gains, no format-error increase and held-out
+nonregression. It remains an Argos-authored probe, not independent validation
+or evidence that real tools execute.
+
 For a workspace-instruction experiment, use `argos_inspect` first. It returns
 the canonical `AGENTS.md`, current hash, configuration receipt, active change,
 and exact host keep policy. Establish a saved baseline through this controller,
@@ -88,7 +97,7 @@ or another instruction path through that experiment tool.
 To keep an instruction change, supply two distinct compatible baseline IDs
 (including the original baseline) and two distinct fresh candidate IDs to
 `argos_resolve_instructions`. Its host policy requires minimum gains of 2/20
-quick, 4/70 standard, or 3/40 challenge or tool-schema, with format errors no higher than
+quick, 4/70 standard, or 3/40 challenge, tool-schema or tool-plan, with format errors no higher than
 baseline. A reliability gain instead requires unchanged-or-higher correct
 count, fewer format errors, and median latency no more than 1.5 times baseline.
 These practice comparisons do not establish transfer. Use a separate challenge

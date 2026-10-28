@@ -183,7 +183,7 @@ async function waitForDirectEvaluation(job, signal, onUpdate) {
 function startDirectEvaluation(suite, signal, onUpdate) {
   if (signal?.aborted) throw new Error("Argos request was cancelled before dispatch; no command started.");
   const id = randomBytes(16).toString("hex");
-  const job = {id, suite, progress:{completed:0,total:suite === "challenge" || suite === "tool-schema" ? 40 : suite === "standard" ? 70 : 20}};
+  const job = {id, suite, progress:{completed:0,total:suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" ? 40 : suite === "standard" ? 70 : 20}};
   job.ownerCancellation = new AbortController();
   job.cancel = () => job.ownerCancellation.abort();
   job.completion = runArgos("openclaw", ["--suite", suite, "--json"], job.ownerCancellation.signal,
@@ -317,8 +317,8 @@ export default function register(api) {
     label: "Evaluate OpenClaw",
     description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
     parameters: Type.Object({
-      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema")],
-        { description: "Quick (20), standard (70), challenge (40), or tool-call practice (40; 20 unseen-vocabulary items in the same bundled suite, not independent validation)." }))
+      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema"), Type.Literal("tool-plan")],
+        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 direct schema-grounded calls), or tool-plan (40 multi-constraint calls; each tool suite has 20 bundled held-out-vocabulary items, not independent validation)." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const suite = params.suite ?? 'quick';
