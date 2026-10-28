@@ -1,8 +1,8 @@
 {
   "manifest": {
     "cartridge_id": "argos-practice-pilot",
-    "version": "1.2.0",
-    "title": "Argos Proctor tool-flow pilot",
+    "version": "1.3.0",
+    "title": "Argos Proctor evidence and tool-flow pilot",
     "content_origin": "argos_original",
     "calibration_status": "uncalibrated",
     "start_window_ms": 60000,
@@ -33,9 +33,10 @@
         "aids": [],
         "items": [
           {"item_id": "q3", "position": 1, "domain": "reasoning", "prompt": "Which word names a color?", "response_type": "mcq_single", "choices": {"A": "Blue", "B": "Chair"}, "correct": "A"},
-          {"item_id": "q4", "position": 2, "domain": "math", "prompt": "What is -5 divided by 4?", "response_type": "numeric_grid", "choices": {}, "correct": "-1.25"}
+          {"item_id": "q4", "position": 2, "domain": "math", "prompt": "What is -5 divided by 4?", "response_type": "numeric_grid", "choices": {}, "correct": "-1.25"},
+          {"item_id": "q6", "position": 3, "domain": "evidence_interpretation", "prompt": "A saved challenge score is 32/40. All eight tool-call prompts omit the available-tools list, and their scorers record available_tools: null. A separately specified tool-schema form scores 40/40. Which conclusion is justified?", "response_type": "mcq_single", "choices": {"A": "The eight misses prove a general tool-selection or refusal defect; add a stronger tool-use instruction.", "B": "The 40/40 tool-schema score proves the model can use tools in every context.", "C": "Those eight items cannot establish a general tool-selection or refusal defect without the available tools. Keep the evidence separate and use a separately versioned form with explicit tool inventories before diagnosing.", "D": "Discard the whole challenge score because its tool-call items are under-specified."}, "correct": "C"}
         ],
-        "routes": [{"minimum": 0, "maximum": 2, "next_module_id": null}]
+        "routes": [{"minimum": 0, "maximum": 3, "next_module_id": null}]
       }
     ]
   }]

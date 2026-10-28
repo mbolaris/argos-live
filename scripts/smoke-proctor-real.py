@@ -217,6 +217,10 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         receipt['controller_diagnostics'] = safe_controller_diagnostics(turn)
         tool_call_answer = next((row for row in payload['accepted_answers']
                                  if row.get('item_id') == 'q5'), None)
+        evidence_interpretation_answer = next((row for row in payload['accepted_answers']
+                                               if row.get('item_id') == 'q6'), None)
+        receipt['evidence_interpretation_answer'] = (
+            evidence_interpretation_answer.get('answer') if evidence_interpretation_answer else None)
         expected_tool_call = {'name': 'argos_evaluate_wait',
                               'arguments': {'job_id': '0123456789abcdef0123456789abcdef'}}
         wire = home / 'proctor-wire.json'
@@ -243,13 +247,14 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             'envelope': envelope,
             'public_key_der_base64': base64.b64encode(signer.public_key_der).decode()}, indent=2) + '\n')
         if (result['status'] != 'completed' or payload['outcome'] != 'COMPLETED' or
-                payload['total_items'] != 5 or len(payload['accepted_answers']) != 5 or
+                payload['total_items'] != 6 or len(payload['accepted_answers']) != 6 or
                 tool_call_answer is None or json.loads(tool_call_answer['answer']) != expected_tool_call or
+                evidence_interpretation_answer is None or
                 not any(row.get('kind') == 'proctor_tool_call' and row.get('status') == 'simulated'
                         for row in turn.get('tools', []) if isinstance(row, dict)) or
                 not all(module['state'] == 'SUBMITTED' for module in payload['modules']) or
                 not verified or not receipt['model_identity_bound']):
-            raise ValueError('Real-model Proctor did not complete and verify all five practice items; see receipt')
+            raise ValueError('Real-model Proctor did not complete and verify all six practice items; see receipt')
         worker_turns = receipt['controller_diagnostics'].get('worker_turns', [])
         if (len(worker_turns) != result['host_turns'] or
                 any(not row['process_group_drained'] or not row['session_bound'] for row in worker_turns)):

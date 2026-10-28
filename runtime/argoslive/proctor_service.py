@@ -656,7 +656,7 @@ def main(argv=None):
     improve = commands.add_parser('improve', help='Practice, then let the agent run its evidence-based improvement campaign')
     for command in (practice, improve):
         command.add_argument('--cartridge', type=Path,
-                             help='Optional host-selected compiled cartridge (default: bundled five-item pilot)')
+                             help='Optional host-selected compiled cartridge (default: bundled six-item pilot)')
         command.add_argument('--form', default='pilot-a')
         command.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)

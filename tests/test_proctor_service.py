@@ -409,10 +409,16 @@ class ProctorServiceTests(unittest.TestCase):
         cartridge = proctor_service.proctor.Cartridge(first)
         self.assertEqual(cartridge.manifest['calibration_status'], 'uncalibrated')
         self.assertEqual(cartridge.manifest['cartridge_id'], 'argos-practice-pilot')
+        self.assertEqual(cartridge.manifest['version'], '1.3.0')
         self.assertIn('pilot-a', cartridge.forms)
-        self.assertEqual(len(cartridge.items), 5)
+        self.assertEqual(len(cartridge.items), 6)
         self.assertEqual(cartridge.items['q5']['domain'], 'tool_call_format')
         self.assertEqual(cartridge.items['q5']['response_type'], 'json_object')
+        evidence_item = cartridge.items['q6']
+        self.assertEqual(evidence_item['domain'], 'evidence_interpretation')
+        self.assertEqual(evidence_item['response_type'], 'mcq_single')
+        self.assertEqual(evidence_item['correct'], 'C')
+        self.assertIn('available_tools: null', evidence_item['prompt'])
 
     def test_practice_turn_surfaces_tool_call_item_as_a_real_simulated_tool_call(self):
         class Exam:
