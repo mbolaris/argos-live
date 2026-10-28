@@ -74,6 +74,16 @@ jobs:
           chmod -R a-w "$RUNNER_TEMP/argos-proctor-model"
       - name: Native conversation-only CPU reply without seed copies
         if: ${{ !inputs.proctor_only }}
+        # Hosted runners can expose accelerator devices. Make this acceptance
+        # fixture CPU-only so its placement assertion measures the shipped
+        # CPU path instead of depending on runner hardware.
+        env:
+          CUDA_VISIBLE_DEVICES: '-1'
+          HIP_VISIBLE_DEVICES: '-1'
+          ROCR_VISIBLE_DEVICES: '-1'
+          GPU_DEVICE_ORDINAL: '-1'
+          GGML_VK_VISIBLE_DEVICES: '-1'
+          OLLAMA_VULKAN: '0'
         run: |
           python3 scripts/smoke-native-chat.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/native-chat.json
       - name: Native managed desktop startup and authenticated controls
