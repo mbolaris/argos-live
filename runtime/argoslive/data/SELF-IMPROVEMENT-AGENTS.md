@@ -47,6 +47,13 @@ saved result before editing instructions or switching models. Match suite,
 execution method and configuration evidence. A new execution method needs a
 fresh baseline. Inspect misses with `argos bench results --load <id>`.
 
+Before diagnosing a miss, inspect the exact item prompt and scorer requirements.
+A tool-call miss cannot establish a general selection, refusal or formatting
+weakness when the item omits the available-tool inventory or required schemas;
+do not infer intent from hidden answer labels. Report that measurement as
+under-specified and use a separately versioned, fully specified form for a new
+baseline. Never change a fixed suite to fit a candidate.
+
 Quick scores vary by 1–2 of 20. If standard is saturated or does not expose a
 useful weakness, run the separate 40-task `challenge` form. Its prompts use
 multi-step arithmetic, multiple constraints, structured extraction and proposed

@@ -86,7 +86,13 @@ not change model settings or grant new tools.
    and answers are bundled in the image, so it is not independent or sealed
    validation. Always choosing the first listed tool cannot score above 7/20.
    The host rejects a keep if either candidate falls below the strongest baseline
-   on that unseen-vocabulary partition.
+   on that unseen-vocabulary partition. Diagnose only what the prompt and scorer
+   actually specify. If a tool-call item omits its available-tool inventory or
+   schemas, its miss cannot establish general tool selection, refusal or
+   formatting weakness; do not infer intent from hidden answer labels. Report
+   the form as under-specified and use a new, separately versioned form with
+   complete schemas for a new baseline. Keep existing fixed suites and saved
+   scores unchanged.
 3. Choose one modest instruction experiment supported by the misses. For
    `AGENTS.md`, use `argos_inspect`, then `argos_edit_instructions` with a saved
    baseline from the current controller and its inspected hash. The tool

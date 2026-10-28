@@ -90,6 +90,8 @@ class AutoSetupTests(unittest.TestCase):
                 self.assertIn('reconcile it against saved results', heartbeat['prompt'])
                 self.assertIn('a missing log entry does not mean a completed run was lost', heartbeat['prompt'])
                 self.assertIn('do not rerun it', heartbeat['prompt'])
+                self.assertIn('do not infer intent from hidden answer labels', heartbeat['prompt'])
+                self.assertIn('separately versioned, fully specified form', heartbeat['prompt'])
                 agents_guide = (workspace / 'AGENTS.md').read_text(encoding='utf-8')
                 self.assertIn('An owner-dependent `## Next` is paused.', agents_guide)
                 self.assertIn('Do not re-append the same waiting state', agents_guide)

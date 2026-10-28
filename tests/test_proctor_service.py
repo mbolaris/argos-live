@@ -29,6 +29,11 @@ class ProctorServiceTests(unittest.TestCase):
             reasoning=True, params={'think': True, 'temperature': 0})
         self.owner_config.write_text(json.dumps(owner))
 
+    def test_campaign_prompt_rejects_diagnoses_from_underspecified_items(self):
+        self.assertIn('inspect the exact item prompt and scorer requirements', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('do not infer intent from hidden answer labels', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('separately versioned, fully specified form', proctor_service.CAMPAIGN_MESSAGE)
+
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
         runtime_root = self.home / '.local/state/argos-live'
