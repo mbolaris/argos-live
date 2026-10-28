@@ -241,9 +241,10 @@ def run(cli, ollama, seed):
         started = time.monotonic()
         with owned(seed, executable=ollama.absolute(), port=11434, context_tokens=32768,
                    lease_store=home) as client:
+            # Leave headroom for slower CPU runners to read the full agent prompt.
             result = summary(command(cli, ['agent', '--local', '--agent', 'main', '--message',
                 'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
-                '--timeout', '180', '--json'], env, timeout=240))
+                '--timeout', '240', '--json'], env, timeout=300))
             verify_request_budget(request_metrics(env))
             observed = placement(client.ps().get('models', []), starter.TAG)
             if observed['mode'] != 'CPU':
