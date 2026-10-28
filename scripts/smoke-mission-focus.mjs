@@ -42,6 +42,9 @@ try {
     }
     await page.setViewportSize({width:1280,height:900});
   };
+  const waitForResultNavigation=()=>page.waitForFunction(()=>
+    document.getElementById('session-result').getAttribute('aria-disabled')==='false' &&
+    document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
   const scrollTo=id=>page.evaluate(id=>{const el=document.getElementById(id);window.scrollTo(0,el.getBoundingClientRect().top+scrollY-12);},id);
   await page.goto(url);
   await page.locator('#cc-next-go').waitFor({state:'visible'});
@@ -133,6 +136,8 @@ try {
   assert.match(await page.locator('#replay-kind').textContent(),/· 1 of 32$/);
   await both('replay',()=>scrollTo('replay'));
   await page.reload();
+  // Result navigation is disabled until async workspace hydration completes.
+  await waitForResultNavigation();
   await page.locator('#session-result').click();
   await page.waitForFunction(()=>!document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
   await page.waitForFunction(()=>!document.getElementById('replay').hidden && document.querySelectorAll('#replay-grid .replay-chip').length===32);
@@ -181,6 +186,7 @@ try {
   assert.equal((await page.evaluate(()=>api('/api/lab/recipes'))).selected,null);
   // A decided experiment is history: after reload it no longer sits over the next decision.
   await page.reload();
+  await waitForResultNavigation();
   await page.locator('#session-result').click();
   await page.waitForFunction(()=>!document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
   await page.waitForFunction(()=>!document.getElementById('replay').hidden && document.querySelectorAll('#replay-grid .replay-chip').length===32);
