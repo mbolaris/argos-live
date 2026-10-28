@@ -21,10 +21,11 @@ challenge items whose available-tool inventories are missing. This is public
 practice content, not a held-out assessment. During
 that item, the host intercepts the registered wait tool, records its actual
 name and arguments in the signed transcript, and returns a labeled synthetic
-response without starting an evaluation. Pilot v1.3 allows
-three minutes per module because native SDK round trips in the recorded CPU test took roughly twenty to thirty
-seconds each; the previous one-minute pilot expired before submission. This
-changes only the public uncalibrated pilot, not assessment timings. It cannot verify
+response without starting an evaluation. Pilot v1.3 allows four minutes per
+module for three items and a timing cushion based on native SDK round trips of
+roughly twenty to thirty seconds in the recorded CPU test. The previous
+one-minute pilot expired before submission. This changes only the public
+uncalibrated pilot, not assessment timings. It cannot verify
 general ability or establish an improvement. After a terminal practice session,
 the host receives aggregate scores and item-level submitted/expected answers to
 support coaching. If bounded host continuation ends before submission, the host closes the

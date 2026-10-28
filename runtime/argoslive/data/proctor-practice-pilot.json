@@ -15,7 +15,7 @@
       {
         "module_id": "m1",
         "ordinal": 1,
-        "duration_ms": 180000,
+        "duration_ms": 240000,
         "break_ms": 0,
         "aids": [],
         "items": [
@@ -28,7 +28,7 @@
       {
         "module_id": "m2",
         "ordinal": 2,
-        "duration_ms": 180000,
+        "duration_ms": 240000,
         "break_ms": 0,
         "aids": [],
         "items": [
