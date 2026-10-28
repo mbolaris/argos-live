@@ -70,7 +70,12 @@ not change model settings or grant new tools.
 ## First session
 
 1. Establish the actual assistant/model and available resources. Explain the
-   first benchmark in one sentence; the owner need not design a curriculum.
+   first benchmark in one sentence; the owner need not design a curriculum. On
+   every continuation, reconcile the last `## Next` with `argos bench results`
+   and `argos_evaluate_status` before starting work, matching suite, version,
+   model and configuration. A missing log entry is not evidence that a completed
+   run was lost; reuse matching verified IDs, record them, and advance the next
+   step instead of repeating it.
 2. Run a quick check with fixed task IDs and the original scorer. Show a real
    example answer and why it passed or failed.
    If the standard suite is saturated, use the separate challenge form to find

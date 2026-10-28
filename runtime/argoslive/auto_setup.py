@@ -15,20 +15,41 @@ WORKSPACE_FILES = (('AGENTS.md', 'SELF-IMPROVEMENT-AGENTS.md'), ('SOUL.md', 'SEL
                    ('tools/argos-control.py', 'SELF-IMPROVEMENT-CONTROL.py'))
 # Resumption is allowed only for an owner-started campaign. Prompt guardrails
 # supplement host admission; they are not an enforcement boundary.
-HEARTBEAT_PROMPT = ('Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
-                    '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
-                    'recovery, or the assistant is not ready, reply exactly HEARTBEAT_OK. Never start a new '
-                    'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. A "## Next" '
-                    'entry that says it is awaiting owner direction, approval, or another owner-dependent decision is '
-                    'paused: reply exactly HEARTBEAT_OK without changing files, snapshots, or the log. Resume it only '
-                    'after the owner gives explicit direction in the campaign controller conversation. If it has a '
-                    'runnable "## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
-                    'following AGENTS.md, then append one short entry with argos_log. Call argos_evaluate and '
-                    'argos_compare as tools. If evaluation returns running, use argos_evaluate_wait until saved; '
-                    'if a turn ended before its job ID returned, call argos_evaluate_status first. Never start a '
-                    'second evaluation or edit during a running job. Never install software, use sudo, clone repositories or request secrets. '
-                    'If there is no active campaign, '
-                    'reply exactly HEARTBEAT_OK.')
+PREVIOUS_GUARDED_HEARTBEAT_PROMPT = (
+    'Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
+    '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
+    'recovery, or the assistant is not ready, reply exactly HEARTBEAT_OK. Never start a new '
+    'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. A "## Next" '
+    'entry that says it is awaiting owner direction, approval, or another owner-dependent decision is '
+    'paused: reply exactly HEARTBEAT_OK without changing files, snapshots, or the log. Resume it only '
+    'after the owner gives explicit direction in the campaign controller conversation. If it has a '
+    'runnable "## Next" step and no "## Done" section, your campaign is active: take the last Next step now, '
+    'following AGENTS.md, then append one short entry with argos_log. Call argos_evaluate and '
+    'argos_compare as tools. If evaluation returns running, use argos_evaluate_wait until saved; '
+    'if a turn ended before its job ID returned, call argos_evaluate_status first. Never start a '
+    'second evaluation or edit during a running job. Never install software, use sudo, clone repositories or request secrets. '
+    'If there is no active campaign, reply exactly HEARTBEAT_OK.')
+
+HEARTBEAT_PROMPT = (
+    'Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
+    '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
+    'recovery, or the assistant is not ready, reply exactly HEARTBEAT_OK. Never start a new '
+    'campaign on a heartbeat. Only resume a campaign explicitly requested by the owner. A "## Next" '
+    'entry that says it is awaiting owner direction, approval, or another owner-dependent decision is '
+    'paused: reply exactly HEARTBEAT_OK without changing files, snapshots, or the log. Resume it only '
+    'after the owner gives explicit direction in the campaign controller conversation. Before taking '
+    'a runnable step, reconcile it against saved results with `argos bench results` and '
+    '`argos_evaluate_status`, matching suite, version, model and configuration; a missing log entry '
+    'does not mean a completed run was lost. If matching saved results already satisfy the step, do '
+    'not rerun it: record the verified run IDs and scores with '
+    'argos_log and advance ## Next. After every new evaluation is saved, append its actual run ID, '
+    'score and complete next action with argos_log before starting another evaluation. For a runnable '
+    '"## Next" step and no "## Done" section, take the next unfinished step following AGENTS.md. '
+    'Call argos_evaluate and argos_compare as tools. If evaluation returns running, use '
+    'argos_evaluate_wait until saved; if a turn ended before the job ID returned, call '
+    'argos_evaluate_status first. Never start a second evaluation or edit during a running job. '
+    'Never install software, use sudo, clone repositories or request secrets. If there is no active '
+    'campaign, reply exactly HEARTBEAT_OK.')
 
 # Exact heartbeat prompt observed in the deployed pre-guard Toronado profile.
 # Only this generated default is eligible for the one-field migration below.
@@ -116,7 +137,8 @@ def upgrade_legacy_heartbeat(home, config_path):
         heartbeat = config['agents']['defaults']['heartbeat']
     except (KeyError, TypeError):
         return {'status': 'not-managed'}
-    if not isinstance(heartbeat, dict) or heartbeat.get('prompt') != LEGACY_HEARTBEAT_PROMPT:
+    if not isinstance(heartbeat, dict) or heartbeat.get('prompt') not in {
+            LEGACY_HEARTBEAT_PROMPT, PREVIOUS_GUARDED_HEARTBEAT_PROMPT}:
         return {'status': 'not-legacy-default'}
 
     updated = json.loads(json.dumps(config))
