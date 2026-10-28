@@ -29,7 +29,8 @@ def resolve_suite_item(suite, suite_version, item_id):
         suite_aliases = {'quick': 'quick', 'openclaw-quick': 'quick',
                          'standard': 'standard', 'openclaw-standard': 'standard',
                          'challenge': 'challenge', 'openclaw-challenge': 'challenge',
-                         'tool-schema': 'tool-schema', 'openclaw-tool-schema': 'tool-schema'}
+                         'tool-schema': 'tool-schema', 'openclaw-tool-schema': 'tool-schema',
+                         'tool-plan': 'tool-plan', 'openclaw-tool-plan': 'tool-plan'}
         if suite in suite_aliases:
             from . import ability as ability_mod
             canonical = suite_aliases[suite]

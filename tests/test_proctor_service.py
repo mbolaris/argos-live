@@ -29,6 +29,11 @@ class ProctorServiceTests(unittest.TestCase):
             reasoning=True, params={'think': True, 'temperature': 0})
         self.owner_config.write_text(json.dumps(owner))
 
+    def test_campaign_prompt_rejects_diagnoses_from_underspecified_items(self):
+        self.assertIn('inspect the exact item prompt and scorer requirements', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('do not infer intent from hidden answer labels', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('separately versioned, fully specified form', proctor_service.CAMPAIGN_MESSAGE)
+
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
         runtime_root = self.home / '.local/state/argos-live'
@@ -404,10 +409,16 @@ class ProctorServiceTests(unittest.TestCase):
         cartridge = proctor_service.proctor.Cartridge(first)
         self.assertEqual(cartridge.manifest['calibration_status'], 'uncalibrated')
         self.assertEqual(cartridge.manifest['cartridge_id'], 'argos-practice-pilot')
+        self.assertEqual(cartridge.manifest['version'], '1.3.0')
         self.assertIn('pilot-a', cartridge.forms)
-        self.assertEqual(len(cartridge.items), 5)
+        self.assertEqual(len(cartridge.items), 6)
         self.assertEqual(cartridge.items['q5']['domain'], 'tool_call_format')
         self.assertEqual(cartridge.items['q5']['response_type'], 'json_object')
+        evidence_item = cartridge.items['q6']
+        self.assertEqual(evidence_item['domain'], 'evidence_interpretation')
+        self.assertEqual(evidence_item['response_type'], 'mcq_single')
+        self.assertEqual(evidence_item['correct'], 'C')
+        self.assertIn('available_tools: null', evidence_item['prompt'])
 
     def test_practice_turn_surfaces_tool_call_item_as_a_real_simulated_tool_call(self):
         class Exam:

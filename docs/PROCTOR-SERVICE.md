@@ -14,14 +14,18 @@ catalog manifest, the local manifest bytes, and each verified artifact digest,
 size, and media type; it does not copy model weights into the transcript.
 
 The command uses the bundled `pilot-a` cartridge unless the owner supplies a
-compiled cartridge and form. The bundled five-item pilot exists to exercise the
-tool flow and feedback path, including one `argos_evaluate_wait` call. During
+compiled cartridge and form. The bundled six-item pilot exercises the tool flow
+and feedback path, including one `argos_evaluate_wait` call, and adds an
+evidence-interpretation item about not diagnosing tool-selection weakness from
+challenge items whose available-tool inventories are missing. This is public
+practice content, not a held-out assessment. During
 that item, the host intercepts the registered wait tool, records its actual
 name and arguments in the signed transcript, and returns a labeled synthetic
-response without starting an evaluation. Pilot v1.2 allows
-three minutes per module because native SDK round trips in the recorded CPU test took roughly twenty to thirty
-seconds each; the previous one-minute pilot expired before submission. This
-changes only the public uncalibrated pilot, not assessment timings. It cannot verify
+response without starting an evaluation. Pilot v1.3 allows four minutes per
+module for three items and a timing cushion based on native SDK round trips of
+roughly twenty to thirty seconds in the recorded CPU test. The previous
+one-minute pilot expired before submission. This changes only the public
+uncalibrated pilot, not assessment timings. It cannot verify
 general ability or establish an improvement. After a terminal practice session,
 the host receives aggregate scores and item-level submitted/expected answers to
 support coaching. If bounded host continuation ends before submission, the host closes the

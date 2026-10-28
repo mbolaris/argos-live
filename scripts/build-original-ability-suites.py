@@ -246,11 +246,176 @@ def tool_schema_items():
     return result
 
 
+def tool_plan_items():
+    """Multi-constraint tool selection and argument planning with explicit schemas."""
+    def reserve_args(n):
+        people, sessions = n + 2, n % 3 + 2
+        return {'resource': f'Room-{n:02}', 'date_utc': f'2026-11-{n + 2:02}',
+                'start_hour_utc': n + 6, 'duration_hours': n % 3 + 1,
+                'units': people * sessions, 'notify_owner': n % 2 == 0}
+
+    def reserve_prompt(a, n):
+        people, sessions = n + 2, n % 3 + 2
+        return (f"Hold {people} attendee seats in each of {sessions} identical sessions. The API's units "
+                f"field is the total seats across every session, not the seats in one session. Reserve "
+                f"{a['resource']} on {a['date_utc']} at {a['start_hour_utc']:02}:00 UTC; each session "
+                f"lasts {a['duration_hours']} hours. Notify the owner only for an even-numbered request "
+                f"(request {n}); there are no external guests.")
+
+    def filter_args(n):
+        groups, per_group = n % 4 + 2, n % 3 + 2
+        return {'owner_key': f'owner-{n:02}', 'from_utc': f'2026-11-{n + 1:02}T00:00Z',
+                'to_utc': f'2026-11-{n + 3:02}T23:59Z', 'status_code': ('ready', 'held', 'closed')[n % 3],
+                'sort_order': 'newest_first' if n % 2 else 'oldest_first',
+                'max_rows': groups * per_group, 'include_metadata': n % 2 == 1}
+
+    def filter_prompt(a, n):
+        groups, per_group = n % 4 + 2, n % 3 + 2
+        return (f"For {a['owner_key']}, find records from {a['from_utc']} through {a['to_utc']} whose "
+                f"status is {a['status_code']}. Order them {a['sort_order'].replace('_', ' ')}. There are "
+                f"{groups} teams and the request allows {per_group} records per team; the API expects "
+                f"one global row cap, so multiply those counts. Include metadata only when the request "
+                f"number ({n}) is odd.")
+
+    def diff_args(n):
+        return {'earlier_build': f'build-{n + 20}', 'later_build': f'build-{n + 4}',
+                'include_prerelease': n % 2 == 0, 'compare_dependencies': n % 3 != 0}
+
+    def diff_prompt(a, n):
+        earlier_date, later_date = f'2026-11-{n + 4:02}', f'2026-11-{n + 20:02}'
+        return (f"The release ledger lists {a['later_build']} on {later_date} and {a['earlier_build']} "
+                f"on {earlier_date}. Compare the earlier release to the later release, regardless of "
+                f"the order in which they were listed. Include prereleases only for even request {n}. "
+                f"Compare dependencies unless request {n} is divisible by three.")
+
+    def review_args(n):
+        day, offset = n + 10, n % 4 + 1
+        urgency = ('low', 'normal', 'high', 'urgent')[n % 4]
+        priority = {'low': 1, 'normal': 2, 'high': 3, 'urgent': 4}[urgency]
+        return {'change_key': f'change-{n:02}', 'reviewer_role': ('owner', 'security', 'release')[n % 3],
+                'due_day': day + offset, 'priority_level': priority,
+                'require_backup': n % 2 == 0, 'notify_reviewer': n % 3 != 0}
+
+    def review_prompt(a, n):
+        day, offset = n + 10, n % 4 + 1
+        urgency = ('low', 'normal', 'high', 'urgent')[n % 4]
+        return (f"Route {a['change_key']} to the {a['reviewer_role']} reviewer. Today is cycle day {day}; "
+                f"the deadline is {offset} calendar days from today, and the API needs the absolute cycle "
+                f"day. Convert urgency {urgency} to its numeric level using low=1, normal=2, high=3, "
+                f"urgent=4. Require a backup for even requests; notify the reviewer unless the request "
+                f"number ({n}) is divisible by three.")
+
+    def book_args(n):
+        people, sessions = n % 5 + 3, n % 3 + 2
+        return {'asset_code': f'Asset-{n:02}', 'day_utc': f'2026-12-{n + 2:02}',
+                'hour_utc': n + 7, 'span_hours': n % 3 + 1,
+                'quantity': people * sessions, 'send_alert': n % 2 == 0}
+
+    def book_prompt(a, n):
+        people, sessions = n % 5 + 3, n % 3 + 2
+        return (f"Reserve {people} seats for each of {sessions} repeated sessions. The booking quantity "
+                f"is the total seats across the sessions. Use asset {a['asset_code']} on {a['day_utc']} "
+                f"at {a['hour_utc']:02}:00 UTC, for {a['span_hours']} hours per session. Send an alert "
+                f"only for even request {n}.")
+
+    def scan_args(n):
+        groups, per_group = n % 3 + 2, n % 4 + 2
+        return {'account_code': f'acct-{n:02}', 'after_utc': f'2026-12-{n + 1:02}T00:00Z',
+                'before_utc': f'2026-12-{n + 3:02}T23:59Z', 'state_label': ('queued', 'active', 'done')[n % 3],
+                'order_by': 'recent_first' if n % 2 else 'oldest_first',
+                'row_cap': groups * per_group, 'expand_context': n % 2 == 1}
+
+    def scan_prompt(a, n):
+        groups, per_group = n % 3 + 2, n % 4 + 2
+        return (f"For {a['account_code']}, locate sessions from {a['after_utc']} through {a['before_utc']} "
+                f"in state {a['state_label']}. Sort {a['order_by'].replace('_', ' ')}. The report needs "
+                f"{per_group} rows from each of {groups} groups; the service takes one total row cap, so "
+                f"multiply them. Expand context only for odd request {n}.")
+
+    def package_args(n):
+        return {'prior_pkg': f'pkg-{n + 4}', 'current_pkg': f'pkg-{n + 20}',
+                'allow_preview': n % 2 == 1, 'compare_lockfile': n % 3 != 1}
+
+    def package_prompt(a, n):
+        older_date, newer_date = f'2026-12-{n + 4:02}', f'2026-12-{n + 20:02}'
+        return (f"The package ledger lists {a['current_pkg']} on {newer_date} and {a['prior_pkg']} on "
+                f"{older_date}. Compare the older package to the newer one, not the listed order. Allow "
+                f"preview builds only for odd request {n}. Compare lockfiles unless {n} is one more than a "
+                f"multiple of three.")
+
+    def audit_args(n):
+        day, offset = n + 20, n % 4 + 1
+        urgency = ('routine', 'standard', 'elevated', 'critical')[n % 4]
+        priority = {'routine': 1, 'standard': 2, 'elevated': 3, 'critical': 4}[urgency]
+        return {'ticket_ref': f'ticket-{n:02}', 'assignee_group': ('owner', 'risk', 'ops')[n % 3],
+                'deadline_day': day + offset, 'urgency_rank': priority,
+                'backup_gate': n % 2 == 1, 'alert_assignee': n % 3 != 1}
+
+    def audit_prompt(a, n):
+        day, offset = n + 20, n % 4 + 1
+        urgency = ('routine', 'standard', 'elevated', 'critical')[n % 4]
+        return (f"Assign {a['ticket_ref']} to the {a['assignee_group']} group. Today is cycle day {day}; "
+                f"the deadline is {offset} days later, and the API needs the absolute day. Convert urgency "
+                f"routine=1, standard=2, elevated=3, critical=4 to its numeric rank. Set the backup gate "
+                f"for odd request {n}. Alert the assignee except when the request number is one more than "
+                f"a multiple of three.")
+
+    definitions = {
+        'practice': [
+            ('reserve_slot', 'Reserve a resource and time block; units counts all seats across repeated sessions.',
+             {'resource': 'string', 'date_utc': 'string', 'start_hour_utc': 'integer', 'duration_hours': 'integer', 'units': 'integer', 'notify_owner': 'boolean'}, reserve_args, reserve_prompt),
+            ('filter_events', 'Filter records by owner, time range and status; max_rows is one global cap.',
+             {'owner_key': 'string', 'from_utc': 'string', 'to_utc': 'string', 'status_code': 'string', 'sort_order': 'string', 'max_rows': 'integer', 'include_metadata': 'boolean'}, filter_args, filter_prompt),
+            ('diff_releases', 'Compare two software releases and optionally include prerelease and dependency changes.',
+             {'earlier_build': 'string', 'later_build': 'string', 'include_prerelease': 'boolean', 'compare_dependencies': 'boolean'}, diff_args, diff_prompt),
+            ('route_review', 'Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.',
+             {'change_key': 'string', 'reviewer_role': 'string', 'due_day': 'integer', 'priority_level': 'integer', 'require_backup': 'boolean', 'notify_reviewer': 'boolean'}, review_args, review_prompt),
+        ],
+        'heldout': [
+            ('book_resource', 'Book an asset and time block; quantity counts all seats across repeated sessions.',
+             {'asset_code': 'string', 'day_utc': 'string', 'hour_utc': 'integer', 'span_hours': 'integer', 'quantity': 'integer', 'send_alert': 'boolean'}, book_args, book_prompt),
+            ('scan_sessions', 'Find sessions by account, time range and state; row_cap is one total cap.',
+             {'account_code': 'string', 'after_utc': 'string', 'before_utc': 'string', 'state_label': 'string', 'order_by': 'string', 'row_cap': 'integer', 'expand_context': 'boolean'}, scan_args, scan_prompt),
+            ('compare_packages', 'Compare two packages and optionally include preview builds and lockfile changes.',
+             {'prior_pkg': 'string', 'current_pkg': 'string', 'allow_preview': 'boolean', 'compare_lockfile': 'boolean'}, package_args, package_prompt),
+            ('assign_audit', 'Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.',
+             {'ticket_ref': 'string', 'assignee_group': 'string', 'deadline_day': 'integer', 'urgency_rank': 'integer', 'backup_gate': 'boolean', 'alert_assignee': 'boolean'}, audit_args, audit_prompt),
+        ],
+    }
+    result = []
+    for partition, tools in definitions.items():
+        for tool_index, (name, description, properties, argument_builder, prompt_builder) in enumerate(tools):
+            for variant in range(1, 6):
+                arguments = argument_builder(variant)
+                available = [tools[index % len(tools)] for index in
+                             (tool_index, tool_index + 1, tool_index + 2, tool_index + 3)]
+                target = available.pop(0)
+                target_position = (tool_index * 5 + variant - 1) % 4
+                available.insert(target_position, target)
+                schemas = [{'name': entry[0], 'description': entry[1], 'arguments': entry[2]}
+                           for entry in available]
+                prompt = ('Choose the available action that satisfies the complete request. Available tool schemas: '
+                          + json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False)
+                          + '\nRequest: ' + prompt_builder(arguments, variant)
+                          + '\nReturn only the exact JSON tool-call object with top-level keys "name" and "arguments". '
+                          'Treat every listed argument as required; use its listed primitive type and no extra fields. '
+                          'Do not execute the action.')
+                expected = {'name': name, 'arguments': arguments}
+                wrong = {'name': 'not_a_provided_tool', 'arguments': arguments}
+                result.append({'id': f'{partition}-{tool_index * 5 + variant:02}', 'prompt': prompt,
+                    'scorer': {'kind': 'tool-call', 'expected': expected, 'partition': partition,
+                               'available_tools': schemas},
+                    'reference': json.dumps(expected), 'wrong': json.dumps(wrong), 'malformed': '{not json}'})
+    return result
+
+
 def build(suite):
     if suite == 'challenge':
         selected = [item for group in challenge_items().values() for item in group]
     elif suite == 'tool-schema':
         selected = tool_schema_items()
+    elif suite == 'tool-plan':
+        selected = tool_plan_items()
     elif suite in ('quick', 'standard'):
         count = 4 if suite == 'quick' else 14
         selected = [item for group in items().values() for item in group[:count]]
@@ -265,5 +430,5 @@ def build(suite):
 if __name__ == '__main__':
     destination = ROOT / 'runtime/argoslive/data/ability'
     destination.mkdir(parents=True, exist_ok=True)
-    for suite in ('quick', 'standard', 'challenge', 'tool-schema'):
+    for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan'):
         (destination / (suite + '.json')).write_text(json.dumps(build(suite), indent=2) + '\n', encoding='utf-8')

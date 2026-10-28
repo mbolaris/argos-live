@@ -40,12 +40,14 @@ PRACTICE_TOOLS = ['argos_proctor_start', 'argos_proctor_status',
     'argos_proctor_item', 'argos_proctor_answer', 'argos_proctor_item', 'argos_proctor_answer',
     'argos_proctor_item', 'argos_evaluate_wait', 'argos_proctor_status', 'argos_proctor_submit',
     'argos_proctor_continue', 'argos_proctor_item', 'argos_proctor_answer',
-    'argos_proctor_item', 'argos_proctor_answer', 'argos_proctor_submit', 'argos_proctor_feedback']
+    'argos_proctor_item', 'argos_proctor_answer', 'argos_proctor_item', 'argos_proctor_answer',
+    'argos_proctor_submit', 'argos_proctor_feedback']
 PRACTICE_ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'},
     {'item_id': 'q2'}, {'item_id': 'q2', 'answer': '4'}, {'item_id': 'q5'},
     {'job_id': '0123456789abcdef0123456789abcdef'}, {}, {'module_id': 'm1'}, {},
     {'item_id': 'q3'}, {'item_id': 'q3', 'answer': 'A'}, {'item_id': 'q4'},
-    {'item_id': 'q4', 'answer': '-1.25'}, {'module_id': 'm2'}, {}]
+    {'item_id': 'q4', 'answer': '-1.25'}, {'item_id': 'q6'},
+    {'item_id': 'q6', 'answer': 'C'}, {'module_id': 'm2'}, {}]
 if len(PRACTICE_TOOLS) != len(PRACTICE_ARGS):
     raise RuntimeError('Synthetic practice tool plan is inconsistent')
 CAMPAIGN_TOOLS = ['argos_inspect', 'argos_evaluate', 'argos_evaluate',
@@ -151,7 +153,7 @@ def run(cli, report):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     receipt = {'schema': 'argos-native-proctor-agent/1', 'passed': False,
-        'scope': 'real pinned OpenClaw SDK, host tools, and managed private gateway/service; synthetic model and answers; five-item practice pilot only',
+        'scope': 'real pinned OpenClaw SDK, host tools, and managed private gateway/service; synthetic model and answers; six-item practice pilot only',
         'managed_gateway_service_path': False, 'production_gateway_dispatch': False,
         'protected_service_identity': False,
         'model_identity_attested': False, 'calibrated_ability_claim': False}
@@ -344,7 +346,7 @@ def run(cli, report):
                     patch.object(controller_bridge.Bridge, 'finish', report_finish_failure):
                 service_result = proctor_service.run_practice(
                     service_home, None, 'pilot-a', executable=cli)
-            if (service_result['status'] != 'completed' or service_result['result']['correct'] != 5 or
+            if (service_result['status'] != 'completed' or service_result['result']['correct'] != 6 or
                     progress['tools'] != len(PRACTICE_TOOLS) or progress['errors']):
                 raise ValueError('Owner-facing Proctor service did not complete the synthetic practice exam')
             practice_tools = set(progress['model_tool_names'])

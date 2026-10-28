@@ -68,6 +68,11 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
     'saved baseline, then form your own experiment hypothesis from its task-level evidence. Collect '
     'at least two distinct matched baseline runs and two candidate runs '
     'after one reversible change. '
+    'Before diagnosing a miss, inspect the exact item prompt and scorer requirements. A tool-call miss '
+    'cannot establish a general selection, refusal or formatting weakness when the item omits the '
+    'available-tool inventory or required schemas; do not infer intent from hidden answer labels. '
+    'Report that measurement as under-specified and use a separately versioned, fully specified form '
+    'for a new baseline. Never change a fixed suite to fit a candidate. '
     'Compare runs with argos_compare, then use host-managed edit/resolve tools for instruction changes and '
     'preserve every saved run ID. If no supported experiment remains, compare at least two matched baselines '
     'and explain why no change is justified. In either case, call argos_audit_instructions before finishing. '
@@ -651,7 +656,7 @@ def main(argv=None):
     improve = commands.add_parser('improve', help='Practice, then let the agent run its evidence-based improvement campaign')
     for command in (practice, improve):
         command.add_argument('--cartridge', type=Path,
-                             help='Optional host-selected compiled cartridge (default: bundled five-item pilot)')
+                             help='Optional host-selected compiled cartridge (default: bundled six-item pilot)')
         command.add_argument('--form', default='pilot-a')
         command.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)

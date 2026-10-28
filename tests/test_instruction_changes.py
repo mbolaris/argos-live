@@ -14,6 +14,7 @@ from test_bench_openclaw import FakeOpenClaw, configure_fake
 class InstructionChangeTests(unittest.TestCase):
     def test_challenge_requires_a_meaningful_repeatable_gain(self):
         self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-challenge'], 3)
+        self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-tool-plan'], 3)
 
     def test_tool_schema_keep_gate_requires_repeated_heldout_nonregression(self):
         def run(score):
@@ -54,7 +55,7 @@ class InstructionChangeTests(unittest.TestCase):
         self.parent.resume(cap, worker_drained=True)
         return result
 
-    def evaluate(self, misses=0):
+    def evaluate(self, misses=0, suite='quick'):
         class Answers(FakeOpenClaw):
             def turn(self, prompt):
                 value = super().turn(prompt)
@@ -62,7 +63,7 @@ class InstructionChangeTests(unittest.TestCase):
                     value['text'] = '__wrong_fixture_answer__'
                 return value
         cap = self.parent.delegate('evaluation')
-        result = bench_openclaw.run(home=self.home, runner=Answers(), delegation=cap)
+        result = bench_openclaw.run(home=self.home, suite=suite, runner=Answers(suite=suite), delegation=cap)
         self.parent.resume(cap, worker_drained=True)
         return result
 
@@ -163,6 +164,16 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(len(observed['candidate']['run_ids']), 2)
         self.assertFalse(audit['full_log_claims_verified'])
         self.assertFalse(audit['independent_gain_verified'])
+
+    def test_tool_plan_keep_gate_checks_repeated_bundled_heldout_scores(self):
+        baselines = [self.evaluate(misses=5, suite='tool-plan'), self.evaluate(misses=4, suite='tool-plan')]
+        edited = self.edit(baselines[0])
+        candidates = [self.evaluate(misses=1, suite='tool-plan'), self.evaluate(misses=0, suite='tool-plan')]
+        kept = self.resolve(edited, 'keep', baseline_ids=[run['id'] for run in baselines],
+                            candidate_ids=[run['id'] for run in candidates])
+        self.assertEqual(kept['status'], 'kept', kept)
+        self.assertEqual(kept['minimum_correct_gain'], 3)
+        self.assertTrue(kept['heldout_validation']['nonregression_met'])
 
     def test_single_run_or_noisy_non_gain_cannot_be_kept(self):
         baselines = [self.evaluate(), self.evaluate()]
