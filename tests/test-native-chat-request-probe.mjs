@@ -41,9 +41,15 @@ test('probe preserves fetch arguments and response; exports only numeric options
     const report=JSON.parse(raw);
     assert.equal(report.num_predict,32);assert.equal(report.num_ctx,32768);
     assert.equal(report.request_count,1);assert.equal(report.think,false);
+    assert.equal(report.requests.length,1);
+    assert.equal(report.requests[0].num_predict,32);
     assert.equal(report.message_chars,24);
     probe(url,{body:'not json'});
     assert.equal(received[1].body,'not json');
+    const after=JSON.parse(readFileSync(path,'utf8'));
+    assert.equal(after.request_count,2);
+    assert.equal(after.requests.length,2);
+    assert.equal(after.requests[1].body_inspected,false);
   } finally {rmSync(root,{recursive:true,force:true});}
 });
 
@@ -56,6 +62,8 @@ test('nonlocal requests are ignored and unsupported bodies are not consumed',()=
     assert.equal(probe('https://example.invalid/api/chat',{body:'private'}),42);
     assert.ok(!existsSync(path));
     assert.equal(probe('http://127.0.0.1:11434/api/chat',{}),42);
-    assert.equal(JSON.parse(readFileSync(path,'utf8')).body_inspected,false);
+    const report=JSON.parse(readFileSync(path,'utf8'));
+    assert.equal(report.body_inspected,false);
+    assert.equal(report.requests.length,1);
   } finally {rmSync(root,{recursive:true,force:true});}
 });

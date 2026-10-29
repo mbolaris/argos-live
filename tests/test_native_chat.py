@@ -16,10 +16,18 @@ spec.loader.exec_module(module)
 
 class NativeChatTests(unittest.TestCase):
     def test_native_budget_requires_observed_request_not_catalog_metadata(self):
-        module.verify_request_budget({'body_inspected': True, 'num_predict': 32})
-        for value in ({}, {'num_predict': 32}, {'body_inspected': True},
-                      {'body_inspected': True, 'num_predict': 4096},
-                      {'body_inspected': True, 'num_predict': -1}):
+        good = {'request_count': 2, 'requests_truncated': False, 'requests': [
+            {'body_inspected': True, 'num_predict': 32},
+            {'body_inspected': True, 'num_predict': 32}]}
+        module.verify_request_budget(good)
+        for value in ({}, {'body_inspected': True, 'num_predict': 32},
+                      {**good, 'request_count': 1}, {**good, 'requests_truncated': True},
+                      {**good, 'requests': []},
+                      {**good, 'requests': [good['requests'][0], {'body_inspected': True}]},
+                      {**good, 'requests': [good['requests'][0],
+                                            {'body_inspected': True, 'num_predict': 4096}]},
+                      {**good, 'requests': [good['requests'][0],
+                                            {'body_inspected': True, 'num_predict': -1}]}):
             with self.assertRaises(ValueError):
                 module.verify_request_budget(value)
 
@@ -28,10 +36,16 @@ class NativeChatTests(unittest.TestCase):
             path = Path(temp) / 'metrics.json'
             path.write_text(json.dumps({'num_predict': 32, 'num_ctx': 32768,
                 'think': False, 'body_inspected': True, 'request_count': True,
+                'requests_truncated': False, 'requests': [
+                    {'body_inspected': True, 'num_predict': 32, 'num_ctx': 32768,
+                     'message_chars': 12, 'temperature': 0, 'think': False,
+                     'private': 'private-canary'}],
                 'message_chars': 'private-canary', 'secret': 'private-canary'}))
             report = module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)})
             self.assertEqual(report, {'num_predict': 32, 'num_ctx': 32768,
-                                      'think': False, 'body_inspected': True})
+                'think': False, 'body_inspected': True, 'requests_truncated': False,
+                'requests': [{'num_predict': 32, 'num_ctx': 32768, 'message_chars': 12,
+                              'temperature': 0, 'body_inspected': True, 'think': False}]})
             path.write_text('x' * 32769)
             self.assertEqual(module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)}), {})
 

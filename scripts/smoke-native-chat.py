@@ -138,20 +138,42 @@ def request_metrics(env):
         if not isinstance(value, dict):
             return {}
         allowed = ('request_count', 'request_bytes', 'num_predict', 'num_ctx',
-                   'message_chars', 'tool_schema_chars')
+                   'message_chars', 'tool_schema_chars', 'temperature', 'tool_result_messages')
         result = {key: value[key] for key in allowed if type(value.get(key)) in (int, float)
                   and math.isfinite(value[key]) and -2 <= value[key] <= 10**12}
         result.update({key: value[key] for key in ('body_inspected', 'num_predict_present',
-                      'num_ctx_present', 'think', 'probe_loaded', 'runtime_fetch_hooked')
+                      'num_ctx_present', 'think', 'probe_loaded', 'runtime_fetch_hooked',
+                      'requests_truncated')
                       if type(value.get(key)) is bool})
+        records = value.get('requests')
+        if isinstance(records, list) and len(records) <= 64:
+            numeric = ('request_bytes', 'num_predict', 'num_ctx', 'message_chars',
+                       'tool_schema_chars', 'temperature', 'tool_result_messages')
+            booleans = ('body_inspected', 'num_predict_present', 'num_ctx_present', 'think')
+            result['requests'] = [{**{key: row[key] for key in numeric
+                                      if type(row.get(key)) in (int, float)
+                                      and math.isfinite(row[key]) and -2 <= row[key] <= 10**12},
+                                  **{key: row[key] for key in booleans
+                                     if type(row.get(key)) is bool}}
+                                 for row in records if isinstance(row, dict)]
         return result
     except (KeyError, OSError, ValueError, OverflowError):
         return {}
 
 
 def verify_request_budget(metrics):
-    if metrics.get('body_inspected') is not True or metrics.get('num_predict') != 32:
-        raise ValueError('Native smoke generation limit was not established on the wire')
+    requests = metrics.get('requests')
+    count = metrics.get('request_count')
+    valid = (isinstance(requests, list) and bool(requests) and type(count) is int and
+             count == len(requests) and metrics.get('requests_truncated') is False and
+             all(row.get('body_inspected') is True and row.get('num_predict') == 32
+                 for row in requests))
+    if not valid:
+        # `metrics` is produced by request_metrics(), which exports only bounded
+        # numeric and boolean fields. This detail makes a real cap miss
+        # distinguishable from a capture-path failure without exposing prompts.
+        raise ValueError('Native smoke generation limit was not established on every wire request: ' +
+                         json.dumps(metrics, sort_keys=True))
 
 
 def command(cli, arguments, env, *, timeout=180):
