@@ -355,7 +355,8 @@ def tool_plan_items():
         day, offset = n + 20, n % 4 + 1
         urgency = ('routine', 'standard', 'elevated', 'critical')[n % 4]
         return (f"Assign {a['ticket_ref']} to the {a['assignee_group']} group. Today is cycle day {day}; "
-                f"the deadline is {offset} days later, and the API needs the absolute day. Convert urgency "
+                f"the deadline is {offset} days later, and the API needs the absolute day. The ticket urgency "
+                f"is {urgency}. Convert urgency "
                 f"routine=1, standard=2, elevated=3, critical=4 to its numeric rank. Set the backup gate "
                 f"for odd request {n}. Alert the assignee except when the request number is one more than "
                 f"a multiple of three.")
@@ -364,17 +365,17 @@ def tool_plan_items():
         'practice': [
             ('reserve_slot', 'Reserve a resource and time block; units counts all seats across repeated sessions.',
              {'resource': 'string', 'date_utc': 'string', 'start_hour_utc': 'integer', 'duration_hours': 'integer', 'units': 'integer', 'notify_owner': 'boolean'}, reserve_args, reserve_prompt),
-            ('filter_events', 'Filter records by owner, time range and status; max_rows is one global cap.',
+            ('filter_events', 'Filter records by owner, time range and status; sort_order must be newest_first or oldest_first; max_rows is one global cap.',
              {'owner_key': 'string', 'from_utc': 'string', 'to_utc': 'string', 'status_code': 'string', 'sort_order': 'string', 'max_rows': 'integer', 'include_metadata': 'boolean'}, filter_args, filter_prompt),
             ('diff_releases', 'Compare two software releases and optionally include prerelease and dependency changes.',
              {'earlier_build': 'string', 'later_build': 'string', 'include_prerelease': 'boolean', 'compare_dependencies': 'boolean'}, diff_args, diff_prompt),
-            ('route_review', 'Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.',
+            ('route_review', 'Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification; reviewer_role must be owner, security or release.',
              {'change_key': 'string', 'reviewer_role': 'string', 'due_day': 'integer', 'priority_level': 'integer', 'require_backup': 'boolean', 'notify_reviewer': 'boolean'}, review_args, review_prompt),
         ],
         'heldout': [
             ('book_resource', 'Book an asset and time block; quantity counts all seats across repeated sessions.',
              {'asset_code': 'string', 'day_utc': 'string', 'hour_utc': 'integer', 'span_hours': 'integer', 'quantity': 'integer', 'send_alert': 'boolean'}, book_args, book_prompt),
-            ('scan_sessions', 'Find sessions by account, time range and state; row_cap is one total cap.',
+            ('scan_sessions', 'Find sessions by account, time range and state; order_by must be recent_first or oldest_first; row_cap is one total cap.',
              {'account_code': 'string', 'after_utc': 'string', 'before_utc': 'string', 'state_label': 'string', 'order_by': 'string', 'row_cap': 'integer', 'expand_context': 'boolean'}, scan_args, scan_prompt),
             ('compare_packages', 'Compare two packages and optionally include preview builds and lockfile changes.',
              {'prior_pkg': 'string', 'current_pkg': 'string', 'allow_preview': 'boolean', 'compare_lockfile': 'boolean'}, package_args, package_prompt),
@@ -421,7 +422,8 @@ def build(suite):
         selected = [item for group in items().values() for item in group[:count]]
     else:
         raise ValueError('Unknown suite')
-    version = '1.2.0' if suite == 'tool-schema' else '1.0.0'
+    version = ('1.2.0' if suite == 'tool-schema' else
+               '1.1.0' if suite == 'tool-plan' else '1.0.0')
     return validate({'schema': 'argos-ability-suite/1', 'suite': suite, 'version': version,
         'license': 'MIT', 'source': 'original-argos-live', 'omitted_categories': ['code-execution'],
         'items': selected})

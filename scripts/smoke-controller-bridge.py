@@ -183,7 +183,12 @@ def run(cli, report):
             path.chmod(0o600)
             before = path.read_bytes()
             key = 'agent:main:host-' + str(uuid.uuid4())
-            with controller_bridge.owned(home, session_key=key, worker_timeout=300) as (bridge, _env):
+            # The synthetic quick suite still makes one real pinned SDK request
+            # per item. Hosted CPU latency can put the 20-item run above five
+            # minutes; leave room for the completed run and subsequent edit
+            # receipt instead of converting a slow but healthy run into a
+            # misleading missing-edit failure.
+            with controller_bridge.owned(home, session_key=key, worker_timeout=540) as (bridge, _env):
                 bridge.launch(cli, 'Exercise the synthetic fixture tools, then reply READY.', timeout=600)
                 try:
                     response, stderr = bridge.finish(timeout=630)
@@ -273,7 +278,10 @@ def run(cli, report):
             try:
                 try:
                     with controller_bridge.owned(abort_home, session_key='agent:main:abort-' + str(uuid.uuid4()),
-                                                 worker_timeout=300) as (aborted, _abort_env):
+                                                 # Slow hosted CPU runners need over five minutes for all
+                                                 # 20 real SDK-backed synthetic items. Keep the worker alive
+                                                 # after the SDK abort long enough to verify unattended save.
+                                                 worker_timeout=540) as (aborted, _abort_env):
                         aborted.launch(cli, 'Run the quick ability check, then reply READY.', timeout=600)
                         if not evaluation_started.wait(45):
                             raise ValueError('Pinned SDK did not dispatch the gated evaluation')

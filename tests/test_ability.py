@@ -81,6 +81,7 @@ class AbilityTests(unittest.TestCase):
 
     def test_tool_plan_is_balanced_and_uses_multiconstraint_requests(self):
         data = ability.load('tool-plan')
+        self.assertEqual(data['version'], '1.1.0')
         partitions = {name: [item for item in data['items'] if item['scorer']['partition'] == name]
                       for name in ('practice', 'heldout')}
         self.assertEqual([len(partitions[name]) for name in ('practice', 'heldout')], [20, 20])
@@ -98,6 +99,36 @@ class AbilityTests(unittest.TestCase):
             self.assertEqual({len(item['scorer']['available_tools']) for item in items}, {4})
             self.assertTrue(all(len(item['scorer']['expected']['arguments']) >= 4 for item in items))
             self.assertTrue(all('Available tool schemas:' in item['prompt'] for item in items))
+
+    def test_tool_plan_exact_string_choices_are_exposed_and_old_form_is_retained(self):
+        data = ability.load('tool-plan')
+        expected = {
+            ('practice-06', 'filter_events'): ('newest_first', 'oldest_first'),
+            ('practice-17', 'route_review'): ('owner', 'security', 'release'),
+            ('heldout-06', 'scan_sessions'): ('recent_first', 'oldest_first'),
+        }
+        for (item_id, name), values in expected.items():
+            item = next(row for row in data['items'] if row['id'] == item_id)
+            schema = next(row for row in item['scorer']['available_tools'] if row['name'] == name)
+            with self.subTest(item=item_id):
+                for value in values:
+                    self.assertIn(value, schema['description'])
+        old = ability.load('tool-plan', version='1.0.0')
+        self.assertEqual(old['version'], '1.0.0')
+        self.assertEqual(len(old['items']), 40)
+        self.assertNotEqual(old['items'][5]['prompt'], data['items'][5]['prompt'])
+        with self.assertRaisesRegex(ValueError, 'Unknown version'):
+            ability.load('tool-plan', version='2.0.0')
+
+    def test_tool_plan_audit_tasks_state_ticket_urgency(self):
+        data = ability.load('tool-plan')
+        items = [item for item in data['items'] if item['id'] in {
+            'heldout-16', 'heldout-17', 'heldout-18', 'heldout-19', 'heldout-20'}]
+        self.assertEqual(len(items), 5)
+        for item in items:
+            request = item['prompt'].split('Request: ', 1)[1].split('Return only', 1)[0]
+            with self.subTest(item=item['id']):
+                self.assertRegex(request, r'The ticket urgency is (routine|standard|elevated|critical)\.')
 
     def test_numeric_format_tolerance_and_ambiguous_rejection(self):
         item = {'id': 'math-01', 'scorer': {'kind': 'numeric', 'expected': '1234.5'}}

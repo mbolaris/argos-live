@@ -16,10 +16,18 @@ spec.loader.exec_module(module)
 
 class NativeChatTests(unittest.TestCase):
     def test_native_budget_requires_observed_request_not_catalog_metadata(self):
-        module.verify_request_budget({'body_inspected': True, 'num_predict': 32})
-        for value in ({}, {'num_predict': 32}, {'body_inspected': True},
-                      {'body_inspected': True, 'num_predict': 4096},
-                      {'body_inspected': True, 'num_predict': -1}):
+        good = {'request_count': 2, 'requests_truncated': False, 'requests': [
+            {'body_inspected': True, 'num_predict': 32},
+            {'body_inspected': True, 'num_predict': 32}]}
+        module.verify_request_budget(good)
+        for value in ({}, {'body_inspected': True, 'num_predict': 32},
+                      {**good, 'request_count': 1}, {**good, 'requests_truncated': True},
+                      {**good, 'requests': []},
+                      {**good, 'requests': [good['requests'][0], {'body_inspected': True}]},
+                      {**good, 'requests': [good['requests'][0],
+                                            {'body_inspected': True, 'num_predict': 4096}]},
+                      {**good, 'requests': [good['requests'][0],
+                                            {'body_inspected': True, 'num_predict': -1}]}):
             with self.assertRaises(ValueError):
                 module.verify_request_budget(value)
 
@@ -28,12 +36,49 @@ class NativeChatTests(unittest.TestCase):
             path = Path(temp) / 'metrics.json'
             path.write_text(json.dumps({'num_predict': 32, 'num_ctx': 32768,
                 'think': False, 'body_inspected': True, 'request_count': True,
+                'requests_truncated': False, 'requests': [
+                    {'body_inspected': True, 'num_predict': 32, 'num_ctx': 32768,
+                     'message_chars': 12, 'temperature': 0, 'think': False,
+                     'private': 'private-canary'}],
                 'message_chars': 'private-canary', 'secret': 'private-canary'}))
             report = module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)})
             self.assertEqual(report, {'num_predict': 32, 'num_ctx': 32768,
-                                      'think': False, 'body_inspected': True})
+                'think': False, 'body_inspected': True, 'requests_truncated': False,
+                'requests': [{'num_predict': 32, 'num_ctx': 32768, 'message_chars': 12,
+                              'temperature': 0, 'body_inspected': True, 'think': False}]})
             path.write_text('x' * 32769)
             self.assertEqual(module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)}), {})
+
+    def test_append_log_combines_processes_and_requires_every_wire_budget(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'metrics.jsonl'
+            events = [
+                {'kind': 'probe', 'pid': 101, 'probe_loaded': True, 'runtime_fetch_hooked': True},
+                {'kind': 'request', 'pid': 101, 'body_inspected': True, 'num_predict': 32,
+                 'messages': 'fictional-private-prompt'},
+                {'kind': 'summary', 'pid': 101, 'request_count': 1,
+                 'requests_logged': 1, 'log_failed': False},
+                {'kind': 'probe', 'pid': 202, 'probe_loaded': True, 'runtime_fetch_hooked': True},
+                {'kind': 'request', 'pid': 202, 'body_inspected': True, 'num_predict': 32,
+                 'messages': 'fictional-private-prompt'},
+                {'kind': 'summary', 'pid': 202, 'request_count': 1,
+                 'requests_logged': 1, 'log_failed': False}]
+            path.write_text('\n'.join(json.dumps(row) for row in events) + '\n')
+            report = module.request_metrics({'ARGOS_NATIVE_REQUEST_LOG': str(path)})
+            self.assertEqual(report['request_count'], 2)
+            self.assertTrue(report['probe_loaded'])
+            self.assertTrue(report['runtime_fetch_hooked'])
+            self.assertEqual([row['num_predict'] for row in report['requests']], [32, 32])
+            self.assertNotIn('fictional-private-prompt', json.dumps(report))
+            module.verify_request_budget(report)
+
+            events.insert(-1, {'kind': 'request', 'pid': 202, 'body_inspected': True})
+            events[-1].update(request_count=2, requests_logged=2)
+            path.write_text('\n'.join(json.dumps(row) for row in events) + '\n')
+            report = module.request_metrics({'ARGOS_NATIVE_REQUEST_LOG': str(path)})
+            self.assertEqual(report['request_count'], 3)
+            with self.assertRaises(ValueError):
+                module.verify_request_budget(report)
 
     def test_failure_metadata_only_exports_finite_allowlisted_numbers(self):
         secret = 'fictional-private-text'

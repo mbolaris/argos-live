@@ -1,4 +1,4 @@
-Argos Live original ability fixtures, version 1.0.0
+Argos Live original ability fixtures (each suite records its own version in JSON)
 
 The quick (20 items), standard (70 items), challenge (40 items), tool-schema
 (40 items), and tool-plan (40 items) suites are original Argos Live fixtures, not extracts

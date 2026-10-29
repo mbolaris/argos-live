@@ -34,11 +34,21 @@ def resolve_suite_item(suite, suite_version, item_id):
         if suite in suite_aliases:
             from . import ability as ability_mod
             canonical = suite_aliases[suite]
-            suite_data = ability_mod.load(canonical)
-            expected_ver = suite_data.get('version', '')
-            accepted_versions = {expected_ver, f'ability/{canonical}/{expected_ver}',
-                                 f'argos-openclaw-ability/{canonical}/{expected_ver}'}
-            if suite_version and suite_version not in accepted_versions:
+            if not suite_version:
+                suite_data = ability_mod.load(canonical)
+            else:
+                version_tokens = [suite_version]
+                for prefix in (f'ability/{canonical}/', f'argos-openclaw-ability/{canonical}/'):
+                    if suite_version.startswith(prefix):
+                        version_tokens.append(suite_version[len(prefix):])
+                suite_data = None
+                for version in version_tokens:
+                    try:
+                        suite_data = ability_mod.load(canonical, version=version)
+                        break
+                    except ValueError:
+                        continue
+            if suite_data is None:
                 return None
             return next((it for it in suite_data.get('items', []) if it.get('id') == item_id), None)
         elif suite in ('documents-short', 'short'):

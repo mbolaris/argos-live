@@ -373,7 +373,7 @@ export default function register(api) {
   api.registerTool({
     name: "argos_compare",
     label: "Compare OpenClaw runs",
-    description: "Compare two compatible saved Argos benchmark runs with the deterministic scorer.",
+    description: "Compare two completed saved runs only when suite version, execution method, settings, recipe, and item coverage match. Different suites (for example quick and tool-plan) cannot be compared as before/after evidence. If runs are incompatible, the tool returns safe fingerprints, pair compatibility checks, and correction guidance.",
     parameters: Type.Object({
       baseline_id: Type.String({ minLength: 32, maxLength: 32, pattern: "^[a-f0-9]{32}$" }),
       candidate_id: Type.String({ minLength: 32, maxLength: 32, pattern: "^[a-f0-9]{32}$" })
@@ -382,9 +382,14 @@ export default function register(api) {
       const result = admission ? await admission.execute(_id, 'compare', params) :
         await runArgos("results", ["--compare", params.baseline_id,
         params.candidate_id, "--json"]);
+      if (result?.status === "rejected") {
+        const diagnostics = {runs:result.runs ?? [], pair_checks:result.pair_checks ?? null};
+        return textResult(`${result.message}\nComparison diagnostics: ${JSON.stringify(diagnostics)}`, result);
+      }
       if (result.kind !== "ability" || !result.suite_version?.startsWith("argos-openclaw-ability/") ||
           result.settings?.execution_path !== EVALUATION_PATH) {
-        throw new Error("Expected an OpenClaw assistant comparison. Raw model runs do not test assistant instructions.");
+        return textResult("These runs are not from the configured OpenClaw assistant. Raw model benchmarks cannot measure changes to assistant instructions; choose saved IDs returned by argos_evaluate.",
+          {status:"rejected", error_code:"not_openclaw_assistant"});
       }
       const promptNote = result.workspace_agents_changed
         ? "Workspace instructions differ between runs; treat this as an experiment, not identical setup."

@@ -22,7 +22,7 @@ import uuid
 
 from . import workload, instruction_changes
 from .pull_jobs import read_json, write_json
-from .results import Store, compare
+from .results import Store, compare, comparison_rejection
 
 LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
@@ -247,7 +247,20 @@ class Bridge:
                 return {'status': 'completed', 'value': value}
             if kind == 'compare':
                 store = Store(self.home / '.local/share/argos-live/results')
-                value = compare([store.load(params['baseline_id']), store.load(params['candidate_id'])])
+                values = []
+                try:
+                    values.append(store.load(params['baseline_id']))
+                    values.append(store.load(params['candidate_id']))
+                    value = compare(values)
+                except ValueError as error:
+                    value = comparison_rejection(values, error)
+                    outcome = {'kind': 'compare_rejected', 'call_id': call,
+                               'baseline_id': params['baseline_id'], 'candidate_id': params['candidate_id'],
+                               'error_code': value['error_code']}
+                    with self.lock:
+                        self.outcomes.append(outcome)
+                        self.publish()
+                    return {'status': 'completed', 'value': value}
                 outcome = {'kind': 'compare', 'call_id': call,
                            'baseline_id': params['baseline_id'], 'candidate_id': params['candidate_id']}
                 with self.lock:

@@ -45,6 +45,17 @@ class MissionReportTests(unittest.TestCase):
         self.assertIsNone(mission_report.resolve_suite_item(
             'openclaw-challenge', 'argos-openclaw-ability/challenge/2.0.0', 'calc-01'))
 
+    def test_tool_plan_replay_keeps_original_version_and_resolves_new_form(self):
+        old = mission_report.resolve_suite_item(
+            'openclaw-tool-plan', 'argos-openclaw-ability/tool-plan/1.0.0', 'practice-06')
+        current = mission_report.resolve_suite_item(
+            'openclaw-tool-plan', 'argos-openclaw-ability/tool-plan/1.1.0', 'practice-06')
+        self.assertIsNotNone(old)
+        self.assertIsNotNone(current)
+        self.assertNotEqual(old['prompt'], current['prompt'])
+        self.assertIsNone(mission_report.resolve_suite_item(
+            'openclaw-tool-plan', 'argos-openclaw-ability/tool-plan/2.0.0', 'practice-06'))
+
     def test_opinion_has_only_aggregate_input_and_cannot_change_scores(self):
         self.ability['items'][0]['output'] = 'PRIVATE_DOCUMENT_OR_TOKEN'
         backend = DebriefBackend()

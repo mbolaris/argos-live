@@ -131,27 +131,126 @@ def failure_diagnostics(env, stdout=b'', stderr=b''):
 
 def request_metrics(env):
     try:
-        path = Path(env['ARGOS_NATIVE_REQUEST_REPORT'])
-        if path.is_symlink() or path.stat().st_size > 32768:
+        log_path = env.get('ARGOS_NATIVE_REQUEST_LOG')
+        path = Path(log_path or env['ARGOS_NATIVE_REQUEST_REPORT'])
+        if path.is_symlink() or path.stat().st_size > 65536:
             return {}
-        value = json.loads(path.read_text())
+        if log_path:
+            events = [json.loads(line) for line in path.read_text().splitlines() if line]
+            requests, probes, summaries, per_process = [], {}, {}, {}
+            truncated = False
+            for event in events:
+                if not isinstance(event, dict):
+                    return {}
+                kind, pid = event.get('kind'), event.get('pid')
+                if kind == 'probe' and type(pid) is int and pid > 0:
+                    probes[pid] = event
+                elif kind == 'request' and type(pid) is int and pid > 0:
+                    per_process[pid] = per_process.get(pid, 0) + 1
+                    if len(requests) < 64:
+                        requests.append(event)
+                    else:
+                        truncated = True
+                elif kind == 'summary' and type(pid) is int and pid > 0:
+                    summaries[pid] = event
+                elif kind == 'truncated' and type(pid) is int and pid > 0:
+                    truncated = True
+                else:
+                    return {}
+            probe_pids = set(probes)
+            summary_pids = set(summaries)
+            request_pids = set(per_process)
+            request_missing_summary_pids = request_pids - summary_pids
+            no_request_missing_summary_pids = (probe_pids - summary_pids) - request_pids
+            unhooked_pids = {pid for pid, probe in probes.items()
+                             if probe.get('runtime_fetch_hooked') is not True}
+            summary_mismatch_count = 0
+            # The gateway deliberately SIGKILLs leftover zero-request Node
+            # helpers after its bounded shutdown grace period, so they cannot
+            # emit exit summaries. Every process that sent a model request must
+            # still have a matching, verified exit summary. The test-only probe
+            # also blocks a request when it cannot durably log it.
+            if (not probes or request_missing_summary_pids or
+                    summary_pids - probe_pids or request_pids - probe_pids or
+                    unhooked_pids):
+                truncated = True
+            for pid, probe in probes.items():
+                if probe.get('probe_loaded') is not True:
+                    summary_mismatch_count += 1
+                    truncated = True
+                summary = summaries.get(pid)
+                if summary is None:
+                    if pid in request_pids:
+                        summary_mismatch_count += 1
+                        truncated = True
+                    continue
+                observed = per_process.get(pid, 0)
+                if (summary.get('request_count') != observed or
+                        summary.get('requests_logged') != observed or
+                        summary.get('log_failed') is not False):
+                    summary_mismatch_count += 1
+                    truncated = True
+            value = {'request_count': sum(per_process.values()), 'requests': requests,
+                     'requests_truncated': truncated,
+                     'probe_process_count': len(probe_pids),
+                     'summary_process_count': len(summary_pids),
+                     'request_process_count': len(request_pids),
+                     'missing_summary_count': len(probe_pids - summary_pids),
+                     'request_process_missing_summary_count': len(request_missing_summary_pids),
+                     'no_request_missing_summary_count': len(no_request_missing_summary_pids),
+                     'unhooked_process_count': len(unhooked_pids),
+                     'orphan_summary_count': len(summary_pids - probe_pids),
+                     'request_without_probe_count': len(request_pids - probe_pids),
+                     'summary_mismatch_count': summary_mismatch_count,
+                     'probe_loaded': bool(probes) and all(row.get('probe_loaded') is True
+                                                          for row in probes.values()),
+                     'runtime_fetch_hooked': bool(probes) and not unhooked_pids}
+        else:
+            value = json.loads(path.read_text())
         if not isinstance(value, dict):
             return {}
-        allowed = ('request_count', 'request_bytes', 'num_predict', 'num_ctx',
-                   'message_chars', 'tool_schema_chars')
+        allowed = ('request_count', 'probe_process_count', 'summary_process_count',
+                   'request_process_count', 'missing_summary_count',
+                   'request_process_missing_summary_count', 'no_request_missing_summary_count',
+                   'unhooked_process_count', 'orphan_summary_count',
+                   'request_without_probe_count', 'summary_mismatch_count',
+                   'request_bytes', 'num_predict', 'num_ctx',
+                   'message_chars', 'tool_schema_chars', 'temperature', 'tool_result_messages')
         result = {key: value[key] for key in allowed if type(value.get(key)) in (int, float)
                   and math.isfinite(value[key]) and -2 <= value[key] <= 10**12}
         result.update({key: value[key] for key in ('body_inspected', 'num_predict_present',
-                      'num_ctx_present', 'think', 'probe_loaded', 'runtime_fetch_hooked')
+                      'num_ctx_present', 'think', 'probe_loaded', 'runtime_fetch_hooked',
+                      'requests_truncated')
                       if type(value.get(key)) is bool})
+        records = value.get('requests')
+        if isinstance(records, list) and len(records) <= 64:
+            numeric = ('request_bytes', 'num_predict', 'num_ctx', 'message_chars',
+                       'tool_schema_chars', 'temperature', 'tool_result_messages')
+            booleans = ('body_inspected', 'num_predict_present', 'num_ctx_present', 'think')
+            result['requests'] = [{**{key: row[key] for key in numeric
+                                      if type(row.get(key)) in (int, float)
+                                      and math.isfinite(row[key]) and -2 <= row[key] <= 10**12},
+                                  **{key: row[key] for key in booleans
+                                     if type(row.get(key)) is bool}}
+                                 for row in records if isinstance(row, dict)]
         return result
     except (KeyError, OSError, ValueError, OverflowError):
         return {}
 
 
 def verify_request_budget(metrics):
-    if metrics.get('body_inspected') is not True or metrics.get('num_predict') != 32:
-        raise ValueError('Native smoke generation limit was not established on the wire')
+    requests = metrics.get('requests')
+    count = metrics.get('request_count')
+    valid = (isinstance(requests, list) and bool(requests) and type(count) is int and
+             count == len(requests) and metrics.get('requests_truncated') is False and
+             all(row.get('body_inspected') is True and row.get('num_predict') == 32
+                 for row in requests))
+    if not valid:
+        # `metrics` is produced by request_metrics(), which exports only bounded
+        # numeric and boolean fields. This detail makes a real cap miss
+        # distinguishable from a capture-path failure without exposing prompts.
+        raise ValueError('Native smoke generation limit was not established on every wire request: ' +
+                         json.dumps(metrics, sort_keys=True))
 
 
 def command(cli, arguments, env, *, timeout=180):
@@ -232,7 +331,7 @@ def run(cli, ollama, seed):
         # The observer is injected only into this hosted disposable fixture;
         # it forwards the original fetch unchanged and records no request text.
         env['NODE_OPTIONS'] = '--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri()
-        env['ARGOS_NATIVE_REQUEST_REPORT'] = str(home / 'native-request-metrics.json')
+        env['ARGOS_NATIVE_REQUEST_LOG'] = str(home / 'native-request-metrics.jsonl')
         env['ARGOS_NATIVE_OPENCLAW_ENTRY'] = str(cli.resolve())
         version = command(cli, ['--version'], env, timeout=30).decode()
         if pins['OPENCLAW_VERSION'] not in re.findall(r'\d{4}\.\d+\.\d+', version):
@@ -242,6 +341,9 @@ def run(cli, ollama, seed):
         with owned(seed, executable=ollama.absolute(), port=11434, context_tokens=32768,
                    lease_store=home) as client:
             # Leave headroom for slower CPU runners to read the full agent prompt.
+            request_log = Path(env['ARGOS_NATIVE_REQUEST_LOG'])
+            request_log.write_text('', encoding='utf-8')
+            request_log.chmod(0o600)
             result = summary(command(cli, ['agent', '--local', '--agent', 'main', '--message',
                 'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
                 '--timeout', '240', '--json'], env, timeout=300))

@@ -82,7 +82,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
     def test_tool_plan_form_records_partition_scores_and_full_coverage(self):
         result = bench_openclaw.run(suite='tool-plan', runner=FakeOpenClaw(suite='tool-plan'))
         self.assertEqual(result['suite'], 'openclaw-tool-plan')
-        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/tool-plan/1.0.0')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/tool-plan/1.1.0')
         self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
         self.assertEqual(result['summary']['partitions']['practice']['correct'], 20)
         self.assertEqual(result['summary']['partitions']['heldout']['correct'], 20)

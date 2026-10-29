@@ -119,9 +119,17 @@ behavior they represent. State one hypothesis and one reversible change. Use
 the host-managed instruction tools for `AGENTS.md`; for other authorized model
 or configuration experiments, preserve the relevant files and use the reviewed
 Argos recovery path. Do not change the benchmark or scorer to improve the score.
-Use `argos_compare` for compatible runs and report gains, regressions, elapsed
-time, and uncertainty. Restore a non-beneficial change and verify the restore
-before saying it is complete.
+Use each saved evaluation result's run ID, suite version, and coverage to group
+candidate runs. Never compare different suites (such as quick and tool-plan) as
+before/after evidence. `argos_compare` validates execution path,
+non-intervention settings, recipe, restoration, and coverage. If comparison is
+refused, use its `pair_checks` and safe settings, recipe, and coverage
+fingerprints to choose a compatible pair; do not retry the same IDs or infer
+raw configuration from a fingerprint. If no matched pair exists,
+collect a second baseline in the same suite. Cross-suite scores can be reported
+separately but are not comparable. Report gains, regressions, elapsed time, and
+uncertainty. Restore a non-beneficial change and verify the restore before
+saying it is complete.
 
 For a stronger local model, use Argos's reviewed fit and storage guidance; if its
 existing model flow needs an owner action, say exactly what to click and why. Ask
