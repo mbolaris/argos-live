@@ -183,7 +183,12 @@ def run(cli, report):
             path.chmod(0o600)
             before = path.read_bytes()
             key = 'agent:main:host-' + str(uuid.uuid4())
-            with controller_bridge.owned(home, session_key=key, worker_timeout=300) as (bridge, _env):
+            # The synthetic quick suite still makes one real pinned SDK request
+            # per item. Hosted CPU latency can put the 20-item run above five
+            # minutes; leave room for the completed run and subsequent edit
+            # receipt instead of converting a slow but healthy run into a
+            # misleading missing-edit failure.
+            with controller_bridge.owned(home, session_key=key, worker_timeout=540) as (bridge, _env):
                 bridge.launch(cli, 'Exercise the synthetic fixture tools, then reply READY.', timeout=600)
                 try:
                     response, stderr = bridge.finish(timeout=630)
