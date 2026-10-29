@@ -367,6 +367,24 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertNotIn(bridge.secret, json.dumps(value))
             self.assertIsNone(bridge.pending)
 
+    def test_drained_log_failure_is_completed_without_claiming_append(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            tool = {**turn, 'op': 'tool', 'call_id': 'failed-log', 'kind': 'log',
+                    'params': {'text': 'A log attempt with an unavailable receipt.'}}
+            failed = {'status': 'completed', 'value': {'status': 'failed',
+                      'message': 'Campaign log entry failed; the host workload remains available.',
+                      'append_outcome': 'unconfirmed'}}
+            with patch.object(bridge, 'run_child', return_value=failed):
+                value = bridge.dispatch(tool)
+            self.assertEqual(value, failed)
+            self.assertEqual(bridge.outcomes[-1]['status'], 'failed')
+            self.assertFalse(bridge.outcomes[-1]['appended'])
+            self.assertEqual(bridge.outcomes[-1]['append_outcome'], 'unconfirmed')
+            self.assertEqual(parent.record['phase'], 'running')
+            parent.complete()
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_failed_log_worker_resumes_only_after_its_child_is_released(self):
         with workload.reserve(self.home, 'controller') as parent:
@@ -378,12 +396,17 @@ class ControllerBridgeTests(unittest.TestCase):
 
             value = bridge.dispatch(tool)
 
-            self.assertEqual(value['status'], 'failed')
+            self.assertEqual(value['status'], 'completed')
+            self.assertEqual(value['value']['status'], 'failed')
+            self.assertEqual(value['value']['append_outcome'], 'unconfirmed')
             self.assertFalse(bridge.uncertain)
             self.assertEqual(parent.record['phase'], 'running')
             self.assertIsNone(parent.record.get('child_id'))
             self.assertIsNone(bridge.pending)
             self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
+            self.assertEqual(bridge.outcomes[-1]['status'], 'failed')
+            self.assertFalse(bridge.outcomes[-1]['appended'])
+            self.assertEqual(bridge.outcomes[-1]['append_outcome'], 'unconfirmed')
 
             valid = {**turn, 'op': 'tool', 'call_id': 'valid-log', 'kind': 'log',
                      'params': {'text': 'A drained failed log attempt was safely reported.'}}

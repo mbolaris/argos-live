@@ -229,6 +229,14 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('a passed host instruction audit after the keep/restore decision',
                       assessment['missing'])
 
+    def test_campaign_followup_preserves_unconfirmed_log_outcome(self):
+        outcome = {'kind': 'log', 'status': 'failed', 'appended': False,
+                   'append_outcome': 'unconfirmed'}
+        ledger = proctor_service._campaign_ledger([outcome])
+        self.assertEqual(ledger, [outcome])
+        followup = proctor_service._campaign_followup(2, [outcome], {'missing': []})
+        self.assertIn('"append_outcome": "unconfirmed"', followup)
+
     def test_campaign_continues_clean_turns_until_host_evidence_is_complete(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
         bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement', outcomes=[],

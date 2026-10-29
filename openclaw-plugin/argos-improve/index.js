@@ -386,6 +386,12 @@ export default function register(api) {
         const diagnostics = {runs:result.runs ?? [], pair_checks:result.pair_checks ?? null};
         return textResult(`${result.message}\nComparison diagnostics: ${JSON.stringify(diagnostics)}`, result);
       }
+      if (result?.status === "busy") {
+        const next = result.recovery_required
+          ? "Host recovery is required before another comparison can run."
+          : "Retry after the current host operation finishes.";
+        return textResult(`${result.message || "Another host workload is active."} No comparison was run. ${next}`, result);
+      }
       if (result.kind !== "ability" || !result.suite_version?.startsWith("argos-openclaw-ability/") ||
           result.settings?.execution_path !== EVALUATION_PATH) {
         return textResult("These runs are not from the configured OpenClaw assistant. Raw model benchmarks cannot measure changes to assistant instructions; choose saved IDs returned by argos_evaluate.",
@@ -406,8 +412,13 @@ export default function register(api) {
     async execute(_id, params, signal) {
       const value = admission ? await admission.execute(_id, 'log', params, signal) :
         await runArgos("log", ["--text", params.text, "--json"], signal);
-      return textResult(value.status === "busy" ? `${value.message}. No note appended.` :
-        `Appended at host time ${value.observed}. Pre-append snapshot: ${value.snapshot}.`, value);
+      if (value.status === "busy")
+        return textResult(`${value.message || "Another host workload is active."}. No note appended.`, value);
+      if (value.status === "failed")
+        return textResult(`${value.message || "The campaign log operation failed."} The append outcome is unconfirmed; inspect IMPROVEMENT-LOG.md before retrying.`, value);
+      if (value.status !== "appended")
+        throw new Error("The campaign log did not confirm an append; inspect the local Argos status.");
+      return textResult(`Appended at host time ${value.observed}. Pre-append snapshot: ${value.snapshot}.`, value);
     }
   });
 }
