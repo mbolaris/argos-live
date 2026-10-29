@@ -160,19 +160,34 @@ def request_metrics(env):
             probe_pids = set(probes)
             summary_pids = set(summaries)
             request_pids = set(per_process)
+            request_missing_summary_pids = request_pids - summary_pids
+            no_request_missing_summary_pids = (probe_pids - summary_pids) - request_pids
+            unhooked_pids = {pid for pid, probe in probes.items()
+                             if probe.get('runtime_fetch_hooked') is not True}
             summary_mismatch_count = 0
-            # Each injected Node process reports its own count on exit. Missing
-            # summaries, failed writes, and truncated streams fail closed.
-            if (not probes or probe_pids != summary_pids or
-                    not request_pids.issubset(probe_pids)):
+            # The gateway deliberately SIGKILLs leftover zero-request Node
+            # helpers after its bounded shutdown grace period, so they cannot
+            # emit exit summaries. Every process that sent a model request must
+            # still have a matching, verified exit summary. The test-only probe
+            # also blocks a request when it cannot durably log it.
+            if (not probes or request_missing_summary_pids or
+                    summary_pids - probe_pids or request_pids - probe_pids or
+                    unhooked_pids):
                 truncated = True
             for pid, probe in probes.items():
-                summary = summaries.get(pid, {})
+                if probe.get('probe_loaded') is not True:
+                    summary_mismatch_count += 1
+                    truncated = True
+                summary = summaries.get(pid)
+                if summary is None:
+                    if pid in request_pids:
+                        summary_mismatch_count += 1
+                        truncated = True
+                    continue
                 observed = per_process.get(pid, 0)
                 if (summary.get('request_count') != observed or
                         summary.get('requests_logged') != observed or
-                        summary.get('log_failed') is not False or
-                        probe.get('probe_loaded') is not True):
+                        summary.get('log_failed') is not False):
                     summary_mismatch_count += 1
                     truncated = True
             value = {'request_count': sum(per_process.values()), 'requests': requests,
@@ -181,18 +196,23 @@ def request_metrics(env):
                      'summary_process_count': len(summary_pids),
                      'request_process_count': len(request_pids),
                      'missing_summary_count': len(probe_pids - summary_pids),
+                     'request_process_missing_summary_count': len(request_missing_summary_pids),
+                     'no_request_missing_summary_count': len(no_request_missing_summary_pids),
+                     'unhooked_process_count': len(unhooked_pids),
                      'orphan_summary_count': len(summary_pids - probe_pids),
                      'request_without_probe_count': len(request_pids - probe_pids),
                      'summary_mismatch_count': summary_mismatch_count,
-                     'probe_loaded': any(row.get('probe_loaded') is True for row in probes.values()),
-                     'runtime_fetch_hooked': any(row.get('runtime_fetch_hooked') is True
-                                                 for row in probes.values())}
+                     'probe_loaded': bool(probes) and all(row.get('probe_loaded') is True
+                                                          for row in probes.values()),
+                     'runtime_fetch_hooked': bool(probes) and not unhooked_pids}
         else:
             value = json.loads(path.read_text())
         if not isinstance(value, dict):
             return {}
         allowed = ('request_count', 'probe_process_count', 'summary_process_count',
-                   'request_process_count', 'missing_summary_count', 'orphan_summary_count',
+                   'request_process_count', 'missing_summary_count',
+                   'request_process_missing_summary_count', 'no_request_missing_summary_count',
+                   'unhooked_process_count', 'orphan_summary_count',
                    'request_without_probe_count', 'summary_mismatch_count',
                    'request_bytes', 'num_predict', 'num_ctx',
                    'message_chars', 'tool_schema_chars', 'temperature', 'tool_result_messages')

@@ -20,7 +20,7 @@ function requestLogState(logPath) {
   let state=requestLogs.get(logPath);
   if (!state) {
     state={pid:process.pid,request_count:0,requests_logged:0,log_failed:false,
-      runtime_fetch_hooked:false};
+      runtime_fetch_hooked:null,probe_logged:null};
     requestLogs.set(logPath,state);
   }
   return state;
@@ -50,6 +50,7 @@ function appendLog(logPath,event) {
 export function observeRequests(original, reportPath, logPath=null) {
   const state=logPath ? requestLogState(logPath) : reportState(reportPath);
   return function(...args) {
+    let rejectUncapturedRequest=false;
     try {
       const [input,init]=args;
       const url=new URL(typeof input==='string' || input instanceof URL ? input : input?.url);
@@ -82,12 +83,20 @@ export function observeRequests(original, reportPath, logPath=null) {
           }
         } catch (_) { /* Record the request as uninspected; the budget gate will fail closed. */ }
         if (logPath) {
-          if (state.request_count<=MAX_RECORDED_REQUESTS) {
+          if (state.probe_logged === false || state.runtime_fetch_hooked === false) {
+            state.log_failed=true;
+            rejectUncapturedRequest=true;
+          } else if (state.request_count<=MAX_RECORDED_REQUESTS) {
             if (appendLog(logPath,{kind:'request',pid:state.pid,...metrics})) state.requests_logged++;
-            else state.log_failed=true;
+            else {
+              state.log_failed=true;
+              rejectUncapturedRequest=true;
+            }
+          } else {
+            if (state.request_count===MAX_RECORDED_REQUESTS+1)
+              appendLog(logPath,{kind:'truncated',pid:state.pid});
+            rejectUncapturedRequest=true;
           }
-          else if (state.request_count===MAX_RECORDED_REQUESTS+1)
-            appendLog(logPath,{kind:'truncated',pid:state.pid});
         } else {
           if (state.requests.length<MAX_RECORDED_REQUESTS) state.requests.push(metrics);
           // Preserve the most recent request's bounded metadata for existing
@@ -96,6 +105,8 @@ export function observeRequests(original, reportPath, logPath=null) {
         }
       }
     } catch (_) { /* Diagnostics must not change the native request outcome. */ }
+    if (rejectUncapturedRequest)
+      return Promise.reject(new Error('Native request capture failed closed'));
     return original.apply(this,args);
   };
 }
@@ -118,8 +129,9 @@ if (process.env.ARGOS_NATIVE_REQUEST_REPORT || process.env.ARGOS_NATIVE_REQUEST_
     } catch (_) { /* The request gate will fail closed if no calls are observed. */ }
     const state=requestLogState(logPath);
     state.runtime_fetch_hooked=runtimeHooked;
-    appendLog(logPath,{kind:'probe',pid:state.pid,probe_loaded:true,
+    state.probe_logged=appendLog(logPath,{kind:'probe',pid:state.pid,probe_loaded:true,
       runtime_fetch_hooked:runtimeHooked});
+    if (!state.probe_logged) state.log_failed=true;
     process.once('exit',()=>appendLog(logPath,{kind:'summary',pid:state.pid,
       request_count:state.request_count,requests_logged:state.requests_logged,
       log_failed:state.log_failed}));
