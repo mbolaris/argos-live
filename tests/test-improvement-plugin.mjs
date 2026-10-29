@@ -38,6 +38,10 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   process.exit(75);
 } else if (args[1] === 'log') {
   console.log(JSON.stringify({status:'appended',observed:'2026-10-17T00:00:00+00:00',snapshot:'/private/snapshot',note_claims_verified:false}));
+} else if (args[1] === 'results' && fs.existsSync(process.env.ARGOS_CAPTURE+'.incompatible')) {
+  console.log(JSON.stringify({status:'rejected',error_code:'recipe_mismatch',message:'Runs used different recipes.',
+    runs:[{id:'1'.repeat(32),recipe_fingerprint:'a'.repeat(64),settings_fingerprint:'b'.repeat(64)}],
+    pair_checks:{same_suite_version:true,same_recipe:false,same_coverage:true}}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
   const total = suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' ? 40 : suite === 'standard' ? 70 : 20;
@@ -119,12 +123,22 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     });
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'results', '--compare', '1'.repeat(32), '2'.repeat(32), '--json']);
+    await writeFile(capture + '.incompatible', 'fixture');
+    const incompatible = await tools.get('argos_compare').execute('incompatible', {
+      baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)
+    });
+    assert.equal(incompatible.details.pair_checks.same_recipe, false);
+    assert.match(incompatible.content[0].text, /Comparison diagnostics:/);
+    assert.match(incompatible.content[0].text, /same_suite_version/);
+    await rm(capture + '.incompatible', {force:true});
     await writeFile(capture + '.raw', 'raw-model fixture');
     await assert.rejects(tools.get('argos_evaluate').execute('raw', { suite: 'quick' }),
       /Raw model runs do not test assistant instructions/);
-    await assert.rejects(tools.get('argos_compare').execute('raw-compare', {
+    const rawCompare = await tools.get('argos_compare').execute('raw-compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)
-    }), /Raw model runs do not test assistant instructions/);
+    });
+    assert.equal(rawCompare.details.error_code, 'not_openclaw_assistant');
+    assert.match(rawCompare.content[0].text, /Raw model benchmarks cannot measure changes/);
     const note = 'Hypothesis: check output format.\n## Next\nMeasure baseline.';
     const logged = await tools.get('argos_log').execute('log', { text: note });
     assert.equal(logged.details.note_claims_verified, false);

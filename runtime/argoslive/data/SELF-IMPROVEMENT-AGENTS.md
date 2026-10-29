@@ -47,6 +47,14 @@ saved result before editing instructions or switching models. Match suite,
 execution method and configuration evidence. A new execution method needs a
 fresh baseline. Inspect misses with `argos bench results --load <id>`.
 
+Before `argos_compare`, confirm both saved receipts have the exact same suite
+version, execution method, non-intervention settings, recipe, and complete item
+coverage. Never compare different suites (such as quick and tool-plan) as
+before/after evidence. If comparison is refused, use its returned run metadata
+to correct the pair and do not retry the same IDs. If no matched pair exists,
+collect a second baseline in the same suite. Cross-suite scores can be reported
+separately but are not comparable.
+
 Before diagnosing a miss, inspect the exact item prompt and scorer requirements.
 A tool-call miss cannot establish a general selection, refusal or formatting
 weakness when the item omits the available-tool inventory or required schemas;

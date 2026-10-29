@@ -134,6 +134,34 @@ class ResultsTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 results.compare(values)
 
+    def test_json_compare_rejection_reports_safe_pair_diagnostics(self):
+        first, second = ability_result(), ability_result('wrong')
+        first['id'], second['id'] = 'a' * 32, 'b' * 32
+        second['suite_version'] = 'argos-openclaw-ability/quick/2.0.0'
+        first['settings']['execution_path'] = second['settings']['execution_path'] = 'fixture-path'
+        first['settings']['credential_marker'] = 'must-not-be-returned'
+        second['settings']['credential_marker'] = 'must-not-be-returned'
+        with tempfile.TemporaryDirectory() as temp:
+            store = results.Store(temp)
+            store.save(first)
+            store.save(second)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(results.main(['--results-dir', temp, '--compare',
+                    first['id'], second['id'], '--json']), 0)
+            text = output.getvalue()
+            rejected = json.loads(text)
+        self.assertEqual(rejected['status'], 'rejected')
+        self.assertEqual(rejected['error_code'], 'suite_or_settings_mismatch')
+        self.assertFalse(rejected['pair_checks']['same_suite_version'])
+        self.assertTrue(rejected['pair_checks']['same_execution_path'])
+        self.assertTrue(rejected['pair_checks']['same_non_model_settings'])
+        self.assertTrue(rejected['pair_checks']['same_coverage'])
+        self.assertTrue(rejected['pair_checks']['both_complete'])
+        self.assertTrue(rejected['pair_checks']['both_restored'])
+        self.assertEqual(len(rejected['runs'][0]['settings_fingerprint']), 64)
+        self.assertNotIn('must-not-be-returned', text)
+
     def test_partial_cleanup_and_tampered_summary_refused(self):
         first, second = ability_result(), ability_result()
         for update in ({'summary': dict(second['summary'], accuracy=100)},

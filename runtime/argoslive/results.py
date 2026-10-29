@@ -2,6 +2,7 @@
 import argparse
 import csv
 from datetime import datetime
+import hashlib
 import io
 import json
 import math
@@ -202,6 +203,36 @@ def configuration_differences(before, after, prefix=''):
     return changes
 
 
+def _comparison_settings(value):
+    # The model is the thing an ability comparison is meant to vary. It
+    # already has a dedicated top-level field, so keep all other settings
+    # identical while allowing `assistant_model` to differ.
+    settings = value.get('settings') if isinstance(value.get('settings'), dict) else {}
+    excluded = {'assistant_model', 'model'}
+    if settings.get('execution_path') == 'openclaw embedded; ephemeral state; tools denied; v2':
+        excluded.add('configured_generation')
+    return {key: setting for key, setting in settings.items() if key not in excluded}
+
+
+def _coverage_key(value):
+    if value.get('kind') == 'ability':
+        return {
+            'items': [(item['item_id'], item['category']) for item in value.get('items', [])],
+            'omitted_categories': value.get('omitted_categories'),
+        }
+    if value.get('kind') == 'speed':
+        return {'prompts': [(prompt['size'], prompt.get('context_tokens'), prompt['skipped'])
+                            for prompt in value.get('prompts', [])]}
+    return None
+
+
+def _fingerprint(value):
+    if value is None:
+        return None
+    encoded = json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def compare(values):
     if len(values) < 2:
         raise ValueError('Choose at least two runs for comparison')
@@ -210,18 +241,9 @@ def compare(values):
     if len({v['id'] for v in values}) != len(values):
         raise ValueError('Choose distinct runs')
     first = values[0]
-    def comparison_settings(value):
-        # The model is the thing an ability comparison is meant to vary. It
-        # already has a dedicated top-level field, so keep all other settings
-        # identical while allowing `assistant_model` to differ.
-        excluded = {'assistant_model', 'model'}
-        if value['settings'].get('execution_path') == 'openclaw embedded; ephemeral state; tools denied; v2':
-            excluded.add('configured_generation')
-        return {key: setting for key, setting in value['settings'].items() if key not in excluded}
-
-    first_settings = comparison_settings(first)
+    first_settings = _comparison_settings(first)
     for value in values:
-        if (value['kind'], value['suite_version'], comparison_settings(value)) != (
+        if (value['kind'], value['suite_version'], _comparison_settings(value)) != (
                 first['kind'], first['suite_version'], first_settings):
             raise ValueError('Comparison requires the same benchmark kind, suite version and non-model settings')
         if value.get('recipe') != first.get('recipe'):
@@ -283,6 +305,119 @@ def compare(values):
             'configuration_changes': configuration_changes,
             'rows': rows, **matched_details(values), 'limitations': 'Hardware and runtime versions can differ; inspect original runs. '
             'Missing measurements are unranked. Tool formatting is not tool execution.'}
+
+
+def comparison_rejection(values, error):
+    """Return bounded, actionable feedback for a refused saved-run comparison."""
+    reason = str(error)
+    if reason == 'Comparison requires the same benchmark kind, suite version and non-model settings':
+        code = 'suite_or_settings_mismatch'
+        guidance = ('These runs differ in benchmark suite/version or non-model settings. Choose two runs with '
+                    'the same suite version, execution method, settings, recipe, and complete item coverage. '
+                    'Cross-suite scores cannot establish a before/after gain.')
+    elif reason == 'Comparison requires matching recipes':
+        code = 'recipe_mismatch'
+        guidance = 'These runs used different benchmark recipes. Choose runs with the same recipe before comparing.'
+    elif reason == 'Ability coverage differs between runs':
+        code = 'coverage_mismatch'
+        guidance = 'These runs do not cover the same ability items. Choose complete runs with matching item coverage.'
+    elif reason == 'Runs do not cover the same items':
+        code = 'coverage_mismatch'
+        guidance = 'These runs do not cover the same ability items. Choose complete runs with matching item coverage.'
+    elif reason == 'Comparison changes more than one model, instruction or configuration setting':
+        code = 'multiple_changes'
+        guidance = 'The runs change more than one permitted variable. Compare a pair that isolates one change.'
+    elif reason == 'Cannot rank a run with failed cleanup/restoration':
+        code = 'restoration_failed'
+        guidance = 'At least one run did not restore its setup cleanly and cannot support a comparison.'
+    elif reason == 'Cannot rank partial or cancelled ability runs':
+        code = 'incomplete_run'
+        guidance = 'Only completed runs with full coverage can support a comparison.'
+    elif reason == 'Choose distinct runs':
+        code = 'duplicate_run'
+        guidance = 'Choose two different saved run IDs; repeating the same ID is not a retest.'
+    elif reason == 'Choose at least two runs for comparison':
+        code = 'insufficient_runs'
+        guidance = 'Choose at least two distinct saved run IDs from the same compatible suite.'
+    else:
+        code = 'saved_run_unavailable'
+        guidance = 'One or both saved runs could not be loaded or validated. Select full IDs from the saved results list.'
+
+    summaries = []
+    for value in values if isinstance(values, (list, tuple)) else ():
+        if not isinstance(value, dict):
+            continue
+        settings = value.get('settings') if isinstance(value.get('settings'), dict) else {}
+        coverage = value.get('coverage') if isinstance(value.get('coverage'), dict) else {}
+        prompt_fingerprint = value.get('prompt_fingerprint') if isinstance(value.get('prompt_fingerprint'), dict) else {}
+        recipe = value.get('recipe')
+        summaries.append({key: item for key, item in {
+            'id': value.get('id'), 'suite_version': value.get('suite_version'),
+            'kind': value.get('kind'), 'model': value.get('model'), 'state': value.get('state'),
+            'execution_path': settings.get('execution_path'),
+            'complete_coverage': coverage.get('complete') if value.get('kind') == 'ability' else None,
+            'recipe_fingerprint': _fingerprint(recipe),
+            'settings_fingerprint': _fingerprint(_comparison_settings(value)),
+            'coverage_fingerprint': _fingerprint(_coverage_key(value)),
+            'model_settings_fingerprint': _fingerprint(settings.get('model')),
+            'configured_generation_fingerprint': _fingerprint(settings.get('configured_generation')),
+            'workspace_instructions_fingerprint': prompt_fingerprint.get('workspace_agents_sha256'),
+            'workspace_context_fingerprint': prompt_fingerprint.get('workspace_context_sha256'),
+            'restoration_succeeded': (value.get('restoration', {}).get('succeeded')
+                                      if isinstance(value.get('restoration'), dict) else None),
+        }.items() if item is not None})
+    pair_checks = None
+    if len(values) == 2 and all(isinstance(value, dict) for value in values):
+        before, after = values
+        before_settings, after_settings = _comparison_settings(before), _comparison_settings(after)
+        before_raw_settings = before.get('settings') if isinstance(before.get('settings'), dict) else {}
+        after_raw_settings = after.get('settings') if isinstance(after.get('settings'), dict) else {}
+        before_coverage, after_coverage = _coverage_key(before), _coverage_key(after)
+        before_prompt = before.get('prompt_fingerprint') if isinstance(before.get('prompt_fingerprint'), dict) else {}
+        after_prompt = after.get('prompt_fingerprint') if isinstance(after.get('prompt_fingerprint'), dict) else {}
+        instructions_changed = (before_prompt.get('workspace_agents_sha256') !=
+                                after_prompt.get('workspace_agents_sha256'))
+        context_changed = (before_prompt.get('workspace_context_sha256') !=
+                           after_prompt.get('workspace_context_sha256'))
+        model_changed = before.get('model') != after.get('model')
+        config_changes = []
+        embedded_path = 'openclaw embedded; ephemeral state; tools denied; v2'
+        same_embedded_path = (before_raw_settings.get('execution_path') == embedded_path and
+                              after_raw_settings.get('execution_path') == embedded_path)
+        if same_embedded_path:
+            config_changes = configuration_differences(
+                before_raw_settings.get('configured_generation', {}),
+                after_raw_settings.get('configured_generation', {}))
+            if not model_changed:
+                config_changes += configuration_differences(
+                    before_raw_settings.get('model', {}), after_raw_settings.get('model', {}), 'model')
+        change_dimensions = (len(config_changes) + int(instructions_changed) +
+                             int(context_changed) + int(model_changed))
+        pair_checks = {
+            'distinct_runs': before.get('id') != after.get('id'),
+            'same_kind': before.get('kind') == after.get('kind'),
+            'same_suite_version': before.get('suite_version') == after.get('suite_version'),
+            'same_execution_path': (before_raw_settings.get('execution_path') ==
+                                    after_raw_settings.get('execution_path')),
+            'same_non_model_settings': before_settings == after_settings,
+            'same_recipe': before.get('recipe') == after.get('recipe'),
+            'same_coverage': before_coverage == after_coverage,
+            'both_complete': all(
+                value.get('kind') != 'ability' or
+                (isinstance(value.get('coverage'), dict) and value['coverage'].get('complete') is True)
+                for value in values),
+            'both_restored': all(
+                isinstance(value.get('restoration'), dict) and
+                value['restoration'].get('succeeded') is True for value in values),
+            'workspace_instructions_match': not instructions_changed,
+            'workspace_context_match': not context_changed,
+            'model_matches': not model_changed,
+            'one_variable_change_check': change_dimensions if same_embedded_path else None,
+            'one_variable_or_less': change_dimensions <= 1 if same_embedded_path else None,
+        }
+    return {'status': 'rejected', 'error_code': code,
+            'message': guidance + ' No valid before/after comparison was produced.',
+            'runs': summaries, 'pair_checks': pair_checks}
 
 
 ITEM_OUTPUT_LIMIT = 600
@@ -682,7 +817,15 @@ def main(argv=None):
         parser.error('--csv requires --compare')
     store = Store(args.results_dir)
     if args.compare:
-        result = compare([store.load(run_id) for run_id in args.compare])
+        values = []
+        try:
+            for run_id in args.compare:
+                values.append(store.load(run_id))
+            result = compare(values)
+        except ValueError as error:
+            if not args.json:
+                raise
+            result = comparison_rejection(values, error)
     elif args.load:
         result = store.load(args.load)
     elif args.delete:

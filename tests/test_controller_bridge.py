@@ -192,6 +192,34 @@ class ControllerBridgeTests(unittest.TestCase):
                 'status': 'empty', 'passed': True})
             parent.complete()
 
+    def test_compare_rejection_returns_actionable_value_without_quarantining(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:argos_proctor_improvement_test')
+            _, turn = self.begin(bridge)
+            runs = [
+                {'id': 'a' * 32, 'kind': 'ability', 'suite_version': 'suite/quick/1',
+                 'settings': {'execution_path': 'openclaw embedded; ephemeral state; tools denied; v2'},
+                 'items': [], 'coverage': {'complete': True}, 'restoration': {'succeeded': True}},
+                {'id': 'b' * 32, 'kind': 'ability', 'suite_version': 'suite/tool-plan/1',
+                 'settings': {'execution_path': 'openclaw embedded; ephemeral state; tools denied; v2'},
+                 'items': [], 'coverage': {'complete': True}, 'restoration': {'succeeded': True}},
+            ]
+            with patch.object(controller_bridge, 'Store') as store_type, \
+                 patch.object(controller_bridge, 'compare', side_effect=ValueError(
+                     'Comparison requires the same benchmark kind, suite version and non-model settings')):
+                store_type.return_value.load.side_effect = runs
+                rejected = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'compare-rejected',
+                    'kind': 'compare', 'params': {'baseline_id': runs[0]['id'],
+                                                  'candidate_id': runs[1]['id']}})
+            self.assertEqual(rejected['status'], 'completed')
+            self.assertEqual(rejected['value']['status'], 'rejected')
+            self.assertFalse(rejected['value']['pair_checks']['same_suite_version'])
+            self.assertEqual(bridge.outcomes[-1], {'kind': 'compare_rejected',
+                'call_id': 'compare-rejected', 'baseline_id': runs[0]['id'],
+                'candidate_id': runs[1]['id'], 'error_code': 'suite_or_settings_mismatch'})
+            parent.complete()
+
     def test_host_campaign_turn_transition_keeps_the_same_reservation(self):
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent,
