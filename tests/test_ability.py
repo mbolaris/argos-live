@@ -120,6 +120,16 @@ class AbilityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unknown version'):
             ability.load('tool-plan', version='2.0.0')
 
+    def test_tool_plan_audit_tasks_state_ticket_urgency(self):
+        data = ability.load('tool-plan')
+        items = [item for item in data['items'] if item['id'] in {
+            'heldout-16', 'heldout-17', 'heldout-18', 'heldout-19', 'heldout-20'}]
+        self.assertEqual(len(items), 5)
+        for item in items:
+            request = item['prompt'].split('Request: ', 1)[1].split('Return only', 1)[0]
+            with self.subTest(item=item['id']):
+                self.assertRegex(request, r'The ticket urgency is (routine|standard|elevated|critical)\.')
+
     def test_numeric_format_tolerance_and_ambiguous_rejection(self):
         item = {'id': 'math-01', 'scorer': {'kind': 'numeric', 'expected': '1234.5'}}
         for response in ('Answer: 1,234.5', 'Result: 1234.5.', '1.2345e3', '```text\n1234.5\n```'):

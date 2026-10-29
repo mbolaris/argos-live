@@ -355,7 +355,8 @@ def tool_plan_items():
         day, offset = n + 20, n % 4 + 1
         urgency = ('routine', 'standard', 'elevated', 'critical')[n % 4]
         return (f"Assign {a['ticket_ref']} to the {a['assignee_group']} group. Today is cycle day {day}; "
-                f"the deadline is {offset} days later, and the API needs the absolute day. Convert urgency "
+                f"the deadline is {offset} days later, and the API needs the absolute day. The ticket urgency "
+                f"is {urgency}. Convert urgency "
                 f"routine=1, standard=2, elevated=3, critical=4 to its numeric rank. Set the backup gate "
                 f"for odd request {n}. Alert the assignee except when the request number is one more than "
                 f"a multiple of three.")
