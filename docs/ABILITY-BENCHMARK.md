@@ -2,8 +2,12 @@
 
 B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items),
 `challenge` (40 items), `tool-schema` (40 items) and `tool-plan` (40 items)
-fixtures at `argoslive/data/ability/`. Quick, standard, challenge and tool-plan
-are version 1.0.0; tool-schema is version 1.2.0.
+fixtures at `argoslive/data/ability/`. Quick, standard and challenge are version
+1.0.0; tool-schema is version 1.2.0; tool-plan is version 1.1.0. Tool-plan 1.0.0
+is retained for historical result replay. Version 1.1.0 makes exact order and
+reviewer-role string values explicit in the supplied schemas; 1.0.0 used only
+primitive `string` types while scoring exact hidden literals. Establish a fresh
+1.1.0 baseline and never compare it with 1.0.0.
 Quick contains four items from each of five categories; standard contains
 fourteen per category and includes quick as an exact subset. Challenge is a
 separately authored form with eight items per category and multi-step numeric,

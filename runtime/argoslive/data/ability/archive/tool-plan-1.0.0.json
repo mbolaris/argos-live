@@ -1,0 +1,2842 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "tool-plan",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "practice-01",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}}]}\nRequest: Hold 3 attendee seats in each of 3 identical sessions. The API's units field is the total seats across every session, not the seats in one session. Reserve Room-01 on 2026-11-03 at 07:00 UTC; each session lasts 2 hours. Notify the owner only for an even-numbered request (request 1); there are no external guests.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "reserve_slot",
+          "arguments": {
+            "resource": "Room-01",
+            "date_utc": "2026-11-03",
+            "start_hour_utc": 7,
+            "duration_hours": 2,
+            "units": 9,
+            "notify_owner": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"reserve_slot\", \"arguments\": {\"resource\": \"Room-01\", \"date_utc\": \"2026-11-03\", \"start_hour_utc\": 7, \"duration_hours\": 2, \"units\": 9, \"notify_owner\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-01\", \"date_utc\": \"2026-11-03\", \"start_hour_utc\": 7, \"duration_hours\": 2, \"units\": 9, \"notify_owner\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-02",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}}]}\nRequest: Hold 4 attendee seats in each of 4 identical sessions. The API's units field is the total seats across every session, not the seats in one session. Reserve Room-02 on 2026-11-04 at 08:00 UTC; each session lasts 3 hours. Notify the owner only for an even-numbered request (request 2); there are no external guests.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "reserve_slot",
+          "arguments": {
+            "resource": "Room-02",
+            "date_utc": "2026-11-04",
+            "start_hour_utc": 8,
+            "duration_hours": 3,
+            "units": 16,
+            "notify_owner": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"reserve_slot\", \"arguments\": {\"resource\": \"Room-02\", \"date_utc\": \"2026-11-04\", \"start_hour_utc\": 8, \"duration_hours\": 3, \"units\": 16, \"notify_owner\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-02\", \"date_utc\": \"2026-11-04\", \"start_hour_utc\": 8, \"duration_hours\": 3, \"units\": 16, \"notify_owner\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-03",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}}]}\nRequest: Hold 5 attendee seats in each of 2 identical sessions. The API's units field is the total seats across every session, not the seats in one session. Reserve Room-03 on 2026-11-05 at 09:00 UTC; each session lasts 1 hours. Notify the owner only for an even-numbered request (request 3); there are no external guests.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "reserve_slot",
+          "arguments": {
+            "resource": "Room-03",
+            "date_utc": "2026-11-05",
+            "start_hour_utc": 9,
+            "duration_hours": 1,
+            "units": 10,
+            "notify_owner": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"reserve_slot\", \"arguments\": {\"resource\": \"Room-03\", \"date_utc\": \"2026-11-05\", \"start_hour_utc\": 9, \"duration_hours\": 1, \"units\": 10, \"notify_owner\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-03\", \"date_utc\": \"2026-11-05\", \"start_hour_utc\": 9, \"duration_hours\": 1, \"units\": 10, \"notify_owner\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-04",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: Hold 6 attendee seats in each of 3 identical sessions. The API's units field is the total seats across every session, not the seats in one session. Reserve Room-04 on 2026-11-06 at 10:00 UTC; each session lasts 2 hours. Notify the owner only for an even-numbered request (request 4); there are no external guests.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "reserve_slot",
+          "arguments": {
+            "resource": "Room-04",
+            "date_utc": "2026-11-06",
+            "start_hour_utc": 10,
+            "duration_hours": 2,
+            "units": 18,
+            "notify_owner": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"reserve_slot\", \"arguments\": {\"resource\": \"Room-04\", \"date_utc\": \"2026-11-06\", \"start_hour_utc\": 10, \"duration_hours\": 2, \"units\": 18, \"notify_owner\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-04\", \"date_utc\": \"2026-11-06\", \"start_hour_utc\": 10, \"duration_hours\": 2, \"units\": 18, \"notify_owner\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-05",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}}]}\nRequest: Hold 7 attendee seats in each of 4 identical sessions. The API's units field is the total seats across every session, not the seats in one session. Reserve Room-05 on 2026-11-07 at 11:00 UTC; each session lasts 3 hours. Notify the owner only for an even-numbered request (request 5); there are no external guests.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "reserve_slot",
+          "arguments": {
+            "resource": "Room-05",
+            "date_utc": "2026-11-07",
+            "start_hour_utc": 11,
+            "duration_hours": 3,
+            "units": 28,
+            "notify_owner": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"reserve_slot\", \"arguments\": {\"resource\": \"Room-05\", \"date_utc\": \"2026-11-07\", \"start_hour_utc\": 11, \"duration_hours\": 3, \"units\": 28, \"notify_owner\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-05\", \"date_utc\": \"2026-11-07\", \"start_hour_utc\": 11, \"duration_hours\": 3, \"units\": 28, \"notify_owner\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-06",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: For owner-01, find records from 2026-11-02T00:00Z through 2026-11-04T23:59Z whose status is held. Order them newest first. There are 3 teams and the request allows 3 records per team; the API expects one global row cap, so multiply those counts. Include metadata only when the request number (1) is odd.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "filter_events",
+          "arguments": {
+            "owner_key": "owner-01",
+            "from_utc": "2026-11-02T00:00Z",
+            "to_utc": "2026-11-04T23:59Z",
+            "status_code": "held",
+            "sort_order": "newest_first",
+            "max_rows": 9,
+            "include_metadata": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"filter_events\", \"arguments\": {\"owner_key\": \"owner-01\", \"from_utc\": \"2026-11-02T00:00Z\", \"to_utc\": \"2026-11-04T23:59Z\", \"status_code\": \"held\", \"sort_order\": \"newest_first\", \"max_rows\": 9, \"include_metadata\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-01\", \"from_utc\": \"2026-11-02T00:00Z\", \"to_utc\": \"2026-11-04T23:59Z\", \"status_code\": \"held\", \"sort_order\": \"newest_first\", \"max_rows\": 9, \"include_metadata\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-07",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: For owner-02, find records from 2026-11-03T00:00Z through 2026-11-05T23:59Z whose status is closed. Order them oldest first. There are 4 teams and the request allows 4 records per team; the API expects one global row cap, so multiply those counts. Include metadata only when the request number (2) is odd.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "filter_events",
+          "arguments": {
+            "owner_key": "owner-02",
+            "from_utc": "2026-11-03T00:00Z",
+            "to_utc": "2026-11-05T23:59Z",
+            "status_code": "closed",
+            "sort_order": "oldest_first",
+            "max_rows": 16,
+            "include_metadata": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"filter_events\", \"arguments\": {\"owner_key\": \"owner-02\", \"from_utc\": \"2026-11-03T00:00Z\", \"to_utc\": \"2026-11-05T23:59Z\", \"status_code\": \"closed\", \"sort_order\": \"oldest_first\", \"max_rows\": 16, \"include_metadata\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-02\", \"from_utc\": \"2026-11-03T00:00Z\", \"to_utc\": \"2026-11-05T23:59Z\", \"status_code\": \"closed\", \"sort_order\": \"oldest_first\", \"max_rows\": 16, \"include_metadata\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-08",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}}]}\nRequest: For owner-03, find records from 2026-11-04T00:00Z through 2026-11-06T23:59Z whose status is ready. Order them newest first. There are 5 teams and the request allows 2 records per team; the API expects one global row cap, so multiply those counts. Include metadata only when the request number (3) is odd.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "filter_events",
+          "arguments": {
+            "owner_key": "owner-03",
+            "from_utc": "2026-11-04T00:00Z",
+            "to_utc": "2026-11-06T23:59Z",
+            "status_code": "ready",
+            "sort_order": "newest_first",
+            "max_rows": 10,
+            "include_metadata": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"filter_events\", \"arguments\": {\"owner_key\": \"owner-03\", \"from_utc\": \"2026-11-04T00:00Z\", \"to_utc\": \"2026-11-06T23:59Z\", \"status_code\": \"ready\", \"sort_order\": \"newest_first\", \"max_rows\": 10, \"include_metadata\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-03\", \"from_utc\": \"2026-11-04T00:00Z\", \"to_utc\": \"2026-11-06T23:59Z\", \"status_code\": \"ready\", \"sort_order\": \"newest_first\", \"max_rows\": 10, \"include_metadata\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-09",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: For owner-04, find records from 2026-11-05T00:00Z through 2026-11-07T23:59Z whose status is held. Order them oldest first. There are 2 teams and the request allows 3 records per team; the API expects one global row cap, so multiply those counts. Include metadata only when the request number (4) is odd.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "filter_events",
+          "arguments": {
+            "owner_key": "owner-04",
+            "from_utc": "2026-11-05T00:00Z",
+            "to_utc": "2026-11-07T23:59Z",
+            "status_code": "held",
+            "sort_order": "oldest_first",
+            "max_rows": 6,
+            "include_metadata": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"filter_events\", \"arguments\": {\"owner_key\": \"owner-04\", \"from_utc\": \"2026-11-05T00:00Z\", \"to_utc\": \"2026-11-07T23:59Z\", \"status_code\": \"held\", \"sort_order\": \"oldest_first\", \"max_rows\": 6, \"include_metadata\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-04\", \"from_utc\": \"2026-11-05T00:00Z\", \"to_utc\": \"2026-11-07T23:59Z\", \"status_code\": \"held\", \"sort_order\": \"oldest_first\", \"max_rows\": 6, \"include_metadata\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-10",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}}]}\nRequest: For owner-05, find records from 2026-11-06T00:00Z through 2026-11-08T23:59Z whose status is closed. Order them newest first. There are 3 teams and the request allows 4 records per team; the API expects one global row cap, so multiply those counts. Include metadata only when the request number (5) is odd.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "filter_events",
+          "arguments": {
+            "owner_key": "owner-05",
+            "from_utc": "2026-11-06T00:00Z",
+            "to_utc": "2026-11-08T23:59Z",
+            "status_code": "closed",
+            "sort_order": "newest_first",
+            "max_rows": 12,
+            "include_metadata": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"filter_events\", \"arguments\": {\"owner_key\": \"owner-05\", \"from_utc\": \"2026-11-06T00:00Z\", \"to_utc\": \"2026-11-08T23:59Z\", \"status_code\": \"closed\", \"sort_order\": \"newest_first\", \"max_rows\": 12, \"include_metadata\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-05\", \"from_utc\": \"2026-11-06T00:00Z\", \"to_utc\": \"2026-11-08T23:59Z\", \"status_code\": \"closed\", \"sort_order\": \"newest_first\", \"max_rows\": 12, \"include_metadata\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-11",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}}]}\nRequest: The release ledger lists build-5 on 2026-11-21 and build-21 on 2026-11-05. Compare the earlier release to the later release, regardless of the order in which they were listed. Include prereleases only for even request 1. Compare dependencies unless request 1 is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_releases",
+          "arguments": {
+            "earlier_build": "build-21",
+            "later_build": "build-5",
+            "include_prerelease": false,
+            "compare_dependencies": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_releases\", \"arguments\": {\"earlier_build\": \"build-21\", \"later_build\": \"build-5\", \"include_prerelease\": false, \"compare_dependencies\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-21\", \"later_build\": \"build-5\", \"include_prerelease\": false, \"compare_dependencies\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-12",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}}]}\nRequest: The release ledger lists build-6 on 2026-11-22 and build-22 on 2026-11-06. Compare the earlier release to the later release, regardless of the order in which they were listed. Include prereleases only for even request 2. Compare dependencies unless request 2 is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_releases",
+          "arguments": {
+            "earlier_build": "build-22",
+            "later_build": "build-6",
+            "include_prerelease": true,
+            "compare_dependencies": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_releases\", \"arguments\": {\"earlier_build\": \"build-22\", \"later_build\": \"build-6\", \"include_prerelease\": true, \"compare_dependencies\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-22\", \"later_build\": \"build-6\", \"include_prerelease\": true, \"compare_dependencies\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-13",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}}]}\nRequest: The release ledger lists build-7 on 2026-11-23 and build-23 on 2026-11-07. Compare the earlier release to the later release, regardless of the order in which they were listed. Include prereleases only for even request 3. Compare dependencies unless request 3 is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_releases",
+          "arguments": {
+            "earlier_build": "build-23",
+            "later_build": "build-7",
+            "include_prerelease": false,
+            "compare_dependencies": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_releases\", \"arguments\": {\"earlier_build\": \"build-23\", \"later_build\": \"build-7\", \"include_prerelease\": false, \"compare_dependencies\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-23\", \"later_build\": \"build-7\", \"include_prerelease\": false, \"compare_dependencies\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-14",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}}]}\nRequest: The release ledger lists build-8 on 2026-11-24 and build-24 on 2026-11-08. Compare the earlier release to the later release, regardless of the order in which they were listed. Include prereleases only for even request 4. Compare dependencies unless request 4 is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_releases",
+          "arguments": {
+            "earlier_build": "build-24",
+            "later_build": "build-8",
+            "include_prerelease": true,
+            "compare_dependencies": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_releases\", \"arguments\": {\"earlier_build\": \"build-24\", \"later_build\": \"build-8\", \"include_prerelease\": true, \"compare_dependencies\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-24\", \"later_build\": \"build-8\", \"include_prerelease\": true, \"compare_dependencies\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-15",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}}]}\nRequest: The release ledger lists build-9 on 2026-11-25 and build-25 on 2026-11-09. Compare the earlier release to the later release, regardless of the order in which they were listed. Include prereleases only for even request 5. Compare dependencies unless request 5 is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "diff_releases",
+          "arguments": {
+            "earlier_build": "build-25",
+            "later_build": "build-9",
+            "include_prerelease": false,
+            "compare_dependencies": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"diff_releases\", \"arguments\": {\"earlier_build\": \"build-25\", \"later_build\": \"build-9\", \"include_prerelease\": false, \"compare_dependencies\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-25\", \"later_build\": \"build-9\", \"include_prerelease\": false, \"compare_dependencies\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-16",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}}]}\nRequest: Route change-01 to the security reviewer. Today is cycle day 11; the deadline is 2 calendar days from today, and the API needs the absolute cycle day. Convert urgency normal to its numeric level using low=1, normal=2, high=3, urgent=4. Require a backup for even requests; notify the reviewer unless the request number (1) is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "route_review",
+          "arguments": {
+            "change_key": "change-01",
+            "reviewer_role": "security",
+            "due_day": 13,
+            "priority_level": 2,
+            "require_backup": false,
+            "notify_reviewer": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"route_review\", \"arguments\": {\"change_key\": \"change-01\", \"reviewer_role\": \"security\", \"due_day\": 13, \"priority_level\": 2, \"require_backup\": false, \"notify_reviewer\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-01\", \"reviewer_role\": \"security\", \"due_day\": 13, \"priority_level\": 2, \"require_backup\": false, \"notify_reviewer\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-17",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}}]}\nRequest: Route change-02 to the release reviewer. Today is cycle day 12; the deadline is 3 calendar days from today, and the API needs the absolute cycle day. Convert urgency high to its numeric level using low=1, normal=2, high=3, urgent=4. Require a backup for even requests; notify the reviewer unless the request number (2) is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "route_review",
+          "arguments": {
+            "change_key": "change-02",
+            "reviewer_role": "release",
+            "due_day": 15,
+            "priority_level": 3,
+            "require_backup": true,
+            "notify_reviewer": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"route_review\", \"arguments\": {\"change_key\": \"change-02\", \"reviewer_role\": \"release\", \"due_day\": 15, \"priority_level\": 3, \"require_backup\": true, \"notify_reviewer\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-02\", \"reviewer_role\": \"release\", \"due_day\": 15, \"priority_level\": 3, \"require_backup\": true, \"notify_reviewer\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-18",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}}]}\nRequest: Route change-03 to the owner reviewer. Today is cycle day 13; the deadline is 4 calendar days from today, and the API needs the absolute cycle day. Convert urgency urgent to its numeric level using low=1, normal=2, high=3, urgent=4. Require a backup for even requests; notify the reviewer unless the request number (3) is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "route_review",
+          "arguments": {
+            "change_key": "change-03",
+            "reviewer_role": "owner",
+            "due_day": 17,
+            "priority_level": 4,
+            "require_backup": false,
+            "notify_reviewer": false
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"route_review\", \"arguments\": {\"change_key\": \"change-03\", \"reviewer_role\": \"owner\", \"due_day\": 17, \"priority_level\": 4, \"require_backup\": false, \"notify_reviewer\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-03\", \"reviewer_role\": \"owner\", \"due_day\": 17, \"priority_level\": 4, \"require_backup\": false, \"notify_reviewer\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-19",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}}]}\nRequest: Route change-04 to the security reviewer. Today is cycle day 14; the deadline is 1 calendar days from today, and the API needs the absolute cycle day. Convert urgency low to its numeric level using low=1, normal=2, high=3, urgent=4. Require a backup for even requests; notify the reviewer unless the request number (4) is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "route_review",
+          "arguments": {
+            "change_key": "change-04",
+            "reviewer_role": "security",
+            "due_day": 15,
+            "priority_level": 1,
+            "require_backup": true,
+            "notify_reviewer": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"route_review\", \"arguments\": {\"change_key\": \"change-04\", \"reviewer_role\": \"security\", \"due_day\": 15, \"priority_level\": 1, \"require_backup\": true, \"notify_reviewer\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-04\", \"reviewer_role\": \"security\", \"due_day\": 15, \"priority_level\": 1, \"require_backup\": true, \"notify_reviewer\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-20",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"reserve_slot\",\"description\":\"Reserve a resource and time block; units counts all seats across repeated sessions.\",\"arguments\":{\"resource\":\"string\",\"date_utc\":\"string\",\"start_hour_utc\":\"integer\",\"duration_hours\":\"integer\",\"units\":\"integer\",\"notify_owner\":\"boolean\"}},{\"name\":\"filter_events\",\"description\":\"Filter records by owner, time range and status; max_rows is one global cap.\",\"arguments\":{\"owner_key\":\"string\",\"from_utc\":\"string\",\"to_utc\":\"string\",\"status_code\":\"string\",\"sort_order\":\"string\",\"max_rows\":\"integer\",\"include_metadata\":\"boolean\"}},{\"name\":\"diff_releases\",\"description\":\"Compare two software releases and optionally include prerelease and dependency changes.\",\"arguments\":{\"earlier_build\":\"string\",\"later_build\":\"string\",\"include_prerelease\":\"boolean\",\"compare_dependencies\":\"boolean\"}},{\"name\":\"route_review\",\"description\":\"Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.\",\"arguments\":{\"change_key\":\"string\",\"reviewer_role\":\"string\",\"due_day\":\"integer\",\"priority_level\":\"integer\",\"require_backup\":\"boolean\",\"notify_reviewer\":\"boolean\"}}]}\nRequest: Route change-05 to the release reviewer. Today is cycle day 15; the deadline is 2 calendar days from today, and the API needs the absolute cycle day. Convert urgency normal to its numeric level using low=1, normal=2, high=3, urgent=4. Require a backup for even requests; notify the reviewer unless the request number (5) is divisible by three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "route_review",
+          "arguments": {
+            "change_key": "change-05",
+            "reviewer_role": "release",
+            "due_day": 17,
+            "priority_level": 2,
+            "require_backup": false,
+            "notify_reviewer": true
+          }
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "reserve_slot",
+            "description": "Reserve a resource and time block; units counts all seats across repeated sessions.",
+            "arguments": {
+              "resource": "string",
+              "date_utc": "string",
+              "start_hour_utc": "integer",
+              "duration_hours": "integer",
+              "units": "integer",
+              "notify_owner": "boolean"
+            }
+          },
+          {
+            "name": "filter_events",
+            "description": "Filter records by owner, time range and status; max_rows is one global cap.",
+            "arguments": {
+              "owner_key": "string",
+              "from_utc": "string",
+              "to_utc": "string",
+              "status_code": "string",
+              "sort_order": "string",
+              "max_rows": "integer",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "diff_releases",
+            "description": "Compare two software releases and optionally include prerelease and dependency changes.",
+            "arguments": {
+              "earlier_build": "string",
+              "later_build": "string",
+              "include_prerelease": "boolean",
+              "compare_dependencies": "boolean"
+            }
+          },
+          {
+            "name": "route_review",
+            "description": "Route a change to a reviewer with a cycle-day deadline, priority, backup gate and notification.",
+            "arguments": {
+              "change_key": "string",
+              "reviewer_role": "string",
+              "due_day": "integer",
+              "priority_level": "integer",
+              "require_backup": "boolean",
+              "notify_reviewer": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"route_review\", \"arguments\": {\"change_key\": \"change-05\", \"reviewer_role\": \"release\", \"due_day\": 17, \"priority_level\": 2, \"require_backup\": false, \"notify_reviewer\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-05\", \"reviewer_role\": \"release\", \"due_day\": 17, \"priority_level\": 2, \"require_backup\": false, \"notify_reviewer\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-01",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}}]}\nRequest: Reserve 4 seats for each of 3 repeated sessions. The booking quantity is the total seats across the sessions. Use asset Asset-01 on 2026-12-03 at 08:00 UTC, for 2 hours per session. Send an alert only for even request 1.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "book_resource",
+          "arguments": {
+            "asset_code": "Asset-01",
+            "day_utc": "2026-12-03",
+            "hour_utc": 8,
+            "span_hours": 2,
+            "quantity": 12,
+            "send_alert": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"book_resource\", \"arguments\": {\"asset_code\": \"Asset-01\", \"day_utc\": \"2026-12-03\", \"hour_utc\": 8, \"span_hours\": 2, \"quantity\": 12, \"send_alert\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-01\", \"day_utc\": \"2026-12-03\", \"hour_utc\": 8, \"span_hours\": 2, \"quantity\": 12, \"send_alert\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-02",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}}]}\nRequest: Reserve 5 seats for each of 4 repeated sessions. The booking quantity is the total seats across the sessions. Use asset Asset-02 on 2026-12-04 at 09:00 UTC, for 3 hours per session. Send an alert only for even request 2.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "book_resource",
+          "arguments": {
+            "asset_code": "Asset-02",
+            "day_utc": "2026-12-04",
+            "hour_utc": 9,
+            "span_hours": 3,
+            "quantity": 20,
+            "send_alert": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"book_resource\", \"arguments\": {\"asset_code\": \"Asset-02\", \"day_utc\": \"2026-12-04\", \"hour_utc\": 9, \"span_hours\": 3, \"quantity\": 20, \"send_alert\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-02\", \"day_utc\": \"2026-12-04\", \"hour_utc\": 9, \"span_hours\": 3, \"quantity\": 20, \"send_alert\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-03",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}}]}\nRequest: Reserve 6 seats for each of 2 repeated sessions. The booking quantity is the total seats across the sessions. Use asset Asset-03 on 2026-12-05 at 10:00 UTC, for 1 hours per session. Send an alert only for even request 3.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "book_resource",
+          "arguments": {
+            "asset_code": "Asset-03",
+            "day_utc": "2026-12-05",
+            "hour_utc": 10,
+            "span_hours": 1,
+            "quantity": 12,
+            "send_alert": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"book_resource\", \"arguments\": {\"asset_code\": \"Asset-03\", \"day_utc\": \"2026-12-05\", \"hour_utc\": 10, \"span_hours\": 1, \"quantity\": 12, \"send_alert\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-03\", \"day_utc\": \"2026-12-05\", \"hour_utc\": 10, \"span_hours\": 1, \"quantity\": 12, \"send_alert\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-04",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}}]}\nRequest: Reserve 7 seats for each of 3 repeated sessions. The booking quantity is the total seats across the sessions. Use asset Asset-04 on 2026-12-06 at 11:00 UTC, for 2 hours per session. Send an alert only for even request 4.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "book_resource",
+          "arguments": {
+            "asset_code": "Asset-04",
+            "day_utc": "2026-12-06",
+            "hour_utc": 11,
+            "span_hours": 2,
+            "quantity": 21,
+            "send_alert": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"book_resource\", \"arguments\": {\"asset_code\": \"Asset-04\", \"day_utc\": \"2026-12-06\", \"hour_utc\": 11, \"span_hours\": 2, \"quantity\": 21, \"send_alert\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-04\", \"day_utc\": \"2026-12-06\", \"hour_utc\": 11, \"span_hours\": 2, \"quantity\": 21, \"send_alert\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-05",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}}]}\nRequest: Reserve 3 seats for each of 4 repeated sessions. The booking quantity is the total seats across the sessions. Use asset Asset-05 on 2026-12-07 at 12:00 UTC, for 3 hours per session. Send an alert only for even request 5.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "book_resource",
+          "arguments": {
+            "asset_code": "Asset-05",
+            "day_utc": "2026-12-07",
+            "hour_utc": 12,
+            "span_hours": 3,
+            "quantity": 12,
+            "send_alert": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"book_resource\", \"arguments\": {\"asset_code\": \"Asset-05\", \"day_utc\": \"2026-12-07\", \"hour_utc\": 12, \"span_hours\": 3, \"quantity\": 12, \"send_alert\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-05\", \"day_utc\": \"2026-12-07\", \"hour_utc\": 12, \"span_hours\": 3, \"quantity\": 12, \"send_alert\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-06",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}}]}\nRequest: For acct-01, locate sessions from 2026-12-02T00:00Z through 2026-12-04T23:59Z in state active. Sort recent first. The report needs 3 rows from each of 3 groups; the service takes one total row cap, so multiply them. Expand context only for odd request 1.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "scan_sessions",
+          "arguments": {
+            "account_code": "acct-01",
+            "after_utc": "2026-12-02T00:00Z",
+            "before_utc": "2026-12-04T23:59Z",
+            "state_label": "active",
+            "order_by": "recent_first",
+            "row_cap": 9,
+            "expand_context": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"scan_sessions\", \"arguments\": {\"account_code\": \"acct-01\", \"after_utc\": \"2026-12-02T00:00Z\", \"before_utc\": \"2026-12-04T23:59Z\", \"state_label\": \"active\", \"order_by\": \"recent_first\", \"row_cap\": 9, \"expand_context\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-01\", \"after_utc\": \"2026-12-02T00:00Z\", \"before_utc\": \"2026-12-04T23:59Z\", \"state_label\": \"active\", \"order_by\": \"recent_first\", \"row_cap\": 9, \"expand_context\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-07",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}}]}\nRequest: For acct-02, locate sessions from 2026-12-03T00:00Z through 2026-12-05T23:59Z in state done. Sort oldest first. The report needs 4 rows from each of 4 groups; the service takes one total row cap, so multiply them. Expand context only for odd request 2.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "scan_sessions",
+          "arguments": {
+            "account_code": "acct-02",
+            "after_utc": "2026-12-03T00:00Z",
+            "before_utc": "2026-12-05T23:59Z",
+            "state_label": "done",
+            "order_by": "oldest_first",
+            "row_cap": 16,
+            "expand_context": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"scan_sessions\", \"arguments\": {\"account_code\": \"acct-02\", \"after_utc\": \"2026-12-03T00:00Z\", \"before_utc\": \"2026-12-05T23:59Z\", \"state_label\": \"done\", \"order_by\": \"oldest_first\", \"row_cap\": 16, \"expand_context\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-02\", \"after_utc\": \"2026-12-03T00:00Z\", \"before_utc\": \"2026-12-05T23:59Z\", \"state_label\": \"done\", \"order_by\": \"oldest_first\", \"row_cap\": 16, \"expand_context\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-08",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}}]}\nRequest: For acct-03, locate sessions from 2026-12-04T00:00Z through 2026-12-06T23:59Z in state queued. Sort recent first. The report needs 5 rows from each of 2 groups; the service takes one total row cap, so multiply them. Expand context only for odd request 3.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "scan_sessions",
+          "arguments": {
+            "account_code": "acct-03",
+            "after_utc": "2026-12-04T00:00Z",
+            "before_utc": "2026-12-06T23:59Z",
+            "state_label": "queued",
+            "order_by": "recent_first",
+            "row_cap": 10,
+            "expand_context": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"scan_sessions\", \"arguments\": {\"account_code\": \"acct-03\", \"after_utc\": \"2026-12-04T00:00Z\", \"before_utc\": \"2026-12-06T23:59Z\", \"state_label\": \"queued\", \"order_by\": \"recent_first\", \"row_cap\": 10, \"expand_context\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-03\", \"after_utc\": \"2026-12-04T00:00Z\", \"before_utc\": \"2026-12-06T23:59Z\", \"state_label\": \"queued\", \"order_by\": \"recent_first\", \"row_cap\": 10, \"expand_context\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-09",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}}]}\nRequest: For acct-04, locate sessions from 2026-12-05T00:00Z through 2026-12-07T23:59Z in state active. Sort oldest first. The report needs 2 rows from each of 3 groups; the service takes one total row cap, so multiply them. Expand context only for odd request 4.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "scan_sessions",
+          "arguments": {
+            "account_code": "acct-04",
+            "after_utc": "2026-12-05T00:00Z",
+            "before_utc": "2026-12-07T23:59Z",
+            "state_label": "active",
+            "order_by": "oldest_first",
+            "row_cap": 6,
+            "expand_context": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"scan_sessions\", \"arguments\": {\"account_code\": \"acct-04\", \"after_utc\": \"2026-12-05T00:00Z\", \"before_utc\": \"2026-12-07T23:59Z\", \"state_label\": \"active\", \"order_by\": \"oldest_first\", \"row_cap\": 6, \"expand_context\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-04\", \"after_utc\": \"2026-12-05T00:00Z\", \"before_utc\": \"2026-12-07T23:59Z\", \"state_label\": \"active\", \"order_by\": \"oldest_first\", \"row_cap\": 6, \"expand_context\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-10",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}}]}\nRequest: For acct-05, locate sessions from 2026-12-06T00:00Z through 2026-12-08T23:59Z in state done. Sort recent first. The report needs 3 rows from each of 4 groups; the service takes one total row cap, so multiply them. Expand context only for odd request 5.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "scan_sessions",
+          "arguments": {
+            "account_code": "acct-05",
+            "after_utc": "2026-12-06T00:00Z",
+            "before_utc": "2026-12-08T23:59Z",
+            "state_label": "done",
+            "order_by": "recent_first",
+            "row_cap": 12,
+            "expand_context": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"scan_sessions\", \"arguments\": {\"account_code\": \"acct-05\", \"after_utc\": \"2026-12-06T00:00Z\", \"before_utc\": \"2026-12-08T23:59Z\", \"state_label\": \"done\", \"order_by\": \"recent_first\", \"row_cap\": 12, \"expand_context\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-05\", \"after_utc\": \"2026-12-06T00:00Z\", \"before_utc\": \"2026-12-08T23:59Z\", \"state_label\": \"done\", \"order_by\": \"recent_first\", \"row_cap\": 12, \"expand_context\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-11",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}}]}\nRequest: The package ledger lists pkg-21 on 2026-12-21 and pkg-5 on 2026-12-05. Compare the older package to the newer one, not the listed order. Allow preview builds only for odd request 1. Compare lockfiles unless 1 is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_packages",
+          "arguments": {
+            "prior_pkg": "pkg-5",
+            "current_pkg": "pkg-21",
+            "allow_preview": true,
+            "compare_lockfile": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_packages\", \"arguments\": {\"prior_pkg\": \"pkg-5\", \"current_pkg\": \"pkg-21\", \"allow_preview\": true, \"compare_lockfile\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-5\", \"current_pkg\": \"pkg-21\", \"allow_preview\": true, \"compare_lockfile\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-12",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}}]}\nRequest: The package ledger lists pkg-22 on 2026-12-22 and pkg-6 on 2026-12-06. Compare the older package to the newer one, not the listed order. Allow preview builds only for odd request 2. Compare lockfiles unless 2 is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_packages",
+          "arguments": {
+            "prior_pkg": "pkg-6",
+            "current_pkg": "pkg-22",
+            "allow_preview": false,
+            "compare_lockfile": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_packages\", \"arguments\": {\"prior_pkg\": \"pkg-6\", \"current_pkg\": \"pkg-22\", \"allow_preview\": false, \"compare_lockfile\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-6\", \"current_pkg\": \"pkg-22\", \"allow_preview\": false, \"compare_lockfile\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-13",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}}]}\nRequest: The package ledger lists pkg-23 on 2026-12-23 and pkg-7 on 2026-12-07. Compare the older package to the newer one, not the listed order. Allow preview builds only for odd request 3. Compare lockfiles unless 3 is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_packages",
+          "arguments": {
+            "prior_pkg": "pkg-7",
+            "current_pkg": "pkg-23",
+            "allow_preview": true,
+            "compare_lockfile": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_packages\", \"arguments\": {\"prior_pkg\": \"pkg-7\", \"current_pkg\": \"pkg-23\", \"allow_preview\": true, \"compare_lockfile\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-7\", \"current_pkg\": \"pkg-23\", \"allow_preview\": true, \"compare_lockfile\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-14",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}}]}\nRequest: The package ledger lists pkg-24 on 2026-12-24 and pkg-8 on 2026-12-08. Compare the older package to the newer one, not the listed order. Allow preview builds only for odd request 4. Compare lockfiles unless 4 is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_packages",
+          "arguments": {
+            "prior_pkg": "pkg-8",
+            "current_pkg": "pkg-24",
+            "allow_preview": false,
+            "compare_lockfile": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_packages\", \"arguments\": {\"prior_pkg\": \"pkg-8\", \"current_pkg\": \"pkg-24\", \"allow_preview\": false, \"compare_lockfile\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-8\", \"current_pkg\": \"pkg-24\", \"allow_preview\": false, \"compare_lockfile\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-15",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}}]}\nRequest: The package ledger lists pkg-25 on 2026-12-25 and pkg-9 on 2026-12-09. Compare the older package to the newer one, not the listed order. Allow preview builds only for odd request 5. Compare lockfiles unless 5 is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_packages",
+          "arguments": {
+            "prior_pkg": "pkg-9",
+            "current_pkg": "pkg-25",
+            "allow_preview": true,
+            "compare_lockfile": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_packages\", \"arguments\": {\"prior_pkg\": \"pkg-9\", \"current_pkg\": \"pkg-25\", \"allow_preview\": true, \"compare_lockfile\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-9\", \"current_pkg\": \"pkg-25\", \"allow_preview\": true, \"compare_lockfile\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-16",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}}]}\nRequest: Assign ticket-01 to the risk group. Today is cycle day 21; the deadline is 2 days later, and the API needs the absolute day. Convert urgency routine=1, standard=2, elevated=3, critical=4 to its numeric rank. Set the backup gate for odd request 1. Alert the assignee except when the request number is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "assign_audit",
+          "arguments": {
+            "ticket_ref": "ticket-01",
+            "assignee_group": "risk",
+            "deadline_day": 23,
+            "urgency_rank": 2,
+            "backup_gate": true,
+            "alert_assignee": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"assign_audit\", \"arguments\": {\"ticket_ref\": \"ticket-01\", \"assignee_group\": \"risk\", \"deadline_day\": 23, \"urgency_rank\": 2, \"backup_gate\": true, \"alert_assignee\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-01\", \"assignee_group\": \"risk\", \"deadline_day\": 23, \"urgency_rank\": 2, \"backup_gate\": true, \"alert_assignee\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-17",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}}]}\nRequest: Assign ticket-02 to the ops group. Today is cycle day 22; the deadline is 3 days later, and the API needs the absolute day. Convert urgency routine=1, standard=2, elevated=3, critical=4 to its numeric rank. Set the backup gate for odd request 2. Alert the assignee except when the request number is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "assign_audit",
+          "arguments": {
+            "ticket_ref": "ticket-02",
+            "assignee_group": "ops",
+            "deadline_day": 25,
+            "urgency_rank": 3,
+            "backup_gate": false,
+            "alert_assignee": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"assign_audit\", \"arguments\": {\"ticket_ref\": \"ticket-02\", \"assignee_group\": \"ops\", \"deadline_day\": 25, \"urgency_rank\": 3, \"backup_gate\": false, \"alert_assignee\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-02\", \"assignee_group\": \"ops\", \"deadline_day\": 25, \"urgency_rank\": 3, \"backup_gate\": false, \"alert_assignee\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-18",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}}]}\nRequest: Assign ticket-03 to the owner group. Today is cycle day 23; the deadline is 4 days later, and the API needs the absolute day. Convert urgency routine=1, standard=2, elevated=3, critical=4 to its numeric rank. Set the backup gate for odd request 3. Alert the assignee except when the request number is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "assign_audit",
+          "arguments": {
+            "ticket_ref": "ticket-03",
+            "assignee_group": "owner",
+            "deadline_day": 27,
+            "urgency_rank": 4,
+            "backup_gate": true,
+            "alert_assignee": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"assign_audit\", \"arguments\": {\"ticket_ref\": \"ticket-03\", \"assignee_group\": \"owner\", \"deadline_day\": 27, \"urgency_rank\": 4, \"backup_gate\": true, \"alert_assignee\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-03\", \"assignee_group\": \"owner\", \"deadline_day\": 27, \"urgency_rank\": 4, \"backup_gate\": true, \"alert_assignee\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-19",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}}]}\nRequest: Assign ticket-04 to the risk group. Today is cycle day 24; the deadline is 1 days later, and the API needs the absolute day. Convert urgency routine=1, standard=2, elevated=3, critical=4 to its numeric rank. Set the backup gate for odd request 4. Alert the assignee except when the request number is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "assign_audit",
+          "arguments": {
+            "ticket_ref": "ticket-04",
+            "assignee_group": "risk",
+            "deadline_day": 25,
+            "urgency_rank": 1,
+            "backup_gate": false,
+            "alert_assignee": false
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"assign_audit\", \"arguments\": {\"ticket_ref\": \"ticket-04\", \"assignee_group\": \"risk\", \"deadline_day\": 25, \"urgency_rank\": 1, \"backup_gate\": false, \"alert_assignee\": false}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-04\", \"assignee_group\": \"risk\", \"deadline_day\": 25, \"urgency_rank\": 1, \"backup_gate\": false, \"alert_assignee\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-20",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"book_resource\",\"description\":\"Book an asset and time block; quantity counts all seats across repeated sessions.\",\"arguments\":{\"asset_code\":\"string\",\"day_utc\":\"string\",\"hour_utc\":\"integer\",\"span_hours\":\"integer\",\"quantity\":\"integer\",\"send_alert\":\"boolean\"}},{\"name\":\"scan_sessions\",\"description\":\"Find sessions by account, time range and state; row_cap is one total cap.\",\"arguments\":{\"account_code\":\"string\",\"after_utc\":\"string\",\"before_utc\":\"string\",\"state_label\":\"string\",\"order_by\":\"string\",\"row_cap\":\"integer\",\"expand_context\":\"boolean\"}},{\"name\":\"compare_packages\",\"description\":\"Compare two packages and optionally include preview builds and lockfile changes.\",\"arguments\":{\"prior_pkg\":\"string\",\"current_pkg\":\"string\",\"allow_preview\":\"boolean\",\"compare_lockfile\":\"boolean\"}},{\"name\":\"assign_audit\",\"description\":\"Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.\",\"arguments\":{\"ticket_ref\":\"string\",\"assignee_group\":\"string\",\"deadline_day\":\"integer\",\"urgency_rank\":\"integer\",\"backup_gate\":\"boolean\",\"alert_assignee\":\"boolean\"}}]}\nRequest: Assign ticket-05 to the ops group. Today is cycle day 25; the deadline is 2 days later, and the API needs the absolute day. Convert urgency routine=1, standard=2, elevated=3, critical=4 to its numeric rank. Set the backup gate for odd request 5. Alert the assignee except when the request number is one more than a multiple of three.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Treat every listed argument as required; use its listed primitive type and no extra fields. Do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "assign_audit",
+          "arguments": {
+            "ticket_ref": "ticket-05",
+            "assignee_group": "ops",
+            "deadline_day": 27,
+            "urgency_rank": 2,
+            "backup_gate": true,
+            "alert_assignee": true
+          }
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "book_resource",
+            "description": "Book an asset and time block; quantity counts all seats across repeated sessions.",
+            "arguments": {
+              "asset_code": "string",
+              "day_utc": "string",
+              "hour_utc": "integer",
+              "span_hours": "integer",
+              "quantity": "integer",
+              "send_alert": "boolean"
+            }
+          },
+          {
+            "name": "scan_sessions",
+            "description": "Find sessions by account, time range and state; row_cap is one total cap.",
+            "arguments": {
+              "account_code": "string",
+              "after_utc": "string",
+              "before_utc": "string",
+              "state_label": "string",
+              "order_by": "string",
+              "row_cap": "integer",
+              "expand_context": "boolean"
+            }
+          },
+          {
+            "name": "compare_packages",
+            "description": "Compare two packages and optionally include preview builds and lockfile changes.",
+            "arguments": {
+              "prior_pkg": "string",
+              "current_pkg": "string",
+              "allow_preview": "boolean",
+              "compare_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "assign_audit",
+            "description": "Assign an audit ticket with a cycle-day deadline, urgency rank, backup gate and alert.",
+            "arguments": {
+              "ticket_ref": "string",
+              "assignee_group": "string",
+              "deadline_day": "integer",
+              "urgency_rank": "integer",
+              "backup_gate": "boolean",
+              "alert_assignee": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"assign_audit\", \"arguments\": {\"ticket_ref\": \"ticket-05\", \"assignee_group\": \"ops\", \"deadline_day\": 27, \"urgency_rank\": 2, \"backup_gate\": true, \"alert_assignee\": true}}",
+      "wrong": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-05\", \"assignee_group\": \"ops\", \"deadline_day\": 27, \"urgency_rank\": 2, \"backup_gate\": true, \"alert_assignee\": true}}",
+      "malformed": "{not json}"
+    }
+  ]
+}

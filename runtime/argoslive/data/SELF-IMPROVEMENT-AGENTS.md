@@ -94,6 +94,13 @@ Require repeated 3/40 gains, no format-error increase and held-out
 nonregression. It remains an Argos-authored probe, not independent validation
 or evidence that real tools execute.
 
+Treat historical `tool-plan` 1.0.0 misses on `sort_order`, `order_by` and
+`reviewer_role` as under-specified: the prompts supplied only the primitive
+`string` type while the scorer required exact literals. Version 1.1.0 lists
+those allowed literals in the tool descriptions. Establish a fresh 1.1.0
+baseline before diagnosing those skills or attempting an instruction change;
+never compare its scores with 1.0.0.
+
 For a workspace-instruction experiment, use `argos_inspect` first. It returns
 the canonical `AGENTS.md`, current hash, configuration receipt, active change,
 and exact host keep policy. Establish a saved baseline through this controller,

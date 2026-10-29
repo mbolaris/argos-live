@@ -110,6 +110,7 @@ class RuntimePackageTests(unittest.TestCase):
                        'assert len(load()["items"]) == 20; assert len(load("standard")["items"]) == 70; '
                        'assert len(load("challenge")["items"]) == 40; '
                        'assert len(load("tool-plan")["items"]) == 40; '
+                       'assert load("tool-plan", version="1.0.0")["version"] == "1.0.0"; '
                        'assert (DATA / "NOTICE.txt").is_file(); '
                        'from argoslive.doc_trial import load as docs; assert len(docs()["items"]) == 32; '
                        'assert (ASSETS / "index.html").is_file(); '

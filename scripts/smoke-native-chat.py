@@ -157,10 +157,14 @@ def request_metrics(env):
                     truncated = True
                 else:
                     return {}
+            probe_pids = set(probes)
+            summary_pids = set(summaries)
+            request_pids = set(per_process)
+            summary_mismatch_count = 0
             # Each injected Node process reports its own count on exit. Missing
             # summaries, failed writes, and truncated streams fail closed.
-            if (not probes or set(probes) != set(summaries) or
-                    not set(per_process).issubset(probes)):
+            if (not probes or probe_pids != summary_pids or
+                    not request_pids.issubset(probe_pids)):
                 truncated = True
             for pid, probe in probes.items():
                 summary = summaries.get(pid, {})
@@ -169,9 +173,17 @@ def request_metrics(env):
                         summary.get('requests_logged') != observed or
                         summary.get('log_failed') is not False or
                         probe.get('probe_loaded') is not True):
+                    summary_mismatch_count += 1
                     truncated = True
             value = {'request_count': sum(per_process.values()), 'requests': requests,
                      'requests_truncated': truncated,
+                     'probe_process_count': len(probe_pids),
+                     'summary_process_count': len(summary_pids),
+                     'request_process_count': len(request_pids),
+                     'missing_summary_count': len(probe_pids - summary_pids),
+                     'orphan_summary_count': len(summary_pids - probe_pids),
+                     'request_without_probe_count': len(request_pids - probe_pids),
+                     'summary_mismatch_count': summary_mismatch_count,
                      'probe_loaded': any(row.get('probe_loaded') is True for row in probes.values()),
                      'runtime_fetch_hooked': any(row.get('runtime_fetch_hooked') is True
                                                  for row in probes.values())}
@@ -179,7 +191,10 @@ def request_metrics(env):
             value = json.loads(path.read_text())
         if not isinstance(value, dict):
             return {}
-        allowed = ('request_count', 'request_bytes', 'num_predict', 'num_ctx',
+        allowed = ('request_count', 'probe_process_count', 'summary_process_count',
+                   'request_process_count', 'missing_summary_count', 'orphan_summary_count',
+                   'request_without_probe_count', 'summary_mismatch_count',
+                   'request_bytes', 'num_predict', 'num_ctx',
                    'message_chars', 'tool_schema_chars', 'temperature', 'tool_result_messages')
         result = {key: value[key] for key in allowed if type(value.get(key)) in (int, float)
                   and math.isfinite(value[key]) and -2 <= value[key] <= 10**12}

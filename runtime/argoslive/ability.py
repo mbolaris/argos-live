@@ -213,11 +213,21 @@ def validate(data):
     return data
 
 
-def load(suite='quick'):
+ARCHIVED_SUITE_FILES = {('tool-plan', '1.0.0'): 'archive/tool-plan-1.0.0.json'}
+
+
+def load(suite='quick', version=None):
     if not isinstance(suite, str) or suite not in SUITE_COUNTS:
         raise ValueError('Choose quick, standard, challenge, tool-schema, or tool-plan')
-    with (DATA / (suite + '.json')).open('rb') as stream:
+    if version is not None and not isinstance(version, str):
+        raise ValueError('Unknown version for ability suite')
+    archived = ARCHIVED_SUITE_FILES.get((suite, version)) if version is not None else None
+    path = DATA / archived if archived is not None else DATA / (suite + '.json')
+    with path.open('rb') as stream:
         raw = stream.read(1024**2 + 1)
     if len(raw) > 1024**2:
         raise ValueError('Suite exceeds metadata limit')
-    return validate(decode(raw))
+    data = validate(decode(raw))
+    if version is not None and data.get('version') != version:
+        raise ValueError('Unknown version for ability suite')
+    return data
