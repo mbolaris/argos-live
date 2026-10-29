@@ -278,7 +278,10 @@ def run(cli, report):
             try:
                 try:
                     with controller_bridge.owned(abort_home, session_key='agent:main:abort-' + str(uuid.uuid4()),
-                                                 worker_timeout=300) as (aborted, _abort_env):
+                                                 # Slow hosted CPU runners need over five minutes for all
+                                                 # 20 real SDK-backed synthetic items. Keep the worker alive
+                                                 # after the SDK abort long enough to verify unattended save.
+                                                 worker_timeout=540) as (aborted, _abort_env):
                         aborted.launch(cli, 'Run the quick ability check, then reply READY.', timeout=600)
                         if not evaluation_started.wait(45):
                             raise ValueError('Pinned SDK did not dispatch the gated evaluation')
