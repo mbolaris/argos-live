@@ -131,10 +131,52 @@ def failure_diagnostics(env, stdout=b'', stderr=b''):
 
 def request_metrics(env):
     try:
-        path = Path(env['ARGOS_NATIVE_REQUEST_REPORT'])
-        if path.is_symlink() or path.stat().st_size > 32768:
+        log_path = env.get('ARGOS_NATIVE_REQUEST_LOG')
+        path = Path(log_path or env['ARGOS_NATIVE_REQUEST_REPORT'])
+        if path.is_symlink() or path.stat().st_size > 65536:
             return {}
-        value = json.loads(path.read_text())
+        if log_path:
+            events = [json.loads(line) for line in path.read_text().splitlines() if line]
+            requests, probes, summaries, per_process = [], {}, {}, {}
+            truncated = False
+            for event in events:
+                if not isinstance(event, dict):
+                    return {}
+                kind, pid = event.get('kind'), event.get('pid')
+                if kind == 'probe' and type(pid) is int and pid > 0:
+                    probes[pid] = event
+                elif kind == 'request' and type(pid) is int and pid > 0:
+                    per_process[pid] = per_process.get(pid, 0) + 1
+                    if len(requests) < 64:
+                        requests.append(event)
+                    else:
+                        truncated = True
+                elif kind == 'summary' and type(pid) is int and pid > 0:
+                    summaries[pid] = event
+                elif kind == 'truncated' and type(pid) is int and pid > 0:
+                    truncated = True
+                else:
+                    return {}
+            # Each injected Node process reports its own count on exit. Missing
+            # summaries, failed writes, and truncated streams fail closed.
+            if (not probes or set(probes) != set(summaries) or
+                    not set(per_process).issubset(probes)):
+                truncated = True
+            for pid, probe in probes.items():
+                summary = summaries.get(pid, {})
+                observed = per_process.get(pid, 0)
+                if (summary.get('request_count') != observed or
+                        summary.get('requests_logged') != observed or
+                        summary.get('log_failed') is not False or
+                        probe.get('probe_loaded') is not True):
+                    truncated = True
+            value = {'request_count': sum(per_process.values()), 'requests': requests,
+                     'requests_truncated': truncated,
+                     'probe_loaded': any(row.get('probe_loaded') is True for row in probes.values()),
+                     'runtime_fetch_hooked': any(row.get('runtime_fetch_hooked') is True
+                                                 for row in probes.values())}
+        else:
+            value = json.loads(path.read_text())
         if not isinstance(value, dict):
             return {}
         allowed = ('request_count', 'request_bytes', 'num_predict', 'num_ctx',
@@ -254,7 +296,7 @@ def run(cli, ollama, seed):
         # The observer is injected only into this hosted disposable fixture;
         # it forwards the original fetch unchanged and records no request text.
         env['NODE_OPTIONS'] = '--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri()
-        env['ARGOS_NATIVE_REQUEST_REPORT'] = str(home / 'native-request-metrics.json')
+        env['ARGOS_NATIVE_REQUEST_LOG'] = str(home / 'native-request-metrics.jsonl')
         env['ARGOS_NATIVE_OPENCLAW_ENTRY'] = str(cli.resolve())
         version = command(cli, ['--version'], env, timeout=30).decode()
         if pins['OPENCLAW_VERSION'] not in re.findall(r'\d{4}\.\d+\.\d+', version):
@@ -264,6 +306,9 @@ def run(cli, ollama, seed):
         with owned(seed, executable=ollama.absolute(), port=11434, context_tokens=32768,
                    lease_store=home) as client:
             # Leave headroom for slower CPU runners to read the full agent prompt.
+            request_log = Path(env['ARGOS_NATIVE_REQUEST_LOG'])
+            request_log.write_text('', encoding='utf-8')
+            request_log.chmod(0o600)
             result = summary(command(cli, ['agent', '--local', '--agent', 'main', '--message',
                 'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
                 '--timeout', '240', '--json'], env, timeout=300))

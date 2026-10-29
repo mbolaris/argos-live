@@ -1,16 +1,27 @@
 // Disposable native smoke only. Observe numeric request options without changing
 // transport, body, headers, prompts or responses. Never export request content.
-import {writeFileSync} from 'node:fs';
+import {appendFileSync,writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 
 const MAX_RECORDED_REQUESTS = 64;
 const reports = new Map();
+const requestLogs = new Map();
 
 function reportState(reportPath) {
   let state=reports.get(reportPath);
   if (!state) {
     state={request_count:0,requests:[],runtime_fetch_hooked:false};
     reports.set(reportPath,state);
+  }
+  return state;
+}
+
+function requestLogState(logPath) {
+  let state=requestLogs.get(logPath);
+  if (!state) {
+    state={pid:process.pid,request_count:0,requests_logged:0,log_failed:false,
+      runtime_fetch_hooked:false};
+    requestLogs.set(logPath,state);
   }
   return state;
 }
@@ -26,8 +37,18 @@ function persist(reportPath,state,last={}) {
   } catch (_) { /* Diagnostics must not change the native request outcome. */ }
 }
 
-export function observeRequests(original, reportPath) {
-  const state=reportState(reportPath);
+function appendLog(logPath,event) {
+  try {
+    const line=JSON.stringify(event)+'\n';
+    if (Buffer.byteLength(line)>4096) return false;
+    appendFileSync(logPath,line,{mode:0o600});
+    return true;
+  } catch (_) { /* Diagnostics must not change the native request outcome. */ }
+  return false;
+}
+
+export function observeRequests(original, reportPath, logPath=null) {
+  const state=logPath ? requestLogState(logPath) : reportState(reportPath);
   return function(...args) {
     try {
       const [input,init]=args;
@@ -60,33 +81,59 @@ export function observeRequests(original, reportPath) {
             metrics.tool_result_messages = Array.isArray(body?.messages) ? body.messages.filter(row=>row?.role==='tool').length : 0;
           }
         } catch (_) { /* Record the request as uninspected; the budget gate will fail closed. */ }
-        if (state.requests.length<MAX_RECORDED_REQUESTS) state.requests.push(metrics);
-        // Preserve the most recent request's bounded metadata for existing
-        // smoke receipts, while retaining every request needed by the budget gate.
-        persist(reportPath,state,metrics);
+        if (logPath) {
+          if (state.request_count<=MAX_RECORDED_REQUESTS) {
+            if (appendLog(logPath,{kind:'request',pid:state.pid,...metrics})) state.requests_logged++;
+            else state.log_failed=true;
+          }
+          else if (state.request_count===MAX_RECORDED_REQUESTS+1)
+            appendLog(logPath,{kind:'truncated',pid:state.pid});
+        } else {
+          if (state.requests.length<MAX_RECORDED_REQUESTS) state.requests.push(metrics);
+          // Preserve the most recent request's bounded metadata for existing
+          // smoke receipts, while retaining every request needed by the budget gate.
+          persist(reportPath,state,metrics);
+        }
       }
     } catch (_) { /* Diagnostics must not change the native request outcome. */ }
     return original.apply(this,args);
   };
 }
 
-export function hookRuntimeFetch(runtime,reportPath) {
+export function hookRuntimeFetch(runtime,reportPath,logPath=null) {
   if (typeof runtime?.fetch!=='function') return false;
-  runtime.fetch=observeRequests(runtime.fetch,reportPath);
+  runtime.fetch=observeRequests(runtime.fetch,reportPath,logPath);
   return true;
 }
 
-if (process.env.ARGOS_NATIVE_REQUEST_REPORT) {
+if (process.env.ARGOS_NATIVE_REQUEST_REPORT || process.env.ARGOS_NATIVE_REQUEST_LOG) {
   const path=process.env.ARGOS_NATIVE_REQUEST_REPORT;
-  globalThis.fetch=observeRequests(globalThis.fetch,path);
-  let runtimeHooked=false;
-  try {
-    // OpenClaw's dispatcher-aware guarded path uses the pinned dependency's
-    // fetch directly. Resolve from that exact CLI entry, not this repo's deps.
-    const runtime=createRequire(process.env.ARGOS_NATIVE_OPENCLAW_ENTRY)('undici');
-    runtimeHooked=hookRuntimeFetch(runtime,path);
-  } catch (_) { /* Explicit activation report distinguishes an unavailable hook. */ }
-  const state=reportState(path);
-  state.runtime_fetch_hooked=runtimeHooked;
-  persist(path,state,{body_inspected:false});
+  const logPath=process.env.ARGOS_NATIVE_REQUEST_LOG;
+  if (logPath) {
+    globalThis.fetch=observeRequests(globalThis.fetch,path,logPath);
+    let runtimeHooked=false;
+    try {
+      const runtime=createRequire(process.env.ARGOS_NATIVE_OPENCLAW_ENTRY)('undici');
+      runtimeHooked=hookRuntimeFetch(runtime,path,logPath);
+    } catch (_) { /* The request gate will fail closed if no calls are observed. */ }
+    const state=requestLogState(logPath);
+    state.runtime_fetch_hooked=runtimeHooked;
+    appendLog(logPath,{kind:'probe',pid:state.pid,probe_loaded:true,
+      runtime_fetch_hooked:runtimeHooked});
+    process.once('exit',()=>appendLog(logPath,{kind:'summary',pid:state.pid,
+      request_count:state.request_count,requests_logged:state.requests_logged,
+      log_failed:state.log_failed}));
+  } else {
+    globalThis.fetch=observeRequests(globalThis.fetch,path);
+    let runtimeHooked=false;
+    try {
+      // OpenClaw's dispatcher-aware guarded path uses the pinned dependency's
+      // fetch directly. Resolve from that exact CLI entry, not this repo's deps.
+      const runtime=createRequire(process.env.ARGOS_NATIVE_OPENCLAW_ENTRY)('undici');
+      runtimeHooked=hookRuntimeFetch(runtime,path);
+    } catch (_) { /* Explicit activation report distinguishes an unavailable hook. */ }
+    const state=reportState(path);
+    state.runtime_fetch_hooked=runtimeHooked;
+    persist(path,state,{body_inspected:false});
+  }
 }

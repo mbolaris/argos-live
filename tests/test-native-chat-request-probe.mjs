@@ -67,3 +67,22 @@ test('nonlocal requests are ignored and unsupported bodies are not consumed',()=
     assert.equal(report.requests.length,1);
   } finally {rmSync(root,{recursive:true,force:true});}
 });
+
+test('append-only request log preserves observations from separate observers',()=>{
+  const root=mkdtempSync(join(tmpdir(),'argos-wire-log-'));
+  try {
+    const path=join(root,'metrics.jsonl');
+    const result=Promise.resolve('fixture');
+    const url='http://127.0.0.1:11434/api/chat';
+    const first=observeRequests(()=>result,null,path);
+    const second=observeRequests(()=>result,null,path);
+    first(url,{body:JSON.stringify({messages:[{content:'private-canary'}],options:{num_predict:32}})});
+    second(url,{body:JSON.stringify({messages:[{content:'private-canary'}],options:{num_predict:32}})});
+    const raw=readFileSync(path,'utf8');
+    assert.ok(!raw.includes('private-canary'));
+    const events=raw.trim().split('\n').map(line=>JSON.parse(line));
+    assert.equal(events.length,2);
+    assert.deepEqual(events.map(row=>row.kind),['request','request']);
+    assert.deepEqual(events.map(row=>row.num_predict),[32,32]);
+  } finally {rmSync(root,{recursive:true,force:true});}
+});

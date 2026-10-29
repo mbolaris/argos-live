@@ -49,6 +49,37 @@ class NativeChatTests(unittest.TestCase):
             path.write_text('x' * 32769)
             self.assertEqual(module.request_metrics({'ARGOS_NATIVE_REQUEST_REPORT': str(path)}), {})
 
+    def test_append_log_combines_processes_and_requires_every_wire_budget(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'metrics.jsonl'
+            events = [
+                {'kind': 'probe', 'pid': 101, 'probe_loaded': True, 'runtime_fetch_hooked': True},
+                {'kind': 'request', 'pid': 101, 'body_inspected': True, 'num_predict': 32,
+                 'messages': 'fictional-private-prompt'},
+                {'kind': 'summary', 'pid': 101, 'request_count': 1,
+                 'requests_logged': 1, 'log_failed': False},
+                {'kind': 'probe', 'pid': 202, 'probe_loaded': True, 'runtime_fetch_hooked': True},
+                {'kind': 'request', 'pid': 202, 'body_inspected': True, 'num_predict': 32,
+                 'messages': 'fictional-private-prompt'},
+                {'kind': 'summary', 'pid': 202, 'request_count': 1,
+                 'requests_logged': 1, 'log_failed': False}]
+            path.write_text('\n'.join(json.dumps(row) for row in events) + '\n')
+            report = module.request_metrics({'ARGOS_NATIVE_REQUEST_LOG': str(path)})
+            self.assertEqual(report['request_count'], 2)
+            self.assertTrue(report['probe_loaded'])
+            self.assertTrue(report['runtime_fetch_hooked'])
+            self.assertEqual([row['num_predict'] for row in report['requests']], [32, 32])
+            self.assertNotIn('fictional-private-prompt', json.dumps(report))
+            module.verify_request_budget(report)
+
+            events.insert(-1, {'kind': 'request', 'pid': 202, 'body_inspected': True})
+            events[-1].update(request_count=2, requests_logged=2)
+            path.write_text('\n'.join(json.dumps(row) for row in events) + '\n')
+            report = module.request_metrics({'ARGOS_NATIVE_REQUEST_LOG': str(path)})
+            self.assertEqual(report['request_count'], 3)
+            with self.assertRaises(ValueError):
+                module.verify_request_budget(report)
+
     def test_failure_metadata_only_exports_finite_allowlisted_numbers(self):
         secret = 'fictional-private-text'
         raw = {'meta': {'durationMs': 180000, 'aborted': True,
