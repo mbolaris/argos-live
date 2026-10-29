@@ -36,6 +36,8 @@ fs.writeFileSync(process.env.ARGOS_CAPTURE, JSON.stringify(args));
 if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   console.log(JSON.stringify({status:'busy',message:'Another host workload is active',recovery_required:false}));
   process.exit(75);
+} else if (args[1] === 'log' && fs.existsSync(process.env.ARGOS_CAPTURE+'.failed-log')) {
+  console.log(JSON.stringify({status:'failed',message:'Campaign log entry failed; the host workload remains available.',append_outcome:'unconfirmed'}));
 } else if (args[1] === 'log') {
   console.log(JSON.stringify({status:'appended',observed:'2026-10-17T00:00:00+00:00',snapshot:'/private/snapshot',note_claims_verified:false}));
 } else if (args[1] === 'results' && fs.existsSync(process.env.ARGOS_CAPTURE+'.incompatible')) {
@@ -150,6 +152,18 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.match(busy.content[0].text, /No evaluation started/);
     const busyLog = await tools.get('argos_log').execute('busy-log', {text:note});
     assert.match(busyLog.content[0].text, /No note appended/);
+    const busyCompare = await tools.get('argos_compare').execute('busy-compare', {
+      baseline_id:'1'.repeat(32), candidate_id:'2'.repeat(32)
+    });
+    assert.equal(busyCompare.details.status, 'busy');
+    assert.match(busyCompare.content[0].text, /No comparison was run/);
+    assert.doesNotMatch(busyCompare.content[0].text, /Raw model benchmarks cannot measure/);
+    await rm(capture + '.busy', {force:true});
+    await writeFile(capture + '.failed-log', 'failed log fixture');
+    const failedLog = await tools.get('argos_log').execute('failed-log', {text:note});
+    assert.equal(failedLog.details.status, 'failed');
+    assert.match(failedLog.content[0].text, /append outcome is unconfirmed/);
+    assert.doesNotMatch(failedLog.content[0].text, /Appended at host time/);
   } finally {
     if (priorBin === undefined) delete process.env.ARGOS_BIN;
     else process.env.ARGOS_BIN = priorBin;
@@ -428,5 +442,65 @@ test('managed admission returns bounded evaluation jobs and supports a follow-up
     if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET; else process.env.ARGOS_CONTROLLER_SOCKET = priorPath;
     if (priorSecret === undefined) delete process.env.ARGOS_CONTROLLER_SECRET; else process.env.ARGOS_CONTROLLER_SECRET = priorSecret;
     await rm(directory, {recursive:true, force:true});
+  }
+});
+
+test('managed busy comparisons and failed logs are reported without false success or category errors', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-admission-status-'));
+  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\argos-status-${randomUUID()}` : path.join(directory, 'host.sock');
+  const priorPath = process.env.ARGOS_CONTROLLER_SOCKET;
+  const priorSecret = process.env.ARGOS_CONTROLLER_SECRET;
+  const server = net.createServer((socket) => {
+    socket.setEncoding('utf8');
+    let raw = '';
+    socket.on('data', (chunk) => {
+      raw += chunk;
+      if (!raw.endsWith('\n')) return;
+      const request = JSON.parse(raw);
+      let response;
+      if (request.op === 'begin') response = {status:'admitted',turn_token:'turn-status'};
+      else if (request.op === 'tool' && request.kind === 'compare')
+        response = {status:'busy',message:'Host workload needs attention',recovery_required:false};
+      else if (request.op === 'tool' && request.kind === 'log')
+        response = {status:'completed',value:{status:'failed',
+          message:'Campaign log entry failed; the host workload remains available.',append_outcome:'unconfirmed'}};
+      else response = {status:'recorded'};
+      socket.end(JSON.stringify(response) + '\n');
+    });
+  });
+  try {
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(endpoint, resolve); });
+    process.env.ARGOS_CONTROLLER_SOCKET = endpoint;
+    process.env.ARGOS_CONTROLLER_SECRET = 'status-bridge-secret';
+    const hooks = new Map();
+    const tools = new Map();
+    registerPlugin({pluginConfig:{hostAdmission:true},
+      registerTool(tool) {tools.set(tool.name, tool);},
+      on(name, handler) {hooks.set(name, handler);}});
+    const ctx = {runId:'run-status',sessionId:'session-status',sessionKey:'agent:main:host-session',trigger:'user'};
+    assert.deepEqual(await hooks.get('before_agent_run')({}, ctx), {outcome:'pass'});
+    hooks.get('before_tool_call')({toolName:'argos_compare',runId:'run-status',toolCallId:'compare-busy'},ctx);
+    const busy = await tools.get('argos_compare').execute('compare-busy', {
+      baseline_id:'1'.repeat(32),candidate_id:'2'.repeat(32)
+    });
+    assert.equal(busy.details.status,'busy');
+    assert.match(busy.content[0].text,/No comparison was run/);
+    assert.match(busy.content[0].text,/Retry after the current host operation finishes/);
+    assert.doesNotMatch(busy.content[0].text,/Raw model benchmarks cannot measure/);
+
+    hooks.get('before_tool_call')({toolName:'argos_log',runId:'run-status',toolCallId:'log-failed'},ctx);
+    const failed = await tools.get('argos_log').execute('log-failed',{text:'note'});
+    assert.equal(failed.details.status,'failed');
+    assert.equal(failed.details.append_outcome,'unconfirmed');
+    assert.match(failed.content[0].text,/inspect IMPROVEMENT-LOG.md before retrying/);
+    assert.doesNotMatch(failed.content[0].text,/Appended at host time/);
+    await hooks.get('agent_end')({},ctx);
+  } finally {
+    if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET;
+    else process.env.ARGOS_CONTROLLER_SOCKET = priorPath;
+    if (priorSecret === undefined) delete process.env.ARGOS_CONTROLLER_SECRET;
+    else process.env.ARGOS_CONTROLLER_SECRET = priorSecret;
+    await new Promise((resolve) => server.close(resolve));
+    await rm(directory,{recursive:true,force:true});
   }
 });

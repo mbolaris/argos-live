@@ -269,6 +269,12 @@ class Bridge:
                 return {'status': 'completed', 'value': value}
             value = self.run_child(kind, params, on_update=on_update)
             outcome = {'kind': kind, 'call_id': call}
+            if kind == 'log' and value.get('status') == 'completed':
+                log_result = value.get('value') if isinstance(value.get('value'), dict) else {}
+                outcome.update(status=log_result.get('status'),
+                               appended=log_result.get('status') == 'appended')
+                if log_result.get('status') == 'failed':
+                    outcome['append_outcome'] = 'unconfirmed'
             if kind in {'edit', 'resolve'}:
                 outcome.update(status=value['value']['status'], change_id=value['value'].get('change_id'))
                 if kind == 'resolve':
@@ -545,8 +551,10 @@ class Bridge:
                         failed = None
                     if isinstance(failed, dict) and failed.get('status') == 'failed':
                         self.parent.resume(capability, worker_drained=True)
-                        return {'status': 'failed',
-                                'message': 'Campaign log entry failed; the host workload remains available.'}
+                        return {'status': 'completed', 'value': {
+                            'status': 'failed',
+                            'message': 'Campaign log entry failed; the host workload remains available.',
+                            'append_outcome': 'unconfirmed'}}
                 raise workload.Busy(recovery=True)
             value = json.loads(stdout)
             if kind == 'evaluation':
