@@ -41,13 +41,19 @@ def run(cli, ollama, seed):
         root.mkdir(parents=True, mode=0o700)
         selected = home / 'managed-models'
         probe_path = home / 'native-request-metrics.json'
+        request_log_path = home / 'native-request-metrics.jsonl'
+        capture_final_chat = False
         @contextmanager
         def observed_gateway(target, **options):
             original_environment = gateway_runtime.environment
             def fixture_environment(owned_home, config):
                 env = original_environment(owned_home, config)
                 env.update(NODE_OPTIONS='--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri(),
-                    ARGOS_NATIVE_REQUEST_REPORT=str(probe_path), ARGOS_NATIVE_OPENCLAW_ENTRY=str(cli.resolve()))
+                    ARGOS_NATIVE_OPENCLAW_ENTRY=str(cli.resolve()))
+                if capture_final_chat:
+                    env['ARGOS_NATIVE_REQUEST_LOG'] = str(request_log_path)
+                else:
+                    env['ARGOS_NATIVE_REQUEST_REPORT'] = str(probe_path)
                 return env
             # Only this disposable fixture's owned gateway receives the probe.
             with patch.object(gateway_runtime, 'environment', fixture_environment):
@@ -162,9 +168,30 @@ def run(cli, ollama, seed):
                 if request('/api/startup')['phase'] != 'ready':
                     raise ValueError('Selected native OpenClaw assistant is not ready')
                 native = runpy.run_path(str(ROOT / 'scripts/smoke-native-chat.py'))
-                probe_path.unlink(missing_ok=True)
+
+                # Isolate the final chat's wire budget from earlier warmup and
+                # model-lab traffic. A fresh owned gateway gets an append-only
+                # per-process log; its summaries are verified after shutdown.
+                request('/api/startup/stop', 'POST')
+                first_worker = controller.worker
+                first_worker.join(timeout=30)
+                if controller.snapshot()['phase'] != 'stopped' or first_worker.is_alive():
+                    raise ValueError('Managed service did not stop before final-chat capture')
+                capture_final_chat = True
+                request_log_path.write_text('', encoding='utf-8')
+                request_log_path.chmod(0o600)
+                request('/api/startup/start', 'POST')
+                restart_deadline = time.monotonic() + 360
+                while True:
+                    restarted = request('/api/startup')
+                    if restarted['phase'] == 'ready':
+                        break
+                    if restarted['phase'] == 'failed' or errors or time.monotonic() >= restart_deadline:
+                        raise ValueError('Managed desktop did not return for final-chat capture: ' +
+                                         json.dumps(restarted.get('failure')))
+                    time.sleep(.5)
                 chat_env = native['child_environment'](home)
-                chat_env['ARGOS_NATIVE_REQUEST_REPORT'] = str(probe_path)
+                chat_env['ARGOS_NATIVE_REQUEST_LOG'] = str(request_log_path)
                 # The pinned host rejects --local when this owned gateway runs.
                 # Exercise the live gateway's agent path, not a competing embedded host.
                 native['summary'](native['command'](cli, ['agent', '--agent', 'main', '--message',
@@ -174,12 +201,12 @@ def run(cli, ollama, seed):
                     # Keep a bounded fixture budget; the 32-token wire limit
                     # and real reply checks remain required.
                     '--timeout', '300', '--json'], chat_env, timeout=360))
-                wire_request = native['request_metrics'](chat_env)
-                native['verify_request_budget'](wire_request)
                 request('/api/startup/stop', 'POST')
                 controller.worker.join(timeout=30)
                 if controller.snapshot()['phase'] != 'stopped' or controller.worker.is_alive():
                     raise ValueError('Managed service shutdown did not finish')
+                wire_request = native['request_metrics'](chat_env)
+                native['verify_request_budget'](wire_request)
                 if (home / '.openclaw/openclaw.json').read_bytes() != original:
                     raise ValueError('Managed controls changed owner configuration')
                 if any(path.is_file() and path.name != '.argos-storage-id' for path in selected.rglob('*')):
