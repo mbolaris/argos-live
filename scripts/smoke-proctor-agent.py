@@ -429,7 +429,31 @@ def run(cli, report):
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
                     chained_practice_errors or progress['practice_tool_calls'] != len(PRACTICE_TOOLS) or
                     progress['campaign_tool_calls'] != len(CAMPAIGN_TOOLS)):
-                raise ValueError('Owner-facing chained improvement flow did not complete its scoped campaign')
+                campaign = improvement_result.get('campaign', {})
+                diagnostic = {
+                    'schema': 'argos-proctor-campaign-failure/1',
+                    'improvement_status': improvement_result.get('status'),
+                    'practice_is_improvement_evidence': improvement_result.get(
+                        'practice_is_improvement_evidence'),
+                    'campaign_status': campaign.get('status'),
+                    'campaign_outcome': campaign.get('outcome'),
+                    'campaign_missing': campaign.get('missing'),
+                    'campaign_turns': campaign.get('controller_turns'),
+                    'saved_evaluation_ids': campaign.get('saved_evaluation_ids'),
+                    'tool_calls': progress['tools'],
+                    'expected_tool_calls': expected_campaign_calls,
+                    'practice_tool_calls': progress.get('practice_tool_calls'),
+                    'expected_practice_tool_calls': len(PRACTICE_TOOLS),
+                    'campaign_tool_calls': progress.get('campaign_tool_calls'),
+                    'expected_campaign_tool_calls': len(CAMPAIGN_TOOLS),
+                    'tool_errors': progress['errors'],
+                    'practice_tool_errors': chained_practice_errors,
+                    'tool_outcomes': campaign.get('tool_outcomes'),
+                }
+                report.with_name('proctor-agent-failure.json').write_text(
+                    json.dumps(diagnostic, indent=2) + '\n')
+                raise ValueError('Owner-facing chained improvement flow did not complete its scoped campaign: ' +
+                                 json.dumps(diagnostic, sort_keys=True))
             if not improvement_result['practice']['transcript_id']:
                 raise ValueError('Chained improvement flow lacks its saved practice transcript ID')
             campaign_reservation = json.loads((service_home / '.local/state/argos-live/workload/reservation.json').read_text())
