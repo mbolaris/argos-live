@@ -666,6 +666,8 @@ class TrialTests(unittest.TestCase):
             self.assertIn('--local', command)
             self.assertNotIn('--deliver', command)
             self.assertNotIn('--thinking', command)
+            self.assertEqual(command[command.index('--timeout') + 1],
+                             str(at.DEFAULT_TURN_TIMEOUT_SECONDS))
             self.assertEqual(reply['text'], 'A reply')
             process.communicate.return_value = (b'{"status":"error","result":{"payloads":[{"text":"partial"}]}}', b'')
             with self.assertRaises(ValueError):
