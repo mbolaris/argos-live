@@ -62,6 +62,12 @@ do not infer intent from hidden answer labels. Report that measurement as
 under-specified and use a separately versioned, fully specified form for a new
 baseline. Never change a fixed suite to fit a candidate.
 
+In challenge 1.0.0, the eight tool-call prompts omit tool inventories and
+schemas. Keep their measured outcomes in the full score, but do not use those
+items to diagnose tool behavior or support an instruction edit. Host keep-policy
+v2 excludes that category from challenge-based qualification; use tool-schema
+or tool-plan for grounded tool-call experiments.
+
 Quick scores vary by 1–2 of 20. A complete quick run with every item correct
 and zero format errors is a ceiling signal, not a plateau: follow it with a
 complete 70-task `standard` evaluation after the latest instruction decision.

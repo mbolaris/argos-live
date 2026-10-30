@@ -12,7 +12,12 @@ Quick contains four items from each of five categories; standard contains
 fourteen per category and includes quick as an exact subset. Challenge is a
 separately authored form with eight items per category and multi-step numeric,
 constraint-selection, structured extraction and inert action-format prompts.
-Challenge is a distinct form, not a held-out external benchmark. Tool-schema
+Challenge is a distinct form, not a held-out external benchmark. Challenge
+1.0.0's eight tool-call prompts do not supply an available-tool inventory or
+schemas. They remain in the full reported score for historical continuity, but
+cannot justify a tool-use diagnosis or qualify an instruction change under keep
+policy v2. Use the fully specified tool-schema and tool-plan forms for tool-call
+experiments. Tool-schema
 contains only inert proposed tool calls: every prompt supplies three available
 tool schemas with descriptions and typed arguments; 20 practice and 20 held-out
 items use disjoint tool names and argument keys. Correct tools appear in all

@@ -24,11 +24,26 @@ from .pull_jobs import read_json, write_json
 from .results import Store, compare, identifier, same_hardware
 
 SCHEMA = 'argos-instruction-change/1'
-POLICY = {'id': 'argos-practice-keep/1', 'repeats_each': 2,
+_POLICY_V1 = {'id': 'argos-practice-keep/1', 'repeats_each': 2,
+              'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4,
+                                        'openclaw-challenge': 3, 'openclaw-tool-schema': 3,
+                                        'openclaw-tool-plan': 3},
+              'reliability_max_latency_ratio': 1.5}
+POLICY = {'id': 'argos-practice-keep/2', 'repeats_each': 2,
           'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4,
                                     'openclaw-challenge': 3, 'openclaw-tool-schema': 3,
                                     'openclaw-tool-plan': 3},
+          # Challenge 1.0.0 asks for proposed tool calls without providing the
+          # available tool inventory or schemas. Its tool-call score cannot
+          # safely qualify an instruction change; the other four categories
+          # remain usable. Later suite versions must be reviewed explicitly.
+          'category_exclusions': {
+              'argos-openclaw-ability/challenge/1.0.0': ['tool-call']},
+          'category_contracts': {
+              'argos-openclaw-ability/challenge/1.0.0': {
+                  'choice': 8, 'instruction': 8, 'json': 8, 'numeric': 8, 'tool-call': 8}},
           'reliability_max_latency_ratio': 1.5}
+KEEP_POLICIES = {policy['id']: policy for policy in (_POLICY_V1, POLICY)}
 
 
 class Refused(ValueError):
@@ -63,6 +78,51 @@ def run_id(value):
         return identifier(value)
     except ValueError:
         raise Refused('invalid-saved-id') from None
+
+
+def keep_policy(value=None):
+    if value is None:
+        return POLICY
+    if not isinstance(value, dict):
+        raise Refused('unknown-keep-policy')
+    known = KEEP_POLICIES.get(value.get('id'))
+    if known is None or value != known:
+        raise Refused('unknown-keep-policy')
+    return known
+
+
+def qualification_metrics(run, policy):
+    summary = run.get('summary', {})
+    categories = summary.get('categories', {})
+    suite_version = run.get('suite_version')
+    excluded = policy.get('category_exclusions', {}).get(suite_version, [])
+    if not excluded:
+        return {'correct': summary['correct'], 'total': summary['total'],
+                'format_errors': summary['format_errors'],
+                'basis': {'suite_version': suite_version,
+                          'included_categories': sorted(categories), 'excluded_categories': []}}
+    expected = policy.get('category_contracts', {}).get(suite_version)
+    if (not isinstance(expected, dict) or not isinstance(categories, dict) or
+            set(categories) != set(expected) or any(name not in categories for name in excluded)):
+        raise Refused('qualification-category-evidence-missing')
+    fields = ('correct', 'total', 'format_errors')
+    if any(not isinstance(stats, dict) or any(type(stats.get(field)) is not int or stats[field] < 0
+                                               for field in fields) or
+           stats['total'] != expected[name] or stats['correct'] > stats['total'] or
+           stats['format_errors'] > stats['total'] for name, stats in categories.items()):
+        raise Refused('qualification-category-evidence-invalid')
+    if (any(type(summary.get(field)) is not int or summary[field] < 0 for field in fields) or
+            any(sum(stats[field] for stats in categories.values()) != summary[field] for field in fields)):
+        raise Refused('qualification-category-evidence-invalid')
+    included = sorted(set(categories) - set(excluded))
+    if not included:
+        raise Refused('qualification-category-evidence-missing')
+    selected = [categories[name] for name in included]
+    return {'correct': sum(stats['correct'] for stats in selected),
+            'total': sum(stats['total'] for stats in selected),
+            'format_errors': sum(stats['format_errors'] for stats in selected),
+            'basis': {'suite_version': suite_version,
+                      'included_categories': included, 'excluded_categories': sorted(excluded)}}
 
 
 def validate_request(operation, params):
@@ -242,6 +302,7 @@ def edit(home, root, params, slot):
     intent = {'schema': SCHEMA, 'id': change_id, 'sequence': current['sequence'] + 1,
               'previous_id': current['last_id'], 'parent_id': parent, 'generation': slot.record['generation'],
               'observed': observed, 'hypothesis': params['hypothesis'], 'baseline_id': baseline['id'],
+              'keep_policy': copy.deepcopy(POLICY),
               'find': params['find'], 'replacement': params['replace'],
               'before_sha256': digest(before), 'after_sha256': digest(after),
               'workspace_context_sha256': context_hash,
@@ -265,7 +326,8 @@ def edit(home, root, params, slot):
             'after_sha256': digest(after), 'observed': intent['observed'], 'snapshot_saved': True}
 
 
-def evidence(home, intent, directory, params):
+def evidence(home, intent, directory, params, policy=None):
+    policy = keep_policy(policy if policy is not None else intent.get('keep_policy'))
     baseline_ids = params.get('baseline_ids', [intent['baseline_id']])
     if intent['baseline_id'] not in baseline_ids:
         raise Refused('include-the-original-baseline')
@@ -298,13 +360,18 @@ def evidence(home, intent, directory, params):
               'qualified_experiment': bool(candidate_ids), 'independent_gain_verified': False}
     if params['action'] == 'keep':
         bases, candidates = [[pair[0] for pair in group] for group in groups]
-        minimum = POLICY['minimum_correct_delta'].get(bases[0]['suite'])
+        minimum = policy['minimum_correct_delta'].get(bases[0]['suite'])
         if minimum is None:
             raise Refused('unsupported-keep-suite')
-        base_score = max(run['summary']['correct'] for run in bases)
-        candidate_score = min(run['summary']['correct'] for run in candidates)
-        base_errors = min(run['summary']['format_errors'] for run in bases)
-        candidate_errors = max(run['summary']['format_errors'] for run in candidates)
+        base_metrics = [qualification_metrics(run, policy) for run in bases]
+        candidate_metrics = [qualification_metrics(run, policy) for run in candidates]
+        basis = base_metrics[0]['basis']
+        if any(value['basis'] != basis for value in base_metrics + candidate_metrics):
+            raise Refused('qualification-metric-changed-within-evidence')
+        base_score = max(value['correct'] for value in base_metrics)
+        candidate_score = min(value['correct'] for value in candidate_metrics)
+        base_errors = min(value['format_errors'] for value in base_metrics)
+        candidate_errors = max(value['format_errors'] for value in candidate_metrics)
         heldout_validation = None
         transfer_preserved = True
         if bases[0]['suite'] in ('openclaw-tool-schema', 'openclaw-tool-plan'):
@@ -314,16 +381,21 @@ def evidence(home, intent, directory, params):
         accuracy = (candidate_score - base_score >= minimum and candidate_errors <= base_errors
                     and transfer_preserved)
         reliability = (candidate_score >= base_score and candidate_errors < base_errors and
-                       ratio <= POLICY['reliability_max_latency_ratio'] and transfer_preserved)
+                       ratio <= policy['reliability_max_latency_ratio'] and transfer_preserved)
         if not transfer_preserved:
             raise Refused('heldout-tool-suite-regression')
         if not (accuracy or reliability):
             raise Refused('repeated-practice-gain-rule-not-met')
-        result.update(policy=copy.deepcopy(POLICY), minimum_correct_gain=candidate_score - base_score,
+        result.update(policy=copy.deepcopy(policy), minimum_correct_gain=candidate_score - base_score,
                       maximum_candidate_format_errors=candidate_errors, latency_ratio=ratio,
                       gain_kind='accuracy' if accuracy else 'reliability',
                       heldout_validation=heldout_validation,
                       limitation='Configured model tag matched; installed weight identity/generalization need independent verification')
+        if 'category_exclusions' in policy:
+            result['qualification_basis'] = basis
+            result['full_suite_minimum_correct_gain'] = (
+                min(run['summary']['correct'] for run in candidates) -
+                max(run['summary']['correct'] for run in bases))
     return result, groups
 
 
@@ -343,7 +415,8 @@ def resolve(home, root, params):
     if params['action'] == 'keep' and receipt['sha256'] != intent['evaluation_config_sha256']:
         raise Refused('configuration-changed-during-instruction-experiment')
     try:
-        measured, groups = evidence(home, intent, directory, params)
+        measured, groups = evidence(home, intent, directory, params,
+                                    intent.get('keep_policy', _POLICY_V1))
     except Refused as error:
         if params['action'] != 'restore':
             raise
@@ -465,9 +538,10 @@ def audit(home):
                         'candidate_ids': resolved.get('candidate_ids', []),
                         'qualified_experiment': False, 'independent_gain_verified': False}
             if not resolved.get('rejected_evidence_code'):
+                policy = resolved.get('policy', intent.get('keep_policy', _POLICY_V1))
                 measured, groups = evidence(home, intent, directory, {
                     'action': resolved['action'], 'baseline_ids': resolved['baseline_ids'],
-                    'candidate_ids': resolved['candidate_ids']})
+                    'candidate_ids': resolved['candidate_ids']}, policy)
                 if any(resolved.get(key) != value or resolution.get(key) != value for key, value in measured.items()):
                     raise ValueError('measured-evidence-mismatch')
                 for group in groups:
@@ -489,7 +563,7 @@ def audit(home):
             candidate_scores = [pair[0]['summary']['correct'] for pair in groups[1]]
             worst_case_delta = (min(candidate_scores) - max(baseline_scores)
                                 if baseline_scores and candidate_scores else None)
-            report['changes'].append({'change_id': intent['id'], 'action': resolved['action'],
+            change_report = {'change_id': intent['id'], 'action': resolved['action'],
                 'before_sha256': digest(before), 'after_sha256': digest(after),
                 'qualified_experiment': resolved['qualified_experiment'], 'observed': resolved['observed'],
                 'baseline': score_summary(groups[0]), 'candidate': score_summary(groups[1]),
@@ -497,7 +571,24 @@ def audit(home):
                 'gain_kind': resolved.get('gain_kind'),
                 'minimum_correct_gain': resolved.get('minimum_correct_gain'),
                 'maximum_candidate_format_errors': resolved.get('maximum_candidate_format_errors'),
-                'policy': resolved.get('policy')})
+                'policy': resolved.get('policy')}
+            if resolved.get('qualification_basis'):
+                policy = keep_policy(resolved['policy'])
+                for group, score_key in ((groups[0], 'baseline'), (groups[1], 'candidate')):
+                    change_report[score_key]['qualification_scores'] = [
+                        {'run_id': run['id'], 'correct': metrics['correct'],
+                         'total': metrics['total'], 'format_errors': metrics['format_errors']}
+                        for run, _admission in group
+                        for metrics in [qualification_metrics(run, policy)]]
+                base_qualified = [qualification_metrics(pair[0], policy)['correct'] for pair in groups[0]]
+                candidate_qualified = [qualification_metrics(pair[0], policy)['correct'] for pair in groups[1]]
+                change_report.update(qualification_basis=resolved['qualification_basis'],
+                                     worst_case_qualification_correct_delta=(
+                                         min(candidate_qualified) - max(base_qualified)
+                                         if base_qualified and candidate_qualified else None),
+                                     full_suite_minimum_correct_gain=resolved.get(
+                                         'full_suite_minimum_correct_gain'))
+            report['changes'].append(change_report)
             previous, previous_sha = intent['id'], resulting
         _path, live, _config, _receipt = inputs(home)
         if (not entries and current['sequence'] == 0 and current['last_id'] is None):
