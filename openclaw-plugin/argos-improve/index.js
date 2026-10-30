@@ -141,8 +141,9 @@ function renderEvaluation(value) {
   const outcome = run.state === "completed"
     ? `${summary.correct}/${summary.total} passed`
     : `stopped after ${progress} (${run.failure_code ?? run.state}); this partial run cannot be compared`;
+  const partitionLabel = run.suite === "openclaw-tool-sequence" ? "held-out workflows" : "unseen-vocabulary";
   const partitions = summary.partitions
-    ? ` Practice: ${summary.partitions.practice?.correct ?? 0}/20; unseen-vocabulary: ${summary.partitions.heldout?.correct ?? 0}/20 (same bundled suite, not independent validation).`
+    ? ` Practice: ${summary.partitions.practice?.correct ?? 0}/20; ${partitionLabel}: ${summary.partitions.heldout?.correct ?? 0}/20 (same bundled suite, not independent validation).`
     : "";
   const next = run.state === "completed"
     ? "Next: append the saved run ID and score to IMPROVEMENT-LOG.md. Compare matched runs and repeat a candidate to confirm a gain. Change only one thing between experiments; do not change setup during a run."
@@ -183,7 +184,7 @@ async function waitForDirectEvaluation(job, signal, onUpdate) {
 function startDirectEvaluation(suite, signal, onUpdate) {
   if (signal?.aborted) throw new Error("Argos request was cancelled before dispatch; no command started.");
   const id = randomBytes(16).toString("hex");
-  const job = {id, suite, progress:{completed:0,total:suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" ? 40 : suite === "standard" ? 70 : 20}};
+  const job = {id, suite, progress:{completed:0,total:suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" || suite === "tool-sequence" ? 40 : suite === "standard" ? 70 : 20}};
   job.ownerCancellation = new AbortController();
   job.cancel = () => job.ownerCancellation.abort();
   job.completion = runArgos("openclaw", ["--suite", suite, "--json"], job.ownerCancellation.signal,
@@ -317,8 +318,8 @@ export default function register(api) {
     label: "Evaluate OpenClaw",
     description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
     parameters: Type.Object({
-      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema"), Type.Literal("tool-plan")],
-        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 direct schema-grounded calls), or tool-plan (40 multi-constraint calls; each tool suite has 20 bundled held-out-vocabulary items, not independent validation)." }))
+      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema"), Type.Literal("tool-plan"), Type.Literal("tool-sequence")],
+        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), or tool-sequence (40 ordered two- and three-call plans with explicit prior-result references). Tool suites include bundled held-out items; these are internal transfer checks, not independent validation or real tool execution." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const suite = params.suite ?? 'quick';

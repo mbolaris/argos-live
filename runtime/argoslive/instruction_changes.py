@@ -32,7 +32,7 @@ _POLICY_V1 = {'id': 'argos-practice-keep/1', 'repeats_each': 2,
 POLICY = {'id': 'argos-practice-keep/2', 'repeats_each': 2,
           'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4,
                                     'openclaw-challenge': 3, 'openclaw-tool-schema': 3,
-                                    'openclaw-tool-plan': 3},
+                                    'openclaw-tool-plan': 3, 'openclaw-tool-sequence': 3},
           # Challenge 1.0.0 asks for proposed tool calls without providing the
           # available tool inventory or schemas. Its tool-call score cannot
           # safely qualify an instruction change; the other four categories
@@ -374,7 +374,7 @@ def evidence(home, intent, directory, params, policy=None):
         candidate_errors = max(value['format_errors'] for value in candidate_metrics)
         heldout_validation = None
         transfer_preserved = True
-        if bases[0]['suite'] in ('openclaw-tool-schema', 'openclaw-tool-plan'):
+        if bases[0]['suite'] in ('openclaw-tool-schema', 'openclaw-tool-plan', 'openclaw-tool-sequence'):
             heldout_validation, transfer_preserved = tool_schema_transfer(bases, candidates)
         ratio = statistics.median(run['elapsed_seconds'] for run in candidates) / max(
             .000001, statistics.median(run['elapsed_seconds'] for run in bases))

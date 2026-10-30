@@ -46,7 +46,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     pair_checks:{same_suite_version:true,same_recipe:false,same_coverage:true}}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
-  const total = suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' ? 40 : suite === 'standard' ? 70 : 20;
+  const total = suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
   const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
   console.error(JSON.stringify({phase:'unrelated',completed:0,total}));
@@ -57,7 +57,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
   console.log(JSON.stringify({path:'/private/fixture-result.json', result:{
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-'+suite, suite_version:'argos-openclaw-ability/'+suite+'/fixture1', state:'completed',
     settings:{suite_sha256:'b'.repeat(64),execution_path:'openclaw embedded; ephemeral state; tools denied; v2'}, prompt_fingerprint:{workspace_agents_sha256:'c'.repeat(64)},
-    summary:{correct,total,...(['tool-schema','tool-plan'].includes(suite) ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
+    summary:{correct,total,...(['tool-schema','tool-plan','tool-sequence'].includes(suite) ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
     coverage:{completed:total,total,complete:true}, elapsed_seconds:12
   }}));
 } else {
@@ -110,7 +110,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'tool-schema', '--json']);
     assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite),
-      /20 bundled held-out-vocabulary items, not independent validation/);
+      /bundled held-out items; these are internal transfer checks, not independent validation/);
 
     const planRun = await tools.get('argos_evaluate').execute('plan-eval', {suite:'tool-plan'}, undefined,
       () => {});
@@ -119,6 +119,15 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.equal(planRun.details.coverage.total, 40);
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'tool-plan', '--json']);
+
+    const sequenceRun = await tools.get('argos_evaluate').execute('sequence-eval', {suite:'tool-sequence'}, undefined,
+      () => {});
+    assert.match(sequenceRun.content[0].text, /38\/40 passed/);
+    assert.match(sequenceRun.content[0].text, /held-out workflows: 20\/20 \(same bundled suite, not independent validation\)/);
+    assert.equal(sequenceRun.details.coverage.total, 40);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'tool-sequence', '--json']);
+    assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite), /tool-sequence/);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)

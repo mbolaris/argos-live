@@ -112,6 +112,7 @@ class RuntimePackageTests(unittest.TestCase):
                        'assert load("challenge", version="1.0.0")["version"] == "1.0.0"; '
                        'assert len(load("tool-plan")["items"]) == 40; '
                        'assert load("tool-plan", version="1.0.0")["version"] == "1.0.0"; '
+                       'assert len(load("tool-sequence")["items"]) == 40; '
                        'assert (DATA / "NOTICE.txt").is_file(); '
                        'from argoslive.doc_trial import load as docs; assert len(docs()["items"]) == 32; '
                        'assert (ASSETS / "index.html").is_file(); '

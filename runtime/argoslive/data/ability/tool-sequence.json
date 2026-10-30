@@ -1,0 +1,2582 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "tool-sequence",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "practice-01",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}}]}\nRequest: Verify backup weekly-01 and require a SHA-256 check. Find it first, then pass the returned backup_id to verification.\nReference bindings: step 2 argument backup_id = \"$step1.backup_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_backup",
+              "arguments": {
+                "label": "weekly-01"
+              }
+            },
+            {
+              "name": "verify_backup",
+              "arguments": {
+                "backup_id": "$step1.backup_id",
+                "verify_sha256": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_backup\", \"arguments\": {\"label\": \"weekly-01\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-01\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-02",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"check_manifest\",\"description\":\"Check a manifest and optionally include its lockfile.\",\"arguments\":{\"manifest_id\":\"string\",\"include_lockfile\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}}]}\nRequest: Check the lockfile for Atlas release 4.1. Find the release, inspect its manifest, then check the returned manifest. Include the lockfile only for odd request numbers (request 1).\nReference bindings: step 2 argument release_id = \"$step1.release_id\"; step 3 argument manifest_id = \"$step2.manifest_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_release",
+              "arguments": {
+                "product_name": "Atlas",
+                "release_version": "4.1"
+              }
+            },
+            {
+              "name": "inspect_release",
+              "arguments": {
+                "release_id": "$step1.release_id"
+              }
+            },
+            {
+              "name": "check_manifest",
+              "arguments": {
+                "manifest_id": "$step2.manifest_id",
+                "include_lockfile": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "check_manifest",
+            "description": "Check a manifest and optionally include its lockfile.",
+            "arguments": {
+              "manifest_id": "string",
+              "include_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_release\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.1\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.1\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-03",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_session\",\"description\":\"Read session events by session ID and optionally include tool events.\",\"arguments\":{\"session_id\":\"string\",\"include_tool_events\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"search_session\",\"description\":\"Find a session by user and state; returns session_id.\",\"arguments\":{\"user_key\":\"string\",\"state_label\":\"string\"}},{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}}]}\nRequest: Read active session events for user-01. Search by the user and active state first, then read the returned session. Include tool events only for even request numbers (request 1).\nReference bindings: step 2 argument session_id = \"$step1.session_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_session",
+              "arguments": {
+                "user_key": "user-01",
+                "state_label": "active"
+              }
+            },
+            {
+              "name": "read_session",
+              "arguments": {
+                "session_id": "$step1.session_id",
+                "include_tool_events": false
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "read_session",
+            "description": "Read session events by session ID and optionally include tool events.",
+            "arguments": {
+              "session_id": "string",
+              "include_tool_events": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "search_session",
+            "description": "Find a session by user and state; returns session_id.",
+            "arguments": {
+              "user_key": "string",
+              "state_label": "string"
+            }
+          },
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_session\", \"arguments\": {\"user_key\": \"user-01\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-01\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-04",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"extract_record\",\"description\":\"Extract named fields from a document; returns record_ref.\",\"arguments\":{\"document_id\":\"string\",\"fields_csv\":\"string\"}},{\"name\":\"validate_record\",\"description\":\"Validate an extracted record against a schema version.\",\"arguments\":{\"record_ref\":\"string\",\"schema_version\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"find_document\",\"description\":\"Find a document by exact title; returns document_id.\",\"arguments\":{\"document_title\":\"string\"}}]}\nRequest: For document change-01, extract commit and reviewer, then validate the extracted record with schema change-v2. Locate the document before extracting, and use the returned record reference for validation.\nReference bindings: step 2 argument document_id = \"$step1.document_id\"; step 3 argument record_ref = \"$step2.record_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_document",
+              "arguments": {
+                "document_title": "change-01"
+              }
+            },
+            {
+              "name": "extract_record",
+              "arguments": {
+                "document_id": "$step1.document_id",
+                "fields_csv": "commit,reviewer"
+              }
+            },
+            {
+              "name": "validate_record",
+              "arguments": {
+                "record_ref": "$step2.record_ref",
+                "schema_version": "change-v2"
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "extract_record",
+            "description": "Extract named fields from a document; returns record_ref.",
+            "arguments": {
+              "document_id": "string",
+              "fields_csv": "string"
+            }
+          },
+          {
+            "name": "validate_record",
+            "description": "Validate an extracted record against a schema version.",
+            "arguments": {
+              "record_ref": "string",
+              "schema_version": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "find_document",
+            "description": "Find a document by exact title; returns document_id.",
+            "arguments": {
+              "document_title": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_document\", \"arguments\": {\"document_title\": \"change-01\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-01\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-05",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}}]}\nRequest: Verify backup weekly-02 and require a SHA-256 check. Find it first, then pass the returned backup_id to verification.\nReference bindings: step 2 argument backup_id = \"$step1.backup_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_backup",
+              "arguments": {
+                "label": "weekly-02"
+              }
+            },
+            {
+              "name": "verify_backup",
+              "arguments": {
+                "backup_id": "$step1.backup_id",
+                "verify_sha256": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_backup\", \"arguments\": {\"label\": \"weekly-02\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-02\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-06",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}},{\"name\":\"check_manifest\",\"description\":\"Check a manifest and optionally include its lockfile.\",\"arguments\":{\"manifest_id\":\"string\",\"include_lockfile\":\"boolean\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}}]}\nRequest: Check the lockfile for Atlas release 4.2. Find the release, inspect its manifest, then check the returned manifest. Include the lockfile only for odd request numbers (request 2).\nReference bindings: step 2 argument release_id = \"$step1.release_id\"; step 3 argument manifest_id = \"$step2.manifest_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_release",
+              "arguments": {
+                "product_name": "Atlas",
+                "release_version": "4.2"
+              }
+            },
+            {
+              "name": "inspect_release",
+              "arguments": {
+                "release_id": "$step1.release_id"
+              }
+            },
+            {
+              "name": "check_manifest",
+              "arguments": {
+                "manifest_id": "$step2.manifest_id",
+                "include_lockfile": false
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          },
+          {
+            "name": "check_manifest",
+            "description": "Check a manifest and optionally include its lockfile.",
+            "arguments": {
+              "manifest_id": "string",
+              "include_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_release\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.2\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.2\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-07",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_session\",\"description\":\"Read session events by session ID and optionally include tool events.\",\"arguments\":{\"session_id\":\"string\",\"include_tool_events\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}},{\"name\":\"search_session\",\"description\":\"Find a session by user and state; returns session_id.\",\"arguments\":{\"user_key\":\"string\",\"state_label\":\"string\"}}]}\nRequest: Read active session events for user-02. Search by the user and active state first, then read the returned session. Include tool events only for even request numbers (request 2).\nReference bindings: step 2 argument session_id = \"$step1.session_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_session",
+              "arguments": {
+                "user_key": "user-02",
+                "state_label": "active"
+              }
+            },
+            {
+              "name": "read_session",
+              "arguments": {
+                "session_id": "$step1.session_id",
+                "include_tool_events": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "read_session",
+            "description": "Read session events by session ID and optionally include tool events.",
+            "arguments": {
+              "session_id": "string",
+              "include_tool_events": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          },
+          {
+            "name": "search_session",
+            "description": "Find a session by user and state; returns session_id.",
+            "arguments": {
+              "user_key": "string",
+              "state_label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_session\", \"arguments\": {\"user_key\": \"user-02\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-02\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-08",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"find_document\",\"description\":\"Find a document by exact title; returns document_id.\",\"arguments\":{\"document_title\":\"string\"}},{\"name\":\"extract_record\",\"description\":\"Extract named fields from a document; returns record_ref.\",\"arguments\":{\"document_id\":\"string\",\"fields_csv\":\"string\"}},{\"name\":\"validate_record\",\"description\":\"Validate an extracted record against a schema version.\",\"arguments\":{\"record_ref\":\"string\",\"schema_version\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}}]}\nRequest: For document change-02, extract commit and reviewer, then validate the extracted record with schema change-v2. Locate the document before extracting, and use the returned record reference for validation.\nReference bindings: step 2 argument document_id = \"$step1.document_id\"; step 3 argument record_ref = \"$step2.record_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_document",
+              "arguments": {
+                "document_title": "change-02"
+              }
+            },
+            {
+              "name": "extract_record",
+              "arguments": {
+                "document_id": "$step1.document_id",
+                "fields_csv": "commit,reviewer"
+              }
+            },
+            {
+              "name": "validate_record",
+              "arguments": {
+                "record_ref": "$step2.record_ref",
+                "schema_version": "change-v2"
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "find_document",
+            "description": "Find a document by exact title; returns document_id.",
+            "arguments": {
+              "document_title": "string"
+            }
+          },
+          {
+            "name": "extract_record",
+            "description": "Extract named fields from a document; returns record_ref.",
+            "arguments": {
+              "document_id": "string",
+              "fields_csv": "string"
+            }
+          },
+          {
+            "name": "validate_record",
+            "description": "Validate an extracted record against a schema version.",
+            "arguments": {
+              "record_ref": "string",
+              "schema_version": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_document\", \"arguments\": {\"document_title\": \"change-02\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-02\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-09",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}}]}\nRequest: Verify backup weekly-03 and require a SHA-256 check. Find it first, then pass the returned backup_id to verification.\nReference bindings: step 2 argument backup_id = \"$step1.backup_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_backup",
+              "arguments": {
+                "label": "weekly-03"
+              }
+            },
+            {
+              "name": "verify_backup",
+              "arguments": {
+                "backup_id": "$step1.backup_id",
+                "verify_sha256": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_backup\", \"arguments\": {\"label\": \"weekly-03\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-03\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-10",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}},{\"name\":\"check_manifest\",\"description\":\"Check a manifest and optionally include its lockfile.\",\"arguments\":{\"manifest_id\":\"string\",\"include_lockfile\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}}]}\nRequest: Check the lockfile for Atlas release 4.3. Find the release, inspect its manifest, then check the returned manifest. Include the lockfile only for odd request numbers (request 3).\nReference bindings: step 2 argument release_id = \"$step1.release_id\"; step 3 argument manifest_id = \"$step2.manifest_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_release",
+              "arguments": {
+                "product_name": "Atlas",
+                "release_version": "4.3"
+              }
+            },
+            {
+              "name": "inspect_release",
+              "arguments": {
+                "release_id": "$step1.release_id"
+              }
+            },
+            {
+              "name": "check_manifest",
+              "arguments": {
+                "manifest_id": "$step2.manifest_id",
+                "include_lockfile": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          },
+          {
+            "name": "check_manifest",
+            "description": "Check a manifest and optionally include its lockfile.",
+            "arguments": {
+              "manifest_id": "string",
+              "include_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_release\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.3\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.3\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-11",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"search_session\",\"description\":\"Find a session by user and state; returns session_id.\",\"arguments\":{\"user_key\":\"string\",\"state_label\":\"string\"}},{\"name\":\"read_session\",\"description\":\"Read session events by session ID and optionally include tool events.\",\"arguments\":{\"session_id\":\"string\",\"include_tool_events\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}}]}\nRequest: Read active session events for user-03. Search by the user and active state first, then read the returned session. Include tool events only for even request numbers (request 3).\nReference bindings: step 2 argument session_id = \"$step1.session_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_session",
+              "arguments": {
+                "user_key": "user-03",
+                "state_label": "active"
+              }
+            },
+            {
+              "name": "read_session",
+              "arguments": {
+                "session_id": "$step1.session_id",
+                "include_tool_events": false
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "search_session",
+            "description": "Find a session by user and state; returns session_id.",
+            "arguments": {
+              "user_key": "string",
+              "state_label": "string"
+            }
+          },
+          {
+            "name": "read_session",
+            "description": "Read session events by session ID and optionally include tool events.",
+            "arguments": {
+              "session_id": "string",
+              "include_tool_events": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_session\", \"arguments\": {\"user_key\": \"user-03\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-03\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-12",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"extract_record\",\"description\":\"Extract named fields from a document; returns record_ref.\",\"arguments\":{\"document_id\":\"string\",\"fields_csv\":\"string\"}},{\"name\":\"find_document\",\"description\":\"Find a document by exact title; returns document_id.\",\"arguments\":{\"document_title\":\"string\"}},{\"name\":\"validate_record\",\"description\":\"Validate an extracted record against a schema version.\",\"arguments\":{\"record_ref\":\"string\",\"schema_version\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}}]}\nRequest: For document change-03, extract commit and reviewer, then validate the extracted record with schema change-v2. Locate the document before extracting, and use the returned record reference for validation.\nReference bindings: step 2 argument document_id = \"$step1.document_id\"; step 3 argument record_ref = \"$step2.record_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_document",
+              "arguments": {
+                "document_title": "change-03"
+              }
+            },
+            {
+              "name": "extract_record",
+              "arguments": {
+                "document_id": "$step1.document_id",
+                "fields_csv": "commit,reviewer"
+              }
+            },
+            {
+              "name": "validate_record",
+              "arguments": {
+                "record_ref": "$step2.record_ref",
+                "schema_version": "change-v2"
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "extract_record",
+            "description": "Extract named fields from a document; returns record_ref.",
+            "arguments": {
+              "document_id": "string",
+              "fields_csv": "string"
+            }
+          },
+          {
+            "name": "find_document",
+            "description": "Find a document by exact title; returns document_id.",
+            "arguments": {
+              "document_title": "string"
+            }
+          },
+          {
+            "name": "validate_record",
+            "description": "Validate an extracted record against a schema version.",
+            "arguments": {
+              "record_ref": "string",
+              "schema_version": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_document\", \"arguments\": {\"document_title\": \"change-03\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-03\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-13",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}}]}\nRequest: Verify backup weekly-04 and require a SHA-256 check. Find it first, then pass the returned backup_id to verification.\nReference bindings: step 2 argument backup_id = \"$step1.backup_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_backup",
+              "arguments": {
+                "label": "weekly-04"
+              }
+            },
+            {
+              "name": "verify_backup",
+              "arguments": {
+                "backup_id": "$step1.backup_id",
+                "verify_sha256": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_backup\", \"arguments\": {\"label\": \"weekly-04\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-04\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-14",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}},{\"name\":\"check_manifest\",\"description\":\"Check a manifest and optionally include its lockfile.\",\"arguments\":{\"manifest_id\":\"string\",\"include_lockfile\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}}]}\nRequest: Check the lockfile for Atlas release 4.4. Find the release, inspect its manifest, then check the returned manifest. Include the lockfile only for odd request numbers (request 4).\nReference bindings: step 2 argument release_id = \"$step1.release_id\"; step 3 argument manifest_id = \"$step2.manifest_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_release",
+              "arguments": {
+                "product_name": "Atlas",
+                "release_version": "4.4"
+              }
+            },
+            {
+              "name": "inspect_release",
+              "arguments": {
+                "release_id": "$step1.release_id"
+              }
+            },
+            {
+              "name": "check_manifest",
+              "arguments": {
+                "manifest_id": "$step2.manifest_id",
+                "include_lockfile": false
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          },
+          {
+            "name": "check_manifest",
+            "description": "Check a manifest and optionally include its lockfile.",
+            "arguments": {
+              "manifest_id": "string",
+              "include_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_release\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.4\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.4\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-15",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_session\",\"description\":\"Read session events by session ID and optionally include tool events.\",\"arguments\":{\"session_id\":\"string\",\"include_tool_events\":\"boolean\"}},{\"name\":\"search_session\",\"description\":\"Find a session by user and state; returns session_id.\",\"arguments\":{\"user_key\":\"string\",\"state_label\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}}]}\nRequest: Read active session events for user-04. Search by the user and active state first, then read the returned session. Include tool events only for even request numbers (request 4).\nReference bindings: step 2 argument session_id = \"$step1.session_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_session",
+              "arguments": {
+                "user_key": "user-04",
+                "state_label": "active"
+              }
+            },
+            {
+              "name": "read_session",
+              "arguments": {
+                "session_id": "$step1.session_id",
+                "include_tool_events": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "read_session",
+            "description": "Read session events by session ID and optionally include tool events.",
+            "arguments": {
+              "session_id": "string",
+              "include_tool_events": "boolean"
+            }
+          },
+          {
+            "name": "search_session",
+            "description": "Find a session by user and state; returns session_id.",
+            "arguments": {
+              "user_key": "string",
+              "state_label": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_session\", \"arguments\": {\"user_key\": \"user-04\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-04\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-16",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"extract_record\",\"description\":\"Extract named fields from a document; returns record_ref.\",\"arguments\":{\"document_id\":\"string\",\"fields_csv\":\"string\"}},{\"name\":\"validate_record\",\"description\":\"Validate an extracted record against a schema version.\",\"arguments\":{\"record_ref\":\"string\",\"schema_version\":\"string\"}},{\"name\":\"find_document\",\"description\":\"Find a document by exact title; returns document_id.\",\"arguments\":{\"document_title\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}}]}\nRequest: For document change-04, extract commit and reviewer, then validate the extracted record with schema change-v2. Locate the document before extracting, and use the returned record reference for validation.\nReference bindings: step 2 argument document_id = \"$step1.document_id\"; step 3 argument record_ref = \"$step2.record_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_document",
+              "arguments": {
+                "document_title": "change-04"
+              }
+            },
+            {
+              "name": "extract_record",
+              "arguments": {
+                "document_id": "$step1.document_id",
+                "fields_csv": "commit,reviewer"
+              }
+            },
+            {
+              "name": "validate_record",
+              "arguments": {
+                "record_ref": "$step2.record_ref",
+                "schema_version": "change-v2"
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "extract_record",
+            "description": "Extract named fields from a document; returns record_ref.",
+            "arguments": {
+              "document_id": "string",
+              "fields_csv": "string"
+            }
+          },
+          {
+            "name": "validate_record",
+            "description": "Validate an extracted record against a schema version.",
+            "arguments": {
+              "record_ref": "string",
+              "schema_version": "string"
+            }
+          },
+          {
+            "name": "find_document",
+            "description": "Find a document by exact title; returns document_id.",
+            "arguments": {
+              "document_title": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_document\", \"arguments\": {\"document_title\": \"change-04\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-04\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-17",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}}]}\nRequest: Verify backup weekly-05 and require a SHA-256 check. Find it first, then pass the returned backup_id to verification.\nReference bindings: step 2 argument backup_id = \"$step1.backup_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_backup",
+              "arguments": {
+                "label": "weekly-05"
+              }
+            },
+            {
+              "name": "verify_backup",
+              "arguments": {
+                "backup_id": "$step1.backup_id",
+                "verify_sha256": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_backup\", \"arguments\": {\"label\": \"weekly-05\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-05\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-18",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"inspect_release\",\"description\":\"Read a release manifest by release ID; returns manifest_id.\",\"arguments\":{\"release_id\":\"string\"}},{\"name\":\"search_release\",\"description\":\"Find a release by product and version; returns release_id.\",\"arguments\":{\"product_name\":\"string\",\"release_version\":\"string\"}},{\"name\":\"check_manifest\",\"description\":\"Check a manifest and optionally include its lockfile.\",\"arguments\":{\"manifest_id\":\"string\",\"include_lockfile\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}}]}\nRequest: Check the lockfile for Atlas release 4.5. Find the release, inspect its manifest, then check the returned manifest. Include the lockfile only for odd request numbers (request 5).\nReference bindings: step 2 argument release_id = \"$step1.release_id\"; step 3 argument manifest_id = \"$step2.manifest_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_release",
+              "arguments": {
+                "product_name": "Atlas",
+                "release_version": "4.5"
+              }
+            },
+            {
+              "name": "inspect_release",
+              "arguments": {
+                "release_id": "$step1.release_id"
+              }
+            },
+            {
+              "name": "check_manifest",
+              "arguments": {
+                "manifest_id": "$step2.manifest_id",
+                "include_lockfile": true
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "inspect_release",
+            "description": "Read a release manifest by release ID; returns manifest_id.",
+            "arguments": {
+              "release_id": "string"
+            }
+          },
+          {
+            "name": "search_release",
+            "description": "Find a release by product and version; returns release_id.",
+            "arguments": {
+              "product_name": "string",
+              "release_version": "string"
+            }
+          },
+          {
+            "name": "check_manifest",
+            "description": "Check a manifest and optionally include its lockfile.",
+            "arguments": {
+              "manifest_id": "string",
+              "include_lockfile": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_release\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.5\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.5\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-19",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_session\",\"description\":\"Read session events by session ID and optionally include tool events.\",\"arguments\":{\"session_id\":\"string\",\"include_tool_events\":\"boolean\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"search_session\",\"description\":\"Find a session by user and state; returns session_id.\",\"arguments\":{\"user_key\":\"string\",\"state_label\":\"string\"}},{\"name\":\"verify_backup\",\"description\":\"Verify a backup by ID and optionally check its SHA-256.\",\"arguments\":{\"backup_id\":\"string\",\"verify_sha256\":\"boolean\"}}]}\nRequest: Read active session events for user-05. Search by the user and active state first, then read the returned session. Include tool events only for even request numbers (request 5).\nReference bindings: step 2 argument session_id = \"$step1.session_id\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_session",
+              "arguments": {
+                "user_key": "user-05",
+                "state_label": "active"
+              }
+            },
+            {
+              "name": "read_session",
+              "arguments": {
+                "session_id": "$step1.session_id",
+                "include_tool_events": false
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "read_session",
+            "description": "Read session events by session ID and optionally include tool events.",
+            "arguments": {
+              "session_id": "string",
+              "include_tool_events": "boolean"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "search_session",
+            "description": "Find a session by user and state; returns session_id.",
+            "arguments": {
+              "user_key": "string",
+              "state_label": "string"
+            }
+          },
+          {
+            "name": "verify_backup",
+            "description": "Verify a backup by ID and optionally check its SHA-256.",
+            "arguments": {
+              "backup_id": "string",
+              "verify_sha256": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_session\", \"arguments\": {\"user_key\": \"user-05\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-05\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "practice-20",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"extract_record\",\"description\":\"Extract named fields from a document; returns record_ref.\",\"arguments\":{\"document_id\":\"string\",\"fields_csv\":\"string\"}},{\"name\":\"validate_record\",\"description\":\"Validate an extracted record against a schema version.\",\"arguments\":{\"record_ref\":\"string\",\"schema_version\":\"string\"}},{\"name\":\"find_backup\",\"description\":\"Find a backup by label; returns backup_id.\",\"arguments\":{\"label\":\"string\"}},{\"name\":\"find_document\",\"description\":\"Find a document by exact title; returns document_id.\",\"arguments\":{\"document_title\":\"string\"}}]}\nRequest: For document change-05, extract commit and reviewer, then validate the extracted record with schema change-v2. Locate the document before extracting, and use the returned record reference for validation.\nReference bindings: step 2 argument document_id = \"$step1.document_id\"; step 3 argument record_ref = \"$step2.record_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_document",
+              "arguments": {
+                "document_title": "change-05"
+              }
+            },
+            {
+              "name": "extract_record",
+              "arguments": {
+                "document_id": "$step1.document_id",
+                "fields_csv": "commit,reviewer"
+              }
+            },
+            {
+              "name": "validate_record",
+              "arguments": {
+                "record_ref": "$step2.record_ref",
+                "schema_version": "change-v2"
+              }
+            }
+          ]
+        },
+        "partition": "practice",
+        "available_tools": [
+          {
+            "name": "extract_record",
+            "description": "Extract named fields from a document; returns record_ref.",
+            "arguments": {
+              "document_id": "string",
+              "fields_csv": "string"
+            }
+          },
+          {
+            "name": "validate_record",
+            "description": "Validate an extracted record against a schema version.",
+            "arguments": {
+              "record_ref": "string",
+              "schema_version": "string"
+            }
+          },
+          {
+            "name": "find_backup",
+            "description": "Find a backup by label; returns backup_id.",
+            "arguments": {
+              "label": "string"
+            }
+          },
+          {
+            "name": "find_document",
+            "description": "Find a document by exact title; returns document_id.",
+            "arguments": {
+              "document_title": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_document\", \"arguments\": {\"document_title\": \"change-05\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-05\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-21",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}}]}\nRequest: Verify receipt RCPT-001 and check its signature. Locate it first, then use the returned receipt key.\nReference bindings: step 2 argument receipt_key = \"$step1.receipt_key\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "locate_receipt",
+              "arguments": {
+                "reference_code": "RCPT-001"
+              }
+            },
+            {
+              "name": "verify_receipt",
+              "arguments": {
+                "receipt_key": "$step1.receipt_key",
+                "check_signature": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"locate_receipt\", \"arguments\": {\"reference_code\": \"RCPT-001\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-001\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-22",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"compare_snapshots\",\"description\":\"Compare an asset with a snapshot and optionally include metadata.\",\"arguments\":{\"asset_ref\":\"string\",\"snapshot_ref\":\"string\",\"include_metadata\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}}]}\nRequest: Compare current revision of asset ASSET-001 to its inspected snapshot. Look up the asset, inspect its current revision, then compare using the returned references. Include metadata only for odd request numbers (request 1).\nReference bindings: step 2 argument asset_ref = \"$step1.asset_ref\"; step 3 argument asset_ref = \"$step1.asset_ref\"; step 3 argument snapshot_ref = \"$step2.snapshot_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "lookup_asset",
+              "arguments": {
+                "asset_tag": "ASSET-001"
+              }
+            },
+            {
+              "name": "inspect_revision",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "revision_label": "current"
+              }
+            },
+            {
+              "name": "compare_snapshots",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "snapshot_ref": "$step2.snapshot_ref",
+                "include_metadata": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "compare_snapshots",
+            "description": "Compare an asset with a snapshot and optionally include metadata.",
+            "arguments": {
+              "asset_ref": "string",
+              "snapshot_ref": "string",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"lookup_asset\", \"arguments\": {\"asset_tag\": \"ASSET-001\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-001\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-23",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_case_history\",\"description\":\"Read a case history by reference and optionally include notes.\",\"arguments\":{\"case_ref\":\"string\",\"include_notes\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"search_case\",\"description\":\"Find a case by queue and state; returns case_ref.\",\"arguments\":{\"queue_code\":\"string\",\"state_code\":\"string\"}},{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}}]}\nRequest: Read the open case history for queue Q-001. Search by queue and open state first, then read the returned case. Include notes only for even request numbers (request 1).\nReference bindings: step 2 argument case_ref = \"$step1.case_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_case",
+              "arguments": {
+                "queue_code": "Q-001",
+                "state_code": "open"
+              }
+            },
+            {
+              "name": "read_case_history",
+              "arguments": {
+                "case_ref": "$step1.case_ref",
+                "include_notes": false
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "read_case_history",
+            "description": "Read a case history by reference and optionally include notes.",
+            "arguments": {
+              "case_ref": "string",
+              "include_notes": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "search_case",
+            "description": "Find a case by queue and state; returns case_ref.",
+            "arguments": {
+              "queue_code": "string",
+              "state_code": "string"
+            }
+          },
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_case\", \"arguments\": {\"queue_code\": \"Q-001\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-001\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-24",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_manifest\",\"description\":\"Read a package manifest by reference; returns manifest_ref.\",\"arguments\":{\"package_ref\":\"string\"}},{\"name\":\"check_dependencies\",\"description\":\"Check dependencies declared by a manifest.\",\"arguments\":{\"manifest_ref\":\"string\",\"include_development\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"find_package\",\"description\":\"Find a package by name and channel; returns package_ref.\",\"arguments\":{\"package_name\":\"string\",\"release_channel\":\"string\"}}]}\nRequest: Check development dependencies for stable package-001. Find the package, read its manifest, then check that manifest. Include development dependencies only for even request numbers (request 1).\nReference bindings: step 2 argument package_ref = \"$step1.package_ref\"; step 3 argument manifest_ref = \"$step2.manifest_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_package",
+              "arguments": {
+                "package_name": "package-001",
+                "release_channel": "stable"
+              }
+            },
+            {
+              "name": "read_manifest",
+              "arguments": {
+                "package_ref": "$step1.package_ref"
+              }
+            },
+            {
+              "name": "check_dependencies",
+              "arguments": {
+                "manifest_ref": "$step2.manifest_ref",
+                "include_development": false
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "read_manifest",
+            "description": "Read a package manifest by reference; returns manifest_ref.",
+            "arguments": {
+              "package_ref": "string"
+            }
+          },
+          {
+            "name": "check_dependencies",
+            "description": "Check dependencies declared by a manifest.",
+            "arguments": {
+              "manifest_ref": "string",
+              "include_development": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "find_package",
+            "description": "Find a package by name and channel; returns package_ref.",
+            "arguments": {
+              "package_name": "string",
+              "release_channel": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_package\", \"arguments\": {\"package_name\": \"package-001\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-001\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-25",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}}]}\nRequest: Verify receipt RCPT-002 and check its signature. Locate it first, then use the returned receipt key.\nReference bindings: step 2 argument receipt_key = \"$step1.receipt_key\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "locate_receipt",
+              "arguments": {
+                "reference_code": "RCPT-002"
+              }
+            },
+            {
+              "name": "verify_receipt",
+              "arguments": {
+                "receipt_key": "$step1.receipt_key",
+                "check_signature": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"locate_receipt\", \"arguments\": {\"reference_code\": \"RCPT-002\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-002\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-26",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}},{\"name\":\"compare_snapshots\",\"description\":\"Compare an asset with a snapshot and optionally include metadata.\",\"arguments\":{\"asset_ref\":\"string\",\"snapshot_ref\":\"string\",\"include_metadata\":\"boolean\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}}]}\nRequest: Compare current revision of asset ASSET-002 to its inspected snapshot. Look up the asset, inspect its current revision, then compare using the returned references. Include metadata only for odd request numbers (request 2).\nReference bindings: step 2 argument asset_ref = \"$step1.asset_ref\"; step 3 argument asset_ref = \"$step1.asset_ref\"; step 3 argument snapshot_ref = \"$step2.snapshot_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "lookup_asset",
+              "arguments": {
+                "asset_tag": "ASSET-002"
+              }
+            },
+            {
+              "name": "inspect_revision",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "revision_label": "current"
+              }
+            },
+            {
+              "name": "compare_snapshots",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "snapshot_ref": "$step2.snapshot_ref",
+                "include_metadata": false
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          },
+          {
+            "name": "compare_snapshots",
+            "description": "Compare an asset with a snapshot and optionally include metadata.",
+            "arguments": {
+              "asset_ref": "string",
+              "snapshot_ref": "string",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"lookup_asset\", \"arguments\": {\"asset_tag\": \"ASSET-002\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-002\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-27",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_case_history\",\"description\":\"Read a case history by reference and optionally include notes.\",\"arguments\":{\"case_ref\":\"string\",\"include_notes\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}},{\"name\":\"search_case\",\"description\":\"Find a case by queue and state; returns case_ref.\",\"arguments\":{\"queue_code\":\"string\",\"state_code\":\"string\"}}]}\nRequest: Read the open case history for queue Q-002. Search by queue and open state first, then read the returned case. Include notes only for even request numbers (request 2).\nReference bindings: step 2 argument case_ref = \"$step1.case_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_case",
+              "arguments": {
+                "queue_code": "Q-002",
+                "state_code": "open"
+              }
+            },
+            {
+              "name": "read_case_history",
+              "arguments": {
+                "case_ref": "$step1.case_ref",
+                "include_notes": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "read_case_history",
+            "description": "Read a case history by reference and optionally include notes.",
+            "arguments": {
+              "case_ref": "string",
+              "include_notes": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          },
+          {
+            "name": "search_case",
+            "description": "Find a case by queue and state; returns case_ref.",
+            "arguments": {
+              "queue_code": "string",
+              "state_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_case\", \"arguments\": {\"queue_code\": \"Q-002\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-002\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-28",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"find_package\",\"description\":\"Find a package by name and channel; returns package_ref.\",\"arguments\":{\"package_name\":\"string\",\"release_channel\":\"string\"}},{\"name\":\"read_manifest\",\"description\":\"Read a package manifest by reference; returns manifest_ref.\",\"arguments\":{\"package_ref\":\"string\"}},{\"name\":\"check_dependencies\",\"description\":\"Check dependencies declared by a manifest.\",\"arguments\":{\"manifest_ref\":\"string\",\"include_development\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}}]}\nRequest: Check development dependencies for stable package-002. Find the package, read its manifest, then check that manifest. Include development dependencies only for even request numbers (request 2).\nReference bindings: step 2 argument package_ref = \"$step1.package_ref\"; step 3 argument manifest_ref = \"$step2.manifest_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_package",
+              "arguments": {
+                "package_name": "package-002",
+                "release_channel": "stable"
+              }
+            },
+            {
+              "name": "read_manifest",
+              "arguments": {
+                "package_ref": "$step1.package_ref"
+              }
+            },
+            {
+              "name": "check_dependencies",
+              "arguments": {
+                "manifest_ref": "$step2.manifest_ref",
+                "include_development": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "find_package",
+            "description": "Find a package by name and channel; returns package_ref.",
+            "arguments": {
+              "package_name": "string",
+              "release_channel": "string"
+            }
+          },
+          {
+            "name": "read_manifest",
+            "description": "Read a package manifest by reference; returns manifest_ref.",
+            "arguments": {
+              "package_ref": "string"
+            }
+          },
+          {
+            "name": "check_dependencies",
+            "description": "Check dependencies declared by a manifest.",
+            "arguments": {
+              "manifest_ref": "string",
+              "include_development": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_package\", \"arguments\": {\"package_name\": \"package-002\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-002\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-29",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}}]}\nRequest: Verify receipt RCPT-003 and check its signature. Locate it first, then use the returned receipt key.\nReference bindings: step 2 argument receipt_key = \"$step1.receipt_key\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "locate_receipt",
+              "arguments": {
+                "reference_code": "RCPT-003"
+              }
+            },
+            {
+              "name": "verify_receipt",
+              "arguments": {
+                "receipt_key": "$step1.receipt_key",
+                "check_signature": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"locate_receipt\", \"arguments\": {\"reference_code\": \"RCPT-003\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-003\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-30",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}},{\"name\":\"compare_snapshots\",\"description\":\"Compare an asset with a snapshot and optionally include metadata.\",\"arguments\":{\"asset_ref\":\"string\",\"snapshot_ref\":\"string\",\"include_metadata\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}}]}\nRequest: Compare current revision of asset ASSET-003 to its inspected snapshot. Look up the asset, inspect its current revision, then compare using the returned references. Include metadata only for odd request numbers (request 3).\nReference bindings: step 2 argument asset_ref = \"$step1.asset_ref\"; step 3 argument asset_ref = \"$step1.asset_ref\"; step 3 argument snapshot_ref = \"$step2.snapshot_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "lookup_asset",
+              "arguments": {
+                "asset_tag": "ASSET-003"
+              }
+            },
+            {
+              "name": "inspect_revision",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "revision_label": "current"
+              }
+            },
+            {
+              "name": "compare_snapshots",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "snapshot_ref": "$step2.snapshot_ref",
+                "include_metadata": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          },
+          {
+            "name": "compare_snapshots",
+            "description": "Compare an asset with a snapshot and optionally include metadata.",
+            "arguments": {
+              "asset_ref": "string",
+              "snapshot_ref": "string",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"lookup_asset\", \"arguments\": {\"asset_tag\": \"ASSET-003\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-003\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-31",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"search_case\",\"description\":\"Find a case by queue and state; returns case_ref.\",\"arguments\":{\"queue_code\":\"string\",\"state_code\":\"string\"}},{\"name\":\"read_case_history\",\"description\":\"Read a case history by reference and optionally include notes.\",\"arguments\":{\"case_ref\":\"string\",\"include_notes\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}}]}\nRequest: Read the open case history for queue Q-003. Search by queue and open state first, then read the returned case. Include notes only for even request numbers (request 3).\nReference bindings: step 2 argument case_ref = \"$step1.case_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_case",
+              "arguments": {
+                "queue_code": "Q-003",
+                "state_code": "open"
+              }
+            },
+            {
+              "name": "read_case_history",
+              "arguments": {
+                "case_ref": "$step1.case_ref",
+                "include_notes": false
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "search_case",
+            "description": "Find a case by queue and state; returns case_ref.",
+            "arguments": {
+              "queue_code": "string",
+              "state_code": "string"
+            }
+          },
+          {
+            "name": "read_case_history",
+            "description": "Read a case history by reference and optionally include notes.",
+            "arguments": {
+              "case_ref": "string",
+              "include_notes": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_case\", \"arguments\": {\"queue_code\": \"Q-003\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-003\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-32",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_manifest\",\"description\":\"Read a package manifest by reference; returns manifest_ref.\",\"arguments\":{\"package_ref\":\"string\"}},{\"name\":\"find_package\",\"description\":\"Find a package by name and channel; returns package_ref.\",\"arguments\":{\"package_name\":\"string\",\"release_channel\":\"string\"}},{\"name\":\"check_dependencies\",\"description\":\"Check dependencies declared by a manifest.\",\"arguments\":{\"manifest_ref\":\"string\",\"include_development\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}}]}\nRequest: Check development dependencies for stable package-003. Find the package, read its manifest, then check that manifest. Include development dependencies only for even request numbers (request 3).\nReference bindings: step 2 argument package_ref = \"$step1.package_ref\"; step 3 argument manifest_ref = \"$step2.manifest_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_package",
+              "arguments": {
+                "package_name": "package-003",
+                "release_channel": "stable"
+              }
+            },
+            {
+              "name": "read_manifest",
+              "arguments": {
+                "package_ref": "$step1.package_ref"
+              }
+            },
+            {
+              "name": "check_dependencies",
+              "arguments": {
+                "manifest_ref": "$step2.manifest_ref",
+                "include_development": false
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "read_manifest",
+            "description": "Read a package manifest by reference; returns manifest_ref.",
+            "arguments": {
+              "package_ref": "string"
+            }
+          },
+          {
+            "name": "find_package",
+            "description": "Find a package by name and channel; returns package_ref.",
+            "arguments": {
+              "package_name": "string",
+              "release_channel": "string"
+            }
+          },
+          {
+            "name": "check_dependencies",
+            "description": "Check dependencies declared by a manifest.",
+            "arguments": {
+              "manifest_ref": "string",
+              "include_development": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_package\", \"arguments\": {\"package_name\": \"package-003\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-003\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-33",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}}]}\nRequest: Verify receipt RCPT-004 and check its signature. Locate it first, then use the returned receipt key.\nReference bindings: step 2 argument receipt_key = \"$step1.receipt_key\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "locate_receipt",
+              "arguments": {
+                "reference_code": "RCPT-004"
+              }
+            },
+            {
+              "name": "verify_receipt",
+              "arguments": {
+                "receipt_key": "$step1.receipt_key",
+                "check_signature": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"locate_receipt\", \"arguments\": {\"reference_code\": \"RCPT-004\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-004\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-34",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}},{\"name\":\"compare_snapshots\",\"description\":\"Compare an asset with a snapshot and optionally include metadata.\",\"arguments\":{\"asset_ref\":\"string\",\"snapshot_ref\":\"string\",\"include_metadata\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}}]}\nRequest: Compare current revision of asset ASSET-004 to its inspected snapshot. Look up the asset, inspect its current revision, then compare using the returned references. Include metadata only for odd request numbers (request 4).\nReference bindings: step 2 argument asset_ref = \"$step1.asset_ref\"; step 3 argument asset_ref = \"$step1.asset_ref\"; step 3 argument snapshot_ref = \"$step2.snapshot_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "lookup_asset",
+              "arguments": {
+                "asset_tag": "ASSET-004"
+              }
+            },
+            {
+              "name": "inspect_revision",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "revision_label": "current"
+              }
+            },
+            {
+              "name": "compare_snapshots",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "snapshot_ref": "$step2.snapshot_ref",
+                "include_metadata": false
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          },
+          {
+            "name": "compare_snapshots",
+            "description": "Compare an asset with a snapshot and optionally include metadata.",
+            "arguments": {
+              "asset_ref": "string",
+              "snapshot_ref": "string",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"lookup_asset\", \"arguments\": {\"asset_tag\": \"ASSET-004\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-004\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-35",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_case_history\",\"description\":\"Read a case history by reference and optionally include notes.\",\"arguments\":{\"case_ref\":\"string\",\"include_notes\":\"boolean\"}},{\"name\":\"search_case\",\"description\":\"Find a case by queue and state; returns case_ref.\",\"arguments\":{\"queue_code\":\"string\",\"state_code\":\"string\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}}]}\nRequest: Read the open case history for queue Q-004. Search by queue and open state first, then read the returned case. Include notes only for even request numbers (request 4).\nReference bindings: step 2 argument case_ref = \"$step1.case_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_case",
+              "arguments": {
+                "queue_code": "Q-004",
+                "state_code": "open"
+              }
+            },
+            {
+              "name": "read_case_history",
+              "arguments": {
+                "case_ref": "$step1.case_ref",
+                "include_notes": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "read_case_history",
+            "description": "Read a case history by reference and optionally include notes.",
+            "arguments": {
+              "case_ref": "string",
+              "include_notes": "boolean"
+            }
+          },
+          {
+            "name": "search_case",
+            "description": "Find a case by queue and state; returns case_ref.",
+            "arguments": {
+              "queue_code": "string",
+              "state_code": "string"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_case\", \"arguments\": {\"queue_code\": \"Q-004\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-004\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-36",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_manifest\",\"description\":\"Read a package manifest by reference; returns manifest_ref.\",\"arguments\":{\"package_ref\":\"string\"}},{\"name\":\"check_dependencies\",\"description\":\"Check dependencies declared by a manifest.\",\"arguments\":{\"manifest_ref\":\"string\",\"include_development\":\"boolean\"}},{\"name\":\"find_package\",\"description\":\"Find a package by name and channel; returns package_ref.\",\"arguments\":{\"package_name\":\"string\",\"release_channel\":\"string\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}}]}\nRequest: Check development dependencies for stable package-004. Find the package, read its manifest, then check that manifest. Include development dependencies only for even request numbers (request 4).\nReference bindings: step 2 argument package_ref = \"$step1.package_ref\"; step 3 argument manifest_ref = \"$step2.manifest_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_package",
+              "arguments": {
+                "package_name": "package-004",
+                "release_channel": "stable"
+              }
+            },
+            {
+              "name": "read_manifest",
+              "arguments": {
+                "package_ref": "$step1.package_ref"
+              }
+            },
+            {
+              "name": "check_dependencies",
+              "arguments": {
+                "manifest_ref": "$step2.manifest_ref",
+                "include_development": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "read_manifest",
+            "description": "Read a package manifest by reference; returns manifest_ref.",
+            "arguments": {
+              "package_ref": "string"
+            }
+          },
+          {
+            "name": "check_dependencies",
+            "description": "Check dependencies declared by a manifest.",
+            "arguments": {
+              "manifest_ref": "string",
+              "include_development": "boolean"
+            }
+          },
+          {
+            "name": "find_package",
+            "description": "Find a package by name and channel; returns package_ref.",
+            "arguments": {
+              "package_name": "string",
+              "release_channel": "string"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_package\", \"arguments\": {\"package_name\": \"package-004\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-004\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-37",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}}]}\nRequest: Verify receipt RCPT-005 and check its signature. Locate it first, then use the returned receipt key.\nReference bindings: step 2 argument receipt_key = \"$step1.receipt_key\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "locate_receipt",
+              "arguments": {
+                "reference_code": "RCPT-005"
+              }
+            },
+            {
+              "name": "verify_receipt",
+              "arguments": {
+                "receipt_key": "$step1.receipt_key",
+                "check_signature": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"locate_receipt\", \"arguments\": {\"reference_code\": \"RCPT-005\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-005\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-38",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"inspect_revision\",\"description\":\"Inspect one asset revision; returns snapshot_ref.\",\"arguments\":{\"asset_ref\":\"string\",\"revision_label\":\"string\"}},{\"name\":\"lookup_asset\",\"description\":\"Find an asset by tag; returns asset_ref.\",\"arguments\":{\"asset_tag\":\"string\"}},{\"name\":\"compare_snapshots\",\"description\":\"Compare an asset with a snapshot and optionally include metadata.\",\"arguments\":{\"asset_ref\":\"string\",\"snapshot_ref\":\"string\",\"include_metadata\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}}]}\nRequest: Compare current revision of asset ASSET-005 to its inspected snapshot. Look up the asset, inspect its current revision, then compare using the returned references. Include metadata only for odd request numbers (request 5).\nReference bindings: step 2 argument asset_ref = \"$step1.asset_ref\"; step 3 argument asset_ref = \"$step1.asset_ref\"; step 3 argument snapshot_ref = \"$step2.snapshot_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "lookup_asset",
+              "arguments": {
+                "asset_tag": "ASSET-005"
+              }
+            },
+            {
+              "name": "inspect_revision",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "revision_label": "current"
+              }
+            },
+            {
+              "name": "compare_snapshots",
+              "arguments": {
+                "asset_ref": "$step1.asset_ref",
+                "snapshot_ref": "$step2.snapshot_ref",
+                "include_metadata": true
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "inspect_revision",
+            "description": "Inspect one asset revision; returns snapshot_ref.",
+            "arguments": {
+              "asset_ref": "string",
+              "revision_label": "string"
+            }
+          },
+          {
+            "name": "lookup_asset",
+            "description": "Find an asset by tag; returns asset_ref.",
+            "arguments": {
+              "asset_tag": "string"
+            }
+          },
+          {
+            "name": "compare_snapshots",
+            "description": "Compare an asset with a snapshot and optionally include metadata.",
+            "arguments": {
+              "asset_ref": "string",
+              "snapshot_ref": "string",
+              "include_metadata": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"lookup_asset\", \"arguments\": {\"asset_tag\": \"ASSET-005\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-005\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-39",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_case_history\",\"description\":\"Read a case history by reference and optionally include notes.\",\"arguments\":{\"case_ref\":\"string\",\"include_notes\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"search_case\",\"description\":\"Find a case by queue and state; returns case_ref.\",\"arguments\":{\"queue_code\":\"string\",\"state_code\":\"string\"}},{\"name\":\"verify_receipt\",\"description\":\"Verify a receipt by key and optionally check its signature.\",\"arguments\":{\"receipt_key\":\"string\",\"check_signature\":\"boolean\"}}]}\nRequest: Read the open case history for queue Q-005. Search by queue and open state first, then read the returned case. Include notes only for even request numbers (request 5).\nReference bindings: step 2 argument case_ref = \"$step1.case_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "search_case",
+              "arguments": {
+                "queue_code": "Q-005",
+                "state_code": "open"
+              }
+            },
+            {
+              "name": "read_case_history",
+              "arguments": {
+                "case_ref": "$step1.case_ref",
+                "include_notes": false
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "read_case_history",
+            "description": "Read a case history by reference and optionally include notes.",
+            "arguments": {
+              "case_ref": "string",
+              "include_notes": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "search_case",
+            "description": "Find a case by queue and state; returns case_ref.",
+            "arguments": {
+              "queue_code": "string",
+              "state_code": "string"
+            }
+          },
+          {
+            "name": "verify_receipt",
+            "description": "Verify a receipt by key and optionally check its signature.",
+            "arguments": {
+              "receipt_key": "string",
+              "check_signature": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"search_case\", \"arguments\": {\"queue_code\": \"Q-005\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-005\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "heldout-40",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_manifest\",\"description\":\"Read a package manifest by reference; returns manifest_ref.\",\"arguments\":{\"package_ref\":\"string\"}},{\"name\":\"check_dependencies\",\"description\":\"Check dependencies declared by a manifest.\",\"arguments\":{\"manifest_ref\":\"string\",\"include_development\":\"boolean\"}},{\"name\":\"locate_receipt\",\"description\":\"Locate a receipt by reference code; returns receipt_key.\",\"arguments\":{\"reference_code\":\"string\"}},{\"name\":\"find_package\",\"description\":\"Find a package by name and channel; returns package_ref.\",\"arguments\":{\"package_name\":\"string\",\"release_channel\":\"string\"}}]}\nRequest: Check development dependencies for stable package-005. Find the package, read its manifest, then check that manifest. Include development dependencies only for even request numbers (request 5).\nReference bindings: step 2 argument package_ref = \"$step1.package_ref\"; step 3 argument manifest_ref = \"$step2.manifest_ref\"\nFor any dependent identifier, use the exact reference string stated above rather than guessing a returned value. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the minimal calls in required order. Use only listed tools, include every required argument, and add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "expected": {
+          "steps": [
+            {
+              "name": "find_package",
+              "arguments": {
+                "package_name": "package-005",
+                "release_channel": "stable"
+              }
+            },
+            {
+              "name": "read_manifest",
+              "arguments": {
+                "package_ref": "$step1.package_ref"
+              }
+            },
+            {
+              "name": "check_dependencies",
+              "arguments": {
+                "manifest_ref": "$step2.manifest_ref",
+                "include_development": false
+              }
+            }
+          ]
+        },
+        "partition": "heldout",
+        "available_tools": [
+          {
+            "name": "read_manifest",
+            "description": "Read a package manifest by reference; returns manifest_ref.",
+            "arguments": {
+              "package_ref": "string"
+            }
+          },
+          {
+            "name": "check_dependencies",
+            "description": "Check dependencies declared by a manifest.",
+            "arguments": {
+              "manifest_ref": "string",
+              "include_development": "boolean"
+            }
+          },
+          {
+            "name": "locate_receipt",
+            "description": "Locate a receipt by reference code; returns receipt_key.",
+            "arguments": {
+              "reference_code": "string"
+            }
+          },
+          {
+            "name": "find_package",
+            "description": "Find a package by name and channel; returns package_ref.",
+            "arguments": {
+              "package_name": "string",
+              "release_channel": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\": [{\"name\": \"find_package\", \"arguments\": {\"package_name\": \"package-005\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "wrong": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-005\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "malformed": "{not json}"
+    }
+  ]
+}

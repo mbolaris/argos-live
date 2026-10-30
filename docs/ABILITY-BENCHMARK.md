@@ -1,11 +1,12 @@
 # Original ability suites and deterministic scoring
 
 B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items),
-`challenge` (40 items), `tool-schema` (40 items) and `tool-plan` (40 items)
+`challenge` (40 items), `tool-schema` (40 items), `tool-plan` (40 items) and
+`tool-sequence` (40 items)
 fixtures at `argoslive/data/ability/`. Quick and standard are version 1.0.0;
 challenge is version 1.1.0; tool-schema is version 1.2.0; tool-plan is version
-1.1.0. Challenge 1.0.0 and tool-plan 1.0.0 are retained for historical result
-replay. Tool-plan 1.1.0 makes exact order and
+1.1.0; tool-sequence is version 1.0.0. Challenge 1.0.0 and tool-plan 1.0.0
+are retained for historical result replay. Tool-plan 1.1.0 makes exact order and
 reviewer-role string values explicit in the supplied schemas; 1.0.0 used only
 primitive `string` types while scoring exact hidden literals. Establish a fresh
 1.1.0 baseline and never compare it with 1.0.0.
@@ -43,7 +44,7 @@ new baseline and must not be compared with 1.1.0.
 without downloads. Every item has an original prompt, stable ID, deterministic
 scoring rule, passing reference, semantically wrong answer and malformed answer.
 The packaged NOTICE includes provenance, limits and the MIT license. The normal
-runtime package installer includes all five suites and the notice in the image.
+runtime package installer includes all six suites and the notice in the image.
 Changes to prompts, expected answers or scoring semantics require a suite version
 change; later results comparison must refuse mixed versions.
 
@@ -64,9 +65,15 @@ integers use JSON integer representation, not floats or booleans. Duplicate
 keys, nonfinite numbers, extra fields and incorrect types fail format. Correct
 shape with incorrect values is wrong. This is not a general JSON Schema engine.
 
-Tool-format items require exactly `name` and an `arguments` object. They assess
-format and specified argument values only. They never register, grant or invoke
-tools. `tool_execution_verified` stays false even for a passing answer. No
+Tool-format items require exactly `name` and an `arguments` object. Tool-sequence
+items require a `steps` array of two or three schema-valid calls and explicit
+literal references to fields returned by earlier steps. They assess planning
+and reference handling only; calls are never executed. Tool-sequence has 20
+practice and 20 bundled held-out workflows with disjoint tool names and argument
+keys; held-out scores are an internal transfer signal, not independent
+validation. Tool-format items assess specified argument values only. They never
+register, grant or invoke tools. `tool_execution_verified` stays false even for
+a passing answer. No
 generated code is executed. Output is bounded to 64 KiB UTF-8; malformed Unicode
 and excessively nested JSON fail without evaluation or shell calls.
 

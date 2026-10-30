@@ -13,8 +13,8 @@ names. `--delete ID` removes only that run, without touching models or profiles.
 
 Comparison requires identical kind, suite version, settings and item/prompt
 coverage. Cancelled/incomplete ability runs and failed restoration are refused.
-Quick, standard, challenge, tool-schema and tool-plan are distinct suites.
-Tool-schema and tool-plan comparisons report practice and held-out deltas separately. Ability accuracy
+Quick, standard, challenge, tool-schema, tool-plan and tool-sequence are distinct suites.
+Tool-schema, tool-plan and tool-sequence comparisons report practice and held-out deltas separately. Ability accuracy
 and format-error counts are recomputed from item evidence. Speed medians are recomputed from measured
 runs; all three generation-rate measurements must be known to rank a prompt size.
 Unknown or skipped values stay unknown. Each prompt size has its own rows.
@@ -22,7 +22,9 @@ Unknown or skipped values stay unknown. Each prompt size has its own rows.
 Hardware and Ollama/Argos versions may differ between selected runs; inspect the
 saved originals before interpreting a difference as model quality or performance.
 The table carries model tag, manifest digest, timestamp and run ID. Tool-format
-scores do not establish that real tools work. Code execution is still excluded.
+scores do not establish that real tools work. Tool-sequence scores describe
+ordered call planning with literal result references, not call execution. Code
+execution is still excluded.
 
 Reads are bounded to 1 MiB, schema/version/identity and nonfinite values are
 checked, and linked paths are refused. Invalid listing entries are counted and

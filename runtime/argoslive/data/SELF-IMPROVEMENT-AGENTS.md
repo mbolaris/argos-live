@@ -32,7 +32,7 @@ Continue authorized reversible steps without asking at each step.
 
 ## 2. Measure one change at a time
 
-Use native `argos_evaluate` (suite `quick`, `standard`, `challenge`, `tool-schema`, or `tool-plan`) and `argos_compare`
+Use native `argos_evaluate` (suite `quick`, `standard`, `challenge`, `tool-schema`, `tool-plan`, or `tool-sequence`) and `argos_compare`
 (`baseline_id`, `candidate_id`). These are tools, not shell commands. If absent,
 use `argos bench openclaw --suite quick --json`; never invent a control-script
 `evaluate` subcommand. Raw `argos bench ability` measures a model, not your
@@ -108,6 +108,18 @@ Require repeated 3/40 gains, no format-error increase and held-out
 nonregression. It remains an Argos-authored probe, not independent validation
 or evidence that real tools execute.
 
+When `tool-plan` saturates, use `tool-sequence` to probe ordered two- and
+three-call workflows. Every item provides four tool schemas, a fully specified
+request, and literal `$stepN.field` bindings for values returned by earlier
+calls. The expected answer is a minimal JSON call sequence; the benchmark never
+executes those calls. Practice and held-out partitions use disjoint tool names
+and argument keys. The bundled held-out workflows are an internal transfer
+signal only: prompts and answer keys ship with the image. For an instruction
+change to qualify, repeated runs must gain at least 3/40 overall, avoid more
+format errors, and each held-out candidate score must match or exceed the
+strongest baseline on that partition. Keep these scores separate from every
+other suite and do not treat a perfect score as evidence of real tool execution.
+
 Treat historical `tool-plan` 1.0.0 misses on `sort_order`, `order_by` and
 `reviewer_role` as under-specified: the prompts supplied only the primitive
 `string` type while the scorer required exact literals. Version 1.1.0 lists
@@ -126,7 +138,7 @@ or another instruction path through that experiment tool.
 To keep an instruction change, supply two distinct compatible baseline IDs
 (including the original baseline) and two distinct fresh candidate IDs to
 `argos_resolve_instructions`. Its host policy requires minimum gains of 2/20
-quick, 4/70 standard, or 3/40 challenge, tool-schema or tool-plan, with format errors no higher than
+quick, 4/70 standard, or 3/40 challenge, tool-schema, tool-plan or tool-sequence, with format errors no higher than
 baseline. A reliability gain instead requires unchanged-or-higher correct
 count, fewer format errors, and median latency no more than 1.5 times baseline.
 These practice comparisons do not establish transfer. Use a separate challenge

@@ -74,7 +74,11 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
     'Report that measurement as under-specified and use a separately versioned, fully specified form '
     'for a new baseline. Never change a fixed suite to fit a candidate. '
     'Use each saved evaluation result ID, suite version, and coverage to group candidate runs. Never compare '
-    'different suites (for example quick with tool-plan or standard) as before/after evidence. For a same-suite '
+    'different suites (for example quick with tool-plan or standard) as before/after evidence. When tool-plan '
+    'is saturated, use tool-sequence to probe ordered two- and three-call plans with explicit result references. '
+    'Its bundled held-out workflows are an internal transfer signal, not independent validation; keep its scores '
+    'separate from every other suite. If tool-sequence is also saturated, do not invent an instruction change '
+    'without task-level evidence. For a same-suite '
     'pair, argos_compare validates execution path, non-intervention settings, recipe, restoration and coverage. '
     'After every saved evaluation, immediately call argos_log with its actual run ID, score and complete next action '
     'before starting another evaluation. If a complete standard run scores every item correctly with zero format '
@@ -528,9 +532,12 @@ def _campaign_assessment(outcomes):
         return None
 
     def valid_eval_receipt(item):
-        return (run_suite(item) in {'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan'} and
+        suite = run_suite(item)
+        expected_total = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40,
+                          'tool-plan': 40, 'tool-sequence': 40}.get(suite)
+        return (expected_total is not None and
                 item.get('coverage_complete') is True and type(item.get('total')) is int and
-                item['total'] > 0 and type(item.get('correct')) is int and
+                item['total'] == expected_total and type(item.get('correct')) is int and
                 0 <= item['correct'] <= item['total'] and type(item.get('format_errors')) is int and
                 0 <= item['format_errors'] <= item['total'])
 
@@ -668,7 +675,10 @@ def _campaign_followup(turn, outcomes, assessment):
             'If a saturated quick run still lacks a later standard evaluation, run and log the complete 70-task standard '
             'suite after the latest instruction decision before claiming a plateau. '
             'If a saturated standard run requires a challenge, run and log the complete 40-task challenge against the '
-            'current instruction state; do not compare it with another suite. If no change is justified, compare '
+            'current instruction state; do not compare it with another suite. '
+            'If tool-plan is saturated, run and log tool-sequence to check ordered dependent calls; keep it separate '
+            'from all other suites and describe its bundled held-out workflows only as internal transfer. '
+            'If no change is justified, compare '
             'two distinct matched baselines and call '
             'argos_audit_instructions. If a change is active, complete its candidate checks and host-managed '
             'keep/restore resolution, then audit. Do not ask the owner to choose ordinary experiment details, '

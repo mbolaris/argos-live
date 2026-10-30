@@ -15,6 +15,7 @@ class InstructionChangeTests(unittest.TestCase):
     def test_challenge_requires_a_meaningful_repeatable_gain(self):
         self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-challenge'], 3)
         self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-tool-plan'], 3)
+        self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-tool-sequence'], 3)
 
     def test_tool_schema_keep_gate_requires_repeated_heldout_nonregression(self):
         def run(score):

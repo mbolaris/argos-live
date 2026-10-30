@@ -90,6 +90,15 @@ class AbilityRunTests(unittest.TestCase):
         self.assertEqual(result['summary']['partitions']['heldout']['correct'], 20)
         self.assertEqual(result['suite_version'], 'ability/tool-plan/1.1.0')
 
+    def test_tool_sequence_form_keeps_workflow_transfer_scores_separate(self):
+        result = bench.run(AbilityBackend(suite='tool-sequence', previous=False), 'fixture:latest',
+                           suite='tool-sequence', hardware=lambda: {})
+        self.assertEqual(result['summary']['correct'], 40)
+        self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+        self.assertEqual(result['summary']['partitions']['practice']['correct'], 20)
+        self.assertEqual(result['summary']['partitions']['heldout']['correct'], 20)
+        self.assertEqual(result['suite_version'], 'ability/tool-sequence/1.0.0')
+
     def test_cancel_preserves_partial_evidence_and_restores(self):
         backend = AbilityBackend()
         event = threading.Event()

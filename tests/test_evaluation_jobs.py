@@ -85,6 +85,15 @@ class EvaluationJobTests(unittest.TestCase):
         self.assertEqual(finished['result']['suite'], 'openclaw-tool-plan')
         self.assertEqual(finished['result']['summary']['partitions']['heldout']['correct'], 20)
 
+    def test_tool_sequence_job_runs_through_host_owned_evaluation(self):
+        jobs = self.make_jobs()
+        started = jobs.start('tool-sequence')
+        self.assertEqual(started['total'], 40)
+        self.gate.set()
+        finished = jobs.wait(started['job_id'], seconds=10)
+        self.assertEqual(finished['result']['suite'], 'openclaw-tool-sequence')
+        self.assertEqual(finished['result']['summary']['partitions']['heldout']['correct'], 20)
+
     def test_aborted_wait_does_not_cancel_job_and_saves_without_polling(self):
         jobs = self.make_jobs()
         job_id = jobs.start()['job_id']

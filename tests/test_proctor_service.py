@@ -49,6 +49,9 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('immediately call argos_log', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('complete 70-task standard', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('separate 40-task challenge suite', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('use tool-sequence to probe ordered two- and three-call plans',
+                      proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('tool-sequence', proctor_service.CAMPAIGN_MESSAGE)
 
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
@@ -220,6 +223,23 @@ class ProctorServiceTests(unittest.TestCase):
         assessment = proctor_service._campaign_assessment(outcomes)
         self.assertFalse(assessment['ready'])
         self.assertIn('a passed host instruction audit after the final comparison, evaluation, and log entry',
+                      assessment['missing'])
+
+    def test_campaign_accepts_only_complete_tool_sequence_receipts(self):
+        outcomes = [{'kind': 'inspect'},
+                    evaluation_outcome('sequence-one', 'tool-sequence', correct=38, total=40),
+                    log_outcome('sequence-one'),
+                    evaluation_outcome('sequence-two', 'tool-sequence', correct=39, total=40),
+                    log_outcome('sequence-two'),
+                    {'kind': 'compare', 'baseline_id': 'sequence-one', 'candidate_id': 'sequence-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+
+        outcomes[1] = evaluation_outcome('sequence-one', 'tool-sequence', correct=18, total=20)
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertIn('host-verified suite, complete coverage, and score metadata for every completed evaluation',
                       assessment['missing'])
 
     def test_campaign_assessment_requires_host_resolution_and_audit_after_kept_change(self):
