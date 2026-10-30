@@ -62,15 +62,17 @@ def items():
     return groups
 
 
-def challenge_items():
+def challenge_items(version='1.1.0'):
     """A separate higher-difficulty form; do not derive it from quick/standard."""
+    if version not in ('1.0.0', '1.1.0'):
+        raise ValueError('Unknown challenge suite version')
     groups = {kind: [] for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
     prefixes = {'numeric': 'calc', 'choice': 'logic', 'instruction': 'format',
                 'json': 'record', 'tool-call': 'action'}
 
-    def add(kind, index, prompt, expected, reference, wrong, malformed):
+    def add(kind, index, prompt, expected, reference, wrong, malformed, **scorer_fields):
         groups[kind].append({'id': f'{prefixes[kind]}-{index:02}', 'prompt': prompt,
-            'scorer': {'kind': kind, 'expected': expected}, 'reference': reference,
+            'scorer': {'kind': kind, 'expected': expected, **scorer_fields}, 'reference': reference,
             'wrong': wrong, 'malformed': malformed})
 
     numeric = [
@@ -169,10 +171,51 @@ def challenge_items():
         ('request_review', {'change_id': 'chg-21', 'reviewer': 'owner'}, 'Propose owner review for change chg-21.'),
         ('export_receipt', {'run_id': 'run-44', 'redact_paths': True}, 'Propose exporting run-44 with paths redacted.'),
     ]
-    for i, (name, arguments, prompt) in enumerate(actions, 1):
+    descriptions = {
+        'lookup_record': 'Retrieve a record by exact ID and optionally include its history.',
+        'compare_runs': 'Compare a baseline run with a candidate run.',
+        'create_report': 'Create a report with a title, format, and private-data inclusion flag.',
+        'schedule_task': 'Schedule a named task for an hour and choose whether it is enabled.',
+        'set_filter': 'Apply a field/value filter and choose exact matching.',
+        'summarize_range': 'Summarize an inclusive range of items and specify the unit.',
+        'request_review': 'Request review for a change and specify the reviewer.',
+        'export_receipt': 'Export a run receipt and choose whether paths are redacted.',
+    }
+    requests = [
+        'Look up record R-14 and include its history.',
+        'Compare baseline base-3 with candidate cand-8.',
+        'Create a report titled Cycle audit in JSON format; exclude private data.',
+        'Schedule backup verification at hour 6 and enable the task.',
+        'Set an exact filter on field state with value completed.',
+        'Summarize items 12 through 18, inclusive.',
+        'Request owner review for change chg-21.',
+        'Export run-44 with paths redacted.',
+    ]
+    for i, (name, arguments, legacy_prompt) in enumerate(actions, 1):
         expected = {'name': name, 'arguments': arguments}
-        add('tool-call', i, prompt + ' Return only a JSON tool-call object; do not execute it.',
-            expected, json.dumps(expected), json.dumps({'name': 'wrong_tool', 'arguments': arguments}), 'Execute the action now.')
+        reference = json.dumps(expected)
+        wrong = json.dumps({'name': 'wrong_tool', 'arguments': arguments})
+        if version == '1.0.0':
+            add('tool-call', i, legacy_prompt + ' Return only a JSON tool-call object; do not execute it.',
+                expected, reference, wrong, 'Execute the action now.')
+            continue
+        types = {str: 'string', int: 'integer', bool: 'boolean'}
+        catalog = []
+        for candidate_name, candidate_arguments, _candidate_prompt in actions:
+            catalog.append({'name': candidate_name, 'description': descriptions[candidate_name],
+                            'arguments': {key: types[type(value)]
+                                          for key, value in candidate_arguments.items()}})
+        start = i - 1
+        schemas = [catalog[(start + offset) % len(catalog)] for offset in range(4)]
+        target = schemas.pop(0)
+        schemas.insert((i - 1) % 4, target)
+        prompt = ('Choose the available action that satisfies the complete request. Available tool schemas: '
+                  + json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False)
+                  + '\nRequest: ' + requests[i - 1]
+                  + '\nReturn only the exact JSON tool-call object with top-level keys "name" and "arguments". '
+                  'Set "name" to the selected tool\'s exact name and include every argument required by its '
+                  'schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.')
+        add('tool-call', i, prompt, expected, reference, wrong, '{not json}', available_tools=schemas)
     return groups
 
 
@@ -410,20 +453,27 @@ def tool_plan_items():
     return result
 
 
-def build(suite):
+def build(suite, version=None):
     if suite == 'challenge':
-        selected = [item for group in challenge_items().values() for item in group]
+        version = version or '1.1.0'
+        selected = [item for group in challenge_items(version).values() for item in group]
     elif suite == 'tool-schema':
+        if version is not None:
+            raise ValueError('No alternate version requested')
         selected = tool_schema_items()
     elif suite == 'tool-plan':
+        if version is not None:
+            raise ValueError('No alternate version requested')
         selected = tool_plan_items()
     elif suite in ('quick', 'standard'):
+        if version is not None:
+            raise ValueError('No alternate version requested')
         count = 4 if suite == 'quick' else 14
         selected = [item for group in items().values() for item in group[:count]]
     else:
         raise ValueError('Unknown suite')
-    version = ('1.2.0' if suite == 'tool-schema' else
-               '1.1.0' if suite == 'tool-plan' else '1.0.0')
+    version = version or ('1.2.0' if suite == 'tool-schema' else
+                          '1.1.0' if suite == 'tool-plan' else '1.0.0')
     return validate({'schema': 'argos-ability-suite/1', 'suite': suite, 'version': version,
         'license': 'MIT', 'source': 'original-argos-live', 'omitted_categories': ['code-execution'],
         'items': selected})

@@ -2,9 +2,10 @@
 
 B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items),
 `challenge` (40 items), `tool-schema` (40 items) and `tool-plan` (40 items)
-fixtures at `argoslive/data/ability/`. Quick, standard and challenge are version
-1.0.0; tool-schema is version 1.2.0; tool-plan is version 1.1.0. Tool-plan 1.0.0
-is retained for historical result replay. Version 1.1.0 makes exact order and
+fixtures at `argoslive/data/ability/`. Quick and standard are version 1.0.0;
+challenge is version 1.1.0; tool-schema is version 1.2.0; tool-plan is version
+1.1.0. Challenge 1.0.0 and tool-plan 1.0.0 are retained for historical result
+replay. Tool-plan 1.1.0 makes exact order and
 reviewer-role string values explicit in the supplied schemas; 1.0.0 used only
 primitive `string` types while scoring exact hidden literals. Establish a fresh
 1.1.0 baseline and never compare it with 1.0.0.
@@ -14,9 +15,11 @@ separately authored form with eight items per category and multi-step numeric,
 constraint-selection, structured extraction and inert action-format prompts.
 Challenge is a distinct form, not a held-out external benchmark. Challenge
 1.0.0's eight tool-call prompts do not supply an available-tool inventory or
-schemas. They remain in the full reported score for historical continuity, but
-cannot justify a tool-use diagnosis or qualify an instruction change under keep
-policy v2. Use the fully specified tool-schema and tool-plan forms for tool-call
+schemas. Historical scores remain visible, but that category cannot justify a
+tool-use diagnosis or qualify an instruction change under keep policy v2.
+Challenge 1.1.0 preserves the other tasks and adds four explicit, typed tool
+schemas to each tool-call prompt; the scorer validates the expected call against
+those schemas. Use this grounded form, tool-schema, or tool-plan for tool-call
 experiments. Tool-schema
 contains only inert proposed tool calls: every prompt supplies three available
 tool schemas with descriptions and typed arguments; 20 practice and 20 held-out

@@ -70,7 +70,7 @@ class AbilityRunTests(unittest.TestCase):
                            suite='challenge', hardware=lambda: {})
         self.assertEqual(result['summary']['correct'], 40)
         self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
-        self.assertEqual(result['suite_version'], 'ability/challenge/1.0.0')
+        self.assertEqual(result['suite_version'], 'ability/challenge/1.1.0')
 
     def test_tool_schema_form_keeps_practice_and_heldout_scores_separate(self):
         result = bench.run(AbilityBackend(suite='tool-schema', previous=False), 'fixture:latest',

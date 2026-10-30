@@ -109,6 +109,7 @@ class RuntimePackageTests(unittest.TestCase):
                        'assert PILOT_DEFINITION.is_file(); '
                        'assert len(load()["items"]) == 20; assert len(load("standard")["items"]) == 70; '
                        'assert len(load("challenge")["items"]) == 40; '
+                       'assert load("challenge", version="1.0.0")["version"] == "1.0.0"; '
                        'assert len(load("tool-plan")["items"]) == 40; '
                        'assert load("tool-plan", version="1.0.0")["version"] == "1.0.0"; '
                        'assert (DATA / "NOTICE.txt").is_file(); '

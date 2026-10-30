@@ -42,6 +42,10 @@ class MissionReportTests(unittest.TestCase):
             'openclaw-challenge', 'argos-openclaw-ability/challenge/1.0.0', 'calc-01')
         self.assertIsNotNone(item)
         self.assertIn('240 minutes', item['prompt'])
+        current = mission_report.resolve_suite_item(
+            'openclaw-challenge', 'argos-openclaw-ability/challenge/1.1.0', 'action-01')
+        self.assertIsNotNone(current)
+        self.assertIn('Available tool schemas:', current['prompt'])
         self.assertIsNone(mission_report.resolve_suite_item(
             'openclaw-challenge', 'argos-openclaw-ability/challenge/2.0.0', 'calc-01'))
 

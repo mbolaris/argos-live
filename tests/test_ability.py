@@ -34,11 +34,37 @@ class AbilityTests(unittest.TestCase):
         standard = {item['id']: item for item in ability.load('standard')['items']}
         for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan'):
             self.assertEqual(ability.load(suite), generator.build(suite))
+        self.assertEqual(ability.load('challenge', version='1.0.0'),
+                         generator.build('challenge', version='1.0.0'))
         for item in ability.load()['items']:
             self.assertEqual(item, standard[item['id']])
         self.assertFalse({item['id'] for item in ability.load('challenge')['items']} & set(standard))
         categories = Counter(item['scorer']['kind'] for item in ability.load('challenge')['items'])
         self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8, 'json': 8, 'tool-call': 8})
+
+    def test_challenge_v11_tool_calls_include_grounded_schemas(self):
+        data = ability.load('challenge')
+        self.assertEqual(data['version'], '1.1.0')
+        actions = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
+        self.assertEqual(len(actions), 8)
+        positions = []
+        for item in actions:
+            with self.subTest(item=item['id']):
+                schemas = item['scorer']['available_tools']
+                expected_name = item['scorer']['expected']['name']
+                self.assertEqual(len(schemas), 4)
+                self.assertIn('Available tool schemas:', item['prompt'])
+                request = item['prompt'].split('\nRequest: ', 1)[1].split('\nReturn only', 1)[0]
+                self.assertNotIn(expected_name, request)
+                self.assertEqual(ability.score(item, item['reference'])['outcome'], 'pass')
+                positions.append(next(index for index, schema in enumerate(schemas)
+                                      if schema['name'] == expected_name))
+        self.assertEqual(Counter(positions), Counter({0: 2, 1: 2, 2: 2, 3: 2}))
+        old = ability.load('challenge', version='1.0.0')
+        self.assertTrue(all('available_tools' not in item['scorer'] for item in old['items']
+                            if item['scorer']['kind'] == 'tool-call'))
+        self.assertEqual(old['items'][-1]['prompt'],
+                         'Propose exporting run-44 with paths redacted. Return only a JSON tool-call object; do not execute it.')
 
     def test_tool_schema_has_disjoint_vocabulary_and_explicit_schemas(self):
         data = ability.load('tool-schema')

@@ -178,21 +178,35 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(kept['minimum_correct_gain'], 3)
         self.assertTrue(kept['heldout_validation']['nonregression_met'])
 
-    def test_challenge_v1_tool_call_only_gain_cannot_keep_instruction_change(self):
+    def test_challenge_v10_tool_call_gain_is_excluded_from_qualification(self):
+        baseline = self.evaluate(suite='challenge', wrong_categories=('tool-call',))
+        candidate = self.evaluate(suite='challenge')
+        # Reinterpret the otherwise identical category summary under the archived
+        # v1.0.0 suite identity, whose tool-call tasks had no provided schemas.
+        baseline['suite_version'] = candidate['suite_version'] = 'argos-openclaw-ability/challenge/1.0.0'
+        before = changes.qualification_metrics(baseline, changes.POLICY)
+        after = changes.qualification_metrics(candidate, changes.POLICY)
+        self.assertEqual(before['correct'], 32)
+        self.assertEqual(after['correct'], 32)
+        self.assertEqual(before['basis']['excluded_categories'], ['tool-call'])
+
+    def test_challenge_v11_grounded_tool_call_gain_can_qualify(self):
         baselines = [self.evaluate(suite='challenge', wrong_categories=('tool-call',)) for _ in range(2)]
         edited = self.edit(baselines[0])
         candidates = [self.evaluate(suite='challenge') for _ in range(2)]
         self.assertEqual([run['summary']['correct'] for run in baselines], [32, 32])
         self.assertEqual([run['summary']['correct'] for run in candidates], [40, 40])
-        rejected = self.resolve(edited, 'keep', baseline_ids=[run['id'] for run in baselines],
-                               candidate_ids=[run['id'] for run in candidates])
-        self.assertEqual(rejected['code'], 'repeated-practice-gain-rule-not-met')
-        restored = self.resolve(edited)
-        self.assertEqual(restored['status'], 'restored')
+        kept = self.resolve(edited, 'keep', baseline_ids=[run['id'] for run in baselines],
+                            candidate_ids=[run['id'] for run in candidates])
+        self.assertEqual(kept['status'], 'kept', kept)
+        self.assertEqual(kept['minimum_correct_gain'], 8)
+        self.assertEqual(kept['qualification_basis']['excluded_categories'], [])
+        self.assertIn('tool-call', kept['qualification_basis']['included_categories'])
         self.assertTrue(self.op('audit')['passed'])
 
-    def test_challenge_v1_qualification_fails_closed_on_missing_or_inconsistent_categories(self):
+    def test_challenge_v10_qualification_fails_closed_on_missing_or_inconsistent_categories(self):
         run = self.evaluate(suite='challenge')
+        run['suite_version'] = 'argos-openclaw-ability/challenge/1.0.0'
         missing = dict(run)
         missing['summary'] = dict(run['summary'])
         missing['summary']['categories'] = dict(run['summary']['categories'])
@@ -208,7 +222,7 @@ class InstructionChangeTests(unittest.TestCase):
         with self.assertRaisesRegex(changes.Refused, 'qualification-category-evidence-invalid'):
             changes.qualification_metrics(inconsistent, changes.POLICY)
 
-    def test_challenge_v1_non_tool_gain_qualifies_and_audit_reports_its_basis(self):
+    def test_challenge_v11_non_tool_gain_qualifies_and_audit_reports_its_basis(self):
         baselines = [self.evaluate(suite='challenge', wrong_categories=('choice',)) for _ in range(2)]
         edited = self.edit(baselines[0])
         candidates = [self.evaluate(suite='challenge') for _ in range(2)]
@@ -217,12 +231,13 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(kept['status'], 'kept', kept)
         self.assertEqual(kept['minimum_correct_gain'], 8)
         self.assertEqual(kept['full_suite_minimum_correct_gain'], 8)
-        self.assertEqual(kept['qualification_basis']['excluded_categories'], ['tool-call'])
+        self.assertEqual(kept['qualification_basis']['excluded_categories'], [])
+        self.assertIn('tool-call', kept['qualification_basis']['included_categories'])
         audit = self.op('audit')
         self.assertTrue(audit['passed'], audit)
         observed = audit['changes'][0]
         self.assertEqual(observed['worst_case_qualification_correct_delta'], 8)
-        self.assertEqual(observed['qualification_basis']['excluded_categories'], ['tool-call'])
+        self.assertEqual(observed['qualification_basis']['excluded_categories'], [])
 
     def test_v1_keep_journal_remains_auditable_after_policy_upgrade(self):
         # Existing journals carry policy v1. Replay one under its stored policy

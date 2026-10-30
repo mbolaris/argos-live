@@ -145,11 +145,21 @@ def validate(data):
                     or not isinstance(expected['arguments'], dict) or not isinstance(expected['name'], str)
                     or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', expected['name'])):
                 raise ValueError('Invalid inert tool reference')
-            if data['suite'] in ('tool-schema', 'tool-plan'):
+            has_schemas = 'available_tools' in rule
+            if data['suite'] in ('tool-schema', 'tool-plan') and not has_schemas:
+                raise ValueError('Missing provided tool schemas')
+            if (data['suite'] == 'challenge' and
+                    ((data['version'] == '1.0.0' and has_schemas) or
+                     (data['version'] != '1.0.0' and not has_schemas)) or
+                    has_schemas and data['suite'] not in ('challenge', 'tool-schema', 'tool-plan')):
+                raise ValueError('Challenge tool-schema version mismatch')
+            if has_schemas:
                 partition = rule.get('partition')
                 schemas = rule.get('available_tools')
                 schema_count = 3 if data['suite'] == 'tool-schema' else 4
-                if (partition not in ('practice', 'heldout') or not isinstance(schemas, list)
+                partition_valid = (partition in ('practice', 'heldout')
+                                   if data['suite'] in ('tool-schema', 'tool-plan') else partition is None)
+                if (not partition_valid or not isinstance(schemas, list)
                         or len(schemas) != schema_count):
                     raise ValueError('Invalid tool-suite partition or available tools')
                 names = set()
@@ -183,6 +193,16 @@ def validate(data):
     expected_kinds = SUITE_KINDS.get(data['suite'], KINDS)
     if kinds != expected_kinds:
         raise ValueError('Missing scorer category')
+    if data['suite'] == 'challenge' and data['version'] == '1.1.0':
+        action_items = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
+        positions = []
+        for item in action_items:
+            schemas = item['scorer']['available_tools']
+            positions.append(next(index for index, schema in enumerate(schemas)
+                                  if schema['name'] == item['scorer']['expected']['name']))
+        if (len(action_items) != 8 or any(not 0 <= position < 4 for position in positions) or
+                sorted(positions.count(position) for position in range(4)) != [2, 2, 2, 2]):
+            raise ValueError('Challenge tool target position must be balanced')
     if data['suite'] in ('tool-schema', 'tool-plan'):
         partitions = {partition: [item for item in data['items']
                                   if item['scorer'].get('partition') == partition]
@@ -213,7 +233,8 @@ def validate(data):
     return data
 
 
-ARCHIVED_SUITE_FILES = {('tool-plan', '1.0.0'): 'archive/tool-plan-1.0.0.json'}
+ARCHIVED_SUITE_FILES = {('challenge', '1.0.0'): 'archive/challenge-1.0.0.json',
+                        ('tool-plan', '1.0.0'): 'archive/tool-plan-1.0.0.json'}
 
 
 def load(suite='quick', version=None):

@@ -68,6 +68,11 @@ items to diagnose tool behavior or support an instruction edit. Host keep-policy
 v2 excludes that category from challenge-based qualification; use tool-schema
 or tool-plan for grounded tool-call experiments.
 
+Challenge 1.1.0 keeps v1.0.0 available for historical replay and adds four
+typed available-tool schemas to each tool-call prompt. The host validates that
+the expected call matches its provided schema; this category is eligible under
+keep-policy v2.
+
 Quick scores vary by 1–2 of 20. A complete quick run with every item correct
 and zero format errors is a ceiling signal, not a plateau: follow it with a
 complete 70-task `standard` evaluation after the latest instruction decision.
