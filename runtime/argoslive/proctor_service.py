@@ -79,7 +79,10 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
     'After every saved evaluation, immediately call argos_log with its actual run ID, score and complete next action '
     'before starting another evaluation. If a complete standard run scores every item correctly with zero format '
     'errors, run the separate 40-task challenge suite after the latest instruction decision before claiming a '
-    'plateau. Challenge results are a separate signal and must not be compared with another suite. '
+    'plateau. If a complete quick run is perfect with zero format errors, follow it with a complete 70-task standard '
+    'evaluation after the latest instruction decision before claiming a plateau; if that standard run is perfect, '
+    'also complete the challenge suite. Challenge results are a separate signal and must not be compared with another '
+    'suite. '
     'If it rejects a pair, read its run metadata and pair_checks, use the safe fingerprints and true/false checks '
     'to choose a compatible pair, and do not retry the same IDs. Never infer or expose raw configuration values '
     'from fingerprints. '
@@ -549,6 +552,26 @@ def _campaign_assessment(outcomes):
     if logged_ids_missing:
         missing.append('a host-verified log receipt for every saved evaluation')
 
+    instruction_decision_indexes = [index for index, item in indexed
+                                    if item.get('kind') in {'edit', 'resolve'}]
+    saturated_quick_indexes = [
+        index for index, item in indexed
+        if item.get('kind') == 'evaluation' and item.get('state') == 'completed' and
+        run_suite(item) == 'quick' and valid_eval_receipt(item) and
+        item['correct'] == item['total'] and item['format_errors'] == 0
+    ]
+    if saturated_quick_indexes:
+        must_follow = max(max(saturated_quick_indexes), max(instruction_decision_indexes, default=-1))
+        has_standard = any(
+            index > must_follow and item.get('kind') == 'evaluation' and
+            item.get('state') == 'completed' and run_suite(item) == 'standard' and
+            valid_eval_receipt(item) and item['total'] == 70
+            for index, item in indexed
+        )
+        if not has_standard:
+            missing.append('a complete 70-task standard evaluation after the saturated quick run and latest '
+                           'instruction decision')
+
     saturated_standard_indexes = [
         index for index, item in indexed
         if item.get('kind') == 'evaluation' and item.get('state') == 'completed' and
@@ -556,8 +579,6 @@ def _campaign_assessment(outcomes):
         item['correct'] == item['total'] and item['format_errors'] == 0
     ]
     if saturated_standard_indexes:
-        instruction_decision_indexes = [index for index, item in indexed
-                                        if item.get('kind') in {'edit', 'resolve'}]
         must_follow = max(max(saturated_standard_indexes), max(instruction_decision_indexes, default=-1))
         has_challenge = any(
             index > must_follow and item.get('kind') == 'evaluation' and
@@ -644,6 +665,8 @@ def _campaign_followup(turn, outcomes, assessment):
             f'The host still requires: {missing}. '
             'Continue from the current canonical instructions and saved run IDs. Use your own evidence-based judgment '
             'for any experiment. Recover missing log receipts for saved run IDs before starting any new evaluation. '
+            'If a saturated quick run still lacks a later standard evaluation, run and log the complete 70-task standard '
+            'suite after the latest instruction decision before claiming a plateau. '
             'If a saturated standard run requires a challenge, run and log the complete 40-task challenge against the '
             'current instruction state; do not compare it with another suite. If no change is justified, compare '
             'two distinct matched baselines and call '

@@ -51,8 +51,12 @@ PRACTICE_ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'},
 if len(PRACTICE_TOOLS) != len(PRACTICE_ARGS):
     raise RuntimeError('Synthetic practice tool plan is inconsistent')
 CAMPAIGN_TOOLS = ['argos_inspect', 'argos_evaluate', 'argos_log', 'argos_evaluate',
+                  'argos_log', 'argos_evaluate', 'argos_log', 'argos_evaluate',
                   'argos_log', 'argos_compare', 'argos_audit_instructions']
-CAMPAIGN_ARGS = [{}, {'suite': 'quick'}, None, {'suite': 'quick'}, None, None, {}]
+CAMPAIGN_ARGS = [{}, {'suite': 'quick'}, None, {'suite': 'quick'}, None,
+                 {'suite': 'standard'}, None, {'suite': 'challenge'}, None, None, {}]
+if len(CAMPAIGN_TOOLS) != len(CAMPAIGN_ARGS):
+    raise RuntimeError('Synthetic campaign tool plan is inconsistent')
 
 
 def campaign_log_args(messages, next_action):
@@ -121,16 +125,21 @@ def run(cli, report):
                     tool, args = CAMPAIGN_TOOLS[calls], CAMPAIGN_ARGS[calls]
                     messages = request.get('messages', [])
                     if tool == 'argos_log':
-                        next_action = ('collect a second matched quick baseline' if calls == 2 else
-                                       'compare the two matched quick baselines and audit instructions')
+                        next_action = {
+                            2: 'collect a second matched quick baseline',
+                            4: 'run a complete standard evaluation because the quick result is saturated',
+                            6: 'run the separate challenge suite; keep its result separate from quick',
+                            8: 'compare the matched quick baselines and audit instructions',
+                        }[calls]
                         args = campaign_log_args(messages, next_action)
                     elif tool == 'argos_compare':
-                        run_ids = list(dict.fromkeys(re.findall(r'Run ID: ([a-f0-9]{32})',
-                                                                json.dumps(messages))))
-                        if len(run_ids) < 2:
+                        history = json.dumps(messages)
+                        quick_ids = list(dict.fromkeys(re.findall(
+                            r'Run ID: ([a-f0-9]{32})\. Suite: argos-openclaw-ability/quick/', history)))
+                        if len(quick_ids) < 2:
                             progress['errors'].append('campaign-missing-two-saved-baseline-ids')
                         else:
-                            args = {'baseline_id': run_ids[-2], 'candidate_id': run_ids[-1]}
+                            args = {'baseline_id': quick_ids[0], 'candidate_id': quick_ids[1]}
                 elif progress['phase'] == 'practice':
                     tool, args = PRACTICE_TOOLS[calls], PRACTICE_ARGS[calls]
                 else:
@@ -431,7 +440,10 @@ def run(cli, report):
                                     item.get('state') == 'completed' and item.get('result_id')]
             campaign_comparisons = [item for item in campaign_outcomes if item['kind'] == 'compare']
             campaign_audits = [item for item in campaign_outcomes if item['kind'] == 'audit']
-            if (len(campaign_evaluations) != 2 or not campaign_comparisons or
+            campaign_suites = [item.get('suite') for item in campaign_evaluations]
+            if (len(campaign_evaluations) != 4 or campaign_suites.count('openclaw-quick') != 2 or
+                    campaign_suites.count('openclaw-standard') != 1 or
+                    campaign_suites.count('openclaw-challenge') != 1 or not campaign_comparisons or
                     not campaign_audits or campaign_audits[-1].get('status') != 'empty' or
                     campaign_audits[-1].get('passed') is not True or
                     any(item['kind'] in {'edit', 'resolve'} for item in campaign_outcomes)):

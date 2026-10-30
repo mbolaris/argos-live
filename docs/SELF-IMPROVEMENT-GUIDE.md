@@ -77,8 +77,10 @@ not change model settings or grant new tools.
    run was lost; reuse matching verified IDs, record them, and advance the next
    step instead of repeating it.
 2. Run a quick check with fixed task IDs and the original scorer. Show a real
-   example answer and why it passed or failed.
-   If the standard suite is saturated, use the separate challenge form to find
+   example answer and why it passed or failed. A complete 20/20 quick result
+   with zero format errors is a ceiling signal, not a plateau: follow it with
+   a complete standard run and log both saved evaluations. If standard is
+   saturated, use the separate challenge form to find
    a new, repeatable weakness before proposing an experiment. For tool-call
    formatting, use `tool-schema`; its 20 unseen-vocabulary items use tool names
    and argument keys absent from its practice partition, with the target balanced

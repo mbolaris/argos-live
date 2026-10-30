@@ -93,6 +93,12 @@ workload reservation at a time, and the controller saves evaluations even if
 the campaign agent turn ends. Practice scores never count as evidence that an
 ability improved. The campaign follows the installed Argos improvement skill
 for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
+The host also enforces escalation when a quick evaluation is saturated: Argos
+must complete and log a 70-task standard evaluation after the latest instruction
+decision before the campaign can claim a plateau. A saturated standard result
+requires a separate 40-task challenge evaluation after the latest instruction
+decision. Each suite remains a distinct signal and is never compared across
+suite types.
 An incomplete practice is retained for review and never starts a campaign.
 An exam whose timer reached a terminal state with unanswered items also remains
 incomplete for this purpose; timed completion cannot unlock a campaign.

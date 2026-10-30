@@ -62,8 +62,11 @@ do not infer intent from hidden answer labels. Report that measurement as
 under-specified and use a separately versioned, fully specified form for a new
 baseline. Never change a fixed suite to fit a candidate.
 
-Quick scores vary by 1–2 of 20. If standard is saturated or does not expose a
-useful weakness, run the separate 40-task `challenge` form. Its prompts use
+Quick scores vary by 1–2 of 20. A complete quick run with every item correct
+and zero format errors is a ceiling signal, not a plateau: follow it with a
+complete 70-task `standard` evaluation after the latest instruction decision.
+Log every evaluation before continuing. If standard is saturated, run the
+separate 40-task `challenge` form. Its prompts use
 multi-step arithmetic, multiple constraints, structured extraction and proposed
 actions; it remains an Argos-authored probe, not an external benchmark. Compare
 only matching suite names and versions. Confirm a gain with at least two more
