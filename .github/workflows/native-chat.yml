@@ -10,11 +10,21 @@ on:
         description: Test temperature zero in the disposable Proctor fixture only
         type: boolean
         default: false
+      tool_sequence_only:
+        description: Run the 40-item real-model tool-sequence transfer check in disposable scratch
+        type: boolean
+        default: false
   push:
     paths:
       - '.github/workflows/native-chat.yml'
       - 'scripts/smoke-native-chat.py'
       - 'scripts/smoke-proctor-real.py'
+      - 'scripts/smoke-tool-sequence-real.py'
+      - 'runtime/argoslive/ability.py'
+      - 'runtime/argoslive/assistant_trial.py'
+      - 'runtime/argoslive/bench_openclaw.py'
+      - 'runtime/argoslive/data/ability/tool-sequence.json'
+      - 'runtime/argoslive/evaluation_context.py'
       - 'scripts/fetch-catalog-model.py'
       - 'runtime/argoslive/controller_bridge.py'
       - 'runtime/argoslive/proctor_service.py'
@@ -39,14 +49,18 @@ permissions:
 jobs:
   native-chat:
     runs-on: ubuntu-latest
-    # Practice permits 30 minutes of model turns; allow setup and signed cleanup too.
-    timeout-minutes: 40
+    # Leave room for the 40-item model transfer run plus setup and cleanup.
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin
         id: pins
         shell: bash
         run: |
+          if [[ '${{ inputs.proctor_only }}' == true && '${{ inputs.tool_sequence_only }}' == true ]]; then
+            echo 'Choose either the Proctor service smoke or the tool-sequence model check.' >&2
+            exit 1
+          fi
           source versions.env
           printf 'node=%s\n' "$NODE_VERSION" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
@@ -63,17 +77,21 @@ jobs:
           printf '{"name":"argos-live-runtime","version":"0.1.0","private":true,"dependencies":{"openclaw":"%s"}}\n' "$OPENCLAW_VERSION" > work/native-runtime/package.json
           EXPECTED="$OPENCLAW_INTEGRITY" node -e 'const l=require("./work/native-runtime/package-lock.json"); if(l.packages["node_modules/openclaw"].integrity !== process.env.EXPECTED) process.exit(1)'
           npm ci --ignore-scripts --no-audit --no-fund --prefix work/native-runtime
-          npm ci --ignore-scripts --no-audit --no-fund --prefix openclaw-plugin/argos-improve
-          python3 scripts/refresh-plugin-manifest.py openclaw-plugin/argos-improve
+          if [[ '${{ inputs.tool_sequence_only }}' != true ]]; then
+            npm ci --ignore-scripts --no-audit --no-fund --prefix openclaw-plugin/argos-improve
+            python3 scripts/refresh-plugin-manifest.py openclaw-plugin/argos-improve
+          fi
           curl --fail --location --retry 3 -o "$RUNNER_TEMP/argos-ollama.tar.zst" "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst"
           echo "$OLLAMA_SHA256  $RUNNER_TEMP/argos-ollama.tar.zst" | sha256sum -c -
           tar --zstd -xf "$RUNNER_TEMP/argos-ollama.tar.zst" -C "$RUNNER_TEMP/argos-ollama"
-          python3 scripts/fetch-seed-model.py "$RUNNER_TEMP/argos-native-seed"
-          chmod -R a-w "$RUNNER_TEMP/argos-native-seed"
+          if [[ '${{ inputs.tool_sequence_only }}' != true ]]; then
+            python3 scripts/fetch-seed-model.py "$RUNNER_TEMP/argos-native-seed"
+            chmod -R a-w "$RUNNER_TEMP/argos-native-seed"
+          fi
           python3 scripts/fetch-catalog-model.py qwen3:4b-instruct-2507-q4_K_M "$RUNNER_TEMP/argos-proctor-model"
           chmod -R a-w "$RUNNER_TEMP/argos-proctor-model"
       - name: Native conversation-only CPU reply without seed copies
-        if: ${{ !inputs.proctor_only }}
+        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only }}
         # Hosted runners can expose accelerator devices. Make this acceptance
         # fixture CPU-only so its placement assertion measures the shipped
         # CPU path instead of depending on runner hardware.
@@ -87,15 +105,19 @@ jobs:
         run: |
           python3 scripts/smoke-native-chat.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/native-chat.json
       - name: Native managed desktop startup and authenticated controls
-        if: ${{ !inputs.proctor_only }}
+        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only }}
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
       - name: Real tool-capable-model Proctor practice with signed completion
-        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && !inputs.tool_sequence_only }}
         run: |
           args=()
           if [[ '${{ inputs.deterministic_profile }}' == true ]]; then args+=(--deterministic-profile); fi
           python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/proctor-real.json "${args[@]}"
+      - name: Real model tool-sequence transfer check with execution denied
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.tool_sequence_only }}
+        run: |
+          python3 scripts/smoke-tool-sequence-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/tool-sequence-real.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -104,5 +126,7 @@ jobs:
             work/native-chat.json
             work/desktop-startup.json
             work/proctor-real*.json
+            work/tool-sequence-real.json
+            work/tool-sequence-real-run.json
           if-no-files-found: error
           retention-days: 14
