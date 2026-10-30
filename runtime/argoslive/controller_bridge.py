@@ -273,6 +273,24 @@ class Bridge:
                 log_result = value.get('value') if isinstance(value.get('value'), dict) else {}
                 outcome.update(status=log_result.get('status'),
                                appended=log_result.get('status') == 'appended')
+                if outcome['appended']:
+                    receipts = log_result.get('receipts')
+                    logged_ids = set()
+                    if isinstance(receipts, list):
+                        store = Store(self.home / '.local/share/argos-live/results')
+                        fields = ('id', 'created', 'model', 'suite', 'state', 'summary')
+                        for receipt in receipts:
+                            if (not isinstance(receipt, dict) or not isinstance(receipt.get('id'), str) or
+                                    not re.fullmatch(r'[a-f0-9]{32}', receipt['id'])):
+                                continue
+                            try:
+                                saved = store.load(receipt['id'])
+                            except (OSError, ValueError):
+                                continue
+                            expected = {field: saved.get(field) for field in fields}
+                            if receipt == expected:
+                                logged_ids.add(receipt['id'])
+                    outcome['logged_result_ids'] = sorted(logged_ids)
                 if log_result.get('status') == 'failed':
                     outcome['append_outcome'] = 'unconfirmed'
             if kind in {'edit', 'resolve'}:
@@ -367,8 +385,16 @@ class Bridge:
             if not job['recorded']:
                 value = job['value']
                 result = value['value']['result']
-                self.outcomes.append({'kind': 'evaluation', 'job_id': job_id,
-                                      'result_id': result['id'], 'state': result['state']})
+                coverage = result.get('coverage') if isinstance(result.get('coverage'), dict) else {}
+                summary = result.get('summary') if isinstance(result.get('summary'), dict) else {}
+                self.outcomes.append({
+                    'kind': 'evaluation', 'job_id': job_id,
+                    'result_id': result['id'], 'state': result['state'],
+                    'suite': result.get('suite'), 'suite_version': result.get('suite_version'),
+                    'coverage_complete': coverage.get('complete') is True,
+                    'total': summary.get('total'), 'correct': summary.get('correct'),
+                    'format_errors': summary.get('format_errors'),
+                })
                 self.publish()
                 job['recorded'] = True
                 job['consumed'] = True

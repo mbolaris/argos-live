@@ -15,6 +15,19 @@ from argoslive import auto_setup, proctor_service
 from argoslive.evaluation_context import configuration_from, receipt_from
 
 
+def evaluation_outcome(run_id, suite='quick', *, correct=20, total=20, format_errors=0):
+    return {'kind': 'evaluation', 'state': 'completed', 'result_id': run_id,
+            'suite': 'openclaw-' + suite,
+            'suite_version': f'argos-openclaw-ability/{suite}/test-version',
+            'coverage_complete': True, 'correct': correct, 'total': total,
+            'format_errors': format_errors}
+
+
+def log_outcome(run_id):
+    return {'kind': 'log', 'status': 'appended', 'appended': True,
+            'logged_result_ids': [run_id]}
+
+
 class ProctorServiceTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -33,6 +46,8 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('inspect the exact item prompt and scorer requirements', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('do not infer intent from hidden answer labels', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('separately versioned, fully specified form', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('immediately call argos_log', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('separate 40-task challenge suite', proctor_service.CAMPAIGN_MESSAGE)
 
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
@@ -189,9 +204,9 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIs(result['practice_is_improvement_evidence'], False)
 
     def test_campaign_assessment_requires_comparison_then_audit_for_no_change(self):
-        runs = [{'kind': 'evaluation', 'state': 'completed', 'result_id': run_id}
-                for run_id in ('baseline-one', 'baseline-two')]
-        outcomes = [{'kind': 'inspect'}, *runs,
+        runs = [evaluation_outcome(run_id) for run_id in ('baseline-one', 'baseline-two')]
+        outcomes = [{'kind': 'inspect'}, runs[0], log_outcome('baseline-one'),
+                    runs[1], log_outcome('baseline-two'),
                     {'kind': 'compare', 'baseline_id': 'baseline-one', 'candidate_id': 'baseline-two'},
                     {'kind': 'audit', 'status': 'empty', 'passed': True}]
         assessment = proctor_service._campaign_assessment(outcomes)
@@ -200,18 +215,18 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(assessment['outcome'], 'no_change_audited')
         self.assertEqual(assessment['saved_evaluation_ids'], ['baseline-one', 'baseline-two'])
 
-        outcomes = [outcomes[0], *runs, outcomes[-1], outcomes[-2]]
+        outcomes = [*outcomes[:-2], outcomes[-1], outcomes[-2]]
         assessment = proctor_service._campaign_assessment(outcomes)
         self.assertFalse(assessment['ready'])
-        self.assertIn('a passed host instruction audit supporting the no-change decision',
+        self.assertIn('a passed host instruction audit after the final comparison, evaluation, and log entry',
                       assessment['missing'])
 
     def test_campaign_assessment_requires_host_resolution_and_audit_after_kept_change(self):
         outcomes = [{'kind': 'inspect'},
-                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'base-one'},
-                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'base-two'},
-                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'candidate-one'},
-                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'candidate-two'},
+                    evaluation_outcome('base-one'), log_outcome('base-one'),
+                    evaluation_outcome('base-two'), log_outcome('base-two'),
+                    evaluation_outcome('candidate-one'), log_outcome('candidate-one'),
+                    evaluation_outcome('candidate-two'), log_outcome('candidate-two'),
                     {'kind': 'edit', 'status': 'changed', 'change_id': 'change-1'},
                     {'kind': 'compare', 'baseline_id': 'base-one', 'candidate_id': 'candidate-one'},
                     {'kind': 'resolve', 'status': 'kept', 'change_id': 'change-1',
@@ -228,6 +243,69 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertFalse(assessment['ready'])
         self.assertIn('a passed host instruction audit after the keep/restore decision',
                       assessment['missing'])
+
+    def test_saturated_standard_requires_a_logged_complete_challenge_after_latest_decision(self):
+        outcomes = [{'kind': 'inspect'},
+                    evaluation_outcome('standard-one', 'standard', correct=70, total=70),
+                    log_outcome('standard-one'),
+                    evaluation_outcome('standard-two', 'standard', correct=70, total=70),
+                    log_outcome('standard-two'),
+                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertTrue(any('40-task challenge' in item for item in assessment['missing']))
+
+        outcomes.extend([evaluation_outcome('challenge-one', 'challenge', correct=33, total=40),
+                         log_outcome('challenge-one')])
+        outcomes.append({'kind': 'audit', 'status': 'empty', 'passed': True})
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+
+    def test_saturated_standard_does_not_accept_a_challenge_before_latest_edit(self):
+        outcomes = [{'kind': 'inspect'},
+                    evaluation_outcome('standard-one', 'standard', correct=70, total=70),
+                    log_outcome('standard-one'),
+                    evaluation_outcome('challenge-one', 'challenge', correct=33, total=40),
+                    log_outcome('challenge-one'),
+                    {'kind': 'edit', 'status': 'changed', 'change_id': 'change-1'},
+                    {'kind': 'resolve', 'status': 'restored', 'change_id': 'change-1',
+                     'configuration_preserved': True},
+                    evaluation_outcome('standard-two', 'standard', correct=70, total=70),
+                    log_outcome('standard-two'),
+                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertTrue(any('40-task challenge' in item for item in assessment['missing']))
+
+    def test_standard_with_a_miss_does_not_trigger_saturation_gate(self):
+        outcomes = [{'kind': 'inspect'},
+                    evaluation_outcome('standard-one', 'standard', correct=69, total=70),
+                    log_outcome('standard-one'),
+                    evaluation_outcome('standard-two', 'standard', correct=69, total=70),
+                    log_outcome('standard-two'),
+                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+
+    def test_every_saved_evaluation_needs_a_host_verified_log_receipt(self):
+        outcomes = [{'kind': 'inspect'}, evaluation_outcome('baseline-one'),
+                    evaluation_outcome('baseline-two'),
+                    {'kind': 'compare', 'baseline_id': 'baseline-one', 'candidate_id': 'baseline-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertTrue(any('host-verified log receipt' in item
+                            for item in assessment['missing']))
+
+        outcomes.append({'kind': 'log', 'status': 'appended', 'appended': True,
+                         'logged_result_ids': ['baseline-one', 'baseline-two']})
+        outcomes.append({'kind': 'audit', 'status': 'empty', 'passed': True})
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
 
     def test_campaign_followup_preserves_unconfirmed_log_outcome(self):
         outcome = {'kind': 'log', 'status': 'failed', 'appended': False,
@@ -251,8 +329,8 @@ class ProctorServiceTests(unittest.TestCase):
             if len(bridge.launches) == 1:
                 bridge.outcomes.extend([
                     {'kind': 'inspect'},
-                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'base-one'},
-                    {'kind': 'evaluation', 'state': 'completed', 'result_id': 'base-two'},
+                    evaluation_outcome('base-one'), log_outcome('base-one'),
+                    evaluation_outcome('base-two'), log_outcome('base-two'),
                 ])
             else:
                 bridge.outcomes.extend([
