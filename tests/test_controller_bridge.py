@@ -367,6 +367,32 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertNotIn(bridge.secret, json.dumps(value))
             self.assertIsNone(bridge.pending)
 
+    def test_host_records_only_validated_run_ids_from_appended_log_receipts(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            tool = {**turn, 'op': 'tool', 'call_id': 'receipt-log', 'kind': 'log',
+                    'params': {'text': 'Saved baseline and next step.'}}
+            run_id = 'a' * 32
+            saved = {'id': run_id, 'created': '2026-10-29T00:00:00+00:00', 'model': 'provider/model',
+                     'suite': 'openclaw-quick', 'state': 'completed', 'summary': {'correct': 20, 'total': 20}}
+            valid_receipt = {key: saved.get(key) for key in
+                             ('id', 'created', 'model', 'suite', 'state', 'summary')}
+            nonexistent_receipt = {**valid_receipt, 'id': 'b' * 32}
+            appended = {'status': 'completed', 'value': {'status': 'appended', 'receipts': [
+                valid_receipt, nonexistent_receipt, {'id': 'not-a-run-id'}, None]}}
+
+            def load_saved(run_id):
+                if run_id == saved['id']:
+                    return saved
+                raise ValueError('Benchmark run not found')
+
+            with patch.object(bridge, 'run_child', return_value=appended), \
+                 patch.object(controller_bridge.Store, 'load', side_effect=load_saved):
+                bridge.dispatch(tool)
+            self.assertEqual(bridge.outcomes[-1]['logged_result_ids'], [run_id])
+            parent.complete()
+
     def test_drained_log_failure_is_completed_without_claiming_append(self):
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
@@ -584,6 +610,31 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(result['summary']['partitions']['heldout']['total'], 20)
             parent.complete()
 
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
+    def test_dependent_tool_sequence_is_admitted_by_host_controller(self):
+        binary = self.home / 'bin'
+        binary.mkdir()
+        executable = binary / 'openclaw'
+        executable.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+            'session=sys.argv[sys.argv.index("--session-id")+1]\n'
+            'print(json.dumps({"payloads":[{"text":"{}"}],"meta":{"agentMeta":{'
+            '"sessionId":session,"provider":"ollama","model":"qwen3:4b-instruct-2507-q4_K_M"}}}))\n')
+        executable.chmod(0o700)
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            bridge.worker_path = str(binary) + os.pathsep + bridge.worker_path
+            _, turn = self.begin(bridge)
+            request = {**turn, 'op': 'tool', 'call_id': 'sequence-eval', 'kind': 'evaluation',
+                       'params': {'suite': 'tool-sequence'}}
+            value = bridge.dispatch(request)
+            self.assertEqual(value['status'], 'completed')
+            result = value['value']['result']
+            self.assertEqual(result['suite'], 'openclaw-tool-sequence')
+            self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+            self.assertEqual(result['summary']['partitions']['practice']['total'], 20)
+            self.assertEqual(result['summary']['partitions']['heldout']['total'], 20)
+            parent.complete()
+
     def test_bounded_evaluation_wait_keeps_host_job_for_followup_after_turn_ends(self):
         started = threading.Event()
         release = threading.Event()
@@ -595,7 +646,10 @@ class ControllerBridgeTests(unittest.TestCase):
                 started.set()
                 release.wait(5)
                 return {'status':'completed', 'value':{'result':{
-                    'id':'a' * 32, 'state':'completed', 'coverage':{'completed':70,'total':70}},
+                    'id':'a' * 32, 'state':'completed', 'suite':'openclaw-standard',
+                    'suite_version':'argos-openclaw-ability/standard/test-version',
+                    'coverage':{'completed':70,'total':70,'complete':True},
+                    'summary':{'correct':70,'total':70,'format_errors':0}},
                     'path':'saved-result.json'}}
 
             bridge.run_child = slow_child
@@ -615,6 +669,9 @@ class ControllerBridgeTests(unittest.TestCase):
             finished = bridge.wait_evaluation(value['job_id'], seconds=2)
             self.assertEqual(finished['result']['coverage']['completed'], 70)
             self.assertEqual(bridge.outcomes[0]['result_id'], 'a' * 32)
+            self.assertEqual(bridge.outcomes[0]['suite'], 'openclaw-standard')
+            self.assertTrue(bridge.outcomes[0]['coverage_complete'])
+            self.assertEqual(bridge.outcomes[0]['correct'], 70)
             parent.complete()
 
 

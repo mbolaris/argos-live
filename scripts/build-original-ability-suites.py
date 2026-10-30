@@ -62,15 +62,17 @@ def items():
     return groups
 
 
-def challenge_items():
+def challenge_items(version='1.1.0'):
     """A separate higher-difficulty form; do not derive it from quick/standard."""
+    if version not in ('1.0.0', '1.1.0'):
+        raise ValueError('Unknown challenge suite version')
     groups = {kind: [] for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
     prefixes = {'numeric': 'calc', 'choice': 'logic', 'instruction': 'format',
                 'json': 'record', 'tool-call': 'action'}
 
-    def add(kind, index, prompt, expected, reference, wrong, malformed):
+    def add(kind, index, prompt, expected, reference, wrong, malformed, **scorer_fields):
         groups[kind].append({'id': f'{prefixes[kind]}-{index:02}', 'prompt': prompt,
-            'scorer': {'kind': kind, 'expected': expected}, 'reference': reference,
+            'scorer': {'kind': kind, 'expected': expected, **scorer_fields}, 'reference': reference,
             'wrong': wrong, 'malformed': malformed})
 
     numeric = [
@@ -169,10 +171,51 @@ def challenge_items():
         ('request_review', {'change_id': 'chg-21', 'reviewer': 'owner'}, 'Propose owner review for change chg-21.'),
         ('export_receipt', {'run_id': 'run-44', 'redact_paths': True}, 'Propose exporting run-44 with paths redacted.'),
     ]
-    for i, (name, arguments, prompt) in enumerate(actions, 1):
+    descriptions = {
+        'lookup_record': 'Retrieve a record by exact ID and optionally include its history.',
+        'compare_runs': 'Compare a baseline run with a candidate run.',
+        'create_report': 'Create a report with a title, format, and private-data inclusion flag.',
+        'schedule_task': 'Schedule a named task for an hour and choose whether it is enabled.',
+        'set_filter': 'Apply a field/value filter and choose exact matching.',
+        'summarize_range': 'Summarize an inclusive range of items and specify the unit.',
+        'request_review': 'Request review for a change and specify the reviewer.',
+        'export_receipt': 'Export a run receipt and choose whether paths are redacted.',
+    }
+    requests = [
+        'Look up record R-14 and include its history.',
+        'Compare baseline base-3 with candidate cand-8.',
+        'Create a report titled Cycle audit in JSON format; exclude private data.',
+        'Schedule backup verification at hour 6 and enable the task.',
+        'Set an exact filter on field state with value completed.',
+        'Summarize items 12 through 18, inclusive.',
+        'Request owner review for change chg-21.',
+        'Export run-44 with paths redacted.',
+    ]
+    for i, (name, arguments, legacy_prompt) in enumerate(actions, 1):
         expected = {'name': name, 'arguments': arguments}
-        add('tool-call', i, prompt + ' Return only a JSON tool-call object; do not execute it.',
-            expected, json.dumps(expected), json.dumps({'name': 'wrong_tool', 'arguments': arguments}), 'Execute the action now.')
+        reference = json.dumps(expected)
+        wrong = json.dumps({'name': 'wrong_tool', 'arguments': arguments})
+        if version == '1.0.0':
+            add('tool-call', i, legacy_prompt + ' Return only a JSON tool-call object; do not execute it.',
+                expected, reference, wrong, 'Execute the action now.')
+            continue
+        types = {str: 'string', int: 'integer', bool: 'boolean'}
+        catalog = []
+        for candidate_name, candidate_arguments, _candidate_prompt in actions:
+            catalog.append({'name': candidate_name, 'description': descriptions[candidate_name],
+                            'arguments': {key: types[type(value)]
+                                          for key, value in candidate_arguments.items()}})
+        start = i - 1
+        schemas = [catalog[(start + offset) % len(catalog)] for offset in range(4)]
+        target = schemas.pop(0)
+        schemas.insert((i - 1) % 4, target)
+        prompt = ('Choose the available action that satisfies the complete request. Available tool schemas: '
+                  + json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False)
+                  + '\nRequest: ' + requests[i - 1]
+                  + '\nReturn only the exact JSON tool-call object with top-level keys "name" and "arguments". '
+                  'Set "name" to the selected tool\'s exact name and include every argument required by its '
+                  'schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.')
+        add('tool-call', i, prompt, expected, reference, wrong, '{not json}', available_tools=schemas)
     return groups
 
 
@@ -410,20 +453,199 @@ def tool_plan_items():
     return result
 
 
-def build(suite):
+def tool_sequence_items():
+    """Two- and three-step tool plans with explicit result-reference semantics."""
+    def tool(name, description, arguments, build_arguments):
+        return {'name': name, 'description': description, 'arguments': arguments,
+                'build_arguments': build_arguments}
+
+    workflows = {
+        'practice': [
+            {
+                'steps': [
+                    tool('find_backup', 'Find a backup by label; returns backup_id.',
+                         {'label': 'string'}, lambda n: {'label': f'weekly-{n:02}'}),
+                    tool('verify_backup', 'Verify a backup by ID and optionally check its SHA-256.',
+                         {'backup_id': 'string', 'verify_sha256': 'boolean'},
+                         lambda n: {'backup_id': '$step1.backup_id', 'verify_sha256': True}),
+                ],
+                'request': lambda n: (f"Verify backup weekly-{n:02} and require a SHA-256 check. "
+                                      'Find it first, then pass the returned backup_id to verification.'),
+            },
+            {
+                'steps': [
+                    tool('search_release', 'Find a release by product and version; returns release_id.',
+                         {'product_name': 'string', 'release_version': 'string'},
+                         lambda n: {'product_name': 'Atlas', 'release_version': f'4.{n}'}),
+                    tool('inspect_release', 'Read a release manifest by release ID; returns manifest_id.',
+                         {'release_id': 'string'},
+                         lambda n: {'release_id': '$step1.release_id'}),
+                    tool('check_manifest', 'Check a manifest and optionally include its lockfile.',
+                         {'manifest_id': 'string', 'include_lockfile': 'boolean'},
+                         lambda n: {'manifest_id': '$step2.manifest_id', 'include_lockfile': n % 2 == 1}),
+                ],
+                'request': lambda n: (f"Check the lockfile for Atlas release 4.{n}. Find the release, "
+                                      'inspect its manifest, then check the returned manifest. Include the '
+                                      f"lockfile only for odd request numbers (request {n})."),
+            },
+            {
+                'steps': [
+                    tool('search_session', 'Find a session by user and state; returns session_id.',
+                         {'user_key': 'string', 'state_label': 'string'},
+                         lambda n: {'user_key': f'user-{n:02}', 'state_label': 'active'}),
+                    tool('read_session', 'Read session events by session ID and optionally include tool events.',
+                         {'session_id': 'string', 'include_tool_events': 'boolean'},
+                         lambda n: {'session_id': '$step1.session_id', 'include_tool_events': n % 2 == 0}),
+                ],
+                'request': lambda n: (f"Read active session events for user-{n:02}. Search by the user and "
+                                      'active state first, then read the returned session. Include tool events '
+                                      f"only for even request numbers (request {n})."),
+            },
+            {
+                'steps': [
+                    tool('find_document', 'Find a document by exact title; returns document_id.',
+                         {'document_title': 'string'},
+                         lambda n: {'document_title': f'change-{n:02}'}),
+                    tool('extract_record', 'Extract named fields from a document; returns record_ref.',
+                         {'document_id': 'string', 'fields_csv': 'string'},
+                         lambda n: {'document_id': '$step1.document_id', 'fields_csv': 'commit,reviewer'}),
+                    tool('validate_record', 'Validate an extracted record against a schema version.',
+                         {'record_ref': 'string', 'schema_version': 'string'},
+                         lambda n: {'record_ref': '$step2.record_ref', 'schema_version': 'change-v2'}),
+                ],
+                'request': lambda n: (f"For document change-{n:02}, extract commit and reviewer, then validate "
+                                      'the extracted record with schema change-v2. Locate the document before '
+                                      'extracting, and use the returned record reference for validation.'),
+            },
+        ],
+        'heldout': [
+            {
+                'steps': [
+                    tool('locate_receipt', 'Locate a receipt by reference code; returns receipt_key.',
+                         {'reference_code': 'string'},
+                         lambda n: {'reference_code': f'RCPT-{n:03}'}),
+                    tool('verify_receipt', 'Verify a receipt by key and optionally check its signature.',
+                         {'receipt_key': 'string', 'check_signature': 'boolean'},
+                         lambda n: {'receipt_key': '$step1.receipt_key', 'check_signature': True}),
+                ],
+                'request': lambda n: (f"Verify receipt RCPT-{n:03} and check its signature. Locate it first, "
+                                      'then use the returned receipt key.'),
+            },
+            {
+                'steps': [
+                    tool('lookup_asset', 'Find an asset by tag; returns asset_ref.',
+                         {'asset_tag': 'string'}, lambda n: {'asset_tag': f'ASSET-{n:03}'}),
+                    tool('inspect_revision', 'Inspect one asset revision; returns snapshot_ref.',
+                         {'asset_ref': 'string', 'revision_label': 'string'},
+                         lambda n: {'asset_ref': '$step1.asset_ref', 'revision_label': 'current'}),
+                    tool('compare_snapshots', 'Compare an asset with a snapshot and optionally include metadata.',
+                         {'asset_ref': 'string', 'snapshot_ref': 'string', 'include_metadata': 'boolean'},
+                         lambda n: {'asset_ref': '$step1.asset_ref', 'snapshot_ref': '$step2.snapshot_ref',
+                                    'include_metadata': n % 2 == 1}),
+                ],
+                'request': lambda n: (f"Compare current revision of asset ASSET-{n:03} to its inspected snapshot. "
+                                      'Look up the asset, inspect its current revision, then compare using the '
+                                      f"returned references. Include metadata only for odd request numbers (request {n})."),
+            },
+            {
+                'steps': [
+                    tool('search_case', 'Find a case by queue and state; returns case_ref.',
+                         {'queue_code': 'string', 'state_code': 'string'},
+                         lambda n: {'queue_code': f'Q-{n:03}', 'state_code': 'open'}),
+                    tool('read_case_history', 'Read a case history by reference and optionally include notes.',
+                         {'case_ref': 'string', 'include_notes': 'boolean'},
+                         lambda n: {'case_ref': '$step1.case_ref', 'include_notes': n % 2 == 0}),
+                ],
+                'request': lambda n: (f"Read the open case history for queue Q-{n:03}. Search by queue and open "
+                                      'state first, then read the returned case. Include notes only for even '
+                                      f"request numbers (request {n})."),
+            },
+            {
+                'steps': [
+                    tool('find_package', 'Find a package by name and channel; returns package_ref.',
+                         {'package_name': 'string', 'release_channel': 'string'},
+                         lambda n: {'package_name': f'package-{n:03}', 'release_channel': 'stable'}),
+                    tool('read_manifest', 'Read a package manifest by reference; returns manifest_ref.',
+                         {'package_ref': 'string'}, lambda n: {'package_ref': '$step1.package_ref'}),
+                    tool('check_dependencies', 'Check dependencies declared by a manifest.',
+                         {'manifest_ref': 'string', 'include_development': 'boolean'},
+                         lambda n: {'manifest_ref': '$step2.manifest_ref', 'include_development': n % 2 == 0}),
+                ],
+                'request': lambda n: (f"Check development dependencies for stable package-{n:03}. Find the "
+                                      'package, read its manifest, then check that manifest. Include development '
+                                      f"dependencies only for even request numbers (request {n})."),
+            },
+        ],
+    }
+
+    result = []
+    for partition, group in workflows.items():
+        catalog = [entry for workflow in group for entry in workflow['steps']]
+        first_id = 1 if partition == 'practice' else 21
+        for variant in range(1, 6):
+            for workflow_index, workflow in enumerate(group):
+                targets = workflow['steps']
+                target_names = {entry['name'] for entry in targets}
+                decoys = [entry for entry in catalog if entry['name'] not in target_names]
+                available = targets + decoys[:4 - len(targets)]
+                first = available.pop(0)
+                available.insert((workflow_index * 5 + variant - 1) % 4, first)
+                schemas = [{'name': entry['name'], 'description': entry['description'],
+                            'arguments': entry['arguments']} for entry in available]
+                expected = {'steps': [
+                    {'name': entry['name'], 'arguments': entry['build_arguments'](variant)}
+                    for entry in targets]}
+                request = workflow['request'](variant)
+                bindings = []
+                for step_index, call in enumerate(expected['steps'], 1):
+                    for argument, value in call['arguments'].items():
+                        if isinstance(value, str) and value.startswith('$step'):
+                            bindings.append(f'step {step_index} argument {argument} = "{value}"')
+                prompt = ('Plan the required calls; do not execute any tool. Available tool schemas: '
+                          + json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False)
+                          + '\nRequest: ' + request
+                          + '\nReference bindings: ' + '; '.join(bindings)
+                          + '\nFor any dependent identifier, use the exact reference string stated above '
+                          'rather than guessing a returned value. Each call must have exactly "name" and "arguments". '
+                          'Return only a JSON object with exactly one top-level key "steps", containing the '
+                          'minimal calls in required order. Use only listed tools, include every required argument, '
+                          'and add no extra fields or commentary.')
+                wrong = {'steps': [dict(expected['steps'][0], name='wrong_tool'), *expected['steps'][1:]]}
+                ordinal = first_id + (variant - 1) * len(group) + workflow_index
+                result.append({'id': f'{partition}-{ordinal:02}', 'prompt': prompt,
+                    'scorer': {'kind': 'tool-sequence', 'expected': expected, 'partition': partition,
+                               'available_tools': schemas},
+                    'reference': json.dumps(expected), 'wrong': json.dumps(wrong),
+                    'malformed': '{not json}'})
+    return result
+
+
+def build(suite, version=None):
     if suite == 'challenge':
-        selected = [item for group in challenge_items().values() for item in group]
+        version = version or '1.1.0'
+        selected = [item for group in challenge_items(version).values() for item in group]
     elif suite == 'tool-schema':
+        if version is not None:
+            raise ValueError('No alternate version requested')
         selected = tool_schema_items()
     elif suite == 'tool-plan':
+        if version is not None:
+            raise ValueError('No alternate version requested')
         selected = tool_plan_items()
+    elif suite == 'tool-sequence':
+        if version is not None:
+            raise ValueError('No alternate version requested')
+        selected = tool_sequence_items()
     elif suite in ('quick', 'standard'):
+        if version is not None:
+            raise ValueError('No alternate version requested')
         count = 4 if suite == 'quick' else 14
         selected = [item for group in items().values() for item in group[:count]]
     else:
         raise ValueError('Unknown suite')
-    version = ('1.2.0' if suite == 'tool-schema' else
-               '1.1.0' if suite == 'tool-plan' else '1.0.0')
+    version = version or ('1.2.0' if suite == 'tool-schema' else
+                          '1.1.0' if suite == 'tool-plan' else
+                          '1.0.0' if suite == 'tool-sequence' else '1.0.0')
     return validate({'schema': 'argos-ability-suite/1', 'suite': suite, 'version': version,
         'license': 'MIT', 'source': 'original-argos-live', 'omitted_categories': ['code-execution'],
         'items': selected})
@@ -432,5 +654,5 @@ def build(suite):
 if __name__ == '__main__':
     destination = ROOT / 'runtime/argoslive/data/ability'
     destination.mkdir(parents=True, exist_ok=True)
-    for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan'):
+    for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
         (destination / (suite + '.json')).write_text(json.dumps(build(suite), indent=2) + '\n', encoding='utf-8')

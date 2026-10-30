@@ -50,9 +50,37 @@ PRACTICE_ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'},
     {'item_id': 'q6', 'answer': 'C'}, {'module_id': 'm2'}, {}]
 if len(PRACTICE_TOOLS) != len(PRACTICE_ARGS):
     raise RuntimeError('Synthetic practice tool plan is inconsistent')
-CAMPAIGN_TOOLS = ['argos_inspect', 'argos_evaluate', 'argos_evaluate',
-                  'argos_compare', 'argos_audit_instructions']
-CAMPAIGN_ARGS = [{}, {'suite': 'quick'}, {'suite': 'quick'}, None, {}]
+CAMPAIGN_TOOLS = ['argos_inspect', 'argos_evaluate', 'argos_log', 'argos_evaluate',
+                  'argos_log', 'argos_evaluate', 'argos_log', 'argos_evaluate',
+                  'argos_log', 'argos_compare', 'argos_audit_instructions']
+CAMPAIGN_ARGS = [{}, {'suite': 'quick'}, None, {'suite': 'quick'}, None,
+                 {'suite': 'standard'}, None, {'suite': 'challenge'}, None, None, {}]
+if len(CAMPAIGN_TOOLS) != len(CAMPAIGN_ARGS):
+    raise RuntimeError('Synthetic campaign tool plan is inconsistent')
+
+
+def campaign_log_args(messages, next_action):
+    history = json.dumps(messages)
+    run_ids = list(dict.fromkeys(re.findall(r'Run ID: ([a-f0-9]{32})', history)))
+    scores = re.findall(r'(\d+/\d+) passed', history)
+    if not run_ids or len(scores) != len(run_ids):
+        raise ValueError('Campaign log requires the actual saved run ID and score')
+    return {'text': f"Run ID: {run_ids[-1]}; score: {scores[-1]}; next action: {next_action}"}
+
+
+def pending_campaign_job_id(messages):
+    """Return the job ID from the most recent running campaign tool result."""
+    for row in reversed(messages):
+        if not isinstance(row, dict) or row.get('role') != 'tool':
+            continue
+        content = row.get('content', '')
+        if not isinstance(content, str) or 'Evaluation is still running' not in content:
+            return None
+        match = re.search(r'job ID\s+([a-f0-9]{32})', content, re.IGNORECASE)
+        if not match:
+            raise ValueError('Running campaign evaluation did not expose its job ID to the agent')
+        return match.group(1)
+    return None
 
 
 def run(cli, report):
@@ -60,7 +88,8 @@ def run(cli, report):
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or os.geteuid() == 0):
         raise ValueError('Proctor integration fixture requires an unprivileged disposable hosted runner')
     progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': [],
-                'provider_idless_calls': 0, 'start_result_on_wire_verified': False}
+                'provider_idless_calls': 0, 'start_result_on_wire_verified': False,
+                'campaign_plan_index': 0, 'campaign_wait_calls': 0}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -107,16 +136,41 @@ def run(cli, report):
             campaign_phase = progress['phase'] == 'campaign'
             phase_tools = (CAMPAIGN_TOOLS if campaign_phase else
                            PRACTICE_TOOLS if progress['phase'] == 'practice' else TOOLS)
-            if request.get('tools') and calls < len(phase_tools):
+            messages = request.get('messages', [])
+            pending_job_id = pending_campaign_job_id(messages) if campaign_phase else None
+            if campaign_phase:
+                phase_has_work = (pending_job_id is not None or
+                                  progress['campaign_plan_index'] < len(CAMPAIGN_TOOLS))
+            else:
+                phase_has_work = calls < len(phase_tools)
+            if request.get('tools') and phase_has_work:
                 if campaign_phase:
-                    tool, args = CAMPAIGN_TOOLS[calls], CAMPAIGN_ARGS[calls]
-                    if tool == 'argos_compare':
-                        run_ids = list(dict.fromkeys(re.findall(r'Run ID: ([a-f0-9]{32})',
-                                                                json.dumps(request.get('messages', [])))))
-                        if len(run_ids) < 2:
+                    if pending_job_id:
+                        # A bounded start/wait call can return while the host-owned job
+                        # continues. Model the required follow-up wait(s) without
+                        # advancing the campaign's business-action plan.
+                        tool, args = 'argos_evaluate_wait', {'job_id': pending_job_id}
+                        progress['campaign_wait_calls'] += 1
+                    else:
+                        plan_index = progress['campaign_plan_index']
+                        tool, args = CAMPAIGN_TOOLS[plan_index], CAMPAIGN_ARGS[plan_index]
+                        progress['campaign_plan_index'] += 1
+                    if tool == 'argos_log':
+                        next_action = {
+                            2: 'collect a second matched quick baseline',
+                            4: 'run a complete standard evaluation because the quick result is saturated',
+                            6: 'run the separate challenge suite; keep its result separate from quick',
+                            8: 'compare the matched quick baselines and audit instructions',
+                        }[plan_index]
+                        args = campaign_log_args(messages, next_action)
+                    elif tool == 'argos_compare':
+                        history = json.dumps(messages)
+                        quick_ids = list(dict.fromkeys(re.findall(
+                            r'Run ID: ([a-f0-9]{32})\. Suite: argos-openclaw-ability/quick/', history)))
+                        if len(quick_ids) < 2:
                             progress['errors'].append('campaign-missing-two-saved-baseline-ids')
                         else:
-                            args = {'baseline_id': run_ids[-2], 'candidate_id': run_ids[-1]}
+                            args = {'baseline_id': quick_ids[0], 'candidate_id': quick_ids[1]}
                 elif progress['phase'] == 'practice':
                     tool, args = PRACTICE_TOOLS[calls], PRACTICE_ARGS[calls]
                 else:
@@ -385,9 +439,11 @@ def run(cli, report):
             def campaign_after_practice(*args, **kwargs):
                 progress['practice_tool_calls'] = progress['tools']
                 chained_practice_errors.extend(progress['errors'])
-                progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[])
+                progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[],
+                                campaign_plan_index=0, campaign_wait_calls=0)
                 campaign = real_run_campaign(*args, **kwargs)
                 progress['campaign_tool_calls'] = progress['tools']
+                progress['campaign_action_calls'] = progress['campaign_plan_index']
                 progress['tools'] += progress['practice_tool_calls']
                 return campaign
 
@@ -400,13 +456,47 @@ def run(cli, report):
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
                 improvement_result = proctor_service.run_improvement(
                     service_home, None, 'pilot-a', executable=cli)
-            expected_campaign_calls = len(PRACTICE_TOOLS) + len(CAMPAIGN_TOOLS)
+            expected_campaign_tool_calls = (len(CAMPAIGN_TOOLS) +
+                                            progress.get('campaign_wait_calls', 0))
+            expected_campaign_calls = len(PRACTICE_TOOLS) + expected_campaign_tool_calls
+            campaign_wait_tool_available = (
+                'argos_evaluate_wait' in progress['model_tool_names'])
             if (improvement_result['status'] != 'completed' or
                     improvement_result['practice_is_improvement_evidence'] is not False or
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
                     chained_practice_errors or progress['practice_tool_calls'] != len(PRACTICE_TOOLS) or
-                    progress['campaign_tool_calls'] != len(CAMPAIGN_TOOLS)):
-                raise ValueError('Owner-facing chained improvement flow did not complete its scoped campaign')
+                    progress['campaign_tool_calls'] != expected_campaign_tool_calls or
+                    progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS) or
+                    not campaign_wait_tool_available):
+                campaign = improvement_result.get('campaign', {})
+                diagnostic = {
+                    'schema': 'argos-proctor-campaign-failure/1',
+                    'improvement_status': improvement_result.get('status'),
+                    'practice_is_improvement_evidence': improvement_result.get(
+                        'practice_is_improvement_evidence'),
+                    'campaign_status': campaign.get('status'),
+                    'campaign_outcome': campaign.get('outcome'),
+                    'campaign_missing': campaign.get('missing'),
+                    'campaign_turns': campaign.get('controller_turns'),
+                    'saved_evaluation_ids': campaign.get('saved_evaluation_ids'),
+                    'tool_calls': progress['tools'],
+                    'expected_tool_calls': expected_campaign_calls,
+                    'practice_tool_calls': progress.get('practice_tool_calls'),
+                    'expected_practice_tool_calls': len(PRACTICE_TOOLS),
+                    'campaign_tool_calls': progress.get('campaign_tool_calls'),
+                    'expected_campaign_tool_calls': expected_campaign_tool_calls,
+                    'campaign_action_calls': progress.get('campaign_action_calls'),
+                    'expected_campaign_action_calls': len(CAMPAIGN_TOOLS),
+                    'campaign_wait_calls': progress.get('campaign_wait_calls'),
+                    'campaign_wait_tool_available': campaign_wait_tool_available,
+                    'tool_errors': progress['errors'],
+                    'practice_tool_errors': chained_practice_errors,
+                    'tool_outcomes': campaign.get('tool_outcomes'),
+                }
+                report.with_name('proctor-agent-failure.json').write_text(
+                    json.dumps(diagnostic, indent=2) + '\n')
+                raise ValueError('Owner-facing chained improvement flow did not complete its scoped campaign: ' +
+                                 json.dumps(diagnostic, sort_keys=True))
             if not improvement_result['practice']['transcript_id']:
                 raise ValueError('Chained improvement flow lacks its saved practice transcript ID')
             campaign_reservation = json.loads((service_home / '.local/state/argos-live/workload/reservation.json').read_text())
@@ -417,7 +507,10 @@ def run(cli, report):
                                     item.get('state') == 'completed' and item.get('result_id')]
             campaign_comparisons = [item for item in campaign_outcomes if item['kind'] == 'compare']
             campaign_audits = [item for item in campaign_outcomes if item['kind'] == 'audit']
-            if (len(campaign_evaluations) != 2 or not campaign_comparisons or
+            campaign_suites = [item.get('suite') for item in campaign_evaluations]
+            if (len(campaign_evaluations) != 4 or campaign_suites.count('openclaw-quick') != 2 or
+                    campaign_suites.count('openclaw-standard') != 1 or
+                    campaign_suites.count('openclaw-challenge') != 1 or not campaign_comparisons or
                     not campaign_audits or campaign_audits[-1].get('status') != 'empty' or
                     campaign_audits[-1].get('passed') is not True or
                     any(item['kind'] in {'edit', 'resolve'} for item in campaign_outcomes)):
@@ -430,6 +523,8 @@ def run(cli, report):
                 actual_model_weights_verified=False, improvement_campaign_completed=True,
                 practice_tool_calls=progress['practice_tool_calls'],
                 campaign_tool_calls=progress['campaign_tool_calls'],
+                campaign_action_calls=progress['campaign_action_calls'],
+                campaign_wait_calls=progress['campaign_wait_calls'],
                 campaign_saved_evaluations=len(campaign_evaluations),
                 production_gateway_dispatch=False)
             receipt['passed'] = True

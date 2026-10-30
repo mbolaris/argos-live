@@ -5,9 +5,12 @@ from pathlib import Path
 import re
 
 DATA = Path(__file__).with_name('data') / 'ability'
-KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call'}
-SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40, 'tool-plan': 40}
-SUITE_KINDS = {'tool-schema': {'tool-call'}, 'tool-plan': {'tool-call'}}
+KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call', 'tool-sequence'}
+DEFAULT_KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call'}
+SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40,
+                'tool-plan': 40, 'tool-sequence': 40}
+SUITE_KINDS = {'tool-schema': {'tool-call'}, 'tool-plan': {'tool-call'},
+               'tool-sequence': {'tool-sequence'}}
 LIMIT = 65536
 
 
@@ -90,11 +93,15 @@ def score(item, response):
                        and all(word.lower() in {w.lower() for w in words} for word in rule['keywords'])
                        and ('\n' not in text if rule['one_line'] else True)
                        and (text.isupper() if rule.get('uppercase') else True))
-        elif kind in ('json', 'tool-call'):
+        elif kind in ('json', 'tool-call', 'tool-sequence'):
             value = decode(text)
             if not shape(value, rule['expected']):
                 raise ValueError('Expected closed JSON schema')
             if kind == 'tool-call' and not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', value['name']):
+                raise ValueError('Invalid tool name')
+            if kind == 'tool-sequence' and any(
+                    not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', call['name'])
+                    for call in value['steps']):
                 raise ValueError('Invalid tool name')
             correct = value == rule['expected']
         else:
@@ -139,21 +146,48 @@ def validate(data):
         elif kind == 'choice':
             if rule.get('expected') not in ('A', 'B', 'C', 'D'):
                 raise ValueError('Invalid choice reference')
-        elif kind == 'tool-call':
+        elif kind in ('tool-call', 'tool-sequence'):
             expected = rule.get('expected')
-            if (not isinstance(expected, dict) or set(expected) != {'name', 'arguments'}
-                    or not isinstance(expected['arguments'], dict) or not isinstance(expected['name'], str)
-                    or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', expected['name'])):
-                raise ValueError('Invalid inert tool reference')
-            if data['suite'] in ('tool-schema', 'tool-plan'):
+            if kind == 'tool-call':
+                if (not isinstance(expected, dict) or set(expected) != {'name', 'arguments'}
+                        or not isinstance(expected['arguments'], dict) or not isinstance(expected['name'], str)
+                        or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', expected['name'])):
+                    raise ValueError('Invalid inert tool reference')
+                targets = [expected]
+            else:
+                if (data['suite'] != 'tool-sequence' or not isinstance(expected, dict)
+                        or set(expected) != {'steps'} or not isinstance(expected['steps'], list)
+                        or len(expected['steps']) not in (2, 3)):
+                    raise ValueError('Invalid inert tool sequence reference')
+                targets = expected['steps']
+                if any(not isinstance(call, dict) or set(call) != {'name', 'arguments'}
+                       or not isinstance(call['name'], str)
+                       or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', call['name'])
+                       or not isinstance(call['arguments'], dict) for call in targets):
+                    raise ValueError('Invalid inert tool sequence step')
+                if len({call['name'] for call in targets}) != len(targets):
+                    raise ValueError('Tool sequence steps must use distinct tools')
+            has_schemas = 'available_tools' in rule
+            if data['suite'] in ('tool-schema', 'tool-plan', 'tool-sequence') and not has_schemas:
+                raise ValueError('Missing provided tool schemas')
+            if ((kind == 'tool-call' and data['suite'] == 'challenge' and
+                 ((data['version'] == '1.0.0' and has_schemas) or
+                  (data['version'] != '1.0.0' and not has_schemas))) or
+                    has_schemas and data['suite'] not in ('challenge', 'tool-schema', 'tool-plan', 'tool-sequence')):
+                raise ValueError('Challenge tool-schema version mismatch')
+            if has_schemas:
                 partition = rule.get('partition')
                 schemas = rule.get('available_tools')
-                schema_count = 3 if data['suite'] == 'tool-schema' else 4
-                if (partition not in ('practice', 'heldout') or not isinstance(schemas, list)
+                schema_count = {'tool-schema': 3, 'tool-plan': 4,
+                                'tool-sequence': 4}.get(data['suite'], 4)
+                partition_valid = (partition in ('practice', 'heldout')
+                                   if data['suite'] in ('tool-schema', 'tool-plan', 'tool-sequence')
+                                   else partition is None)
+                if (not partition_valid or not isinstance(schemas, list)
                         or len(schemas) != schema_count):
                     raise ValueError('Invalid tool-suite partition or available tools')
                 names = set()
-                target = None
+                targets_by_name = {}
                 for schema in schemas:
                     if (not isinstance(schema, dict) or set(schema) != {'name', 'description', 'arguments'}
                             or not isinstance(schema['name'], str)
@@ -164,26 +198,37 @@ def validate(data):
                             or not schema['arguments']):
                         raise ValueError('Invalid provided tool schema')
                     names.add(schema['name'])
-                    if schema['name'] == expected['name']:
-                        target = schema
+                    targets_by_name[schema['name']] = schema
                     if any(not isinstance(key, str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', key)
                            or value not in ('string', 'integer', 'boolean')
                            for key, value in schema['arguments'].items()):
                         raise ValueError('Invalid provided argument schema')
                 type_names = {str: 'string', int: 'integer', bool: 'boolean'}
-                if (target is None or set(expected['arguments']) != set(target['arguments']) or
-                        any(type_names.get(type(value)) != target['arguments'][key]
-                            for key, value in expected['arguments'].items())):
-                    raise ValueError('Expected tool call does not match a provided schema')
+                for target_call in targets:
+                    target = targets_by_name.get(target_call['name'])
+                    if (target is None or set(target_call['arguments']) != set(target['arguments']) or
+                            any(type_names.get(type(value)) != target['arguments'][key]
+                                for key, value in target_call['arguments'].items())):
+                        raise ValueError('Expected tool call does not match a provided schema')
                 if json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False) not in item['prompt']:
                     raise ValueError('Prompt does not include its available tool schemas')
         for field, outcome in [('reference', 'pass'), ('wrong', 'wrong_answer'), ('malformed', 'format_error')]:
             if not isinstance(item.get(field), str) or score(item, item[field])['outcome'] != outcome:
                 raise ValueError('Reference/wrong/format fixtures do not match scorer')
-    expected_kinds = SUITE_KINDS.get(data['suite'], KINDS)
+    expected_kinds = SUITE_KINDS.get(data['suite'], DEFAULT_KINDS)
     if kinds != expected_kinds:
         raise ValueError('Missing scorer category')
-    if data['suite'] in ('tool-schema', 'tool-plan'):
+    if data['suite'] == 'challenge' and data['version'] == '1.1.0':
+        action_items = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
+        positions = []
+        for item in action_items:
+            schemas = item['scorer']['available_tools']
+            positions.append(next(index for index, schema in enumerate(schemas)
+                                  if schema['name'] == item['scorer']['expected']['name']))
+        if (len(action_items) != 8 or any(not 0 <= position < 4 for position in positions) or
+                sorted(positions.count(position) for position in range(4)) != [2, 2, 2, 2]):
+            raise ValueError('Challenge tool target position must be balanced')
+    if data['suite'] in ('tool-schema', 'tool-plan', 'tool-sequence'):
         partitions = {partition: [item for item in data['items']
                                   if item['scorer'].get('partition') == partition]
                       for partition in ('practice', 'heldout')}
@@ -198,12 +243,39 @@ def validate(data):
             target_positions = [0] * (3 if data['suite'] == 'tool-schema' else 4)
             counts = {}
             for item in items:
-                expected_name = item['scorer']['expected']['name']
-                counts[expected_name] = counts.get(expected_name, 0) + 1
+                expected = item['scorer']['expected']
+                if data['suite'] == 'tool-sequence':
+                    targets = expected['steps']
+                    for call in targets:
+                        counts[call['name']] = counts.get(call['name'], 0) + 1
+                    expected_name = targets[0]['name']
+                else:
+                    expected_name = expected['name']
+                    counts[expected_name] = counts.get(expected_name, 0) + 1
                 position = next(index for index, schema in enumerate(item['scorer']['available_tools'])
                                 if schema['name'] == expected_name)
                 target_positions[position] += 1
-            if len({item['scorer']['expected']['name'] for item in items}) != 4 or set(counts.values()) != {5}:
+                if data['suite'] == 'tool-sequence':
+                    if len(targets) not in (2, 3):
+                        raise ValueError('Tool sequence length must be two or three')
+                    for index, call in enumerate(targets[1:], 1):
+                        expected_refs = [value for value in call['arguments'].values()
+                                         if isinstance(value, str) and value.startswith('$step')]
+                        matches = [re.fullmatch(r'\$step([1-9][0-9]*)\.[a-z][a-z0-9_]*', ref)
+                                   for ref in expected_refs]
+                        if (not matches or any(match is None for match in matches) or
+                                any(int(match.group(1)) > index for match in matches) or
+                                max(int(match.group(1)) for match in matches) != index):
+                            raise ValueError('Each later tool step requires a reference to the previous result')
+                    if 'Reference bindings:' not in item['prompt']:
+                        raise ValueError('Tool sequence prompt must state exact reference bindings')
+            if data['suite'] == 'tool-sequence':
+                if len(counts) != 10 or set(counts.values()) != {5}:
+                    raise ValueError('Each tool sequence partition requires ten balanced target tools')
+                lengths = [len(item['scorer']['expected']['steps']) for item in items]
+                if lengths.count(2) != 10 or lengths.count(3) != 10:
+                    raise ValueError('Tool sequence partitions require balanced two- and three-step tasks')
+            elif len(counts) != 4 or set(counts.values()) != {5}:
                 raise ValueError('Each tool partition requires four balanced target tools')
             if max(target_positions) - min(target_positions) > 1:
                 raise ValueError('Tool target position must be balanced across available tools')
@@ -213,12 +285,13 @@ def validate(data):
     return data
 
 
-ARCHIVED_SUITE_FILES = {('tool-plan', '1.0.0'): 'archive/tool-plan-1.0.0.json'}
+ARCHIVED_SUITE_FILES = {('challenge', '1.0.0'): 'archive/challenge-1.0.0.json',
+                        ('tool-plan', '1.0.0'): 'archive/tool-plan-1.0.0.json'}
 
 
 def load(suite='quick', version=None):
     if not isinstance(suite, str) or suite not in SUITE_COUNTS:
-        raise ValueError('Choose quick, standard, challenge, tool-schema, or tool-plan')
+        raise ValueError('Choose quick, standard, challenge, tool-schema, tool-plan, or tool-sequence')
     if version is not None and not isinstance(version, str):
         raise ValueError('Unknown version for ability suite')
     archived = ARCHIVED_SUITE_FILES.get((suite, version)) if version is not None else None

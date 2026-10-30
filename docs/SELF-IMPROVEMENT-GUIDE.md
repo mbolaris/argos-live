@@ -77,8 +77,10 @@ not change model settings or grant new tools.
    run was lost; reuse matching verified IDs, record them, and advance the next
    step instead of repeating it.
 2. Run a quick check with fixed task IDs and the original scorer. Show a real
-   example answer and why it passed or failed.
-   If the standard suite is saturated, use the separate challenge form to find
+   example answer and why it passed or failed. A complete 20/20 quick result
+   with zero format errors is a ceiling signal, not a plateau: follow it with
+   a complete standard run and log both saved evaluations. If standard is
+   saturated, use the separate challenge form to find
    a new, repeatable weakness before proposing an experiment. For tool-call
    formatting, use `tool-schema`; its 20 unseen-vocabulary items use tool names
    and argument keys absent from its practice partition, with the target balanced
@@ -97,6 +99,10 @@ not change model settings or grant new tools.
    across four tools, small value derivations and complete argument assembly.
    Its held-out half is bundled with the answer key, so it measures within-suite
    vocabulary transfer and is not independent validation.
+   When tool-plan saturates, `tool-sequence` measures ordered two- and three-call
+   plans with explicit literal references to earlier results. The benchmark does
+   not execute calls. Its bundled held-out workflows are an internal transfer
+   check only; keep scores separate and do not claim real tool use.
 3. Choose one modest instruction experiment supported by the misses. For
    `AGENTS.md`, use `argos_inspect`, then `argos_edit_instructions` with a saved
    baseline from the current controller and its inspected hash. The tool
@@ -105,7 +111,8 @@ not change model settings or grant new tools.
    `argos_resolve_instructions` enforces the practice policy and verifies
    Keep/Restore against the host snapshot. Confirm any claimed broader
    improvement on a distinct challenge or separately administered Proctor form;
-   the tool-schema or tool-plan unseen-vocabulary partition alone is not independent validation.
+   bundled held-out tool-schema, tool-plan or tool-sequence items alone are not
+   independent validation.
 5. Call `argos_audit_instructions` before reporting. It checks the host journal,
    exact snapshots, saved run receipts and resolution policy, then returns safe
    aggregate scores and run IDs without answer text. An empty journal is a valid

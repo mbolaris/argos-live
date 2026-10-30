@@ -65,7 +65,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
     def test_challenge_form_is_a_distinct_saved_suite_with_full_coverage(self):
         result = bench_openclaw.run(suite='challenge', runner=FakeOpenClaw(suite='challenge'))
         self.assertEqual(result['suite'], 'openclaw-challenge')
-        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/challenge/1.0.0')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/challenge/1.1.0')
         self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
         self.assertEqual(result['summary']['correct'], 40)
         self.assertEqual(len(result['settings']['suite_sha256']), 64)
@@ -83,6 +83,15 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         result = bench_openclaw.run(suite='tool-plan', runner=FakeOpenClaw(suite='tool-plan'))
         self.assertEqual(result['suite'], 'openclaw-tool-plan')
         self.assertEqual(result['suite_version'], 'argos-openclaw-ability/tool-plan/1.1.0')
+        self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+        self.assertEqual(result['summary']['partitions']['practice']['correct'], 20)
+        self.assertEqual(result['summary']['partitions']['heldout']['correct'], 20)
+        self.assertTrue(all(item.get('partition') in ('practice', 'heldout') for item in result['items']))
+
+    def test_tool_sequence_form_records_heldout_workflow_scores(self):
+        result = bench_openclaw.run(suite='tool-sequence', runner=FakeOpenClaw(suite='tool-sequence'))
+        self.assertEqual(result['suite'], 'openclaw-tool-sequence')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/tool-sequence/1.0.0')
         self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
         self.assertEqual(result['summary']['partitions']['practice']['correct'], 20)
         self.assertEqual(result['summary']['partitions']['heldout']['correct'], 20)

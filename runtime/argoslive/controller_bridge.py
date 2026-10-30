@@ -189,7 +189,7 @@ class Bridge:
                     raise workload.Busy()
                 if kind == 'evaluation':
                     if set(params) - {'suite'} or params.get('suite', 'quick') not in {
-                            'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan'}:
+                            'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'}:
                         raise ValueError('Unsupported evaluation request')
                 elif kind == 'evaluation_wait':
                     if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or
@@ -273,6 +273,24 @@ class Bridge:
                 log_result = value.get('value') if isinstance(value.get('value'), dict) else {}
                 outcome.update(status=log_result.get('status'),
                                appended=log_result.get('status') == 'appended')
+                if outcome['appended']:
+                    receipts = log_result.get('receipts')
+                    logged_ids = set()
+                    if isinstance(receipts, list):
+                        store = Store(self.home / '.local/share/argos-live/results')
+                        fields = ('id', 'created', 'model', 'suite', 'state', 'summary')
+                        for receipt in receipts:
+                            if (not isinstance(receipt, dict) or not isinstance(receipt.get('id'), str) or
+                                    not re.fullmatch(r'[a-f0-9]{32}', receipt['id'])):
+                                continue
+                            try:
+                                saved = store.load(receipt['id'])
+                            except (OSError, ValueError):
+                                continue
+                            expected = {field: saved.get(field) for field in fields}
+                            if receipt == expected:
+                                logged_ids.add(receipt['id'])
+                    outcome['logged_result_ids'] = sorted(logged_ids)
                 if log_result.get('status') == 'failed':
                     outcome['append_outcome'] = 'unconfirmed'
             if kind in {'edit', 'resolve'}:
@@ -324,7 +342,8 @@ class Bridge:
             job_id = secrets.token_hex(16)
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
                    'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40,
-                                              'tool-schema': 40, 'tool-plan': 40}[
+                                              'tool-schema': 40, 'tool-plan': 40,
+                                              'tool-sequence': 40}[
                        params.get('suite', 'quick')], 'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
             self.evaluation_job = job
@@ -367,8 +386,16 @@ class Bridge:
             if not job['recorded']:
                 value = job['value']
                 result = value['value']['result']
-                self.outcomes.append({'kind': 'evaluation', 'job_id': job_id,
-                                      'result_id': result['id'], 'state': result['state']})
+                coverage = result.get('coverage') if isinstance(result.get('coverage'), dict) else {}
+                summary = result.get('summary') if isinstance(result.get('summary'), dict) else {}
+                self.outcomes.append({
+                    'kind': 'evaluation', 'job_id': job_id,
+                    'result_id': result['id'], 'state': result['state'],
+                    'suite': result.get('suite'), 'suite_version': result.get('suite_version'),
+                    'coverage_complete': coverage.get('complete') is True,
+                    'total': summary.get('total'), 'correct': summary.get('correct'),
+                    'format_errors': summary.get('format_errors'),
+                })
                 self.publish()
                 job['recorded'] = True
                 job['consumed'] = True

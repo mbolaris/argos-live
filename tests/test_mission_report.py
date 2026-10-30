@@ -42,6 +42,10 @@ class MissionReportTests(unittest.TestCase):
             'openclaw-challenge', 'argos-openclaw-ability/challenge/1.0.0', 'calc-01')
         self.assertIsNotNone(item)
         self.assertIn('240 minutes', item['prompt'])
+        current = mission_report.resolve_suite_item(
+            'openclaw-challenge', 'argos-openclaw-ability/challenge/1.1.0', 'action-01')
+        self.assertIsNotNone(current)
+        self.assertIn('Available tool schemas:', current['prompt'])
         self.assertIsNone(mission_report.resolve_suite_item(
             'openclaw-challenge', 'argos-openclaw-ability/challenge/2.0.0', 'calc-01'))
 
@@ -55,6 +59,15 @@ class MissionReportTests(unittest.TestCase):
         self.assertNotEqual(old['prompt'], current['prompt'])
         self.assertIsNone(mission_report.resolve_suite_item(
             'openclaw-tool-plan', 'argos-openclaw-ability/tool-plan/2.0.0', 'practice-06'))
+
+    def test_tool_sequence_replay_resolves_exact_version(self):
+        item = mission_report.resolve_suite_item(
+            'openclaw-tool-sequence', 'argos-openclaw-ability/tool-sequence/1.0.0', 'practice-01')
+        self.assertIsNotNone(item)
+        self.assertIn('Reference bindings:', item['prompt'])
+        self.assertEqual(item['scorer']['kind'], 'tool-sequence')
+        self.assertIsNone(mission_report.resolve_suite_item(
+            'openclaw-tool-sequence', 'argos-openclaw-ability/tool-sequence/2.0.0', 'practice-01'))
 
     def test_opinion_has_only_aggregate_input_and_cannot_change_scores(self):
         self.ability['items'][0]['output'] = 'PRIVATE_DOCUMENT_OR_TOKEN'

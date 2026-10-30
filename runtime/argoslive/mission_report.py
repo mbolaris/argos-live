@@ -11,7 +11,8 @@ from .ollama import Cancelled
 
 CATEGORY_LABELS = {'choice': 'Pick the right answer', 'instruction': 'Follow directions',
                    'json': 'Organize information', 'numeric': 'Work with numbers',
-                   'tool-call': 'Describe a tool request', 'answer': 'Find the facts',
+                   'tool-call': 'Describe a tool request', 'tool-sequence': 'Plan dependent tool calls',
+                   'answer': 'Find the facts',
                    'quote': 'Answer with a supporting quote', 'not_stated': 'Know when it is missing'}
 # The quote check passes only when the answer is accepted AND the quote supports it, so a miss can come
 # from answer wording alone. Saved runs keep their original labels; this only renames them for display.
@@ -30,7 +31,8 @@ def resolve_suite_item(suite, suite_version, item_id):
                          'standard': 'standard', 'openclaw-standard': 'standard',
                          'challenge': 'challenge', 'openclaw-challenge': 'challenge',
                          'tool-schema': 'tool-schema', 'openclaw-tool-schema': 'tool-schema',
-                         'tool-plan': 'tool-plan', 'openclaw-tool-plan': 'tool-plan'}
+                         'tool-plan': 'tool-plan', 'openclaw-tool-plan': 'tool-plan',
+                         'tool-sequence': 'tool-sequence', 'openclaw-tool-sequence': 'tool-sequence'}
         if suite in suite_aliases:
             from . import ability as ability_mod
             canonical = suite_aliases[suite]

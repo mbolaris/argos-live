@@ -631,7 +631,7 @@
       <p>How fast does it answer? Which tasks does it get right? Build a baseline you can compare after each model upgrade.</p>
       <div class="cards">
         <article class="card"><h3>Responsiveness</h3><p>Output tokens/s measures generation speed. First-token latency measures the wait before an answer starts. Prompt tokens/s measures how quickly it reads input.</p></article>
-        <article class="card"><h3>Tested ability</h3><p>Fixed, scored tasks measure specific abilities. Quick and standard provide the original probes; challenge adds multi-step tasks; tool-schema checks proposed calls against explicit schemas; tool-plan adds multi-constraint selection and argument derivation. Bundled held-out items are internal transfer checks, not independent validation or a test of real tool execution.</p></article>
+        <article class="card"><h3>Tested ability</h3><p>Fixed, scored tasks measure specific abilities. Quick and standard provide the original probes; challenge adds multi-step tasks; tool-schema checks proposed calls against explicit schemas; tool-plan adds multi-constraint selection; tool-sequence checks ordered calls with explicit references to earlier results. Bundled held-out items are internal transfer checks, not independent validation or a test of real tool execution.</p></article>
         <article class="card"><h3>Your upgrade loop</h3><p>1. Test this model. 2. Choose an upgrade for a useful task. 3. Repeat the same suite. 4. Compare gains and regressions. Keep speed and quality separate.</p></article>
       </div>
       <div id="lab-controls" class="notice" hidden>

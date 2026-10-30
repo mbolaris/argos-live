@@ -15,7 +15,7 @@ from argoslive import ability
 class AbilityTests(unittest.TestCase):
     def test_every_reference_wrong_and_malformed_answer(self):
         for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40),
-                             ('tool-schema', 40), ('tool-plan', 40)]:
+                             ('tool-schema', 40), ('tool-plan', 40), ('tool-sequence', 40)]:
             data = ability.load(suite)
             self.assertEqual(len(data['items']), count)
             self.assertEqual(data['omitted_categories'], ['code-execution'])
@@ -32,13 +32,39 @@ class AbilityTests(unittest.TestCase):
         generator = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generator)
         standard = {item['id']: item for item in ability.load('standard')['items']}
-        for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan'):
+        for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
             self.assertEqual(ability.load(suite), generator.build(suite))
+        self.assertEqual(ability.load('challenge', version='1.0.0'),
+                         generator.build('challenge', version='1.0.0'))
         for item in ability.load()['items']:
             self.assertEqual(item, standard[item['id']])
         self.assertFalse({item['id'] for item in ability.load('challenge')['items']} & set(standard))
         categories = Counter(item['scorer']['kind'] for item in ability.load('challenge')['items'])
         self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8, 'json': 8, 'tool-call': 8})
+
+    def test_challenge_v11_tool_calls_include_grounded_schemas(self):
+        data = ability.load('challenge')
+        self.assertEqual(data['version'], '1.1.0')
+        actions = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
+        self.assertEqual(len(actions), 8)
+        positions = []
+        for item in actions:
+            with self.subTest(item=item['id']):
+                schemas = item['scorer']['available_tools']
+                expected_name = item['scorer']['expected']['name']
+                self.assertEqual(len(schemas), 4)
+                self.assertIn('Available tool schemas:', item['prompt'])
+                request = item['prompt'].split('\nRequest: ', 1)[1].split('\nReturn only', 1)[0]
+                self.assertNotIn(expected_name, request)
+                self.assertEqual(ability.score(item, item['reference'])['outcome'], 'pass')
+                positions.append(next(index for index, schema in enumerate(schemas)
+                                      if schema['name'] == expected_name))
+        self.assertEqual(Counter(positions), Counter({0: 2, 1: 2, 2: 2, 3: 2}))
+        old = ability.load('challenge', version='1.0.0')
+        self.assertTrue(all('available_tools' not in item['scorer'] for item in old['items']
+                            if item['scorer']['kind'] == 'tool-call'))
+        self.assertEqual(old['items'][-1]['prompt'],
+                         'Propose exporting run-44 with paths redacted. Return only a JSON tool-call object; do not execute it.')
 
     def test_tool_schema_has_disjoint_vocabulary_and_explicit_schemas(self):
         data = ability.load('tool-schema')
@@ -129,6 +155,70 @@ class AbilityTests(unittest.TestCase):
             request = item['prompt'].split('Request: ', 1)[1].split('Return only', 1)[0]
             with self.subTest(item=item['id']):
                 self.assertRegex(request, r'The ticket urgency is (routine|standard|elevated|critical)\.')
+
+    def test_tool_sequence_has_balanced_practice_and_heldout_dependencies(self):
+        data = ability.load('tool-sequence')
+        self.assertEqual(data['version'], '1.0.0')
+        partitions = {name: [item for item in data['items'] if item['scorer']['partition'] == name]
+                      for name in ('practice', 'heldout')}
+        self.assertEqual([len(partitions[name]) for name in ('practice', 'heldout')], [20, 20])
+        names = {name: {schema['name'] for item in items for schema in item['scorer']['available_tools']}
+                 for name, items in partitions.items()}
+        keys = {name: {key for item in items for schema in item['scorer']['available_tools']
+                       for key in schema['arguments']} for name, items in partitions.items()}
+        self.assertFalse(names['practice'] & names['heldout'])
+        self.assertFalse(keys['practice'] & keys['heldout'])
+        for items in partitions.values():
+            self.assertEqual(Counter(len(item['scorer']['expected']['steps']) for item in items),
+                             Counter({2: 10, 3: 10}))
+            first_positions = Counter()
+            target_counts = Counter()
+            for item in items:
+                rule = item['scorer']
+                expected = rule['expected']['steps']
+                schemas = rule['available_tools']
+                self.assertEqual(len(schemas), 4)
+                self.assertIn('Available tool schemas:', item['prompt'])
+                self.assertIn('Reference bindings:', item['prompt'])
+                self.assertIn('do not execute any tool', item['prompt'])
+                first_positions[next(i for i, schema in enumerate(schemas)
+                                     if schema['name'] == expected[0]['name'])] += 1
+                for index, call in enumerate(expected):
+                    target_counts[call['name']] += 1
+                    schema = next(schema for schema in schemas if schema['name'] == call['name'])
+                    self.assertEqual(set(call['arguments']), set(schema['arguments']))
+                    if index:
+                        reference = f'$step{index}.'
+                        self.assertTrue(any(isinstance(value, str) and value.startswith(reference)
+                                            for value in call['arguments'].values()))
+                        self.assertIn(reference, item['prompt'])
+                self.assertEqual(ability.score(item, item['reference'])['outcome'], 'pass')
+                self.assertEqual(ability.score(item, item['wrong'])['outcome'], 'wrong_answer')
+                self.assertFalse(ability.score(item, item['reference'])['tool_execution_verified'])
+            self.assertEqual(first_positions, Counter({0: 5, 1: 5, 2: 5, 3: 5}))
+            self.assertEqual(len(target_counts), 10)
+            self.assertEqual(set(target_counts.values()), {5})
+
+    def test_tool_sequence_rejects_missing_or_future_result_bindings(self):
+        data = copy.deepcopy(ability.load('tool-sequence'))
+        item = next(item for item in data['items'] if len(item['scorer']['expected']['steps']) == 3)
+        third = item['scorer']['expected']['steps'][2]['arguments']
+        reference_key = next(key for key, value in third.items()
+                             if isinstance(value, str) and value.startswith('$step'))
+        third[reference_key] = '$step3.future_id'
+        item['reference'] = json.dumps(item['scorer']['expected'])
+        with self.assertRaisesRegex(ValueError, 'previous result'):
+            ability.validate(data)
+
+        data = copy.deepcopy(ability.load('tool-sequence'))
+        item = next(item for item in data['items'] if len(item['scorer']['expected']['steps']) == 3)
+        second = item['scorer']['expected']['steps'][1]['arguments']
+        reference_key = next(key for key, value in second.items()
+                             if isinstance(value, str) and value.startswith('$step'))
+        second[reference_key] = 'guessed-id'
+        item['reference'] = json.dumps(item['scorer']['expected'])
+        with self.assertRaisesRegex(ValueError, 'previous result'):
+            ability.validate(data)
 
     def test_numeric_format_tolerance_and_ambiguous_rejection(self):
         item = {'id': 'math-01', 'scorer': {'kind': 'numeric', 'expected': '1234.5'}}
