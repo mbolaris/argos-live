@@ -50,9 +50,18 @@ PRACTICE_ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'},
     {'item_id': 'q6', 'answer': 'C'}, {'module_id': 'm2'}, {}]
 if len(PRACTICE_TOOLS) != len(PRACTICE_ARGS):
     raise RuntimeError('Synthetic practice tool plan is inconsistent')
-CAMPAIGN_TOOLS = ['argos_inspect', 'argos_evaluate', 'argos_evaluate',
-                  'argos_compare', 'argos_audit_instructions']
-CAMPAIGN_ARGS = [{}, {'suite': 'quick'}, {'suite': 'quick'}, None, {}]
+CAMPAIGN_TOOLS = ['argos_inspect', 'argos_evaluate', 'argos_log', 'argos_evaluate',
+                  'argos_log', 'argos_compare', 'argos_audit_instructions']
+CAMPAIGN_ARGS = [{}, {'suite': 'quick'}, None, {'suite': 'quick'}, None, None, {}]
+
+
+def campaign_log_args(messages, next_action):
+    history = json.dumps(messages)
+    run_ids = list(dict.fromkeys(re.findall(r'Run ID: ([a-f0-9]{32})', history)))
+    scores = re.findall(r'(\d+/\d+) passed', history)
+    if not run_ids or len(scores) != len(run_ids):
+        raise ValueError('Campaign log requires the actual saved run ID and score')
+    return {'text': f"Run ID: {run_ids[-1]}; score: {scores[-1]}; next action: {next_action}"}
 
 
 def run(cli, report):
@@ -110,9 +119,14 @@ def run(cli, report):
             if request.get('tools') and calls < len(phase_tools):
                 if campaign_phase:
                     tool, args = CAMPAIGN_TOOLS[calls], CAMPAIGN_ARGS[calls]
-                    if tool == 'argos_compare':
+                    messages = request.get('messages', [])
+                    if tool == 'argos_log':
+                        next_action = ('collect a second matched quick baseline' if calls == 2 else
+                                       'compare the two matched quick baselines and audit instructions')
+                        args = campaign_log_args(messages, next_action)
+                    elif tool == 'argos_compare':
                         run_ids = list(dict.fromkeys(re.findall(r'Run ID: ([a-f0-9]{32})',
-                                                                json.dumps(request.get('messages', [])))))
+                                                                json.dumps(messages))))
                         if len(run_ids) < 2:
                             progress['errors'].append('campaign-missing-two-saved-baseline-ids')
                         else:
