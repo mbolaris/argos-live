@@ -459,12 +459,15 @@ def run(cli, report):
             expected_campaign_tool_calls = (len(CAMPAIGN_TOOLS) +
                                             progress.get('campaign_wait_calls', 0))
             expected_campaign_calls = len(PRACTICE_TOOLS) + expected_campaign_tool_calls
+            campaign_wait_tool_available = (
+                'argos_evaluate_wait' in progress['model_tool_names'])
             if (improvement_result['status'] != 'completed' or
                     improvement_result['practice_is_improvement_evidence'] is not False or
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
                     chained_practice_errors or progress['practice_tool_calls'] != len(PRACTICE_TOOLS) or
                     progress['campaign_tool_calls'] != expected_campaign_tool_calls or
-                    progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS)):
+                    progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS) or
+                    not campaign_wait_tool_available):
                 campaign = improvement_result.get('campaign', {})
                 diagnostic = {
                     'schema': 'argos-proctor-campaign-failure/1',
@@ -485,6 +488,7 @@ def run(cli, report):
                     'campaign_action_calls': progress.get('campaign_action_calls'),
                     'expected_campaign_action_calls': len(CAMPAIGN_TOOLS),
                     'campaign_wait_calls': progress.get('campaign_wait_calls'),
+                    'campaign_wait_tool_available': campaign_wait_tool_available,
                     'tool_errors': progress['errors'],
                     'practice_tool_errors': chained_practice_errors,
                     'tool_outcomes': campaign.get('tool_outcomes'),
