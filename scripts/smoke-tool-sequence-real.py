@@ -38,7 +38,7 @@ def run(cli, ollama, model_store, model_tag, report):
         config = auto_setup.conversation_config(model_tag, workspace,
             plugin_root=ROOT / 'openclaw-plugin/argos-improve')
         config_path = home / '.openclaw/openclaw.json'
-        config_path.parent.mkdir(mode=0o700, parents=True)
+        config_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         config_path.write_text(json.dumps(config), encoding='utf-8')
         config_path.chmod(0o600)
         lease_store = home / '.local/state/argos-live'
