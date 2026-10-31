@@ -13,9 +13,17 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+TOOL_SEQUENCE_TURN_TIMEOUT_SECONDS = 360
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import ability, auto_setup, bench_openclaw, catalog, model_verify, owned_ollama
 from argoslive.assistant_trial import OpenClawRunner
+
+
+class ToolSequenceSmokeRunner(OpenClawRunner):
+    """Give the isolated 40-item CPU smoke a bounded six-minute turn window."""
+
+    def turn(self, text, timeout=TOOL_SEQUENCE_TURN_TIMEOUT_SECONDS):
+        return super().turn(text, timeout=timeout)
 
 
 def result_failures(result, model_tag, suite_version):
@@ -79,6 +87,7 @@ def safe_result_diagnostic(result, failures, failure_signature=None):
         'state': result.get('state'),
         'failure_code': failure_code if failure_code in allowed_failure_codes else None,
         'assistant_failure_signature': failure_signature,
+        'turn_timeout_seconds': TOOL_SEQUENCE_TURN_TIMEOUT_SECONDS,
         'model': result.get('model'),
         'suite_version': result.get('suite_version'),
         'coverage': result.get('coverage'),
@@ -118,7 +127,7 @@ def run(cli, ollama, model_store, model_tag, report):
         lease_store = home / '.local/state/argos-live'
         lease_store.mkdir(mode=0o700, parents=True, exist_ok=True)
 
-        runner = OpenClawRunner(home, executable=str(cli.resolve(strict=True)))
+        runner = ToolSequenceSmokeRunner(home, executable=str(cli.resolve(strict=True)))
         runner.seed_workspace_defaults(
             ('AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md', 'BOOTSTRAP.md'),
             runner.bootstrap_templates())
@@ -159,6 +168,7 @@ def run(cli, ollama, model_store, model_tag, report):
             'suite_sha256': result['settings']['suite_sha256'],
             'execution_path': result['settings']['execution_path'],
             'tools_executed': False,
+            'turn_timeout_seconds': TOOL_SEQUENCE_TURN_TIMEOUT_SECONDS,
             'practice_only': True,
             'calibration_status': 'uncalibrated',
             'internal_transfer_notice': (

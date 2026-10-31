@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location(
@@ -12,6 +13,12 @@ spec.loader.exec_module(smoke)
 
 
 class ToolSequenceSmokeReportTests(unittest.TestCase):
+    def test_smoke_runner_uses_its_bounded_six_minute_turn_window(self):
+        runner = smoke.ToolSequenceSmokeRunner('/isolated/home')
+        with patch.object(smoke.OpenClawRunner, 'turn', return_value={'text': 'reply'}) as turn:
+            self.assertEqual(runner.turn('prompt'), {'text': 'reply'})
+        turn.assert_called_once_with('prompt', timeout=360)
+
     def sample(self):
         return {
             'id': 'run-1', 'state': 'completed',
@@ -53,6 +60,7 @@ class ToolSequenceSmokeReportTests(unittest.TestCase):
         self.assertNotIn('PRIVATE MODEL OUTPUT', serialized)
         self.assertEqual(diagnostic['item_scores'][0]['item_id'], 'workflow-1')
         self.assertEqual(diagnostic['failure_code'], 'assistant-error')
+        self.assertEqual(diagnostic['turn_timeout_seconds'], 360)
 
     def test_private_cli_log_exports_only_a_safe_failure_category(self):
         with tempfile.TemporaryDirectory() as directory:
