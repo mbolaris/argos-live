@@ -117,6 +117,91 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(audit['qualified_experiments'], 1)
         self.assertFalse(audit['full_log_claims_verified'])
 
+    def test_adopt_external_edit_records_exact_bytes_without_claiming_a_managed_keep(self):
+        anchor = self.evaluate()
+        managed = self.edit(anchor)
+        self.resolve(managed)
+        baselines = [self.evaluate(suite='challenge'), self.evaluate(suite='challenge')]
+        edited = b'Owner rule.\nStay concise.\nAnswer one-letter requests with only the letter.\n'
+        self.path.write_bytes(edited)
+        candidates = [self.evaluate(suite='challenge'), self.evaluate(suite='challenge')]
+        inspected = self.op('inspect')
+        self.assertTrue(inspected['untracked_edit_detected'])
+        self.assertEqual(inspected['last_journal_sha256'], changes.digest(self.original))
+        recorded = self.op('adopt', {'expected_sha256': changes.digest(edited),
+            'previous_sha256': changes.digest(self.original),
+            'reason': 'The agent kept its already-tested instruction edit.',
+            'baseline_ids': [run['id'] for run in baselines],
+            'candidate_ids': [run['id'] for run in candidates]})
+        self.assertEqual(recorded['status'], 'adopted', recorded)
+        self.assertFalse(recorded['qualified_experiment'])
+        self.assertTrue(recorded['host_controller_receipts_complete'])
+        self.assertEqual(recorded['evidence_provenance'], 'host-controller-evaluations')
+        self.assertEqual(self.path.read_bytes(), edited)
+        audit = self.op('audit')
+        self.assertTrue(audit['passed'], audit)
+        self.assertEqual(audit['adopted_external_edits'], 1)
+        self.assertEqual(audit['qualified_experiments'], 0)
+        adopted = audit['changes'][1]
+        self.assertEqual(adopted['action'], 'adopted-external')
+        self.assertEqual(adopted['baseline']['run_ids'],
+                         [run['id'] for run in baselines])
+        self.assertEqual(adopted['candidate']['run_ids'],
+                         [run['id'] for run in candidates])
+        # The journal now recognizes the adopted bytes as the current baseline,
+        # so later controlled experiments can proceed without touching them.
+        baseline = self.evaluate(suite='challenge')
+        next_edit = self.edit(baseline)
+        self.assertEqual(next_edit['status'], 'changed')
+        self.resolve(next_edit)
+        self.assertEqual(self.path.read_bytes(), edited)
+        self.assertTrue(self.op('audit')['passed'])
+
+    def test_external_adoption_preserves_runs_without_controller_admission_as_unqualified(self):
+        anchor = self.evaluate()
+        managed = self.edit(anchor)
+        self.resolve(managed)
+        baselines = [self.evaluate(suite='challenge'), self.evaluate(suite='challenge')]
+        edited = b'Owner rule.\nAn already applied agent note.\n'
+        self.path.write_bytes(edited)
+        candidates = [self.evaluate(suite='challenge'), self.evaluate(suite='challenge')]
+        child_root = self.home / '.local/state/argos-live/workload/child'
+        run_ids = {run['id'] for run in (*baselines, *candidates)}
+        for child in child_root.glob('*.json'):
+            if json.loads(child.read_text()).get('result_id') in run_ids:
+                child.unlink()
+        recorded = self.op('adopt', {'expected_sha256': changes.digest(edited),
+            'previous_sha256': changes.digest(self.original), 'reason': 'Preserve a tested external edit.',
+            'baseline_ids': [run['id'] for run in baselines],
+            'candidate_ids': [run['id'] for run in candidates]})
+        self.assertEqual(recorded['status'], 'adopted', recorded)
+        self.assertFalse(recorded['host_controller_receipts_complete'])
+        self.assertEqual(recorded['evidence_provenance'], 'saved-run-records-only')
+        self.assertFalse(recorded['qualified_experiment'])
+        audit = self.op('audit')
+        self.assertTrue(audit['passed'], audit)
+        self.assertFalse(audit['changes'][1]['host_controller_receipts_complete'])
+        self.assertEqual(audit['changes'][1]['evidence_provenance'], 'saved-run-records-only')
+        self.assertFalse(audit['changes'][1]['qualified_experiment'])
+
+    def test_external_adoption_rejects_missing_or_wrong_hash_run_receipts(self):
+        anchor = self.evaluate()
+        managed = self.edit(anchor)
+        self.resolve(managed)
+        baseline = self.evaluate(suite='challenge')
+        self.path.write_bytes(b'Owner rule.\nChanged outside the host.\n')
+        candidate = self.evaluate(suite='challenge')
+        params = {'expected_sha256': changes.digest(self.path.read_bytes()),
+                  'previous_sha256': changes.digest(self.original),
+                  'reason': 'Record a tested external instruction edit.',
+                  'baseline_ids': [baseline['id'], baseline['id']],
+                  'candidate_ids': [candidate['id'], candidate['id']]}
+        self.assertEqual(self.op('adopt', params)['status'], 'rejected')
+        params['baseline_ids'] = [baseline['id'], 'a' * 32]
+        self.assertEqual(self.op('adopt', params)['status'], 'rejected')
+        self.assertEqual(self.path.read_bytes(), b'Owner rule.\nChanged outside the host.\n')
+        self.assertFalse(changes.audit(self.home)['passed'])
+
     def test_stale_hash_ambiguous_patch_and_unsupported_path_do_not_mutate(self):
         baseline = self.evaluate()
         for extra in ({'expected_sha256': '0' * 64}, {'find': 'missing'}, {'path': '../evaluator.py'}):
@@ -191,7 +276,7 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(after['correct'], 32)
         self.assertEqual(before['basis']['excluded_categories'], ['tool-call'])
 
-    def test_challenge_v11_grounded_tool_call_gain_can_qualify(self):
+    def test_challenge_v12_grounded_tool_call_gain_can_qualify(self):
         baselines = [self.evaluate(suite='challenge', wrong_categories=('tool-call',)) for _ in range(2)]
         edited = self.edit(baselines[0])
         candidates = [self.evaluate(suite='challenge') for _ in range(2)]
@@ -223,7 +308,7 @@ class InstructionChangeTests(unittest.TestCase):
         with self.assertRaisesRegex(changes.Refused, 'qualification-category-evidence-invalid'):
             changes.qualification_metrics(inconsistent, changes.POLICY)
 
-    def test_challenge_v11_non_tool_gain_qualifies_and_audit_reports_its_basis(self):
+    def test_challenge_v12_non_tool_gain_qualifies_and_audit_reports_its_basis(self):
         baselines = [self.evaluate(suite='challenge', wrong_categories=('choice',)) for _ in range(2)]
         edited = self.edit(baselines[0])
         candidates = [self.evaluate(suite='challenge') for _ in range(2)]
@@ -239,6 +324,31 @@ class InstructionChangeTests(unittest.TestCase):
         observed = audit['changes'][0]
         self.assertEqual(observed['worst_case_qualification_correct_delta'], 8)
         self.assertEqual(observed['qualification_basis']['excluded_categories'], [])
+
+    def test_challenge_v11_ambiguous_tool_category_is_excluded_only_by_new_policy(self):
+        baseline = self.evaluate(suite='challenge', wrong_categories=('tool-call',))
+        candidate = self.evaluate(suite='challenge')
+        baseline['suite_version'] = candidate['suite_version'] = 'argos-openclaw-ability/challenge/1.1.0'
+        before = changes.qualification_metrics(baseline, changes.POLICY)
+        after = changes.qualification_metrics(candidate, changes.POLICY)
+        self.assertEqual(before['correct'], 32)
+        self.assertEqual(after['correct'], 32)
+        self.assertEqual(after['basis']['excluded_categories'], ['tool-call'])
+        historic = changes.qualification_metrics(candidate, changes._POLICY_V2)
+        self.assertEqual(historic['correct'], 40)
+        self.assertEqual(historic['basis']['excluded_categories'], [])
+
+    def test_v2_keep_journal_remains_auditable_after_policy_upgrade(self):
+        with patch.object(changes, 'POLICY', changes._POLICY_V2):
+            baselines = [self.evaluate(misses=5), self.evaluate(misses=4)]
+            edited = self.edit(baselines[0])
+            candidates = [self.evaluate(misses=1), self.evaluate(misses=0)]
+            kept = self.resolve(edited, 'keep', baseline_ids=[run['id'] for run in baselines],
+                                candidate_ids=[run['id'] for run in candidates])
+            self.assertEqual(kept['status'], 'kept', kept)
+            self.assertEqual(kept['policy']['id'], 'argos-practice-keep/2')
+        audit = self.op('audit')
+        self.assertTrue(audit['passed'], audit)
 
     def test_v1_keep_journal_remains_auditable_after_policy_upgrade(self):
         # Existing journals carry policy v1. Replay one under its stored policy

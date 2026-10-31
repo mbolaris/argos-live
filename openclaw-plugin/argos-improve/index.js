@@ -271,6 +271,15 @@ export default function register(api) {
     async execute(id, params, signal) { return controlled(id,'resolve',params,signal); }
   }, {optional:true});
   api.registerTool({
+    name:'argos_adopt_external_instruction_edit', label:'Record an existing instruction edit',
+    description:'Record an existing AGENTS.md edit that bypassed the host change tool. This snapshots and journals exact bytes and saved runs without rewriting the file. Requires current and previous hashes plus two compatible baseline and candidate runs. A missing controller admission is recorded; adoption never certifies a managed keep or independent gain.',
+    parameters:Type.Object({expected_sha256:hash(),previous_sha256:hash(),
+      reason:Type.String({minLength:1,maxLength:1024}),
+      baseline_ids:Type.Array(savedId(),{minItems:2,maxItems:2}),
+      candidate_ids:Type.Array(savedId(),{minItems:2,maxItems:2})}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'adopt',params,signal); }
+  }, {optional:true});
+  api.registerTool({
     name:'argos_proctor_start', label:'Start the host-selected ability exam',
     description:'Start only the exam preselected by the host, then call the tool in next_step with its arguments. Starting does not complete the exam. You cannot choose its form, exposure tier, model identity or assistance policy. Scores and answer keys are withheld until terminal practice feedback.',
     parameters:Type.Object({}, {additionalProperties:false}),

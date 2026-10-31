@@ -133,7 +133,7 @@ class Bridge:
                         kind = request.get('kind')
                         allowed_kinds = PROCTOR_TOOLS | {
                             'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',
-                            'inspect', 'audit', 'edit', 'resolve'}
+                            'inspect', 'audit', 'edit', 'resolve', 'adopt'}
                         safe_kind = kind if isinstance(kind, str) and kind in allowed_kinds else 'other'
                         failures = self.active.setdefault('host_tool_failures', [])
                         if len(failures) < 32:
@@ -205,7 +205,7 @@ class Bridge:
                 elif kind == 'compare':
                     if set(params) != {'baseline_id', 'candidate_id'}:
                         raise ValueError('Invalid comparison request')
-                elif kind in {'inspect', 'audit', 'edit', 'resolve'}:
+                elif kind in {'inspect', 'audit', 'edit', 'resolve', 'adopt'}:
                     instruction_changes.validate_request(kind, params)
                 elif kind in PROCTOR_TOOLS:
                     self._validate_proctor_request(kind, params)
@@ -293,12 +293,13 @@ class Bridge:
                     outcome['logged_result_ids'] = sorted(logged_ids)
                 if log_result.get('status') == 'failed':
                     outcome['append_outcome'] = 'unconfirmed'
-            if kind in {'edit', 'resolve'}:
+            if kind in {'edit', 'resolve', 'adopt'}:
                 outcome.update(status=value['value']['status'], change_id=value['value'].get('change_id'))
-                if kind == 'resolve':
+                if kind in {'resolve', 'adopt'}:
                     for key in ('baseline_ids', 'candidate_ids', 'qualified_experiment',
                                 'independent_gain_verified', 'configuration_preserved',
-                                'rejected_evidence_code'):
+                                'rejected_evidence_code', 'host_controller_receipts_complete',
+                                'evidence_provenance'):
                         if key in value['value']:
                             outcome[key] = value['value'][key]
             if kind == 'audit':
@@ -487,7 +488,7 @@ class Bridge:
         return value
 
     def run_child(self, kind, params, *, on_update=None):
-        maintenance = kind in {'inspect', 'audit', 'edit', 'resolve'}
+        maintenance = kind in {'inspect', 'audit', 'edit', 'resolve', 'adopt'}
         worker_kind = 'maintenance' if maintenance else kind
         capability = self.parent.delegate(worker_kind)
         command = [sys.executable, '-m', 'argoslive.workload_worker', worker_kind, '--home', str(self.home)]
@@ -599,7 +600,8 @@ class Bridge:
                     value.get('status') not in {'empty', 'verified', 'failed'} or
                     type(value.get('passed')) is not bool):
                 raise workload.Busy(recovery=True)
-            elif maintenance and kind != 'audit' and value.get('status') not in {'inspected', 'changed', 'restored', 'kept', 'rejected'}:
+            elif maintenance and kind != 'audit' and value.get('status') not in {
+                    'inspected', 'changed', 'restored', 'kept', 'adopted', 'rejected'}:
                 raise workload.Busy(recovery=True)
             elif not maintenance and value.get('status') != 'appended':
                 raise workload.Busy(recovery=True)

@@ -218,7 +218,7 @@ def validate(data):
     expected_kinds = SUITE_KINDS.get(data['suite'], DEFAULT_KINDS)
     if kinds != expected_kinds:
         raise ValueError('Missing scorer category')
-    if data['suite'] == 'challenge' and data['version'] == '1.1.0':
+    if data['suite'] == 'challenge' and data['version'] in ('1.1.0', '1.2.0'):
         action_items = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
         positions = []
         for item in action_items:
@@ -286,6 +286,7 @@ def validate(data):
 
 
 ARCHIVED_SUITE_FILES = {('challenge', '1.0.0'): 'archive/challenge-1.0.0.json',
+                        ('challenge', '1.1.0'): 'archive/challenge-1.1.0.json',
                         ('tool-plan', '1.0.0'): 'archive/tool-plan-1.0.0.json'}
 
 

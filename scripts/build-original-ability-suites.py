@@ -62,9 +62,9 @@ def items():
     return groups
 
 
-def challenge_items(version='1.1.0'):
+def challenge_items(version='1.2.0'):
     """A separate higher-difficulty form; do not derive it from quick/standard."""
-    if version not in ('1.0.0', '1.1.0'):
+    if version not in ('1.0.0', '1.1.0', '1.2.0'):
         raise ValueError('Unknown challenge suite version')
     groups = {kind: [] for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
     prefixes = {'numeric': 'calc', 'choice': 'logic', 'instruction': 'format',
@@ -209,9 +209,12 @@ def challenge_items(version='1.1.0'):
         schemas = [catalog[(start + offset) % len(catalog)] for offset in range(4)]
         target = schemas.pop(0)
         schemas.insert((i - 1) % 4, target)
+        request = requests[i - 1]
+        if version == '1.2.0' and i == 3:
+            request += ' Use the exact lowercase string "json" as the format argument.'
         prompt = ('Choose the available action that satisfies the complete request. Available tool schemas: '
                   + json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False)
-                  + '\nRequest: ' + requests[i - 1]
+                  + '\nRequest: ' + request
                   + '\nReturn only the exact JSON tool-call object with top-level keys "name" and "arguments". '
                   'Set "name" to the selected tool\'s exact name and include every argument required by its '
                   'schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.')
@@ -622,7 +625,7 @@ def tool_sequence_items():
 
 def build(suite, version=None):
     if suite == 'challenge':
-        version = version or '1.1.0'
+        version = version or '1.2.0'
         selected = [item for group in challenge_items(version).values() for item in group]
     elif suite == 'tool-schema':
         if version is not None:

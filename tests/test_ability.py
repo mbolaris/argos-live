@@ -36,15 +36,17 @@ class AbilityTests(unittest.TestCase):
             self.assertEqual(ability.load(suite), generator.build(suite))
         self.assertEqual(ability.load('challenge', version='1.0.0'),
                          generator.build('challenge', version='1.0.0'))
+        self.assertEqual(ability.load('challenge', version='1.1.0'),
+                         generator.build('challenge', version='1.1.0'))
         for item in ability.load()['items']:
             self.assertEqual(item, standard[item['id']])
         self.assertFalse({item['id'] for item in ability.load('challenge')['items']} & set(standard))
         categories = Counter(item['scorer']['kind'] for item in ability.load('challenge')['items'])
         self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8, 'json': 8, 'tool-call': 8})
 
-    def test_challenge_v11_tool_calls_include_grounded_schemas(self):
+    def test_challenge_v12_tool_calls_include_grounded_schemas(self):
         data = ability.load('challenge')
-        self.assertEqual(data['version'], '1.1.0')
+        self.assertEqual(data['version'], '1.2.0')
         actions = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
         self.assertEqual(len(actions), 8)
         positions = []
@@ -65,6 +67,20 @@ class AbilityTests(unittest.TestCase):
                             if item['scorer']['kind'] == 'tool-call'))
         self.assertEqual(old['items'][-1]['prompt'],
                          'Propose exporting run-44 with paths redacted. Return only a JSON tool-call object; do not execute it.')
+
+    def test_challenge_v12_specifies_report_format_without_altering_archived_form(self):
+        current = ability.load('challenge')
+        previous = ability.load('challenge', version='1.1.0')
+        for new, old in zip(current['items'], previous['items']):
+            self.assertEqual(new['id'], old['id'])
+            if new['id'] == 'action-03':
+                self.assertIn('Use the exact lowercase string "json" as the format argument.', new['prompt'])
+                self.assertNotIn('exact lowercase', old['prompt'])
+                adjusted = dict(new, prompt=new['prompt'].replace(
+                    ' Use the exact lowercase string "json" as the format argument.', ''))
+                self.assertEqual(adjusted, old)
+            else:
+                self.assertEqual(new, old)
 
     def test_tool_schema_has_disjoint_vocabulary_and_explicit_schemas(self):
         data = ability.load('tool-schema')

@@ -1,7 +1,7 @@
 {
   "schema": "argos-ability-suite/1",
   "suite": "challenge",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "MIT",
   "source": "original-argos-live",
   "omitted_categories": [
@@ -569,7 +569,7 @@
     },
     {
       "id": "action-03",
-      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_task\",\"description\":\"Schedule a named task for an hour and choose whether it is enabled.\",\"arguments\":{\"task\":\"string\",\"hour\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"set_filter\",\"description\":\"Apply a field/value filter and choose exact matching.\",\"arguments\":{\"field\":\"string\",\"value\":\"string\",\"exact\":\"boolean\"}},{\"name\":\"create_report\",\"description\":\"Create a report with a title, format, and private-data inclusion flag.\",\"arguments\":{\"title\":\"string\",\"format\":\"string\",\"include_private\":\"boolean\"}},{\"name\":\"summarize_range\",\"description\":\"Summarize an inclusive range of items and specify the unit.\",\"arguments\":{\"start\":\"integer\",\"end\":\"integer\",\"unit\":\"string\"}}]}\nRequest: Create a report titled Cycle audit in JSON format; exclude private data.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_task\",\"description\":\"Schedule a named task for an hour and choose whether it is enabled.\",\"arguments\":{\"task\":\"string\",\"hour\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"set_filter\",\"description\":\"Apply a field/value filter and choose exact matching.\",\"arguments\":{\"field\":\"string\",\"value\":\"string\",\"exact\":\"boolean\"}},{\"name\":\"create_report\",\"description\":\"Create a report with a title, format, and private-data inclusion flag.\",\"arguments\":{\"title\":\"string\",\"format\":\"string\",\"include_private\":\"boolean\"}},{\"name\":\"summarize_range\",\"description\":\"Summarize an inclusive range of items and specify the unit.\",\"arguments\":{\"start\":\"integer\",\"end\":\"integer\",\"unit\":\"string\"}}]}\nRequest: Create a report titled Cycle audit in JSON format; exclude private data. Use the exact lowercase string \"json\" as the format argument.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
       "scorer": {
         "kind": "tool-call",
         "expected": {

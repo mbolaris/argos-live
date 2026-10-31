@@ -94,6 +94,17 @@ one reversible change only in the canonical `AGENTS.md` and saves the original
 bytes and configuration on the host. It refuses stale baselines, unrelated
 controller runs, ambiguous replacements, and a second unresolved edit.
 
+If `argos_inspect` reports that the live instruction hash differs from the last
+journaled hash, do not overwrite or restore the live file. First verify two
+compatible baseline runs with the last journaled prompt hash and two candidate
+runs with the current prompt hash, using the same suite, model, configuration,
+and hardware. Then call `argos_adopt_external_instruction_edit` with both
+hashes, the four run IDs, and a short reason. This records the already-existing
+edit and its saved evidence without changing `AGENTS.md`; adoption is explicitly
+unqualified and does not count as a host-managed keep. If a saved run lacks a
+controller-child receipt, its audit provenance is marked saved-run-records only.
+If matching run records are missing, stop and report the mismatch for review.
+
 After the edit, collect two distinct matched baseline runs and two distinct
 candidate runs with the same suite, model/configuration, and execution method.
 The host checks the saved receipts and practice policy: quick needs at least 2
