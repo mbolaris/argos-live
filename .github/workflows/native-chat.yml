@@ -49,8 +49,8 @@ permissions:
 jobs:
   native-chat:
     runs-on: ubuntu-latest
-    # Leave room for the 40-item model transfer run plus setup and cleanup.
-    timeout-minutes: 70
+    # The 40-item CPU transfer check needs about 3 hours; keep routine CI bounded.
+    timeout-minutes: ${{ inputs.tool_sequence_only && 270 || 70 }}
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin
