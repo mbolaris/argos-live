@@ -43,12 +43,42 @@ def result_failures(result, model_tag, suite_version):
     return failures
 
 
-def safe_result_diagnostic(result, failures):
+def assistant_failure_signature(home):
+    """Classify the private OpenClaw stderr log without exporting its contents."""
+    path = Path(home) / '.local/state/argos-live/trial-turn-failure.log'
+    try:
+        text = path.read_bytes()[-65536:].decode('utf-8', errors='replace').lower()
+    except OSError:
+        return None
+    categories = (
+        ('model_unavailable', ('model not found', 'model does not exist', 'unknown model')),
+        ('local_model_server_unreachable', ('connection refused', 'failed to connect', 'could not connect')),
+        ('provider_authentication', ('unauthorized', 'authentication failed', 'invalid api key')),
+        ('tool_policy_rejection', ('tool is not allowed', 'tool not allowed', 'tool use is disabled')),
+        ('configuration_rejected', ('invalid config', 'configuration error', 'config validation')),
+        ('upstream_timeout', ('timed out', 'timeout', 'deadline exceeded')),
+    )
+    for label, markers in categories:
+        if any(marker in text for marker in markers):
+            return label
+    return 'unclassified_cli_error' if text else None
+
+
+def safe_result_diagnostic(result, failures, failure_signature=None):
     """Keep bounded, non-sensitive run facts; omit prompts and model outputs."""
+    allowed_failure_codes = {
+        'cancelled', 'turn-timeout', 'assistant-error', 'empty-reply',
+        'invalid-reply', 'session-mismatch', 'model-mismatch',
+        'workspace-changed-during-run', 'configuration-changed-during-run',
+        'benchmark-changed-during-run', 'instruction-changed-during-run',
+    }
+    failure_code = result.get('failure_code')
     return {
         'schema': 'argos-tool-sequence-model-smoke-run/1',
         'run_id': result.get('id'),
         'state': result.get('state'),
+        'failure_code': failure_code if failure_code in allowed_failure_codes else None,
+        'assistant_failure_signature': failure_signature,
         'model': result.get('model'),
         'suite_version': result.get('suite_version'),
         'coverage': result.get('coverage'),
@@ -111,7 +141,8 @@ def run(cli, ollama, model_store, model_tag, report):
         raw = saved.read_bytes()
         suite_version = 'argos-openclaw-ability/tool-sequence/' + ability.load('tool-sequence')['version']
         failures = result_failures(result, model_tag, suite_version)
-        run_diagnostic = safe_result_diagnostic(result, failures)
+        run_diagnostic = safe_result_diagnostic(
+            result, failures, assistant_failure_signature(home))
         report.with_name('tool-sequence-real-run.json').write_text(
             json.dumps(run_diagnostic, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
         if failures:
