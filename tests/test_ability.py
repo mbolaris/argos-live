@@ -40,6 +40,8 @@ class AbilityTests(unittest.TestCase):
                          generator.build('challenge', version='1.1.0'))
         self.assertEqual(ability.load('challenge', version='1.2.0'),
                          generator.build('challenge', version='1.2.0'))
+        self.assertEqual(ability.load('challenge', version='1.3.0'),
+                         generator.build('challenge', version='1.3.0'))
         for item in ability.load()['items']:
             self.assertEqual(item, standard[item['id']])
         self.assertFalse({item['id'] for item in ability.load('challenge')['items']} & set(standard))
@@ -87,8 +89,19 @@ class AbilityTests(unittest.TestCase):
     def test_challenge_v13_is_compositional_and_preserves_v12_baseline(self):
         data = ability.load('challenge')
         previous = ability.load('challenge', version='1.2.0')
-        self.assertEqual(data['version'], '1.3.0')
+        archived = ability.load('challenge', version='1.3.0')
+        self.assertEqual(data['version'], '1.3.1')
         self.assertEqual(previous['version'], '1.2.0')
+        changed = [(old['id'], new['id']) for old, new in zip(archived['items'], data['items']) if old != new]
+        expected_changed = ['logic-07'] + [f'record-{i:02}' for i in range(1, 9)] + ['action-04']
+        self.assertEqual(changed, [(item_id, item_id) for item_id in expected_changed])
+        self.assertIn('unconfirmed incidents are classified as ordinary', data['items'][14]['prompt'])
+        for item in data['items'][24:32]:
+            for key in item['scorer']['expected']:
+                self.assertIn('"' + key + '"', item['prompt'])
+        self.assertIn('Records that do not pass need review.', data['items'][24]['prompt'])
+        self.assertIn('complete exactly when the aggregate total equals', data['items'][28]['prompt'])
+        self.assertIn('Which timezone should I use for 09:00?', data['items'][35]['prompt'])
         self.assertEqual(len(data['items']), 40)
         categories = Counter(item['scorer']['kind'] for item in data['items'])
         self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8,

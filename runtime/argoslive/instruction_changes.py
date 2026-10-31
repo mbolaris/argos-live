@@ -43,15 +43,21 @@ _POLICY_V2 = {'id': 'argos-practice-keep/2', 'repeats_each': 2,
               'argos-openclaw-ability/challenge/1.0.0': {
                   'choice': 8, 'instruction': 8, 'json': 8, 'numeric': 8, 'tool-call': 8}},
           'reliability_max_latency_ratio': 1.5}
-POLICY = copy.deepcopy(_POLICY_V2)
-POLICY['id'] = 'argos-practice-keep/3'
+_POLICY_V3 = copy.deepcopy(_POLICY_V2)
+_POLICY_V3['id'] = 'argos-practice-keep/3'
 # Challenge 1.1.0 action-03 left the case of the format argument unspecified.
 # Category-level exclusion avoids counting an ambiguous item as evidence of a
 # gain. Version 1.2.0 states the exact value and uses the complete form.
-POLICY['category_exclusions']['argos-openclaw-ability/challenge/1.1.0'] = ['tool-call']
-POLICY['category_contracts']['argos-openclaw-ability/challenge/1.1.0'] = {
+_POLICY_V3['category_exclusions']['argos-openclaw-ability/challenge/1.1.0'] = ['tool-call']
+_POLICY_V3['category_contracts']['argos-openclaw-ability/challenge/1.1.0'] = {
     'choice': 8, 'instruction': 8, 'json': 8, 'numeric': 8, 'tool-call': 8}
-KEEP_POLICIES = {policy['id']: policy for policy in (_POLICY_V1, _POLICY_V2, POLICY)}
+POLICY = copy.deepcopy(_POLICY_V3)
+POLICY['id'] = 'argos-practice-keep/4'
+# Challenge 1.3.0 leaves classification, JSON keys, and a tool question unspecified.
+POLICY['category_exclusions']['argos-openclaw-ability/challenge/1.3.0'] = ['choice', 'json', 'tool-call']
+POLICY['category_contracts']['argos-openclaw-ability/challenge/1.3.0'] = {
+    'choice': 8, 'instruction': 8, 'json': 8, 'numeric': 8, 'tool-call': 8}
+KEEP_POLICIES = {policy['id']: policy for policy in (_POLICY_V1, _POLICY_V2, _POLICY_V3, POLICY)}
 
 
 class Refused(ValueError):

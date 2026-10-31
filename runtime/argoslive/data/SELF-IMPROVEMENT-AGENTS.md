@@ -79,6 +79,11 @@ action-03. Its results require a fresh baseline and cannot be compared with
 1.1.0; the earlier form remains available for historical replay. The clarified
 tool-call category is eligible under keep-policy v3.
 
+Challenge 1.3.0 leaves an incident-log classification, JSON field contracts and
+a tool question argument unspecified. Keep-policy v4 excludes its choice, JSON
+and tool-call categories from qualification. Challenge 1.3.1 states those
+details explicitly; establish a fresh baseline for that version.
+
 Quick scores vary by 1–2 of 20. A complete quick run with every item correct
 and zero format errors is a ceiling signal, not a plateau: follow it with a
 complete 70-task `standard` evaluation after the latest instruction decision.

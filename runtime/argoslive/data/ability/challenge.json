@@ -1,7 +1,7 @@
 {
   "schema": "argos-ability-suite/1",
   "suite": "challenge",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "license": "MIT",
   "source": "original-argos-live",
   "omitted_categories": [
@@ -164,7 +164,7 @@
     },
     {
       "id": "logic-07",
-      "prompt": "A policy retains ordinary logs for 30 days and confirmed security-incident logs for 90 days. A suspected incident is not confirmed. How long should these logs be retained?\nA. 30 days\nB. 60 days\nC. 90 days\nD. The policy gives no duration\nAnswer with one letter only.",
+      "prompt": "A policy retains ordinary logs for 30 days and confirmed security-incident logs for 90 days. Logs from unconfirmed incidents are classified as ordinary. A suspected incident is not confirmed. How long should these logs be retained?\nA. 30 days\nB. 60 days\nC. 90 days\nD. The policy gives no duration\nAnswer with one letter only.",
       "scorer": {
         "kind": "choice",
         "expected": "A"
@@ -362,7 +362,7 @@
     },
     {
       "id": "record-01",
-      "prompt": "Events: A pass and verified; B pass but unverified; C fail but verified; D pass and verified. A record passes only when both conditions are true. Preserve source order. Return only JSON with exactly the fields and types shown by the request.",
+      "prompt": "Events: A pass and verified; B pass but unverified; C fail but verified; D pass and verified. A record passes only when both conditions are true. Preserve source order. Records that do not pass need review. Return only a JSON object with exactly these fields and types: {\"passed_ids\":\"array of strings\",\"passed_count\":\"integer\",\"needs_review\":\"array of strings\"}.",
       "scorer": {
         "kind": "json",
         "expected": {
@@ -383,7 +383,7 @@
     },
     {
       "id": "record-02",
-      "prompt": "A job starts at 23:35 and lasts 95 minutes. Report its start, 24-hour end time, and whether it crosses midnight. Return only JSON with exactly the fields and types shown by the request.",
+      "prompt": "A job starts at 23:35 and lasts 95 minutes. Report its start, 24-hour end time, and whether it crosses midnight. Return only a JSON object with exactly these fields and types: {\"start\":\"string\",\"end\":\"string\",\"crosses_midnight\":\"boolean\"}.",
       "scorer": {
         "kind": "json",
         "expected": {
@@ -398,7 +398,7 @@
     },
     {
       "id": "record-03",
-      "prompt": "In source order, archive rows are C-3 duplicate/backup-verified/not-keep; B-2 duplicate/not-verified/not-keep; A-1 duplicate/verified/not-keep; D-4 unique/verified/not-keep. Only duplicates with verified backups and no keep mark qualify. Report IDs in source order and the count. Return only JSON with exactly the fields and types shown by the request.",
+      "prompt": "In source order, archive rows are C-3 duplicate/backup-verified/not-keep; B-2 duplicate/not-verified/not-keep; A-1 duplicate/verified/not-keep; D-4 unique/verified/not-keep. Only duplicates with verified backups and no keep mark qualify. Report IDs in source order and the count. Return only a JSON object with exactly these fields and types: {\"eligible_ids\":\"array of strings\",\"eligible_count\":\"integer\"}.",
       "scorer": {
         "kind": "json",
         "expected": {
@@ -415,7 +415,7 @@
     },
     {
       "id": "record-04",
-      "prompt": "Valid weighted samples are A: score 80, weight 2; B: score 90, weight 3. C has score 100 but is invalid. Report the weighted mean and number of valid samples. Return only JSON with exactly the fields and types shown by the request.",
+      "prompt": "Valid weighted samples are A: score 80, weight 2; B: score 90, weight 3. C has score 100 but is invalid. Report the weighted mean and number of valid samples. Return only a JSON object with exactly these fields and types: {\"weighted_mean\":\"integer\",\"valid_samples\":\"integer\"}.",
       "scorer": {
         "kind": "json",
         "expected": {
@@ -429,7 +429,7 @@
     },
     {
       "id": "record-05",
-      "prompt": "Three batches accepted/rejected: 14/3, 12/5, and 9/1. The expected total is 44. Report aggregate accepted, rejected, total, and whether processing is complete. Return only JSON with exactly the fields and types shown by the request.",
+      "prompt": "Three batches accepted/rejected: 14/3, 12/5, and 9/1. The expected total is 44. Report aggregate accepted, rejected, total, and whether processing is complete. Processing is complete exactly when the aggregate total equals the expected total. Return only a JSON object with exactly these fields and types: {\"accepted\":\"integer\",\"rejected\":\"integer\",\"total\":\"integer\",\"complete\":\"boolean\"}.",
       "scorer": {
         "kind": "json",
         "expected": {
@@ -445,7 +445,7 @@
     },
     {
       "id": "record-06",
-      "prompt": "Record: owner Mina; roles viewer then exporter; private data requested; owner approval is false. Private data may be included only with owner approval. Report owner, roles in order, and include_private. Return only JSON with exactly the fields and types shown by the request.",
+      "prompt": "Record: owner Mina; roles viewer then exporter; private data requested; owner approval is false. Private data may be included only with owner approval. Report owner, roles in order, and include_private. Return only a JSON object with exactly these fields and types: {\"owner\":\"string\",\"roles\":\"array of strings\",\"include_private\":\"boolean\"}.",
       "scorer": {
         "kind": "json",
         "expected": {
@@ -463,7 +463,7 @@
     },
     {
       "id": "record-07",
-      "prompt": "Jobs: R-7 starts 11:50 and lasts 45 minutes; R-3 starts 11:20 and lasts 30 minutes; R-8 starts 11:55 and lasts 20 minutes. Report the earliest finishing ID, end time, and duration. Return only JSON with exactly the fields and types shown by the request.",
+      "prompt": "Jobs: R-7 starts 11:50 and lasts 45 minutes; R-3 starts 11:20 and lasts 30 minutes; R-8 starts 11:55 and lasts 20 minutes. Report the earliest finishing ID, end time, and duration. Return only a JSON object with exactly these fields and types: {\"earliest_id\":\"string\",\"end\":\"string\",\"duration_minutes\":\"integer\"}.",
       "scorer": {
         "kind": "json",
         "expected": {
@@ -478,7 +478,7 @@
     },
     {
       "id": "record-08",
-      "prompt": "A record qualifies only when approved, backup-verified, and signed by at least two reviewers. A: approved/verified/2; B: approved/unverified/3; C: pending/verified/3; D: approved/verified/1. Report eligible IDs and their count. Return only JSON with exactly the fields and types shown by the request.",
+      "prompt": "A record qualifies only when approved, backup-verified, and signed by at least two reviewers. A: approved/verified/2; B: approved/unverified/3; C: pending/verified/3; D: approved/verified/1. Report eligible IDs and their count. Return only a JSON object with exactly these fields and types: {\"eligible_ids\":\"array of strings\",\"eligible_count\":\"integer\"}.",
       "scorer": {
         "kind": "json",
         "expected": {
@@ -654,7 +654,7 @@
     },
     {
       "id": "action-04",
-      "prompt": "Choose the available action that satisfies the full request. Available tool schemas: {\"tools\":[{\"name\":\"set_filter\",\"description\":\"Apply a field/value filter and choose exact matching.\",\"arguments\":{\"field\":\"string\",\"value\":\"string\",\"exact\":\"boolean\"}},{\"name\":\"summarize_range\",\"description\":\"Summarize an inclusive range of items and specify the unit.\",\"arguments\":{\"start\":\"integer\",\"end\":\"integer\",\"unit\":\"string\"}},{\"name\":\"request_review\",\"description\":\"Request review for a change and specify the reviewer.\",\"arguments\":{\"change_id\":\"string\",\"reviewer\":\"string\"}},{\"name\":\"request_clarification\",\"description\":\"Ask for one missing required field without inventing a default.\",\"arguments\":{\"field\":\"string\",\"question\":\"string\"}}]}\nRequest: The requested reservation starts at 09:00 local time, but no timezone or default is supplied. Obtain the missing required detail without guessing.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "prompt": "Choose the available action that satisfies the full request. Available tool schemas: {\"tools\":[{\"name\":\"set_filter\",\"description\":\"Apply a field/value filter and choose exact matching.\",\"arguments\":{\"field\":\"string\",\"value\":\"string\",\"exact\":\"boolean\"}},{\"name\":\"summarize_range\",\"description\":\"Summarize an inclusive range of items and specify the unit.\",\"arguments\":{\"start\":\"integer\",\"end\":\"integer\",\"unit\":\"string\"}},{\"name\":\"request_review\",\"description\":\"Request review for a change and specify the reviewer.\",\"arguments\":{\"change_id\":\"string\",\"reviewer\":\"string\"}},{\"name\":\"request_clarification\",\"description\":\"Ask for one missing required field without inventing a default.\",\"arguments\":{\"field\":\"string\",\"question\":\"string\"}}]}\nRequest: The requested reservation starts at 09:00 local time, but no timezone or default is supplied. Obtain the missing required detail without guessing. Use exactly \"Which timezone should I use for 09:00?\" as the question argument.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
       "scorer": {
         "kind": "tool-call",
         "expected": {

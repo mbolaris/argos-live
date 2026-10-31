@@ -338,6 +338,19 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(historic['correct'], 40)
         self.assertEqual(historic['basis']['excluded_categories'], [])
 
+    def test_challenge_v130_ambiguous_categories_are_excluded_only_by_v4(self):
+        baseline = self.evaluate(suite='challenge', wrong_categories=('choice', 'json', 'tool-call'))
+        candidate = self.evaluate(suite='challenge')
+        baseline['suite_version'] = candidate['suite_version'] = 'argos-openclaw-ability/challenge/1.3.0'
+        before = changes.qualification_metrics(baseline, changes.POLICY)
+        current = changes.qualification_metrics(candidate, changes.POLICY)
+        historic = changes.qualification_metrics(candidate, changes._POLICY_V3)
+        self.assertEqual(before['correct'], 16)
+        self.assertEqual(current['correct'], 16)
+        self.assertEqual(current['basis']['excluded_categories'], ['choice', 'json', 'tool-call'])
+        self.assertEqual(historic['correct'], 40)
+        self.assertEqual(historic['basis']['excluded_categories'], [])
+
     def test_v2_keep_journal_remains_auditable_after_policy_upgrade(self):
         with patch.object(changes, 'POLICY', changes._POLICY_V2):
             baselines = [self.evaluate(misses=5), self.evaluate(misses=4)]
@@ -347,6 +360,18 @@ class InstructionChangeTests(unittest.TestCase):
                                 candidate_ids=[run['id'] for run in candidates])
             self.assertEqual(kept['status'], 'kept', kept)
             self.assertEqual(kept['policy']['id'], 'argos-practice-keep/2')
+        audit = self.op('audit')
+        self.assertTrue(audit['passed'], audit)
+
+    def test_v3_keep_journal_remains_auditable_after_policy_upgrade(self):
+        with patch.object(changes, 'POLICY', changes._POLICY_V3):
+            baselines = [self.evaluate(misses=5), self.evaluate(misses=4)]
+            edited = self.edit(baselines[0])
+            candidates = [self.evaluate(misses=1), self.evaluate(misses=0)]
+            kept = self.resolve(edited, 'keep', baseline_ids=[run['id'] for run in baselines],
+                                candidate_ids=[run['id'] for run in candidates])
+            self.assertEqual(kept['status'], 'kept', kept)
+            self.assertEqual(kept['policy']['id'], 'argos-practice-keep/3')
         audit = self.op('audit')
         self.assertTrue(audit['passed'], audit)
 

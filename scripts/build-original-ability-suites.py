@@ -62,9 +62,9 @@ def items():
     return groups
 
 
-def challenge_items(version='1.3.0'):
+def challenge_items(version='1.3.1'):
     """A separate higher-difficulty form; do not derive it from quick/standard."""
-    if version not in ('1.0.0', '1.1.0', '1.2.0', '1.3.0'):
+    if version not in ('1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.3.1'):
         raise ValueError('Unknown challenge suite version')
     groups = {kind: [] for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
     prefixes = {'numeric': 'calc', 'choice': 'logic', 'instruction': 'format',
@@ -157,7 +157,7 @@ def challenge_items(version='1.3.0'):
             return result
         raise ValueError('Unsupported challenge reference')
 
-    if version == '1.3.0':
+    if version in ('1.3.0', '1.3.1'):
         # A fresh, higher-composition form aimed at the 100% ceiling in the
         # earlier challenge. Keep the deterministic scorer and save exact
         # prompts/results; this is a new baseline, not a matched comparison.
@@ -190,7 +190,7 @@ def challenge_items(version='1.3.0'):
              ['P only', 'P and Q', 'P and R', 'P and S'], 'A'),
             ('Order incidents newest first, preserving source order for equal timestamps. Source order: A 10:05, B 10:03, C 10:05, D 10:06. Which order is correct?',
              ['D, A, C, B', 'D, C, A, B', 'A, C, D, B', 'B, A, C, D'], 'A'),
-            ('A policy retains ordinary logs for 30 days and confirmed security-incident logs for 90 days. A suspected incident is not confirmed. How long should these logs be retained?',
+            ('A policy retains ordinary logs for 30 days and confirmed security-incident logs for 90 days. ' + ('Logs from unconfirmed incidents are classified as ordinary. ' if version == '1.3.1' else '') + 'A suspected incident is not confirmed. How long should these logs be retained?',
              ['30 days', '60 days', '90 days', 'The policy gives no duration'], 'A'),
             ('A note says a report is ready and its content is approved, but gives no publishing window. What exact time should it be published?',
              ['Immediately', 'At 09:00', 'At the next hour', 'Cannot be determined from the note'], 'D'),
@@ -249,7 +249,16 @@ def challenge_items(version='1.3.0'):
              {'eligible_ids': ['A'], 'eligible_count': 1}),
         ]
         for i, (context, expected) in enumerate(records, 1):
-            prompt = context + ' Return only JSON with exactly the fields and types shown by the request.'
+            if version == '1.3.1':
+                if i == 1:
+                    context += ' Records that do not pass need review.'
+                elif i == 5:
+                    context += ' Processing is complete exactly when the aggregate total equals the expected total.'
+                type_names = {str: 'string', int: 'integer', bool: 'boolean', list: 'array of strings'}
+                schema = {key: type_names[type(value)] for key, value in expected.items()}
+                prompt = context + ' Return only a JSON object with exactly these fields and types: ' + json.dumps(schema, separators=(',', ':')) + '.'
+            else:
+                prompt = context + ' Return only JSON with exactly the fields and types shown by the request.'
             add('json', i, prompt, expected, json.dumps(expected),
                 json.dumps(altered(expected)), '{not json}')
 
@@ -288,6 +297,8 @@ def challenge_items(version='1.3.0'):
                             'arguments': {key: types[type(value)]
                                           for key, value in arguments.items()}})
         for i, (name, arguments, request) in enumerate(actions, 1):
+            if version == '1.3.1' and name == 'request_clarification':
+                request += ' Use exactly "Which timezone should I use for 09:00?" as the question argument.'
             expected = {'name': name, 'arguments': arguments}
             reference = json.dumps(expected)
             wrong = json.dumps({'name': 'wrong_tool', 'arguments': arguments})
@@ -773,7 +784,7 @@ def tool_sequence_items():
 
 def build(suite, version=None):
     if suite == 'challenge':
-        version = version or '1.3.0'
+        version = version or '1.3.1'
         selected = [item for group in challenge_items(version).values() for item in group]
     elif suite == 'tool-schema':
         if version is not None:
@@ -807,7 +818,7 @@ if __name__ == '__main__':
     destination.mkdir(parents=True, exist_ok=True)
     archive = destination / 'archive'
     archive.mkdir(parents=True, exist_ok=True)
-    for version in ('1.2.0',):
+    for version in ('1.2.0', '1.3.0'):
         path = archive / f'challenge-{version}.json'
         path.write_text(json.dumps(build('challenge', version=version), indent=2) + '\n', encoding='utf-8')
     for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
