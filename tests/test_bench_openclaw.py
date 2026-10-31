@@ -65,7 +65,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
     def test_challenge_form_is_a_distinct_saved_suite_with_full_coverage(self):
         result = bench_openclaw.run(suite='challenge', runner=FakeOpenClaw(suite='challenge'))
         self.assertEqual(result['suite'], 'openclaw-challenge')
-        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/challenge/1.1.0')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/challenge/1.3.0')
         self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
         self.assertEqual(result['summary']['correct'], 40)
         self.assertEqual(len(result['settings']['suite_sha256']), 64)

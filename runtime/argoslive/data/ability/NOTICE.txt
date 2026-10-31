@@ -13,6 +13,10 @@ items are not independent validation. These forms are not matched replacements
 for quick or standard. Tool-sequence asks for ordered two- or three-call plans
 with explicit prior-result references; its bundled held-out workflows are an
 internal transfer signal, not independent validation or a test of execution.
+Challenge 1.2.0 makes the report-format argument in action-03 explicitly
+lowercase. Challenge 1.3.0 adds a fresh higher-composition internal form;
+establish its own baseline and do not compare its scores with earlier versions.
+Challenges 1.1.0 and 1.2.0 remain available for replay.
 Generated-code execution is omitted until an enforced sandbox is implemented.
 
 Copyright (c) 2026 Argos Live contributors

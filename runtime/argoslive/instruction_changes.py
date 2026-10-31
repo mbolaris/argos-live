@@ -29,7 +29,7 @@ _POLICY_V1 = {'id': 'argos-practice-keep/1', 'repeats_each': 2,
                                         'openclaw-challenge': 3, 'openclaw-tool-schema': 3,
                                         'openclaw-tool-plan': 3},
               'reliability_max_latency_ratio': 1.5}
-POLICY = {'id': 'argos-practice-keep/2', 'repeats_each': 2,
+_POLICY_V2 = {'id': 'argos-practice-keep/2', 'repeats_each': 2,
           'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4,
                                     'openclaw-challenge': 3, 'openclaw-tool-schema': 3,
                                     'openclaw-tool-plan': 3, 'openclaw-tool-sequence': 3},
@@ -43,7 +43,15 @@ POLICY = {'id': 'argos-practice-keep/2', 'repeats_each': 2,
               'argos-openclaw-ability/challenge/1.0.0': {
                   'choice': 8, 'instruction': 8, 'json': 8, 'numeric': 8, 'tool-call': 8}},
           'reliability_max_latency_ratio': 1.5}
-KEEP_POLICIES = {policy['id']: policy for policy in (_POLICY_V1, POLICY)}
+POLICY = copy.deepcopy(_POLICY_V2)
+POLICY['id'] = 'argos-practice-keep/3'
+# Challenge 1.1.0 action-03 left the case of the format argument unspecified.
+# Category-level exclusion avoids counting an ambiguous item as evidence of a
+# gain. Version 1.2.0 states the exact value and uses the complete form.
+POLICY['category_exclusions']['argos-openclaw-ability/challenge/1.1.0'] = ['tool-call']
+POLICY['category_contracts']['argos-openclaw-ability/challenge/1.1.0'] = {
+    'choice': 8, 'instruction': 8, 'json': 8, 'numeric': 8, 'tool-call': 8}
+KEEP_POLICIES = {policy['id']: policy for policy in (_POLICY_V1, _POLICY_V2, POLICY)}
 
 
 class Refused(ValueError):
@@ -131,6 +139,23 @@ def validate_request(operation, params):
     if operation in {'inspect', 'audit'}:
         if params:
             raise Refused('operation-takes-no-path-or-arguments')
+    elif operation == 'adopt':
+        if set(params) != {'expected_sha256', 'previous_sha256', 'reason',
+                           'baseline_ids', 'candidate_ids'}:
+            raise Refused('invalid-adoption-fields')
+        sha(params['expected_sha256'])
+        sha(params['previous_sha256'])
+        text(params['reason'], 1024)
+        for field in ('baseline_ids', 'candidate_ids'):
+            values = params[field]
+            if (not isinstance(values, list) or len(values) != 2 or
+                    any(not isinstance(value, str) for value in values) or
+                    len(set(values)) != 2):
+                raise Refused('adoption-needs-two-distinct-runs-per-prompt')
+            for value in values:
+                run_id(value)
+        if set(params['baseline_ids']) & set(params['candidate_ids']):
+            raise Refused('adoption-run-groups-must-be-distinct')
     elif operation == 'edit':
         if set(params) != {'baseline_id', 'expected_sha256', 'find', 'replace', 'hypothesis'}:
             raise Refused('invalid-edit-fields')
@@ -260,9 +285,142 @@ def load_run(home, run_id, expected_hash, config_hash, context_hash, parent, gen
 def inspect(home, root):
     _path, raw, _config, receipt = inputs(home)
     current = state(root)
+    last_sha = None
+    if current.get('last_id'):
+        last = read_json(root / current['last_id'] / 'resolved.json')
+        last_sha = last.get('result_sha256')
     return {'status': 'inspected', 'instructions': raw.decode('utf-8'), 'sha256': digest(raw),
             'configuration': receipt, 'active_change': current.get('active'), 'keep_policy': copy.deepcopy(POLICY),
+            'last_journal_sha256': last_sha,
+            'untracked_edit_detected': bool(last_sha and last_sha != digest(raw)),
             'scope': 'configured instruction/practice evidence; not independent verification'}
+
+
+def external_run(home, run_id, expected_hash, config_hash, context_hash):
+    """Load a saved ability result tied to one exact prompt hash and any child receipt."""
+    try:
+        run = Store(Path(home) / '.local/share/argos-live/results').load(run_id)
+    except ValueError:
+        raise Refused('adoption-run-is-missing-or-invalid') from None
+    if (run.get('kind') != 'ability' or run.get('state') != 'completed' or
+            not run.get('coverage', {}).get('complete') or
+            run.get('settings', {}).get('execution_path') != EXECUTION_PATH or
+            run.get('prompt_fingerprint', {}).get('workspace_agents_sha256') != expected_hash or
+            run.get('prompt_fingerprint', {}).get('evaluation_config_sha256') != config_hash or
+            run.get('prompt_fingerprint', {}).get('workspace_context_sha256') != context_hash or
+            run.get('summary') != summaries(run.get('items', []))):
+        raise Refused('adoption-run-does-not-match-the-exact-prompt')
+    matches = []
+    for path in (Path(home) / '.local/state/argos-live/workload/child').glob('*.json'):
+        child = read_json(path)
+        if (child.get('kind'), child.get('state'), child.get('result_id')) == (
+                'evaluation', 'released', run_id):
+            matches.append(child)
+    if len(matches) > 1:
+        raise Refused('adoption-run-has-ambiguous-host-evaluations')
+    # Old auto-climb runs may have complete saved result records without a
+    # controller child receipt. Preserve those records, but never call them
+    # controller-authorized evidence or use them to qualify an instruction.
+    return run, matches[0] if matches else {
+        'controller_admission': 'unavailable',
+        'reason': 'No unique host-controller evaluation receipt was present.'}
+
+
+def adopt(home, root, params, slot):
+    """Journal an existing saved-run-linked edit without rewriting AGENTS.md or claiming a keep."""
+    path, after, config, receipt = inputs(home)
+    current = state(root)
+    if current['active']:
+        raise Refused('resolve-current-change-before-adopting-an-edit')
+    if not current.get('last_id'):
+        raise Refused('no-managed-baseline-for-external-edit')
+    previous_dir = root / current['last_id']
+    previous_resolved = read_json(previous_dir / 'resolved.json')
+    previous_before = read_owned(previous_dir / 'before.bin', 65536)
+    previous_after = read_owned(previous_dir / 'after.bin', 65536)
+    previous_bytes = previous_before if previous_resolved.get('action') == 'restore' else previous_after
+    previous_sha = digest(previous_bytes)
+    if previous_sha != previous_resolved.get('result_sha256'):
+        raise workload.Busy(recovery=True)
+    if params['previous_sha256'] != previous_sha:
+        raise Refused('journal-baseline-changed-since-inspection')
+    if digest(after) != params['expected_sha256'] or digest(after) == previous_sha:
+        raise Refused('no-matching-untracked-edit-to-adopt')
+    context_hash = workspace_context_receipt(path.parent)
+    previous_intent = read_json(previous_dir / 'intent.json')
+    if context_hash != previous_intent.get('workspace_context_sha256'):
+        raise Refused('workspace-context-changed-since-managed-baseline')
+
+    baselines, candidates = [], []
+    all_runs = []
+    for ids, expected_hash, group in ((params['baseline_ids'], previous_sha, baselines),
+                                      (params['candidate_ids'], digest(after), candidates)):
+        for run_id_value in ids:
+            run, admission = external_run(home, run_id_value, expected_hash, receipt['sha256'], context_hash)
+            group.append((run, admission))
+            all_runs.append(run)
+    try:
+        compare(all_runs)
+    except ValueError:
+        raise Refused('adoption-runs-are-not-comparable') from None
+    if (any(run['model'] != all_runs[0]['model'] or not same_hardware(all_runs[0], run)
+            for run in all_runs) or
+            len({run.get('suite_version') for run in all_runs}) != 1):
+        raise Refused('adoption-needs-one-suite-model-and-hardware')
+    if max(datetime.fromisoformat(run['created']) for run, _ in baselines) > min(
+            datetime.fromisoformat(run['created']) for run, _ in candidates):
+        raise Refused('adoption-candidate-runs-must-follow-baseline-runs')
+
+    parent = slot.record.get('parent_id')
+    if not parent:
+        raise Refused('instruction-adoption-requires-host-controller-delegation')
+    observed = stamp()
+    change_id = secrets.token_hex(16)
+    directory = root / change_id
+    directory.mkdir(mode=0o700)
+    new_file(directory / 'before.bin', previous_bytes)
+    new_file(directory / 'after.bin', after)
+    new_file(directory / 'openclaw.json', config)
+    evidence_dir = directory / 'evidence'
+    evidence_dir.mkdir(mode=0o700)
+    for group in (baselines, candidates):
+        for run, admission in group:
+            immutable(evidence_dir / (run['id'] + '.json'), run)
+            immutable(evidence_dir / (run['id'] + '-admission.json'), admission)
+    ids = {'baseline_ids': [run['id'] for run, _ in baselines],
+           'candidate_ids': [run['id'] for run, _ in candidates]}
+    admissions_complete = all(admission.get('schema') == 'argos-workload-child/1' and
+                              admission.get('state') == 'released'
+                              for group in (baselines, candidates) for _run, admission in group)
+    immutable(directory / 'intent.json', {
+        'schema': SCHEMA, 'kind': 'external-adoption', 'id': change_id,
+        'sequence': current['sequence'] + 1, 'previous_id': current['last_id'],
+        'parent_id': parent, 'generation': slot.record['generation'], 'observed': observed,
+        'reason': params['reason'], 'before_sha256': previous_sha, 'after_sha256': digest(after),
+        'workspace_context_sha256': context_hash, 'config_sha256': digest(config),
+        'evaluation_config_sha256': receipt['sha256'], **ids})
+    current.update(sequence=current['sequence'] + 1,
+                   active={'id': change_id, 'phase': 'prepared'})
+    write_json(root / 'state.json', current)
+    # Recheck all inputs immediately before publishing the journal event.
+    if (path.read_bytes() != after or
+            (Path(home) / '.openclaw/openclaw.json').read_bytes() != config or
+            workspace_context_receipt(path.parent) != context_hash):
+        raise workload.Busy(recovery=True)
+    immutable(directory / 'resolved.json', {
+        'observed': stamp(), 'action': 'adopted-external', 'result_sha256': digest(after),
+        **ids, 'qualified_experiment': False, 'independent_gain_verified': False,
+        'host_controller_receipts_complete': admissions_complete,
+        'qualification_limitation': 'External edits are recorded for continuity, not verified as host-managed keeps.'})
+    current.update(active=None, last_id=change_id)
+    write_json(root / 'state.json', current)
+    return {'status': 'adopted', 'change_id': change_id, 'sha256': digest(after),
+            'qualified_experiment': False, 'independent_gain_verified': False,
+            'baseline_ids': ids['baseline_ids'], 'candidate_ids': ids['candidate_ids'],
+            'host_controller_receipts_complete': admissions_complete,
+            'evidence_provenance': ('host-controller-evaluations' if admissions_complete else
+                                    'saved-run-records-only'),
+            'configuration_preserved': True, 'observed': observed}
 
 
 def edit(home, root, params, slot):
@@ -467,6 +625,8 @@ def perform(home, operation, params, *, delegation=None):
                     result = inspect(home, root)
                 elif operation == 'edit':
                     result = edit(home, root, params, slot)
+                elif operation == 'adopt':
+                    result = adopt(home, root, params, slot)
                 else:
                     result = resolve(home, root, params)
         except Refused as error:
@@ -509,6 +669,80 @@ def audit(home):
             before = read_owned(directory / 'before.bin', 65536)
             after = read_owned(directory / 'after.bin', 65536)
             config = read_owned(directory / 'openclaw.json', 1024**2)
+            if intent.get('kind') == 'external-adoption':
+                resolved = read_json(directory / 'resolved.json')
+                ids = {field: intent.get(field) for field in ('baseline_ids', 'candidate_ids')}
+                if (intent['id'] != directory.name or intent['schema'] != SCHEMA or
+                        intent['sequence'] != index or intent['previous_id'] != previous or
+                        previous_sha is None or digest(before) != previous_sha or
+                        digest(before) != intent['before_sha256'] or digest(after) != intent['after_sha256'] or
+                        digest(config) != intent['config_sha256'] or
+                        receipt_from(configuration_from(json.loads(config)))['sha256'] !=
+                        intent['evaluation_config_sha256'] or
+                        workspace_context_receipt(inputs(home)[0].parent) != intent['workspace_context_sha256']):
+                    raise ValueError('external-adoption-snapshot-or-chain-mismatch')
+                text(intent['reason'], 1024)
+                if (not isinstance(intent.get('parent_id'), str) or not intent['parent_id'] or
+                        type(intent.get('generation')) is not int or intent['generation'] < 1 or
+                        not isinstance(ids['baseline_ids'], list) or len(ids['baseline_ids']) != 2 or
+                        not isinstance(ids['candidate_ids'], list) or len(ids['candidate_ids']) != 2 or
+                        len(set(ids['baseline_ids'] + ids['candidate_ids'])) != 4):
+                    raise ValueError('external-adoption-metadata-invalid')
+                validate_request('adopt', {**ids, 'expected_sha256': digest(after),
+                                           'previous_sha256': digest(before), 'reason': intent['reason']})
+                groups = [[], []]
+                for group_index, field in enumerate(('baseline_ids', 'candidate_ids')):
+                    expected_hash = digest(before) if group_index == 0 else digest(after)
+                    for run_id_value in ids[field]:
+                        run, admission = external_run(home, run_id_value, expected_hash,
+                                                      intent['evaluation_config_sha256'],
+                                                      intent['workspace_context_sha256'])
+                        if (read_json(directory / 'evidence' / (run_id_value + '.json')) != run or
+                                read_json(directory / 'evidence' / (run_id_value + '-admission.json')) != admission):
+                            raise ValueError('external-adoption-evidence-snapshot-mismatch')
+                        groups[group_index].append((run, admission))
+                admissions_complete = all(admission.get('schema') == 'argos-workload-child/1' and
+                                          admission.get('state') == 'released'
+                                          for group in groups for _run, admission in group)
+                try:
+                    compare([pair[0] for group in groups for pair in group])
+                except ValueError:
+                    raise ValueError('external-adoption-runs-not-comparable') from None
+                runs = [pair[0] for group in groups for pair in group]
+                if (len({run.get('suite_version') for run in runs}) != 1 or
+                        any(run['model'] != runs[0]['model'] or not same_hardware(runs[0], run)
+                            for run in runs) or
+                        max(datetime.fromisoformat(run['created']) for run, _ in groups[0]) >
+                        min(datetime.fromisoformat(run['created']) for run, _ in groups[1])):
+                    raise ValueError('external-adoption-run-contract-mismatch')
+                observed = datetime.fromisoformat(intent['observed'])
+                resolved_observed = datetime.fromisoformat(resolved['observed'])
+                if (observed.tzinfo is None or resolved_observed.tzinfo is None or
+                        resolved_observed < observed or resolved.get('action') != 'adopted-external' or
+                        resolved.get('result_sha256') != digest(after) or
+                        resolved.get('baseline_ids') != ids['baseline_ids'] or
+                        resolved.get('candidate_ids') != ids['candidate_ids'] or
+                        resolved.get('qualified_experiment') is not False or
+                        resolved.get('independent_gain_verified') is not False or
+                        resolved.get('host_controller_receipts_complete') is not admissions_complete):
+                    raise ValueError('external-adoption-resolution-invalid')
+                def external_score(group):
+                    values = [pair[0] for pair in group]
+                    return {'run_ids': [run['id'] for run in values],
+                            'scores': [{'correct': run['summary']['correct'], 'total': run['summary']['total'],
+                                        'format_errors': run['summary']['format_errors']} for run in values]}
+                report['changes'].append({
+                    'change_id': intent['id'], 'action': 'adopted-external',
+                    'before_sha256': digest(before), 'after_sha256': digest(after),
+                    'qualified_experiment': False, 'independent_gain_verified': False,
+                    'reason': intent['reason'], 'baseline': external_score(groups[0]),
+                    'candidate': external_score(groups[1]),
+                    'host_controller_receipts_complete': admissions_complete,
+                    'evidence_provenance': ('host-controller-evaluations' if admissions_complete else
+                                            'saved-run-records-only'),
+                    'note': 'Recorded an existing agent/owner edit; evidence is preserved but this is not a host-managed keep.'})
+                previous, previous_sha = intent['id'], digest(after)
+                continue
             baseline = read_owned(directory / 'baseline.json', 1024**2)
             applied = read_json(directory / 'applied.json')
             resolved = read_json(directory / 'resolved.json')
@@ -600,7 +834,9 @@ def audit(home):
                 workspace_context_receipt(_path.parent) != entries[-1][0]['workspace_context_sha256']):
             raise ValueError('current-instructions-or-index-mismatch')
         report.update(status='verified', passed=True,
-                      qualified_experiments=sum(item['qualified_experiment'] for item in report['changes']))
+                      qualified_experiments=sum(item['qualified_experiment'] for item in report['changes']),
+                      adopted_external_edits=sum(item['action'] == 'adopted-external'
+                                                 for item in report['changes']))
     except (ValueError, KeyError, OSError, TypeError) as error:
         report['error'] = type(error).__name__  # Never echo private inputs/paths.
     return report

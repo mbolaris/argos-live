@@ -13,9 +13,92 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+TOOL_SEQUENCE_TURN_TIMEOUT_SECONDS = 360
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import ability, auto_setup, bench_openclaw, catalog, model_verify, owned_ollama
 from argoslive.assistant_trial import OpenClawRunner
+
+
+class ToolSequenceSmokeRunner(OpenClawRunner):
+    """Give the isolated 40-item CPU smoke a bounded six-minute turn window."""
+
+    def turn(self, text, timeout=TOOL_SEQUENCE_TURN_TIMEOUT_SECONDS):
+        return super().turn(text, timeout=timeout)
+
+
+def result_failures(result, model_tag, suite_version):
+    """Return acceptance mismatches without copying model output into logs."""
+    summary = result.get('summary', {})
+    partitions = summary.get('partitions', {})
+    expected_partitions = {'practice': 20, 'heldout': 20}
+    failures = []
+    if result.get('state') != 'completed':
+        failures.append('state')
+    if result.get('coverage') != {'completed': 40, 'total': 40, 'complete': True}:
+        failures.append('coverage')
+    if result.get('model') != 'ollama/' + model_tag:
+        failures.append('model')
+    if result.get('suite_version') != suite_version:
+        failures.append('suite_version')
+    if result.get('settings', {}).get('execution_path') != \
+            'openclaw embedded; ephemeral state; tools denied; v2':
+        failures.append('execution_policy')
+    if set(partitions) != set(expected_partitions):
+        failures.append('partition_names')
+    elif any(partitions[name].get('total') != total
+             for name, total in expected_partitions.items()):
+        failures.append('partition_totals')
+    return failures
+
+
+def assistant_failure_signature(home):
+    """Classify the private OpenClaw stderr log without exporting its contents."""
+    path = Path(home) / '.local/state/argos-live/trial-turn-failure.log'
+    try:
+        text = path.read_bytes()[-65536:].decode('utf-8', errors='replace').lower()
+    except OSError:
+        return None
+    categories = (
+        ('model_unavailable', ('model not found', 'model does not exist', 'unknown model')),
+        ('local_model_server_unreachable', ('connection refused', 'failed to connect', 'could not connect')),
+        ('provider_authentication', ('unauthorized', 'authentication failed', 'invalid api key')),
+        ('tool_policy_rejection', ('tool is not allowed', 'tool not allowed', 'tool use is disabled')),
+        ('configuration_rejected', ('invalid config', 'configuration error', 'config validation')),
+        ('upstream_timeout', ('timed out', 'timeout', 'deadline exceeded')),
+    )
+    for label, markers in categories:
+        if any(marker in text for marker in markers):
+            return label
+    return 'unclassified_cli_error' if text else None
+
+
+def safe_result_diagnostic(result, failures, failure_signature=None):
+    """Keep bounded, non-sensitive run facts; omit prompts and model outputs."""
+    allowed_failure_codes = {
+        'cancelled', 'turn-timeout', 'assistant-error', 'empty-reply',
+        'invalid-reply', 'session-mismatch', 'model-mismatch',
+        'workspace-changed-during-run', 'configuration-changed-during-run',
+        'benchmark-changed-during-run', 'instruction-changed-during-run',
+    }
+    failure_code = result.get('failure_code')
+    return {
+        'schema': 'argos-tool-sequence-model-smoke-run/1',
+        'run_id': result.get('id'),
+        'state': result.get('state'),
+        'failure_code': failure_code if failure_code in allowed_failure_codes else None,
+        'assistant_failure_signature': failure_signature,
+        'turn_timeout_seconds': TOOL_SEQUENCE_TURN_TIMEOUT_SECONDS,
+        'model': result.get('model'),
+        'suite_version': result.get('suite_version'),
+        'coverage': result.get('coverage'),
+        'summary': result.get('summary', {}),
+        'execution_path': result.get('settings', {}).get('execution_path'),
+        'item_scores': [
+            {key: item.get(key) for key in
+             ('item_id', 'partition', 'category', 'score', 'outcome', 'checks')}
+            for item in result.get('items', []) if isinstance(item, dict)],
+        'acceptance_failures': failures,
+    }
 
 
 def run(cli, ollama, model_store, model_tag, report):
@@ -44,7 +127,7 @@ def run(cli, ollama, model_store, model_tag, report):
         lease_store = home / '.local/state/argos-live'
         lease_store.mkdir(mode=0o700, parents=True, exist_ok=True)
 
-        runner = OpenClawRunner(home, executable=str(cli.resolve(strict=True)))
+        runner = ToolSequenceSmokeRunner(home, executable=str(cli.resolve(strict=True)))
         runner.seed_workspace_defaults(
             ('AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md', 'BOOTSTRAP.md'),
             runner.bootstrap_templates())
@@ -65,20 +148,14 @@ def run(cli, ollama, model_store, model_tag, report):
         if not saved.is_file() or json.loads(saved.read_text(encoding='utf-8')) != result:
             raise ValueError('Tool-sequence result was not saved and verified in scratch')
         raw = saved.read_bytes()
-        summary = result.get('summary', {})
-        partitions = summary.get('partitions', {})
-        expected_partitions = {'practice': 20, 'heldout': 20}
-        if (result.get('state') != 'completed' or result.get('coverage') !=
-                {'completed': 40, 'total': 40, 'complete': True} or
-                result.get('model') != 'ollama/' + model_tag or
-                result.get('suite_version') != 'argos-openclaw-ability/tool-sequence/' +
-                    ability.load('tool-sequence')['version'] or
-                result.get('settings', {}).get('execution_path') !=
-                    'openclaw embedded; ephemeral state; tools denied; v2' or
-                set(partitions) != set(expected_partitions) or
-                any(partitions[name].get('total') != total
-                    for name, total in expected_partitions.items())):
-            raise ValueError('Tool-sequence result failed completion, identity, policy or partition checks')
+        suite_version = 'argos-openclaw-ability/tool-sequence/' + ability.load('tool-sequence')['version']
+        failures = result_failures(result, model_tag, suite_version)
+        run_diagnostic = safe_result_diagnostic(
+            result, failures, assistant_failure_signature(home))
+        report.with_name('tool-sequence-real-run.json').write_text(
+            json.dumps(run_diagnostic, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+        if failures:
+            raise ValueError('Tool-sequence result failed acceptance: ' + ', '.join(failures))
 
         receipt = {
             'schema': 'argos-tool-sequence-model-smoke/1',
@@ -91,12 +168,13 @@ def run(cli, ollama, model_store, model_tag, report):
             'suite_sha256': result['settings']['suite_sha256'],
             'execution_path': result['settings']['execution_path'],
             'tools_executed': False,
+            'turn_timeout_seconds': TOOL_SEQUENCE_TURN_TIMEOUT_SECONDS,
             'practice_only': True,
             'calibration_status': 'uncalibrated',
             'internal_transfer_notice': (
                 'Bundled held-out items are internal transfer checks, not independent validation.'),
             'coverage': result['coverage'],
-            'summary': summary,
+            'summary': result.get('summary', {}),
             'item_scores': [
                 {key: item.get(key) for key in ('item_id', 'partition', 'category', 'score', 'outcome', 'checks')}
                 for item in result['items']],
@@ -104,8 +182,6 @@ def run(cli, ollama, model_store, model_tag, report):
             'ci_commit': os.environ.get('GITHUB_SHA'),
         }
         report.parent.mkdir(parents=True, exist_ok=True)
-        report.with_name('tool-sequence-real-run.json').write_text(
-            json.dumps(result, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
         report.write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
 
 

@@ -36,9 +36,16 @@ class RuntimePackageTests(unittest.TestCase):
         launcher = ROOT / 'runtime/argos-refresh-runtime'
         service = unit.read_text()
         self.assertTrue(launcher.is_file())
-        self.assertIn('argoslive.image_refresh', launcher.read_text())
+        launcher_text = launcher.read_text()
+        self.assertIn('argoslive.image_refresh', launcher_text)
+        self.assertIn('/run/live/rootfs/filesystem.squashfs/usr/local/lib/argos-live', launcher_text)
+        refresh = (ROOT / 'runtime/argoslive/image_refresh.py').read_text()
+        self.assertIn("Path('usr/local/lib/argos-live/argoslive')", refresh)
+        self.assertIn("Path('usr/local/share/argos-live/plugins/argos-improve')", refresh)
+        self.assertIn('pre-change snapshot', refresh)
         self.assertIn('Before=display-manager.service', service)
         self.assertIn('After=local-fs.target', service)
+        self.assertIn('/run/live/rootfs/filesystem.squashfs/usr/local/sbin/argos-refresh-runtime', service)
         for script in ('scripts/build.sh', 'scripts/sync-build-runtime.sh'):
             content = (ROOT / script).read_text()
             self.assertIn('argos-refresh-runtime', content)
@@ -109,7 +116,9 @@ class RuntimePackageTests(unittest.TestCase):
                        'assert PILOT_DEFINITION.is_file(); '
                        'assert len(load()["items"]) == 20; assert len(load("standard")["items"]) == 70; '
                        'assert len(load("challenge")["items"]) == 40; '
+                       'assert load("challenge")["version"] == "1.3.0"; '
                        'assert load("challenge", version="1.0.0")["version"] == "1.0.0"; '
+                       'assert load("challenge", version="1.2.0")["version"] == "1.2.0"; '
                        'assert len(load("tool-plan")["items"]) == 40; '
                        'assert load("tool-plan", version="1.0.0")["version"] == "1.0.0"; '
                        'assert len(load("tool-sequence")["items"]) == 40; '

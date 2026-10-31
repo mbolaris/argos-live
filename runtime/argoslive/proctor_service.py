@@ -36,7 +36,7 @@ PROCTOR_TOOL_NAMES = [
 CAMPAIGN_TOOL_NAMES = [
     'argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status',
     'argos_compare', 'argos_log', 'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions',
-    'argos_resolve_instructions',
+    'argos_resolve_instructions', 'argos_adopt_external_instruction_edit',
 ]
 POLICY = {'enforcement_level': 'declared', 'assistance_policy': 'closed_book'}
 PRACTICE_MAX_TURNS = 16
@@ -92,7 +92,12 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
     'from fingerprints. '
     'If no matched pair exists, collect a '
     'second baseline in the same suite. Cross-suite scores may be reported separately but are not comparable. '
-    'Then use host-managed edit/resolve tools for instruction changes and '
+    'If inspect reports an untracked instruction edit, do not overwrite it. Review its exact before/after '
+    'hashes and the saved run metadata. When two compatible baseline runs match the last journal hash and '
+    'two compatible candidate runs match the current hash, use argos_adopt_external_instruction_edit to '
+    'record the already-existing edit without rewriting AGENTS.md. Adoption preserves evidence but is never '
+    'a host-managed keep or a qualification claim. If that evidence is unavailable, stop and report the gap. '
+    'Otherwise use host-managed edit/resolve tools for instruction changes and '
     'preserve every saved run ID. If no supported experiment remains, compare at least two matched baselines '
     'and explain why no change is justified. In either case, call argos_audit_instructions before finishing. '
     'The host continues the campaign in bounded fresh turns until it observes a passed audit and the required '
