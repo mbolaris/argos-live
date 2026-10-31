@@ -558,6 +558,19 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(evidence_item['correct'], 'C')
         self.assertIn('available_tools: null', evidence_item['prompt'])
 
+    def test_host_can_select_composed_practice_without_replacing_pilot(self):
+        pilot = proctor_service.default_cartridge(self.home)
+        composed = proctor_service.default_cartridge(self.home, form_id='composed-a')
+        self.assertNotEqual(pilot, composed)
+        self.assertEqual(composed, proctor_service.default_cartridge(self.home, form_id='composed-a'))
+        cartridge = proctor_service.proctor.Cartridge(composed)
+        self.assertEqual(cartridge.manifest['calibration_status'], 'uncalibrated')
+        self.assertEqual(set(cartridge.forms), {'composed-a'})
+        self.assertEqual(len(cartridge.items), 8)
+        self.assertEqual(cartridge.items['c1q4']['domain'], 'tool_call_format')
+        with self.assertRaisesRegex(ValueError, 'Unknown bundled practice form'):
+            proctor_service.default_cartridge(self.home, form_id='unknown')
+
     def test_practice_turn_surfaces_tool_call_item_as_a_real_simulated_tool_call(self):
         class Exam:
             def status(self):
