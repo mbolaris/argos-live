@@ -38,6 +38,8 @@ class AbilityTests(unittest.TestCase):
                          generator.build('challenge', version='1.0.0'))
         self.assertEqual(ability.load('challenge', version='1.1.0'),
                          generator.build('challenge', version='1.1.0'))
+        self.assertEqual(ability.load('challenge', version='1.2.0'),
+                         generator.build('challenge', version='1.2.0'))
         for item in ability.load()['items']:
             self.assertEqual(item, standard[item['id']])
         self.assertFalse({item['id'] for item in ability.load('challenge')['items']} & set(standard))
@@ -45,7 +47,7 @@ class AbilityTests(unittest.TestCase):
         self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8, 'json': 8, 'tool-call': 8})
 
     def test_challenge_v12_tool_calls_include_grounded_schemas(self):
-        data = ability.load('challenge')
+        data = ability.load('challenge', version='1.2.0')
         self.assertEqual(data['version'], '1.2.0')
         actions = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
         self.assertEqual(len(actions), 8)
@@ -69,7 +71,7 @@ class AbilityTests(unittest.TestCase):
                          'Propose exporting run-44 with paths redacted. Return only a JSON tool-call object; do not execute it.')
 
     def test_challenge_v12_specifies_report_format_without_altering_archived_form(self):
-        current = ability.load('challenge')
+        current = ability.load('challenge', version='1.2.0')
         previous = ability.load('challenge', version='1.1.0')
         for new, old in zip(current['items'], previous['items']):
             self.assertEqual(new['id'], old['id'])
@@ -81,6 +83,31 @@ class AbilityTests(unittest.TestCase):
                 self.assertEqual(adjusted, old)
             else:
                 self.assertEqual(new, old)
+
+    def test_challenge_v13_is_compositional_and_preserves_v12_baseline(self):
+        data = ability.load('challenge')
+        previous = ability.load('challenge', version='1.2.0')
+        self.assertEqual(data['version'], '1.3.0')
+        self.assertEqual(previous['version'], '1.2.0')
+        self.assertEqual(len(data['items']), 40)
+        categories = Counter(item['scorer']['kind'] for item in data['items'])
+        self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8,
+                                      'json': 8, 'tool-call': 8})
+        self.assertIn('12.5%', data['items'][0]['prompt'])
+        self.assertIn('not sampled', data['items'][10]['prompt'])
+        self.assertEqual(data['items'][16]['scorer']['min_words'], 14)
+        tools = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
+        self.assertTrue(any(item['scorer']['expected']['name'] == 'request_clarification'
+                            for item in tools))
+        positions = []
+        for item in tools:
+            target = item['scorer']['expected']['name']
+            schemas = item['scorer']['available_tools']
+            request = item['prompt'].split('\nRequest: ', 1)[1].split('\nReturn only', 1)[0]
+            self.assertNotIn(target, request)
+            positions.append(next(i for i, schema in enumerate(schemas) if schema['name'] == target))
+        self.assertEqual(Counter(positions), Counter({0: 2, 1: 2, 2: 2, 3: 2}))
+        self.assertEqual(ability.score(data['items'][19], data['items'][19]['reference'])['outcome'], 'pass')
 
     def test_tool_schema_has_disjoint_vocabulary_and_explicit_schemas(self):
         data = ability.load('tool-schema')

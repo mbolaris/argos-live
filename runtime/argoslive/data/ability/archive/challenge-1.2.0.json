@@ -1,0 +1,892 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "challenge",
+  "version": "1.2.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "calc-01",
+      "prompt": "A workshop has 240 minutes. It schedules three 35-minute sessions, two 12-minute breaks, and 28 minutes of setup. How many minutes remain? Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "83"
+      },
+      "reference": "83",
+      "wrong": "84",
+      "malformed": "The answer is about 83"
+    },
+    {
+      "id": "calc-02",
+      "prompt": "A device costs $80. Apply a 15% discount first, then 8% tax to the discounted price. What is the final price in dollars? Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "73.44"
+      },
+      "reference": "73.44",
+      "wrong": "74.44",
+      "malformed": "The answer is about 73.44"
+    },
+    {
+      "id": "calc-03",
+      "prompt": "A score is 72 with weight 2, 88 with weight 3, and 94 with weight 5. What is the weighted mean? Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "87.8"
+      },
+      "reference": "87.8",
+      "wrong": "88.8",
+      "malformed": "The answer is about 87.8"
+    },
+    {
+      "id": "calc-04",
+      "prompt": "A recipe uses 4 cups of oats for every 3 cups of water. How many cups of water are needed for 10 cups of oats? Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "7.5"
+      },
+      "reference": "7.5",
+      "wrong": "8.5",
+      "malformed": "The answer is about 7.5"
+    },
+    {
+      "id": "calc-05",
+      "prompt": "A shipment contains 432 parts. Remove 24 damaged parts, then divide the remainder equally among 6 teams. How many parts per team? Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "68"
+      },
+      "reference": "68",
+      "wrong": "69",
+      "malformed": "The answer is about 68"
+    },
+    {
+      "id": "calc-06",
+      "prompt": "Inventory starts at 37 units, receives four boxes of 18, then ships three orders of 15. How many units remain? Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "64"
+      },
+      "reference": "64",
+      "wrong": "65",
+      "malformed": "The answer is about 64"
+    },
+    {
+      "id": "calc-07",
+      "prompt": "Five workers each process 6 tickets per hour for 4 hours. If 15% of processed tickets need rework, how many are accepted? Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "102"
+      },
+      "reference": "102",
+      "wrong": "103",
+      "malformed": "The answer is about 102"
+    },
+    {
+      "id": "calc-08",
+      "prompt": "A tank is one quarter full at 48 liters capacity. Add three containers of 7.5 liters each, then drain 5 liters. How many liters remain? Answer with one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "expected": "29.5"
+      },
+      "reference": "29.5",
+      "wrong": "30.5",
+      "malformed": "The answer is about 29.5"
+    },
+    {
+      "id": "logic-01",
+      "prompt": "A team can do one task next. A is due at 14:00 and takes 20 minutes; B is due at 13:00 and takes 45 minutes; C is due at 13:30 and takes 10 minutes. It is now 12:00. Choose the task with the earliest deadline, not the shortest duration.\nA. A\nB. B\nC. C\nD. They have the same deadline\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option C"
+    },
+    {
+      "id": "logic-02",
+      "prompt": "Publish a report only when status is approved and at least two reviewers signed. Which record qualifies? A: approved, 1 signer; B: pending, 3 signers; C: approved, 2 signers; D: approved, 0 signers.\nA. Record A\nB. Record B\nC. Record C\nD. Record D\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Option C"
+    },
+    {
+      "id": "logic-03",
+      "prompt": "A delivery must use a route under 30 km and with no toll. North is 24 km with a toll; East is 31 km without a toll; South is 27 km without a toll; West is 20 km with a toll. Which route meets both rules?\nA. North\nB. East\nC. South\nD. West\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Option C"
+    },
+    {
+      "id": "logic-04",
+      "prompt": "A note says: \u201cThe spare key is stored in the cabinet. The cabinet code is not recorded.\u201d Which claim is supported by the note?\nA. The key is in the cabinet.\nB. The code is 0000.\nC. The cabinet is locked.\nD. The key is missing.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "B",
+      "malformed": "Option C"
+    },
+    {
+      "id": "logic-05",
+      "prompt": "Choose a supplier that meets all requirements: delivery within 5 days, warranty at least 2 years, and price below $500. Alder: 4 days, 1 year, $420. Birch: 6 days, 3 years, $390. Cedar: 5 days, 2 years, $480. Dogwood: 3 days, 3 years, $510.\nA. Alder\nB. Birch\nC. Cedar\nD. Dogwood\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Option C"
+    },
+    {
+      "id": "logic-06",
+      "prompt": "A job may start only after both review and backup are complete. Review is complete; backup is pending. What is the correct status?\nA. Ready to start\nB. Blocked until backup completes\nC. Cancelled\nD. Unknown because review is incomplete\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option C"
+    },
+    {
+      "id": "logic-07",
+      "prompt": "A sequence follows this rule: add 3, then multiply by 2, repeating those operations. It begins 2, 5, 10, 13, ... What is the next value?\nA. 16\nB. 26\nC. 32\nD. 29\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option C"
+    },
+    {
+      "id": "logic-08",
+      "prompt": "A file is eligible for deletion only if it is duplicated, backed up, and not marked keep. Which file is eligible? A: duplicate, backed up, keep. B: duplicate, not backed up, not keep. C: unique, backed up, not keep. D: duplicate, backed up, not keep.\nA. A\nB. B\nC. C\nD. D\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Option C"
+    },
+    {
+      "id": "format-01",
+      "prompt": "Write one line of 6 to 8 words. Include every whole word: \"backup\", \"verify\", \"owner\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 6,
+        "max_words": 8,
+        "keywords": [
+          "backup",
+          "verify",
+          "owner"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "backup verify owner carefully before proceeding",
+      "wrong": "wrong answer now",
+      "malformed": ""
+    },
+    {
+      "id": "format-02",
+      "prompt": "Write one line of 7 to 9 words. Include every whole word: \"private\", \"review\", \"first\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 7,
+        "max_words": 9,
+        "keywords": [
+          "private",
+          "review",
+          "first"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "PRIVATE REVIEW FIRST CAREFULLY BEFORE PROCEEDING TODAY",
+      "wrong": "WRONG ANSWER NOW",
+      "malformed": ""
+    },
+    {
+      "id": "format-03",
+      "prompt": "Write one line of 6 to 8 words. Include every whole word: \"measure\", \"compare\", \"repeat\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 6,
+        "max_words": 8,
+        "keywords": [
+          "measure",
+          "compare",
+          "repeat"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "measure compare repeat carefully before proceeding",
+      "wrong": "wrong answer now",
+      "malformed": ""
+    },
+    {
+      "id": "format-04",
+      "prompt": "Write one line of 7 to 9 words. Include every whole word: \"evidence\", \"before\", \"claim\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 7,
+        "max_words": 9,
+        "keywords": [
+          "evidence",
+          "before",
+          "claim"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "EVIDENCE BEFORE CLAIM CAREFULLY BEFORE PROCEEDING TODAY",
+      "wrong": "WRONG ANSWER NOW",
+      "malformed": ""
+    },
+    {
+      "id": "format-05",
+      "prompt": "Write one line of 6 to 8 words. Include every whole word: \"restore\", \"snapshot\", \"safely\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 6,
+        "max_words": 8,
+        "keywords": [
+          "restore",
+          "snapshot",
+          "safely"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "restore snapshot safely carefully before proceeding",
+      "wrong": "wrong answer now",
+      "malformed": ""
+    },
+    {
+      "id": "format-06",
+      "prompt": "Write one line of 7 to 9 words. Include every whole word: \"uncertain\", \"report\", \"honestly\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 7,
+        "max_words": 9,
+        "keywords": [
+          "uncertain",
+          "report",
+          "honestly"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "UNCERTAIN REPORT HONESTLY CAREFULLY BEFORE PROCEEDING TODAY",
+      "wrong": "WRONG ANSWER NOW",
+      "malformed": ""
+    },
+    {
+      "id": "format-07",
+      "prompt": "Write one line of 6 to 8 words. Include every whole word: \"scope\", \"limit\", \"resources\".",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 6,
+        "max_words": 8,
+        "keywords": [
+          "scope",
+          "limit",
+          "resources"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "scope limit resources carefully before proceeding",
+      "wrong": "wrong answer now",
+      "malformed": ""
+    },
+    {
+      "id": "format-08",
+      "prompt": "Write one line of 7 to 9 words. Include every whole word: \"test\", \"record\", \"result\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "min_words": 7,
+        "max_words": 9,
+        "keywords": [
+          "test",
+          "record",
+          "result"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "TEST RECORD RESULT CAREFULLY BEFORE PROCEEDING TODAY",
+      "wrong": "WRONG ANSWER NOW",
+      "malformed": ""
+    },
+    {
+      "id": "record-01",
+      "prompt": "From a repair log, report ticket 17, 2 attempts, resolved=true. Return JSON with integer ticket=17, integer attempts=2, boolean resolved=true. Return only JSON with exactly the requested fields.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "ticket": 17,
+          "attempts": 2,
+          "resolved": true
+        }
+      },
+      "reference": "{\"ticket\": 17, \"attempts\": 2, \"resolved\": true}",
+      "wrong": "{\"ticket\": 18, \"attempts\": 2, \"resolved\": true}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-02",
+      "prompt": "A crate has 12 items; 3 are damaged. Report received, damaged, usable. Return JSON with integer received=12, damaged=3, usable=9. Return only JSON with exactly the requested fields.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "received": 12,
+          "damaged": 3,
+          "usable": 9
+        }
+      },
+      "reference": "{\"received\": 12, \"damaged\": 3, \"usable\": 9}",
+      "wrong": "{\"received\": 13, \"damaged\": 3, \"usable\": 9}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-03",
+      "prompt": "A study has group A with 8 people and group B with 11. Report both counts and the total. Return JSON with groups object A=8 and B=11, and integer total=19. Return only JSON with exactly the requested fields.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "groups": {
+            "A": 8,
+            "B": 11
+          },
+          "total": 19
+        }
+      },
+      "reference": "{\"groups\": {\"A\": 8, \"B\": 11}, \"total\": 19}",
+      "wrong": "{\"groups\": {\"A\": 9, \"B\": 11}, \"total\": 19}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-04",
+      "prompt": "A device is named Atlas, has 64 GB free, and is encrypted. Report these fields. Return JSON with string device=\"Atlas\", integer free_gb=64, boolean encrypted=true. Return only JSON with exactly the requested fields.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "device": "Atlas",
+          "free_gb": 64,
+          "encrypted": true
+        }
+      },
+      "reference": "{\"device\": \"Atlas\", \"free_gb\": 64, \"encrypted\": true}",
+      "wrong": "{\"device\": \"Atlasx\", \"free_gb\": 64, \"encrypted\": true}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-05",
+      "prompt": "Three checks have statuses pass, pass, fail. Report the ordered statuses and pass count. Return JSON with statuses array [\"pass\",\"pass\",\"fail\"] and integer passed=2. Return only JSON with exactly the requested fields.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "statuses": [
+            "pass",
+            "pass",
+            "fail"
+          ],
+          "passed": 2
+        }
+      },
+      "reference": "{\"statuses\": [\"pass\", \"pass\", \"fail\"], \"passed\": 2}",
+      "wrong": "{\"statuses\": [\"passx\", \"pass\", \"fail\"], \"passed\": 2}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-06",
+      "prompt": "A meeting starts at 09:15 and lasts 50 minutes. Report start and end as 24-hour HH:MM strings. Return JSON with string start=\"09:15\" and end=\"10:05\". Return only JSON with exactly the requested fields.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "start": "09:15",
+          "end": "10:05"
+        }
+      },
+      "reference": "{\"start\": \"09:15\", \"end\": \"10:05\"}",
+      "wrong": "{\"start\": \"09:15x\", \"end\": \"10:05\"}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-07",
+      "prompt": "A request has id R-8, priority high, and is waiting. Report all three fields. Return JSON with string id=\"R-8\", string priority=\"high\", boolean waiting=true. Return only JSON with exactly the requested fields.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "id": "R-8",
+          "priority": "high",
+          "waiting": true
+        }
+      },
+      "reference": "{\"id\": \"R-8\", \"priority\": \"high\", \"waiting\": true}",
+      "wrong": "{\"id\": \"R-8x\", \"priority\": \"high\", \"waiting\": true}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-08",
+      "prompt": "A batch expected 7 records and all 7 were processed: 5 accepted and 2 rejected. Report both counts and complete=true. Return JSON with integer accepted=5, integer rejected=2, boolean complete=true. Return only JSON with exactly the requested fields.",
+      "scorer": {
+        "kind": "json",
+        "expected": {
+          "accepted": 5,
+          "rejected": 2,
+          "complete": true
+        }
+      },
+      "reference": "{\"accepted\": 5, \"rejected\": 2, \"complete\": true}",
+      "wrong": "{\"accepted\": 6, \"rejected\": 2, \"complete\": true}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-01",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"lookup_record\",\"description\":\"Retrieve a record by exact ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare a baseline run with a candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"create_report\",\"description\":\"Create a report with a title, format, and private-data inclusion flag.\",\"arguments\":{\"title\":\"string\",\"format\":\"string\",\"include_private\":\"boolean\"}},{\"name\":\"schedule_task\",\"description\":\"Schedule a named task for an hour and choose whether it is enabled.\",\"arguments\":{\"task\":\"string\",\"hour\":\"integer\",\"enabled\":\"boolean\"}}]}\nRequest: Look up record R-14 and include its history.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "lookup_record",
+          "arguments": {
+            "record_id": "R-14",
+            "include_history": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "lookup_record",
+            "description": "Retrieve a record by exact ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare a baseline run with a candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "create_report",
+            "description": "Create a report with a title, format, and private-data inclusion flag.",
+            "arguments": {
+              "title": "string",
+              "format": "string",
+              "include_private": "boolean"
+            }
+          },
+          {
+            "name": "schedule_task",
+            "description": "Schedule a named task for an hour and choose whether it is enabled.",
+            "arguments": {
+              "task": "string",
+              "hour": "integer",
+              "enabled": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"lookup_record\", \"arguments\": {\"record_id\": \"R-14\", \"include_history\": true}}",
+      "wrong": "{\"name\": \"wrong_tool\", \"arguments\": {\"record_id\": \"R-14\", \"include_history\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-02",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"create_report\",\"description\":\"Create a report with a title, format, and private-data inclusion flag.\",\"arguments\":{\"title\":\"string\",\"format\":\"string\",\"include_private\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare a baseline run with a candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"schedule_task\",\"description\":\"Schedule a named task for an hour and choose whether it is enabled.\",\"arguments\":{\"task\":\"string\",\"hour\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"set_filter\",\"description\":\"Apply a field/value filter and choose exact matching.\",\"arguments\":{\"field\":\"string\",\"value\":\"string\",\"exact\":\"boolean\"}}]}\nRequest: Compare baseline base-3 with candidate cand-8.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "compare_runs",
+          "arguments": {
+            "baseline_id": "base-3",
+            "candidate_id": "cand-8"
+          }
+        },
+        "available_tools": [
+          {
+            "name": "create_report",
+            "description": "Create a report with a title, format, and private-data inclusion flag.",
+            "arguments": {
+              "title": "string",
+              "format": "string",
+              "include_private": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare a baseline run with a candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "schedule_task",
+            "description": "Schedule a named task for an hour and choose whether it is enabled.",
+            "arguments": {
+              "task": "string",
+              "hour": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "set_filter",
+            "description": "Apply a field/value filter and choose exact matching.",
+            "arguments": {
+              "field": "string",
+              "value": "string",
+              "exact": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"compare_runs\", \"arguments\": {\"baseline_id\": \"base-3\", \"candidate_id\": \"cand-8\"}}",
+      "wrong": "{\"name\": \"wrong_tool\", \"arguments\": {\"baseline_id\": \"base-3\", \"candidate_id\": \"cand-8\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-03",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"schedule_task\",\"description\":\"Schedule a named task for an hour and choose whether it is enabled.\",\"arguments\":{\"task\":\"string\",\"hour\":\"integer\",\"enabled\":\"boolean\"}},{\"name\":\"set_filter\",\"description\":\"Apply a field/value filter and choose exact matching.\",\"arguments\":{\"field\":\"string\",\"value\":\"string\",\"exact\":\"boolean\"}},{\"name\":\"create_report\",\"description\":\"Create a report with a title, format, and private-data inclusion flag.\",\"arguments\":{\"title\":\"string\",\"format\":\"string\",\"include_private\":\"boolean\"}},{\"name\":\"summarize_range\",\"description\":\"Summarize an inclusive range of items and specify the unit.\",\"arguments\":{\"start\":\"integer\",\"end\":\"integer\",\"unit\":\"string\"}}]}\nRequest: Create a report titled Cycle audit in JSON format; exclude private data. Use the exact lowercase string \"json\" as the format argument.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "create_report",
+          "arguments": {
+            "title": "Cycle audit",
+            "format": "json",
+            "include_private": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "schedule_task",
+            "description": "Schedule a named task for an hour and choose whether it is enabled.",
+            "arguments": {
+              "task": "string",
+              "hour": "integer",
+              "enabled": "boolean"
+            }
+          },
+          {
+            "name": "set_filter",
+            "description": "Apply a field/value filter and choose exact matching.",
+            "arguments": {
+              "field": "string",
+              "value": "string",
+              "exact": "boolean"
+            }
+          },
+          {
+            "name": "create_report",
+            "description": "Create a report with a title, format, and private-data inclusion flag.",
+            "arguments": {
+              "title": "string",
+              "format": "string",
+              "include_private": "boolean"
+            }
+          },
+          {
+            "name": "summarize_range",
+            "description": "Summarize an inclusive range of items and specify the unit.",
+            "arguments": {
+              "start": "integer",
+              "end": "integer",
+              "unit": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"create_report\", \"arguments\": {\"title\": \"Cycle audit\", \"format\": \"json\", \"include_private\": false}}",
+      "wrong": "{\"name\": \"wrong_tool\", \"arguments\": {\"title\": \"Cycle audit\", \"format\": \"json\", \"include_private\": false}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-04",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"set_filter\",\"description\":\"Apply a field/value filter and choose exact matching.\",\"arguments\":{\"field\":\"string\",\"value\":\"string\",\"exact\":\"boolean\"}},{\"name\":\"summarize_range\",\"description\":\"Summarize an inclusive range of items and specify the unit.\",\"arguments\":{\"start\":\"integer\",\"end\":\"integer\",\"unit\":\"string\"}},{\"name\":\"request_review\",\"description\":\"Request review for a change and specify the reviewer.\",\"arguments\":{\"change_id\":\"string\",\"reviewer\":\"string\"}},{\"name\":\"schedule_task\",\"description\":\"Schedule a named task for an hour and choose whether it is enabled.\",\"arguments\":{\"task\":\"string\",\"hour\":\"integer\",\"enabled\":\"boolean\"}}]}\nRequest: Schedule backup verification at hour 6 and enable the task.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "schedule_task",
+          "arguments": {
+            "task": "backup verification",
+            "hour": 6,
+            "enabled": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "set_filter",
+            "description": "Apply a field/value filter and choose exact matching.",
+            "arguments": {
+              "field": "string",
+              "value": "string",
+              "exact": "boolean"
+            }
+          },
+          {
+            "name": "summarize_range",
+            "description": "Summarize an inclusive range of items and specify the unit.",
+            "arguments": {
+              "start": "integer",
+              "end": "integer",
+              "unit": "string"
+            }
+          },
+          {
+            "name": "request_review",
+            "description": "Request review for a change and specify the reviewer.",
+            "arguments": {
+              "change_id": "string",
+              "reviewer": "string"
+            }
+          },
+          {
+            "name": "schedule_task",
+            "description": "Schedule a named task for an hour and choose whether it is enabled.",
+            "arguments": {
+              "task": "string",
+              "hour": "integer",
+              "enabled": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"schedule_task\", \"arguments\": {\"task\": \"backup verification\", \"hour\": 6, \"enabled\": true}}",
+      "wrong": "{\"name\": \"wrong_tool\", \"arguments\": {\"task\": \"backup verification\", \"hour\": 6, \"enabled\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-05",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"set_filter\",\"description\":\"Apply a field/value filter and choose exact matching.\",\"arguments\":{\"field\":\"string\",\"value\":\"string\",\"exact\":\"boolean\"}},{\"name\":\"summarize_range\",\"description\":\"Summarize an inclusive range of items and specify the unit.\",\"arguments\":{\"start\":\"integer\",\"end\":\"integer\",\"unit\":\"string\"}},{\"name\":\"request_review\",\"description\":\"Request review for a change and specify the reviewer.\",\"arguments\":{\"change_id\":\"string\",\"reviewer\":\"string\"}},{\"name\":\"export_receipt\",\"description\":\"Export a run receipt and choose whether paths are redacted.\",\"arguments\":{\"run_id\":\"string\",\"redact_paths\":\"boolean\"}}]}\nRequest: Set an exact filter on field state with value completed.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "set_filter",
+          "arguments": {
+            "field": "state",
+            "value": "completed",
+            "exact": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "set_filter",
+            "description": "Apply a field/value filter and choose exact matching.",
+            "arguments": {
+              "field": "string",
+              "value": "string",
+              "exact": "boolean"
+            }
+          },
+          {
+            "name": "summarize_range",
+            "description": "Summarize an inclusive range of items and specify the unit.",
+            "arguments": {
+              "start": "integer",
+              "end": "integer",
+              "unit": "string"
+            }
+          },
+          {
+            "name": "request_review",
+            "description": "Request review for a change and specify the reviewer.",
+            "arguments": {
+              "change_id": "string",
+              "reviewer": "string"
+            }
+          },
+          {
+            "name": "export_receipt",
+            "description": "Export a run receipt and choose whether paths are redacted.",
+            "arguments": {
+              "run_id": "string",
+              "redact_paths": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"set_filter\", \"arguments\": {\"field\": \"state\", \"value\": \"completed\", \"exact\": true}}",
+      "wrong": "{\"name\": \"wrong_tool\", \"arguments\": {\"field\": \"state\", \"value\": \"completed\", \"exact\": true}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-06",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"request_review\",\"description\":\"Request review for a change and specify the reviewer.\",\"arguments\":{\"change_id\":\"string\",\"reviewer\":\"string\"}},{\"name\":\"summarize_range\",\"description\":\"Summarize an inclusive range of items and specify the unit.\",\"arguments\":{\"start\":\"integer\",\"end\":\"integer\",\"unit\":\"string\"}},{\"name\":\"export_receipt\",\"description\":\"Export a run receipt and choose whether paths are redacted.\",\"arguments\":{\"run_id\":\"string\",\"redact_paths\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Retrieve a record by exact ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}}]}\nRequest: Summarize items 12 through 18, inclusive.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "summarize_range",
+          "arguments": {
+            "start": 12,
+            "end": 18,
+            "unit": "items"
+          }
+        },
+        "available_tools": [
+          {
+            "name": "request_review",
+            "description": "Request review for a change and specify the reviewer.",
+            "arguments": {
+              "change_id": "string",
+              "reviewer": "string"
+            }
+          },
+          {
+            "name": "summarize_range",
+            "description": "Summarize an inclusive range of items and specify the unit.",
+            "arguments": {
+              "start": "integer",
+              "end": "integer",
+              "unit": "string"
+            }
+          },
+          {
+            "name": "export_receipt",
+            "description": "Export a run receipt and choose whether paths are redacted.",
+            "arguments": {
+              "run_id": "string",
+              "redact_paths": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Retrieve a record by exact ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"summarize_range\", \"arguments\": {\"start\": 12, \"end\": 18, \"unit\": \"items\"}}",
+      "wrong": "{\"name\": \"wrong_tool\", \"arguments\": {\"start\": 12, \"end\": 18, \"unit\": \"items\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-07",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"export_receipt\",\"description\":\"Export a run receipt and choose whether paths are redacted.\",\"arguments\":{\"run_id\":\"string\",\"redact_paths\":\"boolean\"}},{\"name\":\"lookup_record\",\"description\":\"Retrieve a record by exact ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"request_review\",\"description\":\"Request review for a change and specify the reviewer.\",\"arguments\":{\"change_id\":\"string\",\"reviewer\":\"string\"}},{\"name\":\"compare_runs\",\"description\":\"Compare a baseline run with a candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}}]}\nRequest: Request owner review for change chg-21.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "request_review",
+          "arguments": {
+            "change_id": "chg-21",
+            "reviewer": "owner"
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_receipt",
+            "description": "Export a run receipt and choose whether paths are redacted.",
+            "arguments": {
+              "run_id": "string",
+              "redact_paths": "boolean"
+            }
+          },
+          {
+            "name": "lookup_record",
+            "description": "Retrieve a record by exact ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "request_review",
+            "description": "Request review for a change and specify the reviewer.",
+            "arguments": {
+              "change_id": "string",
+              "reviewer": "string"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare a baseline run with a candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"request_review\", \"arguments\": {\"change_id\": \"chg-21\", \"reviewer\": \"owner\"}}",
+      "wrong": "{\"name\": \"wrong_tool\", \"arguments\": {\"change_id\": \"chg-21\", \"reviewer\": \"owner\"}}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-08",
+      "prompt": "Choose the available action that satisfies the complete request. Available tool schemas: {\"tools\":[{\"name\":\"lookup_record\",\"description\":\"Retrieve a record by exact ID and optionally include its history.\",\"arguments\":{\"record_id\":\"string\",\"include_history\":\"boolean\"}},{\"name\":\"compare_runs\",\"description\":\"Compare a baseline run with a candidate run.\",\"arguments\":{\"baseline_id\":\"string\",\"candidate_id\":\"string\"}},{\"name\":\"create_report\",\"description\":\"Create a report with a title, format, and private-data inclusion flag.\",\"arguments\":{\"title\":\"string\",\"format\":\"string\",\"include_private\":\"boolean\"}},{\"name\":\"export_receipt\",\"description\":\"Export a run receipt and choose whether paths are redacted.\",\"arguments\":{\"run_id\":\"string\",\"redact_paths\":\"boolean\"}}]}\nRequest: Export run-44 with paths redacted.\nReturn only the exact JSON tool-call object with top-level keys \"name\" and \"arguments\". Set \"name\" to the selected tool's exact name and include every argument required by its schema with the listed primitive types. Use no extra fields, do not use Markdown fences, and do not execute the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "expected": {
+          "name": "export_receipt",
+          "arguments": {
+            "run_id": "run-44",
+            "redact_paths": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "lookup_record",
+            "description": "Retrieve a record by exact ID and optionally include its history.",
+            "arguments": {
+              "record_id": "string",
+              "include_history": "boolean"
+            }
+          },
+          {
+            "name": "compare_runs",
+            "description": "Compare a baseline run with a candidate run.",
+            "arguments": {
+              "baseline_id": "string",
+              "candidate_id": "string"
+            }
+          },
+          {
+            "name": "create_report",
+            "description": "Create a report with a title, format, and private-data inclusion flag.",
+            "arguments": {
+              "title": "string",
+              "format": "string",
+              "include_private": "boolean"
+            }
+          },
+          {
+            "name": "export_receipt",
+            "description": "Export a run receipt and choose whether paths are redacted.",
+            "arguments": {
+              "run_id": "string",
+              "redact_paths": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"export_receipt\", \"arguments\": {\"run_id\": \"run-44\", \"redact_paths\": true}}",
+      "wrong": "{\"name\": \"wrong_tool\", \"arguments\": {\"run_id\": \"run-44\", \"redact_paths\": true}}",
+      "malformed": "{not json}"
+    }
+  ]
+}

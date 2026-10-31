@@ -4,15 +4,18 @@ B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items),
 `challenge` (40 items), `tool-schema` (40 items), `tool-plan` (40 items) and
 `tool-sequence` (40 items)
 fixtures at `argoslive/data/ability/`. Quick and standard are version 1.0.0;
-challenge is version 1.2.0; tool-schema is version 1.2.0; tool-plan is version
-1.1.0; tool-sequence is version 1.0.0. Challenge 1.0.0, challenge 1.1.0 and tool-plan 1.0.0
-are retained for historical result replay. Tool-plan 1.1.0 makes exact order and
+challenge is version 1.3.0; tool-schema is version 1.2.0; tool-plan is version
+1.1.0; tool-sequence is version 1.0.0. Challenge 1.0.0, 1.1.0 and 1.2.0,
+and tool-plan 1.0.0 are retained for historical result replay. Tool-plan 1.1.0 makes exact order and
 reviewer-role string values explicit in the supplied schemas; 1.0.0 used only
 primitive `string` types while scoring exact hidden literals. Establish a fresh
 1.1.0 baseline and never compare it with 1.0.0.
 Challenge 1.2.0 specifies the lowercase `json` format argument in action-03,
-which 1.1.0 left ambiguous. Establish a fresh 1.2.0 baseline; scores across
-the two versions are not a matched comparison.
+which 1.1.0 left ambiguous. Challenge 1.3.0 is a fresh higher-composition form
+with multi-stage arithmetic, evidence sufficiency, exact longer constraints,
+nested extraction, and a missing-information clarification task. Establish a
+fresh 1.3.0 baseline; scores across challenge versions are not matched
+comparisons. The new form is an internal probe and still needs live calibration.
 Quick contains four items from each of five categories; standard contains
 fourteen per category and includes quick as an exact subset. Challenge is a
 separately authored form with eight items per category and multi-step numeric,

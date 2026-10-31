@@ -62,9 +62,9 @@ def items():
     return groups
 
 
-def challenge_items(version='1.2.0'):
+def challenge_items(version='1.3.0'):
     """A separate higher-difficulty form; do not derive it from quick/standard."""
-    if version not in ('1.0.0', '1.1.0', '1.2.0'):
+    if version not in ('1.0.0', '1.1.0', '1.2.0', '1.3.0'):
         raise ValueError('Unknown challenge suite version')
     groups = {kind: [] for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
     prefixes = {'numeric': 'calc', 'choice': 'logic', 'instruction': 'format',
@@ -156,6 +156,154 @@ def challenge_items(version='1.2.0'):
             result[key] = altered(result[key])
             return result
         raise ValueError('Unsupported challenge reference')
+
+    if version == '1.3.0':
+        # A fresh, higher-composition form aimed at the 100% ceiling in the
+        # earlier challenge. Keep the deterministic scorer and save exact
+        # prompts/results; this is a new baseline, not a matched comparison.
+        groups = {kind: [] for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
+        numeric = [
+            ('A run creates 3,200 samples. Exactly 12.5% fail first inspection; 60% of failures are repaired, and all other failed samples are discarded. How many usable samples remain?', '3040'),
+            ('Five route legs measure 18.4, 21.6, 17.5, 22.5, and 20 km. A final detour adds 12% of their total distance. What is the final distance?', '112'),
+            ('A well-mixed 800 mL solution has 15% solute. Remove 200 mL, then add 200 mL pure water. How many mL of solute remain?', '90'),
+            ('A team processes 8 records per minute for a 5-hour shift. Breaks total 30 minutes; utilization during the remaining time is 75%. How many records are processed?', '1620'),
+            ('A device worth $1,200 loses 20% of its value, then 10% of its new value. A repair adds $48 to resale value. What is the net resale value?', '912'),
+            ('A queue contains 640 jobs. Archive 3/8 of them; then retry 1/5 of the non-archived remainder. How many non-archived jobs are not retried?', '320'),
+            ('Four regions score 82, 91, 76, and 95 with respective population weights 2, 1, 3, and 4. What is the weighted mean?', '86.3'),
+            ('A spool contains 12.5 m. Remove 2.5 m, then use 3/5 of what remains. How many metres remain?', '4'),
+        ]
+        for i, (question, answer) in enumerate(numeric, 1):
+            wrong = str(int(float(answer)) + 1) if float(answer).is_integer() else str(float(answer) + 1)
+            add('numeric', i, question + ' Answer with one number only.', answer, answer,
+                wrong, 'No numeric answer.')
+
+        choices = [
+            ('An export is permitted only when it is encrypted and its destination is approved. Which record qualifies?',
+             ['Encrypted, approved', 'Encrypted, unapproved', 'Unencrypted, approved', 'Unencrypted, unapproved'], 'A'),
+            ('A release may proceed only if its checksum matches and at least two independent reviewers approved. Build A: match, two; B: mismatch, three; C: match, one; D: unknown, three. Which build may proceed?',
+             ['Build A', 'Build B', 'Build C', 'Build D'], 'A'),
+            ('A note says checks A and C passed, B timed out, and D was not sampled. Which statement is supported?',
+             ['A and C passed', 'B failed', 'D passed', 'All four checks completed'], 'A'),
+            ('At 08:00, backup takes 35 minutes and scan takes 50 minutes; they run in parallel. Review then takes 20 minutes, followed by a 15-minute deploy. What is the earliest finish time?',
+             ['09:10', '09:15', '09:25', '09:40'], 'C'),
+            ('An archive is deletable only if it is a duplicate, its backup is verified, retention expired, and it is not marked keep. P: yes/yes/yes/no; Q: yes/no/yes/no; R: yes/yes/no/no; S: yes/yes/yes/yes. Which is deletable?',
+             ['P only', 'P and Q', 'P and R', 'P and S'], 'A'),
+            ('Order incidents newest first, preserving source order for equal timestamps. Source order: A 10:05, B 10:03, C 10:05, D 10:06. Which order is correct?',
+             ['D, A, C, B', 'D, C, A, B', 'A, C, D, B', 'B, A, C, D'], 'A'),
+            ('A policy retains ordinary logs for 30 days and confirmed security-incident logs for 90 days. A suspected incident is not confirmed. How long should these logs be retained?',
+             ['30 days', '60 days', '90 days', 'The policy gives no duration'], 'A'),
+            ('A note says a report is ready and its content is approved, but gives no publishing window. What exact time should it be published?',
+             ['Immediately', 'At 09:00', 'At the next hour', 'Cannot be determined from the note'], 'D'),
+        ]
+        for i, (question, options, answer) in enumerate(choices, 1):
+            prompt = question + '\n' + '\n'.join(
+                f'{letter}. {value}' for letter, value in zip('ABCD', options))
+            prompt += '\nAnswer with one letter only.'
+            add('choice', i, prompt, answer, answer,
+                'A' if answer != 'A' else 'B', 'Option C')
+
+        instruction_keywords = [
+            ['snapshot', 'verify', 'encrypted', 'records', 'owner', 'before'],
+            ['baseline', 'candidate', 'evidence', 'compare', 'result', 'repeat'],
+            ['private', 'data', 'never', 'share', 'without', 'approval'],
+            ['model', 'change', 'retain', 'only', 'measured', 'improvement'],
+            ['gateway', 'restart', 'readiness', 'verify', 'before', 'claim'],
+            ['uncertainty', 'report', 'missing', 'evidence', 'clearly', 'now'],
+            ['human', 'approval', 'required', 'before', 'storage', 'write'],
+            ['practice', 'heldout', 'keep', 'separate', 'verify', 'transfer'],
+        ]
+        for i, keywords in enumerate(instruction_keywords, 1):
+            uppercase = i % 2 == 0
+            prompt = ('Write exactly 14 words on one line. Include each whole word: '
+                      + ', '.join(f'"{word}"' for word in keywords) + '.')
+            if uppercase:
+                prompt += ' Use uppercase letters only.'
+            reference = ' '.join(keywords +
+                                 ['carefully', 'and', 'record', 'each', 'result',
+                                  'without', 'guessing', 'today'])
+            if uppercase:
+                reference = reference.upper()
+            groups['instruction'].append({
+                'id': f'format-{i:02}', 'prompt': prompt,
+                'scorer': {'kind': 'instruction', 'min_words': 14, 'max_words': 14,
+                           'keywords': keywords, 'one_line': True, 'uppercase': uppercase},
+                'reference': reference,
+                'wrong': 'WRONG ANSWER' if uppercase else 'wrong answer', 'malformed': ''})
+
+        records = [
+            ('Events: A pass and verified; B pass but unverified; C fail but verified; D pass and verified. A record passes only when both conditions are true. Preserve source order.',
+             {'passed_ids': ['A', 'D'], 'passed_count': 2, 'needs_review': ['B', 'C']}),
+            ('A job starts at 23:35 and lasts 95 minutes. Report its start, 24-hour end time, and whether it crosses midnight.',
+             {'start': '23:35', 'end': '01:10', 'crosses_midnight': True}),
+            ('In source order, archive rows are C-3 duplicate/backup-verified/not-keep; B-2 duplicate/not-verified/not-keep; A-1 duplicate/verified/not-keep; D-4 unique/verified/not-keep. Only duplicates with verified backups and no keep mark qualify. Report IDs in source order and the count.',
+             {'eligible_ids': ['C-3', 'A-1'], 'eligible_count': 2}),
+            ('Valid weighted samples are A: score 80, weight 2; B: score 90, weight 3. C has score 100 but is invalid. Report the weighted mean and number of valid samples.',
+             {'weighted_mean': 86, 'valid_samples': 2}),
+            ('Three batches accepted/rejected: 14/3, 12/5, and 9/1. The expected total is 44. Report aggregate accepted, rejected, total, and whether processing is complete.',
+             {'accepted': 35, 'rejected': 9, 'total': 44, 'complete': True}),
+            ('Record: owner Mina; roles viewer then exporter; private data requested; owner approval is false. Private data may be included only with owner approval. Report owner, roles in order, and include_private.',
+             {'owner': 'Mina', 'roles': ['viewer', 'exporter'], 'include_private': False}),
+            ('Jobs: R-7 starts 11:50 and lasts 45 minutes; R-3 starts 11:20 and lasts 30 minutes; R-8 starts 11:55 and lasts 20 minutes. Report the earliest finishing ID, end time, and duration.',
+             {'earliest_id': 'R-3', 'end': '11:50', 'duration_minutes': 30}),
+            ('A record qualifies only when approved, backup-verified, and signed by at least two reviewers. A: approved/verified/2; B: approved/unverified/3; C: pending/verified/3; D: approved/verified/1. Report eligible IDs and their count.',
+             {'eligible_ids': ['A'], 'eligible_count': 1}),
+        ]
+        for i, (context, expected) in enumerate(records, 1):
+            prompt = context + ' Return only JSON with exactly the fields and types shown by the request.'
+            add('json', i, prompt, expected, json.dumps(expected),
+                json.dumps(altered(expected)), '{not json}')
+
+        actions = [
+            ('lookup_record', {'record_id': 'R-208', 'include_history': False},
+             'Retrieve record R-208 but do not include its history.'),
+            ('compare_runs', {'baseline_id': 'build-41', 'candidate_id': 'build-17'},
+             'Compare build-41 as the baseline with build-17 as the candidate, even though the candidate number is lower.'),
+            ('create_report', {'title': 'Quarterly checksum review', 'format': 'json', 'include_private': False},
+             'Create a public report titled Quarterly checksum review. Use exactly lowercase json as its format.'),
+            ('request_clarification', {'field': 'timezone', 'question': 'Which timezone should I use for 09:00?'},
+             'The requested reservation starts at 09:00 local time, but no timezone or default is supplied. Obtain the missing required detail without guessing.'),
+            ('set_filter', {'field': 'status', 'value': 'complete', 'exact': True},
+             'Filter records whose status is exactly complete; partial or case-different matches must not count.'),
+            ('summarize_range', {'start': 23, 'end': 31, 'unit': 'rows'},
+             'Summarize source rows numbered 23 through 31, including both endpoints.'),
+            ('request_review', {'change_id': 'chg-52', 'reviewer': 'owner'},
+             'Request owner review for change chg-52.'),
+            ('export_receipt', {'run_id': 'run-93', 'redact_paths': True},
+             'Export run-93 and redact every path in the receipt.'),
+        ]
+        descriptions = {
+            'lookup_record': 'Retrieve a record by exact ID and optionally include its history.',
+            'compare_runs': 'Compare a baseline run with a candidate run.',
+            'create_report': 'Create a report with a title, format, and private-data inclusion flag.',
+            'request_clarification': 'Ask for one missing required field without inventing a default.',
+            'set_filter': 'Apply a field/value filter and choose exact matching.',
+            'summarize_range': 'Summarize an inclusive range of items and specify the unit.',
+            'request_review': 'Request review for a change and specify the reviewer.',
+            'export_receipt': 'Export a run receipt and choose whether paths are redacted.',
+        }
+        catalog = []
+        for name, arguments, _request in actions:
+            types = {str: 'string', int: 'integer', bool: 'boolean'}
+            catalog.append({'name': name, 'description': descriptions[name],
+                            'arguments': {key: types[type(value)]
+                                          for key, value in arguments.items()}})
+        for i, (name, arguments, request) in enumerate(actions, 1):
+            expected = {'name': name, 'arguments': arguments}
+            reference = json.dumps(expected)
+            wrong = json.dumps({'name': 'wrong_tool', 'arguments': arguments})
+            schemas = [catalog[(i - 1 + offset) % len(catalog)] for offset in range(4)]
+            target = schemas.pop(0)
+            schemas.insert((i - 1) % 4, target)
+            prompt = ('Choose the available action that satisfies the full request. Available tool schemas: '
+                      + json.dumps({'tools': schemas}, separators=(',', ':'), ensure_ascii=False)
+                      + '\nRequest: ' + request
+                      + '\nReturn only the exact JSON tool-call object with top-level keys "name" and "arguments". '
+                      'Set "name" to the selected tool\'s exact name and include every argument required by its '
+                      'schema with the listed primitive types. Use no extra fields, do not use Markdown fences, '
+                      'and do not execute the action.')
+            add('tool-call', i, prompt, expected, reference, wrong, '{not json}',
+                available_tools=schemas)
+        return groups
     for i, (context, expected, instruction) in enumerate(records, 1):
         prompt = context + ' ' + instruction + ' Return only JSON with exactly the requested fields.'
         wrong = altered(expected)
@@ -625,7 +773,7 @@ def tool_sequence_items():
 
 def build(suite, version=None):
     if suite == 'challenge':
-        version = version or '1.2.0'
+        version = version or '1.3.0'
         selected = [item for group in challenge_items(version).values() for item in group]
     elif suite == 'tool-schema':
         if version is not None:
@@ -657,5 +805,10 @@ def build(suite, version=None):
 if __name__ == '__main__':
     destination = ROOT / 'runtime/argoslive/data/ability'
     destination.mkdir(parents=True, exist_ok=True)
+    archive = destination / 'archive'
+    archive.mkdir(parents=True, exist_ok=True)
+    for version in ('1.2.0',):
+        path = archive / f'challenge-{version}.json'
+        path.write_text(json.dumps(build('challenge', version=version), indent=2) + '\n', encoding='utf-8')
     for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
         (destination / (suite + '.json')).write_text(json.dumps(build(suite), indent=2) + '\n', encoding='utf-8')
