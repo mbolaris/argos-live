@@ -646,10 +646,13 @@ def _campaign_ledger(outcomes):
             for item in outcomes if isinstance(item, dict)]
 
 
-def _campaign_followup(turn, outcomes, assessment):
+def _campaign_followup(turn, outcomes, assessment, *, owner_task='', success_criteria=''):
     ledger = json.dumps(_campaign_ledger(outcomes), ensure_ascii=False, sort_keys=True)
     missing = json.dumps(assessment['missing'], ensure_ascii=False)
     return ('Continue the same owner-authorized Argos improvement campaign in this fresh controller turn. '
+            'The owner-selected task and success criteria remain authoritative; do not widen or replace them. '
+            f'Owner-selected task: {json.dumps(owner_task, ensure_ascii=False)}\n'
+            f'Owner-defined success criteria: {json.dumps(success_criteria, ensure_ascii=False)}\n'
             'The prior worker turn ended cleanly and its host-managed results are saved. Do not repeat completed work. '
             f'This is follow-up turn {turn}; the host evidence ledger is {ledger}. '
             f'The host still requires: {missing}. '
@@ -706,7 +709,8 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             bridge.next_campaign_turn(f'{campaign_session_key}_followup_{turn + 1}')
             outcomes = list(bridge.outcomes)
             assessment = _campaign_assessment(outcomes)
-            prompt = _campaign_followup(turn + 1, outcomes, assessment)
+            prompt = _campaign_followup(turn + 1, outcomes, assessment,
+                                        owner_task=owner_task, success_criteria=success_criteria)
         if assessment and assessment.get('safe_to_release'):
             bridge.complete_campaign()
     if assessment is None:
