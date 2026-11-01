@@ -4466,8 +4466,8 @@ function renderAutoClimb() {
     const vTitle = document.getElementById('auto-climb-verdict-title');
     if (vTitle) {
       vTitle.textContent = phase === 'blocked' ? 'The climb hit a problem' :
-        phase === 'options-exhausted' ? 'Tested the available ideas' :
-        phase === 'plateau' ? 'No further gain in the tested options' :
+        phase === 'options-exhausted' ? 'Practice options tested' :
+        phase === 'plateau' ? 'Practice plateau; owner task unmeasured' :
         phase === 'budget-exhausted' ? 'Session budget limit reached' :
         phase === 'paused' ? 'Auto Climb paused' : 'Auto Climb stopped';
     }

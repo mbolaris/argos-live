@@ -234,8 +234,8 @@
                   <li>Each experiment has a 30-second preview with Try now, Skip, Pause, and Stop.</li>
                   <li>Instruction changes are tested on short synthetic tasks and separate held-out examples. These results do not establish better boot recovery, support, or general ability.</li>
                   <li>Model fit alone never proposes an upgrade. A model trial needs a separately defined owner task and evidence that model capability is the limiting factor.</li>
-                  <li>Improvements are kept automatically; non-improving changes are restored byte-for-byte.</li>
-                  <li>Stops honestly at measured plateau (3 attempts without gain) or budget exhaustion.</li>
+                  <li>Auto Climb is practice only. Even a gain on its synthetic practice and held-out challenges is restored before everyday Argos resumes; it does not keep prompt or model changes.</li>
+                  <li>Stops after three completed experiments without a repeatable gain on these practice tasks, or when the time budget ends. This is not an owner-task result.</li>
                 </ul>
               </details>
             </div>
@@ -597,9 +597,9 @@
         <p>Describe one recurring task you want Argos to improve and how you will recognize success. The campaign uses that goal directly; it does not require the fixed Proctor quiz. If available measures cannot test your task, Argos reports the gap instead of claiming improvement. Proctor practice remains a separate coaching check.</p>
         <p class="proctor-campaign-disclosure">The task and success measure are sent to Argos for this local run. Starting pauses everyday chat and writes benchmark records and any reversible instruction trial to verified encrypted persistent Argos storage. Argos may keep a change only through the existing evidence and host-resolution rules. The dashboard restarts Argos and verifies a reply afterward. No terminal commands or reboot are needed.</p>
         <label for="proctor-owner-task">Recurring task</label>
-        <textarea id="proctor-owner-task" maxlength="1200" rows="3">Help me get Argos usable after boot or a service failure with as little repeated terminal work as the situation safely allows.</textarea>
+        <textarea id="proctor-owner-task" maxlength="1200" rows="3" placeholder="Describe the recurring outcome you want Argos to improve."></textarea>
         <label for="proctor-success-criteria">What counts as success?</label>
-        <textarea id="proctor-success-criteria" maxlength="1200" rows="2">After I unlock encrypted storage, Argos reaches a verified ready state using available managed tools. Ask me to act locally only when no safe managed path exists, and ask once for the shortest necessary step.</textarea>
+        <textarea id="proctor-success-criteria" maxlength="1200" rows="2" placeholder="State what observable result would count as success."></textarea>
           <label for="proctor-measurement-suite">Optional fixed suite (leave at None unless it directly measures this task)</label>
           <select id="proctor-measurement-suite">
             <option value="">None fits / not sure — do not use benchmark scores</option>

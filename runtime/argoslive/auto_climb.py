@@ -1179,10 +1179,12 @@ class Controller:
                     # Differentiate plateau vs options exhausted
                     if self.session.get('experiments_since_last_gain', 0) >= 3:
                         self.session['phase'] = 'plateau'
-                        self.session['stopping_reason'] = 'Plateau within this session’s tested options: 3 consecutive experiments showed no validated gain and all options evaluated.'
+                        self.session['stopping_reason'] = ('No repeatable gain on the bundled practice tasks in three '
+                                                           'completed experiments; this does not measure owner-task improvement.')
                     else:
                         self.session['phase'] = 'options-exhausted'
-                        self.session['stopping_reason'] = 'Options exhausted within approved session.'
+                        self.session['stopping_reason'] = ('Practice options exhausted. No owner-task improvement was '
+                                                           'measured; passing practice candidates were restored.')
                     self.session['message'] = self.session['stopping_reason']
                     self._save_session()
                     break
@@ -1227,7 +1229,8 @@ class Controller:
                     remaining = self._select_next_candidate()
                     if remaining is None:
                         self.session['phase'] = 'plateau'
-                        self.session['stopping_reason'] = 'Plateau within this session’s tested options: 3 consecutive experiments showed no validated gain and all options evaluated.'
+                        self.session['stopping_reason'] = ('No repeatable gain on the bundled practice tasks in three '
+                                                           'completed experiments; this does not measure owner-task improvement.')
                         self.session['message'] = self.session['stopping_reason']
                         self._save_session()
                         break
@@ -1349,7 +1352,7 @@ class Controller:
                          'argos-trial:' + c.get('change_id', c['id']) + ' ' in existing)
 
         # Prefer the cheapest reviewed intervention when all observed misses
-        # have the same precise cause. Validation and promotion remain unchanged.
+        # have the same precise cause. Any synthetic-suite gain stays practice-only.
         misses = [r for r in self.session.get('practice_baseline', []) if not r.get('passed')]
         quote_only = len(misses) >= 2 and all(
             r.get('kind') == 'answer' and r.get('checks', {}).get('exact_quote') is False and
@@ -1606,54 +1609,32 @@ class Controller:
                 decision_reason = ('The measured improvement lacked complete, correctly matched saved run records; '
                                    'the candidate was restored.')
 
+        # Auto Climb's bundled suites are synthetic practice, not an owner-task
+        # measure. Preserve the diagnostic result, but never promote a prompt
+        # or model change into everyday Argos on that evidence alone.
+        if verdict == 'kept':
+            verdict = 'practice-only'
+            decision_reason = (
+                'Practice and held-out tasks improved, but they do not measure an owner-selected task. '
+                'The candidate was restored; no everyday instruction or model change was kept.')
+
         # 5. Keep or Restore
         self.session['phase'] = 'keep-or-restore'
         self.session['message'] = f'Decision: {verdict.upper()} ({decision_reason})'
         self._save_session()
 
-        if verdict == 'kept':
-            # Rebase practice baseline onto the newly verified kept build!
-            self.session['practice_baseline'] = practice_retest
-            self.session['practice_baseline_run_id'] = run_refs.get('candidate_practice')
-            p_baselines[p1['id']] = val1_retest
-            p_baselines[p2['id']] = val2_retest
-            self.session.setdefault('partition_baseline_run_ids', {})[p1['id']] = run_refs['candidate_validation'][p1['id']]
-            self.session.setdefault('partition_baseline_run_ids', {})[p2['id']] = run_refs['candidate_validation'][p2['id']]
+        try:
             if kind == 'instruction':
-                self.session['current_kept_raw'] = read_text(agents_path(self.home))
-                self.session['raw_before'] = self.session['current_kept_raw']
+                self._restore_instruction(raw_before, raw_after)
             elif kind == 'model':
-                self._run_model_keep()
-                model_tag = candidate.get('tag')
-                model_digest = candidate.get('manifest_digest') or get_model_digest(model_tag)
-                self.session['active_model'] = {'model': model_tag, 'digest': model_digest}
-                if hasattr(self.runner, 'expected_model') and model_tag:
-                    self.runner.expected_model = model_tag
-            self.session['experiments_since_last_gain'] = 0
-            self.session.pop('mutation', None)
-
-            # Update current level metrics
-            passed_practice = sum(1 for r in practice_retest if r['passed'])
-            passed_val = sum(1 for r in val2_retest if r['passed']) if 'val2_retest' in locals() else 0
-            self.session['current_level'] = {
-                'practice_passed': passed_practice,
-                'practice_total': len(practice_retest),
-                'validation_passed': passed_val,
-                'validation_total': len(val2_retest) if 'val2_retest' in locals() else 8,
-                'label': f'{passed_practice}/{len(practice_retest)} practice · {passed_val}/8 validation',
-            }
-        else:
-            try:
-                if kind == 'instruction':
-                    self._restore_instruction(raw_before, raw_after)
-                elif kind == 'model':
-                    self._run_model_restore()
-            except Exception as exc:
-                self.session['phase'] = 'blocked'
-                self.session['failure_code'] = 'restore-failed'
-                self.session['message'] = f'Restoration failed: {exc}'
-                self._save_session()
-                raise
+                self._run_model_restore()
+        except Exception as exc:
+            self.session['phase'] = 'blocked'
+            self.session['failure_code'] = 'restore-failed'
+            self.session['message'] = f'Restoration failed: {exc}'
+            self._save_session()
+            raise
+        if verdict != 'practice-only':
             self.session['experiments_since_last_gain'] = self.session.get('experiments_since_last_gain', 0) + 1
 
         # Record experiment record in session history
