@@ -324,8 +324,8 @@ export default function register(api) {
   }, {optional:true});
   api.registerTool({
     name: "argos_evaluate",
-    label: "Evaluate OpenClaw",
-    description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
+    label: "Run a fixed diagnostic suite",
+    description: "Run one Argos-authored fixed suite with copies of your instructions in isolated, tool-free OpenClaw state. Use a suite only when its exact tasks measure behavior relevant to the owner's goal; otherwise do not run it. Its score is diagnostic, not proof of owner-task improvement or general ability. No suite progression is required when a score is saturated. Save the run. Does not change owner configuration.",
     parameters: Type.Object({
       suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema"), Type.Literal("tool-plan"), Type.Literal("tool-sequence")],
         { description: "Quick (20), standard (70), challenge (40), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), or tool-sequence (40 ordered two- and three-call plans with explicit prior-result references). Tool suites include bundled held-out items; these are internal transfer checks, not independent validation or real tool execution." }))
@@ -383,7 +383,7 @@ export default function register(api) {
   api.registerTool({
     name: "argos_compare",
     label: "Compare OpenClaw runs",
-    description: "Compare two completed saved runs only when suite version, execution method, settings, recipe, and item coverage match. Different suites (for example quick and tool-plan) cannot be compared as before/after evidence. If runs are incompatible, the tool returns safe fingerprints, pair compatibility checks, and correction guidance.",
+    description: "Compare two completed saved runs only when suite version, execution method, settings, recipe, and item coverage match. Compare only runs selected for the same owner task; a compatible pair does not prove that its suite measures the task or that the owner task improved. Different suites cannot be compared as before/after evidence. If runs are incompatible, the tool returns safe fingerprints, pair compatibility checks, and correction guidance.",
     parameters: Type.Object({
       baseline_id: Type.String({ minLength: 32, maxLength: 32, pattern: "^[a-f0-9]{32}$" }),
       candidate_id: Type.String({ minLength: 32, maxLength: 32, pattern: "^[a-f0-9]{32}$" })

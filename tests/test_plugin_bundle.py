@@ -51,6 +51,7 @@ class ImprovementPluginBundleTests(unittest.TestCase):
     def test_agent_skill_teaches_the_host_verified_experiment_path(self):
         skill = (ROOT / 'openclaw-plugin/argos-improve/skills/argos-improvement/SKILL.md').read_text()
         guide = (ROOT / 'runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md').read_text()
+        plugin = (ROOT / 'openclaw-plugin/argos-improve/index.js').read_text()
         for text in (skill, guide):
             for tool in ('argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions', 'argos_resolve_instructions'):
                 self.assertIn(tool, text)
@@ -66,6 +67,8 @@ class ImprovementPluginBundleTests(unittest.TestCase):
         self.assertIn('only when an available suite measures a behavior relevant', skill)
         self.assertIn('Do not recommend or trial a larger model based on fit', skill)
         self.assertNotIn('Prefer a comfortably fitting stronger model early', skill)
+        self.assertIn('only when its exact tasks measure behavior relevant to the owner\'s goal', plugin)
+        self.assertIn('a compatible pair does not prove that its suite measures the task', plugin)
 
 
 if __name__ == '__main__':
