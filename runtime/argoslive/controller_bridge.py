@@ -386,7 +386,7 @@ class Bridge:
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
                    'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40,
                                               'tool-schema': 40, 'tool-plan': 40,
-                                              'tool-sequence': 40}[
+                                              'tool-sequence': 40, 'documents-short': 24}[
                        params.get('suite', 'quick')], 'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
             self.evaluation_job = job
