@@ -765,11 +765,25 @@ def run_improvement(home, cartridge_path=None, form_id='pilot-a', *, executable=
     if on_phase is not None:
         on_phase('campaign')
     _report_progress(on_progress, phase='campaign', stage='starting')
-    campaign = run_campaign(home, model, target, practice['result'],
-                            executable=executable or shutil.which('openclaw'), openssl=openssl,
-                            on_progress=on_progress)
+    try:
+        campaign = run_campaign(home, model, target, practice['result'],
+                                executable=executable or shutil.which('openclaw'), openssl=openssl,
+                                on_progress=on_progress)
+    except Exception as error:
+        # Preserve the signed practice result when campaign startup or execution
+        # fails, and report only a bounded error code to the dashboard. Exception
+        # text can contain paths, subprocess output, or other private details.
+        from .proctor_campaign import safe_failure_code
+        return {'status': 'incomplete', 'practice': practice,
+                'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                             'audit_status': None, 'controller_turns': 0,
+                             'missing': ['campaign evidence ledger was not returned'],
+                             'saved_evaluation_ids': []},
+                'failure_code': safe_failure_code(error, 'campaign'),
+                'failure_stage': 'campaign', 'practice_is_improvement_evidence': False}
     return {'status': 'completed' if campaign.get('status') == 'completed' else 'incomplete', 'practice': practice,
-            'campaign': campaign, 'practice_is_improvement_evidence': False}
+            'campaign': campaign, 'practice_is_improvement_evidence': False,
+            'failure_code': None, 'failure_stage': None}
 
 
 def main(argv=None):

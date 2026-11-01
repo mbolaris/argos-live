@@ -138,7 +138,8 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.wait_finished()
         status = self.controller.snapshot()
         self.assertEqual(status['phase'], 'failed')
-        self.assertEqual(status['failure_code'], 'proctor-run-failed')
+        self.assertEqual(status['failure_code'], 'practice-invalid-state')
+        self.assertEqual(status['failure_stage'], 'practice')
         self.assertTrue(status['assistant_ready'])
         self.assertFalse(self.startup.lab_active)
 
@@ -206,6 +207,29 @@ class ProctorServiceProgressTests(unittest.TestCase):
                 value = proctor_service.run_improvement(home, on_phase=phases.append)
             self.assertEqual(phases, ['practice', 'campaign'])
             self.assertEqual(value['status'], 'incomplete')
+
+    def test_campaign_exception_keeps_signed_practice_summary_and_safe_failure_code(self):
+        with tempfile.TemporaryDirectory() as root:
+            home = Path(root)
+            config = home / '.config/argos-live'
+            config.mkdir(parents=True)
+            (config / 'state.json').write_text('{"model":"qwen-test"}')
+            practice = {'status': 'completed', 'transcript_id': 'signed-practice-id',
+                        'calibration_status': 'uncalibrated',
+                        'result': {'state': 'COMPLETED', 'correct': 8, 'total': 8, 'unanswered': 0}}
+            phases = []
+            with patch.object(proctor_service, 'run_practice', return_value=practice), \
+                    patch.object(proctor_service.startup, 'source', return_value=('target', 'qwen-test')), \
+                    patch.object(proctor_service, 'run_campaign', side_effect=PermissionError('private path')):
+                value = proctor_service.run_improvement(home, on_phase=phases.append)
+            self.assertEqual(phases, ['practice', 'campaign'])
+            self.assertEqual(value['status'], 'incomplete')
+            self.assertEqual(value['practice']['transcript_id'], 'signed-practice-id')
+            self.assertEqual(value['practice']['result']['correct'], 8)
+            self.assertEqual(value['campaign']['saved_evaluation_ids'], [])
+            self.assertEqual(value['failure_stage'], 'campaign')
+            self.assertEqual(value['failure_code'], 'campaign-permission-denied')
+            self.assertNotIn('private path', json.dumps(value))
 
 
 if __name__ == '__main__':

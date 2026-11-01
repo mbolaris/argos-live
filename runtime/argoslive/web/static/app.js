@@ -4643,6 +4643,11 @@ function renderProctorCampaignResult(result) {
   const ids = Array.isArray(campaign.saved_evaluation_ids) ? campaign.saved_evaluation_ids : [];
   const missing = Array.isArray(campaign.missing) ? campaign.missing : [];
   const parts = [];
+  if (result.failure_code) {
+    const stage = ['pausing', 'practice', 'campaign'].includes(result.failure_stage)
+      ? result.failure_stage : 'campaign';
+    parts.push(`Diagnostic: ${stage} stopped · ${result.failure_code}`);
+  }
   if (practice.transcript_id) {
     parts.push(`Practice: ${practice.correct ?? '?'} / ${practice.total ?? '?'} · transcript ${practice.transcript_id} · coaching only`);
   }
