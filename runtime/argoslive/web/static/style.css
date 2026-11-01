@@ -19,13 +19,14 @@ p { line-height: 1.6; color: var(--muted); }
 .intro { font-size: 16px; max-width: 64ch; margin: 0; }
 section { margin-top: 40px; }
 a { color: var(--blue); }
-button, input, textarea { font: inherit; }
+button, input, textarea, select { font: inherit; }
 button { min-height: 44px; margin-top: 18px; padding: 11px 18px; border: 1px solid #599f9d; border-radius: 10px; background: var(--accent); color: #082627; font-weight: 650; cursor: pointer; max-width: 100%; }
 button:hover:not(:disabled) { filter: brightness(1.08); }
 button:disabled { opacity: .5; cursor: default; }
-button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); vertical-align: middle; }
-textarea, input[type="text"] { display: block; width: 100%; background: var(--canvas); color: var(--text); padding: 13px; margin: 8px 0 18px; border: 1px solid #506576; border-radius: 10px; font-size: 16px; }
+textarea, input[type="text"], select { display: block; width: 100%; background: var(--canvas); color: var(--text); padding: 13px; margin: 8px 0 18px; border: 1px solid #506576; border-radius: 10px; font-size: 16px; }
+select option { background: var(--canvas); color: var(--text); }
 textarea { resize: vertical; }
 .notice { margin: 24px 0; padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .notice p:last-child { margin-bottom: 0; }
