@@ -92,15 +92,17 @@ private Proctor profile still preserves their selected generation controls.
 
 `argos proctor improve --owner-task ... --success-criteria ...` starts a
 host-admitted campaign directly from the owner's recurring task and observable
-success measure. It does not require the fixed Proctor quiz; practice remains a
-separate coaching check. The campaign gets only the managed Argos evaluation,
-comparison, logging, and reversible instruction-change tools. Host admission
-owns one workload reservation at a time, and the controller saves evaluations
-even if the campaign agent turn ends. Practice scores never count as evidence
-that an ability improved. The campaign follows the installed Argos improvement
-skill for matched baseline/candidate runs, keep/restore decisions, and saved run
-IDs. If no existing evaluation suite measures the owner task, it should report
-that gap rather than use unrelated scores to claim progress.
+success measure. An optional `--measurement-suite` selects the one fixed suite
+the owner has decided measures that task. The dashboard offers the same choice;
+“None fits / not sure” is the default. The host rejects evaluations from any
+other suite and rejects comparisons and instruction changes without the
+owner-selected suite. With no suite selected, it permits inspection and audit,
+then reports `task-not-measured` without allowing score-driven changes. Proctor
+practice remains a separate coaching check. Host admission owns one workload
+reservation at a time, and the controller saves evaluations even if the
+campaign agent turn ends. Practice scores never count as evidence that an
+ability improved. The campaign follows the installed Argos improvement skill
+for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
 There is no automatic progression from quick to standard or challenge when a
 score is saturated. A diagnostic suite is selected only when its tasks match the
 owner's stated goal; scores remain separate by suite and cannot be compared
@@ -118,7 +120,7 @@ Example:
 ```sh
 argos proctor practice
 argos proctor practice --cartridge /path/to/reviewed-cartridge.sqlite3 --form practice-a --json
-argos proctor improve --owner-task "recover Argos after reboot" --success-criteria "ready after unlock with no terminal command"
+argos proctor improve --owner-task "use a tool correctly" --success-criteria "select the correct tool and arguments" --measurement-suite tool-schema
 ```
 
 This is declared/cooperative enforcement within the same Argos user account.

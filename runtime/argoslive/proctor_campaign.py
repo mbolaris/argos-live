@@ -10,6 +10,10 @@ class Refused(ValueError):
     """A campaign request could not safely start."""
 
 
+MEASUREMENT_SUITES = frozenset({
+    'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'})
+
+
 def validate_owner_task(owner_task, success_criteria):
     """Require a bounded owner task and an observable success measure."""
     if not isinstance(owner_task, str) or not isinstance(success_criteria, str):
@@ -20,6 +24,14 @@ def validate_owner_task(owner_task, success_criteria):
     if len(owner_task) > 1200 or len(success_criteria) > 1200:
         raise Refused('Keep the task and success measure under 1,200 characters each.')
     return owner_task, success_criteria
+
+
+def validate_measurement_suite(measurement_suite):
+    if measurement_suite in (None, ''):
+        return None
+    if not isinstance(measurement_suite, str) or measurement_suite not in MEASUREMENT_SUITES:
+        raise Refused('Choose a listed measurement suite or select that none matches this task.')
+    return measurement_suite
 
 
 MESSAGES = {
@@ -78,6 +90,7 @@ class Controller:
         self.failure_stage = None
         self.owner_task = None
         self.success_criteria = None
+        self.measurement_suite = None
         self.recovery_target_phase = None
         self.storage_checked_at = None
         self.storage_is_safe = False
@@ -114,10 +127,14 @@ class Controller:
         success_criteria = value.get('success_criteria')
         if not isinstance(success_criteria, str) or len(success_criteria) > 1200:
             success_criteria = None
+        measurement_suite = value.get('measurement_suite')
+        if measurement_suite not in MEASUREMENT_SUITES:
+            measurement_suite = None
         return {
             'status': value.get('status') if value.get('status') in {'completed', 'incomplete'} else 'incomplete',
             'owner_task': owner_task,
             'success_criteria': success_criteria,
+            'measurement_suite': measurement_suite,
             'campaign': {
                 'status': campaign.get('status'),
                 'outcome': campaign.get('outcome'),
@@ -137,6 +154,7 @@ class Controller:
                                                                    copy.deepcopy(self.progress), self.failure_code,
                                                                    self.failure_stage)
             started, finished, model, closed = self.started, self.finished, self.model, self.closed
+            measurement_suite = self.measurement_suite
         try:
             assistant = self.startup.snapshot()
         except Exception:
@@ -172,14 +190,16 @@ class Controller:
             'available': True, 'active': active, 'phase': phase, 'message': message,
             'can_start': can_start, 'can_recover': can_recover,
             'elapsed_seconds': elapsed, 'model': model,
+            'measurement_suite': measurement_suite,
             'failure_code': failure_code, 'failure_stage': failure_stage,
             'result': result, 'progress': progress,
             'assistant_phase': assistant.get('phase'), 'assistant_ready': assistant.get('phase') == 'ready',
             'storage_confirmed': storage_confirmed,
         }
 
-    def start(self, owner_task=None, success_criteria=None):
+    def start(self, owner_task=None, success_criteria=None, measurement_suite=None):
         owner_task, success_criteria = validate_owner_task(owner_task, success_criteria)
+        measurement_suite = validate_measurement_suite(measurement_suite)
         with self.startup.lock, self.lock:
             if self.closed:
                 raise Refused('The Proctor campaign controller is closed.')
@@ -196,6 +216,7 @@ class Controller:
             self.model = assistant.get('model')
             self.owner_task = owner_task
             self.success_criteria = success_criteria
+            self.measurement_suite = measurement_suite
             self.result = None
             self.progress = {'phase': 'campaign', 'stage': 'starting'}
             self.failure_code = None
@@ -269,6 +290,7 @@ class Controller:
                 self.failure_code = None
                 self.owner_task = None
                 self.success_criteria = None
+                self.measurement_suite = None
                 self.finished = self.clock()
 
     def _set_phase(self, phase):
@@ -349,9 +371,11 @@ class Controller:
             if runner is None:
                 from .proctor_service import run_improvement
                 runner = run_improvement
-            result = runner(self.home, owner_task=self.owner_task,
-                            success_criteria=self.success_criteria, on_phase=self._set_phase,
-                            on_progress=self._set_progress)
+            options = {'owner_task': self.owner_task, 'success_criteria': self.success_criteria,
+                       'on_phase': self._set_phase, 'on_progress': self._set_progress}
+            if self.measurement_suite is not None:
+                options['measurement_suite'] = self.measurement_suite
+            result = runner(self.home, **options)
             public_result = self._public_result(result)
             with self.lock:
                 self.result = public_result
@@ -383,6 +407,7 @@ class Controller:
                     self.phase = outcome_phase
                 self.owner_task = None
                 self.success_criteria = None
+                self.measurement_suite = None
                 self.finished = self.clock()
 
     def close(self):

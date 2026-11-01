@@ -600,6 +600,17 @@
         <textarea id="proctor-owner-task" maxlength="1200" rows="3" placeholder="Example: recover Argos after a reboot with no terminal commands from me."></textarea>
         <label for="proctor-success-criteria">What counts as success?</label>
         <textarea id="proctor-success-criteria" maxlength="1200" rows="2" placeholder="Example: after I unlock the USB, Argos is ready without another manual step."></textarea>
+          <label for="proctor-measurement-suite">Which existing suite directly measures this task?</label>
+          <select id="proctor-measurement-suite">
+            <option value="">None fits / not sure — do not use benchmark scores</option>
+            <option value="quick">Quick — 20 synthetic arithmetic, choice, instruction, JSON, and tool-call items</option>
+            <option value="standard">Standard — 70 synthetic arithmetic, choice, instruction, JSON, and tool-call items</option>
+            <option value="challenge">Challenge — 40 harder synthetic arithmetic, choice, instruction, JSON, and tool-call items</option>
+            <option value="tool-schema">Tool schema — 40 synthetic tool name and argument formatting items</option>
+            <option value="tool-plan">Tool plan — 40 synthetic multi-constraint tool selection items</option>
+            <option value="tool-sequence">Tool sequence — 40 synthetic ordered call-planning items; calls are not executed</option>
+          </select>
+          <p>These fixed tasks are bundled with Argos. Choose one only if its actual tasks directly test the task above. The host enforces your selection. With “None fits,” Argos will inspect and report what task-specific evaluation is missing without changing instructions or using quiz scores.</p>
         <div class="proctor-campaign-actions">
           <button id="proctor-campaign-start" type="button">Start task-focused campaign</button>
           <button id="proctor-campaign-recover" type="button" hidden>Retry Argos recovery</button>

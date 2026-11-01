@@ -272,11 +272,13 @@ class Handler(BaseHTTPRequestHandler):
                         self.reply(400, {'error': 'A bounded task and success measure are required'})
                         return
                     body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
-                    if not isinstance(body, dict) or set(body) != {'owner_task', 'success_criteria'}:
-                        self.reply(400, {'error': 'Provide only owner_task and success_criteria'})
+                    if (not isinstance(body, dict) or
+                            set(body) - {'owner_task', 'success_criteria', 'measurement_suite'} or
+                            not {'owner_task', 'success_criteria'} <= set(body)):
+                        self.reply(400, {'error': 'Provide owner_task, success_criteria, and optional measurement_suite'})
                         return
                     response = self.server.proctor_campaign.start(
-                        body['owner_task'], body['success_criteria'])
+                        body['owner_task'], body['success_criteria'], body.get('measurement_suite'))
                 else:
                     if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
                         self.reply(400, {'error': 'An empty request is required'})

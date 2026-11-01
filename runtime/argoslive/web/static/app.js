@@ -4645,6 +4645,10 @@ function renderProctorCampaignResult(result) {
     parts.push(`Task: ${result.owner_task}`);
   if (typeof result.success_criteria === 'string' && result.success_criteria)
     parts.push(`Success measure: ${result.success_criteria}`);
+  if (typeof result.measurement_suite === 'string')
+    parts.push(`Owner-approved evaluation suite: ${result.measurement_suite}`);
+  else if (result.owner_task)
+    parts.push('Owner-approved evaluation suite: none; no benchmark score can establish this task');
   if (result.failure_code) {
     const stage = ['pausing', 'practice', 'campaign'].includes(result.failure_stage)
       ? result.failure_stage : 'campaign';
@@ -4701,7 +4705,13 @@ async function refreshProctorCampaign() {
     const recoverButton = document.getElementById('proctor-campaign-recover');
     recoverButton.hidden = !data.can_recover;
     recoverButton.disabled = proctorCampaignStarting || !data.can_recover;
-    document.getElementById('proctor-campaign-message').textContent = data.message || 'Proctor status unavailable.';
+    const measurementNote = data.active
+      ? (data.measurement_suite
+          ? ` Owner-approved evaluation suite: ${data.measurement_suite}.`
+          : ' No evaluation suite selected; no quiz score can justify a change.')
+      : '';
+    document.getElementById('proctor-campaign-message').textContent =
+      (data.message || 'Proctor status unavailable.') + measurementNote;
     document.getElementById('proctor-campaign-elapsed').textContent = data.active && Number.isFinite(data.elapsed_seconds)
       ? `${Math.floor(data.elapsed_seconds / 60)}m ${data.elapsed_seconds % 60}s` : '';
     renderProctorCampaignProgress(data.progress);
@@ -4713,6 +4723,7 @@ document.getElementById('proctor-campaign-start')?.addEventListener('click', asy
   if (proctorCampaignStarting) return;
   const ownerTask = document.getElementById('proctor-owner-task')?.value.trim() || '';
   const successCriteria = document.getElementById('proctor-success-criteria')?.value.trim() || '';
+  const measurementSuite = document.getElementById('proctor-measurement-suite')?.value || null;
   if (!ownerTask || !successCriteria) {
     const message = document.getElementById('proctor-campaign-message');
     message.textContent = 'Describe a recurring task and what success looks like before starting.';
@@ -4726,7 +4737,8 @@ document.getElementById('proctor-campaign-start')?.addEventListener('click', asy
   try {
     const response = await fetch('/api/proctor-campaign/start', {
       method: 'POST', headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
-      body: JSON.stringify({owner_task: ownerTask, success_criteria: successCriteria}), cache: 'no-store'
+      body: JSON.stringify({owner_task: ownerTask, success_criteria: successCriteria,
+        measurement_suite: measurementSuite}), cache: 'no-store'
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body?.error || 'Proctor campaign unavailable.');

@@ -37,6 +37,11 @@ not change model settings or grant new tools.
 > about and define success in observable terms. Use `argos_evaluate` only when
 > the exact tasks in a suite measure behavior needed for that owner task. Fixed
 > Argos suites are diagnostics, not external benchmarks or general ability tests.
+> In a Proctor campaign, use only the suite the owner explicitly selected for
+> the task. The host rejects other suites and rejects comparisons or instruction
+> changes without that selected suite. If the owner selected none, inspect and
+> audit, then report `task-not-measured` without running a suite or changing
+> instructions.
 > Do not progress through suites just because a score is saturated. If no suite
 > measures the task, do not run unrelated probes or make a change from their
 > scores; report what task-specific examples or checks are missing.
@@ -85,11 +90,12 @@ not change model settings or grant new tools.
    model and configuration. A missing log entry is not evidence that a completed
    run was lost; reuse matching verified IDs, record them, and advance the next
    step instead of repeating it.
-2. Inspect the available suites and their exact tasks and scoring rules. Run
-   only a suite that measures the owner task. There is no required quick,
-   standard, challenge or tool-suite progression when a score is saturated. If
-   no suite is relevant, stop before evaluation or change and report what
-   repeatable task examples or success checks are missing. For a relevant
+2. Inspect the available suites and their exact tasks and scoring rules. In a
+   Proctor campaign, the owner selects one suite explicitly; the host permits
+   only that suite for evaluation, comparison and instruction changes. If none
+   is selected, stop before evaluation or change and report what repeatable
+   task examples or success checks are missing. There is no required quick,
+   standard, challenge or tool-suite progression when a score is saturated. For a relevant
    tool-call formatting task, `tool-schema` has 20 unseen-vocabulary items using
    tool names and argument keys absent from its practice partition, with the target balanced
    across all three positions. This is a within-suite transfer signal: the tasks

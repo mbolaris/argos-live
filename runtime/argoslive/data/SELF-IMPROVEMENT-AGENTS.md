@@ -35,14 +35,13 @@ Continue authorized reversible steps without asking at each step.
 ## 2. Measure one change at a time
 
 First state the owner task, its success measure, and what evidence would be
-relevant. Use native `argos_evaluate` only if one of its suites (`quick`,
-`standard`, `challenge`, `tool-schema`, `tool-plan`, or `tool-sequence`) actually
-measures behavior needed for that task; use `argos_compare` only for matched runs
-of that same task and suite. These are tools, not shell commands. If no suite is
-relevant, stop before evaluating or changing anything and report what
-task-specific examples or success checks are missing. If a relevant plugin tool
-is absent, use `argos bench openclaw --suite SUITE --json` with its matching
-suite name; never invent a control-script `evaluate` subcommand. Raw-model
+relevant. In a Proctor campaign, the owner must select one fixed evaluation
+suite (`quick`, `standard`, `challenge`, `tool-schema`, `tool-plan`, or
+`tool-sequence`) for the task. Use only that suite. The host rejects other
+suites and comparisons or instruction changes without the selected suite. If
+the owner selects none, inspect and audit, then report `task-not-measured`
+without evaluating, comparing, adopting, editing, or keeping instruction
+changes. Ask what task-specific examples or checks are missing. Raw-model
 `argos bench ability` measures a model, not your workspace instructions, and
 cannot establish an assistant gain.
 

@@ -28,6 +28,8 @@ LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
+TASK_CAMPAIGN_SUITES = frozenset({
+    'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'})
 MAX_WORKER_TURN_RECORDS = 32
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
@@ -45,13 +47,18 @@ def identity(value):
 
 class Bridge:
     def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800,
-                 exam_session=None):
+                 exam_session=None, task_campaign=False, owner_task_suite=None):
         if not identity(session_key) or trigger not in {'user', 'heartbeat'}:
             raise ValueError('Host-selected controller identity required')
         self.home, self.parent = Path(home), parent
         self.session_key, self.trigger = session_key, trigger
         self.worker_timeout = worker_timeout
         self.exam_session = exam_session
+        self.task_campaign = task_campaign
+        if (owner_task_suite is not None and
+                (not isinstance(owner_task_suite, str) or owner_task_suite not in TASK_CAMPAIGN_SUITES)):
+            raise ValueError('Unsupported owner-selected task evaluation suite')
+        self.owner_task_suite = owner_task_suite
         self.secret = secrets.token_hex(32)
         self.active = None
         self.pending = None
@@ -169,6 +176,40 @@ class Bridge:
                 not isinstance(token, str) or not hmac.compare_digest(token, self.active['token'])):
             raise workload.Busy(recovery=True)
 
+    def _validate_task_scope(self, kind, params):
+        """Enforce the evaluator explicitly selected by the owner for this campaign."""
+        if not self.task_campaign:
+            return
+        suite = self.owner_task_suite
+        if kind == 'evaluation':
+            if suite is None:
+                raise ValueError('No owner-selected evaluation suite; report task-not-measured without evaluating')
+            if params.get('suite', 'quick') != suite:
+                raise ValueError('Evaluation must use the exact suite selected by the owner')
+            return
+        if kind == 'resolve' and params.get('action') == 'restore':
+            return
+        if kind not in {'compare', 'edit', 'resolve', 'adopt'}:
+            return
+        if suite is None:
+            raise ValueError('No owner-selected evaluation suite; task evidence cannot justify a change')
+
+        if kind == 'compare':
+            run_ids = [params['baseline_id'], params['candidate_id']]
+        elif kind == 'edit':
+            run_ids = [params['baseline_id']]
+        else:
+            run_ids = list(params.get('baseline_ids', [])) + list(params.get('candidate_ids', []))
+        expected_suite = 'openclaw-' + suite
+        store = Store(self.home / '.local/share/argos-live/results')
+        for run_id in run_ids:
+            run = store.load(run_id)
+            suite_version = run.get('suite_version')
+            if (run.get('suite') != expected_suite or
+                    not isinstance(suite_version, str) or
+                    not suite_version.startswith('argos-openclaw-ability/' + suite + '/')):
+                raise ValueError('Every change decision must use only the owner-selected task evaluation suite')
+
     def tool(self, request, *, on_update=None):
         if not self.tool_lock.acquire(blocking=False):
             raise workload.Busy()
@@ -213,6 +254,7 @@ class Bridge:
                         raise ValueError('No host-preauthorized exam is active')
                 else:
                     raise ValueError('Unsupported controller tool')
+                self._validate_task_scope(kind, params)
                 self.active['calls'].add(call)
             if kind in PROCTOR_TOOLS:
                 value = self._proctor_tool(kind, params, call)
@@ -1058,7 +1100,8 @@ class Bridge:
 
 
 @contextmanager
-def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None):
+def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None,
+          task_campaign=False, owner_task_suite=None):
     if sys.platform != 'linux':
         raise ValueError('Native controller bridge requires Linux')
     if exam_session is not None and trigger != 'user':
@@ -1066,7 +1109,8 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
     workload_kind = 'proctor' if exam_session is not None else 'controller'
     with workload.reserve(home, workload_kind) as parent:
         bridge = Bridge(home, parent, session_key=session_key, trigger=trigger,
-                        worker_timeout=worker_timeout, exam_session=exam_session)
+                        worker_timeout=worker_timeout, exam_session=exam_session,
+                        task_campaign=task_campaign, owner_task_suite=owner_task_suite)
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
                 work_bearing = False
