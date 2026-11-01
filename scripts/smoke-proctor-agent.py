@@ -430,53 +430,46 @@ def run(cli, report):
                 saved_subject.get('model_digest') == model_identity['sha256'])
             if not model_identity_binding_verified:
                 raise ValueError('Signed Proctor transcript did not bind the host model identity receipt')
-            # Exercise the chained owner command: practice must finalize and
-            # release before a separate campaign profile receives host tools.
-            progress.update(tools=0, errors=[], phase='practice', model_tool_names=[])
-            chained_practice_errors = []
+            # The task campaign runs independently. The earlier signed practice
+            # run is optional coaching and is not supplied to the campaign.
+            service_practice_tool_calls = progress['tools']
+            progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[],
+                            campaign_plan_index=0, campaign_wait_calls=0)
             real_run_campaign = proctor_service.run_campaign
 
-            def campaign_after_practice(*args, **kwargs):
-                progress['practice_tool_calls'] = progress['tools']
-                chained_practice_errors.extend(progress['errors'])
-                progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[],
-                                campaign_plan_index=0, campaign_wait_calls=0)
+            def task_campaign(*args, **kwargs):
                 campaign = real_run_campaign(*args, **kwargs)
                 progress['campaign_tool_calls'] = progress['tools']
                 progress['campaign_action_calls'] = progress['campaign_plan_index']
-                progress['tools'] += progress['practice_tool_calls']
                 return campaign
 
             with patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
                     patch.object(proctor_service.startup, 'source',
                               side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
-                    patch.object(proctor_service, 'run_campaign', side_effect=campaign_after_practice), \
+                    patch.object(proctor_service, 'run_campaign', side_effect=task_campaign), \
                     patch.object(proctor_service.owned_ollama, 'owned',
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
                 improvement_result = proctor_service.run_improvement(
-                    service_home, None, 'pilot-a',
+                    service_home,
                     owner_task='complete a short owner-selected document-answer task accurately',
                     success_criteria='the answer is correct and supported by the provided text',
                     executable=cli)
             expected_campaign_tool_calls = (len(CAMPAIGN_TOOLS) +
                                             progress.get('campaign_wait_calls', 0))
-            expected_campaign_calls = len(PRACTICE_TOOLS) + expected_campaign_tool_calls
+            expected_campaign_calls = expected_campaign_tool_calls
             campaign_wait_tool_available = (
                 'argos_evaluate_wait' in progress['model_tool_names'])
             if (improvement_result['status'] != 'completed' or
-                    improvement_result['practice_is_improvement_evidence'] is not False or
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
-                    chained_practice_errors or progress['practice_tool_calls'] != len(PRACTICE_TOOLS) or
                     progress['campaign_tool_calls'] != expected_campaign_tool_calls or
                     progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS) or
-                    not campaign_wait_tool_available):
+                    not campaign_wait_tool_available or
+                    set(proctor_service.PROCTOR_TOOL_NAMES) & set(progress['model_tool_names'])):
                 campaign = improvement_result.get('campaign', {})
                 diagnostic = {
                     'schema': 'argos-proctor-campaign-failure/1',
                     'improvement_status': improvement_result.get('status'),
-                    'practice_is_improvement_evidence': improvement_result.get(
-                        'practice_is_improvement_evidence'),
                     'campaign_status': campaign.get('status'),
                     'campaign_outcome': campaign.get('outcome'),
                     'campaign_missing': campaign.get('missing'),
@@ -484,8 +477,7 @@ def run(cli, report):
                     'saved_evaluation_ids': campaign.get('saved_evaluation_ids'),
                     'tool_calls': progress['tools'],
                     'expected_tool_calls': expected_campaign_calls,
-                    'practice_tool_calls': progress.get('practice_tool_calls'),
-                    'expected_practice_tool_calls': len(PRACTICE_TOOLS),
+                    'service_practice_tool_calls': service_practice_tool_calls,
                     'campaign_tool_calls': progress.get('campaign_tool_calls'),
                     'expected_campaign_tool_calls': expected_campaign_tool_calls,
                     'campaign_action_calls': progress.get('campaign_action_calls'),
@@ -493,15 +485,12 @@ def run(cli, report):
                     'campaign_wait_calls': progress.get('campaign_wait_calls'),
                     'campaign_wait_tool_available': campaign_wait_tool_available,
                     'tool_errors': progress['errors'],
-                    'practice_tool_errors': chained_practice_errors,
                     'tool_outcomes': campaign.get('tool_outcomes'),
                 }
                 report.with_name('proctor-agent-failure.json').write_text(
                     json.dumps(diagnostic, indent=2) + '\n')
-                raise ValueError('Owner-facing chained improvement flow did not complete its scoped campaign: ' +
+                raise ValueError('Owner-task improvement flow did not complete its scoped campaign: ' +
                                  json.dumps(diagnostic, sort_keys=True))
-            if not improvement_result['practice']['transcript_id']:
-                raise ValueError('Chained improvement flow lacks its saved practice transcript ID')
             campaign_reservation = json.loads((service_home / '.local/state/argos-live/workload/reservation.json').read_text())
             if campaign_reservation.get('state') != 'released':
                 raise ValueError('Improvement campaign reservation was not released after its worker drained')
@@ -524,7 +513,7 @@ def run(cli, report):
                 service_transcript_id=service_result['transcript_id'],
                 service_signature_verified=True, verified_model_identity_binding=True,
                 actual_model_weights_verified=False, improvement_campaign_completed=True,
-                practice_tool_calls=progress['practice_tool_calls'],
+                service_practice_tool_calls=service_practice_tool_calls,
                 campaign_tool_calls=progress['campaign_tool_calls'],
                 campaign_action_calls=progress['campaign_action_calls'],
                 campaign_wait_calls=progress['campaign_wait_calls'],

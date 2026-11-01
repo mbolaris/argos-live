@@ -87,8 +87,6 @@ class Controller:
     def _public_result(value):
         if not isinstance(value, dict):
             return None
-        practice = value.get('practice') if isinstance(value.get('practice'), dict) else {}
-        practice_result = practice.get('result') if isinstance(practice.get('result'), dict) else {}
         campaign = value.get('campaign') if isinstance(value.get('campaign'), dict) else {}
         ids = campaign.get('saved_evaluation_ids', [])
         if not isinstance(ids, list):
@@ -112,15 +110,6 @@ class Controller:
             failure_stage = None
         return {
             'status': value.get('status') if value.get('status') in {'completed', 'incomplete'} else 'incomplete',
-            'practice': {
-                'status': practice.get('status'),
-                'transcript_id': practice.get('transcript_id'),
-                'calibration_status': practice.get('calibration_status'),
-                'state': practice_result.get('state'),
-                'correct': practice_result.get('correct'),
-                'total': practice_result.get('total'),
-                'unanswered': practice_result.get('unanswered'),
-            },
             'campaign': {
                 'status': campaign.get('status'),
                 'outcome': campaign.get('outcome'),
@@ -200,7 +189,7 @@ class Controller:
             self.owner_task = owner_task
             self.success_criteria = success_criteria
             self.result = None
-            self.progress = {'phase': 'practice', 'stage': 'starting'}
+            self.progress = {'phase': 'campaign', 'stage': 'starting'}
             self.failure_code = None
             self.failure_stage = None
             self.recovery_target_phase = None
@@ -347,14 +336,12 @@ class Controller:
         try:
             self._wait_stopped()
             with self.lock:
-                self.phase = 'practice'
+                self.phase = 'campaign'
             runner = self.runner
             if runner is None:
                 from .proctor_service import run_improvement
                 runner = run_improvement
-            # The interactive campaign uses the stronger bundled practice
-            # form; the six-item pilot remains available for smoke checks.
-            result = runner(self.home, form_id='composed-a', owner_task=self.owner_task,
+            result = runner(self.home, owner_task=self.owner_task,
                             success_criteria=self.success_criteria, on_phase=self._set_phase,
                             on_progress=self._set_progress)
             public_result = self._public_result(result)

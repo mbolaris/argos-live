@@ -4637,7 +4637,7 @@ let proctorCampaignStarting = false;
 function renderProctorCampaignResult(result) {
   const node = document.getElementById('proctor-campaign-result');
   if (!result) { node.hidden = true; node.textContent = ''; return; }
-  const practice = result.practice || {}, campaign = result.campaign || {};
+  const campaign = result.campaign || {};
   const ids = Array.isArray(campaign.saved_evaluation_ids) ? campaign.saved_evaluation_ids : [];
   const missing = Array.isArray(campaign.missing) ? campaign.missing : [];
   const parts = [];
@@ -4645,9 +4645,6 @@ function renderProctorCampaignResult(result) {
     const stage = ['pausing', 'practice', 'campaign'].includes(result.failure_stage)
       ? result.failure_stage : 'campaign';
     parts.push(`Diagnostic: ${stage} stopped · ${result.failure_code}`);
-  }
-  if (practice.transcript_id) {
-    parts.push(`Practice: ${practice.correct ?? '?'} / ${practice.total ?? '?'} · transcript ${practice.transcript_id} · coaching only`);
   }
   if (campaign.outcome) parts.push(`Campaign: ${campaign.outcome} · audit ${campaign.audit_status || 'not verified'} · ${campaign.controller_turns ?? '?'} turns`);
   if (ids.length) parts.push(`Saved evaluation IDs: ${ids.join(', ')}`);

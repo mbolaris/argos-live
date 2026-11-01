@@ -45,8 +45,7 @@ class ProctorServiceTests(unittest.TestCase):
     def test_campaign_prompt_rejects_diagnoses_from_underspecified_items(self):
         prompt = proctor_service.CAMPAIGN_MESSAGE.format(
             owner_task=json.dumps('recover Argos after reboot'),
-            success_criteria=json.dumps('ready after unlock with no terminal command'),
-            feedback='{}')
+            success_criteria=json.dumps('ready after unlock with no terminal command'))
         self.assertIn('inspect the exact item prompt and scorer requirements', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('do not infer intent from hidden answer labels', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('separately versioned, fully specified form', proctor_service.CAMPAIGN_MESSAGE)
@@ -59,6 +58,7 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('recover Argos after reboot', prompt)
         self.assertIn('ready after unlock with no terminal command', prompt)
         self.assertIn('make no instruction or model change', prompt)
+        self.assertNotIn('Proctor feedback', prompt)
 
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
@@ -195,28 +195,26 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertNotIn('argos_proctor_start', config['tools']['alsoAllow'])
         self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
 
-    def test_improvement_campaign_starts_only_after_completed_practice(self):
+    def test_improvement_campaign_uses_owner_task_without_running_practice(self):
         state_path = self.home / '.config/argos-live/state.json'
         state_path.parent.mkdir(parents=True)
         state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
-        feedback = {'state': 'COMPLETED', 'correct': 3, 'total': 4, 'unanswered': 0}
         campaign = {'status': 'completed', 'saved_evaluation_ids': ['run-1']}
         events = []
-        with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'completed', 'result': feedback, 'transcript_id': 'transcript-1'}) as practice, \
+        with patch.object(proctor_service, 'run_practice') as practice, \
              patch.object(proctor_service.startup, 'source', return_value=(self.home / 'Models', 'qwen3.8:27b')), \
              patch.object(proctor_service, 'run_campaign', side_effect=lambda *args, **kwargs:
-                          events.append(('campaign', args[3], kwargs['owner_task'],
+                          events.append(('campaign', kwargs['owner_task'],
                                          kwargs['success_criteria'])) or campaign):
             result = proctor_service.run_improvement(self.home, executable='openclaw',
                 owner_task='answer owner documents accurately',
                 success_criteria='accepted answers include a supported fact')
-        practice.assert_called_once()
-        self.assertEqual(events, [('campaign', feedback, 'answer owner documents accurately',
+        practice.assert_not_called()
+        self.assertEqual(events, [('campaign', 'answer owner documents accurately',
                                    'accepted answers include a supported fact')])
         self.assertEqual(result['campaign'], campaign)
         self.assertEqual(result['status'], 'completed')
-        self.assertIs(result['practice_is_improvement_evidence'], False)
+        self.assertNotIn('practice', result)
 
     def test_campaign_assessment_requires_comparison_then_audit_for_no_change(self):
         runs = [evaluation_outcome(run_id, correct=19) for run_id in ('baseline-one', 'baseline-two')]
@@ -449,7 +447,7 @@ class ProctorServiceTests(unittest.TestCase):
              patch.object(proctor_service.controller_bridge, 'owned', owned_bridge), \
              patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
              patch.object(proctor_service.owned_gateway, 'owned', owned_resource):
-            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home, {},
+            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
                 owner_task='answer owner documents accurately',
                 success_criteria='accepted answers include a supported fact',
                 executable='openclaw', on_progress=progress.append)
@@ -471,15 +469,14 @@ class ProctorServiceTests(unittest.TestCase):
         state_path.parent.mkdir(parents=True)
         state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
         campaign = {'status': 'incomplete', 'saved_evaluation_ids': ['run-1']}
-        with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'completed', 'result': {'state': 'COMPLETED', 'unanswered': 0},
-                'transcript_id': 'transcript-1'}), \
+        with patch.object(proctor_service, 'run_practice') as practice, \
              patch.object(proctor_service.startup, 'source', return_value=(self.home / 'Models', 'qwen3.8:27b')), \
              patch.object(proctor_service, 'run_campaign', return_value=campaign):
             result = proctor_service.run_improvement(self.home, executable='openclaw',
                 owner_task='answer owner documents accurately',
                 success_criteria='accepted answers include a supported fact')
         self.assertEqual(result['status'], 'incomplete')
+        practice.assert_not_called()
 
     def test_interrupted_services_drain_evaluations_before_stopping_backends(self):
         state_path = self.home / '.config/argos-live/state.json'
@@ -523,7 +520,7 @@ class ProctorServiceTests(unittest.TestCase):
                         proctor_service.run_practice(self.home, self.home / 'cartridge', executable='openclaw')
                         self.fail('Practice swallowed the interruption')
                     else:
-                        proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home, {},
+                        proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
                             owner_task='answer owner documents accurately',
                             success_criteria='accepted answers include a supported fact',
                             executable='openclaw')
@@ -534,23 +531,17 @@ class ProctorServiceTests(unittest.TestCase):
                 else:
                     db.close.assert_called_once()
 
-    def test_incomplete_practice_never_starts_campaign(self):
-        with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'incomplete', 'result': {'state': 'ABANDONED'}}), \
-             patch.object(proctor_service, 'run_campaign') as campaign:
-            with self.assertRaisesRegex(ValueError, 'Practice did not complete'):
-                proctor_service.run_improvement(self.home, owner_task='recover Argos after reboot',
-                    success_criteria='ready after unlock with no terminal command')
-        campaign.assert_not_called()
-
-    def test_timed_terminal_exam_with_unanswered_items_cannot_start_campaign(self):
-        with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'completed', 'result': {'state': 'COMPLETED', 'unanswered': 4}}), \
-             patch.object(proctor_service, 'run_campaign') as campaign:
-            with self.assertRaisesRegex(ValueError, 'Practice did not complete'):
-                proctor_service.run_improvement(self.home, owner_task='recover Argos after reboot',
-                    success_criteria='ready after unlock with no terminal command')
-        campaign.assert_not_called()
+    def test_task_campaign_rejects_missing_or_oversized_objective_before_work(self):
+        for task, criteria in (('', 'ready after unlock'), ('recover Argos', ''),
+                               ('x' * 1201, 'ready after unlock')):
+            with self.subTest(task_length=len(task), criteria=criteria), \
+                    patch.object(proctor_service, 'run_practice') as practice, \
+                    patch.object(proctor_service.startup, 'source') as source:
+                with self.assertRaises(ValueError):
+                    proctor_service.run_improvement(self.home, owner_task=task,
+                        success_criteria=criteria)
+                practice.assert_not_called()
+                source.assert_not_called()
 
     def test_existing_gateway_is_refused_before_any_proctor_reservation(self):
         _root, _workspace, config_path, _digest = proctor_service.private_profile(

@@ -90,24 +90,26 @@ Each scored 3/4; this is limited workflow repeatability evidence, not an ability
 gain. Existing owner configurations remain byte-for-byte unchanged, and the
 private Proctor profile still preserves their selected generation controls.
 
-`argos proctor improve` runs that practice session first, waits for its signed
-transcript to be saved and its reservation to drain, then starts a separate
-host-admitted improvement campaign. The campaign receives practice misses as
-coaching context and gets only the managed Argos evaluation, comparison,
-logging, and reversible instruction-change tools. Host admission owns one
-workload reservation at a time, and the controller saves evaluations even if
-the campaign agent turn ends. Practice scores never count as evidence that an
-ability improved. The campaign follows the installed Argos improvement skill
-for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
+`argos proctor improve --owner-task ... --success-criteria ...` starts a
+host-admitted campaign directly from the owner's recurring task and observable
+success measure. It does not require the fixed Proctor quiz; practice remains a
+separate coaching check. The campaign gets only the managed Argos evaluation,
+comparison, logging, and reversible instruction-change tools. Host admission
+owns one workload reservation at a time, and the controller saves evaluations
+even if the campaign agent turn ends. Practice scores never count as evidence
+that an ability improved. The campaign follows the installed Argos improvement
+skill for matched baseline/candidate runs, keep/restore decisions, and saved run
+IDs. If no existing evaluation suite measures the owner task, it should report
+that gap rather than use unrelated scores to claim progress.
 The host also enforces escalation when a quick evaluation is saturated: Argos
 must complete and log a 70-task standard evaluation after the latest instruction
 decision before the campaign can claim a plateau. A saturated standard result
 requires a separate 40-task challenge evaluation after the latest instruction
 decision. Each suite remains a distinct signal and is never compared across
 suite types.
-An incomplete practice is retained for review and never starts a campaign.
-An exam whose timer reached a terminal state with unanswered items also remains
-incomplete for this purpose; timed completion cannot unlock a campaign.
+An incomplete practice is retained for review. An exam whose timer reached a
+terminal state with unanswered items also remains incomplete; timed completion
+does not produce a calibrated ability score.
 
 The service refuses to start if the everyday OpenClaw gateway or Ollama already
 occupies its loopback port. Close the everyday assistant first; the Proctor
@@ -118,7 +120,7 @@ Example:
 ```sh
 argos proctor practice
 argos proctor practice --cartridge /path/to/reviewed-cartridge.sqlite3 --form practice-a --json
-argos proctor improve
+argos proctor improve --owner-task "recover Argos after reboot" --success-criteria "ready after unlock with no terminal command"
 ```
 
 This is declared/cooperative enforcement within the same Argos user account.
