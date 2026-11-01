@@ -200,7 +200,10 @@ class InstructionChangeTests(unittest.TestCase):
         params['baseline_ids'] = [baseline['id'], 'a' * 32]
         self.assertEqual(self.op('adopt', params)['status'], 'rejected')
         self.assertEqual(self.path.read_bytes(), b'Owner rule.\nChanged outside the host.\n')
-        self.assertFalse(changes.audit(self.home)['passed'])
+        audit = changes.audit(self.home)
+        self.assertFalse(audit['passed'])
+        self.assertEqual(audit['error_code'], 'current-instructions-or-index-mismatch')
+        self.assertNotIn(str(self.path), json.dumps(audit))
 
     def test_stale_hash_ambiguous_patch_and_unsupported_path_do_not_mutate(self):
         baseline = self.evaluate()

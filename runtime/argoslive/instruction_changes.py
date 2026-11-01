@@ -24,6 +24,16 @@ from .pull_jobs import read_json, write_json
 from .results import Store, compare, identifier, same_hardware
 
 SCHEMA = 'argos-instruction-change/1'
+AUDIT_ERROR_CODES = frozenset({
+    'journal-index-missing', 'unfinished-change',
+    'external-adoption-snapshot-or-chain-mismatch', 'external-adoption-metadata-invalid',
+    'external-adoption-evidence-snapshot-mismatch', 'external-adoption-runs-not-comparable',
+    'external-adoption-run-contract-mismatch', 'external-adoption-resolution-invalid',
+    'snapshot-or-chain-mismatch', 'patch-replay-mismatch', 'event-time-mismatch',
+    'resolution-mismatch', 'resolution-byte-mismatch', 'measured-evidence-mismatch',
+    'saved-evidence-mismatch', 'unverified-evidence-claimed-as-gain',
+    'current-instructions-or-index-mismatch',
+})
 _POLICY_V1 = {'id': 'argos-practice-keep/1', 'repeats_each': 2,
               'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4,
                                         'openclaw-challenge': 3, 'openclaw-tool-schema': 3,
@@ -845,4 +855,8 @@ def audit(home):
                                                  for item in report['changes']))
     except (ValueError, KeyError, OSError, TypeError) as error:
         report['error'] = type(error).__name__  # Never echo private inputs/paths.
+        # These fixed codes describe journal consistency failures without
+        # exposing paths, prompt text, or raw exception messages to the agent.
+        if isinstance(error, ValueError) and str(error) in AUDIT_ERROR_CODES:
+            report['error_code'] = str(error)
     return report
