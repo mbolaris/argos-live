@@ -569,7 +569,7 @@ class ControllerBridgeTests(unittest.TestCase):
             'session=sys.argv[sys.argv.index("--session-id")+1]\n'
             'answer=json.dumps({"status":"not_stated","answer":"","quote":""})\n'
             'print(json.dumps({"payloads":[{"text":answer}],"meta":{"agentMeta":{'
-            '"sessionId":session,"provider":"ollama","model":"ollama/qwen3.8:27b"}}}))\n')
+            '"sessionId":session,"provider":"ollama","model":"qwen3:4b-instruct-2507-q4_K_M"}}}))\n')
         executable.chmod(0o700)
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
