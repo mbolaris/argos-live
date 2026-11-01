@@ -292,7 +292,10 @@ class Controller:
             if runner is None:
                 from .proctor_service import run_improvement
                 runner = run_improvement
-            result = runner(self.home, on_phase=self._set_phase, on_progress=self._set_progress)
+            # The interactive campaign uses the stronger bundled practice
+            # form; the six-item pilot remains available for smoke checks.
+            result = runner(self.home, form_id='composed-a', on_phase=self._set_phase,
+                            on_progress=self._set_progress)
             public_result = self._public_result(result)
             with self.lock:
                 self.result = public_result

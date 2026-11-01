@@ -13,8 +13,14 @@ declared model blob. The signed subject snapshot includes a digest of the
 catalog manifest, the local manifest bytes, and each verified artifact digest,
 size, and media type; it does not copy model weights into the transcript.
 
-The command uses the bundled `pilot-a` cartridge unless the owner supplies a
-compiled cartridge and form. The bundled six-item pilot exercises the tool flow
+The command uses the bundled `pilot-a` cartridge unless the owner selects a
+different form or supplies a compiled cartridge and form. The host may select
+`--form composed-a` for an eight-item original practice form with multi-step
+numeric reasoning, constraints, evidence sufficiency, scheduling, uncertainty,
+aggregation and one intercepted tool-call simulation. It is bundled practice,
+not independent or calibrated assessment, and its score is not directly
+comparable with the six-item pilot. The pilot remains the default for now.
+The bundled six-item pilot exercises the tool flow
 and feedback path, including one `argos_evaluate_wait` call, and adds an
 evidence-interpretation item about not diagnosing tool-selection weakness from
 challenge items whose available-tool inventories are missing. This is public

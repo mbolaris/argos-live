@@ -1,8 +1,10 @@
 #!/usr/bin/python3
-"""Refresh only Argos-owned command entrypoints masked by live persistence."""
+"""Refresh Argos-owned runtime files masked by live persistence."""
 import sys
 
-sys.path.insert(0, '/usr/local/lib/argos-live')
+# Prefer this boot's immutable package. /usr/local/lib may be an older copy in
+# the persistence upper layer that this service is responsible for refreshing.
+sys.path.insert(0, '/run/live/rootfs/filesystem.squashfs/usr/local/lib/argos-live')
 from argoslive.image_refresh import main
 
 raise SystemExit(main())

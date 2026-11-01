@@ -25,6 +25,7 @@ from .proctor.signing import Ed25519Signer, generate_key
 from .evaluation_context import DEFAULT_SETTINGS, configuration_from
 
 PILOT_DEFINITION = Path(__file__).resolve().parent / 'data/proctor-practice-pilot.json'
+COMPOSED_DEFINITION = Path(__file__).resolve().parent / 'data/proctor-practice-composed.json'
 CAMPAIGN_TIMEOUT_SECONDS = 7200
 CAMPAIGN_MAX_TURNS = 4
 
@@ -36,7 +37,7 @@ PROCTOR_TOOL_NAMES = [
 CAMPAIGN_TOOL_NAMES = [
     'argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status',
     'argos_compare', 'argos_log', 'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions',
-    'argos_resolve_instructions',
+    'argos_resolve_instructions', 'argos_adopt_external_instruction_edit',
 ]
 POLICY = {'enforcement_level': 'declared', 'assistance_policy': 'closed_book'}
 PRACTICE_MAX_TURNS = 16
@@ -92,7 +93,12 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
     'from fingerprints. '
     'If no matched pair exists, collect a '
     'second baseline in the same suite. Cross-suite scores may be reported separately but are not comparable. '
-    'Then use host-managed edit/resolve tools for instruction changes and '
+    'If inspect reports an untracked instruction edit, do not overwrite it. Review its exact before/after '
+    'hashes and the saved run metadata. When two compatible baseline runs match the last journal hash and '
+    'two compatible candidate runs match the current hash, use argos_adopt_external_instruction_edit to '
+    'record the already-existing edit without rewriting AGENTS.md. Adoption preserves evidence but is never '
+    'a host-managed keep or a qualification claim. If that evidence is unavailable, stop and report the gap. '
+    'Otherwise use host-managed edit/resolve tools for instruction changes and '
     'preserve every saved run ID. If no supported experiment remains, compare at least two matched baselines '
     'and explain why no change is justified. In either case, call argos_audit_instructions before finishing. '
     'The host continues the campaign in bounded fresh turns until it observes a passed audit and the required '
@@ -428,10 +434,13 @@ def run_practice_turns(bridge, exam, executable, config_path, *, on_progress=Non
     return {'payloads': payloads, 'host_turns': turns}
 
 
-def default_cartridge(home):
-    """Compile the packaged pilot to a content-addressed private snapshot once."""
+def default_cartridge(home, form_id='pilot-a'):
+    """Compile a host-selected bundled practice form to a private snapshot."""
+    definitions = {'pilot-a': PILOT_DEFINITION, 'composed-a': COMPOSED_DEFINITION}
+    if form_id not in definitions:
+        raise ValueError('Unknown bundled practice form')
     root = _private_directory(Path(home) / '.local/state/argos-live/proctor')
-    definition = json.loads(PILOT_DEFINITION.read_text(encoding='utf-8'))
+    definition = json.loads(definitions[form_id].read_text(encoding='utf-8'))
     digest_value = hashlib.sha256(json.dumps(definition, sort_keys=True, separators=(',', ':'))
                                   .encode('utf-8')).hexdigest()
     directory = _private_directory(root / 'cartridges')
@@ -443,7 +452,7 @@ def default_cartridge(home):
             pass
     cartridge = proctor.Cartridge(destination)
     if cartridge.manifest['calibration_status'] != 'uncalibrated':
-        raise ValueError('Bundled Proctor pilot calibration status is invalid')
+        raise ValueError('Bundled Proctor practice calibration status is invalid')
     return destination
 
 
@@ -461,7 +470,7 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
     if not isinstance(model, str) or not model:
         raise ValueError('Argos local model selection is unavailable')
     if cartridge_path is None:
-        cartridge_path = default_cartridge(home)
+        cartridge_path = default_cartridge(home, form_id=form_id)
     target, selected_model, model_identity = startup.source(home, include_model_identity=True)
     if selected_model != model:
         raise ValueError('Argos model selection changed during Proctor setup')
@@ -770,7 +779,7 @@ def main(argv=None):
     improve = commands.add_parser('improve', help='Practice, then let the agent run its evidence-based improvement campaign')
     for command in (practice, improve):
         command.add_argument('--cartridge', type=Path,
-                             help='Optional host-selected compiled cartridge (default: bundled six-item pilot)')
+                             help='Optional host-selected compiled cartridge (default: bundled form selected by --form)')
         command.add_argument('--form', default='pilot-a')
         command.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)

@@ -12,10 +12,15 @@ Keep conversations, OpenClaw configuration, and authentication tokens on encrypt
 # Persistent image updates
 
 Argos Live keeps the owner’s encrypted persistence overlay when the boot image
-is refreshed. That overlay can retain an older copy of a distro-owned command
-and make it take precedence over the newer file in the image. Before the
-desktop starts, `argos-refresh-runtime.service` compares the three Argos
-entrypoint scripts with the immutable image and atomically refreshes only those
-scripts when they differ. It does not touch the owner’s home directory, model
-storage, OpenClaw configuration, or other persistence data. On non-live or
-unverified root filesystems it makes no changes.
+is refreshed. That overlay can retain old copies of distro-owned files and make
+them take precedence over newer image code. Before the desktop starts,
+`argos-refresh-runtime.service` verifies that the root is the expected Debian
+Live overlay, then refreshes the three Argos command entrypoints, the packaged
+`argoslive` runtime and data, and the bundled `argos-improve` plugin from the
+immutable image. It snapshots every changed or removed file under
+`/var/lib/argos-live/runtime-refresh/` before applying the update, checks source
+and destination paths for symlinks, writes replacements atomically, and rolls
+back the set if an update fails. Obsolete files are removed only inside those
+two fixed, image-owned code directories. The owner’s home directory, workspace,
+model storage, OpenClaw configuration, and records are outside the managed
+paths. On non-live or unverified root filesystems it makes no changes.

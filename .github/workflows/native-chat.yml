@@ -10,6 +10,11 @@ on:
         description: Test temperature zero in the disposable Proctor fixture only
         type: boolean
         default: false
+      proctor_form:
+        description: Bundled practice form for a manually dispatched Proctor smoke
+        type: choice
+        options: [pilot-a, composed-a]
+        default: pilot-a
       tool_sequence_only:
         description: Run the 40-item real-model tool-sequence transfer check in disposable scratch
         type: boolean
@@ -28,6 +33,7 @@ on:
       - 'scripts/fetch-catalog-model.py'
       - 'runtime/argoslive/controller_bridge.py'
       - 'runtime/argoslive/proctor_service.py'
+      - 'runtime/argoslive/data/proctor-practice-*.json'
       - 'runtime/argoslive/proctor/**'
       - 'scripts/smoke-desktop-startup.py'
       - 'runtime/argoslive/startup.py'
@@ -49,8 +55,8 @@ permissions:
 jobs:
   native-chat:
     runs-on: ubuntu-latest
-    # Leave room for the 40-item model transfer run plus setup and cleanup.
-    timeout-minutes: 70
+    # The 40-item CPU transfer check needs about 3 hours; keep routine CI bounded.
+    timeout-minutes: ${{ inputs.tool_sequence_only && 270 || 70 }}
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin
@@ -113,6 +119,7 @@ jobs:
         run: |
           args=()
           if [[ '${{ inputs.deterministic_profile }}' == true ]]; then args+=(--deterministic-profile); fi
+          if [[ '${{ inputs.proctor_form }}' == composed-a ]]; then args+=(--form composed-a); fi
           python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/proctor-real.json "${args[@]}"
       - name: Real model tool-sequence transfer check with execution denied
         if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.tool_sequence_only }}

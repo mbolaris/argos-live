@@ -14,12 +14,17 @@ test('dedicated Proctor tools are registered as optional managed-only tools', as
   const options = new Map();
   registerPlugin({registerTool(tool, metadata) { tools.set(tool.name, tool); options.set(tool.name, metadata); }});
   for (const name of ['argos_proctor_start','argos_proctor_status','argos_proctor_item',
-    'argos_proctor_answer','argos_proctor_continue','argos_proctor_submit','argos_proctor_feedback']) {
+    'argos_proctor_answer','argos_proctor_continue','argos_proctor_submit','argos_proctor_feedback',
+    'argos_adopt_external_instruction_edit']) {
     assert.equal(options.get(name)?.optional, true);
     await assert.rejects(tools.get(name).execute('unmanaged', {}, undefined), /managed host controller/);
   }
   assert.deepEqual(tools.get('argos_proctor_item').parameters.additionalProperties, false);
   assert.deepEqual(tools.get('argos_proctor_answer').parameters.additionalProperties, false);
+  const adoption = tools.get('argos_adopt_external_instruction_edit').parameters;
+  assert.deepEqual(Object.keys(adoption.properties),
+    ['expected_sha256','previous_sha256','reason','baseline_ids','candidate_ids']);
+  assert.deepEqual(adoption.additionalProperties, false);
 });
 
 test('plugin tools call the installed Argos benchmark commands', async () => {
@@ -366,9 +371,13 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.deepEqual(await admission.execute('exam-item','proctor_item',{item_id:'q1'}),{status:'appended'});
     hooks.get('before_tool_call')({toolName:'argos_audit_instructions',runId:'run-1',toolCallId:'audit-1'},ctx);
     assert.deepEqual(await admission.execute('audit-1','audit',{}),{status:'appended'});
+    hooks.get('before_tool_call')({toolName:'argos_adopt_external_instruction_edit',runId:'run-1',toolCallId:'adopt-1'},ctx);
+    const adoption = {expected_sha256:'a'.repeat(64),previous_sha256:'b'.repeat(64),reason:'Keep tested edit.',
+      baseline_ids:['1'.repeat(32),'2'.repeat(32)],candidate_ids:['3'.repeat(32),'4'.repeat(32)]};
+    assert.deepEqual(await admission.execute('adopt-1','adopt',adoption),{status:'appended'});
     await hooks.get('agent_end')({},ctx);
-    assert.deepEqual(requests.map((value) => value.op),['begin','tool','tool','tool','ended']);
-    assert.deepEqual(requests.at(-1).diagnostics,{tool_hooks:4,bound_calls:3,executions:3,
+    assert.deepEqual(requests.map((value) => value.op),['begin','tool','tool','tool','tool','ended']);
+    assert.deepEqual(requests.at(-1).diagnostics,{tool_hooks:5,bound_calls:4,executions:4,
       rejected:{unknown_tool:1,missing_admission:0,invalid_call_id:0,stale_binding:0}});
     assert.equal(requests[1].run_id,'run-1');
     assert.equal(requests[1].call_id,'log-1');
@@ -378,6 +387,8 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.deepEqual(requests[2].params,{item_id:'q1'});
     assert.equal(requests[3].kind,'audit');
     assert.deepEqual(requests[3].params,{});
+    assert.equal(requests[4].kind,'adopt');
+    assert.deepEqual(requests[4].params,adoption);
     assert.equal((await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'})).outcome,'block');
     assert.ok(requests.every((value) => value.auth === 'fictional-bridge-secret'));
   } finally {

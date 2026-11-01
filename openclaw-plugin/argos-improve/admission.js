@@ -6,6 +6,7 @@ const TOOLS = new Map([
   ['argos_evaluate_status', 'evaluation_status'],
   ['argos_inspect', 'inspect'], ['argos_audit_instructions', 'audit'],
   ['argos_edit_instructions', 'edit'], ['argos_resolve_instructions', 'resolve'],
+  ['argos_adopt_external_instruction_edit', 'adopt'],
   ['argos_proctor_start', 'proctor_start'], ['argos_proctor_status', 'proctor_status'],
   ['argos_proctor_item', 'proctor_item'], ['argos_proctor_answer', 'proctor_answer'],
   ['argos_proctor_continue', 'proctor_continue'], ['argos_proctor_submit', 'proctor_submit'],

@@ -1,0 +1,81 @@
+{
+  "manifest": {
+    "cartridge_id": "argos-practice-composed",
+    "version": "1.0.0",
+    "title": "Argos Proctor composed reasoning practice",
+    "content_origin": "argos_original",
+    "calibration_status": "uncalibrated",
+    "start_window_ms": 60000,
+    "abort_on_timeout": false
+  },
+  "forms": [
+    {
+      "form_id": "composed-a",
+      "entry_module_id": "c1",
+      "modules": [
+        {
+          "module_id": "c1", "ordinal": 1, "duration_ms": 240000, "break_ms": 0, "aids": [],
+          "items": [
+            {
+              "item_id": "c1q1", "position": 1, "domain": "multi_step_numeric",
+              "prompt": "A batch has 960 records. One quarter fail inspection; half of those failures are repaired and the rest are discarded. All records that passed inspection and all repaired records are usable. How many records are usable?",
+              "response_type": "numeric_grid", "choices": {}, "correct": "840"
+            },
+            {
+              "item_id": "c1q2", "position": 2, "domain": "constraint_selection",
+              "prompt": "An export is allowed only when it is encrypted, its destination is approved, and its backup is verified. Which export is allowed?",
+              "response_type": "mcq_single",
+              "choices": {"A": "Encrypted, approved, backup unverified", "B": "Encrypted, approved, backup verified", "C": "Unencrypted, approved, backup verified", "D": "Encrypted, unapproved, backup verified"},
+              "correct": "B"
+            },
+            {
+              "item_id": "c1q3", "position": 3, "domain": "evidence_sufficiency",
+              "prompt": "A report says checks P and R passed, Q timed out, and S was not run. Which statement follows from the report?",
+              "response_type": "mcq_single",
+              "choices": {"A": "P and R passed", "B": "Q failed its test", "C": "S passed", "D": "All four checks completed"},
+              "correct": "A"
+            },
+            {
+              "item_id": "c1q4", "position": 4, "domain": "tool_call_format",
+              "prompt": "Make the actual argos_evaluate_wait tool call with job_id fedcba9876543210fedcba9876543210. This is an isolated Proctor simulation: the host records your tool name and arguments, then returns a synthetic response without starting an evaluation.",
+              "response_type": "json_object", "choices": {},
+              "schema": {"type":"object","properties":{"name":{"type":"string"},"arguments":{"type":"object","properties":{"job_id":{"type":"string"}},"required":["job_id"]}},"required":["name","arguments"]},
+              "correct": "{\"name\":\"argos_evaluate_wait\",\"arguments\":{\"job_id\":\"fedcba9876543210fedcba9876543210\"}}"
+            }
+          ],
+          "routes": [{"minimum": 0, "maximum": 4, "next_module_id": "c2"}]
+        },
+        {
+          "module_id": "c2", "ordinal": 2, "duration_ms": 240000, "break_ms": 0, "aids": [],
+          "items": [
+            {
+              "item_id": "c2q1", "position": 1, "domain": "multi_step_numeric",
+              "prompt": "A well-mixed 600 mL solution is 20% solute. Remove 150 mL of the solution, then add 150 mL pure water. How many mL of solute remain?",
+              "response_type": "numeric_grid", "choices": {}, "correct": "90"
+            },
+            {
+              "item_id": "c2q2", "position": 2, "domain": "schedule_reasoning",
+              "prompt": "At 09:00 a backup lasting 25 minutes and a scan lasting 45 minutes start in parallel. Once both finish, review takes 15 minutes, followed by a 10-minute deploy. What is the earliest finish time?",
+              "response_type": "mcq_single",
+              "choices": {"A": "09:50", "B": "10:00", "C": "10:10", "D": "10:35"},
+              "correct": "C"
+            },
+            {
+              "item_id": "c2q3", "position": 3, "domain": "uncertainty",
+              "prompt": "A note says a report is ready and approved, but gives no publishing time or default schedule. What time should it be published?",
+              "response_type": "mcq_single",
+              "choices": {"A": "Immediately", "B": "At 09:00", "C": "At the next hour", "D": "The note does not determine a time"},
+              "correct": "D"
+            },
+            {
+              "item_id": "c2q4", "position": 4, "domain": "aggregation",
+              "prompt": "Three batches contain accepted/rejected counts of 16/3, 11/4, and 8/2. How many records were accepted in total?",
+              "response_type": "numeric_grid", "choices": {}, "correct": "35"
+            }
+          ],
+          "routes": [{"minimum": 0, "maximum": 4, "next_module_id": null}]
+        }
+      ]
+    }
+  ]
+}

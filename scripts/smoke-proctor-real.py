@@ -133,7 +133,9 @@ def safe_finish_failure(path):
     return result
 
 
-def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=False):
+def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=False, form_id='pilot-a'):
+    if form_id not in ('pilot-a', 'composed-a'):
+        raise ValueError('Choose a bundled Proctor practice form')
     scratch = Path(os.environ.get('RUNNER_TEMP', '/missing')).resolve()
     model_store = model_store.resolve(strict=True)
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
@@ -175,7 +177,7 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
                 patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
                 patch.object(proctor_service.owned_gateway, 'environment', side_effect=observed_environment), \
                 patch.dict(os.environ, {'PATH': str(ollama.resolve().parent) + os.pathsep + os.environ['PATH']}):
-                result = proctor_service.run_practice(home, executable=str(cli.absolute()))
+                result = proctor_service.run_practice(home, form_id=form_id, executable=str(cli.absolute()))
         except BaseException as error:
             state_root = home / '.local/state/argos-live/workload'
             turn_path = state_root / 'controller-turn.json'
@@ -203,7 +205,7 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             'signature_verified': verified,
             'model_identity_bound': payload['subject']['model_identity'] == identity,
             'transcript_sha256': hashlib.sha256(envelope['payload_json'].encode()).hexdigest(),
-            'model_tag': model_tag, 'total': payload['total_items'],
+            'model_tag': model_tag, 'form_id': form_id, 'total': payload['total_items'],
             'answered': len(payload['accepted_answers']), 'correct': payload['accepted_correct'],
             'practice_only': True, 'calibration_status': 'uncalibrated',
             'host_turns': result['host_turns'],
@@ -215,14 +217,17 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
                                 {'proctor_' + name for name in
                                  ('start', 'status', 'item', 'answer', 'submit', 'host_submit', 'continue', 'feedback', 'finalize', 'tool_call')}]
         receipt['controller_diagnostics'] = safe_controller_diagnostics(turn)
+        tool_item, evidence_item, expected_total, job_id = (
+            ('c1q4', 'c1q3', 8, 'fedcba9876543210fedcba9876543210') if form_id == 'composed-a'
+            else ('q5', 'q6', 6, '0123456789abcdef0123456789abcdef'))
         tool_call_answer = next((row for row in payload['accepted_answers']
-                                 if row.get('item_id') == 'q5'), None)
+                                 if row.get('item_id') == tool_item), None)
         evidence_interpretation_answer = next((row for row in payload['accepted_answers']
-                                               if row.get('item_id') == 'q6'), None)
+                                               if row.get('item_id') == evidence_item), None)
         receipt['evidence_interpretation_answer'] = (
             evidence_interpretation_answer.get('answer') if evidence_interpretation_answer else None)
         expected_tool_call = {'name': 'argos_evaluate_wait',
-                              'arguments': {'job_id': '0123456789abcdef0123456789abcdef'}}
+                              'arguments': {'job_id': job_id}}
         wire = home / 'proctor-wire.json'
         receipt['wire_request'] = json.loads(wire.read_text()) if wire.is_file() else {}
         report.parent.mkdir(parents=True, exist_ok=True)
@@ -247,14 +252,15 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             'envelope': envelope,
             'public_key_der_base64': base64.b64encode(signer.public_key_der).decode()}, indent=2) + '\n')
         if (result['status'] != 'completed' or payload['outcome'] != 'COMPLETED' or
-                payload['total_items'] != 6 or len(payload['accepted_answers']) != 6 or
+                payload.get('form_id') != form_id or payload['total_items'] != expected_total or
+                len(payload['accepted_answers']) != expected_total or
                 tool_call_answer is None or json.loads(tool_call_answer['answer']) != expected_tool_call or
                 evidence_interpretation_answer is None or
                 not any(row.get('kind') == 'proctor_tool_call' and row.get('status') == 'simulated'
                         for row in turn.get('tools', []) if isinstance(row, dict)) or
                 not all(module['state'] == 'SUBMITTED' for module in payload['modules']) or
                 not verified or not receipt['model_identity_bound']):
-            raise ValueError('Real-model Proctor did not complete and verify all six practice items; see receipt')
+            raise ValueError('Real-model Proctor did not complete and verify the selected practice form; see receipt')
         worker_turns = receipt['controller_diagnostics'].get('worker_turns', [])
         if (len(worker_turns) != result['host_turns'] or
                 any(not row['process_group_drained'] or not row['session_bound'] for row in worker_turns)):
@@ -270,6 +276,7 @@ if __name__ == '__main__':
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--model-tag', required=True)
     parser.add_argument('--deterministic-profile', action='store_true')
+    parser.add_argument('--form', choices=('pilot-a', 'composed-a'), default='pilot-a')
     args = parser.parse_args()
     run(args.openclaw, args.ollama, args.model_store, args.model_tag, args.report,
-        deterministic_profile=args.deterministic_profile)
+        deterministic_profile=args.deterministic_profile, form_id=args.form)

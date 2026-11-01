@@ -62,9 +62,11 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.startup = FakeStartup(self.home)
         self.entered = threading.Event()
         self.release = threading.Event()
+        self.selected_form = None
         self.storage_status = self.persistent_storage
 
-        def runner(home, *, on_phase, on_progress):
+        def runner(home, *, form_id, on_phase, on_progress):
+            self.selected_form = form_id
             on_phase('practice')
             on_progress({'phase': 'practice', 'stage': 'turn-finished', 'turn': 2,
                          'total': 12, 'state': 'ACTIVE', 'agent_text': 'must never be exposed'})
@@ -106,6 +108,7 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.wait_finished()
         status = self.controller.snapshot()
         self.assertEqual(status['phase'], 'completed')
+        self.assertEqual(self.selected_form, 'composed-a')
         self.assertEqual(status['progress'], {'phase': 'campaign', 'stage': 'turn-start',
                                               'turn': 1, 'total': 4, 'saved_evaluation_count': 2,
                                               'audit_status': 'pending'})
