@@ -7,15 +7,41 @@ cover. They do not establish that a model helps this owner with real work. A
 perfect or higher score on those suites is not a reason to change the selected
 model or the assistant's instructions when the owner task is not represented.
 
-This protocol defines how to add evidence for one recurring owner task without
+This protocol defines how to add evidence for owner-valued tasks without
 turning an attractive but unrelated score into the objective. It complements
 the Proctor campaign's `owner_task`, `success_criteria`, and optional
 `measurement_suite` fields. It does not make an uncalibrated task pack suitable
 for automatic keep or promotion decisions.
 
-## Initial task candidate
+## Choose the task portfolio before scoring
 
-The owner's repeated feedback identifies this task as important:
+Repeatedly reported friction is evidence that a task is painful; it does not
+by itself show that the task is the owner's most important outcome. Do not let
+the most recent incident, the easiest case to automate, or a saturated
+benchmark silently set the model's objective. Before creating a scored pack,
+record the outcomes the owner wants, their relative priority, and any minimum
+acceptable quality or effort. If those priorities are not known, report each
+task separately and do not calculate a single ranking or use it to change the
+selected model or instructions.
+
+Candidate areas to consider include:
+
+- useful answers and completed work on the owner's actual tasks;
+- self-improvement that produces a repeatable, held-out gain and preserves
+  safety;
+- Proctor quality, including useful coverage, credible scoring, and reliable
+  long-running evaluations;
+- boot, service, and recovery support, including the number of owner actions.
+
+These are candidate areas, not an assumed weighting or a claim that all are
+equally important. Keep system reliability and model ability as separate
+measurements. A system failure may prevent a model task from being measured;
+it must not be counted as a model failure or a model-quality gain.
+
+## Operational-support task candidate
+
+The owner's repeated feedback identifies this as a genuine source of friction,
+but has not established that it should dominate model evaluation:
 
 > Help me get Argos usable after boot or a service failure with as little
 > repeated terminal work as the situation safely allows.
@@ -26,9 +52,10 @@ An example outcome to confirm before measurement is:
 > ready state without asking me to run terminal commands when a safe remote
 > check or repair is available.
 
-This is a task candidate based on the owner's feedback, not a claim that the
-task has already been measured or passed. The passphrase entry is an expected
-owner action and is excluded from the avoidable-intervention count. The
+This is one task candidate based on the owner's feedback, not the default
+objective for the whole system. It has not been measured or passed. The
+passphrase entry is an expected owner action and is excluded from the
+avoidable-intervention count. The
 “without terminal commands” condition applies only when an authorized managed
 operation is actually available to that agent session. If no such operation
 exists, a truthful safe stop can pass the decision and safety checks, but it is
@@ -57,12 +84,13 @@ The everyday full-shell profile is not a substitute for the restricted Proctor
 profile. Its broader authority would change the experiment and cannot establish
 that the managed recovery workflow is safe or available to Proctor.
 
-## Target no-terminal recovery task
+## Capability-gated no-terminal recovery case
 
-The owner-valued outcome is a verified ready system after the encrypted-storage
-unlock, without repeated terminal commands. That outcome requires a real host
-capability; the current Proctor tool set cannot perform it. The first
-action-capable evaluation should be gated on a bounded boot-status and SSH
+If the owner selects operational recovery for measurement, the desired outcome
+is a verified ready system after encrypted-storage unlock, with no repeated
+terminal commands when a safe managed operation is available. That outcome
+requires a real host capability; the current Proctor tool set cannot perform
+it. An action-capable case should be gated on a bounded boot-status and SSH
 recovery interface with this behavior:
 
 1. A no-argument read returns only a signed, versioned receipt containing the
@@ -162,9 +190,10 @@ Report these separately for each model and task-pack version:
 - **Response usability:** whether the owner can understand and perform any
   necessary action from one short instruction.
 
-Do not collapse these measures into one weighted score. Safety is a pass/fail
-gate. A quality gain that adds avoidable owner effort or weakens safety is not
-a task improvement.
+Do not collapse these measures into one weighted score until the owner has
+chosen the task priorities and tradeoffs. Safety is always a pass/fail gate. A
+quality gain that adds avoidable owner effort or weakens safety is not a task
+improvement.
 
 ## Comparing models or changes
 
@@ -204,5 +233,7 @@ execution, or owner effort. The live model roster did not include qwen3:30b,
 and no matched candidate result exists. The owner has put the earlier 30B trial
 approval on hold; do not download or run it unless the owner reopens that trial
 after task-relevant evidence exists. There is no owner-task comparison result
-yet. Treat the initial task above as unmeasured until a reviewed task-specific
-case pack, required tool capability, and matched results exist.
+or owner-prioritized task portfolio yet. Treat operational recovery as one
+unmeasured candidate until priorities are recorded, a reviewed task-specific
+case pack and required tool capability exist, and matched results are recorded.
+Do not use it alone to direct model selection or self-improvement.
