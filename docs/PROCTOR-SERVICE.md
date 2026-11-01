@@ -98,11 +98,13 @@ the owner has decided measures that task. The dashboard offers the same choice;
 other suite and rejects comparisons and instruction changes without the
 owner-selected suite. With no suite selected, it permits inspection and audit,
 then reports `task-not-measured` without allowing score-driven changes. Proctor
-practice remains a separate coaching check. Host admission owns one workload
-reservation at a time, and the controller saves evaluations even if the
-campaign agent turn ends. Practice scores never count as evidence that an
-ability improved. The campaign follows the installed Argos improvement skill
-for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
+practice remains a separate coaching check. The dashboard may show Argos's
+bounded final report as an unverified suggestion for missing task checks; it is
+not evaluation evidence and does not create or select a suite. Host admission
+owns one workload reservation at a time, and the controller saves evaluations
+even if the campaign agent turn ends. Practice scores never count as evidence
+that an ability improved. The campaign follows the installed Argos improvement
+skill for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
 There is no automatic progression from quick to standard or challenge when a
 score is saturated. A diagnostic suite is selected only when its tasks match the
 owner's stated goal; scores remain separate by suite and cannot be compared

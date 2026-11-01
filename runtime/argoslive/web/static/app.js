@@ -4631,6 +4631,8 @@ function renderProctorCampaignResult(result) {
   if (campaign.outcome) parts.push(`Campaign: ${campaign.outcome} · audit ${campaign.audit_status || 'not verified'} · ${campaign.controller_turns ?? '?'} turns`);
   if (ids.length) parts.push(`Saved evaluation IDs: ${ids.join(', ')}`);
   if (missing.length) parts.push(`Evidence still missing: ${missing.join('; ')}`);
+  if (campaign.outcome === 'task-not-measured' && typeof campaign.agent_report === 'string' && campaign.agent_report)
+    parts.push(`Argos's suggested task checks (unverified): ${campaign.agent_report}`);
   node.textContent = parts.join('\n') || 'No saved result details were returned.';
   node.hidden = false;
 }

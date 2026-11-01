@@ -101,6 +101,14 @@ class Controller:
         if not isinstance(value, dict):
             return None
         campaign = value.get('campaign') if isinstance(value.get('campaign'), dict) else {}
+        report_parts = []
+        payloads = campaign.get('agent_summary')
+        if isinstance(payloads, list):
+            for payload in payloads[:8]:
+                text = payload.get('text') if isinstance(payload, dict) else payload
+                if isinstance(text, str) and text.strip():
+                    report_parts.append(' '.join(text.split()))
+        agent_report = '\n'.join(report_parts)[:1600] or None
         ids = campaign.get('saved_evaluation_ids', [])
         if not isinstance(ids, list):
             ids = []
@@ -142,6 +150,7 @@ class Controller:
                 'controller_turns': campaign.get('controller_turns'),
                 'missing': missing,
                 'saved_evaluation_ids': ids,
+                'agent_report': agent_report,
             },
             'failure_code': failure_code,
             'failure_stage': failure_stage,
