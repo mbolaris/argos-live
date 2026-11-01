@@ -600,7 +600,7 @@
         <textarea id="proctor-owner-task" maxlength="1200" rows="3">Help me get Argos usable after boot or a service failure with as little repeated terminal work as the situation safely allows.</textarea>
         <label for="proctor-success-criteria">What counts as success?</label>
         <textarea id="proctor-success-criteria" maxlength="1200" rows="2">After I unlock encrypted storage, Argos reaches a verified ready state using available managed tools. Ask me to act locally only when no safe managed path exists, and ask once for the shortest necessary step.</textarea>
-          <label for="proctor-measurement-suite">Which existing suite directly measures this task?</label>
+          <label for="proctor-measurement-suite">Optional fixed suite (leave at None unless it directly measures this task)</label>
           <select id="proctor-measurement-suite">
             <option value="">None fits / not sure — do not use benchmark scores</option>
             <option value="quick">Quick — 20 synthetic arithmetic, choice, instruction, JSON, and tool-call items</option>
@@ -610,7 +610,7 @@
             <option value="tool-plan">Tool plan — 40 synthetic multi-constraint tool selection items</option>
             <option value="tool-sequence">Tool sequence — 40 synthetic ordered call-planning items; calls are not executed</option>
           </select>
-          <p>These fixed tasks are bundled with Argos. Choose one only if its actual tasks directly test the task above. The host enforces your selection. With “None fits,” Argos will inspect and report what task-specific evaluation is missing without changing instructions or using quiz scores.</p>
+          <p>These fixed tasks are bundled with Argos. Leave this at None unless its exact tasks directly test the recurring goal above. With “None fits,” Argos will inspect and report what task-specific evaluation is missing without changing instructions or using quiz scores.</p>
         <div class="proctor-campaign-actions">
           <button id="proctor-campaign-start" type="button">Start task-focused campaign</button>
           <button id="proctor-campaign-recover" type="button" hidden>Retry Argos recovery</button>
