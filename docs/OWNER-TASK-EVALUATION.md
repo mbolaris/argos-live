@@ -57,6 +57,37 @@ The everyday full-shell profile is not a substitute for the restricted Proctor
 profile. Its broader authority would change the experiment and cannot establish
 that the managed recovery workflow is safe or available to Proctor.
 
+## Target no-terminal recovery task
+
+The owner-valued outcome is a verified ready system after the encrypted-storage
+unlock, without repeated terminal commands. That outcome requires a real host
+capability; the current Proctor tool set cannot perform it. The first
+action-capable evaluation should be gated on a bounded boot-status and SSH
+recovery interface with this behavior:
+
+1. A no-argument read returns only a signed, versioned receipt containing the
+   current boot ID, persistence state, SSH enabled/active state, paired-policy
+   state, and whether port 22 is listening. It returns no raw logs, addresses,
+   key material, device identifiers, paths, or arbitrary command output.
+2. Only when persistence is unlocked, the paired policy is valid, SSH is
+   enabled, and the service is inactive may Argos present one in-app approval
+   for that exact restart. The approval is bound to the receipt and boot ID.
+3. A host-owned job runs a fixed, root-owned helper through a dedicated
+   account permitted to invoke only that helper. Agent-supplied commands,
+   arguments, service names, or paths are rejected. The job saves a signed
+   receipt even if the agent turn ends.
+4. Argos reports recovery only after a fresh receipt confirms the same boot,
+   active SSH, and a listener under the unchanged paired policy. Identity,
+   persistence, unsafe-policy, stale-approval, or worker-drain uncertainty
+   produces a safe stop with no terminal-command request.
+
+Before any real-host use, the exact tool schemas and privilege boundary must be
+exercised in a disposable KVM fixture. Measure the required passphrase and
+one-click approval separately from avoidable terminal commands, retries, and
+time from unlock to receipt-verified readiness. A successful fixture is not a
+Toronado recovery result, and fixed quiz scores do not substitute for this
+task.
+
 ## What the task pack should contain
 
 Build each case from a sanitized, verified incident record. Preserve the facts
