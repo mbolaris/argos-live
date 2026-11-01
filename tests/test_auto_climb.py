@@ -783,9 +783,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                 time.sleep(0.05)
 
             snap = controller.snapshot()
-            # Since only 1 candidate was tried, stop reason is options-exhausted, NOT plateau!
+            # One non-improving practice candidate is options-exhausted, not a plateau.
             self.assertEqual(snap['phase'], 'options-exhausted')
-            self.assertIn('Options exhausted within approved session', snap['stopping_reason'])
+            self.assertIn('Practice options exhausted', snap['stopping_reason'])
         finally:
             controller.close()
 
@@ -1333,8 +1333,8 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
-    def test_model_upgrade_undo_restores_initial_model(self):
-        """Model Undo restores the initial model and updates active_model."""
+    def test_model_candidate_from_synthetic_gain_is_restored(self):
+        """A synthetic-suite model gain does not replace the selected production model."""
         clock = ControllableClock()
         switched = []
         restored = []
@@ -1401,13 +1401,12 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                 time.sleep(0.05)
 
             snap = controller.snapshot()
-            self.assertEqual(snap['active_model']['model'], 'qwen3:4b-instruct-2507-q4_K_M')
-            self.assertTrue(snap['can_undo'])
-
-            undo_snap = controller.undo()
-            self.assertEqual(undo_snap['phase'], 'stopped')
-            self.assertEqual(undo_snap['active_model']['model'], 'test-model')
+            self.assertEqual(snap['active_model']['model'], 'test-model')
+            self.assertEqual(snap['history'][0]['verdict'], 'practice-only')
+            self.assertFalse(snap['can_undo'])
             self.assertTrue(len(restored) > 0)
+            with self.assertRaises(auto_climb.Refused):
+                controller.undo()
         finally:
             controller.close()
 
