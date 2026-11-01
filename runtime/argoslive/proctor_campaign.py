@@ -23,6 +23,25 @@ MESSAGES = {
 }
 
 
+def safe_failure_code(error, stage):
+    """Return a bounded diagnostic token without exposing exception text or paths."""
+    if stage not in {'pausing', 'practice', 'campaign'}:
+        stage = 'campaign'
+    if isinstance(error, TimeoutError):
+        cause = 'timeout'
+    elif isinstance(error, PermissionError):
+        cause = 'permission-denied'
+    elif isinstance(error, FileNotFoundError):
+        cause = 'component-missing'
+    elif isinstance(error, OSError):
+        cause = 'host-io-error'
+    elif isinstance(error, (ValueError, KeyError, TypeError)):
+        cause = 'invalid-state'
+    else:
+        cause = 'internal-error'
+    return f'{stage}-{cause}'
+
+
 class Controller:
     """Reserve shared assistant resources until Proctor is finished and Argos is verified again."""
 
@@ -44,6 +63,7 @@ class Controller:
         self.result = None
         self.progress = None
         self.failure_code = None
+        self.failure_stage = None
         self.recovery_target_phase = None
         self.storage_checked_at = None
         self.storage_is_safe = False
@@ -64,6 +84,18 @@ class Controller:
         if not isinstance(missing, list):
             missing = []
         missing = [item for item in missing[:16] if isinstance(item, str) and len(item) <= 240]
+        failure_code = value.get('failure_code')
+        allowed_failure_codes = {
+            f'{stage}-{cause}'
+            for stage in ('pausing', 'practice', 'campaign')
+            for cause in ('timeout', 'permission-denied', 'component-missing',
+                          'host-io-error', 'invalid-state', 'internal-error')
+        }
+        if failure_code not in allowed_failure_codes:
+            failure_code = None
+        failure_stage = value.get('failure_stage')
+        if failure_stage not in {'pausing', 'practice', 'campaign'}:
+            failure_stage = None
         return {
             'status': value.get('status') if value.get('status') in {'completed', 'incomplete'} else 'incomplete',
             'practice': {
@@ -83,13 +115,16 @@ class Controller:
                 'missing': missing,
                 'saved_evaluation_ids': ids,
             },
+            'failure_code': failure_code,
+            'failure_stage': failure_stage,
         }
 
     def snapshot(self):
         with self.lock:
             active = self.worker is not None and self.worker.is_alive()
-            phase, result, progress, failure_code = (self.phase, copy.deepcopy(self.result),
-                                                       copy.deepcopy(self.progress), self.failure_code)
+            phase, result, progress, failure_code, failure_stage = (self.phase, copy.deepcopy(self.result),
+                                                                   copy.deepcopy(self.progress), self.failure_code,
+                                                                   self.failure_stage)
             started, finished, model, closed = self.started, self.finished, self.model, self.closed
         try:
             assistant = self.startup.snapshot()
@@ -119,11 +154,15 @@ class Controller:
                 message = MESSAGES['idle']
         elif phase == 'idle':
             message = 'Ready. Starting pauses everyday chat; Argos resumes after the model reply is verified.'
+        if phase == 'failed' and failure_code:
+            stage = failure_stage or 'campaign'
+            message = f'Proctor {stage} stopped ({failure_code}); Argos is back at its verified model.'
         return {
             'available': True, 'active': active, 'phase': phase, 'message': message,
             'can_start': can_start, 'can_recover': can_recover,
             'elapsed_seconds': elapsed, 'model': model,
-            'failure_code': failure_code, 'result': result, 'progress': progress,
+            'failure_code': failure_code, 'failure_stage': failure_stage,
+            'result': result, 'progress': progress,
             'assistant_phase': assistant.get('phase'), 'assistant_ready': assistant.get('phase') == 'ready',
             'storage_confirmed': storage_confirmed,
         }
@@ -146,6 +185,7 @@ class Controller:
             self.result = None
             self.progress = {'phase': 'practice', 'stage': 'starting'}
             self.failure_code = None
+            self.failure_stage = None
             self.recovery_target_phase = None
             self.started = self.clock()
             self.finished = None
@@ -191,6 +231,7 @@ class Controller:
                 raise Refused('No supported assistant recovery retry is pending.')
             self.phase = 'restarting'
             self.failure_code = None
+            self.failure_stage = None
             self.worker = threading.Thread(target=self._retry_recovery, daemon=True,
                                            name='argos-proctor-recovery')
             self.worker.start()
@@ -299,11 +340,14 @@ class Controller:
             public_result = self._public_result(result)
             with self.lock:
                 self.result = public_result
+                if public_result:
+                    self.failure_code = public_result.get('failure_code')
+                    self.failure_stage = public_result.get('failure_stage')
             outcome_phase = 'completed' if public_result and public_result['status'] == 'completed' else 'incomplete'
         except Exception as error:
             with self.lock:
-                self.failure_code = ('storage-or-service-failed' if isinstance(error, OSError) else
-                                     'proctor-run-failed')
+                self.failure_stage = self.phase if self.phase in {'pausing', 'practice', 'campaign'} else 'campaign'
+                self.failure_code = safe_failure_code(error, self.failure_stage)
         finally:
             with self.lock:
                 self.phase = 'restarting'
