@@ -216,14 +216,14 @@
               </div>
               <span id="auto-climb-badge" class="auto-climb-badge">Ready</span>
             </div>
-            <p id="auto-climb-message" class="auto-climb-message">Find my AI’s level → try the best eligible model for this machine → climb again → improve its configuration → stop with an understandable result.</p>
+            <p id="auto-climb-message" class="auto-climb-message">Practice short document answers and try reversible instruction changes. Results describe this task suite only; model fit alone does not justify a model change.</p>
 
             <!-- Start View -->
             <div id="auto-climb-start-view" class="auto-climb-panel">
               <div class="auto-climb-envelope-summary">
                 <span class="envelope-item"><strong>Duration:</strong> 60m budget</span>
                 <span class="envelope-item"><strong>Experiments:</strong> ≤6 completed</span>
-                <span class="envelope-item"><strong>Downloads:</strong> ≤1 model (≤8 GiB)</span>
+                <span class="envelope-item"><strong>Model downloads:</strong> off by default</span>
               </div>
               <div class="auto-climb-start-actions">
                 <button id="auto-climb-start-btn" type="button" class="auto-climb-primary">Start Auto Climb <span aria-hidden="true">▶</span></button>
@@ -232,7 +232,8 @@
                 <summary>Session limits &amp; safety rules</summary>
                 <ul class="auto-climb-rules-list">
                   <li>Each experiment has a 30-second preview with Try now, Skip, Pause, and Stop.</li>
-                  <li>Candidate improvements are tested on practice challenges and confirmed by independent held-out validation.</li>
+                  <li>Instruction changes are tested on short document-answer tasks and separate held-out examples; results do not establish general ability.</li>
+                  <li>Model fit alone never proposes an upgrade. A model trial needs a separately defined owner task and evidence that model capability is the limiting factor.</li>
                   <li>Improvements are kept automatically; non-improving changes are restored byte-for-byte.</li>
                   <li>Stops honestly at measured plateau (3 attempts without gain) or budget exhaustion.</li>
                 </ul>

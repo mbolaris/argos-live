@@ -6,11 +6,11 @@ This supersedes the original handoff's proposed defaults where clarified below.
 
 ## Experience
 
-One **Start Auto Climb** button after boot: assess the AI, try an eligible better model,
-reassess, improve its configuration and continue until a scoped plateau or budget limit.
-Shared supported foundations first, specialization later. The agent plays; the owner
-watches and coaches. Keep Open chat separate from Start. Do not use “Ready to prove I
-can do better.” Model fit is an estimate, not proof of quality.
+Auto Climb currently practices short document-answering tasks and tests reversible
+instruction changes in that domain. Its scores describe those tasks only; they do not
+measure general ability or establish that a model is better for the owner. Keep Open
+chat separate from Start. Do not use “Ready to prove I can do better.” Model fit is an
+estimate, not proof of quality, and does not trigger model selection or downloads.
 
 Before each experiment show what changes, why, cost and checks, with a **30-second
 countdown**, Try now, Skip this idea, Pause and Stop. Silence permits execution only
@@ -49,9 +49,11 @@ restore instead of being overwritten. Failed/unknown cleanup stays blocked with 
 
 ## Budget/stopping policy v1
 
-Defaults to validate: 60 minutes active time, six attempted experiments, one new download
-attempt, 8 GiB transferred new bytes, no permission expansion. Strictly validate supported
-values before approval; unsupported/invalid limits fail before work. Settings stay secondary.
+Defaults to validate: 60 minutes active time, six attempted experiments, no model downloads,
+and no permission expansion. A model trial requires a separately scoped owner task, evidence
+that model capability is the limiting factor, and an explicitly approved download budget.
+Strictly validate supported values before approval; unsupported/invalid limits fail before
+work. Settings stay secondary.
 
 Reserve an experiment slot durably immediately before acquisition/staging; failed, cancelled
 and blocked attempts consume it. Skip before commitment does not. Count partial/failed
@@ -116,10 +118,10 @@ or independent validation.
 
 ## Models and later adapters
 
-Use a small reviewed catalog and actual tested-context memory overhead. Filter all eligible
-candidates for fit, availability, storage and budget before ranking. Unknown fit is not
-automatic eligibility. Larger weights do not establish usefulness. One explained suggestion,
-at most three alternatives, with the working fallback preserved.
+Model trials are not part of the default Auto Climb. Before a scoped model trial, filter
+curated candidates for fit, availability, storage and approved budget. Unknown fit is not
+eligibility, and larger weights do not establish usefulness. Compare on the selected owner
+task, with the working fallback preserved.
 
 Downloads require a confirmed eligible store. Otherwise assess and offer one Choose model
 storage action. No silent internal-disk choice, adoption, formatting, moving or deletion.
