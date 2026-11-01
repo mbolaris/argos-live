@@ -23,8 +23,10 @@ Tool availability is not proof that a model uses those tools successfully.
 Fresh setup also sets OpenClaw's supported `skipBootstrap: true`: it loads the
 installed guide without generating the generic first-run identity interview.
 
-Argos Live installs this text as `AGENTS.md` only in a fresh workspace. Existing
-owner files are reused without replacement. The bundled plugin also provides
+Argos Live installs this text as `AGENTS.md` in a fresh workspace. Existing
+owner files are preserved; a one-time migration updates only Toronado's exact
+recognized legacy guide, after snapshotting it, and preserves all other content.
+Unrecognized or edited guides are left alone. The bundled plugin also provides
 host-managed, reversible edits to the canonical workspace `AGENTS.md`. It does
 not change model settings or grant new tools.
 
