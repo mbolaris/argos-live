@@ -4641,6 +4641,10 @@ function renderProctorCampaignResult(result) {
   const ids = Array.isArray(campaign.saved_evaluation_ids) ? campaign.saved_evaluation_ids : [];
   const missing = Array.isArray(campaign.missing) ? campaign.missing : [];
   const parts = [];
+  if (typeof result.owner_task === 'string' && result.owner_task)
+    parts.push(`Task: ${result.owner_task}`);
+  if (typeof result.success_criteria === 'string' && result.success_criteria)
+    parts.push(`Success measure: ${result.success_criteria}`);
   if (result.failure_code) {
     const stage = ['pausing', 'practice', 'campaign'].includes(result.failure_stage)
       ? result.failure_stage : 'campaign';

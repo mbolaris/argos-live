@@ -745,7 +745,8 @@ def run_improvement(home, *, owner_task, success_criteria, executable=None, open
         # Report only a bounded error code. Exception text can contain paths,
         # subprocess output, or other private details.
         from .proctor_campaign import safe_failure_code
-        return {'status': 'incomplete',
+        return {'status': 'incomplete', 'owner_task': owner_task,
+                'success_criteria': success_criteria,
                 'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
                              'audit_status': None, 'controller_turns': 0,
                              'missing': ['campaign evidence ledger was not returned'],
@@ -753,6 +754,7 @@ def run_improvement(home, *, owner_task, success_criteria, executable=None, open
                 'failure_code': safe_failure_code(error, 'campaign'),
                 'failure_stage': 'campaign'}
     return {'status': 'completed' if campaign.get('status') == 'completed' else 'incomplete',
+            'owner_task': owner_task, 'success_criteria': success_criteria,
             'campaign': campaign,
             'failure_code': None, 'failure_stage': None}
 

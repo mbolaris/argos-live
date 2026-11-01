@@ -108,8 +108,16 @@ class Controller:
         failure_stage = value.get('failure_stage')
         if failure_stage not in {'pausing', 'practice', 'campaign'}:
             failure_stage = None
+        owner_task = value.get('owner_task')
+        if not isinstance(owner_task, str) or len(owner_task) > 1200:
+            owner_task = None
+        success_criteria = value.get('success_criteria')
+        if not isinstance(success_criteria, str) or len(success_criteria) > 1200:
+            success_criteria = None
         return {
             'status': value.get('status') if value.get('status') in {'completed', 'incomplete'} else 'incomplete',
+            'owner_task': owner_task,
+            'success_criteria': success_criteria,
             'campaign': {
                 'status': campaign.get('status'),
                 'outcome': campaign.get('outcome'),
