@@ -35,15 +35,15 @@ Continue authorized reversible steps without asking at each step.
 ## 2. Measure one change at a time
 
 First state the owner task, its success measure, and what evidence would be
-relevant. In a Proctor campaign, the owner must select one fixed evaluation
-suite (`quick`, `standard`, `challenge`, `tool-schema`, `tool-plan`, or
-`tool-sequence`) for the task. Use only that suite. The host rejects other
-suites and comparisons or instruction changes without the selected suite. If
-the owner selects none, inspect and audit, then report `task-not-measured`
-without evaluating, comparing, adopting, editing, or keeping instruction
-changes. Ask what task-specific examples or checks are missing. Raw-model
-`argos bench ability` measures a model, not your workspace instructions, and
-cannot establish an assistant gain.
+relevant. Use a fixed evaluation suite (`quick`, `standard`, `challenge`,
+`tool-schema`, `tool-plan`, or `tool-sequence`) only when its exact tasks
+directly measure behavior needed for the owner task. Use only that suite; the
+host rejects other suites. If no suite fits, do not steer the owner toward a
+generic score, and do not evaluate, compare, adopt, edit, or keep instructions
+from unrelated scores. Inspect and audit, then report `task-not-measured` with
+the specific task examples or checks needed. Raw-model `argos bench ability`
+measures a model, not your workspace instructions, and cannot establish an
+assistant gain.
 
 Only when a relevant suite exists and a testable change is justified, get a
 matched baseline, choose one hypothesis, snapshot, change one thing, evaluate,

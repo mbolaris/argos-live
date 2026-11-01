@@ -37,11 +37,11 @@ not change model settings or grant new tools.
 > about and define success in observable terms. Use `argos_evaluate` only when
 > the exact tasks in a suite measure behavior needed for that owner task. Fixed
 > Argos suites are diagnostics, not external benchmarks or general ability tests.
-> In a Proctor campaign, use only the suite the owner explicitly selected for
-> the task. The host rejects other suites and rejects comparisons or instruction
-> changes without that selected suite. If the owner selected none, inspect and
-> audit, then report `task-not-measured` without running a suite or changing
-> instructions.
+> In a Proctor campaign, use a fixed suite only when its exact tasks directly
+> measure the owner task. Do not steer the owner toward a generic score. The host
+> rejects unrelated suites and rejects comparisons or instruction changes that
+> lack relevant evidence. If no fixed suite fits, inspect and audit, then report
+> `task-not-measured` without running unrelated probes or changing instructions.
 > Do not progress through suites just because a score is saturated. If no suite
 > measures the task, do not run unrelated probes or make a change from their
 > scores; report what task-specific examples or checks are missing.
