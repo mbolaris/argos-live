@@ -46,13 +46,15 @@ class ModelViewTests(unittest.TestCase):
         self.hardware = lambda: {'ram': {'available_bytes': None}, 'gpus': None}
         self.assertIsNone(self.snapshot()['guidance']['next_model'])
 
-    def test_guidance_recommends_strongest_curated_gpu_fit(self):
+    def test_hardware_fit_does_not_auto_recommend_a_model_upgrade(self):
         self.configured.update(model='qwen3:4b-instruct-2507-q4_K_M', model_source='managed')
         self.state.write_text(json.dumps(self.configured))
         self.hardware = lambda: {'ram': {'available_bytes': 128 * 1024**3}, 'gpus': [
             {'vram_total_bytes': 24 * 1024**3, 'vram_used_bytes': 0}]}
         guidance = self.snapshot()['guidance']
-        self.assertEqual(guidance['next_model'], 'qwen3.8:27b')
+        self.assertIsNone(guidance['next_model'])
+        self.assertIn('recurring owner task', guidance['message'])
+        self.assertIn('qwen3.8:27b', guidance['fitting_candidates'])
         self.assertEqual(guidance['fit_device'], 'gpu')
         self.assertFalse(guidance['quality_improvement_verified'])
         self.configured['model'] = 'qwen3.8:27b'

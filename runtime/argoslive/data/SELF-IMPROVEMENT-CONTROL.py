@@ -2,8 +2,8 @@
 """Self-upgrade controls for the Argos agent, using the dashboard's own supported endpoints.
 
   argos-control.py status            startup, model download and storage state (JSON)
-  argos-control.py upgrades          reviewed tool-capable models: exact tag, size, fit on this GPU, installed;
-                                     "next" names the model to try. Use its tag exactly.
+  argos-control.py upgrades          reviewed tool-capable models: exact tag, size, estimated fit, installed;
+                                     "next" states the evidence needed before a model trial.
   argos-control.py download TAG      verified download of a reviewed catalog model; follows it to the end.
                                      It restarts the assistant (ending your turn) unless TAG is already installed.
   argos-control.py restart           stop and start the assistant (Ollama + OpenClaw gateway)
@@ -85,14 +85,9 @@ def upgrades():
                      'needs_gb': round(need / 2**30, 1), 'fits': need <= vram, 'installed': entry['tag'] in installed,
                      'current': entry['tag'] == current})
     rows.sort(key=lambda row: -row['billion_params'])
-    size = {row['tag']: row['billion_params'] for row in rows}
-    better = [row for row in rows if row['fits'] and row['family'] in first_model.GENERAL_FAMILIES
-              and row['billion_params'] > size.get(current, 0)]
-    if better:
-        nxt = 'Try ' + better[0]['tag'] + ': ' + ('printf "yes\n" | argos select-model --model ' if better[0]['installed']
-                                                 else 'python3 tools/argos-control.py download ') + better[0]['tag']
-    else:
-        nxt = 'No larger general model fits; tune configuration and instructions instead (MoE such as qwen3:30b only if it fits and you want to test it).'
+    nxt = ('Hardware fit is not a quality recommendation. First name a recurring owner task, '
+           'define its success measure, and collect a matched baseline. Consider a model trial '
+           'only if repeated task evidence points to a model capability gap.')
     return {'gpu_vram_gb': round(vram / 2**30, 1), 'current': current, 'next': nxt,
             'fitting_models': ['{tag} {billion_params}B needs {needs_gb}GB{i}{c}'.format(
                 **row, i=' installed' if row['installed'] else '', c=' CURRENT' if row['current'] else '')

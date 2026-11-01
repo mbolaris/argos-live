@@ -221,6 +221,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             self.assertIsNotNone(controller.runner)
             self.assertIsInstance(controller.runner, assistant_trial.OpenClawRunner)
             self.assertEqual(controller.runner.home, self.home)
+            self.assertIsNone(controller.model_recommender)
         finally:
             controller.close()
 

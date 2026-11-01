@@ -292,10 +292,8 @@ async function refreshModels() {
         }
       }
       if (curatedEl && isCurated && model.downloadable !== false) {
-        const isRecommended = result.guidance?.next_model === model.tag;
-        const title = `${model.curated_label || model.role}: ${model.tag}` + (isRecommended ? ' ★ Recommended upgrade' : '');
+        const title = `${model.curated_label || model.role}: ${model.tag}`;
         card(curatedEl, title,
-          (isRecommended ? 'Recommended candidate for your machine. ' : '') +
           `${model.rationale || model.description} · ${model.parameter_label} · ${model.quantization} · ` +
           `${gib(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · ` +
           `${model.context_tokens.toLocaleString()} context · CPU: ${model.cpu_fit.status} · GPU: ${model.gpu_fit.status} (estimates)`);

@@ -15,7 +15,9 @@ Before following the last `## Next`, reconcile it with host-saved receipts using
 and configuration. A missing log line does not mean a completed evaluation was
 lost. If matching saved results already satisfy a step, do not repeat it: append
 the verified run IDs and scores with `argos_log`, then advance `## Next`. Create
-the log if missing. Aim for the best measured setup this machine supports.
+the log if missing. Aim to improve useful owner task outcomes, including
+reliability and the amount of manual work required. A benchmark score is a
+diagnostic signal, not the objective.
 
 Append one entry per step with `argos_log` (one `text` field), under ten lines: hypothesis, change, snapshot,
 before/after saved run IDs, scores, elapsed time, decision, and a complete
@@ -177,28 +179,38 @@ free-form log or establish independent transfer; state those limits plainly.
 
 ## 3. Improvement order and authority
 
-Prefer a stronger fitting controller, honoring any owner selection. Do not switch on a single 1–3-point standard
-suite gap; an alternative needs a clear repeated matched advantage and reliable
-tool use and truthful records.
+Before choosing a change, write down: (1) the recurring owner task, (2) what a
+successful result looks like to the owner, (3) the baseline and its evidence,
+and (4) what outcome would count as a worthwhile improvement. Include owner
+time or manual steps when those matter. If no real task and success measure are
+available, do not optimize a synthetic score or change models; report that the
+current probes cannot answer the owner's question.
 
-**A. Model first.** Inspect `argos hw --json`, `argos catalog --json`,
-`argos storage --json`, then `python3 tools/argos-control.py upgrades`. Use exact
-reviewed tags and the returned `next` command, never guessed names. Fit includes
-weights, 32k KV cache and 2 GB headroom. Prefer a stronger fitting dense model;
-try the barely fitting qwen3:30b MoE only if the dense candidate disappoints.
+Use benchmark suites to diagnose a specific skill only when their prompts and
+scorers specify the behavior being measured. Inspect each miss. If wording,
+units, accepted alternatives, provenance, or scorer assumptions are ambiguous,
+classify the item as a measurement limitation; do not use it to justify an
+instruction or model change. Bundled held-out items are internal probes, not
+independent validation. Proctor practice forms marked `uncalibrated` are
+coaching only and do not verify general ability.
 
-The campaign controller may download via
-`python3 tools/argos-control.py download <tag>`. Write `## Next` first. After
-resuming, rerun `upgrades` and check `installed`/`next`; do not assume failure.
-Inspect a failed job's `error_detail` in `~/.config/argos-live/pull-jobs/`. Retry
-only after its cause is gone; the same error twice is a blocker to log/report,
-then pursue another authorized lever.
+Choose the smallest reversible intervention that plausibly addresses the
+observed task gap. Prefer workflow, tool reliability, configuration, or a
+targeted instruction/skill change when evidence points there. Treat a model
+change as a hypothesis, never the default next step. A hardware fit estimate,
+parameter count, or leaderboard position is not evidence of a task benefit.
 
-Select installed weights with `printf 'yes\n' | argos select-model --model <tag>`.
-Switches between downloaded models hot-apply; leaving bundled qwen3:0.6b needs
-the Argos restart below. Verify actual selected/configured model and
-`curl -s http://127.0.0.1:11434/api/ps`; a GPU upgrade is fully in VRAM only when
-`size_vram` equals `size`. Then evaluate. Keep prior weights until a confirmed gain.
+**A. Model trials.** Consider another model only after the same owner-valued
+task fails repeatedly, non-model causes have been checked, and a model
+capability limitation is plausible. Record the hypothesis and expected task
+outcome before any download. Use exact reviewed tags and inspect
+`argos hw --json`, `argos catalog --json`, and `argos storage --json` for fit,
+space, and rollback feasibility. A trial must compare the current and candidate
+on the same task, prompts, tools, configuration, and hardware, with repeated
+runs and the same success criteria. Track quality, latency, resource use, and
+manual owner steps separately. Keep the current model unless the owner task
+improves without unacceptable regressions. Do not download a model merely
+because it fits or because an Argos-authored probe has room for a higher score.
 
 **B. Configuration.** You may tune context, thinking, temperature, timeouts and
 enabled skills in `~/.openclaw/openclaw.json`. Snapshot first; validate JSON with
@@ -206,7 +218,7 @@ the pinned host and verify the effective setting. Catalog token metadata alone
 need not bound native generation. Check `config hot reload applied` in
 `~/.local/state/argos-live/gateway.log`. Never change permissions/security.
 
-**C. Instructions/skills.** Diagnose recurring task-level misses, add a short
+**C. Instructions/skills.** Diagnose recurring owner-task misses, add a short
 `## Lessons` section here or a workspace skill, and evaluate the change. Snapshot
 before every edit. Undo only your own section; do not restore an old whole guide
 over newer owner rules. Never weaken section 7 or SOUL.md honesty rules.
@@ -244,9 +256,10 @@ their evidence or bypass the startup guard.
 
 ## 6. Stop conditions
 
-Stop at a measured plateau when the strongest reviewed fitting model is selected
-(or larger candidates measured worse), three distinct recent experiments yield
-no confirmed gain, and any software upgrade found has been proposed.
+Stop when the owner-valued task outcome is measurably better, evidence is
+inconclusive after a reasonable number of trials, or the next step needs an
+owner decision. A synthetic-suite plateau or the largest fitting model is not
+proof of maximum capability.
 Stop immediately when told, or when an owner-dependent blocker leaves no
 authorized next step (money, credentials, more hardware, approval).
 

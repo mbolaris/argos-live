@@ -217,7 +217,7 @@ def load_validation_partitions(path=VALIDATION_TASKS_PATH):
 
 def recommend_hardware_model(home, *, envelope=None, budgets=None,
                              hardware_fn=hw.snapshot, catalog_data=None, excluded_candidates=()):
-    """Find the best eligible candidate model for this machine within approved budget."""
+    """Find a fitting model candidate for an explicitly justified model trial."""
     envelope = envelope or DEFAULT_ENVELOPE
     budgets = budgets or {}
     data = catalog_data if catalog_data is not None else catalog.load()
@@ -299,7 +299,9 @@ def recommend_hardware_model(home, *, envelope=None, budgets=None,
     if not eligible_candidates:
         return None
 
-    # Pick smallest viable weight upgrade among curated candidates
+    # A fit estimate is not evidence of a task-quality gain. This helper is
+    # available to an explicitly scoped model trial, but Auto Climb does not
+    # invoke it by default.
     selected_entry, installed, download_bytes = min(eligible_candidates, key=lambda item: item[0]['weight_bytes'])
 
     needs_download = not installed
@@ -322,7 +324,7 @@ def recommend_hardware_model(home, *, envelope=None, budgets=None,
         'tag': selected_entry['tag'],
         'title': f'Upgrade model to {selected_entry["tag"]}',
         'change': f'Switch assistant primary model from {current_model} to {selected_entry["tag"]}.',
-        'rationale': rationale,
+        'rationale': 'Hardware fit only; choose this candidate only after a repeated, owner-valued task gap points to model capability. ' + rationale,
         'cost': cost_str,
         'verification': '8 practice challenges + 8 independent validation challenges',
         'needs_download': needs_download,
@@ -339,7 +341,7 @@ class Controller:
     def __init__(self, startup, *, home=None, runner=None, clock=time.monotonic,
                  time_fn=time.time, sleep_fn=time.sleep, practice_path=PRACTICE_TASKS_PATH,
                  validation_path=VALIDATION_TASKS_PATH, candidates=None,
-                 model_recommender=recommend_hardware_model, model_switcher=None,
+                 model_recommender=None, model_switcher=None,
                  model_restorer=None, download_runner=None, selection=None, downloads=None):
         self.startup = startup
         self.home = Path(home or getattr(startup, 'home', Path.home()))
@@ -351,7 +353,7 @@ class Controller:
         self.validation_partitions = load_validation_partitions(validation_path)
         if candidates is not None:
             self.candidate_pool = list(candidates)
-            self.model_recommender = None if model_recommender is recommend_hardware_model else model_recommender
+            self.model_recommender = model_recommender
         else:
             self.candidate_pool = list(INSTRUCTION_CANDIDATES)
             self.model_recommender = model_recommender
@@ -1359,7 +1361,9 @@ class Controller:
                     return dict(candidate, rationale='The answers were correct, but supporting quotes were missing. '
                                 'Try the reviewed source-quote instruction before changing models.')
 
-        # Check model recommendation candidate first if available (AC3)
+        # Model changes need a task-based reason. Hardware fit by itself does
+        # not put a model into the autonomous campaign; callers must explicitly
+        # inject a recommender for a scoped and justified model trial.
         if self.model_recommender:
             envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
             budgets = self.session.get('budgets_used', {})
