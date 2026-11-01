@@ -622,9 +622,7 @@
       </article>
       <div class="improve-stats">
         <div class="improve-stat"><span>Model</span><strong id="improve-model">-</strong></div>
-        <div class="improve-stat"><span>Best score</span><strong id="improve-best">-</strong></div>
-        <div class="improve-stat"><span>Since first run</span><strong id="improve-gain">-</strong></div>
-        <div class="improve-stat"><span>Assistant runs</span><strong id="improve-count">0</strong></div>
+        <div class="improve-stat"><span>Diagnostic runs</span><strong id="improve-count">0</strong></div>
       </div>
       <article class="card improve-live" id="improve-live" hidden>
         <h3 id="improve-live-title">Live test</h3>
@@ -633,9 +631,9 @@
         <ol id="improve-live-items" class="improve-items"></ol>
       </article>
       <article class="card">
-        <h3>Score history</h3>
-        <svg id="improve-chart" class="improve-chart" viewBox="0 0 640 230" role="img" aria-label="Assistant benchmark scores over time"></svg>
-        <p id="improve-chart-note">No assistant benchmark yet.</p>
+        <h3>Diagnostic history</h3>
+        <p>Each row is one fixed probe run. Different suites or suite versions measure different things, so these scores are not a shared progress scale and do not establish owner-task performance.</p>
+        <ol id="improve-run-history" class="improve-items"></ol>
       </article>
       <article class="card">
         <h3>Agent journal</h3>

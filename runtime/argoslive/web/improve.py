@@ -22,6 +22,7 @@ def _runs(results_dir):
         summary = value.get('summary') or {}
         coverage = value.get('coverage') or {}
         rows.append({'id': value.get('id'), 'created': value.get('created'), 'suite': value.get('suite'),
+                     'suite_version': value.get('suite_version'),
                      'model': (value.get('settings') or {}).get('assistant_model') or value.get('model'),
                      'correct': summary.get('correct'), 'total': summary.get('total'),
                      'format_errors': summary.get('format_errors'), 'state': value.get('state'),
