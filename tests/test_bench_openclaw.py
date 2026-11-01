@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import ability, auto_setup, bench_openclaw, results
-from argoslive.assistant_trial import TrialTurnError
+from argoslive.assistant_trial import DEFAULT_TURN_TIMEOUT_SECONDS, TrialTurnError
 
 
 class FakeOpenClaw:
@@ -56,6 +56,8 @@ class OpenClawBenchmarkTests(unittest.TestCase):
             config = home / '.openclaw/openclaw.json'
             configure_fake(home, workspace)
             result = bench_openclaw.run(home=home, runner=FakeOpenClaw())
+            self.assertEqual(result['settings']['assistant_turn_timeout_seconds'],
+                             DEFAULT_TURN_TIMEOUT_SECONDS)
             suite_path = ability.DATA / 'quick.json'
             self.assertEqual(result['settings']['suite_sha256'], hashlib.sha256(suite_path.read_bytes()).hexdigest())
             self.assertEqual(result['prompt_fingerprint']['workspace_agents_sha256'],

@@ -12,7 +12,8 @@ import threading
 import time
 
 from . import ability, hw
-from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
+from .assistant_trial import (DEFAULT_TURN_TIMEOUT_SECONDS, OpenClawRunner,
+                              TrialTurnError, agents_path)
 from .bench_ability import summaries
 from .results import Store
 from .evaluation_context import EXECUTION_PATH, configuration_receipt, workspace_context_receipt
@@ -138,7 +139,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         'model': 'identity pending first OpenClaw turn', 'manifest_digest': None,
         'settings': {'execution_path': EXECUTION_PATH,
                      'suite_sha256': suite_digest, 'model': configuration['model'],
-                     'configured_generation': configuration['configured_generation']},
+                     'configured_generation': configuration['configured_generation'],
+                     'assistant_turn_timeout_seconds': DEFAULT_TURN_TIMEOUT_SECONDS},
         'prompt_fingerprint': {'workspace_agents_sha256': instruction_digest,
                                'evaluation_config_sha256': configuration['sha256'],
                                'workspace_context_sha256': workspace_context},

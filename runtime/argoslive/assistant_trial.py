@@ -28,6 +28,7 @@ from .pull_jobs import read_json, write_json
 
 SCHEMA = 'argos-assistant-trial/1'
 RECORD_SCHEMA = 'argos-assistant-changes/1'
+DEFAULT_TURN_TIMEOUT_SECONDS = 300
 DATA = Path(__file__).with_name('data') / 'assistant-trials' / 'grounded-answers.json'
 LEGACY_ID = 'grounded-answers'
 LEGACY_INSTRUCTION = ('## Answering from text you were given\n'
@@ -619,7 +620,7 @@ class OpenClawRunner:
             if path.read_bytes() != expected:
                 raise ValueError('A workspace default could not be verified')
 
-    def turn(self, text, timeout=180):
+    def turn(self, text, timeout=DEFAULT_TURN_TIMEOUT_SECONDS):
         from .evaluation_context import isolated
         with isolated(self.home, agents_path(self.home).parent) as (home, config, workspace):
             return self._embedded_turn(text, timeout, home, config, workspace)

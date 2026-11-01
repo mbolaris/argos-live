@@ -23,8 +23,11 @@ challenge form)
 and `argos_compare` (compatible saved-run comparison). The runner creates fresh
 ordinary OpenClaw sessions per task, records provider/model identity, outputs,
 scorer receipts, elapsed time and suite version in private `argos-bench/1`
-results. The bundled skill explains how to use the tools and make one reversible
-change. The owner prompt has a removable Argos improvement block.
+results. Each answer has a 300-second wall-clock limit, recorded in the run
+settings; hitting it saves an incomplete failed run. This is separate from the
+host tool's bounded wait and follow-up polling. The bundled skill explains how
+to use the tools and make one reversible change. The owner prompt has a removable
+Argos improvement block.
 
 This is a first live prototype, not the complete experience described below:
 there is no one-button continuing session, experiment journal, automatic or
