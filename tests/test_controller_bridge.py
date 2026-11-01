@@ -561,6 +561,32 @@ class ControllerBridgeTests(unittest.TestCase):
             parent.complete()
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
+    def test_documents_short_suite_is_admitted_by_host_controller(self):
+        binary = self.home / 'bin'
+        binary.mkdir()
+        executable = binary / 'openclaw'
+        executable.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+            'session=sys.argv[sys.argv.index("--session-id")+1]\n'
+            'answer=json.dumps({"status":"not_stated","answer":"","quote":""})\n'
+            'print(json.dumps({"payloads":[{"text":answer}],"meta":{"agentMeta":{'
+            '"sessionId":session,"provider":"ollama","model":"ollama/qwen3.8:27b"}}}))\n')
+        executable.chmod(0o700)
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            bridge.worker_path = str(binary) + os.pathsep + bridge.worker_path
+            _, turn = self.begin(bridge)
+            request = {**turn, 'op': 'tool', 'call_id': 'documents-eval', 'kind': 'evaluation',
+                       'params': {'suite': 'documents-short'}}
+            value = bridge.dispatch(request)
+            self.assertEqual(value['status'], 'completed')
+            result = value['value']['result']
+            self.assertEqual(result['suite'], 'openclaw-documents-short')
+            self.assertEqual(result['coverage'], {'completed': 24, 'total': 24, 'complete': True})
+            self.assertEqual(result['qualification']['complete'], True)
+            self.assertEqual(len(result['qualification']['checks']), 4)
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_schema_grounded_suite_is_admitted_by_host_controller(self):
         binary = self.home / 'bin'
         binary.mkdir()

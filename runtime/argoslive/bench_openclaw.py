@@ -11,7 +11,7 @@ import signal
 import threading
 import time
 
-from . import ability, hw
+from . import ability, doc_trial, hw
 from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
 from .results import Store
@@ -20,6 +20,20 @@ from .workload import Busy, reserve
 
 
 PROTECTED_LIMIT = 1024 ** 2
+SUITES = ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
+          'documents-short')
+
+
+def suite_content(suite):
+    """Load an unchanged built-in task suite and return only machine-scored items."""
+    if suite == 'documents-short':
+        data = doc_trial.load()
+        path = doc_trial.DATA / 'short.json'
+        items = [item for item in data['items'] if item.get('scored') is True]
+        omitted = list(data['omitted_categories']) + ['owner-judged-summaries']
+        return data, items, path, omitted
+    data = ability.load(suite)
+    return data, data['items'], ability.DATA / (suite + '.json'), data['omitted_categories']
 
 
 @contextmanager
@@ -88,8 +102,7 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     if home is not None:
         from .evaluation_control import Cancellation
         cancel = Cancellation(home, cancel)
-    data = ability.load(suite)
-    suite_path = ability.DATA / (suite + '.json')
+    data, tasks, suite_path, omitted_categories = suite_content(suite)
     suite_digest = hashlib.sha256(suite_path.read_bytes()).hexdigest()
     instruction_digest = None
     instruction_path = None
@@ -143,16 +156,18 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                                'evaluation_config_sha256': configuration['sha256'],
                                'workspace_context_sha256': workspace_context},
         'hardware': hw.snapshot(), 'state': 'running', 'items': [],
-        'omitted_categories': data['omitted_categories'],
+        'omitted_categories': omitted_categories,
         'restoration': {'succeeded': True, 'mutated': False},
     }
     try:
-        for index, task in enumerate(data['items'], 1):
-            protect(task['id'])
+        for index, task in enumerate(tasks, 1):
+            item_id = task['id']
+            item_category = task['category'] if suite == 'documents-short' else task['scorer']['kind']
+            protect(item_id)
             item_started = clock()
             if progress:
                 progress({'phase': 'asking', 'completed': index - 1, 'run_id': result['id'],
-                          'total': len(data['items']), 'item_id': task['id'], 'category': task['scorer']['kind']})
+                          'total': len(tasks), 'item_id': item_id, 'category': item_category})
             try:
                 answer = runner.turn(task['prompt'])
             except TrialTurnError as exc:
@@ -160,18 +175,21 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                     raise
                 # The assistant ran but produced no usable answer: score it as a
                 # wrong answer and keep going instead of voiding the whole run.
-                scored = ability.score(task, '')
+                scored = (doc_trial.score(task, '') if suite == 'documents-short'
+                          else ability.score(task, ''))
                 scored.update(category=task['scorer']['kind'], output='', output_truncated=False,
                               no_reply=True, latency_seconds=max(0, clock() - item_started),
                               measurement={'source': 'OpenClaw CLI elapsed time', 'elapsed_seconds': None},
                               session_id=None)
-                if task['scorer'].get('partition') in ('practice', 'heldout'):
+                if suite == 'documents-short':
+                    scored['category'] = item_category
+                elif task['scorer'].get('partition') in ('practice', 'heldout'):
                     scored['partition'] = task['scorer']['partition']
-                protect(task['id'])
+                protect(item_id)
                 result['items'].append(scored)
                 if progress:
                     progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
-                              'total': len(data['items']), 'item_id': task['id'],
+                              'total': len(tasks), 'item_id': item_id,
                               'model': result['model'], 'receipt': scored})
                 continue
             protect(task['id'])
@@ -181,20 +199,22 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                 result['settings']['assistant_model'] = identity
             elif result['model'] != identity:
                 raise TrialTurnError('model-mismatch')
-            scored = ability.score(task, answer['text'])
+            scored = (doc_trial.score(task, answer['text']) if suite == 'documents-short'
+                      else ability.score(task, answer['text']))
             scored.update(
-                category=task['scorer']['kind'], output=answer['text'][:8192],
+                category=item_category if suite == 'documents-short' else task['scorer']['kind'],
+                output=answer['text'][:8192],
                 output_truncated=len(answer['text'].encode('utf-8')) > 8192,
                 latency_seconds=max(0, clock() - item_started),
                 measurement={'source': 'OpenClaw CLI elapsed time',
                              'elapsed_seconds': answer['elapsed_seconds']},
                 session_id=answer['session_id'])
-            if task['scorer'].get('partition') in ('practice', 'heldout'):
+            if suite != 'documents-short' and task['scorer'].get('partition') in ('practice', 'heldout'):
                 scored['partition'] = task['scorer']['partition']
             result['items'].append(scored)
             if progress:
                 progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
-                          'total': len(data['items']), 'item_id': task['id'],
+                          'total': len(tasks), 'item_id': item_id,
                           'model': result['model'], 'receipt': scored})
         protect('final')
         result['state'] = 'completed'
@@ -223,9 +243,12 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     result['elapsed_seconds'] = max(0, clock() - started)
     result['summary'] = summaries(result['items'])
     result['coverage'] = {'completed': len(result['items']),
-                          'total': len(data['items']),
+                          'total': len(tasks),
                           'complete': result['state'] == 'completed' and
-                                      len(result['items']) == len(data['items'])}
+                                      len(result['items']) == len(tasks)}
+    if suite == 'documents-short':
+        result['qualification'] = doc_trial.qualify(
+            result['items'], data['criteria'], complete=result['coverage']['complete'])
     return result
 
 
@@ -274,8 +297,7 @@ class LiveBoard:
 
 def main(argv=None, *, delegation=None):
     parser = argparse.ArgumentParser(description='Evaluate the configured OpenClaw assistant with fixed Argos tasks.')
-    parser.add_argument('--suite', choices=('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan',
-                                           'tool-sequence'), default='quick')
+    parser.add_argument('--suite', choices=SUITES, default='quick')
     parser.add_argument('--home', type=Path, default=Path.home())
     parser.add_argument('--results-dir', type=Path, default=Store().root)
     parser.add_argument('--json', action='store_true')

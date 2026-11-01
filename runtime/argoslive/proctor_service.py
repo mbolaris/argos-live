@@ -546,7 +546,7 @@ def _campaign_assessment(outcomes):
     def valid_eval_receipt(item):
         suite = run_suite(item)
         expected_total = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40,
-                          'tool-plan': 40, 'tool-sequence': 40}.get(suite)
+                          'tool-plan': 40, 'tool-sequence': 40, 'documents-short': 24}.get(suite)
         return (expected_total is not None and
                 item.get('coverage_complete') is True and type(item.get('total')) is int and
                 item['total'] == expected_total and type(item.get('correct')) is int and

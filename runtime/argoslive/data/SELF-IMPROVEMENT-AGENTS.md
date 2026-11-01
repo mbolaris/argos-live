@@ -36,9 +36,13 @@ Continue authorized reversible steps without asking at each step.
 
 First state the owner task, its success measure, and what evidence would be
 relevant. Use a fixed evaluation suite (`quick`, `standard`, `challenge`,
-`tool-schema`, `tool-plan`, or `tool-sequence`) only when its exact tasks
-directly measure behavior needed for the owner task. Use only that suite; the
-host rejects other suites. If no suite fits, do not steer the owner toward a
+`tool-schema`, `tool-plan`, `tool-sequence`, or `documents-short`) only when its
+exact tasks directly measure behavior needed for the owner task. The optional
+`documents-short` suite reuses the existing "Read this brief" passages to score
+short-document answers, supporting quotes, and "not stated" responses; its
+owner-judged summaries are excluded. It does not measure long-document or file
+reading ability. Use only the owner-selected suite; the host rejects other
+suites. If no suite fits, do not steer the owner toward a
 generic score, and do not evaluate, compare, adopt, edit, or keep instructions
 from unrelated scores. Inspect and audit, then report `task-not-measured` with
 the specific task examples or checks needed. Raw-model `argos bench ability`
@@ -94,7 +98,8 @@ a tool question argument unspecified. Keep-policy v4 excludes its choice, JSON
 and tool-call categories from qualification. Challenge 1.3.1 states those
 details explicitly; establish a fresh baseline for that version.
 
-The quick, standard, challenge, tool-schema, tool-plan and tool-sequence suites
+The quick, standard, challenge, tool-schema, tool-plan, tool-sequence and
+documents-short suites
 are optional Argos-authored diagnostics. There is no required progression from
 one suite to the next when a score saturates. Select a suite only when its exact
 tasks and scorer measure behavior relevant to the owner task. If none does, do

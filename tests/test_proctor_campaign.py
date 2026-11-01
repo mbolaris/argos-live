@@ -98,6 +98,9 @@ class ProctorCampaignControllerTests(unittest.TestCase):
             self.controller.start('', 'ready')
         with self.assertRaisesRegex(proctor_campaign.Refused, 'under 1,200 characters'):
             self.controller.start('x' * 1201, 'ready')
+        self.assertEqual(proctor_campaign.validate_measurement_suite('documents-short'), 'documents-short')
+        with self.assertRaises(proctor_campaign.Refused):
+            proctor_campaign.validate_measurement_suite('documents-long')
         self.assertFalse(self.startup.lab_active)
         self.assertIsNone(self.controller.worker)
 

@@ -55,8 +55,8 @@ export function registerAdmission(api) {
             if (frame.progress && onUpdate) {
               const progress = frame.progress;
               const text = progress.phase === 'scored'
-                ? `Challenge ${progress.completed}/${progress.total}: ${progress.passed ? 'passed' : 'not passed'}.`
-                : `Working on challenge ${Number(progress.completed ?? 0) + 1}/${progress.total}.`;
+                ? `Evaluation ${progress.completed}/${progress.total}: ${progress.passed ? 'passed' : 'not passed'}.`
+                : `Working on evaluation ${Number(progress.completed ?? 0) + 1}/${progress.total}.`;
               try { onUpdate({content:[{type:'text',text}], details:{progress}}); }
               catch { /* Progress display cannot own or cancel host work. */ }
             }

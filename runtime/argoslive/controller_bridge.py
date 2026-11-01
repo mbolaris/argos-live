@@ -29,7 +29,8 @@ PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
 TASK_CAMPAIGN_SUITES = frozenset({
-    'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'})
+    'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
+    'documents-short'})
 MAX_WORKER_TURN_RECORDS = 32
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
@@ -229,8 +230,7 @@ class Bridge:
                         kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
                 if kind == 'evaluation':
-                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {
-                            'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'}:
+                    if set(params) - {'suite'} or params.get('suite', 'quick') not in TASK_CAMPAIGN_SUITES:
                         raise ValueError('Unsupported evaluation request')
                 elif kind == 'evaluation_wait':
                     if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or

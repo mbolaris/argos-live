@@ -24,8 +24,12 @@ to the owner task. If no suite does, do not fill the campaign with generic
 probes or make a change from unrelated scores. Report that task-specific
 measurement is missing and propose what repeatable examples and independent
 success checks would be needed. Fixed quick, standard, challenge, tool-schema,
-tool-plan, and tool-sequence suites are Argos-authored diagnostics, not external
-benchmarks. A score describes only its suite and configuration; it does not
+tool-plan, tool-sequence, and documents-short suites are Argos-authored diagnostics, not external
+benchmarks. The optional `documents-short` suite reuses the existing "Read this
+brief" mission's short passages and scores answers, supporting quotes, and "not
+stated" responses; owner-judged summaries and long-document/file-reading tasks
+are excluded. Use it only when that exact reading task matters to the owner. A
+score describes only its suite and configuration; it does not
 establish owner-task improvement or general ability. The tool creates a
 tool-free embedded OpenClaw turn with temporary state and copied instructions
 for each fixed task, and saves a private result. Evaluation children answer the

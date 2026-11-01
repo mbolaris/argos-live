@@ -38,6 +38,12 @@ equally important. Keep system reliability and model ability as separate
 measurements. A system failure may prevent a model task from being measured;
 it must not be counted as a model failure or a model-quality gain.
 
+The existing `documents-short` suite can provide a narrow task-matched check
+when the owner chooses the app's "Read this brief" mission: it scores answers,
+supporting quotes, and "not stated" responses on short passages. It excludes
+owner-judged summaries, long documents, and file reading, so it must not be
+presented as broad document competence or as the owner's general objective.
+
 The owner has explicitly asked for a much-improved Proctor service and a
 self-improving agent. If that remains the active objective, evaluate two
 outcomes separately:
