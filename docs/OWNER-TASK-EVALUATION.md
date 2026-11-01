@@ -131,9 +131,13 @@ must hold the verified infrastructure and tool availability constant.
 
 ## Current evidence state
 
-As of 2026-11-01, the qwen3.8:27b fixed internal suites are saturated. The
-approved qwen3:30b trial was reviewed but not downloaded because those scores
-do not expose a task gap, and the candidate does not match the current model's
-catalog capability set. There is no owner-task comparison result yet. Treat
-the initial task above as unmeasured until a reviewed case pack and matched
-results exist.
+As of 2026-11-01, qwen3.8:27b completed challenge 1.3.1 at 39/40 with zero
+format errors (saved run `0ac139061cf314276cb357e6b295f87c`; result SHA-256
+`92f11fe855fcdfd3ee310e3b7c7b5263f557aa81211877539b1557e0c64989fd`). The
+single miss is in the inert synthetic tool-call category. This is a diagnostic
+for that suite only; it does not measure real support work, actual tool
+execution, or owner effort. The live model roster did not include qwen3:30b,
+and no matched candidate result exists. Do not spend the approved model trial
+on this unrelated suite. There is no owner-task comparison result yet. Treat
+the initial task above as unmeasured until a reviewed task-specific case pack
+and matched results exist.
