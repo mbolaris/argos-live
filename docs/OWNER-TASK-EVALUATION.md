@@ -38,6 +38,23 @@ equally important. Keep system reliability and model ability as separate
 measurements. A system failure may prevent a model task from being measured;
 it must not be counted as a model failure or a model-quality gain.
 
+The owner has explicitly asked for a much-improved Proctor service and a
+self-improving agent. If that remains the active objective, evaluate two
+outcomes separately:
+
+- **Proctor service quality:** the selected assessment runs to a signed,
+  complete result; tool calls, deadlines, cancellation, drainage, and privacy
+  boundaries behave as specified. These are service checks, not evidence that
+  the model is more capable.
+- **Improvement quality:** a change yields a repeated gain on an owner-valued,
+  task-matched confirmation set while preserving safety, reliability, and
+  owner effort. Completing practice or receiving a practice score is coaching,
+  not evidence of ability gain.
+
+The recurring boot and SSH problem is a separate operational-support case. It
+may contribute to service quality if prioritized, but it cannot stand in for
+assessment validity or improvement effectiveness.
+
 ## Operational-support task candidate
 
 The owner's repeated feedback identifies this as a genuine source of friction,
