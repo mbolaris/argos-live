@@ -70,6 +70,34 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         self.assertEqual(result['summary']['correct'], 40)
         self.assertEqual(len(result['settings']['suite_sha256']), 64)
 
+    def test_isolated_model_trial_requires_installed_reviewed_tag_and_records_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            workspace = home / '.openclaw/workspace'
+            workspace.mkdir(parents=True)
+            configure_fake(home, workspace)
+            with patch.object(bench_openclaw, 'Client') as client:
+                client.return_value.list.return_value = {'models': [{'name': 'qwen3:30b'}]}
+                result = bench_openclaw.run(suite='challenge', home=home,
+                    runner=FakeOpenClaw(suite='challenge'), model_override='qwen3:30b')
+            self.assertEqual(result['settings']['model_evaluation_profile'],
+                {'temperature': 0, 'thinking': 'off', 'tools': 'denied', 'context_tokens': 32768})
+            self.assertEqual(result['manifest_digest'],
+                'sha256:ad815644918f0eaab341c12b67837cc6dd4562342cdaf118f83d5d554cb37226')
+            self.assertEqual(result['suite_version'], 'argos-openclaw-ability/challenge/1.3.1')
+
+    def test_isolated_model_trial_stops_before_run_when_tag_is_not_installed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            workspace = home / '.openclaw/workspace'
+            workspace.mkdir(parents=True)
+            configure_fake(home, workspace)
+            with patch.object(bench_openclaw, 'Client') as client:
+                client.return_value.list.return_value = {'models': [{'name': 'qwen3.8:27b'}]}
+                with self.assertRaisesRegex(ValueError, 'not installed'):
+                    bench_openclaw.run(suite='challenge', home=home,
+                        runner=FakeOpenClaw(suite='challenge'), model_override='qwen3:30b')
+
     def test_tool_schema_form_records_partition_scores_and_full_coverage(self):
         result = bench_openclaw.run(suite='tool-schema', runner=FakeOpenClaw(suite='tool-schema'))
         self.assertEqual(result['suite'], 'openclaw-tool-schema')

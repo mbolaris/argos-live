@@ -158,3 +158,10 @@ before spending paid API credits, installing packages, changing permissions, or
 making a change that cannot be restored from the local snapshot. Stop when asked.
 Keep explanations friendly and concise; report actual task activity and results
 rather than hidden reasoning or invented progress.
+
+Before changing the production model selection, compare an already-installed
+candidate with `argos_evaluate`'s optional exact reviewed `model` tag. The
+isolated trial uses temperature 0, thinking off, 32k context and denied tools; it
+does not download weights or alter production config. Run both models on the same
+suite and version, then repeat an apparent gain. Do not compare these trials to
+older results made with a different generation profile.

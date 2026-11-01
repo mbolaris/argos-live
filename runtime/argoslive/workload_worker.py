@@ -23,7 +23,7 @@ def main(argv=None):
         if len(raw) > 32768:
             raise ValueError('Worker request exceeds limit')
         request = json.loads(raw)
-        allowed = ({'delegation', 'suite'} if args.kind == 'evaluation' else
+        allowed = ({'delegation', 'suite', 'model'} if args.kind == 'evaluation' else
                    {'delegation', 'operation', 'params'} if args.kind == 'maintenance' else {'delegation', 'text'})
         if not isinstance(request, dict) or set(request) - allowed or 'delegation' not in request:
             raise ValueError('Unexpected worker request')
@@ -37,10 +37,16 @@ def main(argv=None):
             suite = request.get('suite', 'quick')
             if suite not in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
                 raise ValueError('Unsupported suite')
+            model = request.get('model')
             # Fixed argv and explicit output root: no owner/global result store
             # is selected through inherited environment or request data.
-            return bench_openclaw.main(['--home', str(args.home), '--suite', suite,
-                '--results-dir', str(args.home / '.local/share/argos-live/results'), '--json'],
+            argv = ['--home', str(args.home), '--suite', suite,
+                    '--results-dir', str(args.home / '.local/share/argos-live/results'), '--json']
+            if model is not None:
+                if not isinstance(model, str):
+                    raise ValueError('Invalid model trial request')
+                argv += ['--model', model]
+            return bench_openclaw.main(argv,
                 delegation=capability)
         text = request['text']
         if not isinstance(text, str):

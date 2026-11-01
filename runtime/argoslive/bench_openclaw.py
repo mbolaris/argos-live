@@ -14,8 +14,10 @@ import time
 from . import ability, hw
 from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
+from .ollama import Client, OllamaError
 from .results import Store
-from .evaluation_context import EXECUTION_PATH, configuration_receipt, workspace_context_receipt
+from .evaluation_context import (EXECUTION_PATH, catalog_model, configuration_receipt,
+                                 workspace_context_receipt)
 from .workload import Busy, reserve
 
 
@@ -71,11 +73,12 @@ def changed_inputs(workspace, saved):
 
 
 def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None,
-        delegation=None, results_dir=None):
+        delegation=None, results_dir=None, model_override=None):
     """Evaluate and publish the outcome before returning/releasing admission."""
     home = Path.home() if home is None else Path(home)
     with reserve(home, 'evaluation', delegation=delegation) as slot:
-        result = _run(suite=suite, home=home, runner=runner, progress=progress, clock=clock, cancel=cancel)
+        result = _run(suite=suite, home=home, runner=runner, progress=progress, clock=clock, cancel=cancel,
+                      model_override=model_override)
         Store(results_dir if results_dir is not None else home / '.local/share/argos-live/results').save(result)
         slot.record_result(result['id'])
         if result['state'] == 'completed':
@@ -83,11 +86,21 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
         return result
 
 
-def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None):
+def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None,
+         model_override=None):
     """Run fixed text tasks with copied instructions and no execution capabilities."""
     if home is not None:
         from .evaluation_control import Cancellation
         cancel = Cancellation(home, cancel)
+    model_identity = catalog_model(model_override) if model_override is not None else None
+    if model_override is not None:
+        try:
+            installed = Client().list().get('models', [])
+        except OllamaError:
+            raise ValueError('The local model service is unavailable; no model trial started') from None
+        if not any(row.get('name') == model_override or row.get('model') == model_override
+                   for row in installed if isinstance(row, dict)):
+            raise ValueError('The requested evaluation model is not installed; no model trial started')
     data = ability.load(suite)
     suite_path = ability.DATA / (suite + '.json')
     suite_digest = hashlib.sha256(suite_path.read_bytes()).hexdigest()
@@ -101,7 +114,7 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                         if instruction_path is not None and instruction_path.parent.is_dir() else None)
     workspace = instruction_path.parent if workspace_before is not None else None
     protected = protected_files(workspace)
-    configuration = configuration_receipt(home)
+    configuration = configuration_receipt(home, model_override=model_override)
     workspace_context = workspace_context_receipt(workspace)
 
     def protect(item_id):
@@ -120,14 +133,15 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
             result['workspace_changed'] = {'item_id': item_id, 'files': changed}
             raise TrialTurnError('workspace-changed-during-run')
         try:
-            same = configuration_receipt(home)['sha256'] == configuration['sha256']
+            same = configuration_receipt(home, model_override=model_override)['sha256'] == configuration['sha256']
         except (OSError, ValueError, KeyError, TypeError):
             same = False
         if not same:
             raise TrialTurnError('configuration-changed-during-run')
-    runner = runner or OpenClawRunner(home=home)
+    runner = runner or OpenClawRunner(home=home, model_override=model_override)
     if isinstance(runner, OpenClawRunner):
         runner.expected_model = configuration['model']['primary'].removeprefix('ollama/')
+        runner.model_override = model_override
         runner.cancel_event = cancel
     started = clock()
     result = {
@@ -135,7 +149,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         'created': datetime.now(timezone.utc).isoformat(), 'kind': 'ability',
         'suite': 'openclaw-' + suite,
         'suite_version': 'argos-openclaw-ability/' + suite + '/' + data['version'],
-        'model': 'identity pending first OpenClaw turn', 'manifest_digest': None,
+        'model': 'identity pending first OpenClaw turn',
+        'manifest_digest': model_identity['manifest_digest'] if model_identity else None,
         'settings': {'execution_path': EXECUTION_PATH,
                      'suite_sha256': suite_digest, 'model': configuration['model'],
                      'configured_generation': configuration['configured_generation']},
@@ -146,6 +161,10 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         'omitted_categories': data['omitted_categories'],
         'restoration': {'succeeded': True, 'mutated': False},
     }
+    if model_override is not None:
+        result['settings']['model_evaluation_profile'] = {
+            'temperature': 0, 'thinking': 'off', 'tools': 'denied',
+            'context_tokens': configuration['configured_generation']['defaults']['contextTokens']}
     try:
         for index, task in enumerate(data['items'], 1):
             protect(task['id'])
@@ -276,6 +295,7 @@ def main(argv=None, *, delegation=None):
     parser = argparse.ArgumentParser(description='Evaluate the configured OpenClaw assistant with fixed Argos tasks.')
     parser.add_argument('--suite', choices=('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan',
                                            'tool-sequence'), default='quick')
+    parser.add_argument('--model', help='Run an isolated model comparison using an installed reviewed catalog tag; thinking is disabled and temperature is zero.')
     parser.add_argument('--home', type=Path, default=Path.home())
     parser.add_argument('--results-dir', type=Path, default=Store().root)
     parser.add_argument('--json', action='store_true')
@@ -288,7 +308,8 @@ def main(argv=None, *, delegation=None):
             def progress(value):
                 print(json.dumps(value, ensure_ascii=False), file=__import__('sys').stderr, flush=True)
                 board.update(value)
-            result = _run(suite=args.suite, home=args.home, progress=progress, cancel=cancel)
+            result = _run(suite=args.suite, home=args.home, progress=progress, cancel=cancel,
+                          model_override=args.model)
             path = Store(args.results_dir).save(result)
             slot.record_result(result['id'])
             board.finish(result)

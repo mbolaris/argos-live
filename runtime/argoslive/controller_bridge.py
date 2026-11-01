@@ -21,6 +21,7 @@ import threading
 import uuid
 
 from . import workload, instruction_changes
+from .evaluation_context import catalog_model
 from .pull_jobs import read_json, write_json
 from .results import Store, compare, comparison_rejection
 
@@ -82,6 +83,7 @@ class Bridge:
         if self.evaluation_job:
             job = self.evaluation_job
             value['evaluation_job'] = {'job_id': job['job_id'], 'suite': job['suite'],
+                'model': job.get('model'),
                 'state': 'running' if job['thread'].is_alive() else ('failed' if job['error'] else 'completed'),
                 'completed': job['completed'], 'total': job['total']}
         if self.active:
@@ -188,9 +190,11 @@ class Bridge:
                         kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
                 if kind == 'evaluation':
-                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {
+                    if set(params) - {'suite', 'model'} or params.get('suite', 'quick') not in {
                             'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'}:
                         raise ValueError('Unsupported evaluation request')
+                    if 'model' in params:
+                        catalog_model(params['model'])
                 elif kind == 'evaluation_wait':
                     if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or
                             not re.fullmatch(r'[a-f0-9]{32}', params['job_id'])):
@@ -342,6 +346,7 @@ class Bridge:
                 raise workload.Busy()
             job_id = secrets.token_hex(16)
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
+                   'model': params.get('model'),
                    'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40,
                                               'tool-schema': 40, 'tool-plan': 40,
                                               'tool-sequence': 40}[
@@ -380,6 +385,7 @@ class Bridge:
         if thread.is_alive():
             job['on_update'] = None
             return {'status': 'running', 'job_id': job_id, 'suite': job['suite'],
+                    'model': job.get('model'),
                     'completed': job['completed'], 'total': job['total']}
         if job['error'] is not None:
             raise workload.Busy(recovery=True) from None
@@ -393,6 +399,7 @@ class Bridge:
                     'kind': 'evaluation', 'job_id': job_id,
                     'result_id': result['id'], 'state': result['state'],
                     'suite': result.get('suite'), 'suite_version': result.get('suite_version'),
+                    'model': result.get('model'),
                     'coverage_complete': coverage.get('complete') is True,
                     'total': summary.get('total'), 'correct': summary.get('correct'),
                     'format_errors': summary.get('format_errors'),
@@ -423,10 +430,12 @@ class Bridge:
             return {'status': 'idle'}
         if job['thread'].is_alive():
             return {'status': 'running', 'job_id': job['job_id'], 'suite': job['suite'],
+                    'model': job.get('model'),
                     'completed': job['completed'], 'total': job['total']}
         if job['error'] is not None:
             return {'status': 'busy', 'recovery_required': True}
-        return {'status': 'completed', 'job_id': job['job_id'], 'suite': job['suite']}
+        return {'status': 'completed', 'job_id': job['job_id'], 'suite': job['suite'],
+                'model': job.get('model')}
 
     @staticmethod
     def _validate_proctor_request(kind, params):

@@ -108,6 +108,36 @@ class EvaluationIsolationTests(unittest.TestCase):
             self.assertEqual(copied['models']['providers']['ollama']['models'][0]['params'], {'num_ctx': 8192})
         self.assertEqual(receipt['configured_generation']['agent_model_params'], {'thinking': 'low'})
 
+    def test_model_trials_share_a_tool_free_thinking_off_profile_without_owner_write(self):
+        defaults = self.value['agents']['defaults']
+        defaults.update(contextTokens=32768, thinkingDefault='high', params={'temperature': 0.7})
+        defaults['model'] = {'primary': 'ollama/qwen3.8:27b'}
+        defaults['models'] = {'ollama/qwen3.8:27b': {'params': {'topP': 0.85}}}
+        self.value['agents']['entries'] = {'main': {'model': 'ollama/qwen3.8:27b',
+            'params': {'temperature': 0.4}, 'models': {'ollama/qwen3.8:27b': {'params': {'thinking': 'high'}}}}}
+        source = {'id': 'qwen3.8:27b', 'name': 'qwen3.8:27b', 'params': {'num_ctx': 32768},
+                  'maxTokens': 8192, 'cost': {'input': 0, 'output': 0}}
+        self.value['models']['providers']['ollama']['models'] = [source]
+        self.config.write_text(json.dumps(self.value))
+        owner_bytes = self.config.read_bytes()
+
+        baseline = ec.configuration_receipt(self.home, model_override='qwen3.8:27b')
+        candidate = ec.configuration_receipt(self.home, model_override='qwen3:30b')
+        for receipt, tag in ((baseline, 'qwen3.8:27b'), (candidate, 'qwen3:30b')):
+            config = ec.configuration(self.home, model_override=tag)
+            model = config['agents']['defaults']['model']['primary']
+            self.assertEqual(model, 'ollama/' + tag)
+            self.assertEqual(config['agents']['defaults']['thinkingDefault'], 'off')
+            self.assertEqual(config['agents']['defaults']['params']['temperature'], 0)
+            self.assertIs(config['agents']['defaults']['params']['think'], False)
+            self.assertEqual(config['agents']['defaults']['contextTokens'], 32768)
+            self.assertEqual(config['agents']['defaults']['params']['num_ctx'], 32768)
+            self.assertEqual(config['models']['providers']['ollama']['models'][0]['params']['num_ctx'], 32768)
+            self.assertEqual(config['tools'], {'deny': ['*'], 'toolSearch': False})
+            self.assertEqual(receipt['model']['primary'], 'ollama/' + tag)
+        self.assertEqual(baseline['configured_generation'], candidate['configured_generation'])
+        self.assertEqual(self.config.read_bytes(), owner_bytes)
+
     def test_canonical_roster_is_used_for_model_and_workspace_selection(self):
         self.value['agents']['entries'] = {'main': {'workspace': str(self.workspace), 'model': 'ollama/fixture',
                                                    'params': {'temperature': 0.4}}}

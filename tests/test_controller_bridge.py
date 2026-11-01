@@ -647,21 +647,24 @@ class ControllerBridgeTests(unittest.TestCase):
                 release.wait(5)
                 return {'status':'completed', 'value':{'result':{
                     'id':'a' * 32, 'state':'completed', 'suite':'openclaw-standard',
+                    'model':'ollama/qwen3:30b',
                     'suite_version':'argos-openclaw-ability/standard/test-version',
                     'coverage':{'completed':70,'total':70,'complete':True},
                     'summary':{'correct':70,'total':70,'format_errors':0}},
                     'path':'saved-result.json'}}
 
             bridge.run_child = slow_child
-            value = bridge.start_evaluation({'suite':'standard'}, seconds=.01)
+            value = bridge.start_evaluation({'suite':'standard', 'model':'qwen3:30b'}, seconds=.01)
             self.assertEqual(value['status'], 'running')
             self.assertEqual(value['total'], 70)
+            self.assertEqual(value['model'], 'qwen3:30b')
             self.assertTrue(started.wait(1))
             _, turn = self.begin(bridge)
             status = bridge.dispatch({**turn, 'op':'tool', 'call_id':'recover-eval-job',
                 'kind':'evaluation_status', 'params':{}})
             self.assertEqual(status['status'], 'running')
             self.assertEqual(status['job_id'], value['job_id'])
+            self.assertEqual(status['model'], 'qwen3:30b')
             with self.assertRaises(workload.Busy):
                 bridge.start_evaluation({'suite':'quick'}, seconds=.01)
             # The caller can disappear here; the host worker still owns the slot.
@@ -670,8 +673,19 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(finished['result']['coverage']['completed'], 70)
             self.assertEqual(bridge.outcomes[0]['result_id'], 'a' * 32)
             self.assertEqual(bridge.outcomes[0]['suite'], 'openclaw-standard')
+            self.assertEqual(bridge.outcomes[0]['model'], 'ollama/qwen3:30b')
             self.assertTrue(bridge.outcomes[0]['coverage_complete'])
             self.assertEqual(bridge.outcomes[0]['correct'], 70)
+            parent.complete()
+
+    def test_evaluation_model_override_must_be_exact_reviewed_catalog_tag(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:model-trial')
+            _, turn = self.begin(bridge)
+            with self.assertRaises(ValueError):
+                bridge.dispatch({**turn, 'op':'tool', 'call_id':'invalid-model',
+                    'kind':'evaluation', 'params':{'suite':'challenge', 'model':'../qwen3:30b'}})
+            self.assertIsNone(bridge.evaluation_job)
             parent.complete()
 
 

@@ -20,6 +20,7 @@ from . import storage
 EXECUTION_PATH = 'openclaw embedded; ephemeral state; tools denied; v2'
 WORKSPACE_FILES = ('AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md', 'TOOLS.md')
 FILE_LIMIT = 1024 * 1024
+TRIAL_CONTEXT_TOKENS = 32768
 DEFAULT_SETTINGS = ('bootstrapMaxChars', 'bootstrapTotalMaxChars', 'contextTokens', 'thinkingDefault')
 # Pinned native Ollama request/runtime controls. Never transport, routing,
 # headers, credentials, plugins, external harnesses or tool policy.
@@ -58,13 +59,32 @@ def parameters(value):
     return copy.deepcopy(value)
 
 
-def configuration(home):
+def configuration(home, *, model_override=None):
     """Build the same bounded model configuration for copying and provenance."""
     original = json.loads(storage.safe_local(Path(home) / '.openclaw/openclaw.json').read_bytes())
-    return configuration_from(original)
+    return configuration_from(original, model_override=model_override)
 
 
-def configuration_from(original):
+def catalog_model(tag):
+    """Return reviewed metadata for one exact local model tag."""
+    from . import catalog
+    if not isinstance(tag, str) or not catalog.TAG.fullmatch(tag) or '/' in tag:
+        raise ValueError('Evaluation model must be an exact reviewed local tag')
+    data = catalog.load()
+    row = next((item for item in data['models'] if item.get('tag') == tag), None)
+    if row is None:
+        raise ValueError('Evaluation model is not in the reviewed Argos catalog')
+    return copy.deepcopy(row)
+
+
+def _trial_parameters(value):
+    result = parameters(value)
+    result.pop('thinking', None)
+    result.update(temperature=0, think=False, num_ctx=TRIAL_CONTEXT_TOKENS)
+    return result
+
+
+def configuration_from(original, *, model_override=None):
     """Pure projection, also used to verify a host's immutable config snapshot."""
     defaults = original['agents']['defaults']
     roster = original['agents']
@@ -74,27 +94,57 @@ def configuration_from(original):
     primary = selected if isinstance(selected, str) else selected['primary']
     if not isinstance(primary, str) or not primary.startswith('ollama/'):
         raise ValueError('Evaluation requires a configured local Ollama model')
-    tag = primary.removeprefix('ollama/')
+    source_tag = primary.removeprefix('ollama/')
     provider = original['models']['providers']['ollama']
     origin = urlsplit(provider['baseUrl'])
     if (origin.scheme != 'http' or origin.hostname != '127.0.0.1' or
             origin.port != 11434 or origin.username or origin.password or
             origin.query or origin.fragment or origin.path not in ('', '/')):
         raise ValueError('Evaluation requires the owned localhost model server')
+    source_row = next((row for row in provider['models'] if row.get('id') == source_tag), None)
+    if source_row is None:
+        raise ValueError('Configured model metadata is unavailable')
+    tag = source_tag if model_override is None else model_override
+    primary = 'ollama/' + tag
     selected_row = next((row for row in provider['models'] if row.get('id') == tag), None)
-    if selected_row is None:
+    if model_override is not None:
+        entry = catalog_model(model_override)
+        selected_row = copy.deepcopy(selected_row or source_row)
+        selected_row.update(id=tag, name=tag,
+                            reasoning='thinking' in entry['capabilities'],
+                            input=['text', 'image'] if 'vision' in entry['capabilities'] else ['text'],
+                            contextWindow=TRIAL_CONTEXT_TOKENS,
+                            contextTokens=TRIAL_CONTEXT_TOKENS)
+        selected_row['params'] = _trial_parameters(source_row.get('params'))
+        selected_row['maxTokens'] = selected_row.get('maxTokens', source_row.get('maxTokens', 4096))
+        selected_row['cost'] = copy.deepcopy(selected_row.get('cost', source_row.get('cost',
+            {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0})))
+    elif selected_row is None:
         raise ValueError('Configured model metadata is unavailable')
     model = {key: copy.deepcopy(selected_row[key]) for key in
              ('id', 'name', 'reasoning', 'input', 'cost', 'contextWindow', 'contextTokens', 'maxTokens')
              if key in selected_row}
-    model['params'] = parameters(selected_row.get('params'))
+    model['params'] = (parameters(selected_row.get('params')) if model_override is None else
+                       _trial_parameters(source_row.get('params')))
     copied = {key: copy.deepcopy(defaults[key]) for key in DEFAULT_SETTINGS if key in defaults}
+    defaults_params = parameters(defaults.get('params'))
+    model_params = parameters(defaults.get('models', {}).get('ollama/' + source_tag, {}).get('params'))
+    agent_params = parameters(main.get('params'))
+    agent_model_params = parameters(main.get('models', {}).get('ollama/' + source_tag, {}).get('params'))
+    provider_model_params = parameters(source_row.get('params'))
+    if model_override is not None:
+        copied['thinkingDefault'] = 'off'
+        copied['contextTokens'] = TRIAL_CONTEXT_TOKENS
+        defaults_params = _trial_parameters(defaults_params)
+        model_params = _trial_parameters(model_params)
+        agent_params = _trial_parameters(agent_params)
+        agent_model_params = _trial_parameters(agent_model_params)
+        provider_model_params = _trial_parameters(provider_model_params)
     copied.update(model={'primary': primary}, heartbeat={'every': '0m'}, skipBootstrap=True,
-                  params=parameters(defaults.get('params')),
-                  models={primary: {'agentRuntime': {'id': 'openclaw'},
-                                    'params': parameters(defaults.get('models', {}).get(primary, {}).get('params'))}})
-    agent = {'params': parameters(main.get('params')),
-             'models': {primary: {'params': parameters(main.get('models', {}).get(primary, {}).get('params'))}}}
+                  params=defaults_params,
+                  models={primary: {'agentRuntime': {'id': 'openclaw'}, 'params': model_params}})
+    agent = {'params': agent_params, 'models': {primary: {'params': agent_model_params}}}
+    selected_row['params'] = provider_model_params
     local = {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama', 'models': [model]}
     if 'maxTokens' in provider:
         local['maxTokens'] = provider['maxTokens']
@@ -104,8 +154,8 @@ def configuration_from(original):
             'skills': {'allowBundled': []}}
 
 
-def configuration_receipt(home):
-    return receipt_from(configuration(home))
+def configuration_receipt(home, *, model_override=None):
+    return receipt_from(configuration(home, model_override=model_override))
 
 
 def receipt_from(config):
@@ -171,10 +221,10 @@ def require_no_legacy_trials(home):
 
 
 @contextmanager
-def isolated(home, workspace):
+def isolated(home, workspace, *, model_override=None):
     """Copy bounded instruction/persona inputs, never credentials or session state."""
     home, workspace = Path(home), Path(workspace)
-    config = configuration(home)
+    config = configuration(home, model_override=model_override)
     with tempfile.TemporaryDirectory(prefix='argos-evaluation-') as temporary:
         root = Path(temporary)
         work = root / '.openclaw/workspace'

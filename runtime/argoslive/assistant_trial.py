@@ -566,8 +566,9 @@ def drain_embedded_group(process):
 class OpenClawRunner:
     """One tool-free embedded evaluation turn, outside the owner's gateway/state."""
 
-    def __init__(self, home, executable=None):
+    def __init__(self, home, executable=None, *, model_override=None):
         self.home, self.executable = Path(home), executable
+        self.model_override = model_override
         self.cancel_event = None
         self.expected_model = None
 
@@ -621,7 +622,8 @@ class OpenClawRunner:
 
     def turn(self, text, timeout=180):
         from .evaluation_context import isolated
-        with isolated(self.home, agents_path(self.home).parent) as (home, config, workspace):
+        with isolated(self.home, agents_path(self.home).parent,
+                      model_override=self.model_override) as (home, config, workspace):
             return self._embedded_turn(text, timeout, home, config, workspace)
 
     def _embedded_turn(self, text, timeout, home, config, workspace):

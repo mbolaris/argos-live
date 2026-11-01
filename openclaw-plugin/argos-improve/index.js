@@ -162,7 +162,7 @@ function evaluationProgress(job, callback, event) {
 async function waitForDirectEvaluation(job, signal, onUpdate) {
   if (!job?.completion || !job.id) throw new Error("Unknown evaluation job ID.");
   job.onUpdate = onUpdate;
-  if (signal?.aborted) return {status:"running", job_id:job.id, suite:job.suite, ...job.progress};
+  if (signal?.aborted) return {status:"running", job_id:job.id, suite:job.suite, model:job.model, ...job.progress};
   let timer;
   const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), EVALUATION_WAIT_MS); });
   let abortHandler;
@@ -178,16 +178,16 @@ async function waitForDirectEvaluation(job, signal, onUpdate) {
     directEvaluationJobs.delete(job.id);
     return result;
   }
-  return {status:"running", job_id:job.id, suite:job.suite, ...job.progress};
+  return {status:"running", job_id:job.id, suite:job.suite, model:job.model, ...job.progress};
 }
 
-function startDirectEvaluation(suite, signal, onUpdate) {
+function startDirectEvaluation(suite, model, signal, onUpdate) {
   if (signal?.aborted) throw new Error("Argos request was cancelled before dispatch; no command started.");
   const id = randomBytes(16).toString("hex");
-  const job = {id, suite, progress:{completed:0,total:suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" || suite === "tool-sequence" ? 40 : suite === "standard" ? 70 : 20}};
+  const job = {id, suite, model, progress:{completed:0,total:suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" || suite === "tool-sequence" ? 40 : suite === "standard" ? 70 : 20}};
   job.ownerCancellation = new AbortController();
   job.cancel = () => job.ownerCancellation.abort();
-  job.completion = runArgos("openclaw", ["--suite", suite, "--json"], job.ownerCancellation.signal,
+  job.completion = runArgos("openclaw", ["--suite", suite, ...(model ? ["--model", model] : []), "--json"], job.ownerCancellation.signal,
     (event) => evaluationProgress(job, job.onUpdate, event)).then((value) => {
       job.finished = true;
       return {status:"completed", value};
@@ -325,15 +325,18 @@ export default function register(api) {
   api.registerTool({
     name: "argos_evaluate",
     label: "Evaluate OpenClaw",
-    description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
+    description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. An optional exact reviewed local model tag runs an isolated trial at temperature 0 with thinking off; the model must already be installed, and this never downloads models or changes production selection. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change.",
     parameters: Type.Object({
       suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema"), Type.Literal("tool-plan"), Type.Literal("tool-sequence")],
-        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), or tool-sequence (40 ordered two- and three-call plans with explicit prior-result references). Tool suites include bundled held-out items; these are internal transfer checks, not independent validation or real tool execution." }))
+        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), or tool-sequence (40 ordered two- and three-call plans with explicit prior-result references). Tool suites include bundled held-out items; these are internal transfer checks, not independent validation or real tool execution." })),
+      model: Type.Optional(Type.String({minLength:1,maxLength:128,pattern:"^[A-Za-z0-9_.:-]+$",
+        description:"Optional exact reviewed Ollama catalog tag for an isolated, already-installed model trial. No download or production model change."}))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const suite = params.suite ?? 'quick';
+      const model = params.model;
       const value = admission ? await admission.execute(_id, 'evaluation',
-        {suite}, signal, onUpdate) : await startDirectEvaluation(suite, signal, onUpdate);
+        {suite, ...(model ? {model} : {})}, signal, onUpdate) : await startDirectEvaluation(suite, model, signal, onUpdate);
       if (value.status === "busy") return textResult(
         `${value.message}. No evaluation started. Wait for the active workload; do not edit the workspace.`, value);
       if (value.status === "running") return textResult(
@@ -370,7 +373,7 @@ export default function register(api) {
       else {
         const job = [...directEvaluationJobs.values()].at(-1);
         value = !job ? {status:"idle"} : {status:job.finished ? "completed" : "running",
-          job_id:job.id, suite:job.suite, ...job.progress};
+          job_id:job.id, suite:job.suite, model:job.model, ...job.progress};
       }
       if (value.status === "running") return textResult(
         `Evaluation is running (${value.completed}/${value.total}). Continue with argos_evaluate_wait and job ID ${value.job_id}.`, value);

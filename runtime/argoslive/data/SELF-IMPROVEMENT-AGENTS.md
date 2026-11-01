@@ -200,6 +200,16 @@ the Argos restart below. Verify actual selected/configured model and
 `curl -s http://127.0.0.1:11434/api/ps`; a GPU upgrade is fully in VRAM only when
 `size_vram` equals `size`. Then evaluate. Keep prior weights until a confirmed gain.
 
+Before changing the production selection, compare an already-installed candidate
+through `argos_evaluate` with its optional exact reviewed `model` tag. This uses
+an isolated copy of the current instructions, fixed temperature 0, thinking off,
+32k context and denied tools; it neither downloads weights nor changes production
+configuration. Run the configured model and candidate on the same suite and
+version with this profile, then repeat any apparent gain. These trial results are
+comparable to each other, not to earlier runs made with thinking enabled or a
+different context. Download or selection changes still require the usual owner
+authorization and integrity checks.
+
 **B. Configuration.** You may tune context, thinking, temperature, timeouts and
 enabled skills in `~/.openclaw/openclaw.json`. Snapshot first; validate JSON with
 the pinned host and verify the effective setting. Catalog token metadata alone
