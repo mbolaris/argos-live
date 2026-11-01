@@ -431,13 +431,15 @@ def run(cli, report):
             expected_campaign_calls = expected_campaign_tool_calls
             campaign_wait_tool_available = (
                 'argos_evaluate_wait' in progress['model_tool_names'])
+            unexpected_proctor_tools = (set(proctor_service.PROCTOR_TOOL_NAMES) - {'argos_evaluate_wait'}) & set(
+                progress['model_tool_names'])
             campaign = improvement_result.get('campaign', {})
             if (improvement_result['status'] != 'incomplete' or campaign.get('outcome') != 'task-not-measured' or
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
                     progress['campaign_tool_calls'] != expected_campaign_tool_calls or
                     progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS) or
                     not campaign_wait_tool_available or
-                    set(proctor_service.PROCTOR_TOOL_NAMES) & set(progress['model_tool_names'])):
+                    unexpected_proctor_tools):
                 diagnostic = {
                     'schema': 'argos-proctor-campaign-failure/1',
                     'improvement_status': improvement_result.get('status'),
@@ -455,6 +457,8 @@ def run(cli, report):
                     'expected_campaign_action_calls': len(CAMPAIGN_TOOLS),
                     'campaign_wait_calls': progress.get('campaign_wait_calls'),
                     'campaign_wait_tool_available': campaign_wait_tool_available,
+                    'unexpected_proctor_tools': sorted(unexpected_proctor_tools),
+                    'campaign_tool_names': sorted(progress['model_tool_names']),
                     'tool_errors': progress['errors'],
                     'tool_outcomes': campaign.get('tool_outcomes'),
                 }
