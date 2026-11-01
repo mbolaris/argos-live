@@ -224,16 +224,27 @@ must hold the verified infrastructure and tool availability constant.
 
 ## Current evidence state
 
-As of 2026-11-01, qwen3.8:27b completed challenge 1.3.1 at 39/40 with zero
-format errors (saved run `0ac139061cf314276cb357e6b295f87c`; result SHA-256
-`92f11fe855fcdfd3ee310e3b7c7b5263f557aa81211877539b1557e0c64989fd`). The
-single miss is in the inert synthetic tool-call category. This is a diagnostic
-for that suite only; it does not measure real support work, actual tool
-execution, or owner effort. The live model roster did not include qwen3:30b,
-and no matched candidate result exists. The owner has put the earlier 30B trial
-approval on hold; do not download or run it unless the owner reopens that trial
-after task-relevant evidence exists. There is no owner-task comparison result
-or owner-prioritized task portfolio yet. Treat operational recovery as one
-unmeasured candidate until priorities are recorded, a reviewed task-specific
-case pack and required tool capability exist, and matched results are recorded.
-Do not use it alone to direct model selection or self-improvement.
+As of 2026-11-01, the latest saved runs for qwen3.8:27b show:
+
+| Suite version | Result | Saved run | What it establishes |
+|---|---:|---|---|
+| quick/1.0.0 | 20/20 | `d0afb0dbbb7df0aa5940b265a50523ec` | Saturated result on this fixed suite. |
+| standard/1.0.0 | 70/70 | `c3b95743aec71101fea607f56c7ea003` | Saturated result on this fixed suite. |
+| challenge/1.1.0 | 40/40 | `0c163b129692b60821847e817dd7a9cb` | Older challenge form; not comparable with later versions. |
+| tool-plan/1.1.0 | 40/40 | `035302fb503d8de4a528f7f8328e5ad8` | Saturated result on this fixed tool-planning suite. |
+| tool-sequence/1.0.0 | 40/40 | `8dc152bb631fba684c5def9b6d35e7ef` | Saturated result on this fixed sequence suite. |
+| challenge/1.3.1 | 39/40, zero format errors | `0ac139061cf314276cb357e6b295f87c` | One miss in the inert synthetic tool-call category. |
+
+The challenge forms differ by version, so the 40/40 on 1.1.0 and 39/40 on
+1.3.1 do not establish a regression or gain. The result SHA-256 for the latest
+1.3.1 run is `92f11fe855fcdfd3ee310e3b7c7b5263f557aa81211877539b1557e0c64989fd`.
+Together these runs show saturation on several bundled diagnostics; they do
+not measure real support work, actual tool execution, or owner effort. The
+live model roster did not include qwen3:30b, and no matched candidate result
+exists. The owner has put the earlier 30B trial approval on hold; do not
+download or run it unless the owner reopens that trial after task-relevant
+evidence exists. There is no owner-task comparison result or owner-prioritized
+task portfolio yet. Treat operational recovery as one unmeasured candidate
+until priorities are recorded, a reviewed task-specific case pack and required
+tool capability exist, and matched results are recorded. Do not use it alone
+to direct model selection or self-improvement.
