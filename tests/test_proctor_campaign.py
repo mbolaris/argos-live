@@ -104,6 +104,13 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertFalse(self.startup.lab_active)
         self.assertIsNone(self.controller.worker)
 
+    def test_dashboard_exposes_document_suite_with_its_narrow_scope(self):
+        dashboard = (Path(__file__).resolve().parents[1] /
+                     'runtime/argoslive/web/static/index.html').read_text(encoding='utf-8')
+        self.assertIn('value="documents-short"', dashboard)
+        self.assertIn('Read this brief” covers only its short passages', dashboard)
+        self.assertIn('does not measure long-document or file-reading work', dashboard)
+
     def test_owner_start_reserves_resources_runs_and_restores_verified_assistant(self):
         started = self.controller.start('recover Argos after reboot',
                                         'ready after unlock with no terminal command')
