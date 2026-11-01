@@ -24,8 +24,8 @@ def validate_owner_task(owner_task, success_criteria):
 
 MESSAGES = {
     'idle': 'Ready when Argos is active, verified, and using confirmed storage.',
-    'pausing': 'Pausing everyday Argos before the signed practice run.',
-    'practice': 'Signed practice is running. Its score is coaching feedback, not improvement evidence.',
+    'pausing': 'Pausing everyday Argos before the task-focused improvement campaign.',
+    'practice': 'Separate signed practice is running. Its score is coaching feedback, not improvement evidence.',
     'campaign': 'Argos is running its bounded improvement campaign. Leave this dashboard open; no gain is claimed until the saved evidence is audited.',
     'restarting': 'Restarting Argos and checking that its selected model replies.',
     'completed': 'The campaign completed its evidence checks. Review its saved runs and audit before claiming any improvement.',

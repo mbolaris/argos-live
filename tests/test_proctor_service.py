@@ -50,11 +50,10 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('do not infer intent from hidden answer labels', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('separately versioned, fully specified form', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('immediately call argos_log', proctor_service.CAMPAIGN_MESSAGE)
-        self.assertIn('complete 70-task standard', proctor_service.CAMPAIGN_MESSAGE)
-        self.assertIn('separate 40-task challenge suite', proctor_service.CAMPAIGN_MESSAGE)
-        self.assertIn('use tool-sequence to probe ordered two- and three-call plans',
-                      proctor_service.CAMPAIGN_MESSAGE)
-        self.assertIn('tool-sequence', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertNotIn('complete 70-task standard', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertNotIn('separate 40-task challenge suite', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('recover Argos after reboot', prompt)
         self.assertIn('ready after unlock with no terminal command', prompt)
         self.assertIn('make no instruction or model change', prompt)
@@ -294,79 +293,20 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('a passed host instruction audit after the keep/restore decision',
                       assessment['missing'])
 
-    def test_saturated_standard_requires_a_logged_complete_challenge_after_latest_decision(self):
-        outcomes = [{'kind': 'inspect'},
-                    evaluation_outcome('standard-one', 'standard', correct=70, total=70),
-                    log_outcome('standard-one'),
-                    evaluation_outcome('standard-two', 'standard', correct=70, total=70),
-                    log_outcome('standard-two'),
-                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
-                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
-
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertFalse(assessment['ready'])
-        self.assertTrue(any('40-task challenge' in item for item in assessment['missing']))
-
-        outcomes.extend([evaluation_outcome('challenge-one', 'challenge', correct=33, total=40),
-                         log_outcome('challenge-one')])
-        outcomes.append({'kind': 'audit', 'status': 'empty', 'passed': True})
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertTrue(assessment['ready'])
-
-    def test_saturated_quick_requires_standard_after_the_latest_quick_run(self):
-        outcomes = [{'kind': 'inspect'},
-                    evaluation_outcome('quick-one'), log_outcome('quick-one'),
-                    evaluation_outcome('standard-before-latest-quick', 'standard',
-                                       correct=69, total=70),
-                    log_outcome('standard-before-latest-quick'),
-                    evaluation_outcome('quick-two'), log_outcome('quick-two'),
-                    {'kind': 'compare', 'baseline_id': 'quick-one', 'candidate_id': 'quick-two'},
-                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertFalse(assessment['ready'])
-        self.assertTrue(any('70-task standard' in item for item in assessment['missing']))
-
-        outcomes.extend([{'kind': 'edit', 'status': 'changed', 'change_id': 'change-1'},
-                         {'kind': 'resolve', 'status': 'restored', 'change_id': 'change-1',
-                          'configuration_preserved': True}])
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertFalse(assessment['ready'])
-        self.assertTrue(any('70-task standard' in item for item in assessment['missing']))
-
-        outcomes.extend([evaluation_outcome('standard-after-latest-decision', 'standard',
-                                            correct=69, total=70),
-                         log_outcome('standard-after-latest-decision'),
-                         {'kind': 'audit', 'status': 'verified', 'passed': True}])
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertTrue(assessment['ready'])
-
-    def test_saturated_standard_does_not_accept_a_challenge_before_latest_edit(self):
-        outcomes = [{'kind': 'inspect'},
-                    evaluation_outcome('standard-one', 'standard', correct=70, total=70),
-                    log_outcome('standard-one'),
-                    evaluation_outcome('challenge-one', 'challenge', correct=33, total=40),
-                    log_outcome('challenge-one'),
-                    {'kind': 'edit', 'status': 'changed', 'change_id': 'change-1'},
-                    {'kind': 'resolve', 'status': 'restored', 'change_id': 'change-1',
-                     'configuration_preserved': True},
-                    evaluation_outcome('standard-two', 'standard', correct=70, total=70),
-                    log_outcome('standard-two'),
-                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
-                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertFalse(assessment['ready'])
-        self.assertTrue(any('40-task challenge' in item for item in assessment['missing']))
-
-    def test_standard_with_a_miss_does_not_trigger_saturation_gate(self):
-        outcomes = [{'kind': 'inspect'},
-                    evaluation_outcome('standard-one', 'standard', correct=69, total=70),
-                    log_outcome('standard-one'),
-                    evaluation_outcome('standard-two', 'standard', correct=69, total=70),
-                    log_outcome('standard-two'),
-                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
-                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertTrue(assessment['ready'])
+    def test_perfect_relevant_suite_does_not_force_a_larger_or_different_suite(self):
+        for suite, total in (('quick', 20), ('standard', 70)):
+            with self.subTest(suite=suite):
+                outcomes = [{'kind': 'inspect'},
+                            evaluation_outcome('baseline', suite, correct=total, total=total),
+                            log_outcome('baseline'),
+                            evaluation_outcome('replicate', suite, correct=total, total=total),
+                            log_outcome('replicate'),
+                            {'kind': 'compare', 'baseline_id': 'baseline', 'candidate_id': 'replicate'},
+                            {'kind': 'audit', 'status': 'empty', 'passed': True}]
+                assessment = proctor_service._campaign_assessment(outcomes)
+                self.assertTrue(assessment['ready'])
+                self.assertEqual(assessment['outcome'], 'no_change_audited')
+                self.assertEqual(assessment['saved_evaluation_ids'], ['baseline', 'replicate'])
 
     def test_every_saved_evaluation_needs_a_host_verified_log_receipt(self):
         outcomes = [{'kind': 'inspect'}, evaluation_outcome('baseline-one', correct=19),
@@ -391,7 +331,7 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(ledger, [outcome])
         followup = proctor_service._campaign_followup(2, [outcome], {'missing': []})
         self.assertIn('"append_outcome": "unconfirmed"', followup)
-        self.assertIn('complete 70-task standard suite', followup)
+        self.assertNotIn('complete 70-task standard suite', followup)
 
     def test_campaign_continues_clean_turns_until_host_evidence_is_complete(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)

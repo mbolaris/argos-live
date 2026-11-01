@@ -82,19 +82,12 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
     'Report that measurement as under-specified and use a separately versioned, fully specified form '
     'for a new baseline. Never change a fixed suite to fit a candidate. '
     'Use each saved evaluation result ID, suite version, and coverage to group candidate runs. Never compare '
-    'different suites (for example quick with tool-plan or standard) as before/after evidence. When tool-plan '
-    'is saturated, use tool-sequence to probe ordered two- and three-call plans with explicit result references. '
-    'Its bundled held-out workflows are an internal transfer signal, not independent validation; keep its scores '
-    'separate from every other suite. If tool-sequence is also saturated, do not invent an instruction change '
-    'without task-level evidence. For a same-suite '
+    'different suites as before/after evidence. Optional diagnostics can be used only when their tasks measure '
+    'behavior relevant to the owner task; there is no mandatory suite ladder or saturation escalation. Bundled '
+    'held-out items are internal transfer signals, not independent validation. For a same-suite '
     'pair, argos_compare validates execution path, non-intervention settings, recipe, restoration and coverage. '
     'After every saved evaluation, immediately call argos_log with its actual run ID, score and complete next action '
-    'before starting another evaluation. If a complete standard run scores every item correctly with zero format '
-    'errors, run the separate 40-task challenge suite after the latest instruction decision before claiming a '
-    'plateau. If a complete quick run is perfect with zero format errors, follow it with a complete 70-task standard '
-    'evaluation after the latest instruction decision before claiming a plateau; if that standard run is perfect, '
-    'also complete the challenge suite. Challenge results are a separate signal and must not be compared with another '
-    'suite. '
+    'before starting another evaluation. '
     'If it rejects a pair, read its run metadata and pair_checks, use the safe fingerprints and true/false checks '
     'to choose a compatible pair, and do not retry the same IDs. Never infer or expose raw configuration values '
     'from fingerprints. '
@@ -576,44 +569,6 @@ def _campaign_assessment(outcomes):
     if logged_ids_missing:
         missing.append('a host-verified log receipt for every saved evaluation')
 
-    instruction_decision_indexes = [index for index, item in indexed
-                                    if item.get('kind') in {'edit', 'resolve'}]
-    saturated_quick_indexes = [
-        index for index, item in indexed
-        if item.get('kind') == 'evaluation' and item.get('state') == 'completed' and
-        run_suite(item) == 'quick' and valid_eval_receipt(item) and
-        item['correct'] == item['total'] and item['format_errors'] == 0
-    ]
-    if saturated_quick_indexes:
-        must_follow = max(max(saturated_quick_indexes), max(instruction_decision_indexes, default=-1))
-        has_standard = any(
-            index > must_follow and item.get('kind') == 'evaluation' and
-            item.get('state') == 'completed' and run_suite(item) == 'standard' and
-            valid_eval_receipt(item) and item['total'] == 70
-            for index, item in indexed
-        )
-        if not has_standard:
-            missing.append('a complete 70-task standard evaluation after the saturated quick run and latest '
-                           'instruction decision')
-
-    saturated_standard_indexes = [
-        index for index, item in indexed
-        if item.get('kind') == 'evaluation' and item.get('state') == 'completed' and
-        run_suite(item) == 'standard' and valid_eval_receipt(item) and
-        item['correct'] == item['total'] and item['format_errors'] == 0
-    ]
-    if saturated_standard_indexes:
-        must_follow = max(max(saturated_standard_indexes), max(instruction_decision_indexes, default=-1))
-        has_challenge = any(
-            index > must_follow and item.get('kind') == 'evaluation' and
-            item.get('state') == 'completed' and run_suite(item) == 'challenge' and
-            valid_eval_receipt(item) and item['total'] == 40
-            for index, item in indexed
-        )
-        if not has_challenge:
-            missing.append('a complete 40-task challenge evaluation after the saturated standard and latest '
-                           'instruction decision')
-
     latest_evaluation = max((index for index, item in indexed
                              if item.get('kind') == 'evaluation' and isinstance(item.get('result_id'), str)),
                             default=-1)
@@ -700,12 +655,6 @@ def _campaign_followup(turn, outcomes, assessment):
             f'The host still requires: {missing}. '
             'Continue from the current canonical instructions and saved run IDs. Use your own evidence-based judgment '
             'for any experiment. Recover missing log receipts for saved run IDs before starting any new evaluation. '
-            'If a saturated quick run still lacks a later standard evaluation, run and log the complete 70-task standard '
-            'suite after the latest instruction decision before claiming a plateau. '
-            'If a saturated standard run requires a challenge, run and log the complete 40-task challenge against the '
-            'current instruction state; do not compare it with another suite. '
-            'If tool-plan is saturated, run and log tool-sequence to check ordered dependent calls; keep it separate '
-            'from all other suites and describe its bundled held-out workflows only as internal transfer. '
             'If a relevant task suite exists but no change is justified, compare two distinct matched baselines. '
             'If no available suite measures the owner task, do not run unrelated probes just to fill the ledger; '
             'call argos_audit_instructions and report that task-specific evidence is missing. '

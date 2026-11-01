@@ -34,13 +34,20 @@ Continue authorized reversible steps without asking at each step.
 
 ## 2. Measure one change at a time
 
-Use native `argos_evaluate` (suite `quick`, `standard`, `challenge`, `tool-schema`, `tool-plan`, or `tool-sequence`) and `argos_compare`
-(`baseline_id`, `candidate_id`). These are tools, not shell commands. If absent,
-use `argos bench openclaw --suite quick --json`; never invent a control-script
-`evaluate` subcommand. Raw `argos bench ability` measures a model, not your
-workspace instructions, and cannot establish an assistant gain.
+First state the owner task, its success measure, and what evidence would be
+relevant. Use native `argos_evaluate` only if one of its suites (`quick`,
+`standard`, `challenge`, `tool-schema`, `tool-plan`, or `tool-sequence`) actually
+measures behavior needed for that task; use `argos_compare` only for matched runs
+of that same task and suite. These are tools, not shell commands. If no suite is
+relevant, stop before evaluating or changing anything and report what
+task-specific examples or success checks are missing. If a relevant plugin tool
+is absent, use `argos bench openclaw --suite SUITE --json` with its matching
+suite name; never invent a control-script `evaluate` subcommand. Raw-model
+`argos bench ability` measures a model, not your workspace instructions, and
+cannot establish an assistant gain.
 
-Get a fresh baseline, choose one hypothesis, snapshot, change one thing, evaluate,
+Only when a relevant suite exists and a testable change is justified, get a
+matched baseline, choose one hypothesis, snapshot, change one thing, evaluate,
 compare, then keep or restore. Every retest needs a new saved ID. Each wait is
 bounded to eight minutes: if `argos_evaluate` returns a running job, use
 `argos_evaluate_wait` with its job ID until the saved result arrives. If a turn
@@ -64,7 +71,9 @@ do not infer intent from hidden answer labels. Report that measurement as
 under-specified and use a separately versioned, fully specified form for a new
 baseline. Never change a fixed suite to fit a candidate.
 
-In challenge 1.0.0, the eight tool-call prompts omit tool inventories and
+These suite-specific limitations apply only when the owner task makes the suite
+relevant. They do not create a reason to run that suite. In challenge 1.0.0, the
+eight tool-call prompts omit tool inventories and
 schemas. Keep their measured outcomes in the full score, but do not use those
 items to diagnose tool behavior or support an instruction edit. Host keep-policy
 v3 excludes that category from challenge-based qualification; use tool-schema
@@ -86,52 +95,22 @@ a tool question argument unspecified. Keep-policy v4 excludes its choice, JSON
 and tool-call categories from qualification. Challenge 1.3.1 states those
 details explicitly; establish a fresh baseline for that version.
 
-Quick scores vary by 1–2 of 20. A complete quick run with every item correct
-and zero format errors is a ceiling signal, not a plateau: follow it with a
-complete 70-task `standard` evaluation after the latest instruction decision.
-Log every evaluation before continuing. If standard is saturated, run the
-separate 40-task `challenge` form. Its prompts use
-multi-step arithmetic, multiple constraints, structured extraction and proposed
-actions; it remains an Argos-authored probe, not an external benchmark. Compare
-only matching suite names and versions. Confirm a gain with at least two more
-correct answers in TWO fresh candidate quick runs against the baseline, or with
-repeated matched gains on standard/challenge. Fewer format errors with correct
-count maintained or improved is a reliability gain. An unchanged score with a
-large slowdown is not better. Report noise, uncertainty and regressions. Restore
-failed changes and verify the restore; never claim a general capability gain
-from one suite.
+The quick, standard, challenge, tool-schema, tool-plan and tool-sequence suites
+are optional Argos-authored diagnostics. There is no required progression from
+one suite to the next when a score saturates. Select a suite only when its exact
+tasks and scorer measure behavior relevant to the owner task. If none does, do
+not run unrelated probes to fill the campaign or justify an edit; report that
+task-specific evidence is missing. Keep scores separate by suite and version.
 
-When tool-call formatting is the measured weakness, use `tool-schema`. Every
-item supplies the exact available tool names and argument schemas. Its 20
-practice and 20 unseen-vocabulary tasks use disjoint tool names and argument
-keys, and target position is balanced so always choosing the first tool is
-insufficient. Both partitions and answer keys ship in the image, so the
-unseen-vocabulary score is a within-suite transfer signal, not independent or
-sealed validation. For an instruction change to qualify on this form, repeated
-runs must gain at least 3/40 overall, avoid more format errors, and each
-candidate unseen-vocabulary score must match or exceed the strongest baseline
-on that partition. The form remains an Argos-authored probe.
-
-When direct schema-grounded calls saturate, use `tool-plan`: it tests selecting
-among four tools, resolving multiple request constraints, deriving small values
-and assembling full arguments. Its 20 practice and 20 bundled held-out items
-use disjoint tool names and argument keys. The held-out half is an internal
-vocabulary-transfer signal only; prompts and answer keys ship with the image.
-Require repeated 3/40 gains, no format-error increase and held-out
-nonregression. It remains an Argos-authored probe, not independent validation
-or evidence that real tools execute.
-
-When `tool-plan` saturates, use `tool-sequence` to probe ordered two- and
-three-call workflows. Every item provides four tool schemas, a fully specified
-request, and literal `$stepN.field` bindings for values returned by earlier
-calls. The expected answer is a minimal JSON call sequence; the benchmark never
-executes those calls. Practice and held-out partitions use disjoint tool names
-and argument keys. The bundled held-out workflows are an internal transfer
-signal only: prompts and answer keys ship with the image. For an instruction
-change to qualify, repeated runs must gain at least 3/40 overall, avoid more
-format errors, and each held-out candidate score must match or exceed the
-strongest baseline on that partition. Keep these scores separate from every
-other suite and do not treat a perfect score as evidence of real tool execution.
+Inspect each item's wording and scoring requirements before diagnosing a miss.
+If the prompt omits requirements that the scorer expects, treat the item as
+under-specified and do not infer the intended behavior from the hidden answer.
+Tool-schema, tool-plan and tool-sequence can diagnose structured call formatting
+or planning only when that behavior is part of the owner task. They return
+proposed calls rather than executing them. Their held-out prompts and answers
+ship with the image, so they provide an internal transfer signal, not sealed or
+independent validation. Report uncertainty, reliability and latency separately;
+never claim general ability from one suite.
 
 Treat historical `tool-plan` 1.0.0 misses on `sort_order`, `order_by` and
 `reviewer_role` as under-specified: the prompts supplied only the primitive
@@ -140,7 +119,8 @@ those allowed literals in the tool descriptions. Establish a fresh 1.1.0
 baseline before diagnosing those skills or attempting an instruction change;
 never compare its scores with 1.0.0.
 
-For a workspace-instruction experiment, use `argos_inspect` first. It returns
+For a workspace-instruction experiment supported by relevant task evidence, use
+`argos_inspect` first. It returns
 the canonical `AGENTS.md`, current hash, configuration receipt, active change,
 and exact host keep policy. Establish a saved baseline through this controller,
 then use `argos_edit_instructions` with its ID, the inspected hash, one unique

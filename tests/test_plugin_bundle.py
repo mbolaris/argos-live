@@ -62,6 +62,10 @@ class ImprovementPluginBundleTests(unittest.TestCase):
         self.assertIn('2/20', guide)
         self.assertIn('4/70', guide)
         self.assertIn('3/40', guide)
+        self.assertIn('There is no required progression', guide)
+        self.assertIn('only when an available suite measures a behavior relevant', skill)
+        self.assertIn('Do not recommend or trial a larger model based on fit', skill)
+        self.assertNotIn('Prefer a comfortably fitting stronger model early', skill)
 
 
 if __name__ == '__main__':
