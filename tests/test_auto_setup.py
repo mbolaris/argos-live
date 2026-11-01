@@ -1,4 +1,5 @@
 from contextlib import redirect_stdout
+import hashlib
 import importlib.util
 import io
 import json
@@ -165,6 +166,65 @@ class AutoSetupTests(unittest.TestCase):
         updated['agents']['defaults']['heartbeat']['prompt'] = auto_setup.PREVIOUS_GUARDED_HEARTBEAT_PROMPT
         self.assertEqual(updated, config)
         self.assertEqual(len(list(snapshot.parent.glob('openclaw-before-heartbeat-guard-*.json'))), 1)
+
+    def test_exact_legacy_owner_guide_is_snapshotted_and_only_targeted_sections_change(self):
+        workspace = self.home / '.openclaw/workspace'
+        workspace.mkdir(parents=True)
+        prefix = '# Owner guide\n\n## 1. Keep this section\nPreserve these bytes.\n\n'
+        legacy_section = ('## 2. Measure one change at a time\n'
+                          'Old suite-first guidance.\n\n'
+                          '## 3. Improvement order and authority\n'
+                          'Old model-first guidance.\n\n')
+        plateau = auto_setup.LEGACY_MODEL_PLATEAU_GUIDANCE
+        suffix = ('**B. Configuration.**\nPreserve this configuration guidance.\n\n'
+                  + plateau + '\n\nOther owner content stays.\n')
+        raw = (prefix + legacy_section + suffix).encode('utf-8')
+        path = workspace / 'AGENTS.md'
+        path.write_bytes(raw)
+
+        with patch.object(auto_setup, 'LEGACY_OWNER_GUIDE_SHA256', hashlib.sha256(raw).hexdigest()):
+            result = auto_setup.upgrade_legacy_owner_guide(self.home)
+
+        self.assertEqual(result['status'], 'updated')
+        snapshot = self.home / '.local/state/argos-live/snapshots' / result['snapshot']
+        self.assertEqual(snapshot.read_bytes(), raw)
+        migrated = path.read_bytes().decode('utf-8')
+        expected = prefix + auto_setup.OWNER_TASK_GUIDANCE + suffix.replace(
+            plateau, auto_setup.OWNER_TASK_STOP_GUIDANCE)
+        self.assertEqual(migrated, expected)
+        self.assertEqual(result['before_sha256'], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(result['after_sha256'], hashlib.sha256(path.read_bytes()).hexdigest())
+        self.assertEqual(auto_setup.upgrade_legacy_owner_guide(self.home)['status'], 'not-targeted-guide')
+        self.assertEqual(len(list(snapshot.parent.glob('agents-before-owner-task-guidance-*.md'))), 1)
+        if os.name != 'nt':
+            self.assertEqual(snapshot.stat().st_mode & 0o777, 0o600)
+
+    def test_owner_guide_hash_match_with_unexpected_shape_is_left_untouched(self):
+        workspace = self.home / '.openclaw/workspace'
+        workspace.mkdir(parents=True)
+        path = workspace / 'AGENTS.md'
+        raw = b'# Guide with an unexpected shape\nThis content does not match the migration markers.\n'
+        path.write_bytes(raw)
+
+        with patch.object(auto_setup, 'LEGACY_OWNER_GUIDE_SHA256', hashlib.sha256(raw).hexdigest()):
+            result = auto_setup.upgrade_legacy_owner_guide(self.home)
+
+        self.assertEqual(result['status'], 'legacy-guide-shape-mismatch')
+        self.assertEqual(path.read_bytes(), raw)
+        self.assertFalse((self.home / '.local/state/argos-live/snapshots').exists())
+
+    def test_unrecognized_owner_guide_is_never_replaced_or_snapshotted(self):
+        workspace = self.home / '.openclaw/workspace'
+        workspace.mkdir(parents=True)
+        path = workspace / 'AGENTS.md'
+        raw = b'# Owner-edited guide\nKeep this exact content.\n'
+        path.write_bytes(raw)
+
+        result = auto_setup.upgrade_legacy_owner_guide(self.home)
+
+        self.assertEqual(result['status'], 'not-targeted-guide')
+        self.assertEqual(path.read_bytes(), raw)
+        self.assertFalse((self.home / '.local/state/argos-live/snapshots').exists())
 
     def test_owner_config_without_state_and_nonempty_model_location_are_not_adopted(self):
         self.config.parent.mkdir()
