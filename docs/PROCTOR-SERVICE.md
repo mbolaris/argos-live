@@ -101,12 +101,10 @@ that an ability improved. The campaign follows the installed Argos improvement
 skill for matched baseline/candidate runs, keep/restore decisions, and saved run
 IDs. If no existing evaluation suite measures the owner task, it should report
 that gap rather than use unrelated scores to claim progress.
-The host also enforces escalation when a quick evaluation is saturated: Argos
-must complete and log a 70-task standard evaluation after the latest instruction
-decision before the campaign can claim a plateau. A saturated standard result
-requires a separate 40-task challenge evaluation after the latest instruction
-decision. Each suite remains a distinct signal and is never compared across
-suite types.
+There is no automatic progression from quick to standard or challenge when a
+score is saturated. A diagnostic suite is selected only when its tasks match the
+owner's stated goal; scores remain separate by suite and cannot be compared
+across suite types.
 An incomplete practice is retained for review. An exam whose timer reached a
 terminal state with unanswered items also remains incomplete; timed completion
 does not produce a calibrated ability score.
