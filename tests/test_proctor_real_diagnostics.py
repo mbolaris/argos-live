@@ -10,6 +10,11 @@ SPEC.loader.exec_module(smoke)
 
 
 class ProctorRealDiagnosticTests(unittest.TestCase):
+    def test_real_smoke_rejects_unbundled_form_before_starting(self):
+        with self.assertRaisesRegex(ValueError, 'bundled Proctor practice form'):
+            smoke.run(Path('unused'), Path('unused'), Path('unused'), 'qwen3:4b',
+                      Path('unused'), form_id='owner-selected')
+
     def test_controller_diagnostics_export_only_bounded_safe_fields(self):
         turn = {
             'host_tool_requests': 3,
