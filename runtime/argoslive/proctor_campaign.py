@@ -10,6 +10,18 @@ class Refused(ValueError):
     """A campaign request could not safely start."""
 
 
+def validate_owner_task(owner_task, success_criteria):
+    """Require a bounded owner task and an observable success measure."""
+    if not isinstance(owner_task, str) or not isinstance(success_criteria, str):
+        raise Refused('Describe the owner task and what a successful result looks like.')
+    owner_task, success_criteria = owner_task.strip(), success_criteria.strip()
+    if not owner_task or not success_criteria:
+        raise Refused('Describe the owner task and what a successful result looks like.')
+    if len(owner_task) > 1200 or len(success_criteria) > 1200:
+        raise Refused('Keep the task and success measure under 1,200 characters each.')
+    return owner_task, success_criteria
+
+
 MESSAGES = {
     'idle': 'Ready when Argos is active, verified, and using confirmed storage.',
     'pausing': 'Pausing everyday Argos before the signed practice run.',
@@ -64,6 +76,8 @@ class Controller:
         self.progress = None
         self.failure_code = None
         self.failure_stage = None
+        self.owner_task = None
+        self.success_criteria = None
         self.recovery_target_phase = None
         self.storage_checked_at = None
         self.storage_is_safe = False
@@ -167,7 +181,8 @@ class Controller:
             'storage_confirmed': storage_confirmed,
         }
 
-    def start(self):
+    def start(self, owner_task=None, success_criteria=None):
+        owner_task, success_criteria = validate_owner_task(owner_task, success_criteria)
         with self.startup.lock, self.lock:
             if self.closed:
                 raise Refused('The Proctor campaign controller is closed.')
@@ -182,6 +197,8 @@ class Controller:
             if not self._persistent_storage_ready(fresh=True):
                 raise Refused('Confirm encrypted persistent storage for Argos models, profile, results, and settings.')
             self.model = assistant.get('model')
+            self.owner_task = owner_task
+            self.success_criteria = success_criteria
             self.result = None
             self.progress = {'phase': 'practice', 'stage': 'starting'}
             self.failure_code = None
@@ -253,6 +270,8 @@ class Controller:
                 self.phase = self.recovery_target_phase or 'failed'
                 self.recovery_target_phase = None
                 self.failure_code = None
+                self.owner_task = None
+                self.success_criteria = None
                 self.finished = self.clock()
 
     def _set_phase(self, phase):
@@ -335,7 +354,8 @@ class Controller:
                 runner = run_improvement
             # The interactive campaign uses the stronger bundled practice
             # form; the six-item pilot remains available for smoke checks.
-            result = runner(self.home, form_id='composed-a', on_phase=self._set_phase,
+            result = runner(self.home, form_id='composed-a', owner_task=self.owner_task,
+                            success_criteria=self.success_criteria, on_phase=self._set_phase,
                             on_progress=self._set_progress)
             public_result = self._public_result(result)
             with self.lock:
@@ -366,6 +386,8 @@ class Controller:
                 else:
                     self.startup.lab_active = False
                     self.phase = outcome_phase
+                self.owner_task = None
+                self.success_criteria = None
                 self.finished = self.clock()
 
     def close(self):

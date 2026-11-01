@@ -455,7 +455,10 @@ def run(cli, report):
                     patch.object(proctor_service.owned_ollama, 'owned',
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
                 improvement_result = proctor_service.run_improvement(
-                    service_home, None, 'pilot-a', executable=cli)
+                    service_home, None, 'pilot-a',
+                    owner_task='complete a short owner-selected document-answer task accurately',
+                    success_criteria='the answer is correct and supported by the provided text',
+                    executable=cli)
             expected_campaign_tool_calls = (len(CAMPAIGN_TOOLS) +
                                             progress.get('campaign_wait_calls', 0))
             expected_campaign_calls = len(PRACTICE_TOOLS) + expected_campaign_tool_calls

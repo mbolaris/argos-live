@@ -4710,6 +4710,13 @@ async function refreshProctorCampaign() {
 
 document.getElementById('proctor-campaign-start')?.addEventListener('click', async event => {
   if (proctorCampaignStarting) return;
+  const ownerTask = document.getElementById('proctor-owner-task')?.value.trim() || '';
+  const successCriteria = document.getElementById('proctor-success-criteria')?.value.trim() || '';
+  if (!ownerTask || !successCriteria) {
+    const message = document.getElementById('proctor-campaign-message');
+    message.textContent = 'Describe a recurring task and what success looks like before starting.';
+    return;
+  }
   proctorCampaignStarting = true;
   const button = event.currentTarget;
   button.disabled = true;
@@ -4717,7 +4724,8 @@ document.getElementById('proctor-campaign-start')?.addEventListener('click', asy
   message.textContent = 'Starting the managed campaign…';
   try {
     const response = await fetch('/api/proctor-campaign/start', {
-      method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'
+      method: 'POST', headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+      body: JSON.stringify({owner_task: ownerTask, success_criteria: successCriteria}), cache: 'no-store'
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body?.error || 'Proctor campaign unavailable.');
