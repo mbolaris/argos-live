@@ -108,7 +108,10 @@ skill for matched baseline/candidate runs, keep/restore decisions, and saved run
 There is no automatic progression from quick to standard or challenge when a
 score is saturated. A diagnostic suite is selected only when its tasks match the
 owner's stated goal; scores remain separate by suite and cannot be compared
-across suite types.
+across suite types. When no bundled suite measures the task, use the
+[owner-task evaluation protocol](OWNER-TASK-EVALUATION.md) to define a reviewed,
+repeatable task pack. A draft pack is not a basis for a model or instruction
+change until it has appropriate scoring and independent confirmation.
 An incomplete practice is retained for review. An exam whose timer reached a
 terminal state with unanswered items also remains incomplete; timed completion
 does not produce a calibrated ability score.

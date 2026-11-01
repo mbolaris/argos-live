@@ -45,6 +45,9 @@ not change model settings or grant new tools.
 > Do not progress through suites just because a score is saturated. If no suite
 > measures the task, do not run unrelated probes or make a change from their
 > scores; report what task-specific examples or checks are missing.
+> Use [the owner-task evaluation protocol](OWNER-TASK-EVALUATION.md) when
+> defining a repeatable task pack. Do not treat a draft or uncalibrated pack as
+> promotion evidence.
 > Briefly explain one evidenced weakness and a specific hypothesis for improving it.
 > Before changing anything, preserve a recoverable copy and state exactly what
 > will change. Repeat the same evaluation under comparable conditions and use
