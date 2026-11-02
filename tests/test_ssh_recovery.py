@@ -129,6 +129,13 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(payload['status'], self.current)
             self.assertEqual(payload['owner_approval_available'], value['owner_approval_available'])
             self.assertEqual(payload['recovery_job_state'], value['recovery_job_state'])
+            self.current.update(ssh_active=True, port22_listening=True, restart_eligible=False)
+            healthy = controller.proctor_status()
+            self.assertTrue(healthy['available'])
+            self.assertFalse(healthy['owner_approval_available'])
+            self.assertTrue(healthy['status']['ssh_active'])
+            self.assertTrue(healthy['status']['port22_listening'])
+            self.assertTrue(controller.verify_proctor_status(healthy))
             self.current.update(paired_policy_valid=False, restart_eligible=False,
                                 failure_code='paired-policy-unready')
             unsafe = controller.proctor_status()
