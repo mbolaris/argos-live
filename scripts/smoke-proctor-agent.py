@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the optional Proctor tools through the real pinned SDK with synthetic replies."""
 import argparse
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from http.server import BaseHTTPRequestHandler
 import hashlib
 import json
@@ -114,7 +114,8 @@ def run(cli, report):
     progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': [],
                 'provider_idless_calls': 0, 'start_result_on_wire_verified': False,
                 'campaign_plan_index': 0, 'campaign_wait_calls': 0,
-                'campaign_host_tool_trace': [], 'campaign_runtime_error_class': None}
+                'campaign_host_tool_trace': [], 'campaign_runtime_error_class': None,
+                'campaign_setup_stage': None}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -476,8 +477,25 @@ def run(cli, report):
             progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[],
                             campaign_plan_index=0, campaign_wait_calls=0)
             real_run_campaign = proctor_service.run_campaign
+            real_controller_owned = controller_bridge.owned
+            real_gateway_owned = proctor_service.owned_gateway.owned
+
+            @contextmanager
+            def trace_controller_owned(*args, **kwargs):
+                progress['campaign_setup_stage'] = 'controller-reservation'
+                with real_controller_owned(*args, **kwargs) as value:
+                    progress['campaign_setup_stage'] = 'controller-admitted'
+                    yield value
+
+            @contextmanager
+            def trace_gateway_owned(*args, **kwargs):
+                progress['campaign_setup_stage'] = 'gateway-start'
+                with real_gateway_owned(*args, **kwargs) as value:
+                    progress['campaign_setup_stage'] = 'gateway-running'
+                    yield value
 
             def task_campaign(*args, **kwargs):
+                progress['campaign_setup_stage'] = 'run-campaign'
                 try:
                     campaign = real_run_campaign(*args, **kwargs)
                 except BaseException as error:
@@ -492,6 +510,8 @@ def run(cli, report):
                               side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
                     patch.object(controller_bridge.Bridge, 'dispatch', trace_campaign_dispatch), \
+                    patch.object(controller_bridge, 'owned', trace_controller_owned), \
+                    patch.object(proctor_service.owned_gateway, 'owned', trace_gateway_owned), \
                     patch.object(proctor_service, 'run_campaign', side_effect=task_campaign), \
                     patch.object(proctor_service.owned_ollama, 'owned',
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
@@ -528,6 +548,7 @@ def run(cli, report):
                     'campaign_failure_code': improvement_result.get('failure_code'),
                     'campaign_failure_stage': improvement_result.get('failure_stage'),
                     'campaign_runtime_error_class': progress.get('campaign_runtime_error_class'),
+                    'campaign_setup_stage': progress.get('campaign_setup_stage'),
                     'campaign_missing': campaign.get('missing'),
                     'campaign_turns': campaign.get('controller_turns'),
                     'saved_evaluation_ids': campaign.get('saved_evaluation_ids'),
