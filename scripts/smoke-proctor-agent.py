@@ -368,7 +368,7 @@ def run(cli, report):
             real_finish = controller_bridge.Bridge.finish
             real_dispatch = controller_bridge.Bridge.dispatch
 
-            def trace_campaign_dispatch(bridge, request):
+            def trace_campaign_dispatch(bridge, request, on_update=None):
                 if progress['phase'] == 'campaign' and request.get('op') == 'begin':
                     progress['campaign_admission_requests'] = progress.get(
                         'campaign_admission_requests', 0) + 1
@@ -376,7 +376,7 @@ def run(cli, report):
                         isinstance(request.get('auth'), str) and
                         hmac.compare_digest(request['auth'], bridge.secret))
                 try:
-                    response = real_dispatch(bridge, request)
+                    response = real_dispatch(bridge, request, on_update=on_update)
                 except BaseException as error:
                     if progress['phase'] == 'campaign' and request.get('op') == 'begin':
                         progress['campaign_admission_dispatch_error'] = type(error).__name__
