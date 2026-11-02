@@ -25,6 +25,12 @@
         <p id="cc-moment-detail"></p>
         <button id="cc-moment-dismiss" type="button">Noted</button>
       </div>
+      <section class="notice ssh-recovery-card" aria-label="Remote access recovery">
+        <strong>Paired remote access</strong>
+        <p id="ssh-recovery-status" role="status" aria-live="polite">Checking encrypted storage and SSH pairing…</p>
+        <p class="ssh-recovery-detail">If SSH is stopped, Argos can start the existing key-only service after encrypted persistence and its paired policy pass. It does not create keys or change the policy.</p>
+        <button id="ssh-recovery-start" type="button" hidden>Approve one safe SSH start</button>
+      </section>
       <article class="card cc-mission-hero" id="cc-next">
         <div class="cc-hero-meta">
           <p id="cc-next-label" class="mission-label">Recommended next mission</p>
@@ -579,7 +585,7 @@
     <details id="workbench" class="workbench"><summary>Models &amp; setup <span>Storage, downloads, test records and hardware</span></summary>
     <section class="notice" aria-label="Assistant status">
       <strong id="assistant-status">Checking your workspace…</strong>
-      <p id="assistant-help">This page manages your assistant and can safely restore its already-paired SSH service after checks.</p>
+      <p id="assistant-help">This page checks your workspace and manages the local assistant service.</p>
       <div id="startup-controls" hidden>
         <p id="startup-status" role="status" aria-live="polite">Preparing your assistant…</p>
         <progress id="startup-progress" max="5" value="0" aria-label="Assistant setup progress"></progress>
@@ -588,12 +594,6 @@
         <button id="stop-assistant" type="button" disabled>Stop Assistant</button>
       </div>
       <button id="chat-fallback" type="button" disabled>Talk to Argos</button>
-    </section>
-    <section class="notice ssh-recovery-card" aria-label="Remote access recovery">
-      <strong>Paired remote access</strong>
-      <p id="ssh-recovery-status" role="status" aria-live="polite">Checking encrypted storage and SSH pairing…</p>
-      <p class="ssh-recovery-detail">Argos can start the existing key-only SSH service only when encrypted persistence and its paired policy pass. It does not create keys or change the policy.</p>
-      <button id="ssh-recovery-start" type="button" hidden>Approve one safe SSH start</button>
     </section>
     <nav class="lab-nav" aria-label="Workspace sections"><a href="#improve-title">Self-improvement</a><a href="#cc-title">Mission Control</a><a href="#benchmarks-title">Test performance</a><a href="#storage-title">Choose model storage</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Add a capability</a><a href="#hardware-title">Hardware details</a></nav>
     <section aria-labelledby="improve-title" id="improve">
