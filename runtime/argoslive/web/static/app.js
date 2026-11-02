@@ -3495,11 +3495,9 @@ function nextExperiment(ability) {
       measure: 'Matched results on the same questions show whether the candidate does better here.',
       button: 'Choose a model to compare'};
   }
-  return {kind: 'repeat', title: 'Check that it’s consistent',
-    why: `All ${ability.total} scored questions were correct this time.`,
-    change: 'Nothing. Your AI reruns the same trial unchanged.',
-    measure: 'If the result holds, you can trust it more. If it changes, you’ve found variation worth knowing about.',
-    button: 'Rerun the same trial unchanged'};
+  // A clean result on a bundled practice suite is not a reason to repeat it.
+  // Let the owner continue to an actual task instead of creating a score loop.
+  return null;
 }
 
 function renderNextExperiment(next, actions) {
