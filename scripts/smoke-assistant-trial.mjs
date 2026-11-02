@@ -304,7 +304,8 @@ try {
   assert.match(await page.locator('#assistant-trial-opinion-model').textContent(), /no tools or personal profile loaded/);
   assert.doesNotMatch(await page.locator('#assistant-trial-opinion').textContent(), /\d+ of 32/,
     'No session-wide lab count is presented as an assistant score');
-  assert.equal(await page.locator('#assistant-trial-keep').isVisible(), true);
+  assert.equal(await page.locator('#assistant-trial-keep').isVisible(), false,
+    'Keep is an explicit secondary choice because this score is practice-only');
   assert.equal(await page.locator('#assistant-trial-keep').textContent(), 'Keep “Show the source”');
   assert.equal(await page.locator('#assistant-trial .assistant-trial-checkpoint').count(), 8,
     'The result shows one visual checkpoint for each practice question');
@@ -368,6 +369,7 @@ try {
   assert.equal(await page.locator('#assistant-trial-result .assistant-trial-verdict h5').textContent(), 'Practice questions only');
 
   // ---- Keep, verified; then Restore, verified byte-exact by the controller.
+  await page.locator('#assistant-trial-alternatives > summary').click();
   await page.locator('#assistant-trial-keep').click();
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).status === 'kept', null, {polling: 300});
   assert.match(await page.locator('#assistant-trial-note').textContent(), /Kept and verified/);
