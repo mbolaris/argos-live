@@ -71,6 +71,42 @@ def pending_campaign_job_id(messages):
     return None
 
 
+def signed_ssh_status_in(messages):
+    """Require the signed status tool result to reach the following model turn."""
+    decoder = json.JSONDecoder()
+
+    def visit(value):
+        if isinstance(value, dict):
+            if (value.get('schema') == 'argos-proctor-ssh-status/1' and
+                    value.get('available') is True and
+                    value.get('owner_approval_available') is True and
+                    isinstance(value.get('status'), dict) and
+                    value['status'].get('restart_eligible') is True and
+                    isinstance(value.get('receipt'), dict) and
+                    isinstance(value['receipt'].get('signature'), dict) and
+                    value['receipt']['signature'].get('algorithm') == 'Ed25519'):
+                return True
+            return any(visit(child) for child in value.values())
+        if isinstance(value, list):
+            return any(visit(child) for child in value)
+        if isinstance(value, str):
+            try:
+                return visit(json.loads(value))
+            except (ValueError, TypeError):
+                pass
+            for index, char in enumerate(value):
+                if char == '{':
+                    try:
+                        candidate, _end = decoder.raw_decode(value[index:])
+                    except ValueError:
+                        continue
+                    if visit(candidate):
+                        return True
+        return False
+
+    return visit(messages)
+
+
 def run(cli, report):
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or os.geteuid() == 0):
@@ -125,6 +161,8 @@ def run(cli, report):
             phase_tools = (CAMPAIGN_TOOLS if campaign_phase else
                            PRACTICE_TOOLS if progress['phase'] == 'practice' else TOOLS)
             messages = request.get('messages', [])
+            if campaign_phase and progress['campaign_plan_index'] >= 2:
+                progress['ssh_status_result_on_wire_verified'] = signed_ssh_status_in(messages)
             pending_job_id = pending_campaign_job_id(messages) if campaign_phase else None
             if campaign_phase:
                 phase_has_work = (pending_job_id is not None or
@@ -458,6 +496,7 @@ def run(cli, report):
                     progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS) or
                     not campaign_wait_tool_available or
                     'argos_ssh_status' not in progress['model_tool_names'] or
+                    not progress.get('ssh_status_result_on_wire_verified') or
                     len(ssh_status_outcomes) != 1 or ssh_status_outcomes[0].get('status') != 'available' or
                     unexpected_proctor_tools):
                 diagnostic = {
@@ -477,6 +516,7 @@ def run(cli, report):
                     'expected_campaign_action_calls': len(CAMPAIGN_TOOLS),
                     'campaign_wait_calls': progress.get('campaign_wait_calls'),
                     'campaign_wait_tool_available': campaign_wait_tool_available,
+                    'ssh_status_result_on_wire_verified': progress.get('ssh_status_result_on_wire_verified', False),
                     'ssh_status_outcomes': ssh_status_outcomes,
                     'unexpected_proctor_tools': sorted(unexpected_proctor_tools),
                     'campaign_tool_names': sorted(progress['model_tool_names']),
@@ -510,6 +550,7 @@ def run(cli, report):
                 campaign_wait_calls=progress['campaign_wait_calls'],
                 signed_ssh_status_verified=len(ssh_status_outcomes) == 1 and
                     ssh_status_outcomes[0].get('status') == 'available',
+                ssh_status_result_on_wire_verified=progress['ssh_status_result_on_wire_verified'],
                 campaign_saved_evaluations=0, task_reported_not_measured=True,
                 production_gateway_dispatch=False)
             receipt['passed'] = True
