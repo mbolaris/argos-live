@@ -115,7 +115,7 @@ try {
   await page.locator('#assistant-trial-plan-details > summary').click();
   assert.match(await page.locator('#assistant-trial-ideas').textContent(), /Answer first/);
   assert.match(await page.locator('#assistant-trial-ideas').textContent(), /Show the source/);
-  assert.match(await page.locator('#assistant-trial-ideas').textContent(), /Be honest when the source is missing/);
+  assert.match(await page.locator('#assistant-trial-ideas').textContent(), /Be honest when it is missing/);
   assert.match(await page.locator('#assistant-trial-ideas').textContent(), /begin with the direct answer in one short sentence/,
     'The exact approved instruction remains available before GO');
   await page.locator('#assistant-trial-plan-details > summary').click();
