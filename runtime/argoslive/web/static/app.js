@@ -4117,6 +4117,7 @@ async function trialAction(path) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || 'That action is unavailable right now');
     assistantTrial = body;
+    if (path === 'keep') document.getElementById('assistant-trial-alternatives').open = false;
     renderAssistantTrial();
   } catch (err) {
     failure = err.message;
