@@ -174,6 +174,26 @@ class ControllerTests(unittest.TestCase):
             self.release.set()
             controller.close()
 
+    def test_orphaned_job_is_reconciled_from_saved_host_status(self):
+        controller = self.controller()
+        self.signed_storage(controller)
+        controller.job = {'schema': 'argos-ssh-recovery-job/1', 'job_id': 'c' * 32,
+                          'state': 'running', 'boot_id': self.current['boot_id'],
+                          'approved_receipt_id': 'b' * 32, 'receipt': None,
+                          'failure_code': None}
+        controller.root.mkdir(parents=True)
+        controller._save_job()
+        controller.job = None  # simulate a desktop process that exited
+        self.current.update(ssh_active=True, port22_listening=True, restart_eligible=False)
+        try:
+            snapshot = controller.snapshot()
+            self.assertEqual(snapshot['job']['state'], 'completed')
+            self.assertEqual(snapshot['job']['receipt']['signature_status'], 'signed')
+            saved = json.loads((controller.root / 'latest-job.json').read_text())
+            self.assertEqual(saved['state'], 'completed')
+        finally:
+            controller.close()
+
 
 if __name__ == '__main__':
     unittest.main()

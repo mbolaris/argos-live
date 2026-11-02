@@ -280,6 +280,25 @@ class Controller:
         with self.lock:
             job = dict(self.job) if self.job else self._saved_job()
             active = self.worker is not None and self.worker.is_alive()
+            # If the desktop process ended mid-operation, reconcile its
+            # persisted job from current host evidence instead of displaying a
+            # permanent spinner or retrying silently.
+            if not active and self.worker is None and job and job.get('state') == 'running' and status:
+                if status.get('boot_id') != job.get('boot_id'):
+                    result = {'status': 'failed', 'failure_code': 'boot-changed'}
+                elif (status.get('persistence_state') == 'verified' and
+                      status.get('paired_policy_valid') is True and
+                      status.get('ssh_enabled') is True and status.get('ssh_active') is True and
+                      status.get('port22_listening') is True):
+                    result = {'status': 'completed', 'failure_code': None}
+                else:
+                    result = {'status': 'failed', 'failure_code': 'restart-not-verified'}
+                self.job = job
+                self.job['state'] = result['status']
+                self.job['failure_code'] = result['failure_code']
+                self.job['receipt'] = self._receipt(status, result=result, persist=True)
+                self._save_job()
+                job = dict(self.job)
         return {'available': status is not None, 'status': status, 'receipt': receipt,
                 'can_restart': bool(status and status.get('restart_eligible') and
                                     receipt and receipt.get('signature_status') == 'signed' and not active),
