@@ -57,28 +57,30 @@ class FirstModelTests(unittest.TestCase):
                                      snapshot=lambda: gpu(24), is_online=lambda: online)
         return result, downloads, selection
 
-    def test_bundled_install_switches_once_and_records_it(self):
+    def test_bundled_install_does_not_upgrade_on_fit_alone(self):
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp)
             result, downloads, selection = self.run_with(home, {'model_source': 'bundled'})
-            self.assertEqual(result, {'outcome': 'switched', 'tag': 'qwen3:14b'})
-            self.assertEqual((downloads.started, selection.started, selection.kept), (['qwen3:14b'], ['qwen3:14b'], True))
+            self.assertEqual(result['outcome'], 'skipped')
+            self.assertIn('hardware fit alone', result['reason'])
+            self.assertEqual((downloads.started, selection.started, selection.kept), ([], [], False))
             again, downloads, _ = self.run_with(home, {'model_source': 'bundled'})
-            self.assertEqual((again['outcome'], downloads.started), ('switched', []))
+            self.assertEqual((again['outcome'], downloads.started), ('skipped', []))
 
-    def test_offline_retries_later_and_managed_installs_are_left_alone(self):
+    def test_offline_or_managed_install_does_not_start_a_model_trial(self):
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp)
             result, downloads, _ = self.run_with(home, {'model_source': 'bundled'}, online=False)
-            self.assertIsNone(result)
-            self.assertFalse((home / '.local/state/argos-live/first-model.json').exists())
+            self.assertEqual(result['outcome'], 'skipped')
+            self.assertFalse(downloads.started)
             result, downloads, _ = self.run_with(home, {'model_source': 'managed'})
             self.assertEqual((result['outcome'], downloads.started), ('skipped', []))
 
-    def test_failed_download_does_not_switch(self):
+    def test_fit_candidate_does_not_trigger_a_download(self):
         with tempfile.TemporaryDirectory() as temp:
             result, _, selection = self.run_with(Path(temp), {'model_source': 'bundled'}, download='failed')
-            self.assertEqual((result['outcome'], result['stage'], selection.started), ('failed', 'download', []))
+            self.assertEqual(result['outcome'], 'skipped')
+            self.assertFalse(selection.started)
 
 
 if __name__ == '__main__':

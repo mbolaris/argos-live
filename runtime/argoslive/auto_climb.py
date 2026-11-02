@@ -217,7 +217,7 @@ def load_validation_partitions(path=VALIDATION_TASKS_PATH):
 
 def recommend_hardware_model(home, *, envelope=None, budgets=None,
                              hardware_fn=hw.snapshot, catalog_data=None, excluded_candidates=()):
-    """Find the best eligible candidate model for this machine within approved budget."""
+    """Find a fitting model candidate for an explicitly justified model trial."""
     envelope = envelope or DEFAULT_ENVELOPE
     budgets = budgets or {}
     data = catalog_data if catalog_data is not None else catalog.load()
@@ -299,7 +299,9 @@ def recommend_hardware_model(home, *, envelope=None, budgets=None,
     if not eligible_candidates:
         return None
 
-    # Pick smallest viable weight upgrade among curated candidates
+    # A fit estimate is not evidence of a task-quality gain. This helper is
+    # available to an explicitly scoped model trial, but Auto Climb does not
+    # invoke it by default.
     selected_entry, installed, download_bytes = min(eligible_candidates, key=lambda item: item[0]['weight_bytes'])
 
     needs_download = not installed
@@ -322,7 +324,7 @@ def recommend_hardware_model(home, *, envelope=None, budgets=None,
         'tag': selected_entry['tag'],
         'title': f'Upgrade model to {selected_entry["tag"]}',
         'change': f'Switch assistant primary model from {current_model} to {selected_entry["tag"]}.',
-        'rationale': rationale,
+        'rationale': 'Hardware fit only; choose this candidate only after a repeated, owner-valued task gap points to model capability. ' + rationale,
         'cost': cost_str,
         'verification': '8 practice challenges + 8 independent validation challenges',
         'needs_download': needs_download,
@@ -339,7 +341,7 @@ class Controller:
     def __init__(self, startup, *, home=None, runner=None, clock=time.monotonic,
                  time_fn=time.time, sleep_fn=time.sleep, practice_path=PRACTICE_TASKS_PATH,
                  validation_path=VALIDATION_TASKS_PATH, candidates=None,
-                 model_recommender=recommend_hardware_model, model_switcher=None,
+                 model_recommender=None, model_switcher=None,
                  model_restorer=None, download_runner=None, selection=None, downloads=None):
         self.startup = startup
         self.home = Path(home or getattr(startup, 'home', Path.home()))
@@ -351,7 +353,7 @@ class Controller:
         self.validation_partitions = load_validation_partitions(validation_path)
         if candidates is not None:
             self.candidate_pool = list(candidates)
-            self.model_recommender = None if model_recommender is recommend_hardware_model else model_recommender
+            self.model_recommender = model_recommender
         else:
             self.candidate_pool = list(INSTRUCTION_CANDIDATES)
             self.model_recommender = model_recommender
@@ -1177,10 +1179,12 @@ class Controller:
                     # Differentiate plateau vs options exhausted
                     if self.session.get('experiments_since_last_gain', 0) >= 3:
                         self.session['phase'] = 'plateau'
-                        self.session['stopping_reason'] = 'Plateau within this session’s tested options: 3 consecutive experiments showed no validated gain and all options evaluated.'
+                        self.session['stopping_reason'] = ('No repeatable gain on the bundled practice tasks in three '
+                                                           'completed experiments; this does not measure owner-task improvement.')
                     else:
                         self.session['phase'] = 'options-exhausted'
-                        self.session['stopping_reason'] = 'Options exhausted within approved session.'
+                        self.session['stopping_reason'] = ('Practice options exhausted. No owner-task improvement was '
+                                                           'measured; passing practice candidates were restored.')
                     self.session['message'] = self.session['stopping_reason']
                     self._save_session()
                     break
@@ -1225,7 +1229,8 @@ class Controller:
                     remaining = self._select_next_candidate()
                     if remaining is None:
                         self.session['phase'] = 'plateau'
-                        self.session['stopping_reason'] = 'Plateau within this session’s tested options: 3 consecutive experiments showed no validated gain and all options evaluated.'
+                        self.session['stopping_reason'] = ('No repeatable gain on the bundled practice tasks in three '
+                                                           'completed experiments; this does not measure owner-task improvement.')
                         self.session['message'] = self.session['stopping_reason']
                         self._save_session()
                         break
@@ -1347,7 +1352,7 @@ class Controller:
                          'argos-trial:' + c.get('change_id', c['id']) + ' ' in existing)
 
         # Prefer the cheapest reviewed intervention when all observed misses
-        # have the same precise cause. Validation and promotion remain unchanged.
+        # have the same precise cause. Any synthetic-suite gain stays practice-only.
         misses = [r for r in self.session.get('practice_baseline', []) if not r.get('passed')]
         quote_only = len(misses) >= 2 and all(
             r.get('kind') == 'answer' and r.get('checks', {}).get('exact_quote') is False and
@@ -1359,7 +1364,9 @@ class Controller:
                     return dict(candidate, rationale='The answers were correct, but supporting quotes were missing. '
                                 'Try the reviewed source-quote instruction before changing models.')
 
-        # Check model recommendation candidate first if available (AC3)
+        # Model changes need a task-based reason. Hardware fit by itself does
+        # not put a model into the autonomous campaign; callers must explicitly
+        # inject a recommender for a scoped and justified model trial.
         if self.model_recommender:
             envelope = self.session.get('approved_envelope', DEFAULT_ENVELOPE)
             budgets = self.session.get('budgets_used', {})
@@ -1602,54 +1609,32 @@ class Controller:
                 decision_reason = ('The measured improvement lacked complete, correctly matched saved run records; '
                                    'the candidate was restored.')
 
+        # Auto Climb's bundled suites are synthetic practice, not an owner-task
+        # measure. Preserve the diagnostic result, but never promote a prompt
+        # or model change into everyday Argos on that evidence alone.
+        if verdict == 'kept':
+            verdict = 'practice-only'
+            decision_reason = (
+                'Practice and held-out tasks improved, but they do not measure an owner-selected task. '
+                'The candidate was restored; no everyday instruction or model change was kept.')
+
         # 5. Keep or Restore
         self.session['phase'] = 'keep-or-restore'
         self.session['message'] = f'Decision: {verdict.upper()} ({decision_reason})'
         self._save_session()
 
-        if verdict == 'kept':
-            # Rebase practice baseline onto the newly verified kept build!
-            self.session['practice_baseline'] = practice_retest
-            self.session['practice_baseline_run_id'] = run_refs.get('candidate_practice')
-            p_baselines[p1['id']] = val1_retest
-            p_baselines[p2['id']] = val2_retest
-            self.session.setdefault('partition_baseline_run_ids', {})[p1['id']] = run_refs['candidate_validation'][p1['id']]
-            self.session.setdefault('partition_baseline_run_ids', {})[p2['id']] = run_refs['candidate_validation'][p2['id']]
+        try:
             if kind == 'instruction':
-                self.session['current_kept_raw'] = read_text(agents_path(self.home))
-                self.session['raw_before'] = self.session['current_kept_raw']
+                self._restore_instruction(raw_before, raw_after)
             elif kind == 'model':
-                self._run_model_keep()
-                model_tag = candidate.get('tag')
-                model_digest = candidate.get('manifest_digest') or get_model_digest(model_tag)
-                self.session['active_model'] = {'model': model_tag, 'digest': model_digest}
-                if hasattr(self.runner, 'expected_model') and model_tag:
-                    self.runner.expected_model = model_tag
-            self.session['experiments_since_last_gain'] = 0
-            self.session.pop('mutation', None)
-
-            # Update current level metrics
-            passed_practice = sum(1 for r in practice_retest if r['passed'])
-            passed_val = sum(1 for r in val2_retest if r['passed']) if 'val2_retest' in locals() else 0
-            self.session['current_level'] = {
-                'practice_passed': passed_practice,
-                'practice_total': len(practice_retest),
-                'validation_passed': passed_val,
-                'validation_total': len(val2_retest) if 'val2_retest' in locals() else 8,
-                'label': f'{passed_practice}/{len(practice_retest)} practice · {passed_val}/8 validation',
-            }
-        else:
-            try:
-                if kind == 'instruction':
-                    self._restore_instruction(raw_before, raw_after)
-                elif kind == 'model':
-                    self._run_model_restore()
-            except Exception as exc:
-                self.session['phase'] = 'blocked'
-                self.session['failure_code'] = 'restore-failed'
-                self.session['message'] = f'Restoration failed: {exc}'
-                self._save_session()
-                raise
+                self._run_model_restore()
+        except Exception as exc:
+            self.session['phase'] = 'blocked'
+            self.session['failure_code'] = 'restore-failed'
+            self.session['message'] = f'Restoration failed: {exc}'
+            self._save_session()
+            raise
+        if verdict != 'practice-only':
             self.session['experiments_since_last_gain'] = self.session.get('experiments_since_last_gain', 0) + 1
 
         # Record experiment record in session history

@@ -94,7 +94,7 @@ def reconnect(home, *, browser=open_browser, view=None):
 
 
 def start_first_model(home, controller, downloads, selection, stop):
-    """Move a fresh install off the bundled starter; never let it disturb the desktop."""
+    """Record that model selection awaits an owner-task need; never auto-upgrade on fit alone."""
     from . import first_model
     try:
         first_model.run(home, controller, downloads, selection, stop)

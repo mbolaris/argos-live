@@ -514,21 +514,21 @@ try {
       return { valid: false, reason: 'Takeaway or actions do not precede replay details' };
     }
 
-    // The one-button assistant-improvement loop leads after a document result;
-    // keep the measured score in view and tuck replay/secondary actions away.
+    // A synthetic suite pass leads to an owner task, not another practice score.
+    // Keep the measured result in view and tuck replay/secondary actions away.
     const isVisible = el => !el.hidden && (el.checkVisibility ? el.checkVisibility() : true);
     const receipt = document.getElementById('cc-receipt');
     if (!isVisible(receipt) || document.getElementById('cc-takeaway').textContent.length < 12) {
       return { valid: false, reason: 'The document result disappeared behind the next action' };
     }
     const next = document.getElementById('improve-next');
-    if (next.dataset.kind !== 'repeat' || !document.getElementById('improve-go').textContent.includes('Rerun the same trial unchanged')) {
-      return { valid: false, reason: `Expected an unchanged retest proposal for a clean result, got ${next.dataset.kind}` };
+    if (!next.hidden) {
+      return { valid: false, reason: 'A clean bundled practice result should not propose another practice-score run' };
     }
     const visiblePrimaryButtons = Array.from(document.querySelectorAll('#command-center .mission-primary')).filter(isVisible);
     if (visiblePrimaryButtons.length !== 1 || visiblePrimaryButtons[0].id !== 'cc-next-go' ||
-        visiblePrimaryButtons[0].dataset.action !== 'assistant-trial') {
-      return { valid: false, reason: `Expected one assistant-trial GO, found ${visiblePrimaryButtons.map(b => b.id).join(', ')}` };
+        visiblePrimaryButtons[0].dataset.action !== 'task') {
+      return { valid: false, reason: `Expected one owner-task GO, found ${visiblePrimaryButtons.map(b => b.id).join(', ')}` };
     }
     if (isVisible(replay)) return { valid: false, reason: 'Detailed replay should stay tucked away during the offer' };
     if ((replay.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
@@ -561,7 +561,7 @@ try {
     fail(`Debrief hierarchy regression failed: ${debriefHierarchyValid.reason}`);
   }
   await page.unroute('**/api/command-center');
-  console.log('[PASS] Improve hierarchy verified: one assistant-trial GO, result visible, replay tucked away, alternate actions and metrics retained');
+  console.log('[PASS] Improve hierarchy verified: one owner-task GO, no repeat-score prompt, result visible, replay tucked away, alternate actions and metrics retained');
 
   // 8. Storage hierarchy, compact strip & computed layout: compact strip (<150px), compact card (<300px), compact padding, collapsed path/policies, no read-only claims
   await page.evaluate(async () => {

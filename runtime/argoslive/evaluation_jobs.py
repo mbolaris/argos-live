@@ -10,7 +10,7 @@ import secrets
 import threading
 import time
 
-from . import ability, bench_openclaw, workload, storage
+from . import bench_openclaw, workload, storage
 from .pull_jobs import read_json, write_json, worker_lock, WorkerBusy
 from .results import Store, identifier
 
@@ -79,7 +79,7 @@ class Jobs:
         return storage.safe_local(self.root / (identifier(job_id) + '.control.json'))
 
     def start(self, suite='quick'):
-        if suite not in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
+        if suite not in bench_openclaw.SUITES:
             raise ValueError('Unsupported evaluation suite')
         job_id = secrets.token_hex(16)
         ready = threading.Event()
@@ -99,7 +99,7 @@ class Jobs:
                     with self.admission() as slot:
                         record = {'schema': 'argos-evaluation-job/1', 'job_id': job_id,
                                   'suite': suite, 'state': 'running', 'settled': False,
-                                  'completed': 0, 'total': len(ability.load(suite)['items']),
+                                  'completed': 0, 'total': len(bench_openclaw.suite_content(suite)[1]),
                                   'inference_dispatched': False,
                                   'reservation_id': slot.record['id'],
                                   'reservation_generation': slot.record['generation']}

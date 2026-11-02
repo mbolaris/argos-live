@@ -221,6 +221,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             self.assertIsNotNone(controller.runner)
             self.assertIsInstance(controller.runner, assistant_trial.OpenClawRunner)
             self.assertEqual(controller.runner.home, self.home)
+            self.assertIsNone(controller.model_recommender)
         finally:
             controller.close()
 
@@ -552,8 +553,8 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
-    def test_verified_undo_reverts_kept_changes(self):
-        """Verified Undo restores workspace to initial baseline if unedited, and refuses if owner edited."""
+    def test_auto_climb_restores_practice_only_instruction_candidates(self):
+        """Synthetic practice cannot keep a prompt change in everyday Argos."""
         winning_runner = FakeRunner(home=self.home, mode='dynamic')
         single_candidate = [{
             'id': 'quote-evidence',
@@ -589,15 +590,10 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                 time.sleep(0.05)
 
             snap = controller.snapshot()
-            self.assertEqual(snap['history'][0]['verdict'], 'kept')
-            self.assertTrue(snap['can_undo'])
-
-            # Undo reverts to baseline!
-            undo_snap = controller.undo()
-            self.assertEqual(undo_snap['phase'], 'stopped')
+            self.assertEqual(snap['history'][0]['verdict'], 'practice-only')
+            self.assertFalse(snap['can_undo'])
             self.assertEqual(self.agents_file.read_text(), self.original_agents_content)
 
-            # Further undo refused
             with self.assertRaises(auto_climb.Refused):
                 controller.undo()
         finally:
@@ -607,8 +603,8 @@ class TestAutoClimbCoordinator(unittest.TestCase):
     # R4 / AC2-1, AC2-2: Fresh Validation, Rebased Comparisons & Stopping
     # -------------------------------------------------------------------------
 
-    def test_automatic_keep_when_practice_and_both_validation_partitions_improve(self):
-        """Candidate is kept only when practice improves AND confirmed on two disjoint fresh partitions."""
+    def test_practice_only_candidate_restores_after_two_validation_partitions_improve(self):
+        """Two synthetic validation wins are diagnostic and do not promote a prompt."""
         winning_runner = FakeRunner(home=self.home, mode='dynamic')
         single_candidate = [{
             'id': 'quote-evidence',
@@ -645,8 +641,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
             snap = controller.snapshot()
             self.assertEqual(len(snap['history']), 1)
-            self.assertEqual(snap['history'][0]['verdict'], 'kept')
-            self.assertIn('Show the source', self.agents_file.read_text())
+            self.assertEqual(snap['history'][0]['verdict'], 'practice-only')
+            self.assertEqual(self.agents_file.read_text(), self.original_agents_content)
+            self.assertIn('owner-selected task', snap['history'][0]['reason'])
 
             refs = snap['history'][0]['evidence_run_ids']
             required_run_ids = [
@@ -665,7 +662,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                 refs['candidate_validation']['val-p2'], refs['candidate_validation']['val-p1'])
             self.assertFalse(controller._suite_run_evidence_matches(
                 cross_wired, 'quote-evidence', ('val-p1', 'val-p2')))
-            self.assertEqual(controller.session['practice_baseline_run_id'], refs['candidate_practice'])
+            self.assertEqual(controller.session['practice_baseline_run_id'], refs['kept_practice_baseline'])
 
             # Exposure ledger consumed both val-p1 and val-p2
             consumed = controller.session.get('exposure_ledger', {}).get('consumed_partitions', [])
@@ -674,8 +671,8 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
-    def test_rebased_current_kept_comparisons_and_subsequent_regression(self):
-        """Subsequent candidate compares against rebased kept build; regression is restored."""
+    def test_practice_only_candidates_do_not_rebase_the_live_instruction_baseline(self):
+        """Every candidate is tested and restored without stacking into everyday instructions."""
         winning_runner = FakeRunner(home=self.home, mode='dynamic')
         candidates = [
             {
@@ -707,7 +704,7 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         )
         try:
             controller.start()
-            # 1st experiment: quote-evidence (kept)
+            # 1st experiment: quote-evidence (practice-only)
             deadline = time.time() + 5.0
             while time.time() < deadline:
                 snap = controller.snapshot()
@@ -743,9 +740,10 @@ class TestAutoClimbCoordinator(unittest.TestCase):
 
             snap = controller.snapshot()
             self.assertEqual(len(snap['history']), 2)
-            self.assertEqual(snap['history'][0]['verdict'], 'kept')
-            # 2nd candidate compared against 1st candidate's newly kept baseline -> not improved -> restored!
-            self.assertEqual(snap['history'][1]['verdict'], 'restored')
+            self.assertEqual(snap['history'][0]['verdict'], 'practice-only')
+            self.assertEqual(self.agents_file.read_text(), self.original_agents_content)
+            self.assertEqual(controller.session['practice_baseline_run_id'],
+                             snap['history'][0]['evidence_run_ids']['kept_practice_baseline'])
         finally:
             controller.close()
 
@@ -785,9 +783,9 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                 time.sleep(0.05)
 
             snap = controller.snapshot()
-            # Since only 1 candidate was tried, stop reason is options-exhausted, NOT plateau!
+            # One non-improving practice candidate is options-exhausted, not a plateau.
             self.assertEqual(snap['phase'], 'options-exhausted')
-            self.assertIn('Options exhausted within approved session', snap['stopping_reason'])
+            self.assertIn('Practice options exhausted', snap['stopping_reason'])
         finally:
             controller.close()
 
@@ -1144,11 +1142,11 @@ class TestAutoClimbCoordinator(unittest.TestCase):
             snap = controller.snapshot()
             self.assertEqual(downloaded, ['qwen3:4b-instruct-2507-q4_K_M'])
             self.assertEqual(switched, ['qwen3:4b-instruct-2507-q4_K_M'])
-            self.assertEqual(restored, [])
-            self.assertEqual(snap['active_model']['model'], 'qwen3:4b-instruct-2507-q4_K_M')
+            self.assertEqual(restored, [True])
+            self.assertEqual(snap['active_model']['model'], controller.session['initial_model']['model'])
             self.assertEqual(snap['budgets_used']['model_downloads'], 1)
             self.assertEqual(snap['budgets_used']['download_bytes'], 2492088096)
-            self.assertEqual(snap['history'][0]['verdict'], 'kept')
+            self.assertEqual(snap['history'][0]['verdict'], 'practice-only')
         finally:
             controller.close()
 
@@ -1335,8 +1333,8 @@ class TestAutoClimbCoordinator(unittest.TestCase):
         finally:
             controller.close()
 
-    def test_model_upgrade_undo_restores_initial_model(self):
-        """Model Undo restores the initial model and updates active_model."""
+    def test_model_candidate_from_synthetic_gain_is_restored(self):
+        """A synthetic-suite model gain does not replace the selected production model."""
         clock = ControllableClock()
         switched = []
         restored = []
@@ -1403,13 +1401,12 @@ class TestAutoClimbCoordinator(unittest.TestCase):
                 time.sleep(0.05)
 
             snap = controller.snapshot()
-            self.assertEqual(snap['active_model']['model'], 'qwen3:4b-instruct-2507-q4_K_M')
-            self.assertTrue(snap['can_undo'])
-
-            undo_snap = controller.undo()
-            self.assertEqual(undo_snap['phase'], 'stopped')
-            self.assertEqual(undo_snap['active_model']['model'], 'test-model')
+            self.assertEqual(snap['active_model']['model'], 'test-model')
+            self.assertEqual(snap['history'][0]['verdict'], 'practice-only')
+            self.assertFalse(snap['can_undo'])
             self.assertTrue(len(restored) > 0)
+            with self.assertRaises(auto_climb.Refused):
+                controller.undo()
         finally:
             controller.close()
 

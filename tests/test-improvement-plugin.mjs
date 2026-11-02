@@ -51,7 +51,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     pair_checks:{same_suite_version:true,same_recipe:false,same_coverage:true}}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
-  const total = suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
+  const total = suite === 'documents-short' ? 24 : suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
   const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
   console.error(JSON.stringify({phase:'unrelated',completed:0,total}));
@@ -63,7 +63,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-'+suite, suite_version:'argos-openclaw-ability/'+suite+'/fixture1', state:'completed',
     settings:{suite_sha256:'b'.repeat(64),execution_path:'openclaw embedded; ephemeral state; tools denied; v2'}, prompt_fingerprint:{workspace_agents_sha256:'c'.repeat(64)},
     summary:{correct,total,...(['tool-schema','tool-plan','tool-sequence'].includes(suite) ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
-    coverage:{completed:total,total,complete:true}, elapsed_seconds:12
+    coverage:{completed:total,total,complete:true}, qualification:suite === 'documents-short' ? {checks:[{label:'Correct answers',observed:8,required:7,met:true}],qualified:true,scope:'Short documents only'} : undefined, elapsed_seconds:12
   }}));
 } else {
   console.log(JSON.stringify({kind:'ability',suite_version:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'raw/quick/1':'argos-openclaw-ability/quick/fixture1',settings:{execution_path:'openclaw embedded; ephemeral state; tools denied; v2'},workspace_agents_changed:false, rows:[]}));
@@ -115,7 +115,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'tool-schema', '--json']);
     assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite),
-      /bundled held-out items; these are internal transfer checks, not independent validation/);
+      /Tool-suite held-out items are internal transfer checks, not independent validation/);
 
     const planRun = await tools.get('argos_evaluate').execute('plan-eval', {suite:'tool-plan'}, undefined,
       () => {});
@@ -133,6 +133,19 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'tool-sequence', '--json']);
     assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite), /tool-sequence/);
+
+    const documentProgress = [];
+    const documentRun = await tools.get('argos_evaluate').execute('documents-eval',
+      {suite:'documents-short'}, undefined, event => documentProgress.push(event));
+    assert.match(documentRun.content[0].text, /22\/24 passed/);
+    assert.match(documentRun.content[0].text, /Task criteria: Correct answers 8\/7 met/);
+    assert.match(documentRun.content[0].text, /Qualified: yes\. Scope: Short documents only/);
+    assert.equal(documentRun.details.coverage.total, 24);
+    assert.equal(documentRun.details.qualification.qualified, true);
+    assert.equal(documentProgress[0].details.progress.total, 24);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'documents-short', '--json']);
+    assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite), /documents-short/);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)
@@ -365,7 +378,7 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.deepEqual(await admission.execute('log-1','log',{text:'Unicode note 你好'},undefined,
       (update) => updates.push(update)),{status:'appended'});
     assert.equal(updates.length,1);
-    assert.match(updates[0].content[0].text,/Working on challenge 1\/20/);
+    assert.match(updates[0].content[0].text,/Working on evaluation 1\/20/);
     await assert.rejects(admission.execute('log-1','log',{text:'replay'}),/no current host admission/);
     hooks.get('before_tool_call')({toolName:'argos_proctor_item',runId:'run-1',toolCallId:'exam-item'},ctx);
     assert.deepEqual(await admission.execute('exam-item','proctor_item',{item_id:'q1'}),{status:'appended'});

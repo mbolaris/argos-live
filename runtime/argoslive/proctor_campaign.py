@@ -10,10 +10,35 @@ class Refused(ValueError):
     """A campaign request could not safely start."""
 
 
+MEASUREMENT_SUITES = frozenset({
+    'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
+    'documents-short'})
+
+
+def validate_owner_task(owner_task, success_criteria):
+    """Require a bounded owner task and an observable success measure."""
+    if not isinstance(owner_task, str) or not isinstance(success_criteria, str):
+        raise Refused('Describe the owner task and what a successful result looks like.')
+    owner_task, success_criteria = owner_task.strip(), success_criteria.strip()
+    if not owner_task or not success_criteria:
+        raise Refused('Describe the owner task and what a successful result looks like.')
+    if len(owner_task) > 1200 or len(success_criteria) > 1200:
+        raise Refused('Keep the task and success measure under 1,200 characters each.')
+    return owner_task, success_criteria
+
+
+def validate_measurement_suite(measurement_suite):
+    if measurement_suite in (None, ''):
+        return None
+    if not isinstance(measurement_suite, str) or measurement_suite not in MEASUREMENT_SUITES:
+        raise Refused('Choose a listed measurement suite or select that none matches this task.')
+    return measurement_suite
+
+
 MESSAGES = {
     'idle': 'Ready when Argos is active, verified, and using confirmed storage.',
-    'pausing': 'Pausing everyday Argos before the signed practice run.',
-    'practice': 'Signed practice is running. Its score is coaching feedback, not improvement evidence.',
+    'pausing': 'Pausing everyday Argos before the task-focused improvement campaign.',
+    'practice': 'Separate signed practice is running. Its score is coaching feedback, not improvement evidence.',
     'campaign': 'Argos is running its bounded improvement campaign. Leave this dashboard open; no gain is claimed until the saved evidence is audited.',
     'restarting': 'Restarting Argos and checking that its selected model replies.',
     'completed': 'The campaign completed its evidence checks. Review its saved runs and audit before claiming any improvement.',
@@ -64,6 +89,9 @@ class Controller:
         self.progress = None
         self.failure_code = None
         self.failure_stage = None
+        self.owner_task = None
+        self.success_criteria = None
+        self.measurement_suite = None
         self.recovery_target_phase = None
         self.storage_checked_at = None
         self.storage_is_safe = False
@@ -73,9 +101,15 @@ class Controller:
     def _public_result(value):
         if not isinstance(value, dict):
             return None
-        practice = value.get('practice') if isinstance(value.get('practice'), dict) else {}
-        practice_result = practice.get('result') if isinstance(practice.get('result'), dict) else {}
         campaign = value.get('campaign') if isinstance(value.get('campaign'), dict) else {}
+        report_parts = []
+        payloads = campaign.get('agent_summary')
+        if isinstance(payloads, list):
+            for payload in payloads[:8]:
+                text = payload.get('text') if isinstance(payload, dict) else payload
+                if isinstance(text, str) and text.strip():
+                    report_parts.append(' '.join(text.split()))
+        agent_report = '\n'.join(report_parts)[:1600] or None
         ids = campaign.get('saved_evaluation_ids', [])
         if not isinstance(ids, list):
             ids = []
@@ -96,17 +130,20 @@ class Controller:
         failure_stage = value.get('failure_stage')
         if failure_stage not in {'pausing', 'practice', 'campaign'}:
             failure_stage = None
+        owner_task = value.get('owner_task')
+        if not isinstance(owner_task, str) or len(owner_task) > 1200:
+            owner_task = None
+        success_criteria = value.get('success_criteria')
+        if not isinstance(success_criteria, str) or len(success_criteria) > 1200:
+            success_criteria = None
+        measurement_suite = value.get('measurement_suite')
+        if measurement_suite not in MEASUREMENT_SUITES:
+            measurement_suite = None
         return {
             'status': value.get('status') if value.get('status') in {'completed', 'incomplete'} else 'incomplete',
-            'practice': {
-                'status': practice.get('status'),
-                'transcript_id': practice.get('transcript_id'),
-                'calibration_status': practice.get('calibration_status'),
-                'state': practice_result.get('state'),
-                'correct': practice_result.get('correct'),
-                'total': practice_result.get('total'),
-                'unanswered': practice_result.get('unanswered'),
-            },
+            'owner_task': owner_task,
+            'success_criteria': success_criteria,
+            'measurement_suite': measurement_suite,
             'campaign': {
                 'status': campaign.get('status'),
                 'outcome': campaign.get('outcome'),
@@ -114,6 +151,7 @@ class Controller:
                 'controller_turns': campaign.get('controller_turns'),
                 'missing': missing,
                 'saved_evaluation_ids': ids,
+                'agent_report': agent_report,
             },
             'failure_code': failure_code,
             'failure_stage': failure_stage,
@@ -126,6 +164,7 @@ class Controller:
                                                                    copy.deepcopy(self.progress), self.failure_code,
                                                                    self.failure_stage)
             started, finished, model, closed = self.started, self.finished, self.model, self.closed
+            measurement_suite = self.measurement_suite
         try:
             assistant = self.startup.snapshot()
         except Exception:
@@ -161,13 +200,16 @@ class Controller:
             'available': True, 'active': active, 'phase': phase, 'message': message,
             'can_start': can_start, 'can_recover': can_recover,
             'elapsed_seconds': elapsed, 'model': model,
+            'measurement_suite': measurement_suite,
             'failure_code': failure_code, 'failure_stage': failure_stage,
             'result': result, 'progress': progress,
             'assistant_phase': assistant.get('phase'), 'assistant_ready': assistant.get('phase') == 'ready',
             'storage_confirmed': storage_confirmed,
         }
 
-    def start(self):
+    def start(self, owner_task=None, success_criteria=None, measurement_suite=None):
+        owner_task, success_criteria = validate_owner_task(owner_task, success_criteria)
+        measurement_suite = validate_measurement_suite(measurement_suite)
         with self.startup.lock, self.lock:
             if self.closed:
                 raise Refused('The Proctor campaign controller is closed.')
@@ -182,8 +224,11 @@ class Controller:
             if not self._persistent_storage_ready(fresh=True):
                 raise Refused('Confirm encrypted persistent storage for Argos models, profile, results, and settings.')
             self.model = assistant.get('model')
+            self.owner_task = owner_task
+            self.success_criteria = success_criteria
+            self.measurement_suite = measurement_suite
             self.result = None
-            self.progress = {'phase': 'practice', 'stage': 'starting'}
+            self.progress = {'phase': 'campaign', 'stage': 'starting'}
             self.failure_code = None
             self.failure_stage = None
             self.recovery_target_phase = None
@@ -253,6 +298,9 @@ class Controller:
                 self.phase = self.recovery_target_phase or 'failed'
                 self.recovery_target_phase = None
                 self.failure_code = None
+                self.owner_task = None
+                self.success_criteria = None
+                self.measurement_suite = None
                 self.finished = self.clock()
 
     def _set_phase(self, phase):
@@ -328,15 +376,16 @@ class Controller:
         try:
             self._wait_stopped()
             with self.lock:
-                self.phase = 'practice'
+                self.phase = 'campaign'
             runner = self.runner
             if runner is None:
                 from .proctor_service import run_improvement
                 runner = run_improvement
-            # The interactive campaign uses the stronger bundled practice
-            # form; the six-item pilot remains available for smoke checks.
-            result = runner(self.home, form_id='composed-a', on_phase=self._set_phase,
-                            on_progress=self._set_progress)
+            options = {'owner_task': self.owner_task, 'success_criteria': self.success_criteria,
+                       'on_phase': self._set_phase, 'on_progress': self._set_progress}
+            if self.measurement_suite is not None:
+                options['measurement_suite'] = self.measurement_suite
+            result = runner(self.home, **options)
             public_result = self._public_result(result)
             with self.lock:
                 self.result = public_result
@@ -366,6 +415,9 @@ class Controller:
                 else:
                     self.startup.lab_active = False
                     self.phase = outcome_phase
+                self.owner_task = None
+                self.success_criteria = None
+                self.measurement_suite = None
                 self.finished = self.clock()
 
     def close(self):

@@ -292,10 +292,8 @@ async function refreshModels() {
         }
       }
       if (curatedEl && isCurated && model.downloadable !== false) {
-        const isRecommended = result.guidance?.next_model === model.tag;
-        const title = `${model.curated_label || model.role}: ${model.tag}` + (isRecommended ? ' ★ Recommended upgrade' : '');
+        const title = `${model.curated_label || model.role}: ${model.tag}`;
         card(curatedEl, title,
-          (isRecommended ? 'Recommended candidate for your machine. ' : '') +
           `${model.rationale || model.description} · ${model.parameter_label} · ${model.quantization} · ` +
           `${gib(model.total_download_bytes)} download (${model.total_download_bytes.toLocaleString()} bytes) · ${model.license} · ` +
           `${model.context_tokens.toLocaleString()} context · CPU: ${model.cpu_fit.status} · GPU: ${model.gpu_fit.status} (estimates)`);
@@ -2830,31 +2828,15 @@ function presentedNextAction(next, trial, report, climb = autoClimb) {
   }
   if (trial.active) {
     return {...next, id: 'assistant-trial', title: 'Watch the improvement run',
-      reason: 'Your everyday assistant is answering the before-and-after questions now. Go to its live progress.', action: 'assistant-trial'};
-  }
-  // Preserve the first-run mission and explicit wait/recovery actions. Once a
-  // real document result exists, offer the reviewed assistant trial ahead of
-  // unrelated storage or model-selection work.
-  const documentResultExists = report?.ability?.suite === 'documents-short';
-  if (trial.status === 'none' && trial.changes?.length && next.action &&
-      !['wait', 'restore', 'reboot'].includes(next.action) &&
-      (documentResultExists || next.action === 'review' || trial.result_state === 'no-improvement')) {
-    const ideaCount = trial.changes?.length || 0;
-    return {...next, id: 'assistant-trial', title: ideaCount
-      ? 'Find your AI’s next improvement' : 'No new idea is ready yet',
-      reason: 'Same model. Same eight challenges. Watch every answer, then choose Keep or Restore.',
-      action: 'assistant-trial'};
+      reason: 'The assistant is answering short-passage practice questions. Go to its live progress.', action: 'assistant-trial'};
   }
   if (trial.status === 'none') return next;
   if (trial.status === 'on-trial') {
-    return {...next, id: 'assistant-trial', title: 'Choose what stays in your assistant',
-      reason: 'The before-and-after run is ready. Review the answers, then choose Keep or Restore.', action: 'assistant-trial'};
+    return {...next, id: 'assistant-trial', title: 'Review the practice trial',
+      reason: 'The short-passage practice run is ready. Review the answers, then choose Keep or Restore.', action: 'assistant-trial'};
   }
   if (trial.status === 'kept') {
-    if (trial.changes?.length) return {...next, id: 'assistant-trial', title: 'Try the next improvement round',
-      reason: 'I kept one tested idea. GO tests the remaining untried ideas together; you decide what stays.', action: 'assistant-trial'};
-    return {...next, id: 'chat', title: 'Try your AI on something real',
-      reason: 'You have tried every reviewed starter idea. Put your AI to work on a real question while we gather a new lead.', action: 'chat'};
+    return next;
   }
   return {...next, id: 'assistant-trial', title: 'Review the assistant trial',
     reason: 'The trial needs attention before Argos can safely continue. Open its status and recovery details.', action: 'assistant-trial'};
@@ -2931,8 +2913,8 @@ async function refreshCommand() {
         item.append(number, title, state, notes); steps.append(item);
       }
     }
-    // If diagnostics are the backend recommendation, lead with the reviewed
-    // reversible assistant trial when it is available. Approval remains explicit.
+    // Keep any active/recovery-required trial visible. Optional practice trials
+    // do not replace the next mission when they are idle.
     const next = presentedNextAction(value.next_action, assistantTrial, value.report, autoClimb);
     commandAction = next;
     document.getElementById('cc-next-label').textContent = next.action === 'auto-climb'
@@ -2945,7 +2927,7 @@ async function refreshCommand() {
     const actionLabel = next.action === 'auto-climb'
       ? (autoClimb?.active ? 'Watch Auto Climb' : autoClimb?.phase === 'countdown' ? 'Review next idea' : autoClimb?.phase === 'paused' ? 'Resume Auto Climb' : 'Start Auto Climb')
       : (next.action === 'assistant-trial'
-        ? (assistantTrial?.active ? 'Watch live answers' : assistantTrial?.status === 'on-trial' ? 'Review the result' : 'Start improvement round')
+        ? (assistantTrial?.active ? 'Watch live answers' : assistantTrial?.status === 'on-trial' ? 'Review the result' : 'Start practice trial')
         : ({documents: 'Start reading challenge', baseline: 'Start quick check', chat: 'Open chat', review: 'Review results', wait: 'View progress'}[next.action] || next.title));
     go.replaceChildren(document.createTextNode(actionLabel + ' '));
     const arrow = document.createElement('span'); arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '▶'; go.append(arrow);
@@ -2962,9 +2944,9 @@ async function refreshCommand() {
       const ideaCount = assistantTrial.changes.length;
       const answerCount = assistantTrial.max_answers || 0;
       document.querySelector('#cc-next-trial-offer .cc-next-trial-kicker').textContent =
-        `ONE GO · ${ideaCount} IDEAS · 8 CHALLENGES EACH`;
+        `OPTIONAL PRACTICE TRIAL · ${ideaCount} IDEAS · 8 QUESTIONS EACH`;
       document.querySelector('#cc-next-trial-offer > p:not(.cc-next-trial-kicker)').textContent =
-        `I’ll show each model reply and its score, then recommend a winner. You choose Keep or Restore. Uses your current model; no download or storage setup.`;
+        `Review how instruction changes affect these short-passage questions. Results do not predict performance on your actual tasks. You choose Keep or Restore. Uses your current model; no download or storage setup.`;
       const firstRun = document.getElementById('cc-next-trial-first-run');
       firstRun.hidden = !assistantTrial.first_run_setup;
       firstRun.textContent = assistantTrial.first_run_setup
@@ -3513,11 +3495,9 @@ function nextExperiment(ability) {
       measure: 'Matched results on the same questions show whether the candidate does better here.',
       button: 'Choose a model to compare'};
   }
-  return {kind: 'repeat', title: 'Check that it’s consistent',
-    why: `All ${ability.total} scored questions were correct this time.`,
-    change: 'Nothing. Your AI reruns the same trial unchanged.',
-    measure: 'If the result holds, you can trust it more. If it changes, you’ve found variation worth knowing about.',
-    button: 'Rerun the same trial unchanged'};
+  // A clean result on a bundled practice suite is not a reason to repeat it.
+  // Let the owner continue to an actual task instead of creating a score loop.
+  return null;
 }
 
 function renderNextExperiment(next, actions) {
@@ -3704,7 +3684,7 @@ function rememberDecided(candidateId) {
   } catch (_) {}
 }
 
-// ---- U10: one reviewed, reversible change to the everyday assistant, measured through the assistant.
+// ---- U10: optional, reversible instruction trial measured on short-passage practice.
 const trialChecks = {answer_present: 'answer given', answer_first: 'answer first', exact_quote: 'exact quote',
   admits_not_stated: 'says it isn’t in the notice', replied: 'replied', no_instruction_leak: 'no talk of quotes or passages'};
 const trialKinds = {answer: 'Answer from a notice', not_stated: 'Question the notice can’t answer', control: 'Everyday question (no notice)'};
@@ -3776,21 +3756,21 @@ function renderAssistantTrial() {
   }
   document.getElementById('assistant-trial-title').textContent = preparing ? 'Warming up your AI' : workspaceSetup ? 'Getting your AI ready' : terminalState
     ? (value.result_state === 'recovery-blocked' ? 'Safety stop — review the workspace' : 'This run stopped safely')
-    : value.active ? 'I’m proving my next improvement' : ({
-    none: value.result_state === 'no-improvement' ? 'No idea cleared the bar this round' : 'One tap starts the whole improvement round',
-    'on-trial': 'Retests complete — here’s what changed',
-    kept: value.changes?.length ? 'Kept. Ready for the next idea?' : 'You tried every starter idea',
+    : value.active ? 'Running short-passage practice' : ({
+    none: value.result_state === 'no-improvement' ? 'No practice change cleared the review bar' : 'Optional short-passage practice trial',
+    'on-trial': 'Practice retests complete — review the results',
+    kept: 'Practice change kept by your choice',
     edited: 'Your edits need a hand review',
     unfinished: 'The trial stopped early', 'needs-review': 'This trial needs a closer look'}[status] || 'Your assistant trial');
   document.getElementById('assistant-trial-text').textContent = value.active
     ? (preparing ? 'Your GO is queued. The local model is warming up; no idea has been applied.'
       : workspaceSetup ? (value.message || 'OpenClaw is preparing the first test session. No challenge is scored yet.')
-        : 'I’m testing each idea against the same challenges. You’ll see each finished answer and score land; I’ll recommend Keep only if it clears the bar.')
+        : 'I’m testing each idea against the same short-passage questions. You’ll see each answer and score; results do not predict performance on your actual tasks.')
     : terminalState ? (value.message || 'No idea was applied. Review the workspace before trying again.')
     : ({
-    none: `GO tests ${value.changes?.length || 0} reviewed ideas against the same eight challenges. I’ll compare every model reply, recommend one if it clears the bar, and you choose Keep or Restore. Up to ${value.max_answers || 0} model replies.`,
-    'on-trial': 'Same assistant. Same questions. Each idea was tested separately against the same starting setup.',
-      kept: value.changes?.length ? 'Your choice is saved. I’m ready to test the remaining untried ideas together; your current choice stays the starting point.' : 'You tested every starter idea. Try your AI on a real question; you can still restore your choice.',
+    none: `GO tests ${value.changes?.length || 0} reviewed ideas against the same eight short-passage practice questions. The score can surface one for review, but it cannot show whether it helps your actual tasks. You choose Keep or Restore. Up to ${value.max_answers || 0} model replies.`,
+    'on-trial': 'Same assistant. Same practice questions. Each idea was tested separately against the same starting setup.',
+      kept: 'Your choice is saved. You can still restore it any time.',
     edited: 'AGENTS.md was edited after this change, so Argos won’t restore it automatically. Review the file by hand.',
     unfinished: 'A trial didn’t finish. Recovery must verify the saved files before restoring anything; owner edits need review.',
     'needs-review': 'The trial record needs review before Argos changes anything.'}[status] || '');
@@ -3799,7 +3779,7 @@ function renderAssistantTrial() {
   if (!plan.hidden) {
     document.getElementById('assistant-trial-plan-details').open = status === 'kept';
     document.getElementById('assistant-trial-plan-summary').textContent =
-        `GO tests every untried reviewed idea one at a time: 8 baseline replies, then the same 8 for each idea (up to ${value.max_answers} model replies). The original is restored between ideas. I recommend one; only that idea can be kept. Model, personality, tools and permissions stay unchanged.`;
+        `GO tests every untried reviewed idea one at a time: 8 baseline replies, then the same 8 short-passage practice questions for each idea (up to ${value.max_answers} model replies). The original is restored between ideas. A candidate may be surfaced for your review; scores do not establish benefit on actual tasks. Model, personality, tools and permissions stay unchanged.`;
     const ideaCards = document.getElementById('assistant-trial-ideas');
     ideaCards.replaceChildren(...value.changes.map((change, index) => {
       const card = document.createElement('article'); card.className = 'assistant-trial-idea';
@@ -3860,15 +3840,15 @@ function renderAssistantTrial() {
     const latest = p.latest;
     document.getElementById('assistant-trial-question').textContent = ['before', 'experiment'].includes(phase) && current?.question ? current.question : ({
       preparing: 'Your GO is saved. The assistant will begin when it’s ready.',
-      workspace: 'One quick setup check before the scored challenges.',
+      workspace: 'One quick setup check before the scored practice questions.',
       starting: 'The assistant is getting ready.', staging: 'Applying the reviewed instruction before the retest.',
-      reflecting: 'All eight challenges are complete. Your AI is writing its opinion of the results.',
+      reflecting: 'All eight practice questions are complete. Your AI is writing its opinion of the results.',
       restoring: 'The original instruction is being restored.'}[phase] || 'Finishing this part of the trial…');
     document.getElementById('assistant-trial-source').hidden = !current?.source;
     document.getElementById('assistant-trial-source-text').textContent = current?.source || '';
     const waitTime = p.waiting_seconds > 0 ? ` · ${p.waiting_seconds}s` : '';
     document.getElementById('assistant-trial-thinking').textContent = current && ['before', 'experiment'].includes(phase)
-      ? (latest?.id === current.id ? 'Answer landed · scored. Moving to the next challenge…' : `Thinking${waitTime} · the answer appears when this reply is complete.`)
+      ? (latest?.id === current.id ? 'Answer landed · scored. Moving to the next practice question…' : `Thinking${waitTime} · the answer appears when this reply is complete.`)
       : ({preparing: `Warming up${waitTime} · no score yet. Your approved ideas stay untouched.`,
       workspace: `First-run setup${waitTime} · adding only missing starter files. No score yet.`,
          staging: 'Restarting the assistant safely…', starting: 'Checking the assistant is ready…',
@@ -3898,15 +3878,20 @@ function renderAssistantTrial() {
   const resultVisible = Boolean(value.result && !value.active &&
     (['on-trial', 'kept'].includes(status) || value.result_state === 'no-improvement'));
   const nextRound = document.getElementById('assistant-trial-next-round');
+  const practiceLaunch = document.getElementById('assistant-trial-practice-launch');
   const failedRetryAllowed = Boolean(!value.active && status === 'none' && value.result_state === 'failed' &&
     value.failure_code && value.changes?.length);
-  nextRound.textContent = failedRetryAllowed ? 'Try this round again' : 'Run the next improvement round';
+  const initialPracticeAvailable = Boolean(!value.active && !terminalState && status === 'none' &&
+    value.changes?.length && (!value.result_state || value.result_state === 'none'));
+  nextRound.textContent = failedRetryAllowed ? 'Retry this practice trial' : status === 'none'
+    ? 'Start optional practice trial' : 'Run the next practice trial';
   if (failedRetryAllowed) nextRound.className = 'mission-primary';
+  practiceLaunch.hidden = !initialPracticeAvailable;
   const show = (id, visible) => { document.getElementById(id).hidden = !visible; };
   show('assistant-trial-keep', value.can_keep && !value.active);
   show('assistant-trial-restore', value.can_restore && !value.active);
-  show('assistant-trial-next-round', !value.active && value.changes?.length > 0 &&
-    (status === 'kept' || value.result_state === 'no-improvement' || failedRetryAllowed));
+  show('assistant-trial-next-round', initialPracticeAvailable ||
+    (!value.active && value.changes?.length > 0 && (status === 'kept' || failedRetryAllowed)));
   show('assistant-trial-chat', !value.active && (status === 'kept' || value.result_state === 'no-improvement'));
   show('assistant-trial-cancel', value.active && value.phase !== 'restoring');
   document.getElementById('assistant-trial-cancel').textContent = value.phase === 'preparing' ? 'Cancel warm-up' :
@@ -3923,20 +3908,18 @@ function renderAssistantTrial() {
   const restore = document.getElementById('assistant-trial-restore');
   const chat = document.getElementById('assistant-trial-chat');
   if (value.result && status === 'on-trial') {
-    const recommendedKeep = value.result.suggestion === 'keep';
     const selectedChange = value.result.experiments?.find(item => item.change.id === value.result.selected_change)?.change;
     const keepLabel = selectedChange ? `Keep “${selectedChange.title}”` : 'Keep this idea';
-    keep.className = recommendedKeep ? 'mission-primary' : 'mission-secondary';
-    restore.className = recommendedKeep ? 'mission-secondary' : 'mission-primary';
-    keep.textContent = recommendedKeep ? `${keepLabel} · recommended` : keepLabel;
-    restore.textContent = recommendedKeep ? 'Restore the previous setup' : 'Restore the previous setup · recommended';
-    const primary = recommendedKeep ? keep : restore;
-    const secondary = recommendedKeep ? restore : keep;
-    actions.insertBefore(primary, alternatives);
-    alternatives.append(secondary);
+    keep.className = 'mission-secondary';
+    restore.className = 'mission-primary';
+    keep.textContent = keepLabel;
+    restore.textContent = 'Restore the previous setup';
+    actions.insertBefore(restore, alternatives);
+    alternatives.append(keep);
     alternatives.hidden = false;
-    alternatives.querySelector('summary').textContent = 'Choose the other option';
+    alternatives.querySelector('summary').textContent = 'Keep this change if you want it';
   } else if (status === 'kept' && !value.active && value.can_restore) {
+    practiceLaunch.hidden = true;
     if (value.changes?.length) {
       actions.insertBefore(nextRound, alternatives);
       alternatives.append(chat, restore);
@@ -3947,17 +3930,20 @@ function renderAssistantTrial() {
     alternatives.hidden = false;
     alternatives.querySelector('summary').textContent = value.changes?.length ? 'Try chat or undo this choice' : 'Undo this choice';
   } else if (value.result_state === 'no-improvement' && !value.active) {
-    actions.insertBefore(nextRound, alternatives);
+    practiceLaunch.hidden = true;
     alternatives.append(chat);
     if (value.can_restore) alternatives.append(restore);
     alternatives.hidden = false;
     alternatives.open = false;
     alternatives.querySelector('summary').textContent = 'Other choices';
   } else if (failedRetryAllowed) {
+    practiceLaunch.hidden = true;
     actions.insertBefore(nextRound, alternatives);
     alternatives.hidden = true;
     alternatives.open = false;
   } else {
+    practiceLaunch.hidden = !initialPracticeAvailable;
+    if (initialPracticeAvailable) practiceLaunch.append(nextRound);
     alternatives.hidden = true;
     alternatives.open = false;
     actions.insertBefore(keep, alternatives);
@@ -3996,12 +3982,12 @@ function renderTrialResult(box, breakdown, r, status) {
     const selected = r.selected_change === experiment.change.id;
     card.className = `assistant-trial-experiment${selected ? ' selected' : ''}`;
     const title = document.createElement('h5');
-    title.textContent = `${selected ? '★ Best result · ' : 'Tested · '}${experiment.change.title}`;
+    title.textContent = `${selected ? 'Selected for review · ' : 'Tested · '}${experiment.change.title}`;
     const gains = comparison.gains?.length || 0;
     const regressions = comparison.regressions?.length || 0;
     const unchanged = Math.max(0, comparison.rows.length - gains - regressions);
     const summary = document.createElement('p');
-    summary.textContent = `${gains} of ${comparison.rows.length} challenges improved · ${unchanged} stayed the same · ${regressions} slipped`;
+    summary.textContent = `${gains} of ${comparison.rows.length} practice questions improved · ${unchanged} stayed the same · ${regressions} slipped`;
     const target = document.createElement('p');
     target.className = 'assistant-trial-experiment-target';
     const check = experiment.change.target_check;
@@ -4026,7 +4012,7 @@ function renderTrialResult(box, breakdown, r, status) {
   outcome.textContent = decision.outcome;
   const track = document.createElement('ol');
   track.className = 'assistant-trial-track';
-  track.setAttribute('aria-label', 'Result for each of the eight matched challenges');
+  track.setAttribute('aria-label', 'Practice result for each of the eight matched questions');
   const gainIds = new Set(r.gains || []);
   const regressions = new Set(r.regressions || []);
   for (const [index, row] of (r.rows || []).entries()) {
@@ -4035,8 +4021,8 @@ function renderTrialResult(box, breakdown, r, status) {
     const state = slipped ? 'regressed' : improved ? 'improved' : 'unchanged';
     const pip = document.createElement('li');
     pip.className = `assistant-trial-checkpoint ${state}`;
-    pip.setAttribute('aria-label', `Challenge ${index + 1}: ${state}`);
-    pip.title = `Challenge ${index + 1}: ${state}`;
+    pip.setAttribute('aria-label', `Practice question ${index + 1}: ${state}`);
+    pip.title = `Practice question ${index + 1}: ${state}`;
     pip.textContent = state === 'improved' ? '✓' : state === 'regressed' ? '!' : '—';
     track.append(pip);
   }
@@ -4044,7 +4030,7 @@ function renderTrialResult(box, breakdown, r, status) {
   trackSummary.className = 'assistant-trial-track-summary';
   const held = Math.max(0, (r.rows || []).length - (r.gains || []).length - (r.regressions || []).length);
   const gainCount = (r.gains || []).length;
-  trackSummary.textContent = `${gainCount} ${gainCount === 1 ? 'challenge improved' : 'challenges improved'} · ${held} unchanged · ${(r.regressions || []).length} worse`;
+  trackSummary.textContent = `${gainCount} ${gainCount === 1 ? 'practice question improved' : 'practice questions improved'} · ${held} unchanged · ${(r.regressions || []).length} worse`;
   const next = document.createElement('p');
   next.className = 'assistant-trial-next';
   next.textContent = decision.next;
@@ -4101,37 +4087,17 @@ function assistantTrialDecision(r, status) {
   const regressions = Array.isArray(r.regressions) ? r.regressions.length : 0;
   if (status === 'kept') {
     return {tone: 'kept', title: 'Change kept',
-      outcome: `You kept this change after a retest of ${total} challenges.`,
+      outcome: `You chose to keep this change after a retest of ${total} practice questions.`,
       next: 'Next: try me with a real question in chat. You can restore the original any time.'};
   }
   if (status === 'no-improvement') {
     return {tone: 'cautious', title: 'No idea earned a clear win this round',
       outcome: `${r.experiments?.length || 0} reviewed ideas tested · nothing new was kept.`,
-      next: 'Your starting instructions are safe. I can try another matched round when you are ready.'};
+      next: 'Your starting instructions are safe. Choose an owner task when you want evidence tied to your actual work.'};
   }
-  if (r.suggestion === 'keep') {
-    return {tone: 'better', title: 'Better on this retest',
-      outcome: `${gains} of ${total} challenges improved without a setback; ${regressions} got worse.`,
-      next: 'Recommended next: keep this change. At least two challenges improved, and none got worse.'};
-  }
-  if (gains > 0 && regressions > 0) {
-    return {tone: 'mixed', title: 'Mixed results',
-      outcome: `${gains} of ${total} challenges improved without a setback; ${regressions} got worse.`,
-      next: 'Recommended next: restore the original. This change helped in some places and slipped in others.'};
-  }
-  if (gains > 0) {
-    return {tone: 'cautious', title: 'One small win — not proven yet',
-      outcome: `${gains} of ${total} challenges improved; none got worse.`,
-      next: 'Recommended: restore the original instruction. I need two clean wins before I can recommend keeping it.'};
-  }
-  if (regressions > 0) {
-    return {tone: 'caution', title: 'No clear gain — some answers got worse',
-      outcome: `${regressions} of ${total} challenges got worse, and none improved cleanly.`,
-      next: 'Recommended next: restore the original instructions.'};
-  }
-  return {tone: 'neutral', title: 'No clear change this time',
-    outcome: `The retest did not find a clean improvement or a regression across ${total} challenges.`,
-    next: 'Recommended next: restore the original and try a different change later.'};
+  return {tone: 'cautious', title: 'Practice questions only',
+    outcome: `${gains} of ${total} practice questions improved without a setback; ${regressions} got worse.`,
+    next: 'This small quiz does not show whether the change helps your actual tasks. Restore it, or keep it only if you want this narrow behavior.'};
 }
 
 async function trialAction(path) {
@@ -4151,6 +4117,7 @@ async function trialAction(path) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || 'That action is unavailable right now');
     assistantTrial = body;
+    if (path === 'keep') document.getElementById('assistant-trial-alternatives').open = false;
     renderAssistantTrial();
   } catch (err) {
     failure = err.message;
@@ -4468,8 +4435,8 @@ function renderAutoClimb() {
     const vTitle = document.getElementById('auto-climb-verdict-title');
     if (vTitle) {
       vTitle.textContent = phase === 'blocked' ? 'The climb hit a problem' :
-        phase === 'options-exhausted' ? 'Tested the available ideas' :
-        phase === 'plateau' ? 'No further gain in the tested options' :
+        phase === 'options-exhausted' ? 'Practice options tested' :
+        phase === 'plateau' ? 'Practice plateau; owner task unmeasured' :
         phase === 'budget-exhausted' ? 'Session budget limit reached' :
         phase === 'paused' ? 'Auto Climb paused' : 'Auto Climb stopped';
     }
@@ -4540,53 +4507,31 @@ document.getElementById('auto-climb-restart-btn')?.addEventListener('click', () 
 setInterval(refreshAutoClimb, 2000);
 refreshAutoClimb();
 
-// Self-improvement: live assistant benchmark, score history and the agent's journal.
-const IMPROVE_COLORS = ['#82e4de', '#96caff', '#efca8b', '#c9a6ff', '#ff9eb5', '#a8e6a1'];
+// Self-improvement: live diagnostic probes, per-run history and the agent's journal.
 const improveModel = value => String(value || '-').replace(/^ollama\//, '');
-const svgNode = (tag, attrs, text) => {
-  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, value);
-  if (text !== undefined) node.textContent = text;
-  return node;
-};
-
-function renderImproveChart(runs) {
-  const chart = document.getElementById('improve-chart');
-  const note = document.getElementById('improve-chart-note');
-  chart.replaceChildren();
-  const shown = runs.filter(run => run.total).slice(-24);
-  note.textContent = shown.length ? 'Each bar is one assistant benchmark run. Hollow bars did not finish and cannot be compared.'
-    : 'No assistant benchmark yet.';
-  if (!shown.length) return;
-  const models = [...new Set(shown.map(run => improveModel(run.model)))];
-  const color = model => IMPROVE_COLORS[models.indexOf(model) % IMPROVE_COLORS.length];
-  const left = 36, top = 12, width = 590, height = 160, step = width / shown.length;
-  for (const pct of [0, 50, 100]) {
-    const y = top + height - height * pct / 100;
-    chart.append(svgNode('line', {x1: left, x2: left + width, y1: y, y2: y, stroke: '#2a3c4c'}),
-                 svgNode('text', {x: left - 6, y: y + 4, 'text-anchor': 'end', fill: '#afc1d0', 'font-size': 11}, pct + '%'));
+function renderImproveHistory(runs) {
+  const list = document.getElementById('improve-run-history');
+  const shown = runs.slice(-12).reverse();
+  list.replaceChildren();
+  if (!shown.length) {
+    const empty = document.createElement('li');
+    empty.textContent = 'No diagnostic runs yet.';
+    list.append(empty);
+    return;
   }
-  const firstComplete = shown.find(run => run.complete);
-  if (firstComplete) {
-    const y = top + height - height * firstComplete.correct / firstComplete.total;
-    chart.append(svgNode('line', {x1: left, x2: left + width, y1: y, y2: y, stroke: '#efca8b', 'stroke-dasharray': '4 4'}));
+  for (const run of shown) {
+    const row = document.createElement('li');
+    const heading = document.createElement('strong');
+    const suite = String(run.suite || 'unknown suite').replace(/^openclaw-/, '');
+    const score = run.total ? `${run.correct ?? 0}/${run.total} correct` : 'no scored items';
+    heading.textContent = `${suite} · ${score} · ${run.complete ? 'complete' : 'incomplete'}`;
+    const detail = document.createElement('span');
+    const version = run.suite_version ? ` · ${run.suite_version}` : '';
+    const created = run.created ? ` · ${new Date(run.created).toLocaleString()}` : '';
+    detail.textContent = `${improveModel(run.model)}${version}${created}`;
+    row.append(heading, detail);
+    list.append(row);
   }
-  shown.forEach((run, index) => {
-    const model = improveModel(run.model), share = run.correct / run.total;
-    const barHeight = Math.max(2, height * share), x = left + index * step + step * 0.15, w = step * 0.7;
-    const bar = svgNode('rect', {x, y: top + height - barHeight, width: w, height: barHeight, rx: 3,
-      fill: run.complete ? color(model) : 'none', stroke: color(model), 'stroke-width': run.complete ? 0 : 2});
-    bar.append(svgNode('title', {}, `${model}: ${run.correct}/${run.total}${run.complete ? '' : ' (did not finish)'} · ${run.format_errors ?? 0} format errors · ${run.elapsed_seconds}s`));
-    chart.append(bar);
-    if (step >= 26) chart.append(svgNode('text', {x: x + w / 2, y: top + height - barHeight - 4, 'text-anchor': 'middle',
-      fill: '#edf4fa', 'font-size': 11}, `${run.correct}/${run.total}`));
-  });
-  models.forEach((model, index) => {
-    const x = left + index * 150;
-    chart.append(svgNode('rect', {x, y: 198, width: 12, height: 12, rx: 2, fill: color(model)}),
-                 svgNode('text', {x: x + 18, y: 209, fill: '#afc1d0', 'font-size': 12}, model));
-  });
-  if (firstComplete) chart.append(svgNode('text', {x: left + width, y: 222, 'text-anchor': 'end', fill: '#efca8b', 'font-size': 11}, '--- first complete run'));
 }
 
 function renderImproveLive(live) {
@@ -4623,12 +4568,8 @@ async function refreshImprove() {
   const runs = data.runs || [];
   document.getElementById('improve-model').textContent = improveModel(data.model);
   document.getElementById('improve-count').textContent = String(runs.length);
-  const best = data.best, first = data.first;
-  document.getElementById('improve-best').textContent = best ? `${best.correct}/${best.total} · ${improveModel(best.model)}` : '-';
-  const gain = best && first ? best.correct - first.correct : null;
-  document.getElementById('improve-gain').textContent = gain === null ? '-' : `${gain >= 0 ? '+' : ''}${gain} correct`;
   renderImproveLive(data.live);
-  renderImproveChart(runs);
+  renderImproveHistory(runs);
   const journal = document.getElementById('improve-journal');
   if (data.journal) journal.textContent = data.journal.join('\n');
 }
@@ -4639,21 +4580,28 @@ let proctorCampaignStarting = false;
 function renderProctorCampaignResult(result) {
   const node = document.getElementById('proctor-campaign-result');
   if (!result) { node.hidden = true; node.textContent = ''; return; }
-  const practice = result.practice || {}, campaign = result.campaign || {};
+  const campaign = result.campaign || {};
   const ids = Array.isArray(campaign.saved_evaluation_ids) ? campaign.saved_evaluation_ids : [];
   const missing = Array.isArray(campaign.missing) ? campaign.missing : [];
   const parts = [];
+  if (typeof result.owner_task === 'string' && result.owner_task)
+    parts.push(`Task: ${result.owner_task}`);
+  if (typeof result.success_criteria === 'string' && result.success_criteria)
+    parts.push(`Success measure: ${result.success_criteria}`);
+  if (typeof result.measurement_suite === 'string')
+    parts.push(`Owner-approved evaluation suite: ${result.measurement_suite}`);
+  else if (result.owner_task)
+    parts.push('Owner-approved evaluation suite: none; no benchmark score can establish this task');
   if (result.failure_code) {
     const stage = ['pausing', 'practice', 'campaign'].includes(result.failure_stage)
       ? result.failure_stage : 'campaign';
     parts.push(`Diagnostic: ${stage} stopped · ${result.failure_code}`);
   }
-  if (practice.transcript_id) {
-    parts.push(`Practice: ${practice.correct ?? '?'} / ${practice.total ?? '?'} · transcript ${practice.transcript_id} · coaching only`);
-  }
   if (campaign.outcome) parts.push(`Campaign: ${campaign.outcome} · audit ${campaign.audit_status || 'not verified'} · ${campaign.controller_turns ?? '?'} turns`);
   if (ids.length) parts.push(`Saved evaluation IDs: ${ids.join(', ')}`);
   if (missing.length) parts.push(`Evidence still missing: ${missing.join('; ')}`);
+  if (campaign.outcome === 'task-not-measured' && typeof campaign.agent_report === 'string' && campaign.agent_report)
+    parts.push(`Argos's suggested task checks (unverified): ${campaign.agent_report}`);
   node.textContent = parts.join('\n') || 'No saved result details were returned.';
   node.hidden = false;
 }
@@ -4702,7 +4650,13 @@ async function refreshProctorCampaign() {
     const recoverButton = document.getElementById('proctor-campaign-recover');
     recoverButton.hidden = !data.can_recover;
     recoverButton.disabled = proctorCampaignStarting || !data.can_recover;
-    document.getElementById('proctor-campaign-message').textContent = data.message || 'Proctor status unavailable.';
+    const measurementNote = data.active
+      ? (data.measurement_suite
+          ? ` Owner-approved evaluation suite: ${data.measurement_suite}.`
+          : ' No evaluation suite selected; no quiz score can justify a change.')
+      : '';
+    document.getElementById('proctor-campaign-message').textContent =
+      (data.message || 'Proctor status unavailable.') + measurementNote;
     document.getElementById('proctor-campaign-elapsed').textContent = data.active && Number.isFinite(data.elapsed_seconds)
       ? `${Math.floor(data.elapsed_seconds / 60)}m ${data.elapsed_seconds % 60}s` : '';
     renderProctorCampaignProgress(data.progress);
@@ -4712,6 +4666,14 @@ async function refreshProctorCampaign() {
 
 document.getElementById('proctor-campaign-start')?.addEventListener('click', async event => {
   if (proctorCampaignStarting) return;
+  const ownerTask = document.getElementById('proctor-owner-task')?.value.trim() || '';
+  const successCriteria = document.getElementById('proctor-success-criteria')?.value.trim() || '';
+  const measurementSuite = document.getElementById('proctor-measurement-suite')?.value || null;
+  if (!ownerTask || !successCriteria) {
+    const message = document.getElementById('proctor-campaign-message');
+    message.textContent = 'Describe a recurring task and what success looks like before starting.';
+    return;
+  }
   proctorCampaignStarting = true;
   const button = event.currentTarget;
   button.disabled = true;
@@ -4719,7 +4681,9 @@ document.getElementById('proctor-campaign-start')?.addEventListener('click', asy
   message.textContent = 'Starting the managed campaign…';
   try {
     const response = await fetch('/api/proctor-campaign/start', {
-      method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'
+      method: 'POST', headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+      body: JSON.stringify({owner_task: ownerTask, success_criteria: successCriteria,
+        measurement_suite: measurementSuite}), cache: 'no-store'
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body?.error || 'Proctor campaign unavailable.');

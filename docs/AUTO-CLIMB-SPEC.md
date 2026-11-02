@@ -6,11 +6,11 @@ This supersedes the original handoff's proposed defaults where clarified below.
 
 ## Experience
 
-One **Start Auto Climb** button after boot: assess the AI, try an eligible better model,
-reassess, improve its configuration and continue until a scoped plateau or budget limit.
-Shared supported foundations first, specialization later. The agent plays; the owner
-watches and coaches. Keep Open chat separate from Start. Do not use “Ready to prove I
-can do better.” Model fit is an estimate, not proof of quality.
+Auto Climb currently practices short document-answering tasks and tests reversible
+instruction changes in that domain. Its scores describe those tasks only; they do not
+measure general ability or establish that a model is better for the owner. Keep Open
+chat separate from Start. Do not use “Ready to prove I can do better.” Model fit is an
+estimate, not proof of quality, and does not trigger model selection or downloads.
 
 Before each experiment show what changes, why, cost and checks, with a **30-second
 countdown**, Try now, Skip this idea, Pause and Stop. Silence permits execution only
@@ -49,9 +49,11 @@ restore instead of being overwritten. Failed/unknown cleanup stays blocked with 
 
 ## Budget/stopping policy v1
 
-Defaults to validate: 60 minutes active time, six attempted experiments, one new download
-attempt, 8 GiB transferred new bytes, no permission expansion. Strictly validate supported
-values before approval; unsupported/invalid limits fail before work. Settings stay secondary.
+Defaults to validate: 60 minutes active time, six attempted experiments, no model downloads,
+and no permission expansion. A model trial requires a separately scoped owner task, evidence
+that model capability is the limiting factor, and an explicitly approved download budget.
+Strictly validate supported values before approval; unsupported/invalid limits fail before
+work. Settings stay secondary.
 
 Reserve an experiment slot durably immediately before acquisition/staging; failed, cancelled
 and blocked attempts consume it. Skip before commitment does not. Count partial/failed
@@ -60,13 +62,22 @@ consume time. Explicit paused intervals may be excluded; Resume/reboot never res
 budgets. Account conservatively after interruption. Reserve cleanup time and enforce
 deadlines inside child work, not just between experiments. Cleanup remains bounded.
 
-Plateau: three distinct completed non-improving experiments since the last validated gain
-**and** no remaining eligible untried candidate within approval. Say “Plateau within this
-session's tested options.” Errors, missing storage and skipped ideas are not measured
-non-improvement. Fewer than three usable options: options exhausted. Remaining options plus
-spent budget: budget exhausted. Fresh validation unavailable: blocked/validation unavailable.
+Practice plateau: three distinct completed experiments without a repeatable gain on the
+bundled practice tasks **and** no remaining eligible untried candidate within approval.
+This describes those practice tasks only, not the owner's work. A practice-only candidate
+that improves both held-out partitions does not count as a production gain. Errors, missing
+storage and skipped ideas are not measured non-improvement. Fewer than three usable options:
+options exhausted. Remaining options plus spent budget: budget exhausted. Fresh validation
+unavailable: blocked/validation unavailable.
 
-## Evidence/promotion policy v1
+## Historical synthetic-suite gates (diagnostic only)
+
+The gates below establish repeatability on the bundled tasks only. They are not
+evidence that an instruction or model change improves the owner's work. Auto
+Climb now records a passing candidate as `practice-only` and restores the
+candidate before everyday Argos resumes. Promotion requires a separate,
+owner-selected task and matched evidence; this synthetic flow cannot perform
+that promotion.
 
 First implement one assistant document-answer domain, not the whole ladder. The lab's
 32 attempts (24 scored, eight unscored summaries) and assistant's eight prompts are
@@ -84,8 +95,9 @@ For the first accuracy-focused domain:
    one newly passing challenge, no regressions.
 3. Confirm with a second disjoint fresh partition of at least eight tasks under the
    same validation rule. This is bounded repeatability, not statistical significance.
-4. Keep only with complete verified evidence and transaction/model/config checks;
-   otherwise restore exactly and verify readiness. Missing evidence blocks promotion.
+4. Record a practice-only candidate only with complete verified evidence and
+   transaction/model/config checks. It is restored after scoring and cannot be
+   promoted by this flow. Missing evidence blocks even the diagnostic result.
 
 Compare current kept build and candidate on the same fresh tasks in isolated sessions.
 Reserve partition IDs before first exposure; consume on any exposure, including failure,
@@ -96,30 +108,30 @@ rewording is not independence. Exhausted inventory stops automatic promotion hon
 The assistant necessarily sees its assigned questions/passages. Keys, future partitions
 and detailed validation feedback stay out of planning/reflection, retrieval and writable
 workspace. Enforce the runner/tool/file boundary; another JSON filename is not isolation.
-Owner-facing evidence is separate from planner input. After every Keep, rebase all
-comparisons on the verified kept build. Preserve original starting evidence for reporting.
-Durable verified Undo survives completion/reboot. Do not relax criteria to produce a win;
-saturated accuracy or speed-only gains require a separately specified policy.
+Owner-facing evidence is separate from planner input. Preserve original starting evidence
+for reporting. Do not relax criteria to produce a win; saturated accuracy or speed-only
+gains require a separately specified policy.
 
 Auto Climb evidence records use stable per-suite run IDs and save task IDs, scorer checks,
 answer hashes, elapsed times, runner session IDs, model/configuration fingerprints, and
 the session's active model and runner's expected model, configuration fingerprints, and
 suite/instruction/code digests as each task completes. Raw assistant answer text is not
 copied into this ledger. Interrupted suite records remain incomplete and cannot support
-Keep. A candidate can be kept only when its practice baseline, candidate practice run,
-both fresh-partition baselines, and both candidate validation runs are all saved and
-complete, uniquely referenced, and matched by their declared role, campaign, partition,
-suite digest and task IDs. The record's SHA-256 is unkeyed: it detects accidental damage,
+Practice-only candidate. The diagnostic result is complete only when its practice
+baseline, candidate practice run, both fresh-partition baselines, and both candidate
+validation runs are all saved and complete, uniquely referenced, and matched by their
+declared role, campaign, partition, suite digest and task IDs. Even a complete result
+cannot keep a change. The record's SHA-256 is unkeyed: it detects accidental damage,
 but does not prove who wrote the record or prevent a same-user process from changing and
 recomputing it. These records improve traceability; they are not signed Proctor receipts
 or independent validation.
 
 ## Models and later adapters
 
-Use a small reviewed catalog and actual tested-context memory overhead. Filter all eligible
-candidates for fit, availability, storage and budget before ranking. Unknown fit is not
-automatic eligibility. Larger weights do not establish usefulness. One explained suggestion,
-at most three alternatives, with the working fallback preserved.
+Model trials are not part of the default Auto Climb. Before a scoped model trial, filter
+curated candidates for fit, availability, storage and approved budget. Unknown fit is not
+eligibility, and larger weights do not establish usefulness. Compare on the selected owner
+task, with the working fallback preserved.
 
 Downloads require a confirmed eligible store. Otherwise assess and offer one Choose model
 storage action. No silent internal-disk choice, adoption, formatting, moving or deletion.
@@ -140,8 +152,8 @@ hidden web access or tool permissions; real tools wait for sandbox acceptance.
 | AC1-3 | Single worker/workload owner, bounded cancellable children, cumulative budgets across Resume/reboot. |
 | AC1-4 | Journal-before-write, owner-edit protection, exception/crash/Stop cleanup and durable verified Undo. |
 | AC2-1 | Fresh validation exposure/confirmation policy enforced, including exhaustion and incomplete coverage. |
-| AC2-2 | Rebased current-kept comparisons and exact build identities; later regression cannot inherit earlier gains. |
-| AC2-3 | Actual unattended assistant session reaches verified Keep or Restore and truthful stop reason/results. |
+| AC2-2 | Candidate comparisons use exact build identities; no synthetic-suite result promotes a production change. |
+| AC2-3 | Actual unattended assistant session restores practice-only candidates and reports a truthful outcome. |
 | AC2-4 | Real watch activity and readable before/after at desktop/390px; shipped Firefox/physical phone checked separately. |
 | AC3-1 | All eligible curated models filtered at actual context; confirmed store action and explained fit/quality uncertainty. |
 | AC3-2 | Verified bounded download, partial/failed bytes, cancellation/deadlines and no unbounded joins. |
@@ -149,6 +161,7 @@ hidden web access or tool permissions; real tools wait for sandbox acceptance.
 | AC3-4 | Actual supported model upgrade and failure/regression restoration exercised; GPU claims require measurements. |
 | AC4-1 | Execution-path and independent evidence tests before runtime/reference/tool adapters become runnable. |
 
-Finish/review AC1/AC2 before promoting stacked AC3. Keep existing work; don't restart it.
+AC1/AC2 synthetic practice cannot promote a production instruction or model change. Owner-task
+evidence is required for any promotion. Keep existing work; don't restart it.
 No ISO/USB deployment substitutes for these gates. Media update requires separate fresh
 device/backup/image verification and a reviewed persistence-preserving plan.

@@ -262,12 +262,29 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if self.command == 'POST' and self.server.proctor_campaign and path in (
                 '/api/proctor-campaign/start', '/api/proctor-campaign/recover'):
-            if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
-                self.reply(400, {'error': 'An empty request is required'})
-                return
             try:
-                action = self.server.proctor_campaign.start if path.endswith('/start') else self.server.proctor_campaign.recover
-                self.reply(200, action())
+                if path.endswith('/start'):
+                    lengths = self.headers.get_all('Content-Length')
+                    if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                            or len(lengths[0]) > 5 or not lengths[0].isdigit() or
+                            not 1 <= int(lengths[0]) <= 10000 or
+                            self.headers.get('Content-Type') != 'application/json'):
+                        self.reply(400, {'error': 'A bounded task and success measure are required'})
+                        return
+                    body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    if (not isinstance(body, dict) or
+                            set(body) - {'owner_task', 'success_criteria', 'measurement_suite'} or
+                            not {'owner_task', 'success_criteria'} <= set(body)):
+                        self.reply(400, {'error': 'Provide owner_task, success_criteria, and optional measurement_suite'})
+                        return
+                    response = self.server.proctor_campaign.start(
+                        body['owner_task'], body['success_criteria'], body.get('measurement_suite'))
+                else:
+                    if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                        self.reply(400, {'error': 'An empty request is required'})
+                        return
+                    response = self.server.proctor_campaign.recover()
+                self.reply(200, response)
             except (ValueError, OSError) as exc:
                 from argoslive.proctor_campaign import Refused
                 self.reply(409, {'error': str(exc) if isinstance(exc, Refused) else 'Proctor campaign unavailable'})

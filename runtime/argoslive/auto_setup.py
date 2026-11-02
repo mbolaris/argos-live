@@ -9,7 +9,8 @@ from . import starter, storage, session_mode
 from .pull_jobs import read_json
 
 PLUGIN_ROOT = '/usr/local/share/argos-live/plugins/argos-improve'
-# Seeded once into a fresh workspace; existing owner files are never replaced.
+# Seed once in a fresh workspace; only exact, snapshot-backed migrations may
+# update existing owner files, and they preserve all bytes outside the target.
 WORKSPACE_FILES = (('AGENTS.md', 'SELF-IMPROVEMENT-AGENTS.md'), ('SOUL.md', 'SELF-IMPROVEMENT-SOUL.md'),
                    ('IDENTITY.md', 'SELF-IMPROVEMENT-IDENTITY.md'),
                    ('tools/argos-control.py', 'SELF-IMPROVEMENT-CONTROL.py'))
@@ -67,6 +68,46 @@ LEGACY_HEARTBEAT_PROMPT = ('Self-improvement heartbeat. First run `python3 tools
                            'argos_compare as tools. Never install software, use sudo, clone repositories or request secrets. '
                            'If there is no active campaign, '
                            'reply exactly HEARTBEAT_OK.')
+
+# Exact workspace guide observed on Toronado on 2026-11-01. The migration below
+# replaces only its obsolete suite-first/model-first sections and preserves the
+# rest of the owner's customized guide. Any other bytes require review.
+LEGACY_OWNER_GUIDE_SHA256 = '318fb6341ccb28d4d6bd6a930a147ee59993a4cc6af46af0b20b5c63c2ed8c1c'
+OWNER_TASK_GUIDANCE = '''## 2. Measure one change at a time
+
+First state the recurring owner task and observable success measure. Keep system
+readiness (boot, persistence, services) separate from model behavior. Use a
+fixed evaluation suite only when its exact tasks directly measure the owner
+task. If none fits, do not steer the owner toward generic scores or change
+instructions/models from unrelated results. Report `task-not-measured` and draft
+the specific task cases and checks needed from sanitized incidents; get review
+before using them to qualify a change. Raw-model `argos bench ability` measures
+a model, not the configured assistant or end-to-end task success.
+
+When relevant evidence exists, compare fresh matched baselines and candidates
+with the same task, model, configuration, tools and setup. Make one reversible
+change, verify the saved results, and keep it only when the owner-valued outcome
+improves without a safety or effort regression. Use only host-managed evaluation
+and instruction tools. Every evaluation wait is bounded; continue a host-owned
+job with its returned job ID and never overlap evaluations.
+
+## 3. Improvement order and authority
+
+**A. Owner task first.** Keep qwen3.8:27b selected unless repeated, matched
+owner-task evidence shows model capability is the limiting factor. Do not
+download or switch to qwen3:30b based on fit, parameter count, catalog claims,
+or saturated generic suites. The current qwen3:30b candidate lacks the
+configured model's thinking and vision capabilities, so it is not a matched
+comparison. If no relevant task measure exists, preserve the current model and
+work on the reviewed task cases instead of starting a model trial.
+
+'''
+LEGACY_MODEL_PLATEAU_GUIDANCE = '''Stop at a measured plateau when the strongest reviewed fitting model is selected
+(or larger candidates measured worse), three distinct recent experiments yield
+no confirmed gain, and any software upgrade found has been proposed.'''
+OWNER_TASK_STOP_GUIDANCE = '''Stop when the owner-valued task outcome is measurably better, evidence is
+inconclusive after a reasonable number of trials, or the next step needs an
+owner decision. A synthetic-suite plateau does not prove maximum capability.'''
 
 
 def workspace_file(name):
@@ -189,6 +230,67 @@ def upgrade_legacy_heartbeat(home, config_path):
             'after_sha256': hashlib.sha256(new_raw).hexdigest()}
 
 
+def upgrade_legacy_owner_guide(home):
+    """Migrate only Toronado's exact known guide; preserve other owner edits."""
+    path = storage.safe_local(home / '.openclaw/workspace/AGENTS.md')
+    if not path.is_file():
+        return {'status': 'not-managed'}
+    raw = path.read_bytes()
+    before = hashlib.sha256(raw).hexdigest()
+    if before != LEGACY_OWNER_GUIDE_SHA256:
+        return {'status': 'not-targeted-guide', 'before_sha256': before}
+    try:
+        text = raw.decode('utf-8')
+    except UnicodeDecodeError:
+        return {'status': 'guide-not-utf8'}
+    marker = '## 2. Measure one change at a time\n'
+    start = text.find(marker)
+    end = text.find('**B. Configuration.**', start)
+    if (start < 0 or end < 0 or text.find(marker, start + len(marker)) >= 0 or
+            text.count(LEGACY_MODEL_PLATEAU_GUIDANCE) != 1):
+        return {'status': 'legacy-guide-shape-mismatch', 'before_sha256': before}
+    text = text[:start] + OWNER_TASK_GUIDANCE + text[end:]
+    text = text.replace(LEGACY_MODEL_PLATEAU_GUIDANCE, OWNER_TASK_STOP_GUIDANCE)
+    new_raw = text.encode('utf-8')
+    state_root = storage.safe_local(home / '.local/state/argos-live')
+    snapshots = storage.safe_local(state_root / 'snapshots')
+    state_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    snapshots.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if os.name != 'nt':
+        for directory in (state_root, snapshots):
+            metadata = directory.stat()
+            if metadata.st_uid != os.getuid() or metadata.st_mode & 0o077:
+                return {'status': 'snapshot-directory-not-private'}
+    token = secrets.token_hex(12)
+    snapshot = snapshots / ('agents-before-owner-task-guidance-' + token + '.md')
+    descriptor = os.open(snapshot, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, 'wb') as stream:
+        stream.write(raw)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary = path.parent / ('.agents-guide-' + token)
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                             path.stat().st_mode & 0o777)
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(new_raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if path.read_bytes() != raw:
+            return {'status': 'guide-changed-during-migration', 'snapshot': snapshot.name}
+        os.replace(temporary, path)
+        if os.name != 'nt':
+            descriptor = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {'status': 'updated', 'snapshot': snapshot.name,
+            'before_sha256': before, 'after_sha256': hashlib.sha256(new_raw).hexdigest()}
+
+
 def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
               probe_persistence=persistence, progress=None):
     """No prompts, mounts, downloads or daemon startup; retained state is reused."""
@@ -212,9 +314,15 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
             # concurrent config edit must not prevent the existing assistant
             # from starting with its current owner configuration.
             heartbeat_migration = {'status': 'not-applied'}
+        try:
+            owner_guide_migration = upgrade_legacy_owner_guide(home)
+        except (OSError, ValueError):
+            # Never block startup or replace a guide if snapshotting fails.
+            owner_guide_migration = {'status': 'not-applied'}
         return {'status': 'existing', **{key: state.get(key) for key in
                 ('mode', 'model', 'model_source', 'storage', 'permissions')},
-                'heartbeat_prompt_migration': heartbeat_migration}
+                'heartbeat_prompt_migration': heartbeat_migration,
+                'owner_guide_migration': owner_guide_migration}
     if config_path.exists() or (config_path.parent.exists() and any(config_path.parent.iterdir())):
         raise ValueError('Existing OpenClaw state needs review; automatic setup will not replace it')
     report('verify-starter')

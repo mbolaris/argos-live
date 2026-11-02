@@ -143,8 +143,8 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(result['totals']['not_stated'], {'before': 0, 'after': 0, 'total': 3})
         self.assertEqual(result['totals']['control'], {'before': 2, 'after': 2, 'total': 2})
         self.assertEqual(result['regressions'], [])
-        self.assertEqual(result['suggestion'], 'keep')
-        self.assertEqual(result['evidence'], 'everyday-assistant')
+        self.assertEqual(result['suggestion'], 'review')
+        self.assertEqual(result['evidence'], 'practice-only')
         self.assertEqual(result['opinion']['state'], 'completed')
         self.assertEqual(result['opinion']['model'], 'fixture')
         self.assertIn('not scored evidence', result['opinion']['label'])
@@ -490,13 +490,13 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(trial.snapshot()['status'], 'none')
         self.assertEqual(self.agents.read_bytes(), self.original.encode())
 
-    def test_a_regression_suggests_restore(self):
+    def test_a_regression_does_not_make_the_practice_trial_recommend_keep(self):
         trial = self.trial(misbehave=True)
         trial.start(); self.wait(trial)
         result = trial.snapshot()['result']
         self.assertTrue(any(item['comparison']['regressions'] == ['control-plant', 'control-walk']
                             for item in result['experiments']))
-        self.assertEqual(result['suggestion'], 'restore')
+        self.assertEqual(result['suggestion'], 'review')
 
     def test_protected_file_change_stops_for_review_without_false_restore(self):
         trial = self.trial(edit=lambda: (self.agents.parent / 'SOUL.md').write_text('changed'))
