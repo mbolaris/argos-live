@@ -481,6 +481,7 @@ def run(cli, report):
             real_gateway_owned = proctor_service.owned_gateway.owned
             real_bridge_launch = controller_bridge.Bridge.launch
             real_bridge_finish = controller_bridge.Bridge.finish
+            real_bridge_begin = controller_bridge.Bridge.begin
 
             @contextmanager
             def trace_controller_owned(*args, **kwargs):
@@ -550,6 +551,26 @@ def run(cli, report):
                 progress['campaign_setup_stage'] = 'worker-finished'
                 return value
 
+            def trace_campaign_begin(bridge, request):
+                progress['campaign_admission_attempts'] = progress.get(
+                    'campaign_admission_attempts', 0) + 1
+                try:
+                    value = real_bridge_begin(bridge, request)
+                except BaseException as error:
+                    progress['campaign_admission_failure'] = {
+                        'exception_class': type(error).__name__,
+                        'run_id_valid': bool(controller_bridge.identity(request.get('run_id'))),
+                        'session_id_valid': bool(controller_bridge.identity(request.get('session_id'))),
+                        'session_key_matches': request.get('session_key') == bridge.session_key,
+                        'trigger_matches': request.get('trigger') == bridge.trigger,
+                        'bridge_closed': bridge.closed,
+                        'bridge_uncertain': bridge.uncertain,
+                        'active_turn_present': bridge.active is not None}
+                    raise
+                progress['campaign_admission_successes'] = progress.get(
+                    'campaign_admission_successes', 0) + 1
+                return value
+
             def task_campaign(*args, **kwargs):
                 progress['campaign_setup_stage'] = 'run-campaign'
                 try:
@@ -566,6 +587,7 @@ def run(cli, report):
                               side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
                     patch.object(controller_bridge.Bridge, 'dispatch', trace_campaign_dispatch), \
+                    patch.object(controller_bridge.Bridge, 'begin', trace_campaign_begin), \
                     patch.object(controller_bridge.Bridge, 'launch', trace_campaign_launch), \
                     patch.object(controller_bridge.Bridge, 'finish', trace_campaign_finish), \
                     patch.object(controller_bridge, 'owned', trace_controller_owned), \
@@ -608,6 +630,9 @@ def run(cli, report):
                     'campaign_runtime_error_class': progress.get('campaign_runtime_error_class'),
                     'campaign_runtime_error_boundary': progress.get('campaign_runtime_error_boundary'),
                     'campaign_finish_failure': progress.get('campaign_finish_failure'),
+                    'campaign_admission_attempts': progress.get('campaign_admission_attempts', 0),
+                    'campaign_admission_successes': progress.get('campaign_admission_successes', 0),
+                    'campaign_admission_failure': progress.get('campaign_admission_failure'),
                     'campaign_setup_stage': progress.get('campaign_setup_stage'),
                     'campaign_missing': campaign.get('missing'),
                     'campaign_turns': campaign.get('controller_turns'),
