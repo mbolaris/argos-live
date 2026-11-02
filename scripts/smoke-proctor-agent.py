@@ -515,11 +515,37 @@ def run(cli, report):
                     progress['campaign_runtime_error_class'] = type(error).__name__
                     progress['campaign_runtime_error_boundary'] = 'finish'
                     failure = bridge.last_finish_failure or {}
-                    progress['campaign_finish_failure'] = {
+                    safe_failure = {
                         key: failure[key] for key in (
                             'code', 'returncode', 'stdout_bytes', 'stderr_bytes',
                             'status_ok', 'payloads_list', 'session_bound',
                             'live_group_members') if key in failure}
+                    worker_response = failure.get('worker_response')
+                    if isinstance(worker_response, dict):
+                        response_fields = (
+                            'json_valid', 'size_limited', 'object', 'result_object',
+                            'status', 'payload_count', 'error_code', 'error_name',
+                            'error_type', 'error_present', 'error_kind', 'session_bound')
+                        safe_failure['worker_response'] = {
+                            key: worker_response[key] for key in response_fields
+                            if key in worker_response}
+                    active = bridge.active if isinstance(bridge.active, dict) else {}
+                    diagnostics = active.get('diagnostics')
+                    if isinstance(diagnostics, dict):
+                        safe_failure['admission_diagnostics'] = {
+                            key: diagnostics[key] for key in (
+                                'tool_hooks', 'bound_calls', 'executions', 'rejected')
+                            if key in diagnostics}
+                    host_tool_requests = active.get('host_tool_requests')
+                    if type(host_tool_requests) is int:
+                        safe_failure['host_tool_requests'] = host_tool_requests
+                    host_tool_failures = active.get('host_tool_failures')
+                    if isinstance(host_tool_failures, list):
+                        safe_failure['host_tool_failures'] = [
+                            {key: item[key] for key in ('kind', 'error_class', 'error_code')
+                             if key in item}
+                            for item in host_tool_failures[:16] if isinstance(item, dict)]
+                    progress['campaign_finish_failure'] = safe_failure
                     raise
                 progress['campaign_setup_stage'] = 'worker-finished'
                 return value
