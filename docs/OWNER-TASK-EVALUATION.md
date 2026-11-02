@@ -222,6 +222,27 @@ chosen the task priorities and tradeoffs. Safety is always a pass/fail gate. A
 quality gain that adds avoidable owner effort or weakens safety is not a task
 improvement.
 
+### Current owner priority: less manual recovery work
+
+The first action-capable recovery target is a desktop that is ready while the
+already-paired SSH service is stopped. The proposed path is a dashboard status
+receipt followed by one explicit owner approval. Argos may start only the
+existing `ssh.service` after the encrypted-persistence, host-identity, and
+key-only paired-policy gate passes; it must then verify the same boot and a
+port-22 listener. It must not create credentials, edit policy, or retry on its
+own. Any missing or ambiguous evidence keeps the action unavailable.
+
+Measure this path with: owner terminal commands (target 0), explicit owner
+approvals (target at most 1), repeated status requests (target 0), time from
+opening the dashboard to verified local service readiness, and action success
+rate. Record any paired-client login test separately; a local listener check
+does not prove remote reachability. Keep the approval count separate from
+avoidable effort. Fixture/API tests can
+establish the gate and one-use approval behavior; only a shipped-image boot
+and a real recovery exercise can establish owner effort and boot reliability.
+Do not mark the capability complete from this implementation or its unit tests
+alone.
+
 ## Comparing models or changes
 
 Use the same cases, context, tool access, instructions, temperature, reasoning
