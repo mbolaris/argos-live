@@ -801,12 +801,18 @@ def main(argv=None):
     improve.add_argument('--json', action='store_true')
     args = parser.parse_args(argv)
     home = Path.home()
+    ssh_recovery_controller = None
     try:
-        value = (run_improvement(home, owner_task=args.owner_task,
-                                 success_criteria=args.success_criteria,
-                                 measurement_suite=getattr(args, 'measurement_suite', None))
-                 if args.operation == 'improve'
-                 else run_practice(home, args.cartridge, args.form))
+        if args.operation == 'improve':
+            from . import ssh_recovery
+            ssh_recovery_controller = ssh_recovery.Controller(home=home)
+            value = run_improvement(
+                home, owner_task=args.owner_task, success_criteria=args.success_criteria,
+                measurement_suite=getattr(args, 'measurement_suite', None),
+                ssh_status_provider=ssh_recovery_controller.proctor_status,
+                ssh_status_verifier=ssh_recovery_controller.verify_proctor_status)
+        else:
+            value = run_practice(home, args.cartridge, args.form)
         if args.json:
             print(json.dumps(value, indent=2, ensure_ascii=False))
         elif args.operation == 'improve':
@@ -825,3 +831,6 @@ def main(argv=None):
         return 0 if value['status'] == 'completed' else 2
     except (ValueError, OSError, KeyError, TypeError) as exc:
         parser.exit(1, f'Argos Proctor: {exc}\n')
+    finally:
+        if ssh_recovery_controller is not None:
+            ssh_recovery_controller.close()

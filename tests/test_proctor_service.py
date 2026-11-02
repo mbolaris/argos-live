@@ -1,11 +1,12 @@
 import json
 import hashlib
+import io
 import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager, ExitStack, redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import patch, Mock
 
@@ -219,6 +220,28 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertNotEqual(first[2], second[2])
         self.assertEqual(first[2].read_bytes(), prior)
         self.assertIn('fixture-capability', json.loads(second[2].read_text())['tools']['alsoAllow'])
+
+    def test_improve_cli_injects_and_closes_the_ssh_status_controller(self):
+        status_provider = Mock(return_value={'available': False})
+        status_verifier = Mock(return_value=False)
+        close = Mock()
+        recovery = SimpleNamespace(proctor_status=status_provider,
+                                   verify_proctor_status=status_verifier,
+                                   close=close)
+        result = {'status': 'completed', 'campaign': {
+            'saved_evaluation_ids': [], 'controller_turns': 1,
+            'outcome': 'task-not-measured'}}
+        with patch.object(Path, 'home', return_value=self.home), \
+                patch('argoslive.ssh_recovery.Controller', return_value=recovery), \
+                patch.object(proctor_service, 'run_improvement', return_value=result) as run, \
+                redirect_stdout(io.StringIO()):
+            exit_code = proctor_service.main([
+                'improve', '--owner-task', 'recover after boot',
+                '--success-criteria', 'Argos is ready'])
+        self.assertEqual(exit_code, 0)
+        self.assertIs(run.call_args.kwargs['ssh_status_provider'], status_provider)
+        self.assertIs(run.call_args.kwargs['ssh_status_verifier'], status_verifier)
+        close.assert_called_once_with()
 
     def test_improvement_campaign_uses_owner_task_without_running_practice(self):
         state_path = self.home / '.config/argos-live/state.json'
