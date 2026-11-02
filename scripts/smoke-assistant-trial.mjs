@@ -80,7 +80,7 @@ try {
   assert.notEqual(await page.locator('#cc-next-go').getAttribute('data-action'), 'assistant-trial',
     'A short-passage result does not automatically recommend another practice trial');
   assert.equal(await page.locator('#cc-receipt').isVisible(), true, 'The starting mission result remains visible before GO');
-  assert.equal(await page.locator('#replay').isHidden(), true, 'Detailed replay is tucked away while the next move is in focus');
+  assert.equal(await page.locator('#replay').isHidden(), false, 'The owner can inspect the detailed result beside the actual next task');
   assert.equal(await page.locator('#command-center').getAttribute('data-watching'), 'false');
   assert.equal((await status()).status, 'none');
 
