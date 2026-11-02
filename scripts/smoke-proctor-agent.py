@@ -4,6 +4,7 @@ import argparse
 from contextlib import contextmanager, nullcontext
 from http.server import BaseHTTPRequestHandler
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -368,14 +369,24 @@ def run(cli, report):
             real_dispatch = controller_bridge.Bridge.dispatch
 
             def trace_campaign_dispatch(bridge, request):
+                if progress['phase'] == 'campaign' and request.get('op') == 'begin':
+                    progress['campaign_admission_requests'] = progress.get(
+                        'campaign_admission_requests', 0) + 1
+                    progress['campaign_admission_auth_valid'] = (
+                        isinstance(request.get('auth'), str) and
+                        hmac.compare_digest(request['auth'], bridge.secret))
                 try:
                     response = real_dispatch(bridge, request)
                 except BaseException as error:
+                    if progress['phase'] == 'campaign' and request.get('op') == 'begin':
+                        progress['campaign_admission_dispatch_error'] = type(error).__name__
                     if progress['phase'] == 'campaign' and request.get('op') == 'tool':
                         progress['campaign_host_tool_trace'].append({
                             'kind': request.get('kind'), 'outcome': 'error',
                             'error_class': type(error).__name__})
                     raise
+                if progress['phase'] == 'campaign' and request.get('op') == 'begin':
+                    progress['campaign_admission_status'] = response.get('status')
                 if progress['phase'] == 'campaign' and request.get('op') == 'tool':
                     progress['campaign_host_tool_trace'].append({
                         'kind': request.get('kind'), 'outcome': response.get('status')})
@@ -633,6 +644,10 @@ def run(cli, report):
                     'campaign_admission_attempts': progress.get('campaign_admission_attempts', 0),
                     'campaign_admission_successes': progress.get('campaign_admission_successes', 0),
                     'campaign_admission_failure': progress.get('campaign_admission_failure'),
+                    'campaign_admission_requests': progress.get('campaign_admission_requests', 0),
+                    'campaign_admission_auth_valid': progress.get('campaign_admission_auth_valid'),
+                    'campaign_admission_dispatch_error': progress.get('campaign_admission_dispatch_error'),
+                    'campaign_admission_status': progress.get('campaign_admission_status'),
                     'campaign_setup_stage': progress.get('campaign_setup_stage'),
                     'campaign_missing': campaign.get('missing'),
                     'campaign_turns': campaign.get('controller_turns'),
