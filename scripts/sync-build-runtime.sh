@@ -17,6 +17,8 @@ install -D -m 755 "$src/scripts/argos-collect-boot" "$work/config/includes.chroo
 install -D -m 755 "$src/scripts/argos-export-boot" "$work/config/includes.chroot/usr/local/sbin/argos-export-boot"
 install -D -m 755 "$src/runtime/argos-refresh-runtime" "$work/config/includes.chroot/usr/local/sbin/argos-refresh-runtime"
 install -D -m 755 "$src/runtime/argos-ssh-ready" "$work/config/includes.chroot/usr/local/sbin/argos-ssh-ready"
+install -D -m 755 "$src/runtime/argos-ssh-status" "$work/config/includes.chroot/usr/local/sbin/argos-ssh-status"
+install -D -m 755 "$src/runtime/argos-ssh-restart" "$work/config/includes.chroot/usr/local/sbin/argos-ssh-restart"
 install -D -m 755 "$src/scripts/argos-start-screensaver.sh" "$work/config/includes.chroot/usr/local/sbin/argos-start-screensaver"
 cp "$src/live/config/hooks/live/020-wallpaper.hook.chroot" "$src/live/config/hooks/live/030-diagnostics.hook.chroot" "$work/config/hooks/live/"
 chmod +x "$work/config/hooks/live/020-wallpaper.hook.chroot" "$work/config/hooks/live/030-diagnostics.hook.chroot"
@@ -40,6 +42,13 @@ if [[ -d "$work/chroot/usr/local/share/argos-live" ]]; then
   install -D -m 755 "$src/scripts/argos-export-boot" "$work/chroot/usr/local/sbin/argos-export-boot"
   install -D -m 755 "$src/runtime/argos-refresh-runtime" "$work/chroot/usr/local/sbin/argos-refresh-runtime"
   install -D -m 755 "$src/runtime/argos-ssh-ready" "$work/chroot/usr/local/sbin/argos-ssh-ready"
+  install -D -m 755 "$src/runtime/argos-ssh-status" "$work/chroot/usr/local/sbin/argos-ssh-status"
+  install -D -m 755 "$src/runtime/argos-ssh-restart" "$work/chroot/usr/local/sbin/argos-ssh-restart"
+  mkdir -p "$work/config/includes.chroot/etc/sudoers.d" "$work/chroot/etc/sudoers.d"
+  printf '%s\n' 'argos ALL=(root) NOPASSWD: /usr/local/sbin/argos-ssh-status "", /usr/local/sbin/argos-ssh-restart ""' >"$work/config/includes.chroot/etc/sudoers.d/argos-ssh-recovery"
+  chmod 440 "$work/config/includes.chroot/etc/sudoers.d/argos-ssh-recovery"
+  install -D -m 440 "$work/config/includes.chroot/etc/sudoers.d/argos-ssh-recovery" "$work/chroot/etc/sudoers.d/argos-ssh-recovery"
+  chroot "$work/chroot" visudo -cf /etc/sudoers.d/argos-ssh-recovery
   install -D -m 755 "$src/scripts/argos-start-screensaver.sh" "$work/chroot/usr/local/sbin/argos-start-screensaver"
   install -D -m 644 "$src/live/config/includes.chroot/etc/ssh/sshd_config.d/00-argos-defaults.conf" "$work/chroot/etc/ssh/sshd_config.d/00-argos-defaults.conf"
   chroot "$work/chroot" systemctl enable ssh.service

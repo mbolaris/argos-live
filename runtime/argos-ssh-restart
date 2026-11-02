@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+"""Root-owned fixed, preflighted starter for already-paired Argos SSH."""
+import sys
+
+if len(sys.argv) != 1:
+    raise SystemExit(2)
+sys.path.insert(0, '/usr/local/lib/argos-live')
+from argoslive.ssh_recovery import privileged_main
+
+raise SystemExit(privileged_main('restart'))

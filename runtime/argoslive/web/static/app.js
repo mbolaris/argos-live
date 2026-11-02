@@ -4717,3 +4717,67 @@ document.getElementById('proctor-campaign-recover')?.addEventListener('click', a
 });
 setInterval(refreshProctorCampaign, 2000);
 refreshProctorCampaign();
+
+let sshRecoveryStarting = false;
+async function refreshSshRecovery() {
+  const statusNode = document.getElementById('ssh-recovery-status');
+  const button = document.getElementById('ssh-recovery-start');
+  if (!statusNode || !button) return;
+  try {
+    const data = await api('/api/ssh-recovery');
+    const status = data.status;
+    const job = data.job;
+    button.hidden = !data.can_restart;
+    button.disabled = sshRecoveryStarting || !data.can_restart;
+    button.dataset.receipt = data.receipt?.payload?.receipt_id || '';
+    button.dataset.boot = status?.boot_id || '';
+    if (!data.available || !status) {
+      statusNode.textContent = 'Paired SSH status is unavailable; no service change was made.';
+    } else if (data.active || job?.state === 'running') {
+      statusNode.textContent = 'Argos is checking the approved SSH start. This continues if the chat turn ends.';
+    } else if (status.ssh_active && status.port22_listening && status.paired_policy_valid) {
+      statusNode.textContent = 'Paired SSH is ready.';
+    } else if (job?.state === 'completed') {
+      statusNode.textContent = 'Paired SSH is running and verified for this boot.';
+    } else if (job?.state === 'failed' || job?.state === 'refused') {
+      statusNode.textContent = `SSH was not restored (${job.failure_code || 'verification-incomplete'}). No keys or policy were changed.`;
+    } else if (data.can_restart) {
+      statusNode.textContent = 'SSH is stopped. One safe start is available after the checks passed.';
+    } else if (status.failure_code) {
+      statusNode.textContent = `SSH cannot be started safely (${status.failure_code}). No settings were changed.`;
+    } else {
+      statusNode.textContent = 'Paired SSH is not ready; the checks do not permit an automatic start.';
+    }
+  } catch (_) {
+    statusNode.textContent = 'Paired SSH status is temporarily unavailable.';
+    button.hidden = true;
+    button.disabled = true;
+  }
+}
+document.getElementById('ssh-recovery-start')?.addEventListener('click', async event => {
+  if (sshRecoveryStarting) return;
+  const button = event.currentTarget;
+  const receipt_id = button.dataset.receipt || '';
+  const boot_id = button.dataset.boot || '';
+  if (!receipt_id || !boot_id) return;
+  sshRecoveryStarting = true;
+  button.disabled = true;
+  const statusNode = document.getElementById('ssh-recovery-status');
+  statusNode.textContent = 'Starting the already-paired SSH service…';
+  try {
+    const response = await fetch('/api/ssh-recovery/start', {
+      method: 'POST', headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
+      body: JSON.stringify({receipt_id, boot_id}), cache: 'no-store'
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body?.error || 'The verified SSH start was refused.');
+    statusNode.textContent = 'The fixed SSH recovery job is running. This continues if the chat turn ends.';
+  } catch (error) {
+    statusNode.textContent = error.message || 'The verified SSH start was refused.';
+  } finally {
+    sshRecoveryStarting = false;
+    refreshSshRecovery();
+  }
+});
+setInterval(refreshSshRecovery, 5000);
+refreshSshRecovery();
