@@ -4719,10 +4719,12 @@ setInterval(refreshProctorCampaign, 2000);
 refreshProctorCampaign();
 
 let sshRecoveryStarting = false;
+let sshRecoveryRefreshing = false;
 async function refreshSshRecovery() {
   const statusNode = document.getElementById('ssh-recovery-status');
   const button = document.getElementById('ssh-recovery-start');
-  if (!statusNode || !button) return;
+  if (!statusNode || !button || sshRecoveryRefreshing) return;
+  sshRecoveryRefreshing = true;
   try {
     const data = await api('/api/ssh-recovery');
     const status = data.status;
@@ -4752,6 +4754,8 @@ async function refreshSshRecovery() {
     statusNode.textContent = 'Paired SSH status is temporarily unavailable.';
     button.hidden = true;
     button.disabled = true;
+  } finally {
+    sshRecoveryRefreshing = false;
   }
 }
 document.getElementById('ssh-recovery-start')?.addEventListener('click', async event => {
