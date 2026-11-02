@@ -182,6 +182,7 @@ class ControllerTests(unittest.TestCase):
                           'approved_receipt_id': 'b' * 32, 'receipt': None,
                           'failure_code': None}
         controller.root.mkdir(parents=True)
+        controller.root.chmod(0o700)
         controller._save_job()
         controller.job = None  # simulate a desktop process that exited
         self.current.update(ssh_active=True, port22_listening=True, restart_eligible=False)
