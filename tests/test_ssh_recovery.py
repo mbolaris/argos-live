@@ -129,6 +129,14 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(payload['status'], self.current)
             self.assertEqual(payload['owner_approval_available'], value['owner_approval_available'])
             self.assertEqual(payload['recovery_job_state'], value['recovery_job_state'])
+            self.current.update(paired_policy_valid=False, restart_eligible=False,
+                                failure_code='paired-policy-unready')
+            unsafe = controller.proctor_status()
+            self.assertTrue(unsafe['available'])
+            self.assertFalse(unsafe['owner_approval_available'])
+            self.assertFalse(unsafe['status']['restart_eligible'])
+            self.assertEqual(unsafe['status']['failure_code'], 'paired-policy-unready')
+            self.assertTrue(controller.verify_proctor_status(unsafe))
             tampered = json.loads(json.dumps(value))
             tampered['status']['ssh_active'] = True
             self.assertFalse(controller.verify_proctor_status(tampered))
