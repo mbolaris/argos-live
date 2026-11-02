@@ -113,7 +113,8 @@ def run(cli, report):
         raise ValueError('Proctor integration fixture requires an unprivileged disposable hosted runner')
     progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': [],
                 'provider_idless_calls': 0, 'start_result_on_wire_verified': False,
-                'campaign_plan_index': 0, 'campaign_wait_calls': 0}
+                'campaign_plan_index': 0, 'campaign_wait_calls': 0,
+                'campaign_host_tool_trace': []}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -363,6 +364,21 @@ def run(cli, report):
             ssh_recovery.generate_key(ssh_recovery_controller.root / 'receipt-ed25519.pem')
             from unittest.mock import patch
             real_finish = controller_bridge.Bridge.finish
+            real_dispatch = controller_bridge.Bridge.dispatch
+
+            def trace_campaign_dispatch(bridge, request):
+                try:
+                    response = real_dispatch(bridge, request)
+                except BaseException as error:
+                    if progress['phase'] == 'campaign' and request.get('op') == 'tool':
+                        progress['campaign_host_tool_trace'].append({
+                            'kind': request.get('kind'), 'outcome': 'error',
+                            'error_class': type(error).__name__})
+                    raise
+                if progress['phase'] == 'campaign' and request.get('op') == 'tool':
+                    progress['campaign_host_tool_trace'].append({
+                        'kind': request.get('kind'), 'outcome': response.get('status')})
+                return response
 
             def report_finish_failure(bridge, *, timeout=1900, finalize=True):
                 try:
@@ -471,6 +487,7 @@ def run(cli, report):
                     patch.object(proctor_service.startup, 'source',
                               side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
+                    patch.object(controller_bridge.Bridge, 'dispatch', trace_campaign_dispatch), \
                     patch.object(proctor_service, 'run_campaign', side_effect=task_campaign), \
                     patch.object(proctor_service.owned_ollama, 'owned',
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
@@ -520,6 +537,7 @@ def run(cli, report):
                     'ssh_status_outcomes': ssh_status_outcomes,
                     'unexpected_proctor_tools': sorted(unexpected_proctor_tools),
                     'campaign_tool_names': sorted(progress['model_tool_names']),
+                    'campaign_host_tool_trace': list(progress['campaign_host_tool_trace']),
                     'tool_errors': progress['errors'],
                     'tool_outcomes': campaign.get('tool_outcomes'),
                 }
