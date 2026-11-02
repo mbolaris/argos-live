@@ -44,9 +44,13 @@ supporting quotes, and "not stated" responses on short passages. It excludes
 owner-judged summaries, long documents, and file reading, so it must not be
 presented as broad document competence or as the owner's general objective.
 
-The owner has explicitly asked for a much-improved Proctor service and a
-self-improving agent. If that remains the active objective, evaluate two
-outcomes separately:
+The owner has since questioned whether the current evaluation favors
+low-priority goals and said there is no reason to expect Qwen3:30B to beat the
+selected Qwen3.8:27B model. Treat the Proctor-service and self-improvement
+goals below as unconfirmed priorities until the owner selects them again. Do
+not use a larger parameter count, a saturated generic suite, or a practice
+score as a reason to trial or promote a model. If the owner selects these
+goals, evaluate two outcomes separately:
 
 - **Proctor service quality:** the selected assessment runs to a signed,
   complete result; tool calls, deadlines, cancellation, drainage, and privacy
