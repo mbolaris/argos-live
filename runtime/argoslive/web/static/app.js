@@ -2828,31 +2828,15 @@ function presentedNextAction(next, trial, report, climb = autoClimb) {
   }
   if (trial.active) {
     return {...next, id: 'assistant-trial', title: 'Watch the improvement run',
-      reason: 'Your everyday assistant is answering the before-and-after questions now. Go to its live progress.', action: 'assistant-trial'};
-  }
-  // Preserve the first-run mission and explicit wait/recovery actions. Once a
-  // real document result exists, offer the reviewed assistant trial ahead of
-  // unrelated storage or model-selection work.
-  const documentResultExists = report?.ability?.suite === 'documents-short';
-  if (trial.status === 'none' && trial.changes?.length && next.action &&
-      !['wait', 'restore', 'reboot'].includes(next.action) &&
-      (documentResultExists || next.action === 'review' || trial.result_state === 'no-improvement')) {
-    const ideaCount = trial.changes?.length || 0;
-    return {...next, id: 'assistant-trial', title: ideaCount
-      ? 'Find your AI’s next improvement' : 'No new idea is ready yet',
-      reason: 'Same model. Same eight challenges. Watch every answer, then choose Keep or Restore.',
-      action: 'assistant-trial'};
+      reason: 'The assistant is answering short-passage practice questions. Go to its live progress.', action: 'assistant-trial'};
   }
   if (trial.status === 'none') return next;
   if (trial.status === 'on-trial') {
-    return {...next, id: 'assistant-trial', title: 'Choose what stays in your assistant',
-      reason: 'The before-and-after run is ready. Review the answers, then choose Keep or Restore.', action: 'assistant-trial'};
+    return {...next, id: 'assistant-trial', title: 'Review the practice trial',
+      reason: 'The short-passage practice run is ready. Review the answers, then choose Keep or Restore.', action: 'assistant-trial'};
   }
   if (trial.status === 'kept') {
-    if (trial.changes?.length) return {...next, id: 'assistant-trial', title: 'Try the next improvement round',
-      reason: 'I kept one tested idea. GO tests the remaining untried ideas together; you decide what stays.', action: 'assistant-trial'};
-    return {...next, id: 'chat', title: 'Try your AI on something real',
-      reason: 'You have tried every reviewed starter idea. Put your AI to work on a real question while we gather a new lead.', action: 'chat'};
+    return next;
   }
   return {...next, id: 'assistant-trial', title: 'Review the assistant trial',
     reason: 'The trial needs attention before Argos can safely continue. Open its status and recovery details.', action: 'assistant-trial'};
@@ -2929,8 +2913,8 @@ async function refreshCommand() {
         item.append(number, title, state, notes); steps.append(item);
       }
     }
-    // If diagnostics are the backend recommendation, lead with the reviewed
-    // reversible assistant trial when it is available. Approval remains explicit.
+    // Keep any active/recovery-required trial visible. Optional practice trials
+    // do not replace the next mission when they are idle.
     const next = presentedNextAction(value.next_action, assistantTrial, value.report, autoClimb);
     commandAction = next;
     document.getElementById('cc-next-label').textContent = next.action === 'auto-climb'
@@ -2943,7 +2927,7 @@ async function refreshCommand() {
     const actionLabel = next.action === 'auto-climb'
       ? (autoClimb?.active ? 'Watch Auto Climb' : autoClimb?.phase === 'countdown' ? 'Review next idea' : autoClimb?.phase === 'paused' ? 'Resume Auto Climb' : 'Start Auto Climb')
       : (next.action === 'assistant-trial'
-        ? (assistantTrial?.active ? 'Watch live answers' : assistantTrial?.status === 'on-trial' ? 'Review the result' : 'Start improvement round')
+        ? (assistantTrial?.active ? 'Watch live answers' : assistantTrial?.status === 'on-trial' ? 'Review the result' : 'Start practice trial')
         : ({documents: 'Start reading challenge', baseline: 'Start quick check', chat: 'Open chat', review: 'Review results', wait: 'View progress'}[next.action] || next.title));
     go.replaceChildren(document.createTextNode(actionLabel + ' '));
     const arrow = document.createElement('span'); arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '▶'; go.append(arrow);
@@ -2960,9 +2944,9 @@ async function refreshCommand() {
       const ideaCount = assistantTrial.changes.length;
       const answerCount = assistantTrial.max_answers || 0;
       document.querySelector('#cc-next-trial-offer .cc-next-trial-kicker').textContent =
-        `ONE GO · ${ideaCount} IDEAS · 8 CHALLENGES EACH`;
+        `OPTIONAL PRACTICE TRIAL · ${ideaCount} IDEAS · 8 QUESTIONS EACH`;
       document.querySelector('#cc-next-trial-offer > p:not(.cc-next-trial-kicker)').textContent =
-        `I’ll show each model reply and its score, then recommend a winner. You choose Keep or Restore. Uses your current model; no download or storage setup.`;
+        `Review how instruction changes affect these short-passage questions. Results do not predict performance on your actual tasks. You choose Keep or Restore. Uses your current model; no download or storage setup.`;
       const firstRun = document.getElementById('cc-next-trial-first-run');
       firstRun.hidden = !assistantTrial.first_run_setup;
       firstRun.textContent = assistantTrial.first_run_setup
@@ -3702,7 +3686,7 @@ function rememberDecided(candidateId) {
   } catch (_) {}
 }
 
-// ---- U10: one reviewed, reversible change to the everyday assistant, measured through the assistant.
+// ---- U10: optional, reversible instruction trial measured on short-passage practice.
 const trialChecks = {answer_present: 'answer given', answer_first: 'answer first', exact_quote: 'exact quote',
   admits_not_stated: 'says it isn’t in the notice', replied: 'replied', no_instruction_leak: 'no talk of quotes or passages'};
 const trialKinds = {answer: 'Answer from a notice', not_stated: 'Question the notice can’t answer', control: 'Everyday question (no notice)'};
@@ -3774,21 +3758,21 @@ function renderAssistantTrial() {
   }
   document.getElementById('assistant-trial-title').textContent = preparing ? 'Warming up your AI' : workspaceSetup ? 'Getting your AI ready' : terminalState
     ? (value.result_state === 'recovery-blocked' ? 'Safety stop — review the workspace' : 'This run stopped safely')
-    : value.active ? 'I’m proving my next improvement' : ({
-    none: value.result_state === 'no-improvement' ? 'No idea cleared the bar this round' : 'One tap starts the whole improvement round',
-    'on-trial': 'Retests complete — here’s what changed',
-    kept: value.changes?.length ? 'Kept. Ready for the next idea?' : 'You tried every starter idea',
+    : value.active ? 'Running short-passage practice' : ({
+    none: value.result_state === 'no-improvement' ? 'No practice change cleared the review bar' : 'Optional short-passage practice trial',
+    'on-trial': 'Practice retests complete — review the results',
+    kept: 'Practice change kept by your choice',
     edited: 'Your edits need a hand review',
     unfinished: 'The trial stopped early', 'needs-review': 'This trial needs a closer look'}[status] || 'Your assistant trial');
   document.getElementById('assistant-trial-text').textContent = value.active
     ? (preparing ? 'Your GO is queued. The local model is warming up; no idea has been applied.'
       : workspaceSetup ? (value.message || 'OpenClaw is preparing the first test session. No challenge is scored yet.')
-        : 'I’m testing each idea against the same challenges. You’ll see each finished answer and score land; I’ll recommend Keep only if it clears the bar.')
+        : 'I’m testing each idea against the same short-passage questions. You’ll see each answer and score; results do not predict performance on your actual tasks.')
     : terminalState ? (value.message || 'No idea was applied. Review the workspace before trying again.')
     : ({
-    none: `GO tests ${value.changes?.length || 0} reviewed ideas against the same eight challenges. I’ll compare every model reply, recommend one if it clears the bar, and you choose Keep or Restore. Up to ${value.max_answers || 0} model replies.`,
-    'on-trial': 'Same assistant. Same questions. Each idea was tested separately against the same starting setup.',
-      kept: value.changes?.length ? 'Your choice is saved. I’m ready to test the remaining untried ideas together; your current choice stays the starting point.' : 'You tested every starter idea. Try your AI on a real question; you can still restore your choice.',
+    none: `GO tests ${value.changes?.length || 0} reviewed ideas against the same eight short-passage practice questions. The score can surface one for review, but it cannot show whether it helps your actual tasks. You choose Keep or Restore. Up to ${value.max_answers || 0} model replies.`,
+    'on-trial': 'Same assistant. Same practice questions. Each idea was tested separately against the same starting setup.',
+      kept: 'Your choice is saved. You can still restore it any time.',
     edited: 'AGENTS.md was edited after this change, so Argos won’t restore it automatically. Review the file by hand.',
     unfinished: 'A trial didn’t finish. Recovery must verify the saved files before restoring anything; owner edits need review.',
     'needs-review': 'The trial record needs review before Argos changes anything.'}[status] || '');
@@ -3797,7 +3781,7 @@ function renderAssistantTrial() {
   if (!plan.hidden) {
     document.getElementById('assistant-trial-plan-details').open = status === 'kept';
     document.getElementById('assistant-trial-plan-summary').textContent =
-        `GO tests every untried reviewed idea one at a time: 8 baseline replies, then the same 8 for each idea (up to ${value.max_answers} model replies). The original is restored between ideas. I recommend one; only that idea can be kept. Model, personality, tools and permissions stay unchanged.`;
+        `GO tests every untried reviewed idea one at a time: 8 baseline replies, then the same 8 short-passage practice questions for each idea (up to ${value.max_answers} model replies). The original is restored between ideas. A candidate may be surfaced for your review; scores do not establish benefit on actual tasks. Model, personality, tools and permissions stay unchanged.`;
     const ideaCards = document.getElementById('assistant-trial-ideas');
     ideaCards.replaceChildren(...value.changes.map((change, index) => {
       const card = document.createElement('article'); card.className = 'assistant-trial-idea';
@@ -3858,15 +3842,15 @@ function renderAssistantTrial() {
     const latest = p.latest;
     document.getElementById('assistant-trial-question').textContent = ['before', 'experiment'].includes(phase) && current?.question ? current.question : ({
       preparing: 'Your GO is saved. The assistant will begin when it’s ready.',
-      workspace: 'One quick setup check before the scored challenges.',
+      workspace: 'One quick setup check before the scored practice questions.',
       starting: 'The assistant is getting ready.', staging: 'Applying the reviewed instruction before the retest.',
-      reflecting: 'All eight challenges are complete. Your AI is writing its opinion of the results.',
+      reflecting: 'All eight practice questions are complete. Your AI is writing its opinion of the results.',
       restoring: 'The original instruction is being restored.'}[phase] || 'Finishing this part of the trial…');
     document.getElementById('assistant-trial-source').hidden = !current?.source;
     document.getElementById('assistant-trial-source-text').textContent = current?.source || '';
     const waitTime = p.waiting_seconds > 0 ? ` · ${p.waiting_seconds}s` : '';
     document.getElementById('assistant-trial-thinking').textContent = current && ['before', 'experiment'].includes(phase)
-      ? (latest?.id === current.id ? 'Answer landed · scored. Moving to the next challenge…' : `Thinking${waitTime} · the answer appears when this reply is complete.`)
+      ? (latest?.id === current.id ? 'Answer landed · scored. Moving to the next practice question…' : `Thinking${waitTime} · the answer appears when this reply is complete.`)
       : ({preparing: `Warming up${waitTime} · no score yet. Your approved ideas stay untouched.`,
       workspace: `First-run setup${waitTime} · adding only missing starter files. No score yet.`,
          staging: 'Restarting the assistant safely…', starting: 'Checking the assistant is ready…',
@@ -3898,13 +3882,14 @@ function renderAssistantTrial() {
   const nextRound = document.getElementById('assistant-trial-next-round');
   const failedRetryAllowed = Boolean(!value.active && status === 'none' && value.result_state === 'failed' &&
     value.failure_code && value.changes?.length);
-  nextRound.textContent = failedRetryAllowed ? 'Try this round again' : 'Run the next improvement round';
+  nextRound.textContent = failedRetryAllowed ? 'Retry this practice trial' : status === 'none'
+    ? 'Start optional practice trial' : 'Run the next practice trial';
   if (failedRetryAllowed) nextRound.className = 'mission-primary';
   const show = (id, visible) => { document.getElementById(id).hidden = !visible; };
   show('assistant-trial-keep', value.can_keep && !value.active);
   show('assistant-trial-restore', value.can_restore && !value.active);
   show('assistant-trial-next-round', !value.active && value.changes?.length > 0 &&
-    (status === 'kept' || value.result_state === 'no-improvement' || failedRetryAllowed));
+    (status === 'none' || status === 'kept' || failedRetryAllowed));
   show('assistant-trial-chat', !value.active && (status === 'kept' || value.result_state === 'no-improvement'));
   show('assistant-trial-cancel', value.active && value.phase !== 'restoring');
   document.getElementById('assistant-trial-cancel').textContent = value.phase === 'preparing' ? 'Cancel warm-up' :
@@ -3921,19 +3906,16 @@ function renderAssistantTrial() {
   const restore = document.getElementById('assistant-trial-restore');
   const chat = document.getElementById('assistant-trial-chat');
   if (value.result && status === 'on-trial') {
-    const recommendedKeep = value.result.suggestion === 'keep';
     const selectedChange = value.result.experiments?.find(item => item.change.id === value.result.selected_change)?.change;
     const keepLabel = selectedChange ? `Keep “${selectedChange.title}”` : 'Keep this idea';
-    keep.className = recommendedKeep ? 'mission-primary' : 'mission-secondary';
-    restore.className = recommendedKeep ? 'mission-secondary' : 'mission-primary';
-    keep.textContent = recommendedKeep ? `${keepLabel} · recommended` : keepLabel;
-    restore.textContent = recommendedKeep ? 'Restore the previous setup' : 'Restore the previous setup · recommended';
-    const primary = recommendedKeep ? keep : restore;
-    const secondary = recommendedKeep ? restore : keep;
-    actions.insertBefore(primary, alternatives);
-    alternatives.append(secondary);
+    keep.className = 'mission-secondary';
+    restore.className = 'mission-primary';
+    keep.textContent = keepLabel;
+    restore.textContent = 'Restore the previous setup';
+    actions.insertBefore(restore, alternatives);
+    alternatives.append(keep);
     alternatives.hidden = false;
-    alternatives.querySelector('summary').textContent = 'Choose the other option';
+    alternatives.querySelector('summary').textContent = 'Keep this change if you want it';
   } else if (status === 'kept' && !value.active && value.can_restore) {
     if (value.changes?.length) {
       actions.insertBefore(nextRound, alternatives);
@@ -3994,12 +3976,12 @@ function renderTrialResult(box, breakdown, r, status) {
     const selected = r.selected_change === experiment.change.id;
     card.className = `assistant-trial-experiment${selected ? ' selected' : ''}`;
     const title = document.createElement('h5');
-    title.textContent = `${selected ? '★ Best result · ' : 'Tested · '}${experiment.change.title}`;
+    title.textContent = `${selected ? 'Selected for review · ' : 'Tested · '}${experiment.change.title}`;
     const gains = comparison.gains?.length || 0;
     const regressions = comparison.regressions?.length || 0;
     const unchanged = Math.max(0, comparison.rows.length - gains - regressions);
     const summary = document.createElement('p');
-    summary.textContent = `${gains} of ${comparison.rows.length} challenges improved · ${unchanged} stayed the same · ${regressions} slipped`;
+    summary.textContent = `${gains} of ${comparison.rows.length} practice questions improved · ${unchanged} stayed the same · ${regressions} slipped`;
     const target = document.createElement('p');
     target.className = 'assistant-trial-experiment-target';
     const check = experiment.change.target_check;
@@ -4024,7 +4006,7 @@ function renderTrialResult(box, breakdown, r, status) {
   outcome.textContent = decision.outcome;
   const track = document.createElement('ol');
   track.className = 'assistant-trial-track';
-  track.setAttribute('aria-label', 'Result for each of the eight matched challenges');
+  track.setAttribute('aria-label', 'Practice result for each of the eight matched questions');
   const gainIds = new Set(r.gains || []);
   const regressions = new Set(r.regressions || []);
   for (const [index, row] of (r.rows || []).entries()) {
@@ -4033,8 +4015,8 @@ function renderTrialResult(box, breakdown, r, status) {
     const state = slipped ? 'regressed' : improved ? 'improved' : 'unchanged';
     const pip = document.createElement('li');
     pip.className = `assistant-trial-checkpoint ${state}`;
-    pip.setAttribute('aria-label', `Challenge ${index + 1}: ${state}`);
-    pip.title = `Challenge ${index + 1}: ${state}`;
+    pip.setAttribute('aria-label', `Practice question ${index + 1}: ${state}`);
+    pip.title = `Practice question ${index + 1}: ${state}`;
     pip.textContent = state === 'improved' ? '✓' : state === 'regressed' ? '!' : '—';
     track.append(pip);
   }
@@ -4042,7 +4024,7 @@ function renderTrialResult(box, breakdown, r, status) {
   trackSummary.className = 'assistant-trial-track-summary';
   const held = Math.max(0, (r.rows || []).length - (r.gains || []).length - (r.regressions || []).length);
   const gainCount = (r.gains || []).length;
-  trackSummary.textContent = `${gainCount} ${gainCount === 1 ? 'challenge improved' : 'challenges improved'} · ${held} unchanged · ${(r.regressions || []).length} worse`;
+  trackSummary.textContent = `${gainCount} ${gainCount === 1 ? 'practice question improved' : 'practice questions improved'} · ${held} unchanged · ${(r.regressions || []).length} worse`;
   const next = document.createElement('p');
   next.className = 'assistant-trial-next';
   next.textContent = decision.next;
@@ -4099,37 +4081,17 @@ function assistantTrialDecision(r, status) {
   const regressions = Array.isArray(r.regressions) ? r.regressions.length : 0;
   if (status === 'kept') {
     return {tone: 'kept', title: 'Change kept',
-      outcome: `You kept this change after a retest of ${total} challenges.`,
+      outcome: `You chose to keep this change after a retest of ${total} practice questions.`,
       next: 'Next: try me with a real question in chat. You can restore the original any time.'};
   }
   if (status === 'no-improvement') {
     return {tone: 'cautious', title: 'No idea earned a clear win this round',
       outcome: `${r.experiments?.length || 0} reviewed ideas tested · nothing new was kept.`,
-      next: 'Your starting instructions are safe. I can try another matched round when you are ready.'};
+      next: 'Your starting instructions are safe. Choose an owner task when you want evidence tied to your actual work.'};
   }
-  if (r.suggestion === 'keep') {
-    return {tone: 'better', title: 'Better on this retest',
-      outcome: `${gains} of ${total} challenges improved without a setback; ${regressions} got worse.`,
-      next: 'Recommended next: keep this change. At least two challenges improved, and none got worse.'};
-  }
-  if (gains > 0 && regressions > 0) {
-    return {tone: 'mixed', title: 'Mixed results',
-      outcome: `${gains} of ${total} challenges improved without a setback; ${regressions} got worse.`,
-      next: 'Recommended next: restore the original. This change helped in some places and slipped in others.'};
-  }
-  if (gains > 0) {
-    return {tone: 'cautious', title: 'One small win — not proven yet',
-      outcome: `${gains} of ${total} challenges improved; none got worse.`,
-      next: 'Recommended: restore the original instruction. I need two clean wins before I can recommend keeping it.'};
-  }
-  if (regressions > 0) {
-    return {tone: 'caution', title: 'No clear gain — some answers got worse',
-      outcome: `${regressions} of ${total} challenges got worse, and none improved cleanly.`,
-      next: 'Recommended next: restore the original instructions.'};
-  }
-  return {tone: 'neutral', title: 'No clear change this time',
-    outcome: `The retest did not find a clean improvement or a regression across ${total} challenges.`,
-    next: 'Recommended next: restore the original and try a different change later.'};
+  return {tone: 'cautious', title: 'Practice questions only',
+    outcome: `${gains} of ${total} practice questions improved without a setback; ${regressions} got worse.`,
+    next: 'This small quiz does not show whether the change helps your actual tasks. Restore it, or keep it only if you want this narrow behavior.'};
 }
 
 async function trialAction(path) {

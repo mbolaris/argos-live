@@ -2043,7 +2043,7 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .replay-checks li.ok { color: #9de8d8; }
 .replay-checks li.no { color: #f3b3a2; }
 .replay-diagnosis { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
-/* U10: the everyday-assistant trial reuses the Improve card styles. */
+/* U10: the optional practice trial reuses the Improve card styles. */
 .assistant-trial { margin: 24px 0 8px; padding: 22px 24px; border: 1px solid #2c4252; border-radius: 16px; background: #0f1c26; }
 .assistant-trial .mission-label { color: var(--blue); margin: 0 0 6px; }
 .assistant-trial h4 { margin: 0 0 8px; font-size: 20px; }
