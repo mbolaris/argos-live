@@ -114,7 +114,7 @@ def run(cli, report):
     progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': [],
                 'provider_idless_calls': 0, 'start_result_on_wire_verified': False,
                 'campaign_plan_index': 0, 'campaign_wait_calls': 0,
-                'campaign_host_tool_trace': []}
+                'campaign_host_tool_trace': [], 'campaign_runtime_error_class': None}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -478,7 +478,11 @@ def run(cli, report):
             real_run_campaign = proctor_service.run_campaign
 
             def task_campaign(*args, **kwargs):
-                campaign = real_run_campaign(*args, **kwargs)
+                try:
+                    campaign = real_run_campaign(*args, **kwargs)
+                except BaseException as error:
+                    progress['campaign_runtime_error_class'] = type(error).__name__
+                    raise
                 progress['campaign_tool_calls'] = progress['tools']
                 progress['campaign_action_calls'] = progress['campaign_plan_index']
                 return campaign
@@ -521,6 +525,9 @@ def run(cli, report):
                     'improvement_status': improvement_result.get('status'),
                     'campaign_status': campaign.get('status'),
                     'campaign_outcome': campaign.get('outcome'),
+                    'campaign_failure_code': improvement_result.get('failure_code'),
+                    'campaign_failure_stage': improvement_result.get('failure_stage'),
+                    'campaign_runtime_error_class': progress.get('campaign_runtime_error_class'),
                     'campaign_missing': campaign.get('missing'),
                     'campaign_turns': campaign.get('controller_turns'),
                     'saved_evaluation_ids': campaign.get('saved_evaluation_ids'),
