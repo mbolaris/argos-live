@@ -3880,16 +3880,20 @@ function renderAssistantTrial() {
   const resultVisible = Boolean(value.result && !value.active &&
     (['on-trial', 'kept'].includes(status) || value.result_state === 'no-improvement'));
   const nextRound = document.getElementById('assistant-trial-next-round');
+  const practiceLaunch = document.getElementById('assistant-trial-practice-launch');
   const failedRetryAllowed = Boolean(!value.active && status === 'none' && value.result_state === 'failed' &&
     value.failure_code && value.changes?.length);
+  const initialPracticeAvailable = Boolean(!value.active && !terminalState && status === 'none' &&
+    value.changes?.length && (!value.result_state || value.result_state === 'none'));
   nextRound.textContent = failedRetryAllowed ? 'Retry this practice trial' : status === 'none'
     ? 'Start optional practice trial' : 'Run the next practice trial';
   if (failedRetryAllowed) nextRound.className = 'mission-primary';
+  practiceLaunch.hidden = !initialPracticeAvailable;
   const show = (id, visible) => { document.getElementById(id).hidden = !visible; };
   show('assistant-trial-keep', value.can_keep && !value.active);
   show('assistant-trial-restore', value.can_restore && !value.active);
-  show('assistant-trial-next-round', !value.active && value.changes?.length > 0 &&
-    (status === 'none' || status === 'kept' || failedRetryAllowed));
+  show('assistant-trial-next-round', initialPracticeAvailable ||
+    (!value.active && value.changes?.length > 0 && (status === 'kept' || failedRetryAllowed)));
   show('assistant-trial-chat', !value.active && (status === 'kept' || value.result_state === 'no-improvement'));
   show('assistant-trial-cancel', value.active && value.phase !== 'restoring');
   document.getElementById('assistant-trial-cancel').textContent = value.phase === 'preparing' ? 'Cancel warm-up' :
@@ -3917,6 +3921,7 @@ function renderAssistantTrial() {
     alternatives.hidden = false;
     alternatives.querySelector('summary').textContent = 'Keep this change if you want it';
   } else if (status === 'kept' && !value.active && value.can_restore) {
+    practiceLaunch.hidden = true;
     if (value.changes?.length) {
       actions.insertBefore(nextRound, alternatives);
       alternatives.append(chat, restore);
@@ -3927,17 +3932,20 @@ function renderAssistantTrial() {
     alternatives.hidden = false;
     alternatives.querySelector('summary').textContent = value.changes?.length ? 'Try chat or undo this choice' : 'Undo this choice';
   } else if (value.result_state === 'no-improvement' && !value.active) {
-    actions.insertBefore(nextRound, alternatives);
+    practiceLaunch.hidden = true;
     alternatives.append(chat);
     if (value.can_restore) alternatives.append(restore);
     alternatives.hidden = false;
     alternatives.open = false;
     alternatives.querySelector('summary').textContent = 'Other choices';
   } else if (failedRetryAllowed) {
+    practiceLaunch.hidden = true;
     actions.insertBefore(nextRound, alternatives);
     alternatives.hidden = true;
     alternatives.open = false;
   } else {
+    practiceLaunch.hidden = !initialPracticeAvailable;
+    if (initialPracticeAvailable) practiceLaunch.append(nextRound);
     alternatives.hidden = true;
     alternatives.open = false;
     actions.insertBefore(keep, alternatives);

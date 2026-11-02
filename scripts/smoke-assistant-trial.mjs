@@ -75,7 +75,7 @@ try {
   await page.locator('#cc-next-go').click();
   await page.waitForFunction(() => !document.getElementById('cc-receipt').hidden &&
     document.getElementById('command-center').dataset.watching === 'false', null, {timeout: 60000});
-  await page.waitForFunction(() => !document.getElementById('assistant-trial-next-round').hidden &&
+  await page.waitForFunction(() => !document.getElementById('assistant-trial-practice-launch').hidden &&
     document.getElementById('cc-next-trial-offer').hidden, null, {timeout: 10000});
   assert.notEqual(await page.locator('#cc-next-go').getAttribute('data-action'), 'assistant-trial',
     'A short-passage result does not automatically recommend another practice trial');
@@ -92,7 +92,12 @@ try {
   await page.evaluate(() => refreshCommand());
   await page.waitForFunction(() => document.getElementById('cc-next-go').dataset.action === 'storage' &&
     document.getElementById('cc-next-trial-offer').hidden, null, {timeout: 10000});
-  assert.equal(await page.locator('#assistant-trial-next-round').textContent(), 'Start optional practice trial');
+  assert.equal(await page.locator('#assistant-trial-practice-launch > summary').textContent(), 'Optional practice trial');
+  assert.equal(await page.locator('#assistant-trial-practice-launch').evaluate(el => el.open), false,
+    'The optional practice launch does not add a second GO to the mission hierarchy');
+  assert.equal(await page.locator('#assistant-trial-next-round').isVisible(), false,
+    'The start control stays tucked away until the owner opens the optional practice disclosure');
+  assert.match(await page.locator('#assistant-trial-practice-launch').textContent(), /practice evidence only/i);
   assert.equal(await page.locator('.cc-hero-actions #chat').count(), 0, 'Chat is separate from the primary action');
   assert.equal(await page.locator('.cc-chat-area #chat').textContent(), 'Open chat ↗');
   assert.equal(await page.locator('#cc-next-trial-offer').isVisible(), false);
@@ -102,6 +107,10 @@ try {
     'Model and storage setup remains accessible as a separate optional path');
   assert.equal(await page.locator('#assistant-trial-plan-details').evaluate(el => el.open), false,
     'The exact instruction cards stay tucked away until the user asks to inspect them');
+  await page.locator('#assistant-trial-practice-launch > summary').click();
+  assert.equal(await page.locator('#assistant-trial-next-round').textContent(), 'Start optional practice trial');
+  assert.equal(await page.locator('#assistant-trial-next-round').isVisible(), true);
+  await page.locator('#assistant-trial-practice-launch > summary').click();
   assert.equal(await page.locator('#assistant-trial-ideas .assistant-trial-idea').count(), 3);
   await page.locator('#assistant-trial-plan-details > summary').click();
   assert.match(await page.locator('#assistant-trial-ideas').textContent(), /Answer first/);

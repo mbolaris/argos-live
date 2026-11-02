@@ -2049,6 +2049,11 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .assistant-trial h4 { margin: 0 0 8px; font-size: 20px; }
 .assistant-trial-actions { display: grid; gap: 9px; margin-top: 12px; }
 .assistant-trial-actions > button { width: 100%; margin: 0; }
+.assistant-trial-practice-launch { padding: 2px 0; }
+.assistant-trial-practice-launch > summary { width: fit-content; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
+.assistant-trial-practice-launch > p { margin: 8px 0; color: var(--muted); font-size: 13px; }
+.assistant-trial-practice-launch > button { width: 100%; margin: 0; }
+.assistant-trial-practice-launch[hidden] { display: none; }
 .assistant-trial-alternatives { padding: 2px 0; }
 .assistant-trial-alternatives > summary { width: fit-content; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
 .assistant-trial-alternatives > button { width: 100%; margin: 9px 0 0; }

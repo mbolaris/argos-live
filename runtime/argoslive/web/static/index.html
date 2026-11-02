@@ -430,7 +430,11 @@
               <div class="assistant-trial-actions">
                 <button id="assistant-trial-keep" type="button" class="mission-primary" hidden>Keep in my assistant</button>
                 <button id="assistant-trial-restore" type="button" class="mission-secondary" hidden>Restore the original</button>
-                <button id="assistant-trial-next-round" type="button" class="mission-primary" hidden>Run the next practice round</button>
+                <details id="assistant-trial-practice-launch" class="assistant-trial-practice-launch" hidden>
+                  <summary>Optional practice trial</summary>
+                  <p>Short-passage scores are practice evidence only; they do not show whether a change helps with your real tasks.</p>
+                  <button id="assistant-trial-next-round" type="button" class="mission-primary" hidden>Start optional practice trial</button>
+                </details>
                 <button id="assistant-trial-chat" type="button" class="mission-primary" hidden>Try it with a real question</button>
                 <details id="assistant-trial-alternatives" class="assistant-trial-alternatives" hidden>
                   <summary>Choose a different outcome</summary>
