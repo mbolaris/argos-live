@@ -16,7 +16,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 sys.path.insert(0, str(ROOT / 'scripts'))
-from argoslive import controller_bridge, workload
+from argoslive import controller_bridge, ssh_recovery, workload
 from argoslive import auto_setup, proctor_service
 from argoslive.auto_setup import conversation_config
 from argoslive.proctor import AgentSession, Caller, Cartridge, Proctor, compile_cartridge, open_state
@@ -50,8 +50,8 @@ PRACTICE_ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'},
     {'item_id': 'q6', 'answer': 'C'}, {'module_id': 'm2'}, {}]
 if len(PRACTICE_TOOLS) != len(PRACTICE_ARGS):
     raise RuntimeError('Synthetic practice tool plan is inconsistent')
-CAMPAIGN_TOOLS = ['argos_inspect', 'argos_audit_instructions']
-CAMPAIGN_ARGS = [{}, {}]
+CAMPAIGN_TOOLS = ['argos_inspect', 'argos_ssh_status', 'argos_audit_instructions']
+CAMPAIGN_ARGS = [{}, {}, {}]
 if len(CAMPAIGN_TOOLS) != len(CAMPAIGN_ARGS):
     raise RuntimeError('Synthetic campaign tool plan is inconsistent')
 
@@ -183,6 +183,7 @@ def run(cli, report):
         'managed_gateway_service_path': False, 'production_gateway_dispatch': False,
         'protected_service_identity': False,
         'model_identity_attested': False, 'calibrated_ability_claim': False}
+    ssh_recovery_controller = None
     report.parent.mkdir(parents=True, exist_ok=True)
     try:
         with tempfile.TemporaryDirectory(prefix='argos-proctor-agent-', dir=os.environ['RUNNER_TEMP']) as temporary:
@@ -309,6 +310,19 @@ def run(cli, report):
                                                 plugin_root=ROOT / 'openclaw-plugin/argos-improve')
             owner_config_path.write_text(json.dumps(owner_config))
             owner_config_path.chmod(0o600)
+            ssh_recovery_controller = ssh_recovery.Controller(
+                home=service_home,
+                status_provider=lambda: {
+                    'schema': ssh_recovery.STATUS_SCHEMA,
+                    'boot_id': '00000000-0000-4000-8000-000000000001',
+                    'persistence_state': 'verified', 'paired_policy_valid': True,
+                    'ssh_enabled': True, 'ssh_active': False,
+                    'port22_listening': False, 'restart_eligible': True,
+                    'failure_code': None,
+                })
+            ssh_recovery_controller._persistent = lambda: True
+            ssh_recovery_controller.root.mkdir(mode=0o700, parents=True)
+            ssh_recovery.generate_key(ssh_recovery_controller.root / 'receipt-ed25519.pem')
             from unittest.mock import patch
             real_finish = controller_bridge.Bridge.finish
 
@@ -426,6 +440,8 @@ def run(cli, report):
                     service_home,
                     owner_task='start Argos after an encrypted-USB reboot without terminal repair',
                     success_criteria='after unlock, the dashboard and selected assistant are ready without commands from me',
+                    ssh_status_provider=ssh_recovery_controller.proctor_status,
+                    ssh_status_verifier=ssh_recovery_controller.verify_proctor_status,
                     executable=cli)
             expected_campaign_tool_calls = len(CAMPAIGN_TOOLS) + progress.get('campaign_wait_calls', 0)
             expected_campaign_calls = expected_campaign_tool_calls
@@ -434,11 +450,15 @@ def run(cli, report):
             unexpected_proctor_tools = (set(proctor_service.PROCTOR_TOOL_NAMES) - {'argos_evaluate_wait'}) & set(
                 progress['model_tool_names'])
             campaign = improvement_result.get('campaign', {})
+            ssh_status_outcomes = [item for item in campaign.get('tool_outcomes', [])
+                                   if item.get('kind') == 'ssh_status']
             if (improvement_result['status'] != 'incomplete' or campaign.get('outcome') != 'task-not-measured' or
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
                     progress['campaign_tool_calls'] != expected_campaign_tool_calls or
                     progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS) or
                     not campaign_wait_tool_available or
+                    'argos_ssh_status' not in progress['model_tool_names'] or
+                    len(ssh_status_outcomes) != 1 or ssh_status_outcomes[0].get('status') != 'available' or
                     unexpected_proctor_tools):
                 diagnostic = {
                     'schema': 'argos-proctor-campaign-failure/1',
@@ -457,6 +477,7 @@ def run(cli, report):
                     'expected_campaign_action_calls': len(CAMPAIGN_TOOLS),
                     'campaign_wait_calls': progress.get('campaign_wait_calls'),
                     'campaign_wait_tool_available': campaign_wait_tool_available,
+                    'ssh_status_outcomes': ssh_status_outcomes,
                     'unexpected_proctor_tools': sorted(unexpected_proctor_tools),
                     'campaign_tool_names': sorted(progress['model_tool_names']),
                     'tool_errors': progress['errors'],
@@ -487,12 +508,16 @@ def run(cli, report):
                 campaign_tool_calls=progress['campaign_tool_calls'],
                 campaign_action_calls=progress['campaign_action_calls'],
                 campaign_wait_calls=progress['campaign_wait_calls'],
+                signed_ssh_status_verified=len(ssh_status_outcomes) == 1 and
+                    ssh_status_outcomes[0].get('status') == 'available',
                 campaign_saved_evaluations=0, task_reported_not_measured=True,
                 production_gateway_dispatch=False)
             receipt['passed'] = True
             state.close()
     finally:
         report.write_text(json.dumps(receipt, indent=2) + '\n')
+        if ssh_recovery_controller is not None:
+            ssh_recovery_controller.close()
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
