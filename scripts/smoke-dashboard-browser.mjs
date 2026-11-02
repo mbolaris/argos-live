@@ -334,8 +334,64 @@ try {
   await page.waitForURL('http://127.0.0.1:18789/chat#token=fixture');
   await page.getByRole('heading', {name: 'Assistant conversation'}).waitFor();
   if (chatHandoffs.length || explicitChats.join(',') !== 'chat') throw new Error('Chat did not require exactly one owner action');
+
+  // Exercise the real recovery card and click handler with a disposable host
+  // snapshot. This verifies the single owner approval path without stopping
+  // SSH or invoking the privileged helper on the CI host.
+  const recoveryBoot = 'a'.repeat(36);
+  const recoveryReceipt = 'b'.repeat(32);
+  const recoveryToken = new URL(url).searchParams.get('token');
+  const recoveryCalls = [];
+  const unavailable = {available: false, status: null, receipt: null,
+    can_restart: false, active: false, job: null};
+  let recovery = {available: true, status: {boot_id: recoveryBoot,
+    persistence_state: 'verified', paired_policy_valid: true, ssh_enabled: true,
+    ssh_active: false, port22_listening: false, restart_eligible: true, failure_code: null},
+    receipt: {payload: {receipt_id: recoveryReceipt}}, can_restart: true, active: false, job: null};
+  await page.route('**/api/ssh-recovery/start', async route => {
+    const request = route.request();
+    if (request.method() !== 'POST' || request.headers()['x-argos-token'] !== recoveryToken) {
+      throw new Error('SSH recovery approval was not authenticated');
+    }
+    const approval = request.postDataJSON();
+    if (Object.keys(approval).sort().join(',') !== 'boot_id,receipt_id' ||
+        approval.boot_id !== recoveryBoot || approval.receipt_id !== recoveryReceipt) {
+      throw new Error('SSH recovery approval was not bound to the visible receipt and boot');
+    }
+    recoveryCalls.push(approval);
+    recovery = {...recovery, status: {...recovery.status, ssh_active: true,
+      port22_listening: true, restart_eligible: false}, can_restart: false,
+      job: {state: 'completed', failure_code: null}};
+    await route.fulfill({status: 202, json: {schema: 'argos-ssh-recovery-job/1', state: 'running'}});
+  });
+  await page.route('**/api/ssh-recovery', route => route.fulfill({json: recovery}));
+  await page.goto(url);
+  const recoveryButton = page.locator('#ssh-recovery-start');
+  await recoveryButton.waitFor({state: 'visible'});
+  if (await recoveryButton.textContent() !== 'Approve one safe SSH start' ||
+      !(await page.locator('#ssh-recovery-status').textContent()).includes('One safe start is available')) {
+    throw new Error('Eligible recovery did not present the single explicit owner action');
+  }
+  await recoveryButton.click();
+  await page.waitForFunction(() => document.getElementById('ssh-recovery-start').hidden &&
+    document.getElementById('ssh-recovery-status').textContent.includes('SSH is active and listening'));
+  if (recoveryCalls.length !== 1) throw new Error('SSH recovery required more or fewer than one owner approval');
+
+  // Healthy and unavailable snapshots must never offer a stale recovery click.
+  recovery = {...recovery, can_restart: false};
+  await page.reload();
+  await recoveryButton.waitFor({state: 'hidden'});
+  if (!(await page.locator('#ssh-recovery-status').textContent()).includes('SSH is active and listening')) {
+    throw new Error('Healthy SSH state was not reported clearly');
+  }
+  recovery = unavailable;
+  await page.reload();
+  await recoveryButton.waitFor({state: 'hidden'});
+  if (!(await page.locator('#ssh-recovery-status').textContent()).includes('status is unavailable')) {
+    throw new Error('Unavailable SSH status did not fail closed');
+  }
   if (errors.length) throw new Error('Managed browser script failed');
-  console.log('PASS: live/capability cards, catalog visible, idle cancel hidden, workspace stays open until explicit chat action, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
+  console.log('PASS: dashboard cards, explicit chat action, one-click SSH recovery bound to signed status/boot, healthy/unavailable states fail closed, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
 } finally {
   if (browser) await browser.close();
   const stopped = new Promise(resolveStop => server.once('exit', resolveStop));
