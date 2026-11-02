@@ -20,6 +20,7 @@ const server = spawn(process.env.ARGOS_PYTHON || 'python3', ['-u', 'web/server.p
   stdio: ['ignore', 'pipe', 'pipe']
 });
 let browser;
+let page;
 try {
   const lines = createInterface({input: server.stdout});
   const url = await new Promise((resolveURL, reject) => {
@@ -33,7 +34,7 @@ try {
     server.once('error', reject);
   });
   browser = await chromium.launch({headless: true});
-  const page = await browser.newPage({viewport: {width: 1200, height: 1000}});
+  page = await browser.newPage({viewport: {width: 1200, height: 1000}});
   const errors = [];
   page.on('pageerror', () => errors.push('Browser script error'));
   page.on('console', message => { if (message.type() === 'error') errors.push('Browser console error'); });
@@ -365,9 +366,25 @@ try {
     await route.fulfill({status: 202, json: {schema: 'argos-ssh-recovery-job/1', state: 'running'}});
   });
   await page.route('**/api/ssh-recovery', route => route.fulfill({json: recovery}));
+  await page.route('**/api/command-center', route => route.fulfill({json: {available: false}}));
+  const exposeRecoveryCard = async () => {
+    await page.waitForFunction(() => document.getElementById('command-center')?.dataset.commandUnavailable === 'true');
+    // The unconfigured test server intentionally hides Mission Control; expose
+    // the isolated recovery card to exercise its real browser controls.
+    await page.locator('#command-center').evaluate(section => { section.hidden = false; });
+    await page.locator('#ssh-recovery').evaluate(card => { card.hidden = false; card.style.display = 'block'; });
+  };
   await page.goto(url);
+  await exposeRecoveryCard();
   const recoveryButton = page.locator('#ssh-recovery-start');
-  await recoveryButton.waitFor({state: 'visible'});
+  await page.waitForFunction(() => {
+    const text = document.getElementById('ssh-recovery-status')?.textContent || '';
+    return text.includes('One safe start is available') || text.includes('status is unavailable') ||
+      text.includes('cannot be started safely') || text.includes('not ready');
+  }, null, {timeout: 10000});
+  if (await recoveryButton.isHidden()) {
+    throw new Error('Eligible SSH recovery was hidden: ' + await page.locator('#ssh-recovery-status').textContent());
+  }
   if (await recoveryButton.textContent() !== 'Approve one safe SSH start' ||
       !(await page.locator('#ssh-recovery-status').textContent()).includes('One safe start is available')) {
     throw new Error('Eligible recovery did not present the single explicit owner action');
@@ -380,12 +397,14 @@ try {
   // Healthy and unavailable snapshots must never offer a stale recovery click.
   recovery = {...recovery, can_restart: false};
   await page.reload();
+  await exposeRecoveryCard();
   await recoveryButton.waitFor({state: 'hidden'});
   if (!(await page.locator('#ssh-recovery-status').textContent()).includes('SSH is active and listening')) {
     throw new Error('Healthy SSH state was not reported clearly');
   }
   recovery = unavailable;
   await page.reload();
+  await exposeRecoveryCard();
   await recoveryButton.waitFor({state: 'hidden'});
   if (!(await page.locator('#ssh-recovery-status').textContent()).includes('status is unavailable')) {
     throw new Error('Unavailable SSH status did not fail closed');
@@ -393,6 +412,7 @@ try {
   if (errors.length) throw new Error('Managed browser script failed');
   console.log('PASS: dashboard cards, explicit chat action, one-click SSH recovery bound to signed status/boot, healthy/unavailable states fail closed, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
 } finally {
+  if (page) await page.unrouteAll({behavior: 'ignoreErrors'});
   if (browser) await browser.close();
   const stopped = new Promise(resolveStop => server.once('exit', resolveStop));
   server.kill('SIGINT');
