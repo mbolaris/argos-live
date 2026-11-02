@@ -10,7 +10,7 @@
 </head>
 <body>
   <main>
-    <header><span class="brand">Argos Live</span><a class="setup-link" href="#models-title">Models &amp; setup ↗</a></header>
+    <header><span class="brand">Argos Live</span><a class="setup-link" href="#ssh-recovery">Remote access &amp; setup ↗</a></header>
     <h1>Build a better AI.</h1>
     <p class="intro">Start a round. Watch your AI answer. See what improves.</p>
     <section id="command-center" aria-labelledby="cc-title" hidden>
@@ -25,12 +25,6 @@
         <p id="cc-moment-detail"></p>
         <button id="cc-moment-dismiss" type="button">Noted</button>
       </div>
-      <section class="notice ssh-recovery-card" aria-label="Remote access recovery">
-        <strong>Paired remote access</strong>
-        <p id="ssh-recovery-status" role="status" aria-live="polite">Checking encrypted storage and SSH pairing…</p>
-        <p class="ssh-recovery-detail">If SSH is stopped, Argos can start the existing key-only service after encrypted persistence and its paired policy pass. It does not create keys or change the policy.</p>
-        <button id="ssh-recovery-start" type="button" hidden>Approve one safe SSH start</button>
-      </section>
       <article class="card cc-mission-hero" id="cc-next">
         <div class="cc-hero-meta">
           <p id="cc-next-label" class="mission-label">Recommended next mission</p>
@@ -77,6 +71,12 @@
         </div></details>
         <p id="cc-live-trial" role="status" aria-live="polite"></p>
       </article>
+      <section id="ssh-recovery" class="notice ssh-recovery-card" aria-label="Remote access recovery">
+        <strong>Paired remote access</strong>
+        <p id="ssh-recovery-status" role="status" aria-live="polite">Checking encrypted storage and SSH pairing…</p>
+        <p class="ssh-recovery-detail">If SSH is stopped, Argos can start the existing key-only service after encrypted persistence and its paired policy pass. It does not create keys or change the policy.</p>
+        <button id="ssh-recovery-start" type="button" hidden>Approve one safe SSH start</button>
+      </section>
         <div id="arena" class="arena-deck" hidden aria-live="polite">
           <div class="watch-heading"><div><p class="mission-label">Live mission</p><h3>Watch your AI work</h3></div><button id="lab-cancel" type="button" disabled>Stop test</button></div>
           <p id="watch-status" class="watch-status" role="status">Getting ready…</p>
