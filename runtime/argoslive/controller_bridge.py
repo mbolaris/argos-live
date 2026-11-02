@@ -20,7 +20,7 @@ import tempfile
 import threading
 import uuid
 
-from . import workload, instruction_changes
+from . import workload, instruction_changes, ssh_recovery
 from .pull_jobs import read_json, write_json
 from .results import Store, compare, comparison_rejection
 
@@ -46,9 +46,60 @@ def identity(value):
     return isinstance(value, str) and bool(re.fullmatch(r'[A-Za-z0-9_.:-]{1,256}', value))
 
 
+def _validate_ssh_agent_status(value, verifier):
+    if (not isinstance(value, dict) or value.get('schema') != 'argos-proctor-ssh-status/1' or
+            type(value.get('available')) is not bool or len(json.dumps(value).encode('utf-8')) > 8192):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    if value['available'] is False:
+        if (set(value) != {'schema', 'available', 'failure_code'} or
+                value.get('failure_code') != 'signed-status-unavailable'):
+            raise ValueError('Bounded SSH status receipt unavailable')
+        return
+    if set(value) != {'schema', 'available', 'status', 'receipt',
+                      'owner_approval_available', 'recovery_job_state'}:
+        raise ValueError('Bounded SSH status receipt unavailable')
+    status = ssh_recovery._safe_root_status(value.get('status'))
+    receipt = value.get('receipt')
+    if (not isinstance(receipt, dict) or set(receipt) != {
+            'envelope_version', 'payload_json', 'signature'} or
+            receipt.get('envelope_version') != 'argos.proctor.envelope.v1' or
+            not isinstance(receipt.get('payload_json'), str) or
+            len(receipt['payload_json'].encode('utf-8')) > 4096):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    signature = receipt.get('signature')
+    if (not isinstance(signature, dict) or set(signature) != {'algorithm', 'key_id', 'sig_base64'} or
+            signature.get('algorithm') != 'Ed25519' or
+            not isinstance(signature.get('key_id'), str) or
+            not re.fullmatch(r'[a-f0-9]{64}', signature['key_id']) or
+            not isinstance(signature.get('sig_base64'), str) or
+            not re.fullmatch(r'[A-Za-z0-9+/]{86}==', signature['sig_base64'])):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    try:
+        payload = json.loads(receipt['payload_json'])
+    except (ValueError, TypeError):
+        raise ValueError('Bounded SSH status receipt unavailable') from None
+    if (not isinstance(payload, dict) or set(payload) != {
+            'schema', 'receipt_id', 'created_utc', 'status',
+            'owner_approval_available', 'recovery_job_state'} or
+            payload.get('schema') != ssh_recovery.PROCTOR_STATUS_RECEIPT_SCHEMA or
+            not isinstance(payload.get('receipt_id'), str) or
+            not ssh_recovery.ID.fullmatch(payload['receipt_id']) or
+            payload.get('status') != status or
+            payload.get('owner_approval_available') is not value.get('owner_approval_available') or
+            payload.get('recovery_job_state') != value.get('recovery_job_state')):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    if (type(value.get('owner_approval_available')) is not bool or
+            value['owner_approval_available'] and not status['restart_eligible'] or
+            value.get('recovery_job_state') not in {'idle', 'running', 'completed', 'failed', 'refused'}):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    if not callable(verifier) or verifier(value) is not True:
+        raise ValueError('Bounded SSH status receipt unavailable')
+
+
 class Bridge:
     def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800,
-                 exam_session=None, task_campaign=False, owner_task_suite=None):
+                 exam_session=None, task_campaign=False, owner_task_suite=None,
+                 ssh_status_provider=None, ssh_status_verifier=None):
         if not identity(session_key) or trigger not in {'user', 'heartbeat'}:
             raise ValueError('Host-selected controller identity required')
         self.home, self.parent = Path(home), parent
@@ -60,6 +111,8 @@ class Bridge:
                 (not isinstance(owner_task_suite, str) or owner_task_suite not in TASK_CAMPAIGN_SUITES)):
             raise ValueError('Unsupported owner-selected task evaluation suite')
         self.owner_task_suite = owner_task_suite
+        self.ssh_status_provider = ssh_status_provider
+        self.ssh_status_verifier = ssh_status_verifier
         self.secret = secrets.token_hex(32)
         self.active = None
         self.pending = None
@@ -141,7 +194,7 @@ class Bridge:
                         kind = request.get('kind')
                         allowed_kinds = PROCTOR_TOOLS | {
                             'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',
-                            'inspect', 'audit', 'edit', 'resolve', 'adopt'}
+                            'inspect', 'audit', 'edit', 'resolve', 'adopt', 'ssh_status'}
                         safe_kind = kind if isinstance(kind, str) and kind in allowed_kinds else 'other'
                         failures = self.active.setdefault('host_tool_failures', [])
                         if len(failures) < 32:
@@ -248,6 +301,10 @@ class Bridge:
                         raise ValueError('Invalid comparison request')
                 elif kind in {'inspect', 'audit', 'edit', 'resolve', 'adopt'}:
                     instruction_changes.validate_request(kind, params)
+                elif kind == 'ssh_status':
+                    if (not self.task_campaign or self.exam_session is not None or params or
+                            self.ssh_status_provider is None or self.ssh_status_verifier is None):
+                        raise ValueError('SSH status is available only in an owner improvement campaign')
                 elif kind in PROCTOR_TOOLS:
                     self._validate_proctor_request(kind, params)
                     if self.exam_session is None or self.parent.record.get('kind') != 'proctor':
@@ -286,6 +343,15 @@ class Bridge:
                 value = self.evaluation_status()
                 if value.get('status') == 'running':
                     return value
+                return {'status': 'completed', 'value': value}
+            if kind == 'ssh_status':
+                value = self.ssh_status_provider()
+                _validate_ssh_agent_status(value, self.ssh_status_verifier)
+                outcome = {'kind': kind, 'call_id': call,
+                           'status': 'available' if value['available'] else 'unavailable'}
+                with self.lock:
+                    self.outcomes.append(outcome)
+                    self.publish()
                 return {'status': 'completed', 'value': value}
             if kind == 'compare':
                 store = Store(self.home / '.local/share/argos-live/results')
@@ -355,6 +421,7 @@ class Bridge:
             return value
         finally:
             self.tool_lock.release()
+
 
     def _proctor_evaluation_wait(self, params, call_id):
         """Handle the registered wait tool as a no-inference Proctor simulation."""
@@ -1101,7 +1168,8 @@ class Bridge:
 
 @contextmanager
 def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None,
-          task_campaign=False, owner_task_suite=None):
+          task_campaign=False, owner_task_suite=None, ssh_status_provider=None,
+          ssh_status_verifier=None):
     if sys.platform != 'linux':
         raise ValueError('Native controller bridge requires Linux')
     if exam_session is not None and trigger != 'user':
@@ -1110,7 +1178,9 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
     with workload.reserve(home, workload_kind) as parent:
         bridge = Bridge(home, parent, session_key=session_key, trigger=trigger,
                         worker_timeout=worker_timeout, exam_session=exam_session,
-                        task_campaign=task_campaign, owner_task_suite=owner_task_suite)
+                        task_campaign=task_campaign, owner_task_suite=owner_task_suite,
+                        ssh_status_provider=ssh_status_provider,
+                        ssh_status_verifier=ssh_status_verifier)
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
                 work_bearing = False

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from argoslive import ssh_recovery
+from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 
 
 def status(*, boot='a' * 36, eligible=True, active=False, listening=False,
@@ -99,6 +100,43 @@ class ControllerTests(unittest.TestCase):
         self.calls += 1
         self.current.update(ssh_active=True, port22_listening=True, restart_eligible=False)
         return {'status': 'completed', 'failure_code': None}
+
+    def test_proctor_status_is_signed_bounded_and_does_not_create_state(self):
+        controller = self.controller()
+        controller._persistent = lambda: True
+        try:
+            unavailable = controller.proctor_status()
+            self.assertEqual(unavailable, {'schema': 'argos-proctor-ssh-status/1',
+                                           'available': False,
+                                           'failure_code': 'signed-status-unavailable'})
+            self.assertFalse(controller.root.exists())
+
+            controller.root.mkdir(mode=0o700, parents=True)
+            ssh_recovery.generate_key(controller.root / 'receipt-ed25519.pem')
+            before = {path.name for path in controller.root.iterdir()}
+            value = controller.proctor_status()
+            after = {path.name for path in controller.root.iterdir()}
+            self.assertTrue(value['available'])
+            self.assertEqual(value['schema'], 'argos-proctor-ssh-status/1')
+            self.assertTrue(value['owner_approval_available'])
+            self.assertEqual(value['recovery_job_state'], 'idle')
+            self.assertEqual(before, after)
+            self.assertEqual(value['status'], self.current)
+            trusted = Ed25519Signer(controller.root / 'receipt-ed25519.pem').public_key_der
+            self.assertTrue(verify_envelope(value['receipt'], trusted))
+            self.assertTrue(controller.verify_proctor_status(value))
+            payload = json.loads(value['receipt']['payload_json'])
+            self.assertEqual(payload['status'], self.current)
+            self.assertEqual(payload['owner_approval_available'], value['owner_approval_available'])
+            self.assertEqual(payload['recovery_job_state'], value['recovery_job_state'])
+            tampered = json.loads(json.dumps(value))
+            tampered['status']['ssh_active'] = True
+            self.assertFalse(controller.verify_proctor_status(tampered))
+            tampered = json.loads(json.dumps(value))
+            tampered['owner_approval_available'] = False
+            self.assertFalse(controller.verify_proctor_status(tampered))
+        finally:
+            controller.close()
 
     def slow_completed_restart(self):
         self.started.set()

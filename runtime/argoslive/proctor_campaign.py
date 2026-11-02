@@ -72,11 +72,13 @@ class Controller:
 
     def __init__(self, startup, *, home=None, runner=None,
                  storage_snapshot=storage_view.snapshot,
+                 ssh_recovery=None,
                  stop_timeout=180, ready_timeout=900, clock=time.monotonic, sleep=time.sleep):
         self.startup = startup
         self.home = startup.home if home is None else home
         self.runner = runner
         self.storage_snapshot = storage_snapshot
+        self.ssh_recovery = ssh_recovery
         self.stop_timeout, self.ready_timeout = stop_timeout, ready_timeout
         self.clock, self.sleep = clock, sleep
         self.lock = threading.RLock()
@@ -383,6 +385,9 @@ class Controller:
                 runner = run_improvement
             options = {'owner_task': self.owner_task, 'success_criteria': self.success_criteria,
                        'on_phase': self._set_phase, 'on_progress': self._set_progress}
+            if self.ssh_recovery is not None:
+                options['ssh_status_provider'] = self.ssh_recovery.proctor_status
+                options['ssh_status_verifier'] = self.ssh_recovery.verify_proctor_status
             if self.measurement_suite is not None:
                 options['measurement_suite'] = self.measurement_suite
             result = runner(self.home, **options)

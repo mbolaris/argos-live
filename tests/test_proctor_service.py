@@ -51,6 +51,8 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('separately versioned, fully specified form', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('immediately call argos_log', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('click “Approve one safe SSH start”', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('Never ask for a terminal command', proctor_service.CAMPAIGN_MESSAGE)
         self.assertNotIn('complete 70-task standard', proctor_service.CAMPAIGN_MESSAGE)
         self.assertNotIn('separate 40-task challenge suite', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
@@ -192,7 +194,31 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('group:fs', config['tools']['deny'])
         self.assertIn('exec', config['tools']['deny'])
         self.assertNotIn('argos_proctor_start', config['tools']['alsoAllow'])
+        self.assertIn('argos_ssh_status', config['tools']['alsoAllow'])
         self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
+
+    def test_practice_profile_does_not_expose_live_ssh_status(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        _root, _workspace, config_path, _digest = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='practice')
+        config = json.loads(config_path.read_text())
+        self.assertNotIn('argos_ssh_status', config['tools']['alsoAllow'])
+
+    def test_campaign_tool_grant_change_gets_a_new_profile_and_preserves_old_bytes(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        first = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='campaign')
+        prior = first[2].read_bytes()
+        with patch.object(proctor_service, 'CAMPAIGN_TOOL_NAMES',
+                          [*proctor_service.CAMPAIGN_TOOL_NAMES, 'fixture-capability']):
+            second = proctor_service.private_profile(
+                self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+                owner_config_path=self.owner_config, purpose='campaign')
+        self.assertNotEqual(first[2], second[2])
+        self.assertEqual(first[2].read_bytes(), prior)
+        self.assertIn('fixture-capability', json.loads(second[2].read_text())['tools']['alsoAllow'])
 
     def test_improvement_campaign_uses_owner_task_without_running_practice(self):
         state_path = self.home / '.config/argos-live/state.json'

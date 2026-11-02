@@ -12,11 +12,12 @@ import time
 
 from . import ssh_boot
 from .pack_export import private_directory
-from .proctor.signing import Ed25519Signer, generate_key
+from .proctor.signing import Ed25519Signer, generate_key, verify_envelope
 from .pull_jobs import read_json, write_json
 
 STATUS_SCHEMA = 'argos-ssh-status/1'
 RECEIPT_SCHEMA = 'argos-ssh-recovery-receipt/1'
+PROCTOR_STATUS_RECEIPT_SCHEMA = 'argos-proctor-ssh-status-receipt/1'
 ROOT_STATUS = '/usr/local/sbin/argos-ssh-status'
 ROOT_RESTART = '/usr/local/sbin/argos-ssh-restart'
 FAILURE_CODES = frozenset({
@@ -194,19 +195,24 @@ class Controller:
             isinstance(locations.get(key), dict) and locations[key].get('encrypted') is True and
             locations[key].get('persistent') is True for key in ('models', 'profile', 'results', 'settings')))
 
-    def _signer(self):
+    def _signer(self, *, create=True):
         if not self._persistent():
             return None
         try:
             if self.root.exists():
                 info = self.root.lstat()
-                if (not stat.S_ISDIR(info.st_mode) or info.st_mode & 0o077 or
+                if (not stat.S_ISDIR(info.st_mode) or
+                        (os.name != 'nt' and info.st_mode & 0o077) or
                         (hasattr(os, 'getuid') and info.st_uid != os.getuid())):
                     return None
             else:
+                if not create:
+                    return None
                 private_directory(self.root)
             key = self.root / 'receipt-ed25519.pem'
             if not key.exists():
+                if not create:
+                    return None
                 generate_key(key)
             return Ed25519Signer(key)
         except (OSError, ValueError):
@@ -245,8 +251,8 @@ class Controller:
                 _safe_root_status(value[key])
         return value
 
-    def _receipt(self, status, *, result=None, persist=False):
-        signer = self._signer()
+    def _receipt(self, status, *, result=None, persist=False, signer=None):
+        signer = self._signer() if signer is None else signer
         payload = {'schema': RECEIPT_SCHEMA, 'receipt_id': None,
                    'created_utc': datetime.now(timezone.utc).isoformat(),
                    'status': status, 'operation': result}
@@ -265,6 +271,71 @@ class Controller:
             write_json(self.root / (payload['receipt_id'] + '.json'), envelope)
         return {'payload': payload, 'signature': envelope['signature'],
                 'signature_status': envelope['signature_status']}
+
+    def proctor_status(self):
+        """Return signed, bounded recovery facts without creating state or starting work."""
+        unavailable = {'schema': 'argos-proctor-ssh-status/1', 'available': False,
+                       'failure_code': 'signed-status-unavailable'}
+        try:
+            status = _safe_root_status(self.status_provider())
+            signer = self._signer(create=False)
+            if signer is None:
+                return unavailable
+            with self.lock:
+                job = dict(self.job) if self.job else self._saved_job()
+                active = self.worker is not None and self.worker.is_alive()
+            job_state = job.get('state') if isinstance(job, dict) else 'idle'
+            if job_state not in {'running', 'completed', 'failed', 'refused'}:
+                job_state = 'idle'
+            owner_approval_available = bool(status['restart_eligible'] and not active and
+                                            job_state != 'running')
+            payload = {'schema': PROCTOR_STATUS_RECEIPT_SCHEMA,
+                       'receipt_id': secrets.token_hex(16),
+                       'created_utc': datetime.now(timezone.utc).isoformat(),
+                       'status': status,
+                       'owner_approval_available': owner_approval_available,
+                       'recovery_job_state': job_state}
+            payload_json = _canonical(payload)
+            envelope = {'envelope_version': 'argos.proctor.envelope.v1',
+                        'payload_json': payload_json,
+                        'signature': signer.sign(payload_json.encode('utf-8'))}
+            if not verify_envelope(envelope, signer.public_key_der):
+                return unavailable
+            return {'schema': 'argos-proctor-ssh-status/1', 'available': True,
+                    'status': status, 'receipt': envelope,
+                    'owner_approval_available': owner_approval_available,
+                    'recovery_job_state': job_state}
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+            return unavailable
+
+    def verify_proctor_status(self, value):
+        """Verify the exact fresh receipt against this installation's trusted key."""
+        try:
+            if not isinstance(value, dict) or value.get('available') is not True:
+                return False
+            receipt = value.get('receipt')
+            if not isinstance(receipt, dict):
+                return False
+            signer = self._signer(create=False)
+            if signer is None or not verify_envelope(receipt, signer.public_key_der):
+                return False
+            payload_json = receipt.get('payload_json')
+            payload = json.loads(payload_json)
+            if (not isinstance(payload, dict) or _canonical(payload) != payload_json or
+                    set(payload) != {'schema', 'receipt_id', 'created_utc', 'status',
+                                     'owner_approval_available', 'recovery_job_state'} or
+                    payload.get('schema') != PROCTOR_STATUS_RECEIPT_SCHEMA or
+                    not isinstance(payload.get('receipt_id'), str) or
+                    not ID.fullmatch(payload['receipt_id']) or
+                    payload.get('status') != _safe_root_status(value.get('status')) or
+                    payload.get('owner_approval_available') is not value.get('owner_approval_available') or
+                    payload.get('recovery_job_state') != value.get('recovery_job_state')):
+                return False
+            created = datetime.fromisoformat(payload.get('created_utc', '').replace('Z', '+00:00'))
+            age = (datetime.now(timezone.utc) - created).total_seconds()
+            return -2 <= age <= RECEIPT_MAX_AGE_SECONDS
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError, AttributeError):
+            return False
 
     def snapshot(self):
         try:

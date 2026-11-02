@@ -15,12 +15,14 @@ test('dedicated Proctor tools are registered as optional managed-only tools', as
   registerPlugin({registerTool(tool, metadata) { tools.set(tool.name, tool); options.set(tool.name, metadata); }});
   for (const name of ['argos_proctor_start','argos_proctor_status','argos_proctor_item',
     'argos_proctor_answer','argos_proctor_continue','argos_proctor_submit','argos_proctor_feedback',
-    'argos_adopt_external_instruction_edit']) {
+    'argos_adopt_external_instruction_edit','argos_ssh_status']) {
     assert.equal(options.get(name)?.optional, true);
     await assert.rejects(tools.get(name).execute('unmanaged', {}, undefined), /managed host controller/);
   }
   assert.deepEqual(tools.get('argos_proctor_item').parameters.additionalProperties, false);
   assert.deepEqual(tools.get('argos_proctor_answer').parameters.additionalProperties, false);
+  assert.match(tools.get('argos_ssh_status').description, /read-only and never starts SSH/);
+  assert.match(tools.get('argos_ssh_status').description, /Approve one safe SSH start/);
   const adoption = tools.get('argos_adopt_external_instruction_edit').parameters;
   assert.deepEqual(Object.keys(adoption.properties),
     ['expected_sha256','previous_sha256','reason','baseline_ids','candidate_ids']);

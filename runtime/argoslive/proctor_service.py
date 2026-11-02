@@ -37,7 +37,7 @@ PROCTOR_TOOL_NAMES = [
 CAMPAIGN_TOOL_NAMES = [
     'argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status',
     'argos_compare', 'argos_log', 'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions',
-    'argos_resolve_instructions', 'argos_adopt_external_instruction_edit',
+    'argos_resolve_instructions', 'argos_adopt_external_instruction_edit', 'argos_ssh_status',
 ]
 POLICY = {'enforcement_level': 'declared', 'assistance_policy': 'closed_book'}
 PRACTICE_MAX_TURNS = 16
@@ -70,6 +70,11 @@ CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement c
     'Use the installed AGENTS.md and managed Argos host tools. First call argos_inspect to read the '
     'canonical instruction/configuration snapshot and check for an unresolved change. Use only the exact '
     'evaluation suite explicitly selected by the owner below; the host rejects any other suite. '
+    'If the owner task concerns boot, SSH, or recovery, call argos_ssh_status once and use only its signed, '
+    'versioned facts. This is read-only; it cannot restart a service. If the receipt says an owner approval is '
+    'available, tell the owner in one short instruction to click “Approve one safe SSH start” in the Argos '
+    'dashboard. Never ask for a terminal command when this bounded capability is available. Do not claim recovery until a fresh receipt '
+    'confirms the same boot, paired policy, active SSH and a port-22 listener. '
     'If the owner selected no suite, do not evaluate, compare, adopt, edit, or keep instruction changes. '
     'Audit, report task-not-measured, and identify the task-specific examples or checks that are missing. '
     'If a suite was selected, establish a saved baseline and form your experiment hypothesis from its '
@@ -178,10 +183,12 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
         raise ValueError('Owner-selected local model profile needs review before Proctor use') from None
     if generation is not None and generation['agents']['defaults']['model']['primary'] != 'ollama/' + model:
         raise ValueError('Owner-selected local model profile needs review before Proctor use')
-    # Preserve prior profile bytes when the selected generation settings change.
-    # This bounded projection excludes owner credentials and permission policy.
-    profile_identity = model if generation is None else json.dumps(
-        {'model': model, 'generation': generation}, sort_keys=True, separators=(',', ':'))
+    # Preserve prior profile bytes when the selected generation settings or
+    # bounded tool grants change. The profile identity excludes owner secrets.
+    allowed_tools = PROCTOR_TOOL_NAMES if purpose == 'practice' else CAMPAIGN_TOOL_NAMES
+    profile_identity = json.dumps(
+        {'model': model, 'generation': generation, 'tools': allowed_tools},
+        sort_keys=True, separators=(',', ':'))
     profile = _private_directory(root / 'profiles' / purpose /
                                  hashlib.sha256(profile_identity.encode()).hexdigest()[:24])
     if purpose == 'practice':
@@ -214,7 +221,6 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
                 config['agents']['defaults'][field] = json.loads(json.dumps(generation['agents']['defaults'][field]))
         config['agents']['entries'] = json.loads(json.dumps(generation['agents']['entries']))
     config['agents']['defaults']['heartbeat'] = {'every': '0m'}
-    allowed_tools = PROCTOR_TOOL_NAMES if purpose == 'practice' else CAMPAIGN_TOOL_NAMES
     config['tools'] = {'profile': 'minimal', 'alsoAllow': allowed_tools,
                        # OpenClaw classifies extension tools in its runtime group;
                        # denying that group also hides the explicitly allowed Argos
@@ -670,7 +676,7 @@ def _campaign_followup(turn, outcomes, assessment, *, owner_task='', success_cri
 
 
 def run_campaign(home, model, target, *, owner_task, success_criteria, executable, measurement_suite=None,
-                 openssl='openssl', on_progress=None):
+                 ssh_status_provider=None, ssh_status_verifier=None, openssl='openssl', on_progress=None):
     """Run bounded host-admitted turns until an audited campaign outcome exists."""
     root, workspace, config_path, _config_hash = private_profile(
         home, model, owner_config_path=Path(home) / '.openclaw/openclaw.json', purpose='campaign')
@@ -686,7 +692,8 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
     with ExitStack() as stack:
         bridge, controller_env = stack.enter_context(controller_bridge.owned(
             home, session_key=campaign_session_key, trigger='user', task_campaign=True,
-            owner_task_suite=measurement_suite))
+            owner_task_suite=measurement_suite, ssh_status_provider=ssh_status_provider,
+            ssh_status_verifier=ssh_status_verifier))
         stack.enter_context(owned_ollama.owned(target, port=11434, context_tokens=32768,
             lease_store=Path(home) / '.local/state/argos-live'))
         stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
@@ -732,6 +739,7 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
 
 
 def run_improvement(home, *, owner_task, success_criteria, measurement_suite=None,
+                    ssh_status_provider=None, ssh_status_verifier=None,
                     executable=None, openssl='openssl',
                     on_phase=None, on_progress=None):
     """Run a task-focused campaign without making Proctor practice a prerequisite."""
@@ -750,6 +758,8 @@ def run_improvement(home, *, owner_task, success_criteria, measurement_suite=Non
         campaign = run_campaign(home, model, target, owner_task=owner_task,
                                 success_criteria=success_criteria,
                                 measurement_suite=measurement_suite,
+                                ssh_status_provider=ssh_status_provider,
+                                ssh_status_verifier=ssh_status_verifier,
                                 executable=executable or shutil.which('openclaw'), openssl=openssl,
                                 on_progress=on_progress)
     except Exception as error:
