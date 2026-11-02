@@ -234,8 +234,10 @@ own. Any missing or ambiguous evidence keeps the action unavailable.
 
 Measure this path with: owner terminal commands (target 0), explicit owner
 approvals (target at most 1), repeated status requests (target 0), time from
-opening the dashboard to verified remote readiness, and action success rate.
-Keep the approval count separate from avoidable effort. Fixture/API tests can
+opening the dashboard to verified local service readiness, and action success
+rate. Record any paired-client login test separately; a local listener check
+does not prove remote reachability. Keep the approval count separate from
+avoidable effort. Fixture/API tests can
 establish the gate and one-use approval behavior; only a shipped-image boot
 and a real recovery exercise can establish owner effort and boot reliability.
 Do not mark the capability complete from this implementation or its unit tests

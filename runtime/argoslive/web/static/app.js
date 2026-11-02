@@ -4738,9 +4738,9 @@ async function refreshSshRecovery() {
     } else if (data.active || job?.state === 'running') {
       statusNode.textContent = 'Argos is checking the approved SSH start. This continues if the chat turn ends.';
     } else if (status.ssh_active && status.port22_listening && status.paired_policy_valid) {
-      statusNode.textContent = 'Paired SSH is ready.';
+      statusNode.textContent = 'SSH is active and listening; a remote login has not been verified.';
     } else if (job?.state === 'completed') {
-      statusNode.textContent = 'Paired SSH is running and verified for this boot.';
+      statusNode.textContent = 'SSH is active, port 22 is listening, and the paired policy passed for this boot.';
     } else if (job?.state === 'failed' || job?.state === 'refused') {
       statusNode.textContent = `SSH was not restored (${job.failure_code || 'verification-incomplete'}). No keys or policy were changed.`;
     } else if (data.can_restart) {
