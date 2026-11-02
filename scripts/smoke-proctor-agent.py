@@ -479,6 +479,8 @@ def run(cli, report):
             real_run_campaign = proctor_service.run_campaign
             real_controller_owned = controller_bridge.owned
             real_gateway_owned = proctor_service.owned_gateway.owned
+            real_bridge_launch = controller_bridge.Bridge.launch
+            real_bridge_finish = controller_bridge.Bridge.finish
 
             @contextmanager
             def trace_controller_owned(*args, **kwargs):
@@ -493,6 +495,34 @@ def run(cli, report):
                 with real_gateway_owned(*args, **kwargs) as value:
                     progress['campaign_setup_stage'] = 'gateway-running'
                     yield value
+
+            def trace_campaign_launch(bridge, *args, **kwargs):
+                progress['campaign_setup_stage'] = 'worker-launch'
+                try:
+                    value = real_bridge_launch(bridge, *args, **kwargs)
+                except BaseException as error:
+                    progress['campaign_runtime_error_class'] = type(error).__name__
+                    progress['campaign_runtime_error_boundary'] = 'launch'
+                    raise
+                progress['campaign_setup_stage'] = 'worker-launched'
+                return value
+
+            def trace_campaign_finish(bridge, *args, **kwargs):
+                progress['campaign_setup_stage'] = 'worker-finish'
+                try:
+                    value = real_bridge_finish(bridge, *args, **kwargs)
+                except BaseException as error:
+                    progress['campaign_runtime_error_class'] = type(error).__name__
+                    progress['campaign_runtime_error_boundary'] = 'finish'
+                    failure = bridge.last_finish_failure or {}
+                    progress['campaign_finish_failure'] = {
+                        key: failure[key] for key in (
+                            'code', 'returncode', 'stdout_bytes', 'stderr_bytes',
+                            'status_ok', 'payloads_list', 'session_bound',
+                            'live_group_members') if key in failure}
+                    raise
+                progress['campaign_setup_stage'] = 'worker-finished'
+                return value
 
             def task_campaign(*args, **kwargs):
                 progress['campaign_setup_stage'] = 'run-campaign'
@@ -510,6 +540,8 @@ def run(cli, report):
                               side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
                     patch.object(controller_bridge.Bridge, 'dispatch', trace_campaign_dispatch), \
+                    patch.object(controller_bridge.Bridge, 'launch', trace_campaign_launch), \
+                    patch.object(controller_bridge.Bridge, 'finish', trace_campaign_finish), \
                     patch.object(controller_bridge, 'owned', trace_controller_owned), \
                     patch.object(proctor_service.owned_gateway, 'owned', trace_gateway_owned), \
                     patch.object(proctor_service, 'run_campaign', side_effect=task_campaign), \
@@ -548,6 +580,8 @@ def run(cli, report):
                     'campaign_failure_code': improvement_result.get('failure_code'),
                     'campaign_failure_stage': improvement_result.get('failure_stage'),
                     'campaign_runtime_error_class': progress.get('campaign_runtime_error_class'),
+                    'campaign_runtime_error_boundary': progress.get('campaign_runtime_error_boundary'),
+                    'campaign_finish_failure': progress.get('campaign_finish_failure'),
                     'campaign_setup_stage': progress.get('campaign_setup_stage'),
                     'campaign_missing': campaign.get('missing'),
                     'campaign_turns': campaign.get('controller_turns'),
