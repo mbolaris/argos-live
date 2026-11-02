@@ -222,6 +222,7 @@ try {
     {id: 'review', title: 'Review', reason: 'Review.', action: 'review'}, {available: true, status: 'kept', active: false,
       changes: [{id: 'answer-first'}]}));
   assert.equal(keptAction.action, 'review', 'Keeping a practice change does not auto-schedule another practice round');
+  await page.locator('#assistant-trial-practice-launch > summary').click();
   await page.locator('#assistant-trial-next-round').click();
   await page.waitForFunction(async () => (await api('/api/assistant-trial')).active, null, {timeout: 10000, polling: 100});
   assert.equal(await page.locator('#assistant-trial-modal').count(), 0, 'The one GO action starts the exact disclosed trial; no second approval dialog');
