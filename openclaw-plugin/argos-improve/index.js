@@ -246,6 +246,12 @@ export default function register(api) {
     return textResult((instruction ? instruction + '\n\n' : '') + JSON.stringify(value, null, 2), value);
   };
   api.registerTool({
+    name:'argos_ssh_status', label:'Check paired SSH recovery status',
+    description:'Read a signed, versioned snapshot of encrypted persistence, paired SSH policy, service/listener state and any recovery job. No logs, addresses, keys, device IDs or paths are returned. This tool is read-only and never starts SSH. If owner approval is available, tell the owner to click “Approve one safe SSH start” in the Argos dashboard; do not ask for terminal commands.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'ssh_status',params,signal); }
+  }, {optional:true});
+  api.registerTool({
     name:'argos_inspect', label:'Inspect current experiment setup',
     description:'Read your current AGENTS.md, its hash, safe configured generation settings, pending change and keep evidence policy. No arbitrary file paths or credentials.',
     parameters:Type.Object({}, {additionalProperties:false}),

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Run the optional Proctor tools through the real pinned SDK with synthetic replies."""
 import argparse
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from http.server import BaseHTTPRequestHandler
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -16,7 +17,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 sys.path.insert(0, str(ROOT / 'scripts'))
-from argoslive import controller_bridge, workload
+from argoslive import controller_bridge, ssh_recovery, workload
 from argoslive import auto_setup, proctor_service
 from argoslive.auto_setup import conversation_config
 from argoslive.proctor import AgentSession, Caller, Cartridge, Proctor, compile_cartridge, open_state
@@ -50,8 +51,8 @@ PRACTICE_ARGS = [{}, {}, {'item_id': 'q1'}, {'item_id': 'q1', 'answer': 'B'},
     {'item_id': 'q6', 'answer': 'C'}, {'module_id': 'm2'}, {}]
 if len(PRACTICE_TOOLS) != len(PRACTICE_ARGS):
     raise RuntimeError('Synthetic practice tool plan is inconsistent')
-CAMPAIGN_TOOLS = ['argos_inspect', 'argos_audit_instructions']
-CAMPAIGN_ARGS = [{}, {}]
+CAMPAIGN_TOOLS = ['argos_inspect', 'argos_ssh_status', 'argos_audit_instructions']
+CAMPAIGN_ARGS = [{}, {}, {}]
 if len(CAMPAIGN_TOOLS) != len(CAMPAIGN_ARGS):
     raise RuntimeError('Synthetic campaign tool plan is inconsistent')
 
@@ -71,13 +72,51 @@ def pending_campaign_job_id(messages):
     return None
 
 
+def signed_ssh_status_in(messages):
+    """Require the signed status tool result to reach the following model turn."""
+    decoder = json.JSONDecoder()
+
+    def visit(value):
+        if isinstance(value, dict):
+            if (value.get('schema') == 'argos-proctor-ssh-status/1' and
+                    value.get('available') is True and
+                    value.get('owner_approval_available') is True and
+                    isinstance(value.get('status'), dict) and
+                    value['status'].get('restart_eligible') is True and
+                    isinstance(value.get('receipt'), dict) and
+                    isinstance(value['receipt'].get('signature'), dict) and
+                    value['receipt']['signature'].get('algorithm') == 'Ed25519'):
+                return True
+            return any(visit(child) for child in value.values())
+        if isinstance(value, list):
+            return any(visit(child) for child in value)
+        if isinstance(value, str):
+            try:
+                return visit(json.loads(value))
+            except (ValueError, TypeError):
+                pass
+            for index, char in enumerate(value):
+                if char == '{':
+                    try:
+                        candidate, _end = decoder.raw_decode(value[index:])
+                    except ValueError:
+                        continue
+                    if visit(candidate):
+                        return True
+        return False
+
+    return visit(messages)
+
+
 def run(cli, report):
     if (sys.platform != 'linux' or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or os.geteuid() == 0):
         raise ValueError('Proctor integration fixture requires an unprivileged disposable hosted runner')
     progress = {'tools': 0, 'errors': [], 'phase': 'proctor', 'model_tool_names': [],
                 'provider_idless_calls': 0, 'start_result_on_wire_verified': False,
-                'campaign_plan_index': 0, 'campaign_wait_calls': 0}
+                'campaign_plan_index': 0, 'campaign_wait_calls': 0,
+                'campaign_host_tool_trace': [], 'campaign_runtime_error_class': None,
+                'campaign_setup_stage': None}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -125,6 +164,8 @@ def run(cli, report):
             phase_tools = (CAMPAIGN_TOOLS if campaign_phase else
                            PRACTICE_TOOLS if progress['phase'] == 'practice' else TOOLS)
             messages = request.get('messages', [])
+            if campaign_phase and progress['campaign_plan_index'] >= 2:
+                progress['ssh_status_result_on_wire_verified'] = signed_ssh_status_in(messages)
             pending_job_id = pending_campaign_job_id(messages) if campaign_phase else None
             if campaign_phase:
                 phase_has_work = (pending_job_id is not None or
@@ -183,6 +224,7 @@ def run(cli, report):
         'managed_gateway_service_path': False, 'production_gateway_dispatch': False,
         'protected_service_identity': False,
         'model_identity_attested': False, 'calibrated_ability_claim': False}
+    ssh_recovery_controller = None
     report.parent.mkdir(parents=True, exist_ok=True)
     try:
         with tempfile.TemporaryDirectory(prefix='argos-proctor-agent-', dir=os.environ['RUNNER_TEMP']) as temporary:
@@ -309,8 +351,46 @@ def run(cli, report):
                                                 plugin_root=ROOT / 'openclaw-plugin/argos-improve')
             owner_config_path.write_text(json.dumps(owner_config))
             owner_config_path.chmod(0o600)
+            ssh_recovery_controller = ssh_recovery.Controller(
+                home=service_home,
+                status_provider=lambda: {
+                    'schema': ssh_recovery.STATUS_SCHEMA,
+                    'boot_id': '00000000-0000-4000-8000-000000000001',
+                    'persistence_state': 'verified', 'paired_policy_valid': True,
+                    'ssh_enabled': True, 'ssh_active': False,
+                    'port22_listening': False, 'restart_eligible': True,
+                    'failure_code': None,
+                })
+            ssh_recovery_controller._persistent = lambda: True
+            ssh_recovery_controller.root.mkdir(mode=0o700, parents=True)
+            ssh_recovery.generate_key(ssh_recovery_controller.root / 'receipt-ed25519.pem')
             from unittest.mock import patch
             real_finish = controller_bridge.Bridge.finish
+            real_dispatch = controller_bridge.Bridge.dispatch
+
+            def trace_campaign_dispatch(bridge, request, on_update=None):
+                if progress['phase'] == 'campaign' and request.get('op') == 'begin':
+                    progress['campaign_admission_requests'] = progress.get(
+                        'campaign_admission_requests', 0) + 1
+                    progress['campaign_admission_auth_valid'] = (
+                        isinstance(request.get('auth'), str) and
+                        hmac.compare_digest(request['auth'], bridge.secret))
+                try:
+                    response = real_dispatch(bridge, request, on_update=on_update)
+                except BaseException as error:
+                    if progress['phase'] == 'campaign' and request.get('op') == 'begin':
+                        progress['campaign_admission_dispatch_error'] = type(error).__name__
+                    if progress['phase'] == 'campaign' and request.get('op') == 'tool':
+                        progress['campaign_host_tool_trace'].append({
+                            'kind': request.get('kind'), 'outcome': 'error',
+                            'error_class': type(error).__name__})
+                    raise
+                if progress['phase'] == 'campaign' and request.get('op') == 'begin':
+                    progress['campaign_admission_status'] = response.get('status')
+                if progress['phase'] == 'campaign' and request.get('op') == 'tool':
+                    progress['campaign_host_tool_trace'].append({
+                        'kind': request.get('kind'), 'outcome': response.get('status')})
+                return response
 
             def report_finish_failure(bridge, *, timeout=1900, finalize=True):
                 try:
@@ -408,9 +488,107 @@ def run(cli, report):
             progress.update(tools=0, errors=[], phase='campaign', model_tool_names=[],
                             campaign_plan_index=0, campaign_wait_calls=0)
             real_run_campaign = proctor_service.run_campaign
+            real_controller_owned = controller_bridge.owned
+            real_gateway_owned = proctor_service.owned_gateway.owned
+            real_bridge_launch = controller_bridge.Bridge.launch
+            real_bridge_finish = controller_bridge.Bridge.finish
+            real_bridge_begin = controller_bridge.Bridge.begin
+
+            @contextmanager
+            def trace_controller_owned(*args, **kwargs):
+                progress['campaign_setup_stage'] = 'controller-reservation'
+                with real_controller_owned(*args, **kwargs) as value:
+                    progress['campaign_setup_stage'] = 'controller-admitted'
+                    yield value
+
+            @contextmanager
+            def trace_gateway_owned(*args, **kwargs):
+                progress['campaign_setup_stage'] = 'gateway-start'
+                with real_gateway_owned(*args, **kwargs) as value:
+                    progress['campaign_setup_stage'] = 'gateway-running'
+                    yield value
+
+            def trace_campaign_launch(bridge, *args, **kwargs):
+                progress['campaign_setup_stage'] = 'worker-launch'
+                try:
+                    value = real_bridge_launch(bridge, *args, **kwargs)
+                except BaseException as error:
+                    progress['campaign_runtime_error_class'] = type(error).__name__
+                    progress['campaign_runtime_error_boundary'] = 'launch'
+                    raise
+                progress['campaign_setup_stage'] = 'worker-launched'
+                return value
+
+            def trace_campaign_finish(bridge, *args, **kwargs):
+                progress['campaign_setup_stage'] = 'worker-finish'
+                try:
+                    value = real_bridge_finish(bridge, *args, **kwargs)
+                except BaseException as error:
+                    progress['campaign_runtime_error_class'] = type(error).__name__
+                    progress['campaign_runtime_error_boundary'] = 'finish'
+                    failure = bridge.last_finish_failure or {}
+                    safe_failure = {
+                        key: failure[key] for key in (
+                            'code', 'returncode', 'stdout_bytes', 'stderr_bytes',
+                            'status_ok', 'payloads_list', 'session_bound',
+                            'live_group_members') if key in failure}
+                    worker_response = failure.get('worker_response')
+                    if isinstance(worker_response, dict):
+                        response_fields = (
+                            'json_valid', 'size_limited', 'object', 'result_object',
+                            'status', 'payload_count', 'error_code', 'error_name',
+                            'error_type', 'error_present', 'error_kind', 'session_bound')
+                        safe_failure['worker_response'] = {
+                            key: worker_response[key] for key in response_fields
+                            if key in worker_response}
+                    active = bridge.active if isinstance(bridge.active, dict) else {}
+                    diagnostics = active.get('diagnostics')
+                    if isinstance(diagnostics, dict):
+                        safe_failure['admission_diagnostics'] = {
+                            key: diagnostics[key] for key in (
+                                'tool_hooks', 'bound_calls', 'executions', 'rejected')
+                            if key in diagnostics}
+                    host_tool_requests = active.get('host_tool_requests')
+                    if type(host_tool_requests) is int:
+                        safe_failure['host_tool_requests'] = host_tool_requests
+                    host_tool_failures = active.get('host_tool_failures')
+                    if isinstance(host_tool_failures, list):
+                        safe_failure['host_tool_failures'] = [
+                            {key: item[key] for key in ('kind', 'error_class', 'error_code')
+                             if key in item}
+                            for item in host_tool_failures[:16] if isinstance(item, dict)]
+                    progress['campaign_finish_failure'] = safe_failure
+                    raise
+                progress['campaign_setup_stage'] = 'worker-finished'
+                return value
+
+            def trace_campaign_begin(bridge, request):
+                progress['campaign_admission_attempts'] = progress.get(
+                    'campaign_admission_attempts', 0) + 1
+                try:
+                    value = real_bridge_begin(bridge, request)
+                except BaseException as error:
+                    progress['campaign_admission_failure'] = {
+                        'exception_class': type(error).__name__,
+                        'run_id_valid': bool(controller_bridge.identity(request.get('run_id'))),
+                        'session_id_valid': bool(controller_bridge.identity(request.get('session_id'))),
+                        'session_key_matches': request.get('session_key') == bridge.session_key,
+                        'trigger_matches': request.get('trigger') == bridge.trigger,
+                        'bridge_closed': bridge.closed,
+                        'bridge_uncertain': bridge.uncertain,
+                        'active_turn_present': bridge.active is not None}
+                    raise
+                progress['campaign_admission_successes'] = progress.get(
+                    'campaign_admission_successes', 0) + 1
+                return value
 
             def task_campaign(*args, **kwargs):
-                campaign = real_run_campaign(*args, **kwargs)
+                progress['campaign_setup_stage'] = 'run-campaign'
+                try:
+                    campaign = real_run_campaign(*args, **kwargs)
+                except BaseException as error:
+                    progress['campaign_runtime_error_class'] = type(error).__name__
+                    raise
                 progress['campaign_tool_calls'] = progress['tools']
                 progress['campaign_action_calls'] = progress['campaign_plan_index']
                 return campaign
@@ -419,6 +597,12 @@ def run(cli, report):
                     patch.object(proctor_service.startup, 'source',
                               side_effect=synthetic_source), \
                     patch.object(proctor_service, 'refuse_live_backend'), \
+                    patch.object(controller_bridge.Bridge, 'dispatch', trace_campaign_dispatch), \
+                    patch.object(controller_bridge.Bridge, 'begin', trace_campaign_begin), \
+                    patch.object(controller_bridge.Bridge, 'launch', trace_campaign_launch), \
+                    patch.object(controller_bridge.Bridge, 'finish', trace_campaign_finish), \
+                    patch.object(controller_bridge, 'owned', trace_controller_owned), \
+                    patch.object(proctor_service.owned_gateway, 'owned', trace_gateway_owned), \
                     patch.object(proctor_service, 'run_campaign', side_effect=task_campaign), \
                     patch.object(proctor_service.owned_ollama, 'owned',
                                  side_effect=lambda *args, **kwargs: nullcontext(None)):
@@ -426,6 +610,8 @@ def run(cli, report):
                     service_home,
                     owner_task='start Argos after an encrypted-USB reboot without terminal repair',
                     success_criteria='after unlock, the dashboard and selected assistant are ready without commands from me',
+                    ssh_status_provider=ssh_recovery_controller.proctor_status,
+                    ssh_status_verifier=ssh_recovery_controller.verify_proctor_status,
                     executable=cli)
             expected_campaign_tool_calls = len(CAMPAIGN_TOOLS) + progress.get('campaign_wait_calls', 0)
             expected_campaign_calls = expected_campaign_tool_calls
@@ -434,17 +620,35 @@ def run(cli, report):
             unexpected_proctor_tools = (set(proctor_service.PROCTOR_TOOL_NAMES) - {'argos_evaluate_wait'}) & set(
                 progress['model_tool_names'])
             campaign = improvement_result.get('campaign', {})
+            ssh_status_outcomes = [item for item in campaign.get('tool_outcomes', [])
+                                   if item.get('kind') == 'ssh_status']
             if (improvement_result['status'] != 'incomplete' or campaign.get('outcome') != 'task-not-measured' or
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
                     progress['campaign_tool_calls'] != expected_campaign_tool_calls or
                     progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS) or
                     not campaign_wait_tool_available or
+                    'argos_ssh_status' not in progress['model_tool_names'] or
+                    not progress.get('ssh_status_result_on_wire_verified') or
+                    len(ssh_status_outcomes) != 1 or ssh_status_outcomes[0].get('status') != 'available' or
                     unexpected_proctor_tools):
                 diagnostic = {
                     'schema': 'argos-proctor-campaign-failure/1',
                     'improvement_status': improvement_result.get('status'),
                     'campaign_status': campaign.get('status'),
                     'campaign_outcome': campaign.get('outcome'),
+                    'campaign_failure_code': improvement_result.get('failure_code'),
+                    'campaign_failure_stage': improvement_result.get('failure_stage'),
+                    'campaign_runtime_error_class': progress.get('campaign_runtime_error_class'),
+                    'campaign_runtime_error_boundary': progress.get('campaign_runtime_error_boundary'),
+                    'campaign_finish_failure': progress.get('campaign_finish_failure'),
+                    'campaign_admission_attempts': progress.get('campaign_admission_attempts', 0),
+                    'campaign_admission_successes': progress.get('campaign_admission_successes', 0),
+                    'campaign_admission_failure': progress.get('campaign_admission_failure'),
+                    'campaign_admission_requests': progress.get('campaign_admission_requests', 0),
+                    'campaign_admission_auth_valid': progress.get('campaign_admission_auth_valid'),
+                    'campaign_admission_dispatch_error': progress.get('campaign_admission_dispatch_error'),
+                    'campaign_admission_status': progress.get('campaign_admission_status'),
+                    'campaign_setup_stage': progress.get('campaign_setup_stage'),
                     'campaign_missing': campaign.get('missing'),
                     'campaign_turns': campaign.get('controller_turns'),
                     'saved_evaluation_ids': campaign.get('saved_evaluation_ids'),
@@ -457,8 +661,11 @@ def run(cli, report):
                     'expected_campaign_action_calls': len(CAMPAIGN_TOOLS),
                     'campaign_wait_calls': progress.get('campaign_wait_calls'),
                     'campaign_wait_tool_available': campaign_wait_tool_available,
+                    'ssh_status_result_on_wire_verified': progress.get('ssh_status_result_on_wire_verified', False),
+                    'ssh_status_outcomes': ssh_status_outcomes,
                     'unexpected_proctor_tools': sorted(unexpected_proctor_tools),
                     'campaign_tool_names': sorted(progress['model_tool_names']),
+                    'campaign_host_tool_trace': list(progress['campaign_host_tool_trace']),
                     'tool_errors': progress['errors'],
                     'tool_outcomes': campaign.get('tool_outcomes'),
                 }
@@ -487,12 +694,17 @@ def run(cli, report):
                 campaign_tool_calls=progress['campaign_tool_calls'],
                 campaign_action_calls=progress['campaign_action_calls'],
                 campaign_wait_calls=progress['campaign_wait_calls'],
+                signed_ssh_status_verified=len(ssh_status_outcomes) == 1 and
+                    ssh_status_outcomes[0].get('status') == 'available',
+                ssh_status_result_on_wire_verified=progress['ssh_status_result_on_wire_verified'],
                 campaign_saved_evaluations=0, task_reported_not_measured=True,
                 production_gateway_dispatch=False)
             receipt['passed'] = True
             state.close()
     finally:
         report.write_text(json.dumps(receipt, indent=2) + '\n')
+        if ssh_recovery_controller is not None:
+            ssh_recovery_controller.close()
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)

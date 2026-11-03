@@ -129,9 +129,10 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
     selection = Selection(controller, store=results)
     trial = assistant_trial.Controller(controller, home=home)
     auto_climb_controller = auto_climb.Controller(controller, home=home, selection=selection, downloads=downloads)
-    proctor_campaign_controller = proctor_campaign.Controller(controller, home=home)
     from . import ssh_recovery
     ssh_recovery_controller = ssh_recovery.Controller(home=home)
+    proctor_campaign_controller = proctor_campaign.Controller(
+        controller, home=home, ssh_recovery=ssh_recovery_controller)
     storage_controller = storage_view.Controller(controller, home=home)
     command = command_center.Controller(home, results, lab=lab, storage=storage_controller)
     with DashboardServer(port=port, startup=controller, lab=lab, downloads=downloads, selection=selection,

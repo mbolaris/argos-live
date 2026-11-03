@@ -134,6 +134,32 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertNotIn('practice', status['result'])
         self.assertNotIn('tool_outcomes', status['result']['campaign'])
 
+    def test_campaign_receives_only_the_bound_read_only_ssh_status_provider(self):
+        captured = {}
+        recovery = type('Recovery', (), {
+            'proctor_status': lambda _self: {'available': True},
+            'verify_proctor_status': lambda _self, _value: True,
+        })()
+
+        def runner(_home, **options):
+            captured.update(options)
+            return result()
+
+        controller = proctor_campaign.Controller(
+            self.startup, home=self.home, runner=runner, ssh_recovery=recovery,
+            storage_snapshot=lambda _home: self.storage_status())
+        try:
+            controller.start('recover Argos after boot', 'ready without terminal commands')
+            worker = controller.worker
+            self.assertTrue(worker)
+            worker.join(timeout=3)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(captured['ssh_status_provider'](), {'available': True})
+            self.assertTrue(captured['ssh_status_verifier']({'available': True}))
+            self.assertEqual(captured['owner_task'], 'recover Argos after boot')
+        finally:
+            controller.close()
+
     def test_refuses_unconfirmed_storage_and_other_workload(self):
         task = 'recover Argos after reboot'
         criteria = 'ready after unlock with no terminal command'

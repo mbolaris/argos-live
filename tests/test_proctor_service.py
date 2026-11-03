@@ -1,11 +1,12 @@
 import json
 import hashlib
+import io
 import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager, ExitStack, redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import patch, Mock
 
@@ -51,6 +52,12 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('separately versioned, fully specified form', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('immediately call argos_log', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('click “Approve one safe SSH start”', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('report that SSH is already healthy and no action is needed', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('Do not ask for terminal commands, reboot, re-pairing, or manual configuration',
+                      proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('do not suggest the approval button unless the signed facts allow it',
+                      proctor_service.CAMPAIGN_MESSAGE)
         self.assertNotIn('complete 70-task standard', proctor_service.CAMPAIGN_MESSAGE)
         self.assertNotIn('separate 40-task challenge suite', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
@@ -192,7 +199,53 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('group:fs', config['tools']['deny'])
         self.assertIn('exec', config['tools']['deny'])
         self.assertNotIn('argos_proctor_start', config['tools']['alsoAllow'])
+        self.assertIn('argos_ssh_status', config['tools']['alsoAllow'])
         self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
+
+    def test_practice_profile_does_not_expose_live_ssh_status(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        _root, _workspace, config_path, _digest = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='practice')
+        config = json.loads(config_path.read_text())
+        self.assertNotIn('argos_ssh_status', config['tools']['alsoAllow'])
+
+    def test_campaign_tool_grant_change_gets_a_new_profile_and_preserves_old_bytes(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        first = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='campaign')
+        prior = first[2].read_bytes()
+        with patch.object(proctor_service, 'CAMPAIGN_TOOL_NAMES',
+                          [*proctor_service.CAMPAIGN_TOOL_NAMES, 'fixture-capability']):
+            second = proctor_service.private_profile(
+                self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+                owner_config_path=self.owner_config, purpose='campaign')
+        self.assertNotEqual(first[2], second[2])
+        self.assertEqual(first[2].read_bytes(), prior)
+        self.assertIn('fixture-capability', json.loads(second[2].read_text())['tools']['alsoAllow'])
+
+    def test_improve_cli_injects_and_closes_the_ssh_status_controller(self):
+        status_provider = Mock(return_value={'available': False})
+        status_verifier = Mock(return_value=False)
+        close = Mock()
+        recovery = SimpleNamespace(proctor_status=status_provider,
+                                   verify_proctor_status=status_verifier,
+                                   close=close)
+        result = {'status': 'completed', 'campaign': {
+            'saved_evaluation_ids': [], 'controller_turns': 1,
+            'outcome': 'task-not-measured'}}
+        with patch.object(Path, 'home', return_value=self.home), \
+                patch('argoslive.ssh_recovery.Controller', return_value=recovery), \
+                patch.object(proctor_service, 'run_improvement', return_value=result) as run, \
+                redirect_stdout(io.StringIO()):
+            exit_code = proctor_service.main([
+                'improve', '--owner-task', 'recover after boot',
+                '--success-criteria', 'Argos is ready'])
+        self.assertEqual(exit_code, 0)
+        self.assertIs(run.call_args.kwargs['ssh_status_provider'], status_provider)
+        self.assertIs(run.call_args.kwargs['ssh_status_verifier'], status_verifier)
+        close.assert_called_once_with()
 
     def test_improvement_campaign_uses_owner_task_without_running_practice(self):
         state_path = self.home / '.config/argos-live/state.json'

@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import controller_bridge, workload
+from argoslive import controller_bridge, workload, ssh_recovery
 from argoslive.proctor import ProctorError
 from argoslive.results import Store
 from test_bench_openclaw import configure_fake
@@ -44,6 +44,44 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertIsNone(bridge.active)
             self.assertFalse(bridge.events.exists())
             parent.complete()  # No SDK worker or inference was started in this fixture.
+
+    def test_signed_ssh_status_is_read_only_and_campaign_scoped(self):
+        status = {'schema': 'argos-ssh-status/1', 'boot_id': 'a' * 36,
+                  'persistence_state': 'verified', 'paired_policy_valid': True,
+                  'ssh_enabled': True, 'ssh_active': False, 'port22_listening': False,
+                  'restart_eligible': True, 'failure_code': None}
+        recovery = ssh_recovery.Controller(home=self.home, status_provider=lambda: status)
+        recovery._persistent = lambda: True
+        recovery.root.mkdir(mode=0o700, parents=True)
+        ssh_recovery.generate_key(recovery.root / 'receipt-ed25519.pem')
+        snapshot = recovery.proctor_status()
+        self.assertTrue(snapshot['available'])
+        calls = []
+        try:
+            with workload.reserve(self.home, 'controller') as parent:
+                bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:owner-campaign',
+                    task_campaign=True, ssh_status_provider=lambda: calls.append('status') or snapshot,
+                    ssh_status_verifier=recovery.verify_proctor_status)
+                _, turn = self.begin(bridge)
+                value = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'ssh-status-one',
+                    'kind': 'ssh_status', 'params': {}})
+                self.assertEqual(value, {'status': 'completed', 'value': snapshot})
+                self.assertEqual(calls, ['status'])
+                self.assertEqual(bridge.outcomes, [{'kind': 'ssh_status', 'call_id': 'ssh-status-one',
+                                                    'status': 'available'}])
+                self.assertNotIn('boot_id', bridge.events.read_text())
+                parent.complete()
+
+            with workload.reserve(self.home, 'controller') as parent:
+                bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:ordinary',
+                    ssh_status_provider=lambda: snapshot, ssh_status_verifier=recovery.verify_proctor_status)
+                _, turn = self.begin(bridge)
+                with self.assertRaisesRegex(ValueError, 'owner improvement campaign'):
+                    bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'ssh-status-blocked',
+                        'kind': 'ssh_status', 'params': {}})
+                parent.complete()
+        finally:
+            recovery.close()
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
     def test_session_bound_incomplete_practice_turn_is_drained_and_retryable(self):
