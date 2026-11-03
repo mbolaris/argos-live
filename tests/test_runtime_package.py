@@ -18,14 +18,24 @@ class RuntimePackageTests(unittest.TestCase):
         self.assertIn('\nsystemd-timesyncd\n', '\n' + packages)
         hook = (ROOT / 'live/config/hooks/live/010-argos.hook.chroot').read_text()
         self.assertIn('systemctl enable systemd-timesyncd.service', hook)
+        account_unit = (ROOT / 'live/config/includes.chroot/etc/systemd/system/'
+                        'argos-timesync-account.service').read_text()
+        self.assertIn('DefaultDependencies=no', account_unit)
+        self.assertIn('After=local-fs.target', account_unit)
+        self.assertIn('Before=systemd-timesyncd.service sysinit.target', account_unit)
+        self.assertIn('ExecStart=/usr/bin/systemd-sysusers '
+                      '/usr/lib/sysusers.d/systemd-timesync.conf', account_unit)
+        self.assertNotIn('\nUser=', account_unit)
         dropin = (ROOT / 'live/config/includes.chroot/etc/systemd/system/'
                   'systemd-timesyncd.service.d/10-argos-sysusers.conf').read_text()
-        self.assertIn('ExecStartPre=+/usr/bin/systemd-sysusers '
-                      '/usr/lib/sysusers.d/systemd-timesync.conf', dropin)
+        self.assertIn('Requires=argos-timesync-account.service', dropin)
+        self.assertIn('After=argos-timesync-account.service', dropin)
+        self.assertNotIn('ExecStartPre=', dropin)
         guest_check = (ROOT / 'scripts/qemu-guest-check.py').read_text()
         self.assertIn("systemctl', 'is-enabled', 'systemd-timesyncd.service'", guest_check)
         self.assertIn("systemctl', 'is-active', 'systemd-timesyncd.service'", guest_check)
         self.assertIn("'getent', 'passwd', 'systemd-timesync'", guest_check)
+        self.assertIn("'argos-timesync-account.service'", guest_check)
         self.assertNotIn('systemd-time-wait-sync.service', hook + guest_check)
 
     @unittest.skipUnless(shutil.which('systemd-sysusers'),

@@ -46,12 +46,12 @@ def main():
                                    capture_output=True, text=True, timeout=10)
     if timesync_user.returncode or not timesync_user.stdout.startswith('systemd-timesync:'):
         raise ValueError('systemd-timesync service account is missing')
-    timesync_unit = subprocess.run(['systemctl', 'cat', 'systemd-timesyncd.service'],
-                                   capture_output=True, text=True, timeout=10)
-    if (timesync_unit.returncode or
-            'ExecStartPre=+/usr/bin/systemd-sysusers /usr/lib/sysusers.d/systemd-timesync.conf'
-            not in timesync_unit.stdout):
-        raise ValueError('systemd-timesync account migration is not installed')
+    timesync_account = subprocess.run(['systemctl', 'show', 'argos-timesync-account.service',
+                                       '-p', 'ActiveState', '-p', 'Result'],
+                                      capture_output=True, text=True, timeout=10)
+    if (timesync_account.returncode or 'ActiveState=active' not in timesync_account.stdout or
+            'Result=success' not in timesync_account.stdout):
+        raise ValueError('systemd-timesync account was not reconciled by its root boot unit')
     deadline = time.monotonic() + 180
     while subprocess.run(['pgrep', '-u', 'argos', '-x', 'xfce4-session'], stdout=subprocess.DEVNULL).returncode:
         if time.monotonic() >= deadline:
