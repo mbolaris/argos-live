@@ -13,6 +13,16 @@ spec.loader.exec_module(cli)
 
 
 class RuntimePackageTests(unittest.TestCase):
+    def test_image_installs_and_enables_non_blocking_network_time_sync(self):
+        packages = (ROOT / 'live/config/package-lists/argos.list.chroot').read_text()
+        self.assertIn('\nsystemd-timesyncd\n', '\n' + packages)
+        hook = (ROOT / 'live/config/hooks/live/010-argos.hook.chroot').read_text()
+        self.assertIn('systemctl enable systemd-timesyncd.service', hook)
+        guest_check = (ROOT / 'scripts/qemu-guest-check.py').read_text()
+        self.assertIn("systemctl', 'is-enabled', 'systemd-timesyncd.service'", guest_check)
+        self.assertIn("systemctl', 'is-active', 'systemd-timesyncd.service'", guest_check)
+        self.assertNotIn('systemd-time-wait-sync.service', hook + guest_check)
+
     def test_checkout_and_installed_paths(self):
         self.assertEqual(cli.runtime_package_path(), ROOT / 'runtime')
         with tempfile.TemporaryDirectory() as directory:
