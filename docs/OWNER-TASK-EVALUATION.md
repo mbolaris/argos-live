@@ -268,6 +268,15 @@ and a real recovery exercise can establish owner effort and boot reliability.
 Do not mark the capability complete from this implementation or its unit tests
 alone.
 
+The hosted native Proctor workflow also runs the real model through this
+status-to-approval conversation against a disposable dashboard/controller.
+Its restart provider and encrypted-persistence claim are simulated. It checks
+that the model asks for dashboard approval instead of terminal commands, that
+the one-use approval completes with a signed same-boot receipt, and that a
+fresh status leads to a healthy/no-action report. The harness posts the
+approval itself; it does not measure a human click or elapsed owner time, and
+it is not shipped-image or physical-host acceptance evidence.
+
 ## Comparing models or changes
 
 Use the same cases, context, tool access, instructions, temperature, reasoning

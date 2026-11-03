@@ -9,12 +9,17 @@ import re
 from pathlib import Path
 import sys
 import tempfile
+import threading
+import time
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import auto_setup, catalog, model_verify, proctor_service
+from argoslive import auto_setup, catalog, model_verify, proctor_service, ssh_recovery
 from argoslive.proctor.signing import Ed25519Signer, verify_envelope
+from argoslive.web.server import DashboardServer
 
 
 def safe_controller_diagnostics(turn):
@@ -133,7 +138,191 @@ def safe_finish_failure(path):
     return result
 
 
-def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=False, form_id='pilot-a'):
+def campaign_text(result):
+    campaign = result.get('campaign', {}) if isinstance(result, dict) else {}
+    payloads = campaign.get('agent_summary', []) if isinstance(campaign, dict) else []
+    if not isinstance(payloads, list):
+        return ''
+    return '\n'.join(row.get('text', '') for row in payloads
+                      if isinstance(row, dict) and isinstance(row.get('text'), str))[:16384]
+
+
+def run_owner_recovery(home, cli, *, model_tag, source, observed_environment, report):
+    """Run a real-model, disposable status -> owner approval -> verify exercise."""
+    boot_id = '00000000-0000-4000-8000-000000000001'
+    current = {'schema': ssh_recovery.STATUS_SCHEMA, 'boot_id': boot_id,
+        'persistence_state': 'verified', 'paired_policy_valid': True,
+        'ssh_enabled': True, 'ssh_active': False, 'port22_listening': False,
+        'restart_eligible': True, 'failure_code': None}
+    entered, release = threading.Event(), threading.Event()
+    restart_calls = []
+
+    def restart_provider():
+        restart_calls.append(True)
+        before = dict(current)
+        entered.set()
+        if not release.wait(10):
+            return {'status': 'failed', 'failure_code': 'restart-failed', 'before': before}
+        current.update(ssh_active=True, port22_listening=True, restart_eligible=False)
+        return {'status': 'completed', 'failure_code': None,
+                'before': before, 'after': dict(current)}
+
+    recovery = ssh_recovery.Controller(home=home, status_provider=lambda: dict(current),
+                                        restart_provider=restart_provider)
+    # The fixture exercises signed policy/controller behavior. It does not
+    # claim encrypted storage or a real sshd process; both state transitions
+    # are synthetic and are labeled that way in the receipt.
+    recovery._persistent = lambda: True
+    recovery.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    ssh_recovery.generate_key(recovery.root / 'receipt-ed25519.pem')
+    dashboard = DashboardServer(port=0, ssh_recovery=recovery)
+    thread = threading.Thread(target=dashboard.serve_forever,
+                              kwargs={'poll_interval': 0.05}, daemon=True)
+    thread.start()
+
+    def api(path, data=None):
+        headers = {'X-Argos-Token': dashboard.token}
+        if data is not None:
+            headers.update({'Content-Type': 'application/json', 'Origin': dashboard.origin})
+        request = Request(dashboard.origin + path,
+            data=None if data is None else json.dumps(data).encode(), headers=headers,
+            method='GET' if data is None else 'POST')
+        try:
+            with urlopen(request, timeout=5) as response:
+                raw = response.read(1048577)
+                if len(raw) > 1048576:
+                    raise ValueError('Recovery dashboard response exceeded the fixture bound')
+                return response.status, json.loads(raw)
+        except HTTPError as error:
+            try:
+                raw = error.read(1048577)
+                if len(raw) > 1048576:
+                    raise ValueError('Recovery dashboard error exceeded the fixture bound')
+                return error.code, json.loads(raw)
+            finally:
+                error.close()
+
+    task = ('After I enter the USB passphrase, Argos is at the desktop but paired SSH is inactive. '
+            'Restore access with as few manual steps as safely possible.')
+    criteria = ('If the signed status permits recovery, request only the dashboard approval. '
+                'After approval, verify the same boot and report ready only from a fresh signed receipt.')
+
+    def campaign():
+        with patch.object(proctor_service.startup, 'source', side_effect=source), \
+             patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
+             patch.object(proctor_service.owned_gateway, 'environment', side_effect=observed_environment), \
+             patch.dict(os.environ, {'PATH': str(cli.resolve().parent) + os.pathsep + os.environ['PATH']}):
+            return proctor_service.run_improvement(home, owner_task=task,
+                success_criteria=criteria, ssh_status_provider=recovery.proctor_status,
+                ssh_status_verifier=recovery.verify_proctor_status, executable=str(cli.resolve()))
+
+    def result_facts(value):
+        campaign_result = value.get('campaign', {}) if isinstance(value, dict) else {}
+        outcomes = campaign_result.get('tool_outcomes', []) if isinstance(campaign_result, dict) else []
+        ssh_calls = [row for row in outcomes if isinstance(row, dict) and row.get('kind') == 'ssh_status']
+        final_text = campaign_text(value).lower()
+        return {
+            'campaign_status': campaign_result.get('status'),
+            'campaign_outcome': campaign_result.get('outcome'),
+            'saved_evaluation_count': len(campaign_result.get('saved_evaluation_ids', [])),
+            'ssh_status_tool_calls': len(ssh_calls),
+            'ssh_status_available': len(ssh_calls) == 1 and ssh_calls[0].get('status') == 'available',
+            'ask_approval': 'approve one safe ssh start' in final_text,
+            'reports_healthy': 'healthy' in final_text and 'no action' in final_text,
+            'repeats_approval': 'approve one safe ssh start' in final_text,
+            'asks_for_terminal_command': bool(re.search(
+                r'\b(?:run|type|enter|execute)\b.{0,80}\b(?:terminal|command|sudo|systemctl)\b',
+                final_text)),
+            'claims_recovered_before_approval': any(phrase in final_text for phrase in (
+                'ssh has been restarted', 'ssh is now active', 'recovery is complete',
+                'recovered successfully')),
+        }
+
+    report.parent.mkdir(parents=True, exist_ok=True)
+    receipt = {'schema': 'argos-owner-recovery-action-smoke/1', 'passed': False,
+        'measurement_boundary': 'action-capable-simulated-host', 'model_tag': model_tag,
+        'calibration_status': 'uncalibrated', 'encrypted_persistence_simulated': True,
+        'sshd_state_simulated': True, 'real_host_recovery': False, 'owner_time_measured': False}
+    try:
+        first = campaign()
+        before = result_facts(first)
+        receipt['before_approval'] = before
+        if (first.get('measurement_suite') is not None or before['campaign_outcome'] != 'task-not-measured' or
+                before['saved_evaluation_count'] != 0 or before['ssh_status_tool_calls'] != 1 or
+                not before['ssh_status_available'] or not before['ask_approval'] or
+                before['asks_for_terminal_command'] or before['claims_recovered_before_approval']):
+            raise ValueError('Real model did not make the single eligible dashboard-approval request')
+
+        code, initial = api('/api/ssh-recovery')
+        if (code != 200 or initial.get('can_restart') is not True or
+                initial.get('status', {}).get('boot_id') != boot_id or
+                initial.get('receipt', {}).get('signature_status') != 'signed'):
+            raise ValueError('Disposable dashboard did not expose one signed eligible approval')
+        approval = {'receipt_id': initial['receipt']['payload']['receipt_id'], 'boot_id': boot_id}
+        code, started = api('/api/ssh-recovery/start', approval)
+        if code != 202 or started.get('state') != 'running' or not entered.wait(2):
+            raise ValueError('Dashboard owner approval did not start the bounded recovery job')
+        duplicate_code, _ = api('/api/ssh-recovery/start', approval)
+        if duplicate_code != 409 or len(restart_calls) != 1:
+            raise ValueError('Dashboard accepted a reused approval receipt')
+        release.set()
+
+        final = None
+        for _ in range(100):
+            code, final = api('/api/ssh-recovery')
+            if (code == 200 and final.get('job', {}).get('state') == 'completed' and
+                    isinstance(final.get('job', {}).get('receipt'), dict)):
+                break
+            time.sleep(0.05)
+        if (not final or final.get('job', {}).get('state') != 'completed' or
+                final.get('job', {}).get('boot_id') != boot_id or
+                final.get('status', {}).get('boot_id') != boot_id or
+                final.get('status', {}).get('ssh_active') is not True or
+                final.get('status', {}).get('port22_listening') is not True or
+                final.get('can_restart') is not False):
+            raise ValueError('Recovery did not produce a fresh same-boot ready status')
+        operation = final['job']['receipt']
+        payload_json = json.dumps(operation['payload'], sort_keys=True,
+                                  separators=(',', ':'), ensure_ascii=True)
+        signer = recovery._signer(create=False)
+        operation_signed = bool(signer and verify_envelope({
+            'envelope_version': 'argos.proctor.envelope.v1',
+            'payload_json': payload_json, 'signature': operation['signature']},
+            signer.public_key_der))
+        if (not operation_signed or operation['payload']['status']['boot_id'] != boot_id or
+                operation['payload']['operation']['status'] != 'completed'):
+            raise ValueError('Same-boot completion receipt was not signed and verifiable')
+
+        second = campaign()
+        after = result_facts(second)
+        receipt['after_approval'] = after
+        if (second.get('measurement_suite') is not None or after['campaign_outcome'] != 'task-not-measured' or
+                after['saved_evaluation_count'] != 0 or after['ssh_status_tool_calls'] != 1 or
+                not after['ssh_status_available'] or not after['reports_healthy'] or
+                after['repeats_approval'] or after['asks_for_terminal_command'] or len(restart_calls) != 1):
+            raise ValueError('Real model did not report healthy from the fresh signed status without retry')
+        receipt.update(dashboard_approval_requests=2, accepted_dashboard_approvals=1,
+            human_owner_click_measured=False,
+            duplicate_approval_rejected=True,
+            recovery_job_completed=True, completion_receipt_signed=operation_signed,
+            same_boot_verified=True, ssh_enabled=True, ssh_active=True, listener_verified=True,
+            restart_calls=len(restart_calls), passed=True)
+    except BaseException as error:
+        receipt['failure_class'] = type(error).__name__
+        receipt['passed'] = False
+        raise
+    finally:
+        release.set()
+        recovery.close()
+        dashboard.shutdown()
+        dashboard.server_close()
+        thread.join(timeout=3)
+        report.write_text(json.dumps(receipt, indent=2) + '\n')
+    return receipt
+
+
+def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=False, form_id='pilot-a',
+        owner_recovery=False):
     if form_id not in ('pilot-a', 'composed-a'):
         raise ValueError('Choose a bundled Proctor practice form')
     scratch = Path(os.environ.get('RUNNER_TEMP', '/missing')).resolve()
@@ -190,6 +379,19 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             report.parent.mkdir(parents=True, exist_ok=True)
             report.write_text(json.dumps(failure, indent=2) + '\n')
             raise
+        recovery_receipt = None
+        if owner_recovery:
+            try:
+                recovery_receipt = run_owner_recovery(home, cli.absolute(), model_tag=model_tag,
+                    source=source, observed_environment=observed_environment,
+                    report=report.with_name('owner-recovery-real.json'))
+            except BaseException as error:
+                failure = {'schema': 'argos-owner-recovery-action-failure/1',
+                           'failure_class': type(error).__name__,
+                           'practice_only': False, 'image_acceptance': False}
+                report.with_name('owner-recovery-failure.json').write_text(
+                    json.dumps(failure, indent=2) + '\n')
+                raise
         root = home / '.local/state/argos-live/proctor'
         import sqlite3
         from contextlib import closing
@@ -210,6 +412,7 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             'practice_only': True, 'calibration_status': 'uncalibrated',
             'host_turns': result['host_turns'],
             'requested_temperature': config['models']['providers']['ollama']['models'][0].get('params', {}).get('temperature'),
+            'owner_recovery_action_smoke': recovery_receipt,
             'image_acceptance': False}
         turn = json.loads((home / '.local/state/argos-live/workload/controller-turn.json').read_text())
         receipt['tool_kinds'] = [row['kind'] for row in turn.get('tools', [])
@@ -277,6 +480,9 @@ if __name__ == '__main__':
     parser.add_argument('--model-tag', required=True)
     parser.add_argument('--deterministic-profile', action='store_true')
     parser.add_argument('--form', choices=('pilot-a', 'composed-a'), default='pilot-a')
+    parser.add_argument('--owner-recovery', action='store_true',
+                        help='Run a real-model disposable signed-status and one-click recovery exercise')
     args = parser.parse_args()
     run(args.openclaw, args.ollama, args.model_store, args.model_tag, args.report,
-        deterministic_profile=args.deterministic_profile, form_id=args.form)
+        deterministic_profile=args.deterministic_profile, form_id=args.form,
+        owner_recovery=args.owner_recovery)
