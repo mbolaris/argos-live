@@ -147,7 +147,7 @@ def campaign_text(result):
                       if isinstance(row, dict) and isinstance(row.get('text'), str))[:16384]
 
 
-def run_owner_recovery(home, cli, *, model_tag, source, observed_environment, report):
+def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environment, report):
     """Run a real-model, disposable status -> owner approval -> verify exercise."""
     boot_id = '00000000-0000-4000-8000-000000000001'
     current = {'schema': ssh_recovery.STATUS_SCHEMA, 'boot_id': boot_id,
@@ -211,7 +211,7 @@ def run_owner_recovery(home, cli, *, model_tag, source, observed_environment, re
         with patch.object(proctor_service.startup, 'source', side_effect=source), \
              patch.object(auto_setup, 'PLUGIN_ROOT', str(ROOT / 'openclaw-plugin/argos-improve')), \
              patch.object(proctor_service.owned_gateway, 'environment', side_effect=observed_environment), \
-             patch.dict(os.environ, {'PATH': str(cli.resolve().parent) + os.pathsep + os.environ['PATH']}):
+             patch.dict(os.environ, {'PATH': str(ollama.resolve().parent) + os.pathsep + os.environ['PATH']}):
             return proctor_service.run_improvement(home, owner_task=task,
                 success_criteria=criteria, ssh_status_provider=recovery.proctor_status,
                 ssh_status_verifier=recovery.verify_proctor_status, executable=str(cli.resolve()))
@@ -382,7 +382,7 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         recovery_receipt = None
         if owner_recovery:
             try:
-                recovery_receipt = run_owner_recovery(home, cli.absolute(), model_tag=model_tag,
+                recovery_receipt = run_owner_recovery(home, cli.absolute(), ollama.absolute(), model_tag=model_tag,
                     source=source, observed_environment=observed_environment,
                     report=report.with_name('owner-recovery-real.json'))
             except BaseException as error:
