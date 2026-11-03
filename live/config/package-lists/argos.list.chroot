@@ -3,6 +3,7 @@ linux-headers-amd64
 live-boot
 live-config
 systemd-sysv
+systemd-timesyncd
 xfce4
 xfce4-screensaver
 lightdm

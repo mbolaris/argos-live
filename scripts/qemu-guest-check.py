@@ -28,6 +28,30 @@ def main():
         globals()['ARGOS_C3_LAST_STAGE'] = name
         print('ARGOS_C3_STAGE ' + name, flush=True)
     stage('desktop')
+    # Keep LAN boots from relying on a manually repaired RTC. The offline CI
+    # guest proves the service is installed, enabled, and non-blocking; actual
+    # NTP synchronization is verified on a networked physical boot.
+    timesync_binary = Path('/usr/lib/systemd/systemd-timesyncd')
+    if not timesync_binary.is_file():
+        raise ValueError('systemd-timesyncd is missing from the image')
+    timesync_enabled = subprocess.run(['systemctl', 'is-enabled', 'systemd-timesyncd.service'],
+                                      capture_output=True, text=True, timeout=10)
+    if timesync_enabled.returncode or timesync_enabled.stdout.strip() != 'enabled':
+        raise ValueError('systemd-timesyncd is not enabled at boot')
+    timesync_active = subprocess.run(['systemctl', 'is-active', 'systemd-timesyncd.service'],
+                                     capture_output=True, text=True, timeout=10)
+    if timesync_active.returncode or timesync_active.stdout.strip() != 'active':
+        raise ValueError('systemd-timesyncd is not running in the offline boot')
+    timesync_user = subprocess.run(['getent', 'passwd', 'systemd-timesync'],
+                                   capture_output=True, text=True, timeout=10)
+    if timesync_user.returncode or not timesync_user.stdout.startswith('systemd-timesync:'):
+        raise ValueError('systemd-timesync service account is missing')
+    timesync_unit = subprocess.run(['systemctl', 'cat', 'systemd-timesyncd.service'],
+                                   capture_output=True, text=True, timeout=10)
+    if (timesync_unit.returncode or
+            'ExecStartPre=+/usr/bin/systemd-sysusers /usr/lib/sysusers.d/systemd-timesync.conf'
+            not in timesync_unit.stdout):
+        raise ValueError('systemd-timesync account migration is not installed')
     deadline = time.monotonic() + 180
     while subprocess.run(['pgrep', '-u', 'argos', '-x', 'xfce4-session'], stdout=subprocess.DEVNULL).returncode:
         if time.monotonic() >= deadline:
