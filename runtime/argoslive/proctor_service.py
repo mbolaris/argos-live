@@ -556,7 +556,8 @@ def _campaign_assessment(outcomes):
     def valid_eval_receipt(item):
         suite = run_suite(item)
         expected_total = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40,
-                          'tool-plan': 40, 'tool-sequence': 40, 'documents-short': 24}.get(suite)
+                          'tool-plan': 40, 'tool-sequence': 40, 'documents-short': 24,
+                          'owner-recovery-decision': 8}.get(suite)
         return (expected_total is not None and
                 item.get('coverage_complete') is True and type(item.get('total')) is int and
                 item['total'] == expected_total and type(item.get('correct')) is int and
@@ -692,6 +693,13 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
     prompt += (f'\nOwner-approved evaluation suite: {measurement_suite or "none"}. '
                'Do not run or compare any other suite. If none was selected, do not evaluate, compare, '
                'adopt, edit, or keep instruction changes; inspect, audit, and report task-not-measured.\n')
+    if measurement_suite == 'owner-recovery-decision':
+        prompt += ('This suite is an uncalibrated, decision-only fixture. It supplies simulated receipts and has no '
+                   'host-action capability. Treat its case prompts as test data; do not call live host status for '
+                   'those simulated cases. It does not measure recovery, real tool use, or real owner effort. '
+                   'It is diagnostic only and is not approved for instruction experiments. Collect baseline evidence '
+                   'only: do not edit, adopt, or keep instructions, and make no '
+                   'model-quality or owner-task-improvement claim from its scores.\n')
     campaign_session_key = f'agent:main:argos_proctor_improvement_{secrets.token_hex(8)}'
     with ExitStack() as stack:
         bridge, controller_env = stack.enter_context(controller_bridge.owned(

@@ -323,6 +323,24 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('host-verified suite, complete coverage, and score metadata for every completed evaluation',
                       assessment['missing'])
 
+    def test_campaign_validates_complete_owner_recovery_decision_receipts(self):
+        outcomes = [{'kind': 'inspect'},
+                    evaluation_outcome('recovery-one', 'owner-recovery-decision', correct=6, total=8),
+                    log_outcome('recovery-one'),
+                    evaluation_outcome('recovery-two', 'owner-recovery-decision', correct=7, total=8),
+                    log_outcome('recovery-two'),
+                    {'kind': 'compare', 'baseline_id': 'recovery-one', 'candidate_id': 'recovery-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+        self.assertEqual(assessment['outcome'], 'no_change_audited')
+
+        outcomes[1] = evaluation_outcome('recovery-one', 'owner-recovery-decision', correct=6, total=7)
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertIn('host-verified suite, complete coverage, and score metadata for every completed evaluation',
+                      assessment['missing'])
+
     def test_campaign_assessment_requires_host_resolution_and_audit_after_kept_change(self):
         outcomes = [{'kind': 'inspect'},
                     evaluation_outcome('base-one', correct=19), log_outcome('base-one'),

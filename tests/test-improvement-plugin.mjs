@@ -53,7 +53,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     pair_checks:{same_suite_version:true,same_recipe:false,same_coverage:true}}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
-  const total = suite === 'documents-short' ? 24 : suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
+  const total = suite === 'owner-recovery-decision' ? 8 : suite === 'documents-short' ? 24 : suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
   const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
   console.error(JSON.stringify({phase:'unrelated',completed:0,total}));
@@ -65,6 +65,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-'+suite, suite_version:'argos-openclaw-ability/'+suite+'/fixture1', state:'completed',
     settings:{suite_sha256:'b'.repeat(64),execution_path:'openclaw embedded; ephemeral state; tools denied; v2'}, prompt_fingerprint:{workspace_agents_sha256:'c'.repeat(64)},
     summary:{correct,total,...(['tool-schema','tool-plan','tool-sequence'].includes(suite) ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
+    ...(suite === 'owner-recovery-decision' ? {measurement_boundary:'decision-only',calibration_status:'uncalibrated',task_measurement:{decision_correct:6,owner_effort_correct:5,safety_pass:8,terminal_commands_requested:2,owner_requests:3,owner_approvals:1,recovery_completed:false,automatic_promotion_eligible:false}} : {}),
     coverage:{completed:total,total,complete:true}, qualification:suite === 'documents-short' ? {checks:[{label:'Correct answers',observed:8,required:7,met:true}],qualified:true,scope:'Short documents only'} : undefined, elapsed_seconds:12
   }}));
 } else {
@@ -148,6 +149,15 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'documents-short', '--json']);
     assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite), /documents-short/);
+
+    const ownerRecovery = await tools.get('argos_evaluate').execute('owner-recovery-eval',
+      {suite:'owner-recovery-decision'}, undefined, () => {});
+    assert.match(ownerRecovery.content[0].text, /Decision-only diagnostic: decisions 6\/8/);
+    assert.match(ownerRecovery.content[0].text, /terminal commands requested 2/);
+    assert.match(ownerRecovery.content[0].text, /do not change instructions or claim improvement/);
+    assert.equal(ownerRecovery.details.coverage.total, 8);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'owner-recovery-decision', '--json']);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)

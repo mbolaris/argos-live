@@ -11,7 +11,7 @@ import signal
 import threading
 import time
 
-from . import ability, doc_trial, hw
+from . import ability, doc_trial, hw, owner_recovery_eval
 from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
 from .results import Store
@@ -21,7 +21,7 @@ from .workload import Busy, reserve
 
 PROTECTED_LIMIT = 1024 ** 2
 SUITES = ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
-          'documents-short')
+          'documents-short', owner_recovery_eval.SUITE)
 
 
 def suite_content(suite):
@@ -32,6 +32,10 @@ def suite_content(suite):
         items = [item for item in data['items'] if item.get('scored') is True]
         omitted = list(data['omitted_categories']) + ['owner-judged-summaries']
         return data, items, path, omitted
+    if suite == owner_recovery_eval.SUITE:
+        data = owner_recovery_eval.load()
+        path = owner_recovery_eval.DATA
+        return data, data['items'], path, data['omitted_categories']
     data = ability.load(suite)
     return data, data['items'], ability.DATA / (suite + '.json'), data['omitted_categories']
 
@@ -162,7 +166,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     try:
         for index, task in enumerate(tasks, 1):
             item_id = task['id']
-            item_category = task['category'] if suite == 'documents-short' else task['scorer']['kind']
+            item_category = (task['category'] if suite in ('documents-short', owner_recovery_eval.SUITE)
+                             else task['scorer']['kind'])
             protect(item_id)
             item_started = clock()
             if progress:
@@ -175,13 +180,14 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                     raise
                 # The assistant ran but produced no usable answer: score it as a
                 # wrong answer and keep going instead of voiding the whole run.
-                scored = (doc_trial.score(task, '') if suite == 'documents-short'
-                          else ability.score(task, ''))
+                scored = (doc_trial.score(task, '') if suite == 'documents-short' else
+                          owner_recovery_eval.score(task, '') if suite == owner_recovery_eval.SUITE else
+                          ability.score(task, ''))
                 scored.update(category=task['scorer']['kind'], output='', output_truncated=False,
                               no_reply=True, latency_seconds=max(0, clock() - item_started),
                               measurement={'source': 'OpenClaw CLI elapsed time', 'elapsed_seconds': None},
                               session_id=None)
-                if suite == 'documents-short':
+                if suite in ('documents-short', owner_recovery_eval.SUITE):
                     scored['category'] = item_category
                 elif task['scorer'].get('partition') in ('practice', 'heldout'):
                     scored['partition'] = task['scorer']['partition']
@@ -199,10 +205,12 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                 result['settings']['assistant_model'] = identity
             elif result['model'] != identity:
                 raise TrialTurnError('model-mismatch')
-            scored = (doc_trial.score(task, answer['text']) if suite == 'documents-short'
-                      else ability.score(task, answer['text']))
+            scored = (doc_trial.score(task, answer['text']) if suite == 'documents-short' else
+                      owner_recovery_eval.score(task, answer['text']) if suite == owner_recovery_eval.SUITE else
+                      ability.score(task, answer['text']))
             scored.update(
-                category=item_category if suite == 'documents-short' else task['scorer']['kind'],
+                category=item_category if suite in ('documents-short', owner_recovery_eval.SUITE)
+                else task['scorer']['kind'],
                 output=answer['text'][:8192],
                 output_truncated=len(answer['text'].encode('utf-8')) > 8192,
                 latency_seconds=max(0, clock() - item_started),
@@ -249,6 +257,10 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     if suite == 'documents-short':
         result['qualification'] = doc_trial.qualify(
             result['items'], data['criteria'], complete=result['coverage']['complete'])
+    elif suite == owner_recovery_eval.SUITE:
+        result['measurement_boundary'] = owner_recovery_eval.BOUNDARY
+        result['calibration_status'] = data['calibration_status']
+        result['task_measurement'] = owner_recovery_eval.summarize(result['items'])
     return result
 
 

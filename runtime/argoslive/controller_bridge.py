@@ -30,7 +30,7 @@ PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
 EVALUATION_WAIT_SECONDS = 480
 TASK_CAMPAIGN_SUITES = frozenset({
     'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
-    'documents-short'})
+    'documents-short', 'owner-recovery-decision'})
 MAX_WORKER_TURN_RECORDS = 32
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
@@ -241,6 +241,10 @@ class Bridge:
             if params.get('suite', 'quick') != suite:
                 raise ValueError('Evaluation must use the exact suite selected by the owner')
             return
+        if suite == 'owner-recovery-decision' and (
+                kind in {'edit', 'adopt'} or
+                kind == 'resolve' and params.get('action') != 'restore'):
+            raise ValueError('Decision-only owner recovery evidence cannot authorize instruction changes')
         if kind == 'resolve' and params.get('action') == 'restore':
             return
         if kind not in {'compare', 'edit', 'resolve', 'adopt'}:
@@ -453,7 +457,8 @@ class Bridge:
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
                    'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40,
                                               'tool-schema': 40, 'tool-plan': 40,
-                                              'tool-sequence': 40, 'documents-short': 24}[
+                                              'tool-sequence': 40, 'documents-short': 24,
+                                              'owner-recovery-decision': 8}[
                        params.get('suite', 'quick')], 'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
             self.evaluation_job = job

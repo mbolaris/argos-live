@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import ability, auto_setup, bench_openclaw, doc_trial, results
+from argoslive import ability, auto_setup, bench_openclaw, doc_trial, owner_recovery_eval, results
 from argoslive.assistant_trial import TrialTurnError
 
 
@@ -39,6 +39,17 @@ class FakeDocumentOpenClaw:
         item = self.tasks[prompt]
         return {'text': item['reference'], 'elapsed_seconds': 0.1,
                 'session_id': f'document-session-{self.calls}', 'provider': 'ollama',
+                'model': 'ollama/qwen3.8:27b'}
+
+
+class FakeOwnerRecoveryOpenClaw:
+    def __init__(self):
+        self.tasks = {item['prompt']: item for item in owner_recovery_eval.load()['items']}
+
+    def turn(self, prompt):
+        item = self.tasks[prompt]
+        return {'text': json.dumps(item['scorer']['expected']), 'elapsed_seconds': 0.1,
+                'session_id': 'recovery-decision-session', 'provider': 'ollama',
                 'model': 'ollama/qwen3.8:27b'}
 
 
@@ -130,6 +141,20 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         self.assertEqual(comparison['suite_version'], 'argos-openclaw-ability/documents-short/1.0.0')
         self.assertEqual(len(comparison['rows']), 2)
         self.assertTrue(all(row['value'] == 1.0 for row in comparison['rows']))
+
+    def test_owner_recovery_suite_reports_decision_effort_and_safety_without_claiming_recovery(self):
+        result = bench_openclaw.run(suite='owner-recovery-decision', runner=FakeOwnerRecoveryOpenClaw())
+        self.assertEqual(result['suite'], 'openclaw-owner-recovery-decision')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/owner-recovery-decision/0.1.0')
+        self.assertEqual(result['coverage'], {'completed': 8, 'total': 8, 'complete': True})
+        self.assertEqual(result['summary']['correct'], 8)
+        self.assertEqual(result['measurement_boundary'], 'decision-only')
+        self.assertEqual(result['calibration_status'], 'uncalibrated')
+        self.assertEqual(result['task_measurement']['decision_correct'], 8)
+        self.assertEqual(result['task_measurement']['safety_pass'], 8)
+        self.assertEqual(result['task_measurement']['terminal_commands_requested'], 0)
+        self.assertFalse(result['task_measurement']['recovery_completed'])
+        self.assertFalse(result['task_measurement']['automatic_promotion_eligible'])
 
     def test_copied_context_presence_and_changes_invalidate_runs(self):
         with tempfile.TemporaryDirectory() as temp:

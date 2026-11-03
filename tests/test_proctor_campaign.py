@@ -99,6 +99,8 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(proctor_campaign.Refused, 'under 1,200 characters'):
             self.controller.start('x' * 1201, 'ready')
         self.assertEqual(proctor_campaign.validate_measurement_suite('documents-short'), 'documents-short')
+        self.assertEqual(proctor_campaign.validate_measurement_suite('owner-recovery-decision'),
+                         'owner-recovery-decision')
         with self.assertRaises(proctor_campaign.Refused):
             proctor_campaign.validate_measurement_suite('documents-long')
         self.assertFalse(self.startup.lab_active)
@@ -108,6 +110,7 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         dashboard = (Path(__file__).resolve().parents[1] /
                      'runtime/argoslive/web/static/index.html').read_text(encoding='utf-8')
         self.assertIn('value="documents-short"', dashboard)
+        self.assertIn('value="owner-recovery-decision"', dashboard)
         self.assertIn('Read this brief” covers only its short passages', dashboard)
         self.assertIn('does not measure long-document or file-reading work', dashboard)
 

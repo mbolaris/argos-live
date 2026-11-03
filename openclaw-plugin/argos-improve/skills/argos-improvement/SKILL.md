@@ -34,6 +34,11 @@ establish owner-task improvement or general ability. The tool creates a
 tool-free embedded OpenClaw turn with temporary state and copied instructions
 for each fixed task, and saves a private result. Evaluation children answer the
 task; they do not run campaign steps or use the owner's gateway/session queue.
+The `owner-recovery-decision` suite is an uncalibrated eight-case diagnostic
+with simulated receipts. It measures decision choices and requested owner-step
+counts, not real tools, recovery, or owner time. Treat it as baseline-only;
+do not change instructions or claim improvement from it. The host refuses
+instruction edits or keeps in campaigns that select this suite.
 Each tool wait is bounded to eight minutes. If `argos_evaluate` returns a running
 job, use `argos_evaluate_wait` with its job ID until the saved result is returned.
 If a turn ends before returning the job ID, use `argos_evaluate_status` to find

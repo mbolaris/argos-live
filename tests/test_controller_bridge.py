@@ -45,6 +45,19 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertFalse(bridge.events.exists())
             parent.complete()  # No SDK worker or inference was started in this fixture.
 
+    def test_decision_only_suite_cannot_authorize_instruction_changes(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:owner-campaign', task_campaign=True,
+                owner_task_suite='owner-recovery-decision')
+            bridge._validate_task_scope('evaluation', {'suite':'owner-recovery-decision'})
+            bridge._validate_task_scope('resolve', {'action':'restore'})
+            for kind, params in (('edit', {}), ('adopt', {}), ('resolve', {'action':'keep'})):
+                with self.subTest(kind=kind, params=params), self.assertRaisesRegex(
+                        ValueError, 'cannot authorize instruction changes'):
+                    bridge._validate_task_scope(kind, params)
+            parent.complete()
+
     def test_signed_ssh_status_is_read_only_and_campaign_scoped(self):
         status = {'schema': 'argos-ssh-status/1', 'boot_id': 'a' * 36,
                   'persistence_state': 'verified', 'paired_policy_valid': True,
