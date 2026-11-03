@@ -52,6 +52,7 @@ systemctl enable argos-shutdown-root.service
 # The unit's read-only gate refuses guest/unpaired/unsafe configurations.
 systemctl disable ssh.socket 2>/dev/null || true
 systemctl enable ssh.service
+systemctl enable systemd-timesyncd.service
 systemctl enable argos-refresh-runtime.service
 # Allow only the two fixed, argument-free helpers. The restart helper repeats
 # the complete encrypted-persistence and paired-policy preflight itself.

@@ -13,6 +13,43 @@ spec.loader.exec_module(cli)
 
 
 class RuntimePackageTests(unittest.TestCase):
+    def test_image_installs_and_enables_non_blocking_network_time_sync(self):
+        packages = (ROOT / 'live/config/package-lists/argos.list.chroot').read_text()
+        self.assertIn('\nsystemd-timesyncd\n', '\n' + packages)
+        hook = (ROOT / 'live/config/hooks/live/010-argos.hook.chroot').read_text()
+        self.assertIn('systemctl enable systemd-timesyncd.service', hook)
+        dropin = (ROOT / 'live/config/includes.chroot/etc/systemd/system/'
+                  'systemd-timesyncd.service.d/10-argos-sysusers.conf').read_text()
+        self.assertIn('ExecStartPre=+/usr/bin/systemd-sysusers '
+                      '/usr/lib/sysusers.d/systemd-timesync.conf', dropin)
+        guest_check = (ROOT / 'scripts/qemu-guest-check.py').read_text()
+        self.assertIn("systemctl', 'is-enabled', 'systemd-timesyncd.service'", guest_check)
+        self.assertIn("systemctl', 'is-active', 'systemd-timesyncd.service'", guest_check)
+        self.assertIn("'getent', 'passwd', 'systemd-timesync'", guest_check)
+        self.assertNotIn('systemd-time-wait-sync.service', hook + guest_check)
+
+    @unittest.skipUnless(shutil.which('systemd-sysusers'),
+                         'Persistent-account migration fixture requires systemd-sysusers')
+    def test_sysusers_recreates_missing_account_from_older_persistent_etc(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            etc = root / 'etc'
+            etc.mkdir()
+            (etc / 'passwd').write_text(
+                'root:x:0:0:root:/root:/bin/sh\n'
+                'argos:x:1000:1000:Argos:/home/argos:/bin/bash\n')
+            (etc / 'group').write_text('root:x:0:\nargos:x:1000:\n')
+            (etc / 'shadow').write_text('root:*:19700:0:99999:7:::\n')
+            result = subprocess.run(
+                [shutil.which('systemd-sysusers'), f'--root={root}', '--inline',
+                 'u! systemd-timesync - "systemd Time Synchronization"'],
+                capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            self.assertRegex((etc / 'passwd').read_text(), r'(?m)^systemd-timesync:[^\n]+$',
+                             'service user was not recreated in persistent /etc/passwd')
+            self.assertRegex((etc / 'group').read_text(), r'(?m)^systemd-timesync:[^\n]+$',
+                             'service group was not recreated in persistent /etc/group')
+
     def test_checkout_and_installed_paths(self):
         self.assertEqual(cli.runtime_package_path(), ROOT / 'runtime')
         with tempfile.TemporaryDirectory() as directory:
