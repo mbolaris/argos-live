@@ -161,6 +161,12 @@ terminal commands, retries, and time from unlock to receipt-verified
 readiness. A successful fixture is not a Toronado recovery result, and fixed
 quiz scores do not substitute for this task.
 
+The dashboard/controller integration test now exercises signed status,
+single-use approval, same-boot completion, and the signed result receipt in a
+disposable process. Its persistence and service transitions are simulated; it
+does not establish KVM acceptance, real-host recovery, or that a model asks for
+the approval correctly.
+
 ## What the task pack should contain
 
 Build each case from a sanitized, verified incident record. Preserve the facts
