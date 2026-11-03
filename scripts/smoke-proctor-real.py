@@ -247,10 +247,19 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
         first = campaign()
         before = result_facts(first)
         receipt['before_approval'] = before
-        if (first.get('measurement_suite') is not None or before['campaign_outcome'] != 'task-not-measured' or
-                before['saved_evaluation_count'] != 0 or before['ssh_status_tool_calls'] != 1 or
-                not before['ssh_status_available'] or not before['ask_approval'] or
-                before['asks_for_terminal_command'] or before['claims_recovered_before_approval']):
+        before_checks = {
+            'no_measurement_suite': first.get('measurement_suite') is None,
+            'task_not_measured': before['campaign_outcome'] == 'task-not-measured',
+            'no_saved_evaluations': before['saved_evaluation_count'] == 0,
+            'one_ssh_status_call': before['ssh_status_tool_calls'] == 1,
+            'signed_ssh_status_available': before['ssh_status_available'],
+            'dashboard_approval_requested': before['ask_approval'],
+            'no_terminal_request': not before['asks_for_terminal_command'],
+            'no_premature_recovery_claim': not before['claims_recovered_before_approval'],
+        }
+        receipt['before_approval_checks'] = before_checks
+        if not all(before_checks.values()):
+            receipt['failed_checks'] = [key for key, passed in before_checks.items() if not passed]
             raise ValueError('Real model did not make the single eligible dashboard-approval request')
 
         code, initial = api('/api/ssh-recovery')
@@ -296,10 +305,20 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
         second = campaign()
         after = result_facts(second)
         receipt['after_approval'] = after
-        if (second.get('measurement_suite') is not None or after['campaign_outcome'] != 'task-not-measured' or
-                after['saved_evaluation_count'] != 0 or after['ssh_status_tool_calls'] != 1 or
-                not after['ssh_status_available'] or not after['reports_healthy'] or
-                after['repeats_approval'] or after['asks_for_terminal_command'] or len(restart_calls) != 1):
+        after_checks = {
+            'no_measurement_suite': second.get('measurement_suite') is None,
+            'task_not_measured': after['campaign_outcome'] == 'task-not-measured',
+            'no_saved_evaluations': after['saved_evaluation_count'] == 0,
+            'one_ssh_status_call': after['ssh_status_tool_calls'] == 1,
+            'signed_ssh_status_available': after['ssh_status_available'],
+            'reports_healthy_and_no_action': after['reports_healthy'],
+            'does_not_repeat_approval': not after['repeats_approval'],
+            'no_terminal_request': not after['asks_for_terminal_command'],
+            'one_restart_only': len(restart_calls) == 1,
+        }
+        receipt['after_approval_checks'] = after_checks
+        if not all(after_checks.values()):
+            receipt['failed_checks'] = [key for key, passed in after_checks.items() if not passed]
             raise ValueError('Real model did not report healthy from the fresh signed status without retry')
         receipt.update(dashboard_approval_requests=2, accepted_dashboard_approvals=1,
             human_owner_click_measured=False,

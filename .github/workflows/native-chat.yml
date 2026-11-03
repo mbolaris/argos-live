@@ -133,6 +133,7 @@ jobs:
             work/native-chat.json
             work/desktop-startup.json
             work/proctor-real*.json
+            work/owner-recovery*.json
             work/tool-sequence-real.json
             work/tool-sequence-real-run.json
           if-no-files-found: error
