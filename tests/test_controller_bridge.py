@@ -310,7 +310,9 @@ class ControllerBridgeTests(unittest.TestCase):
                 bridge.dispatch({**tool, 'kind': 'exec', 'params': {'command': 'anything'}})
             self.assertEqual(bridge.active['host_tool_requests'],2)
             self.assertEqual(bridge.active['host_tool_failures'],[
-                {'kind':'log','error_class':'Busy'}, {'kind':'other','error_class':'ValueError'}])
+                {'kind':'log','error_class':'Busy','tool_stage':'admission',
+                 'tool_wait_ms':0,'recovery_required':True},
+                {'kind':'other','error_class':'ValueError'}])
             self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
 
     def test_parallel_short_host_tools_are_queued_and_still_run_one_at_a_time(self):
