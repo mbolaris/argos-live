@@ -25,12 +25,33 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Build pinned ISO in the disposable hosted runner
+      - name: Prepare pinned build tools on the disposable hosted runner
+        timeout-minutes: 120
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh 2>&1 | tee artifacts/build.log
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh host 2>&1 | tee artifacts/build.log
+      - name: Bootstrap the pinned Debian build root
+        timeout-minutes: 120
+        shell: bash
+        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh bootstrap 2>&1 | tee -a artifacts/build.log
+      - name: Install pinned build-root packages
+        timeout-minutes: 120
+        shell: bash
+        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh builder-packages 2>&1 | tee -a artifacts/build.log
+      - name: Lock runtime dependencies
+        timeout-minutes: 120
+        shell: bash
+        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh runtime 2>&1 | tee -a artifacts/build.log
+      - name: Download the pinned seed model
+        timeout-minutes: 120
+        shell: bash
+        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh seed 2>&1 | tee -a artifacts/build.log
+      - name: Build the ISO
+        timeout-minutes: 120
+        shell: bash
+        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh iso 2>&1 | tee -a artifacts/build.log
       - name: Verify artifacts and record checksum
         id: verify
         shell: bash
