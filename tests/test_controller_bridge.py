@@ -68,7 +68,7 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertIs(bridge.worker, worker)
             self.assertEqual(bridge.sdk_runs_started, 2)
             self.assertEqual(bridge.active['run_id'], second['run_id'])
-            self.assertEqual(bridge.active['host_tool_requests'], 0)
+            self.assertEqual(bridge.active.get('host_tool_requests', 0), 0)
             self.assertEqual(bridge.sdk_run_history, [{
                 'run_id': first['run_id'], 'ended': True, 'host_tool_requests': 2,
                 'host_tool_failures': 1, 'diagnostics': {

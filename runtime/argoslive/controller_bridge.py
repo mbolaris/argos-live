@@ -241,8 +241,10 @@ class Bridge:
                     return {'status': 'admitted', 'turn_token': self.active['token']}
                 campaign_prefix = 'agent:main:argos_proctor_improvement_'
                 worker_alive = self.worker is not None and self.worker.poll() is None
+                worker_session = getattr(self, 'session_id', None)
                 job = self.evaluation_job
-                if (self.active['ended'] and self.active['session_id'] == self.session_id == request['session_id'] and
+                if (self.active['ended'] and worker_session is not None and
+                        self.active['session_id'] == worker_session == request['session_id'] and
                         self.active['session_key'] == request['session_key'] == self.session_key and
                         self.active['trigger'] == request['trigger'] == self.trigger and
                         self.active['run_id'] != request['run_id'] and self.task_campaign and
