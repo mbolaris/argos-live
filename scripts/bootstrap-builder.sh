@@ -45,10 +45,28 @@ if [[ $phase == bootstrap ]]; then
 fi
 [[ -f "$root/etc/debian_version" && -f "$root/etc/apt/sources.list" ]] || { echo 'Run bootstrap phase first.' >&2; exit 1; }
 if [[ $phase == all || $phase == packages ]]; then
-apt_opts=(-o Acquire::Check-Valid-Until=false -o Acquire::Retries=8 -o Acquire::https::Timeout=30 \
+apt_opts=(-o Acquire::Check-Valid-Until=false -o Acquire::Retries=3 -o Acquire::https::Timeout=30 \
   -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::Languages=none)
-chroot "$root" apt-get "${apt_opts[@]}" update
-chroot "$root" apt-get "${apt_opts[@]}" install -y "live-build=$DEBIAN_LIVE_BUILD_VERSION" ca-certificates curl git xz-utils zstd python3
+apt_retry() {
+  local label=$1; shift
+  local attempt status delay
+  for attempt in 1 2 3; do
+    if chroot "$root" apt-get -qq "${apt_opts[@]}" "$@"; then
+      return 0
+    else
+      status=$?
+    fi
+    if (( attempt == 3 )); then
+      echo "Pinned builder apt $label failed after $attempt attempts." >&2
+      return "$status"
+    fi
+    delay=$((30 * attempt))
+    echo "Pinned builder apt $label attempt $attempt failed; retrying in ${delay}s with cached indexes/packages." >&2
+    sleep "$delay"
+  done
+}
+apt_retry update update
+apt_retry install install -y "live-build=$DEBIAN_LIVE_BUILD_VERSION" ca-certificates curl git xz-utils zstd python3
 chroot "$root" dpkg-query -W > /var/lib/argos-live/builder-packages.txt
 printf 'Builder ready: %s\n' "$root"
 fi
