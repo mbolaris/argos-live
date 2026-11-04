@@ -51,7 +51,18 @@ jobs:
       - name: Build the ISO
         timeout-minutes: 120
         shell: bash
-        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh iso 2>&1 | tee -a artifacts/build.log
+        run: |
+          set -uo pipefail
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh iso 2>&1 | tee -a artifacts/build.log &
+          build_pid=$!
+          while kill -0 "$build_pid" 2>/dev/null; do
+            sleep 45
+            if kill -0 "$build_pid" 2>/dev/null; then
+              echo 'ISO build is still active; continuing the pinned live-build stages.'
+            fi
+          done
+          if wait "$build_pid"; then status=0; else status=$?; fi
+          exit "$status"
       - name: Verify artifacts and record checksum
         id: verify
         shell: bash
