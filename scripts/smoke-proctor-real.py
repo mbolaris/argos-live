@@ -32,7 +32,8 @@ def safe_controller_diagnostics(turn):
         result['host_tool_requests'] = count
     allowed = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
                'proctor_continue', 'proctor_submit', 'proctor_feedback', 'proctor_tool_call',
-               'ssh_status'}
+               'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',
+               'inspect', 'audit', 'edit', 'resolve', 'adopt', 'ssh_status'}
     error_codes = {'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
         'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
         'INVALID_SUBMISSION_ARGUMENTS', 'ITEM_NOT_IN_MODULE', 'MODULE_NOT_RELEASED',
