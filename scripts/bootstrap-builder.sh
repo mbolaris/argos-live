@@ -46,12 +46,13 @@ fi
 [[ -f "$root/etc/debian_version" && -f "$root/etc/apt/sources.list" ]] || { echo 'Run bootstrap phase first.' >&2; exit 1; }
 if [[ $phase == all || $phase == packages ]]; then
 apt_opts=(-o Acquire::Check-Valid-Until=false -o Acquire::Retries=3 -o Acquire::https::Timeout=30 \
-  -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::Languages=none)
+  -o Acquire::http::Timeout=30 -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 \
+  -o Acquire::Languages=none -o Dpkg::Use-Pty=0)
 apt_retry() {
   local label=$1; shift
   local attempt status delay
   for attempt in 1 2 3; do
-    if chroot "$root" apt-get -qq "${apt_opts[@]}" "$@"; then
+    if DEBIAN_FRONTEND=noninteractive chroot "$root" apt-get -qq "${apt_opts[@]}" "$@"; then
       return 0
     else
       status=$?
