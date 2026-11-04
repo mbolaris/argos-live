@@ -30,6 +30,18 @@ def safe_controller_diagnostics(turn):
     count = turn.get('host_tool_requests')
     if type(count) is int and 0 <= count <= 10000:
         result['host_tool_requests'] = count
+    # Explain whether a busy admission was the first entry into this host
+    # turn or a collision with an already admitted run, without exporting the
+    # run/session identifiers from controller-turn.json.
+    if 'run_id' in turn or 'session_id' in turn:
+        trigger = turn.get('trigger')
+        result['active_turn'] = {
+            'present': isinstance(turn.get('run_id'), str) and isinstance(turn.get('session_id'), str),
+            'ended': turn.get('ended') if type(turn.get('ended')) is bool else None,
+            'trigger': trigger if trigger in {'user', 'heartbeat'} else None,
+            'campaign_session': isinstance(turn.get('session_key'), str) and
+                turn['session_key'].startswith('agent:main:argos_proctor_improvement_'),
+        }
     allowed = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
                'proctor_continue', 'proctor_submit', 'proctor_feedback', 'proctor_tool_call',
                'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',

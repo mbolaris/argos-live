@@ -50,6 +50,17 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
         self.assertEqual(result['worker_turns'][0]['hook_block_code'], 'session-binding-rejected')
         self.assertNotIn('private model output', repr(result))
 
+    def test_active_controller_diagnostic_redacts_session_identity(self):
+        result = smoke.safe_controller_diagnostics({
+            'run_id': 'private-run-id', 'session_id': 'private-session-id',
+            'session_key': 'agent:main:argos_proctor_improvement_private',
+            'trigger': 'user', 'ended': False, 'host_tool_requests': 0,
+        })
+        self.assertEqual(result['active_turn'], {
+            'present': True, 'ended': False, 'trigger': 'user', 'campaign_session': True})
+        self.assertNotIn('private-run-id', repr(result))
+        self.assertNotIn('private-session-id', repr(result))
+
     def test_real_smoke_rejects_unbundled_form_before_starting(self):
         with self.assertRaisesRegex(ValueError, 'bundled Proctor practice form'):
             smoke.run(Path('unused'), Path('unused'), Path('unused'), 'qwen3:4b',
