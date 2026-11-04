@@ -3741,10 +3741,14 @@ async function refreshAssistantTrial() {
   let value;
   try { value = await api('/api/assistant-trial'); } catch (_) { return; }
   if (epoch !== trialRequestEpoch || trialActionPending) return;
-  const previousStatus = assistantTrial?.status;
+  const commandState = trial => trial ? JSON.stringify([
+    trial.available, trial.status, trial.phase, trial.active, trial.result_state,
+    Array.isArray(trial.changes) ? trial.changes.length : 0
+  ]) : '';
+  const previousCommandState = commandState(assistantTrial);
   assistantTrial = value;
   renderAssistantTrial();
-  if (previousStatus !== value.status) await refreshCommand();
+  if (previousCommandState !== commandState(value)) await refreshCommand();
 }
 
 function renderAssistantTrial() {
@@ -4136,6 +4140,7 @@ async function trialAction(path) {
     trialRequestEpoch++;
     renderAssistantTrial();
     if (failure) note.textContent = failure;
+    await refreshCommand();
   }
 }
 
