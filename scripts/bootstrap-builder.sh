@@ -51,8 +51,8 @@ apt_opts=(-o Acquire::Check-Valid-Until=false -o Acquire::Retries=3 -o Acquire::
   -o Acquire::Languages=none -o Dpkg::Use-Pty=0)
 apt_retry() {
   local label=$1; shift
-  local attempt status delay
-  for attempt in 1 2 3; do
+  local attempt status delay max_attempts=${ARGOS_APT_ATTEMPTS:-8}
+  for ((attempt=1; attempt<=max_attempts; attempt++)); do
     DEBIAN_FRONTEND=noninteractive chroot "$root" apt-get -qq "${apt_opts[@]}" "$@" &
     local apt_pid=$!
     (
@@ -74,11 +74,12 @@ apt_retry() {
     if (( status == 0 )); then
       return 0
     fi
-    if (( attempt == 3 )); then
+    if (( attempt == max_attempts )); then
       echo "Pinned builder apt $label failed after $attempt attempts." >&2
       return "$status"
     fi
     delay=$((30 * attempt))
+    if (( delay > 120 )); then delay=120; fi
     echo "Pinned builder apt $label attempt $attempt failed; retrying in ${delay}s with cached indexes/packages." >&2
     sleep "$delay"
   done
