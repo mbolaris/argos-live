@@ -925,6 +925,12 @@ class Bridge:
                     turn_record['sdk_error_kind'] = 'incomplete_turn'
                 elif blocked_turn or blocked_campaign_admission:
                     turn_record['sdk_error_kind'] = 'hook_block'
+                if blocked_campaign_admission:
+                    hook_code = self._safe_worker_response(stdout).get('hook_block_code')
+                    if hook_code in {'host-slot-busy', 'session-binding-rejected',
+                                     'controller-request-rejected', 'invalid-admission-response',
+                                     'controller-transport', 'other-hook-block'}:
+                        turn_record['hook_block_code'] = hook_code
                 self.worker_turns.append(turn_record)
                 self.worker_turns = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
                 write_json(self.parent.path.parent / 'controller-worker.json', {

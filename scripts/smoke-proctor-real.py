@@ -89,6 +89,10 @@ def safe_controller_diagnostics(turn):
                     'host_tool_requests', 'host_tool_failures', 'response_status')}
             if row.get('sdk_error_kind') in {'incomplete_turn', 'hook_block'}:
                 safe['sdk_error_kind'] = row['sdk_error_kind']
+            if row.get('hook_block_code') in {
+                    'host-slot-busy', 'session-binding-rejected', 'controller-request-rejected',
+                    'invalid-admission-response', 'controller-transport', 'other-hook-block'}:
+                safe['hook_block_code'] = row['hook_block_code']
             safe_turns.append(safe)
         result['worker_turns'] = safe_turns
     diagnostics = turn.get('admission_diagnostics')

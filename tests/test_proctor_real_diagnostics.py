@@ -31,6 +31,17 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
             self.assertEqual(result['hook_block_code'], expected)
             self.assertNotIn(message, repr(result))
 
+    def test_safe_worker_turn_exports_only_allowlisted_hook_block_code(self):
+        base = {'turn': 1, 'outcome': 'admission-blocked', 'returncode': 1,
+                'stdout_bytes': 120, 'stderr_bytes': 0, 'process_group_drained': True,
+                'session_bound': True, 'host_tool_requests': 0, 'host_tool_failures': 0,
+                'response_status': 'error', 'sdk_error_kind': 'hook_block'}
+        result = smoke.safe_controller_diagnostics({'worker_turns': [
+            {**base, 'hook_block_code': 'session-binding-rejected'},
+            {**base, 'turn': 2, 'hook_block_code': 'private model output'}]})
+        self.assertEqual(result['worker_turns'][0]['hook_block_code'], 'session-binding-rejected')
+        self.assertNotIn('private model output', repr(result))
+
     def test_real_smoke_rejects_unbundled_form_before_starting(self):
         with self.assertRaisesRegex(ValueError, 'bundled Proctor practice form'):
             smoke.run(Path('unused'), Path('unused'), Path('unused'), 'qwen3:4b',
