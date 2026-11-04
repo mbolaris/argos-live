@@ -53,6 +53,10 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('immediately call argos_log', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('click “Approve one safe SSH start”', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('call only argos_inspect and argos_ssh_status, in that order, one at a time',
+                      proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('Do not call shell, exec, browser, filesystem, or any other tools',
+                      proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('report that SSH is already healthy and no action is needed', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('Do not ask for terminal commands, reboot, re-pairing, or manual configuration',
                       proctor_service.CAMPAIGN_MESSAGE)
