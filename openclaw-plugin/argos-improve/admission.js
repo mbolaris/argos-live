@@ -82,8 +82,14 @@ export function registerAdmission(api) {
     try {
       const value = await request({op:'begin', run_id:ctx.runId, session_id:ctx.sessionId,
         session_key:ctx.sessionKey, trigger:ctx.trigger});
-      if (value.status !== 'admitted' || typeof value.turn_token !== 'string')
-        return {outcome:'block', reason:'Host controller slot is not available'};
+      if (value.status !== 'admitted' || typeof value.turn_token !== 'string') {
+        const reason = value.status === 'busy' ? 'Host controller slot is busy' :
+          value.status === 'denied' && value.failure_code === 'session-binding'
+            ? 'Host controller rejected session binding' :
+          value.status === 'failed' ? 'Host controller request was rejected' :
+          'Host controller returned an invalid admission response';
+        return {outcome:'block', reason};
+      }
       turns.set(ctx.runId, value.turn_token);
       diagnostics.set(ctx.runId, {tool_hooks:0, bound_calls:0, executions:0,
         rejected:{unknown_tool:0, missing_admission:0, invalid_call_id:0, stale_binding:0}});

@@ -18,7 +18,10 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
         bridge = object.__new__(Bridge)
         bridge.session_id = 'session-1'
         for message, expected in (
-                ('Host controller slot is not available', 'host-slot-rejected'),
+                ('Host controller slot is busy', 'host-slot-busy'),
+                ('Host controller rejected session binding', 'session-binding-rejected'),
+                ('Host controller request was rejected', 'controller-request-rejected'),
+                ('Host controller returned an invalid admission response', 'invalid-admission-response'),
                 ('Host controller admission failed', 'controller-transport'),
                 ('private model or host content', 'other-hook-block')):
             value = {'status': 'error', 'result': {'payloads': [], 'meta': {

@@ -140,7 +140,8 @@ def safe_finish_failure(path):
             if isinstance(item, str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,96}', item):
                 safe_response[key] = item
         if response.get('hook_block_code') in {
-                'host-slot-rejected', 'controller-transport', 'other-hook-block'}:
+                'host-slot-busy', 'session-binding-rejected', 'controller-request-rejected',
+                'invalid-admission-response', 'controller-transport', 'other-hook-block'}:
             safe_response['hook_block_code'] = response['hook_block_code']
         for key in ('payload_count',):
             item = response.get(key)

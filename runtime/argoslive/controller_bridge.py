@@ -44,6 +44,10 @@ PROCTOR_ERROR_CODES = frozenset({
 })
 
 
+class AdmissionDenied(ValueError):
+    """The managed worker identity did not match its host-created scope."""
+
+
 def identity(value):
     return isinstance(value, str) and bool(re.fullmatch(r'[A-Za-z0-9_.:-]{1,256}', value))
 
@@ -222,7 +226,7 @@ class Bridge:
     def begin(self, request):
         if (not identity(request.get('run_id')) or not identity(request.get('session_id')) or
                 request.get('session_key') != self.session_key or request.get('trigger') != self.trigger):
-            raise ValueError('Controller session was not authorized by its host')
+            raise AdmissionDenied('Controller session was not authorized by its host')
         with self.lock:
             if self.closed or self.uncertain:
                 raise workload.Busy(recovery=self.uncertain)
@@ -1060,8 +1064,14 @@ class Bridge:
                 message = error.get('message')
                 # Export only a closed set of admission diagnoses. The raw SDK
                 # message may contain private prompt or host data.
-                if message == 'Host controller slot is not available':
-                    result['hook_block_code'] = 'host-slot-rejected'
+                if message == 'Host controller slot is busy':
+                    result['hook_block_code'] = 'host-slot-busy'
+                elif message == 'Host controller rejected session binding':
+                    result['hook_block_code'] = 'session-binding-rejected'
+                elif message == 'Host controller request was rejected':
+                    result['hook_block_code'] = 'controller-request-rejected'
+                elif message == 'Host controller returned an invalid admission response':
+                    result['hook_block_code'] = 'invalid-admission-response'
                 elif message == 'Host controller admission failed':
                     result['hook_block_code'] = 'controller-transport'
                 else:
@@ -1305,6 +1315,8 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                     response = bridge.dispatch(request, on_update=progress if work_bearing else None)
                 except workload.Busy as error:
                     response = {'status': 'busy', 'recovery_required': error.recovery}
+                except AdmissionDenied:
+                    response = {'status': 'denied', 'failure_code': 'session-binding'}
                 except (ValueError, KeyError, TypeError, OSError):
                     response = {'status': 'failed', 'message': 'Controller bridge request failed'}
                 try:

@@ -365,8 +365,9 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
       const value = JSON.parse(raw);
       requests.push(value);
       let response;
-      if (value.op === 'begin') response = requests.length === 1 ?
-        {status:'admitted',turn_token:'fictional-turn'} : {status:'busy'};
+      if (value.op === 'begin') response = value.run_id === 'run-binding' ?
+        {status:'denied',failure_code:'session-binding'} : requests.length === 1 ?
+          {status:'admitted',turn_token:'fictional-turn'} : {status:'busy'};
       else if (value.op === 'tool') {
         socket.write(JSON.stringify({status:'progress',progress:{phase:'asking',completed:0,total:20}}) + '\n');
         response = {status:'completed',value:{status:'appended'}};
@@ -414,7 +415,10 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.deepEqual(requests[3].params,{});
     assert.equal(requests[4].kind,'adopt');
     assert.deepEqual(requests[4].params,adoption);
-    assert.equal((await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'})).outcome,'block');
+    const busy = await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'});
+    assert.deepEqual(busy,{outcome:'block',reason:'Host controller slot is busy'});
+    const rejected = await hooks.get('before_agent_run')({}, {...ctx,runId:'run-binding'});
+    assert.deepEqual(rejected,{outcome:'block',reason:'Host controller rejected session binding'});
     assert.ok(requests.every((value) => value.auth === 'fictional-bridge-secret'));
   } finally {
     if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET;
