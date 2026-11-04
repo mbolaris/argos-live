@@ -19,7 +19,9 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
         turn = {
             'host_tool_requests': 3,
             'host_tool_failures': [
-                {'kind': 'proctor_item', 'error_class': 'ValueError', 'message': 'private raw error'},
+                {'kind': 'inspect', 'error_class': 'Busy', 'tool_stage': 'workload-child',
+                 'tool_wait_ms': 218, 'recovery_required': False,
+                 'message': 'private raw error'},
                 {'kind': 'proctor_answer', 'error_class': 'ProctorError',
                  'error_code': 'INVALID_ANSWER_FORMAT'},
                 {'kind': 'proctor_answer', 'error_class': 'ProctorError',
@@ -58,7 +60,8 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
         result = smoke.safe_controller_diagnostics(turn)
         self.assertEqual(result['host_tool_requests'], 3)
         self.assertEqual(result['host_tool_failures'], [
-            {'kind': 'proctor_item', 'error_class': 'ValueError'},
+            {'kind': 'inspect', 'error_class': 'Busy', 'tool_stage': 'workload-child',
+             'tool_wait_ms': 218, 'recovery_required': False},
             {'kind': 'proctor_answer', 'error_class': 'ProctorError',
              'error_code': 'INVALID_ANSWER_FORMAT'},
             {'kind': 'proctor_answer', 'error_class': 'ProctorError'}])
@@ -83,11 +86,15 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
     def test_malformed_or_unbounded_diagnostics_are_omitted(self):
         result = smoke.safe_controller_diagnostics({
             'host_tool_requests': True,
-            'host_tool_failures': 'not-a-list',
+            'host_tool_failures': [
+                {'kind': 'inspect', 'error_class': 'Busy', 'tool_stage': 'private stage',
+                 'tool_wait_ms': 120001, 'recovery_required': 1},
+            ],
             'tools': None,
             'admission_diagnostics': {'tool_hooks': -1},
         })
-        self.assertEqual(result, {})
+        self.assertEqual(result, {'host_tool_failures': [
+            {'kind': 'inspect', 'error_class': 'Busy'}]})
 
     def test_worker_turn_diagnostics_drop_unbounded_or_malformed_rows(self):
         result = smoke.safe_controller_diagnostics({'worker_turns': [

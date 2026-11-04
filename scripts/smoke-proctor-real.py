@@ -48,6 +48,13 @@ def safe_controller_diagnostics(turn):
                     not isinstance(row.get('error_class'), str) or len(row['error_class']) > 64):
                 continue
             failure = {'kind': row['kind'], 'error_class': row['error_class']}
+            if row.get('tool_stage') in {'tool-lock-timeout', 'admission', 'job-exclusion',
+                                         'host-operation', 'workload-child'}:
+                failure['tool_stage'] = row['tool_stage']
+            if type(row.get('tool_wait_ms')) is int and 0 <= row['tool_wait_ms'] <= 120000:
+                failure['tool_wait_ms'] = row['tool_wait_ms']
+            if type(row.get('recovery_required')) is bool:
+                failure['recovery_required'] = row['recovery_required']
             if row.get('kind') == 'proctor_answer' and row.get('error_code') in error_codes:
                 failure['error_code'] = row['error_code']
             safe_failures.append(failure)

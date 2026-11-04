@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 
 from . import workload, instruction_changes, ssh_recovery
@@ -200,6 +201,16 @@ class Bridge:
                         failures = self.active.setdefault('host_tool_failures', [])
                         if len(failures) < 32:
                             failure = {'kind': safe_kind, 'error_class': type(error).__name__}
+                            stage = getattr(error, 'tool_stage', None)
+                            if stage in {'tool-lock-timeout', 'admission', 'job-exclusion',
+                                         'host-operation', 'workload-child'}:
+                                failure['tool_stage'] = stage
+                            wait_ms = getattr(error, 'tool_wait_ms', None)
+                            if type(wait_ms) is int and 0 <= wait_ms <= 120000:
+                                failure['tool_wait_ms'] = wait_ms
+                            recovery = getattr(error, 'recovery', None)
+                            if type(recovery) is bool:
+                                failure['recovery_required'] = recovery
                             code = getattr(error, 'code', None)
                             if safe_kind in PROCTOR_TOOLS and code in PROCTOR_ERROR_CODES:
                                 failure['error_code'] = code
@@ -275,8 +286,14 @@ class Bridge:
         # (for example inspect + audit) still run one at a time. Keep the queue
         # bounded: a long evaluation or a stuck child must not hold a later
         # request indefinitely, and the parent workload lock remains exclusive.
+        wait_started = time.monotonic()
         if not self.tool_lock.acquire(timeout=TOOL_QUEUE_WAIT_SECONDS):
-            raise workload.Busy()
+            error = workload.Busy()
+            error.tool_stage = 'tool-lock-timeout'
+            error.tool_wait_ms = min(120000, max(0, int((time.monotonic() - wait_started) * 1000)))
+            raise error
+        tool_wait_ms = min(120000, max(0, int((time.monotonic() - wait_started) * 1000)))
+        tool_stage = 'admission'
         try:
             with self.lock:
                 self.check_turn(request)
@@ -289,6 +306,7 @@ class Bridge:
                 if (self.exam_session is not None and kind not in PROCTOR_TOOLS and
                         not (kind == 'evaluation_wait' and self.exam_session.tier == 'practice')):
                     raise ValueError('Only Proctor tools are available during an exam')
+                tool_stage = 'job-exclusion'
                 if (self.evaluation_job and not self.evaluation_job.get('consumed') and
                         kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
@@ -323,6 +341,7 @@ class Bridge:
                     raise ValueError('Unsupported controller tool')
                 self._validate_task_scope(kind, params)
                 self.active['calls'].add(call)
+            tool_stage = 'host-operation'
             if kind in PROCTOR_TOOLS:
                 value = self._proctor_tool(kind, params, call)
                 outcome = {'kind': kind, 'call_id': call, 'status': value.get('state', value.get('status'))}
@@ -385,6 +404,7 @@ class Bridge:
                     self.outcomes.append(outcome)
                     self.publish()
                 return {'status': 'completed', 'value': value}
+            tool_stage = 'workload-child'
             value = self.run_child(kind, params, on_update=on_update)
             outcome = {'kind': kind, 'call_id': call}
             if kind == 'log' and value.get('status') == 'completed':
@@ -429,6 +449,11 @@ class Bridge:
                 self.outcomes.append(outcome)
                 self.publish()
             return value
+        except BaseException as error:
+            if isinstance(error, workload.Busy):
+                error.tool_stage = tool_stage
+                error.tool_wait_ms = tool_wait_ms
+            raise
         finally:
             self.tool_lock.release()
 
