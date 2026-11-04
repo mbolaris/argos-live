@@ -235,6 +235,23 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('argos_ssh_status', config['tools']['alsoAllow'])
         self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
 
+    def test_unmeasured_campaign_profile_grants_only_read_and_audit_tools(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        _root, _workspace, config_path, _digest = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='campaign',
+            campaign_tools=proctor_service.UNMEASURED_CAMPAIGN_TOOL_NAMES)
+        config = json.loads(config_path.read_text())
+        self.assertEqual(config['tools']['alsoAllow'], ['argos_inspect', 'argos_audit_instructions',
+                                                        'argos_ssh_status'])
+        self.assertNotIn('argos_evaluate', config['tools']['alsoAllow'])
+        self.assertNotIn('argos_edit_instructions', config['tools']['alsoAllow'])
+        self.assertIn('exec', config['tools']['deny'])
+        with self.assertRaisesRegex(ValueError, 'subset of host-approved tools'):
+            proctor_service.private_profile(self.home, 'qwen3.8:27b',
+                plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config,
+                purpose='campaign', campaign_tools=['exec'])
+
     def test_practice_profile_does_not_expose_live_ssh_status(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
         _root, _workspace, config_path, _digest = proctor_service.private_profile(

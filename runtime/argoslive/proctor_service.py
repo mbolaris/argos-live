@@ -39,6 +39,7 @@ CAMPAIGN_TOOL_NAMES = [
     'argos_compare', 'argos_log', 'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions',
     'argos_resolve_instructions', 'argos_adopt_external_instruction_edit', 'argos_ssh_status',
 ]
+UNMEASURED_CAMPAIGN_TOOL_NAMES = ['argos_inspect', 'argos_audit_instructions', 'argos_ssh_status']
 POLICY = {'enforcement_level': 'declared', 'assistance_policy': 'closed_book'}
 PRACTICE_MAX_TURNS = 16
 PRACTICE_MAX_SECONDS = 1800
@@ -197,7 +198,8 @@ def _secret(path):
     return value
 
 
-def private_profile(home, model, *, plugin_root=None, owner_config_path=None, purpose='practice'):
+def private_profile(home, model, *, plugin_root=None, owner_config_path=None, purpose='practice',
+                    campaign_tools=None):
     """Build a fresh tool-restricted config in the service-owned private directory."""
     if purpose not in {'practice', 'campaign'}:
         raise ValueError('Unsupported Proctor service profile purpose')
@@ -213,7 +215,16 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
         raise ValueError('Owner-selected local model profile needs review before Proctor use')
     # Preserve prior profile bytes when the selected generation settings or
     # bounded tool grants change. The profile identity excludes owner secrets.
-    allowed_tools = PROCTOR_TOOL_NAMES if purpose == 'practice' else CAMPAIGN_TOOL_NAMES
+    if purpose == 'practice':
+        if campaign_tools is not None:
+            raise ValueError('Practice tools are fixed by the host-selected exam')
+        allowed_tools = PROCTOR_TOOL_NAMES
+    else:
+        allowed_tools = CAMPAIGN_TOOL_NAMES if campaign_tools is None else campaign_tools
+        if (not isinstance(allowed_tools, list) or not allowed_tools or
+                len(set(allowed_tools)) != len(allowed_tools) or
+                set(allowed_tools) - set(CAMPAIGN_TOOL_NAMES)):
+            raise ValueError('Campaign tool grants must be a nonempty subset of host-approved tools')
     profile_identity = json.dumps(
         {'model': model, 'generation': generation, 'tools': allowed_tools},
         sort_keys=True, separators=(',', ':'))
@@ -736,8 +747,11 @@ def _campaign_prompt(owner_task, success_criteria, measurement_suite):
 def run_campaign(home, model, target, *, owner_task, success_criteria, executable, measurement_suite=None,
                  ssh_status_provider=None, ssh_status_verifier=None, openssl='openssl', on_progress=None):
     """Run bounded host-admitted turns until an audited campaign outcome exists."""
+    campaign_tools = (CAMPAIGN_TOOL_NAMES if measurement_suite is not None else
+                      UNMEASURED_CAMPAIGN_TOOL_NAMES)
     root, workspace, config_path, _config_hash = private_profile(
-        home, model, owner_config_path=Path(home) / '.openclaw/openclaw.json', purpose='campaign')
+        home, model, owner_config_path=Path(home) / '.openclaw/openclaw.json', purpose='campaign',
+        campaign_tools=campaign_tools)
     refuse_live_gateway(config_path)
     refuse_live_backend()
     prompt = _campaign_prompt(owner_task, success_criteria, measurement_suite)
