@@ -456,6 +456,13 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             report.parent.mkdir(parents=True, exist_ok=True)
             report.write_text(json.dumps(failure, indent=2) + '\n')
             raise
+        # The optional owner-recovery campaign starts a second managed
+        # controller and replaces controller-turn.json. Preserve the practice
+        # turn now so the signed exam and host-call checks below inspect the
+        # exam's actual tool ledger rather than the later recovery ledger.
+        practice_turn_path = home / '.local/state/argos-live/workload/controller-turn.json'
+        practice_turn = json.loads(practice_turn_path.read_text(encoding='utf-8')) \
+            if practice_turn_path.is_file() else {}
         recovery_receipt = None
         if owner_recovery:
             try:
@@ -491,7 +498,7 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             'requested_temperature': config['models']['providers']['ollama']['models'][0].get('params', {}).get('temperature'),
             'owner_recovery_action_smoke': recovery_receipt,
             'image_acceptance': False}
-        turn = json.loads((home / '.local/state/argos-live/workload/controller-turn.json').read_text())
+        turn = practice_turn
         receipt['tool_kinds'] = [row['kind'] for row in turn.get('tools', [])
                                 if isinstance(row, dict) and row.get('kind') in
                                 {'proctor_' + name for name in
