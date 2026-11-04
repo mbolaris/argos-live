@@ -313,6 +313,49 @@ class ControllerBridgeTests(unittest.TestCase):
                 {'kind':'log','error_class':'Busy'}, {'kind':'other','error_class':'ValueError'}])
             self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
 
+    def test_parallel_short_host_tools_are_queued_and_still_run_one_at_a_time(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            first_started, release_first = threading.Event(), threading.Event()
+            calls, responses, failures = [], [], []
+
+            def child(kind, params, **kwargs):
+                calls.append(kind)
+                if kind == 'inspect':
+                    first_started.set()
+                    if not release_first.wait(5):
+                        raise RuntimeError('test release timed out')
+                    return {'status': 'completed', 'value': {'status': 'inspected'}}
+                return {'status': 'completed', 'value': {'status': 'empty', 'passed': True}}
+
+            bridge.run_child = child
+
+            def dispatch(call_id, kind):
+                try:
+                    responses.append(bridge.dispatch({**turn, 'op': 'tool', 'call_id': call_id,
+                        'kind': kind, 'params': {}}))
+                except BaseException as error:
+                    failures.append(error)
+
+            first = threading.Thread(target=dispatch, args=('inspect-call', 'inspect'))
+            second = threading.Thread(target=dispatch, args=('audit-call', 'audit'))
+            first.start()
+            self.assertTrue(first_started.wait(1))
+            second.start()
+            time.sleep(.05)
+            self.assertEqual(calls, ['inspect'], 'Queued tool overlapped the active host child')
+            release_first.set()
+            first.join(timeout=2)
+            second.join(timeout=2)
+            self.assertFalse(first.is_alive())
+            self.assertFalse(second.is_alive())
+            self.assertEqual(failures, [])
+            self.assertCountEqual([row['status'] for row in responses], ['completed', 'completed'])
+            self.assertEqual(calls, ['inspect', 'audit'])
+            self.assertEqual([row['kind'] for row in bridge.outcomes], ['inspect', 'audit'])
+            parent.complete()
+
     def test_proctor_failures_record_only_allowlisted_error_codes(self):
         class Exam:
             errors = [ProctorError(422, 'INVALID_ANSWER_FORMAT'),

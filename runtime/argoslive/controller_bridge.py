@@ -28,6 +28,7 @@ LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
+TOOL_QUEUE_WAIT_SECONDS = 20
 TASK_CAMPAIGN_SUITES = frozenset({
     'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
     'documents-short', 'owner-recovery-decision'})
@@ -269,7 +270,12 @@ class Bridge:
                 raise ValueError('Every change decision must use only the owner-selected task evaluation suite')
 
     def tool(self, request, *, on_update=None):
-        if not self.tool_lock.acquire(blocking=False):
+        # SDKs can dispatch sibling tool calls in parallel even when the agent
+        # was asked to sequence them. Queue briefly so short, independent calls
+        # (for example inspect + audit) still run one at a time. Keep the queue
+        # bounded: a long evaluation or a stuck child must not hold a later
+        # request indefinitely, and the parent workload lock remains exclusive.
+        if not self.tool_lock.acquire(timeout=TOOL_QUEUE_WAIT_SECONDS):
             raise workload.Busy()
         try:
             with self.lock:
