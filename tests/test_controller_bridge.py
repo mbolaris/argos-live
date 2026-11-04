@@ -533,6 +533,8 @@ class ControllerBridgeTests(unittest.TestCase):
     @unittest.skipUnless(sys.platform == 'linux', 'delegated subprocess ownership is Linux-only')
     def test_real_delegated_busy_worker_reports_only_its_closed_failure_stage(self):
         from argoslive import instruction_changes
+        (self.home / '.openclaw/workspace/AGENTS.md').write_text(
+            'Follow the owner task and report evidence.\n', encoding='utf-8')
         root = instruction_changes.root_path(self.home)
         (root / 'state.json').write_text(json.dumps({'schema': 'unexpected', 'sequence': 0}),
                                          encoding='utf-8')

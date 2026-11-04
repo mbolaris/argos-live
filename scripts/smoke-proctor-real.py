@@ -409,6 +409,13 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         home = Path(temporary)
         workspace = home / '.openclaw/workspace'
         workspace.mkdir(mode=0o700, parents=True)
+        # Match the owner workspace created by first-run setup. The recovery
+        # campaign's inspect tool reads canonical AGENTS.md; an empty workspace
+        # makes this smoke fail before it reaches signed SSH status.
+        for target, source_name in auto_setup.WORKSPACE_FILES:
+            destination = workspace / target
+            destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            destination.write_bytes(auto_setup.workspace_file(source_name))
         config = auto_setup.conversation_config(model_tag, workspace,
             plugin_root=ROOT / 'openclaw-plugin/argos-improve')
         if deterministic_profile:
