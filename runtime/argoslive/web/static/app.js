@@ -2842,8 +2842,12 @@ function presentedNextAction(next, trial, report, climb = autoClimb) {
     reason: 'The trial needs attention before Argos can safely continue. Open its status and recovery details.', action: 'assistant-trial'};
 }
 let commandRefreshing = false;
+let commandRefreshPending = false;
 async function refreshCommand() {
-  if (commandRefreshing) return;
+  if (commandRefreshing) {
+    commandRefreshPending = true;
+    return;
+  }
   commandRefreshing = true;
   try {
     const value = await api('/api/command-center');
@@ -3010,7 +3014,13 @@ async function refreshCommand() {
     syncAssistantTrialFocus();
   } catch (_) {
     document.getElementById('cc-next-title').textContent = 'Command center unavailable. Refresh to retry.';
-  } finally { commandRefreshing = false; }
+  } finally {
+    commandRefreshing = false;
+    if (commandRefreshPending) {
+      commandRefreshPending = false;
+      queueMicrotask(() => { void refreshCommand(); });
+    }
+  }
 }
 async function post(path, body) {
   const headers = {'X-Argos-Token': token || ''};
