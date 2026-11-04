@@ -207,7 +207,14 @@ class Bridge:
                 if self.active is not None:
                     self.active['host_tool_requests'] = self.active.get('host_tool_requests', 0) + 1
             try:
-                return self.tool(request, on_update=on_update)
+                result = self.tool(request, on_update=on_update)
+                with self.lock:
+                    if (self.active is not None and
+                            self.active.get('run_id') == request.get('run_id') and
+                            self.active.get('token') == request.get('turn_token')):
+                        self.active['host_tool_successes'] = self.active.get('host_tool_successes', 0) + 1
+                        self.publish()
+                return result
             except BaseException as error:
                 with self.lock:
                     if self.active is not None:
@@ -257,17 +264,20 @@ class Bridge:
                 worker_alive = self.worker is not None and self.worker.poll() is None
                 worker_session = getattr(self, 'session_id', None)
                 job = self.evaluation_job
-                # OpenClaw can run another model attempt using the same run ID.
-                # Re-admit that attempt only after the prior attempt ended, no
-                # Argos host tool was requested, and all campaign/worker gates
-                # are still clear. The fresh turn token invalidates any stale
-                # callbacks from the ended attempt.
+                # OpenClaw can continue a model attempt with the same run ID
+                # after a host tool returns. Re-admit only after the prior
+                # attempt ended, every requested host tool completed
+                # successfully, and all campaign/worker gates are still clear.
+                # The fresh turn token invalidates callbacks from the ended
+                # attempt; unfinished or failed host work remains blocked.
                 if (self.active['ended'] and
                         self.active['run_id'] == request['run_id'] and
                         self.active['session_id'] == worker_session == request['session_id'] and
                         self.active['session_key'] == request['session_key'] == self.session_key and
                         self.active['trigger'] == request['trigger'] == self.trigger and
-                        self.active.get('host_tool_requests', 0) == 0 and self.task_campaign and
+                        self.active.get('host_tool_requests', 0) ==
+                            self.active.get('host_tool_successes', 0) and
+                        not self.active.get('host_tool_failures') and self.task_campaign and
                         self.parent.record.get('kind') == 'controller' and
                         self.session_key.startswith(campaign_prefix) and worker_alive and
                         not self.closed and not self.uncertain and self.pending is None and

@@ -101,7 +101,30 @@ class ControllerBridgeTests(unittest.TestCase):
                 bridge.dispatch({**first_turn, 'op': 'ended'})
             parent.complete()
 
-    def test_campaign_same_run_retry_is_refused_after_a_host_tool_request(self):
+    def test_campaign_may_continue_same_run_id_after_successful_host_tool(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            first, first_turn = self.begin(bridge)
+            bridge.session_id = first['session_id']
+            worker = SimpleNamespace(poll=lambda: None)
+            bridge.worker = worker
+            with patch.object(bridge, 'tool', return_value={'status': 'available'}):
+                result = bridge.dispatch({**first_turn, 'op': 'tool', 'kind': 'ssh_status', 'params': {}})
+            self.assertEqual(result, {'status': 'available'})
+            self.assertEqual(bridge.active['host_tool_requests'], 1)
+            self.assertEqual(bridge.active['host_tool_successes'], 1)
+            bridge.dispatch({**first_turn, 'op': 'ended'})
+
+            continuation = bridge.dispatch(first)
+            self.assertEqual(continuation['status'], 'admitted')
+            self.assertNotEqual(continuation['turn_token'], first_turn['turn_token'])
+            self.assertEqual(bridge.active['run_id'], first['run_id'])
+            self.assertEqual(bridge.sdk_runs_started, 2)
+            self.assertIs(bridge.worker, worker)
+            parent.complete()
+
+    def test_campaign_same_run_retry_is_refused_after_host_tool_failure(self):
         session_key = 'agent:main:argos_proctor_improvement_owner-task'
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
@@ -109,6 +132,7 @@ class ControllerBridgeTests(unittest.TestCase):
             bridge.session_id = first['session_id']
             bridge.worker = SimpleNamespace(poll=lambda: None)
             bridge.active['host_tool_requests'] = 1
+            bridge.active['host_tool_failures'] = [{'kind': 'ssh_status', 'error_class': 'RuntimeError'}]
             bridge.dispatch({**first_turn, 'op': 'ended'})
             with self.assertRaises(workload.Busy):
                 bridge.dispatch(first)

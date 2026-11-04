@@ -22,6 +22,10 @@ try {
   const page = await browser.newPage({viewport: {width: 1280, height: 900}});
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(`console: ${message.text()}`); });
+  let practiceStarts = 0;
+  page.on('request', request => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/assistant-trial/start') practiceStarts++;
+  });
   await page.route('**/style.css?*', async route => {
     const response = await route.fetch();
     await route.fulfill({response, body: await response.text() + '\n.simulation-banner{position:fixed;bottom:0;left:0;right:0;z-index:10000;background:#453329;color:#ffe2b0;text-align:center;font:11px system-ui;padding:5px}'});
@@ -387,6 +391,7 @@ try {
     'Restore stays available as an explicit undo, not a competing primary action');
   await shot('5-kept');
   await page.locator('#assistant-trial-alternatives > summary').click();
+  const startsBeforeRestore = practiceStarts;
   await page.locator('#assistant-trial-restore').click();
   await page.waitForFunction(async () => { const v = await api('/api/assistant-trial'); return v.status === 'none' && v.phase === 'restored'; },
     null, {timeout: 20000, polling: 300});
@@ -406,8 +411,10 @@ try {
     assert.equal(await page.locator(id).isHidden(), false,
       `${id} returns after the focused assistant decision is complete`);
   }
-  assert.notEqual(await page.locator('#cc-next-go').getAttribute('data-action'), 'assistant-trial',
-    'Restore does not automatically start another practice trial');
+  await page.waitForTimeout(500);
+  const afterRestore = await status();
+  assert.equal(practiceStarts, startsBeforeRestore, 'Restore does not automatically start another practice trial');
+  assert.equal(afterRestore.active, false, 'The optional trial remains idle until the owner starts it');
   assert.match(await page.locator('#assistant-trial-note').textContent(), /Restored and verified/,
     'The restore confirmation stays visible while the next GO is available');
   await shot('6-restored');
