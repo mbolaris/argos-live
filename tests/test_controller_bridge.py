@@ -46,6 +46,63 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertFalse(bridge.events.exists())
             parent.complete()  # No SDK worker or inference was started in this fixture.
 
+    def test_campaign_may_rotate_ended_sdk_run_inside_its_live_worker(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            first, first_turn = self.begin(bridge)
+            bridge.session_id = first['session_id']
+            worker = SimpleNamespace(poll=lambda: None)
+            bridge.worker = worker
+            bridge.active['host_tool_requests'] = 2
+            bridge.active['host_tool_failures'] = [{'kind': 'inspect', 'error_class': 'ValueError'}]
+            bridge.dispatch({**first_turn, 'op': 'ended', 'diagnostics': {
+                'tool_hooks': 1, 'bound_calls': 1, 'executions': 1,
+                'rejected': {'unknown_tool': 0, 'missing_admission': 0,
+                             'invalid_call_id': 0, 'stale_binding': 0}}})
+
+            second = {**first, 'run_id': 'framework-run-2'}
+            admitted = bridge.dispatch(second)
+            self.assertEqual(admitted['status'], 'admitted')
+            self.assertNotEqual(admitted['turn_token'], first_turn['turn_token'])
+            self.assertIs(bridge.worker, worker)
+            self.assertEqual(bridge.sdk_runs_started, 2)
+            self.assertEqual(bridge.active['run_id'], second['run_id'])
+            self.assertEqual(bridge.active['host_tool_requests'], 0)
+            self.assertEqual(bridge.sdk_run_history, [{
+                'run_id': first['run_id'], 'ended': True, 'host_tool_requests': 2,
+                'host_tool_failures': 1, 'diagnostics': {
+                    'tool_hooks': 1, 'bound_calls': 1, 'executions': 1,
+                    'rejected': {'unknown_tool': 0, 'missing_admission': 0,
+                                 'invalid_call_id': 0, 'stale_binding': 0}}}])
+            with self.assertRaises(workload.Busy):
+                bridge.dispatch({**first_turn, 'op': 'ended'})
+            parent.complete()
+
+    def test_campaign_sdk_run_rotation_requires_ended_live_bounded_idle_turn(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        for state in ('not-ended', 'worker-exited', 'pending', 'tool-locked', 'run-cap'):
+            with self.subTest(state=state), workload.reserve(self.home, 'controller') as parent:
+                bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+                first, first_turn = self.begin(bridge)
+                bridge.session_id = first['session_id']
+                bridge.worker = SimpleNamespace(poll=lambda: 1 if state == 'worker-exited' else None)
+                if state != 'not-ended':
+                    bridge.dispatch({**first_turn, 'op': 'ended'})
+                if state == 'pending':
+                    bridge.pending = {'call_id': 'pending-call'}
+                elif state == 'tool-locked':
+                    bridge.tool_lock.acquire()
+                elif state == 'run-cap':
+                    bridge.sdk_runs_started = controller_bridge.MAX_SDK_RUNS_PER_WORKER
+                request = {**first, 'run_id': 'framework-run-2'}
+                with self.assertRaises(workload.Busy):
+                    bridge.dispatch(request)
+                if state == 'tool-locked':
+                    bridge.tool_lock.release()
+                self.assertEqual(bridge.active['run_id'], first['run_id'])
+                parent.complete()
+
     def test_decision_only_suite_cannot_authorize_instruction_changes(self):
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent,

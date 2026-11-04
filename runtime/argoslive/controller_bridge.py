@@ -34,6 +34,7 @@ TASK_CAMPAIGN_SUITES = frozenset({
     'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
     'documents-short', 'owner-recovery-decision'})
 MAX_WORKER_TURN_RECORDS = 32
+MAX_SDK_RUNS_PER_WORKER = 4
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
     'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
@@ -125,6 +126,8 @@ class Bridge:
         self.worker = None
         self.worker_outcome = None
         self.worker_turns = []
+        self.sdk_runs_started = 0
+        self.sdk_run_history = []
         self.transport_env = None
         self.worker_path = os.environ.get('PATH', '')
         self.uncertain = False
@@ -160,6 +163,8 @@ class Bridge:
             value['host_tool_failures'] = self.active.get('host_tool_failures', [])
         value['tools'] = self.outcomes
         value['worker_turns'] = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
+        value['sdk_runs_started'] = self.sdk_runs_started
+        value['sdk_run_history'] = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
         write_json(self.events, value)
 
     def dispatch(self, request, on_update=None):
@@ -234,9 +239,35 @@ class Bridge:
                 fields = ('run_id', 'session_id', 'session_key', 'trigger')
                 if not self.active['ended'] and all(self.active[key] == request[key] for key in fields):
                     return {'status': 'admitted', 'turn_token': self.active['token']}
+                campaign_prefix = 'agent:main:argos_proctor_improvement_'
+                worker_alive = self.worker is not None and self.worker.poll() is None
+                job = self.evaluation_job
+                if (self.active['ended'] and self.active['session_id'] == self.session_id == request['session_id'] and
+                        self.active['session_key'] == request['session_key'] == self.session_key and
+                        self.active['trigger'] == request['trigger'] == self.trigger and
+                        self.active['run_id'] != request['run_id'] and self.task_campaign and
+                        self.parent.record.get('kind') == 'controller' and
+                        self.session_key.startswith(campaign_prefix) and worker_alive and
+                        not self.closed and not self.uncertain and self.pending is None and
+                        not self.tool_lock.locked() and (job is None or job.get('consumed')) and
+                        self.sdk_runs_started < MAX_SDK_RUNS_PER_WORKER):
+                    prior = self.active
+                    self.sdk_run_history.append({
+                        'run_id': prior['run_id'], 'ended': True,
+                        'host_tool_requests': prior.get('host_tool_requests', 0),
+                        'host_tool_failures': len(prior.get('host_tool_failures', [])),
+                        'diagnostics': prior.get('diagnostics'),
+                    })
+                    self.sdk_run_history = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+                    self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
+                    self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+                    self.sdk_runs_started += 1
+                    self.publish()
+                    return {'status': 'admitted', 'turn_token': self.active['token']}
                 raise workload.Busy()
             self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
             self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+            self.sdk_runs_started = max(1, self.sdk_runs_started)
             self.publish()
             return {'status': 'admitted', 'turn_token': self.active['token']}
 
@@ -819,6 +850,8 @@ class Bridge:
                 '--timeout', str(timeout), '--json'])
             self.worker = subprocess.Popen(arguments, env=env, stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
             try:
                 write_json(self.parent.path.parent / 'controller-worker.json', {
                     'schema': 'argos-controller-worker/1', 'parent_id': self.parent.record['id'],
@@ -917,10 +950,14 @@ class Bridge:
                     'stderr_bytes': stderr_bytes,
                     'process_group_drained': True,
                     'session_bound': True,
-                    'host_tool_requests': active.get('host_tool_requests', 0),
-                    'host_tool_failures': len(active.get('host_tool_failures', [])),
+                    'host_tool_requests': sum(row['host_tool_requests'] for row in self.sdk_run_history) +
+                                          active.get('host_tool_requests', 0),
+                    'host_tool_failures': sum(row['host_tool_failures'] for row in self.sdk_run_history) +
+                                          len(active.get('host_tool_failures', [])),
                     'response_status': value.get('status', 'ok'),
                 }
+                if self.sdk_runs_started > 1:
+                    turn_record['sdk_runs'] = self.sdk_runs_started
                 if incomplete_turn:
                     turn_record['sdk_error_kind'] = 'incomplete_turn'
                 elif blocked_turn or blocked_campaign_admission:
@@ -1107,6 +1144,8 @@ class Bridge:
             self.worker = None
             self.worker_outcome = None
             self.active = None
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
             self.verified = False
             self.session_key = session_key
 
@@ -1147,6 +1186,8 @@ class Bridge:
             self.active = None
             self.verified = False
             self.session_key = session_key
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
 
     def complete_campaign(self):
         """Release a drained Proctor campaign after the host checks its evidence."""
