@@ -543,6 +543,7 @@ class ControllerBridgeTests(unittest.TestCase):
                 bridge.run_child('inspect', {})
 
             self.assertTrue(raised.exception.recovery)
+            self.assertIn('instruction-inspect', bridge.last_child_stdout)
             self.assertEqual(raised.exception.child_failure_stage, 'instruction-inspect')
             children = list((self.home / '.local/state/argos-live/workload/child').glob('*.json'))
             self.assertEqual(len(children), 1)
