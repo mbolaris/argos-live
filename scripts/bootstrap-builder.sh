@@ -22,11 +22,12 @@ if [[ ! -f "$root/etc/debian_version" ]]; then
     else
       status=$?
     fi
-    if (( attempt >= 5 )); then
+    if (( attempt >= 8 )); then
       echo "Debian bootstrap failed after $attempt attempts." >&2
       exit "$status"
     fi
     delay=$((30 * attempt))
+    if (( delay > 120 )); then delay=120; fi
     echo "Debian bootstrap attempt $attempt failed; retrying from its package cache in ${delay}s." >&2
     [[ "$root" == /var/lib/argos-live/builder ]] || { echo 'Unexpected bootstrap cleanup target.' >&2; exit 1; }
     rm -rf -- "$root"
