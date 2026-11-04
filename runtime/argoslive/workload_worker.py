@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sys
 
-from . import bench_openclaw, campaign_log, instruction_changes
+from . import bench_openclaw, campaign_log, instruction_changes, workload
 from .workload import Delegation
 
 
@@ -46,6 +46,16 @@ def main(argv=None):
         if not isinstance(text, str):
             raise ValueError('Log note must be text')
         return campaign_log.main(['--home', str(args.home), '--text=' + text, '--json'], delegation=capability)
+    except workload.Busy as error:
+        # The request contains a capability. Keep recovery diagnostics bounded
+        # and never dump a traceback, local paths, or raw exception details.
+        stage = getattr(error, 'operation_stage', None)
+        safe_stages = {'reservation', 'request-validation', 'journal-audit', 'journal-root',
+                       'instruction-inspect', 'instruction-edit', 'instruction-adopt',
+                       'instruction-resolve'}
+        print(json.dumps({'status': 'busy', 'recovery_required': error.recovery,
+                          'failure_stage': stage if stage in safe_stages else 'reservation'}))
+        return 75
     except (ValueError, TypeError, KeyError, OSError):
         # The request contains a capability. Do not dump it, a traceback, parser
         # locals, or the exception payload into agent-visible output.

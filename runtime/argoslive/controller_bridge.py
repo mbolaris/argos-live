@@ -229,6 +229,11 @@ class Bridge:
                             recovery = getattr(error, 'recovery', None)
                             if type(recovery) is bool:
                                 failure['recovery_required'] = recovery
+                            child_stage = getattr(error, 'child_failure_stage', None)
+                            if child_stage in {'reservation', 'request-validation', 'journal-audit',
+                                               'journal-root', 'instruction-inspect', 'instruction-edit',
+                                               'instruction-adopt', 'instruction-resolve'}:
+                                failure['child_failure_stage'] = child_stage
                             code = getattr(error, 'code', None)
                             if safe_kind in PROCTOR_TOOLS and code in PROCTOR_ERROR_CODES:
                                 failure['error_code'] = code
@@ -792,6 +797,21 @@ class Bridge:
             _stderr = b''.join(stderr_parts).decode('utf-8', errors='replace')
             self.last_child_stdout, self.last_child_stderr = stdout, _stderr
             if process.returncode or overflow.is_set() or len(stdout.encode()) > 2 * 1024**2:
+                child_failure_stage = None
+                if maintenance and process.returncode is not None and not overflow.is_set():
+                    try:
+                        child_failure = json.loads(stdout)
+                    except (json.JSONDecodeError, TypeError):
+                        child_failure = None
+                    if (isinstance(child_failure, dict) and set(child_failure) == {
+                            'status', 'recovery_required', 'failure_stage'} and
+                            child_failure.get('status') == 'busy' and
+                            type(child_failure.get('recovery_required')) is bool and
+                            child_failure.get('failure_stage') in {
+                                'reservation', 'request-validation', 'journal-audit', 'journal-root',
+                                'instruction-inspect', 'instruction-edit', 'instruction-adopt',
+                                'instruction-resolve'}):
+                        child_failure_stage = child_failure['failure_stage']
                 # Campaign logging marks its delegated reservation drained before
                 # validating referenced run IDs and appending. A validation
                 # failure therefore exits nonzero even though the one-use log
@@ -828,7 +848,10 @@ class Bridge:
                         return {'status': 'completed', 'value': {
                             'status': 'failed', 'failure_code': 'worker-not-admitted',
                             'retryable': True}}
-                raise workload.Busy(recovery=True)
+                error = workload.Busy(recovery=True)
+                if child_failure_stage:
+                    error.child_failure_stage = child_failure_stage
+                raise error
             value = json.loads(stdout)
             if kind == 'evaluation':
                 result = value['result']

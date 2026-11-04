@@ -630,25 +630,40 @@ def resolve(home, root, params):
 
 
 def perform(home, operation, params, *, delegation=None):
-    with workload.reserve(home, 'maintenance', delegation=delegation) as slot:
-        try:
-            validate_request(operation, params)
-            if operation == 'audit':
-                result = audit(home)
-            else:
-                root = root_path(home)
-                if operation == 'inspect':
-                    result = inspect(home, root)
-                elif operation == 'edit':
-                    result = edit(home, root, params, slot)
-                elif operation == 'adopt':
-                    result = adopt(home, root, params, slot)
+    stage = 'reservation'
+    try:
+        with workload.reserve(home, 'maintenance', delegation=delegation) as slot:
+            try:
+                stage = 'request-validation'
+                validate_request(operation, params)
+                if operation == 'audit':
+                    stage = 'journal-audit'
+                    result = audit(home)
                 else:
-                    result = resolve(home, root, params)
-        except Refused as error:
-            result = {'status': 'rejected', 'code': str(error), 'workspace_mutated': False}
-        slot.complete()
-        return result
+                    stage = 'journal-root'
+                    root = root_path(home)
+                    if operation == 'inspect':
+                        stage = 'instruction-inspect'
+                        result = inspect(home, root)
+                    elif operation == 'edit':
+                        stage = 'instruction-edit'
+                        result = edit(home, root, params, slot)
+                    elif operation == 'adopt':
+                        stage = 'instruction-adopt'
+                        result = adopt(home, root, params, slot)
+                    else:
+                        stage = 'instruction-resolve'
+                        result = resolve(home, root, params)
+            except Refused as error:
+                result = {'status': 'rejected', 'code': str(error), 'workspace_mutated': False}
+            slot.complete()
+            return result
+    except workload.Busy as error:
+        # This stage is a closed diagnostic for the host controller. It excludes
+        # paths, prompts and raw exception messages while showing where a
+        # delegated maintenance child hit its recovery guard.
+        error.operation_stage = stage
+        raise
 
 
 def audit(home):

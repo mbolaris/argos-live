@@ -511,6 +511,43 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual([row['kind'] for row in bridge.outcomes], ['inspect', 'audit'])
             parent.complete()
 
+    @unittest.skipUnless(sys.platform == 'linux', 'delegated subprocess ownership is Linux-only')
+    def test_real_delegated_inspect_worker_completes_and_resumes_controller(self):
+        (self.home / '.openclaw/workspace/AGENTS.md').write_text(
+            'Follow the owner task and report evidence.\n', encoding='utf-8')
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:argos_proctor_improvement_owner-task', task_campaign=True)
+            value = bridge.run_child('inspect', {})
+
+            self.assertEqual(value['status'], 'completed')
+            self.assertEqual(value['value']['status'], 'inspected')
+            self.assertEqual(value['value']['instructions'],
+                             'Follow the owner task and report evidence.\n')
+            self.assertEqual(parent.record['phase'], 'running')
+            children = list((self.home / '.local/state/argos-live/workload/child').glob('*.json'))
+            self.assertEqual(len(children), 1)
+            self.assertEqual(json.loads(children[0].read_text())['state'], 'released')
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'delegated subprocess ownership is Linux-only')
+    def test_real_delegated_busy_worker_reports_only_its_closed_failure_stage(self):
+        from argoslive import instruction_changes
+        root = instruction_changes.root_path(self.home)
+        (root / 'state.json').write_text(json.dumps({'schema': 'unexpected', 'sequence': 0}),
+                                         encoding='utf-8')
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:argos_proctor_improvement_owner-task', task_campaign=True)
+            with self.assertRaises(workload.Busy) as raised:
+                bridge.run_child('inspect', {})
+
+            self.assertTrue(raised.exception.recovery)
+            self.assertEqual(raised.exception.child_failure_stage, 'instruction-inspect')
+            children = list((self.home / '.local/state/argos-live/workload/child').glob('*.json'))
+            self.assertEqual(len(children), 1)
+            self.assertEqual(json.loads(children[0].read_text())['state'], 'quarantined')
+
     def test_proctor_failures_record_only_allowlisted_error_codes(self):
         class Exam:
             errors = [ProctorError(422, 'INVALID_ANSWER_FORMAT'),
