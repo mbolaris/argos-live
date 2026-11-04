@@ -53,10 +53,26 @@ apt_retry() {
   local label=$1; shift
   local attempt status delay
   for attempt in 1 2 3; do
-    if DEBIAN_FRONTEND=noninteractive chroot "$root" apt-get -qq "${apt_opts[@]}" "$@"; then
-      return 0
+    DEBIAN_FRONTEND=noninteractive chroot "$root" apt-get -qq "${apt_opts[@]}" "$@" &
+    local apt_pid=$!
+    (
+      while kill -0 "$apt_pid" 2>/dev/null; do
+        sleep 45
+        if kill -0 "$apt_pid" 2>/dev/null; then
+          echo "Pinned builder apt $label is still running." >&2
+        fi
+      done
+    ) &
+    local heartbeat_pid=$!
+    if wait "$apt_pid"; then
+      status=0
     else
       status=$?
+    fi
+    kill "$heartbeat_pid" 2>/dev/null || true
+    wait "$heartbeat_pid" 2>/dev/null || true
+    if (( status == 0 )); then
+      return 0
     fi
     if (( attempt == 3 )); then
       echo "Pinned builder apt $label failed after $attempt attempts." >&2
