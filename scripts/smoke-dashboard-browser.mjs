@@ -54,7 +54,7 @@ try {
   if (await page.locator('#hardware .card').count() !== 8) throw new Error('Missing live status cards');
   if (await page.locator('#capabilities .card').count() !== 10) throw new Error('Missing capability cards');
   await page.waitForFunction(() => document.querySelectorAll('#model-catalog .card').length >= 8, null, {timeout: 60000});
-  await page.getByText('Bundled starter · qwen3:0.6b', {exact: true}).waitFor();
+  await page.locator('#bundled-models').getByText('Bundled starter · qwen3:0.6b', {exact: true}).waitFor();
   if (!(await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
     throw new Error('Bundled source selection was not displayed');
   }
