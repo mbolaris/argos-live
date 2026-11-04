@@ -1036,6 +1036,16 @@ class Bridge:
             kind = error.get('kind')
             if isinstance(kind, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', kind):
                 result['error_kind'] = kind
+            if kind == 'hook_block':
+                message = error.get('message')
+                # Export only a closed set of admission diagnoses. The raw SDK
+                # message may contain private prompt or host data.
+                if message == 'Host controller slot is not available':
+                    result['hook_block_code'] = 'host-slot-rejected'
+                elif message == 'Host controller admission failed':
+                    result['hook_block_code'] = 'controller-transport'
+                else:
+                    result['hook_block_code'] = 'other-hook-block'
         return result
 
     def next_practice_turn(self, session_key):

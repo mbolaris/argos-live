@@ -1,15 +1,33 @@
 import importlib.util
+import json
 from pathlib import Path
+import sys
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'runtime'))
+from argoslive.controller_bridge import Bridge
 SPEC = importlib.util.spec_from_file_location('smoke_proctor_real', ROOT / 'scripts/smoke-proctor-real.py')
 smoke = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(smoke)
 
 
 class ProctorRealDiagnosticTests(unittest.TestCase):
+    def test_hook_block_exports_only_closed_admission_diagnosis(self):
+        bridge = object.__new__(Bridge)
+        bridge.session_id = 'session-1'
+        for message, expected in (
+                ('Host controller slot is not available', 'host-slot-rejected'),
+                ('Host controller admission failed', 'controller-transport'),
+                ('private model or host content', 'other-hook-block')):
+            value = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': 'session-1'},
+                'error': {'kind': 'hook_block', 'message': message}}}}
+            result = bridge._safe_worker_response(json.dumps(value))
+            self.assertEqual(result['hook_block_code'], expected)
+            self.assertNotIn(message, repr(result))
+
     def test_real_smoke_rejects_unbundled_form_before_starting(self):
         with self.assertRaisesRegex(ValueError, 'bundled Proctor practice form'):
             smoke.run(Path('unused'), Path('unused'), Path('unused'), 'qwen3:4b',
