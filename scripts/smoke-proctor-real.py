@@ -71,7 +71,7 @@ def safe_controller_diagnostics(turn):
         safe_turns = []
         for row in worker_turns[:32]:
             if (not isinstance(row, dict) or row.get('outcome') not in
-                    {'completed', 'incomplete-turn', 'blocked-turn'} or
+                    {'completed', 'incomplete-turn', 'blocked-turn', 'admission-blocked'} or
                     type(row.get('turn')) is not int or not 1 <= row['turn'] <= 10000 or
                     type(row.get('returncode')) is not int or not -255 <= row['returncode'] <= 255 or
                     any(type(row.get(key)) is not int or not 0 <= row[key] <= 2 * 1024**2

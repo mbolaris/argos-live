@@ -730,11 +730,18 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             bridge.drain_campaign_evaluation()
             outcomes = list(bridge.outcomes)
             assessment = _campaign_assessment(outcomes)
+            admission_blocked = getattr(bridge, 'worker_outcome', None) == 'admission-blocked'
+            if admission_blocked:
+                assessment = {'ready': False, 'status': 'incomplete',
+                    'outcome': 'campaign-admission-blocked',
+                    'missing': ['the host admission hook blocked before any host tool ran'],
+                    'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
             _report_progress(on_progress, phase='campaign', stage='turn-finished', turn=turn,
                              total=CAMPAIGN_MAX_TURNS,
                              saved_evaluation_count=len(assessment['saved_evaluation_ids']),
                              audit_status=assessment.get('audit_status'))
-            if assessment['ready'] or turn == CAMPAIGN_MAX_TURNS:
+            if (assessment['ready'] or admission_blocked or
+                    turn == CAMPAIGN_MAX_TURNS):
                 break
             bridge.next_campaign_turn(f'{campaign_session_key}_followup_{turn + 1}')
             outcomes = list(bridge.outcomes)
@@ -744,6 +751,8 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
                                         measurement_suite=measurement_suite)
         if assessment and assessment.get('safe_to_release'):
             bridge.complete_campaign()
+        elif getattr(bridge, 'worker_outcome', None) == 'admission-blocked':
+            bridge.release_unadmitted_campaign()
     if assessment is None:
         assessment = {'status': 'incomplete', 'outcome': 'no_worker_turn',
                       'missing': ['a completed controller turn'], 'saved_evaluation_ids': [],

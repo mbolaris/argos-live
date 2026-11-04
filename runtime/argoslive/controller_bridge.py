@@ -856,7 +856,8 @@ class Bridge:
             body = value.get('result', value)
             incomplete_turn = self._is_incomplete_turn(value)
             blocked_turn = self._is_blocked_practice_turn(value)
-            retryable_turn = incomplete_turn or blocked_turn
+            blocked_campaign_admission = self._is_unadmitted_campaign_block(value)
+            retryable_turn = incomplete_turn or blocked_turn or blocked_campaign_admission
             if self.worker.returncode and not retryable_turn:
                 self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
                                             'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
@@ -893,7 +894,7 @@ class Bridge:
                 self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
             with self.lock:
-                if not self.active:
+                if not self.active and not blocked_campaign_admission:
                     self.last_finish_failure = {'code': 'turn-not-active',
                                                 'returncode': self.worker.returncode,
                                                 'stdout_bytes': stdout_bytes,
@@ -901,7 +902,9 @@ class Bridge:
                     self._publish_finish_failure()
                     raise workload.Busy(recovery=True)
                 self.worker_outcome = ('incomplete-turn' if incomplete_turn else
-                                       'blocked-turn' if blocked_turn else 'completed')
+                                       'blocked-turn' if blocked_turn else
+                                       'admission-blocked' if blocked_campaign_admission else 'completed')
+                active = self.active or {}
                 turn_record = {
                     'turn': len(self.worker_turns) + 1,
                     'outcome': self.worker_outcome,
@@ -910,13 +913,13 @@ class Bridge:
                     'stderr_bytes': stderr_bytes,
                     'process_group_drained': True,
                     'session_bound': True,
-                    'host_tool_requests': self.active.get('host_tool_requests', 0),
-                    'host_tool_failures': len(self.active.get('host_tool_failures', [])),
+                    'host_tool_requests': active.get('host_tool_requests', 0),
+                    'host_tool_failures': len(active.get('host_tool_failures', [])),
                     'response_status': value.get('status', 'ok'),
                 }
                 if incomplete_turn:
                     turn_record['sdk_error_kind'] = 'incomplete_turn'
-                elif blocked_turn:
+                elif blocked_turn or blocked_campaign_admission:
                     turn_record['sdk_error_kind'] = 'hook_block'
                 self.worker_turns.append(turn_record)
                 self.worker_turns = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
@@ -928,7 +931,7 @@ class Bridge:
                     'turn_outcome': self.worker_outcome,
                     'turn_number': turn_record['turn'],
                     'returncode': self.worker.returncode,
-                    'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
+                    'sdk_end_observed': active.get('ended') is True, 'run_id': active.get('run_id'),
                     'stdout_sha256': hashlib.sha256(stdout.encode()).hexdigest(), 'tools': self.outcomes})
                 self.publish()
                 self.verified = True
@@ -996,6 +999,23 @@ class Bridge:
                 active.get('ended') is True and active.get('host_tool_requests', 0) == 0 and
                 not active.get('host_tool_failures') and self.pending is None and
                 not self.tool_lock.locked())
+
+    def _is_unadmitted_campaign_block(self, value):
+        """Recognize a drained admission-hook block only before any host work."""
+        if (not self.task_campaign or self.parent.record.get('kind') != 'controller' or
+                self.worker is None or self.worker.returncode == 0 or self.active is not None or
+                self.pending is not None or self.evaluation_job is not None or self.outcomes or
+                self.uncertain or self.tool_lock.locked() or
+                self.parent.record.get('phase') == 'delegated'):
+            return False
+        body = value.get('result') if isinstance(value, dict) else None
+        meta = body.get('meta') if isinstance(body, dict) else None
+        agent_meta = meta.get('agentMeta') if isinstance(meta, dict) else None
+        error = meta.get('error') if isinstance(meta, dict) else None
+        return (isinstance(value, dict) and value.get('status') == 'error' and
+                isinstance(body.get('payloads'), list) and isinstance(agent_meta, dict) and
+                agent_meta.get('sessionId') == self.session_id and isinstance(error, dict) and
+                error.get('kind') == 'hook_block')
 
     def _safe_worker_response(self, stdout):
         """Summarize SDK JSON structure without persisting reply or error text."""
@@ -1117,6 +1137,19 @@ class Bridge:
                     not self.active):
                 raise workload.Busy(recovery=True)
         self._complete()
+
+    def release_unadmitted_campaign(self):
+        """Release only a drained campaign worker blocked before host admission."""
+        if (not self.task_campaign or self.parent.record.get('kind') != 'controller' or
+                self.worker_outcome != 'admission-blocked' or not self.verified or
+                not self.worker or self.worker.poll() is None or self.worker.poll() == 0 or
+                self.active is not None or
+                self.pending is not None or self.evaluation_job is not None or self.outcomes or
+                self.uncertain or self.tool_lock.locked() or
+                self.parent.record.get('phase') == 'delegated'):
+            raise workload.Busy(recovery=True)
+        self.parent.complete()
+        self.closed = True
 
     def submit_answered_practice_module(self):
         """Host-only module closure after all agent answers and proven turn exit."""

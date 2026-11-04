@@ -169,6 +169,48 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(parent.record['phase'], 'running')
             parent.complete()
 
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned workload drainage')
+    def test_campaign_admission_hook_block_without_host_work_releases_reservation(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:argos_proctor_improvement_fixture', task_campaign=True)
+            bridge.session_id = 'campaign-session'
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'hook_block', 'message': 'private admission detail'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+            result, _stderr = bridge.finish(timeout=1, finalize=False, retain_controller=True)
+            self.assertEqual(result['status'], 'error')
+            self.assertTrue(bridge.verified)
+            self.assertFalse(bridge.uncertain)
+            self.assertIsNone(bridge.active)
+            self.assertEqual(bridge.worker_outcome, 'admission-blocked')
+            bridge.release_unadmitted_campaign()
+            self.assertTrue(parent.drained)
+        reservation = json.loads((self.home / '.local/state/argos-live/workload/reservation.json').read_text())
+        self.assertEqual(reservation['state'], 'released')
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned workload drainage')
+    def test_campaign_hook_block_after_any_admission_stays_quarantined(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:argos_proctor_improvement_fixture', task_campaign=True)
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            bridge.active.update(ended=True, host_tool_requests=1)
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'hook_block'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+            with self.assertRaises(workload.Busy):
+                bridge.finish(timeout=1, finalize=False, retain_controller=True)
+            self.assertTrue(bridge.uncertain)
+            with self.assertRaises(workload.Busy):
+                bridge.release_unadmitted_campaign()
+            parent.complete()
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
     def test_practice_hook_block_after_host_tool_activity_is_not_retryable(self):
         exam = SimpleNamespace(tier='practice')
