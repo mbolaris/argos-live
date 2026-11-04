@@ -35,6 +35,12 @@ TASK_CAMPAIGN_SUITES = frozenset({
     'documents-short', 'owner-recovery-decision'})
 MAX_WORKER_TURN_RECORDS = 32
 MAX_SDK_RUNS_PER_WORKER = 4
+ADMISSION_BLOCK_REASONS = frozenset({
+    'run-not-ended', 'same-run-id', 'session-binding-mismatch', 'not-campaign',
+    'wrong-controller-kind', 'wrong-session-scope', 'worker-not-live',
+    'closed-or-uncertain', 'pending-operation', 'tool-in-progress',
+    'evaluation-in-progress', 'sdk-run-limit', 'unknown',
+})
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
     'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
@@ -128,6 +134,7 @@ class Bridge:
         self.worker_turns = []
         self.sdk_runs_started = 0
         self.sdk_run_history = []
+        self.last_admission_block_reason = None
         self.transport_env = None
         self.worker_path = os.environ.get('PATH', '')
         self.uncertain = False
@@ -165,6 +172,8 @@ class Bridge:
         value['worker_turns'] = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
         value['sdk_runs_started'] = self.sdk_runs_started
         value['sdk_run_history'] = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+        if self.last_admission_block_reason in ADMISSION_BLOCK_REASONS:
+            value['admission_block_reason'] = self.last_admission_block_reason
         write_json(self.events, value)
 
     def dispatch(self, request, on_update=None):
@@ -264,14 +273,50 @@ class Bridge:
                     self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
                     self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
                     self.sdk_runs_started += 1
+                    self.last_admission_block_reason = None
                     self.publish()
                     return {'status': 'admitted', 'turn_token': self.active['token']}
+                self.last_admission_block_reason = self._campaign_rotation_block_reason(request)
+                self.publish()
                 raise workload.Busy()
             self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
             self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
             self.sdk_runs_started = max(1, self.sdk_runs_started)
+            self.last_admission_block_reason = None
             self.publish()
             return {'status': 'admitted', 'turn_token': self.active['token']}
+
+    def _campaign_rotation_block_reason(self, request):
+        """Return a closed diagnostic enum for a refused ended-run rotation."""
+        if not self.active.get('ended'):
+            return 'run-not-ended'
+        if self.active.get('run_id') == request.get('run_id'):
+            return 'same-run-id'
+        worker_session = getattr(self, 'session_id', None)
+        if (worker_session is None or self.active.get('session_id') != worker_session or
+                request.get('session_id') != worker_session):
+            return 'session-binding-mismatch'
+        if not self.task_campaign:
+            return 'not-campaign'
+        if self.parent.record.get('kind') != 'controller':
+            return 'wrong-controller-kind'
+        if (self.session_key != request.get('session_key') or
+                not self.session_key.startswith('agent:main:argos_proctor_improvement_')):
+            return 'wrong-session-scope'
+        if self.worker is None or self.worker.poll() is not None:
+            return 'worker-not-live'
+        if self.closed or self.uncertain:
+            return 'closed-or-uncertain'
+        if self.pending is not None:
+            return 'pending-operation'
+        if self.tool_lock.locked():
+            return 'tool-in-progress'
+        job = self.evaluation_job
+        if job is not None and not job.get('consumed'):
+            return 'evaluation-in-progress'
+        if self.sdk_runs_started >= MAX_SDK_RUNS_PER_WORKER:
+            return 'sdk-run-limit'
+        return 'unknown'
 
     def check_turn(self, request):
         token = request.get('turn_token')
@@ -1148,6 +1193,7 @@ class Bridge:
             self.active = None
             self.sdk_runs_started = 0
             self.sdk_run_history = []
+            self.last_admission_block_reason = None
             self.verified = False
             self.session_key = session_key
 
@@ -1190,6 +1236,7 @@ class Bridge:
             self.session_key = session_key
             self.sdk_runs_started = 0
             self.sdk_run_history = []
+            self.last_admission_block_reason = None
 
     def complete_campaign(self):
         """Release a drained Proctor campaign after the host checks its evidence."""

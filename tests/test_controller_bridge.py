@@ -103,6 +103,20 @@ class ControllerBridgeTests(unittest.TestCase):
                 self.assertEqual(bridge.active['run_id'], first['run_id'])
                 parent.complete()
 
+    def test_campaign_rotation_rejection_records_only_closed_reason(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            first, first_turn = self.begin(bridge)
+            bridge.session_id = first['session_id']
+            bridge.worker = SimpleNamespace(poll=lambda: None)
+            bridge.dispatch({**first_turn, 'op': 'ended'})
+            bridge.active['session_id'] = 'private-session-id'
+            with self.assertRaises(workload.Busy):
+                bridge.dispatch({**first, 'run_id': 'framework-run-2'})
+            self.assertEqual(bridge.last_admission_block_reason, 'session-binding-mismatch')
+            parent.complete()
+
     def test_decision_only_suite_cannot_authorize_instruction_changes(self):
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent,

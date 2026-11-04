@@ -30,6 +30,15 @@ def safe_controller_diagnostics(turn):
     count = turn.get('host_tool_requests')
     if type(count) is int and 0 <= count <= 10000:
         result['host_tool_requests'] = count
+    sdk_runs = turn.get('sdk_runs_started')
+    if type(sdk_runs) is int and 0 <= sdk_runs <= 4:
+        result['sdk_runs_started'] = sdk_runs
+    if turn.get('admission_block_reason') in {
+            'run-not-ended', 'same-run-id', 'session-binding-mismatch', 'not-campaign',
+            'wrong-controller-kind', 'wrong-session-scope', 'worker-not-live',
+            'closed-or-uncertain', 'pending-operation', 'tool-in-progress',
+            'evaluation-in-progress', 'sdk-run-limit', 'unknown'}:
+        result['admission_block_reason'] = turn['admission_block_reason']
     # Explain whether a busy admission was the first entry into this host
     # turn or a collision with an already admitted run, without exporting the
     # run/session identifiers from controller-turn.json.
