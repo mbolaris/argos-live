@@ -31,7 +31,8 @@ def safe_controller_diagnostics(turn):
     if type(count) is int and 0 <= count <= 10000:
         result['host_tool_requests'] = count
     allowed = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
-               'proctor_continue', 'proctor_submit', 'proctor_feedback', 'proctor_tool_call'}
+               'proctor_continue', 'proctor_submit', 'proctor_feedback', 'proctor_tool_call',
+               'ssh_status'}
     error_codes = {'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
         'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
         'INVALID_SUBMISSION_ARGUMENTS', 'ITEM_NOT_IN_MODULE', 'MODULE_NOT_RELEASED',
@@ -224,6 +225,13 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
         return {
             'campaign_status': campaign_result.get('status'),
             'campaign_outcome': campaign_result.get('outcome'),
+            # The service deliberately returns a bounded code instead of raw
+            # exception text. Preserve it so a real-model smoke failure can be
+            # diagnosed without exporting model replies, paths, or host output.
+            'failure_code': value.get('failure_code') if isinstance(value.get('failure_code'), str) and
+                re.fullmatch(r'(?:pausing|practice|campaign)-(?:timeout|permission-denied|component-missing|host-io-error|invalid-state|internal-error)', value['failure_code']) else None,
+            'failure_stage': value.get('failure_stage') if value.get('failure_stage') in
+                {'pausing', 'practice', 'campaign'} else None,
             'saved_evaluation_count': len(campaign_result.get('saved_evaluation_ids', [])),
             'ssh_status_tool_calls': len(ssh_calls),
             'ssh_status_available': len(ssh_calls) == 1 and ssh_calls[0].get('status') == 'available',
@@ -246,7 +254,13 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
     try:
         first = campaign()
         before = result_facts(first)
+        state_root = home / '.local/state/argos-live/workload'
+        turn_path = state_root / 'controller-turn.json'
         receipt['before_approval'] = before
+        receipt['before_approval_controller'] = {
+            'failure': safe_finish_failure(state_root / 'controller-failure.json'),
+            'turn': safe_controller_diagnostics(
+                json.loads(turn_path.read_text(encoding='utf-8')) if turn_path.is_file() else {})}
         before_checks = {
             'no_measurement_suite': first.get('measurement_suite') is None,
             'task_not_measured': before['campaign_outcome'] == 'task-not-measured',
