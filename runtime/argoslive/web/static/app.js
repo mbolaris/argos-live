@@ -2842,8 +2842,12 @@ function presentedNextAction(next, trial, report, climb = autoClimb) {
     reason: 'The trial needs attention before Argos can safely continue. Open its status and recovery details.', action: 'assistant-trial'};
 }
 let commandRefreshing = false;
+let commandRefreshPending = false;
 async function refreshCommand() {
-  if (commandRefreshing) return;
+  if (commandRefreshing) {
+    commandRefreshPending = true;
+    return;
+  }
   commandRefreshing = true;
   try {
     const value = await api('/api/command-center');
@@ -3010,7 +3014,13 @@ async function refreshCommand() {
     syncAssistantTrialFocus();
   } catch (_) {
     document.getElementById('cc-next-title').textContent = 'Command center unavailable. Refresh to retry.';
-  } finally { commandRefreshing = false; }
+  } finally {
+    commandRefreshing = false;
+    if (commandRefreshPending) {
+      commandRefreshPending = false;
+      queueMicrotask(() => { void refreshCommand(); });
+    }
+  }
 }
 async function post(path, body) {
   const headers = {'X-Argos-Token': token || ''};
@@ -3731,10 +3741,14 @@ async function refreshAssistantTrial() {
   let value;
   try { value = await api('/api/assistant-trial'); } catch (_) { return; }
   if (epoch !== trialRequestEpoch || trialActionPending) return;
-  const previousStatus = assistantTrial?.status;
+  const commandState = trial => trial ? JSON.stringify([
+    trial.available, trial.status, trial.phase, trial.active, trial.result_state,
+    Array.isArray(trial.changes) ? trial.changes.length : 0
+  ]) : '';
+  const previousCommandState = commandState(assistantTrial);
   assistantTrial = value;
   renderAssistantTrial();
-  if (previousStatus !== value.status) await refreshCommand();
+  if (previousCommandState !== commandState(value)) await refreshCommand();
 }
 
 function renderAssistantTrial() {
@@ -4126,6 +4140,7 @@ async function trialAction(path) {
     trialRequestEpoch++;
     renderAssistantTrial();
     if (failure) note.textContent = failure;
+    await refreshCommand();
   }
 }
 

@@ -114,13 +114,13 @@ jobs:
         if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only }}
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
-      - name: Real tool-capable-model Proctor practice with signed completion
+      - name: Real model Proctor practice and owner-approved recovery smoke
         if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && !inputs.tool_sequence_only }}
         run: |
           args=()
           if [[ '${{ inputs.deterministic_profile }}' == true ]]; then args+=(--deterministic-profile); fi
           if [[ '${{ inputs.proctor_form }}' == composed-a ]]; then args+=(--form composed-a); fi
-          python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/proctor-real.json "${args[@]}"
+          python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/proctor-real.json --owner-recovery "${args[@]}"
       - name: Real model tool-sequence transfer check with execution denied
         if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.tool_sequence_only }}
         run: |
@@ -133,6 +133,7 @@ jobs:
             work/native-chat.json
             work/desktop-startup.json
             work/proctor-real*.json
+            work/owner-recovery*.json
             work/tool-sequence-real.json
             work/tool-sequence-real-run.json
           if-no-files-found: error

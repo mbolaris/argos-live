@@ -1,15 +1,74 @@
 import importlib.util
+import json
 from pathlib import Path
+import sys
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'runtime'))
+from argoslive.controller_bridge import Bridge
 SPEC = importlib.util.spec_from_file_location('smoke_proctor_real', ROOT / 'scripts/smoke-proctor-real.py')
 smoke = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(smoke)
 
 
 class ProctorRealDiagnosticTests(unittest.TestCase):
+    def test_hook_block_exports_only_closed_admission_diagnosis(self):
+        bridge = object.__new__(Bridge)
+        bridge.session_id = 'session-1'
+        for message, expected in (
+                ('Host controller slot is busy', 'host-slot-busy'),
+                ('Your message could not be sent: Host controller slot is busy (blocked by argos-improve)',
+                 'host-slot-busy'),
+                ('Host controller rejected session binding', 'session-binding-rejected'),
+                ('Your message could not be sent: Host controller rejected session binding (blocked by argos-improve)',
+                 'session-binding-rejected'),
+                ('Host controller request was rejected', 'controller-request-rejected'),
+                ('Your message could not be sent: Host controller request was rejected (blocked by argos-improve)',
+                 'controller-request-rejected'),
+                ('Host controller returned an invalid admission response', 'invalid-admission-response'),
+                ('Host controller admission failed', 'controller-transport'),
+                ('Your message could not be sent: private model or host content (blocked by argos-improve)',
+                 'other-hook-block'),
+                ('private model or host content', 'other-hook-block')):
+            value = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': 'session-1'},
+                'error': {'kind': 'hook_block', 'message': message}}}}
+            result = bridge._safe_worker_response(json.dumps(value))
+            self.assertEqual(result['hook_block_code'], expected)
+            self.assertNotIn(message, repr(result))
+
+    def test_safe_worker_turn_exports_only_allowlisted_hook_block_code(self):
+        base = {'turn': 1, 'outcome': 'admission-blocked', 'returncode': 1,
+                'stdout_bytes': 120, 'stderr_bytes': 0, 'process_group_drained': True,
+                'session_bound': True, 'host_tool_requests': 0, 'host_tool_failures': 0,
+                'response_status': 'error', 'sdk_error_kind': 'hook_block'}
+        result = smoke.safe_controller_diagnostics({'worker_turns': [
+            {**base, 'hook_block_code': 'session-binding-rejected'},
+            {**base, 'turn': 2, 'hook_block_code': 'private model output'}]})
+        self.assertEqual(result['worker_turns'][0]['hook_block_code'], 'session-binding-rejected')
+        self.assertNotIn('private model output', repr(result))
+
+    def test_active_controller_diagnostic_redacts_session_identity(self):
+        result = smoke.safe_controller_diagnostics({
+            'run_id': 'private-run-id', 'session_id': 'private-session-id',
+            'session_key': 'agent:main:argos_proctor_improvement_private',
+            'trigger': 'user', 'ended': False, 'host_tool_requests': 0,
+            'sdk_runs_started': 2, 'admission_block_reason': 'session-binding-mismatch',
+        })
+        self.assertEqual(result['active_turn'], {
+            'present': True, 'ended': False, 'trigger': 'user', 'campaign_session': True})
+        self.assertEqual(result['sdk_runs_started'], 2)
+        self.assertEqual(result['admission_block_reason'], 'session-binding-mismatch')
+        self.assertNotIn('private-run-id', repr(result))
+        self.assertNotIn('private-session-id', repr(result))
+
+    def test_admission_block_diagnostics_reject_unbounded_or_unknown_reason(self):
+        result = smoke.safe_controller_diagnostics({
+            'sdk_runs_started': 999, 'admission_block_reason': 'private prompt text'})
+        self.assertEqual(result, {})
+
     def test_real_smoke_rejects_unbundled_form_before_starting(self):
         with self.assertRaisesRegex(ValueError, 'bundled Proctor practice form'):
             smoke.run(Path('unused'), Path('unused'), Path('unused'), 'qwen3:4b',
@@ -19,7 +78,9 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
         turn = {
             'host_tool_requests': 3,
             'host_tool_failures': [
-                {'kind': 'proctor_item', 'error_class': 'ValueError', 'message': 'private raw error'},
+                {'kind': 'inspect', 'error_class': 'Busy', 'tool_stage': 'workload-child',
+                 'tool_wait_ms': 218, 'recovery_required': False,
+                 'message': 'private raw error'},
                 {'kind': 'proctor_answer', 'error_class': 'ProctorError',
                  'error_code': 'INVALID_ANSWER_FORMAT'},
                 {'kind': 'proctor_answer', 'error_class': 'ProctorError',
@@ -58,7 +119,8 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
         result = smoke.safe_controller_diagnostics(turn)
         self.assertEqual(result['host_tool_requests'], 3)
         self.assertEqual(result['host_tool_failures'], [
-            {'kind': 'proctor_item', 'error_class': 'ValueError'},
+            {'kind': 'inspect', 'error_class': 'Busy', 'tool_stage': 'workload-child',
+             'tool_wait_ms': 218, 'recovery_required': False},
             {'kind': 'proctor_answer', 'error_class': 'ProctorError',
              'error_code': 'INVALID_ANSWER_FORMAT'},
             {'kind': 'proctor_answer', 'error_class': 'ProctorError'}])
@@ -83,11 +145,15 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
     def test_malformed_or_unbounded_diagnostics_are_omitted(self):
         result = smoke.safe_controller_diagnostics({
             'host_tool_requests': True,
-            'host_tool_failures': 'not-a-list',
+            'host_tool_failures': [
+                {'kind': 'inspect', 'error_class': 'Busy', 'tool_stage': 'private stage',
+                 'tool_wait_ms': 120001, 'recovery_required': 1},
+            ],
             'tools': None,
             'admission_diagnostics': {'tool_hooks': -1},
         })
-        self.assertEqual(result, {})
+        self.assertEqual(result, {'host_tool_failures': [
+            {'kind': 'inspect', 'error_class': 'Busy'}]})
 
     def test_worker_turn_diagnostics_drop_unbounded_or_malformed_rows(self):
         result = smoke.safe_controller_diagnostics({'worker_turns': [

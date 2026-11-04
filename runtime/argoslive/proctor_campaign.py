@@ -12,7 +12,7 @@ class Refused(ValueError):
 
 MEASUREMENT_SUITES = frozenset({
     'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
-    'documents-short'})
+    'documents-short', 'owner-recovery-decision'})
 
 
 def validate_owner_task(owner_task, success_criteria):

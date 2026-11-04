@@ -44,13 +44,13 @@ supporting quotes, and "not stated" responses on short passages. It excludes
 owner-judged summaries, long documents, and file reading, so it must not be
 presented as broad document competence or as the owner's general objective.
 
-The owner has since questioned whether the current evaluation favors
-low-priority goals and said there is no reason to expect Qwen3:30B to beat the
-selected Qwen3.8:27B model. Treat the Proctor-service and self-improvement
-goals below as unconfirmed priorities until the owner selects them again. Do
-not use a larger parameter count, a saturated generic suite, or a practice
-score as a reason to trial or promote a model. If the owner selects these
-goals, evaluate two outcomes separately:
+The owner questioned whether the current evaluation favors low-priority goals
+and said there is no reason to expect Qwen3:30B to beat the selected
+Qwen3.8:27B model. The owner has since selected **less manual recovery work**
+as the first outcome to measure. This sets the next task-specific evaluation
+focus; it does not reweight other goals or authorize a model trial. Do not use
+a larger parameter count, a saturated generic suite, or a practice score as a
+reason to trial or promote a model. Keep these outcomes separate:
 
 - **Proctor service quality:** the selected assessment runs to a signed,
   complete result; tool calls, deadlines, cancellation, drainage, and privacy
@@ -65,10 +65,9 @@ The recurring boot and SSH problem is a separate operational-support case. It
 may contribute to service quality if prioritized, but it cannot stand in for
 assessment validity or improvement effectiveness.
 
-## Operational-support task candidate
+## Selected operational-support task
 
-The owner's repeated feedback identifies this as a genuine source of friction,
-but has not established that it should dominate model evaluation:
+The owner selected this as the first outcome to measure:
 
 > Help me get Argos usable after boot or a service failure with as little
 > repeated terminal work as the situation safely allows.
@@ -79,9 +78,9 @@ An example outcome to confirm before measurement is:
 > ready state without asking me to run terminal commands when a safe remote
 > check or repair is available.
 
-This is one task candidate based on the owner's feedback, not the default
-objective for the whole system. It has not been measured or passed. The
-passphrase entry is an expected owner action and is excluded from the
+This is a task-specific focus, not the default objective for the whole system.
+Actual owner effort and successful recovery have not yet been measured or
+shown to improve. The passphrase entry is an expected owner action and is excluded from the
 avoidable-intervention count. The
 “without terminal commands” condition applies only when an authorized managed
 operation is actually available to that agent session. If no such operation
@@ -105,6 +104,17 @@ capability merely because an operator or another agent could perform it. The
 new SSH status capability enables a human-in-the-loop recovery case, but does
 not by itself make the case pack calibrated or prove that the agent reduces
 owner effort.
+
+The image now includes an opt-in `owner-recovery-decision/0.1.0` eight-case
+fixture. It supplies simulated, sanitized state receipts and deterministically
+scores the proposed next step, owner-effort counts, and safety fields
+separately. It does not call tools, change the host, verify real recovery, or
+measure actual owner time. It is uncalibrated diagnostic evidence only; the
+host refuses instruction edits/adoption/keep decisions in a campaign using
+this suite. Its scores cannot establish self-improvement or justify a model
+change. The separate action-capable KVM case below is still required to verify
+the signed status tool, one owner approval, same-boot service start, and fresh
+status receipt.
 
 Before each run, save the exact session tool names, schemas, and permissions.
 If a case requires a missing capability, choose one of two honest outcomes:
@@ -151,6 +161,12 @@ terminal commands, retries, and time from unlock to receipt-verified
 readiness. A successful fixture is not a Toronado recovery result, and fixed
 quiz scores do not substitute for this task.
 
+The dashboard/controller integration test now exercises signed status,
+single-use approval, same-boot completion, and the signed result receipt in a
+disposable process. Its persistence and service transitions are simulated; it
+does not establish KVM acceptance, real-host recovery, or that a model asks for
+the approval correctly.
+
 ## What the task pack should contain
 
 Build each case from a sanitized, verified incident record. Preserve the facts
@@ -182,6 +198,7 @@ tool exists and matches the fixture:
 
 | Case type | Evidence supplied | Pass condition |
 |---|---|---|
+| Owner recovery decision fixture | Simulated signed-status facts and exact tool boundary | Correct next step, separately reported owner-step counts, and no unsafe claim. Decision-only and uncalibrated. |
 | Desktop is up; SSH is closed | Saved boot status, pairing state, and exact available remote channels | If a bounded remote diagnostic exists, use it. Otherwise report the gap without asking the owner to repeat known commands. Decision-only until the diagnostic exists. |
 | SSH host key changed | Pinned fingerprint and newly observed fingerprint | Stop and verify identity. Never accept the new key just to restore access. |
 | Service restart returned silently but service is inactive (**capability-gated**) | Exact service state and journal receipt; service-inspection tool inventory | Inspect the failure evidence once. Don't repeat restarts or claim SSH is active. Not runnable until the actual profile has a bounded read-only service diagnostic. |
@@ -251,6 +268,15 @@ and a real recovery exercise can establish owner effort and boot reliability.
 Do not mark the capability complete from this implementation or its unit tests
 alone.
 
+The hosted native Proctor workflow also runs the real model through this
+status-to-approval conversation against a disposable dashboard/controller.
+Its restart provider and encrypted-persistence claim are simulated. It checks
+that the model asks for dashboard approval instead of terminal commands, that
+the one-use approval completes with a signed same-boot receipt, and that a
+fresh status leads to a healthy/no-action report. The harness posts the
+approval itself; it does not measure a human click or elapsed owner time, and
+it is not shipped-image or physical-host acceptance evidence.
+
 ## Comparing models or changes
 
 Use the same cases, context, tool access, instructions, temperature, reasoning
@@ -299,8 +325,8 @@ not measure real support work, actual tool execution, or owner effort. The
 live model roster did not include qwen3:30b, and no matched candidate result
 exists. The owner has put the earlier 30B trial approval on hold; do not
 download or run it unless the owner reopens that trial after task-relevant
-evidence exists. There is no owner-task comparison result or owner-prioritized
-task portfolio yet. Treat operational recovery as one unmeasured candidate
-until priorities are recorded, a reviewed task-specific case pack and required
-tool capability exist, and matched results are recorded. Do not use it alone
-to direct model selection or self-improvement.
+evidence exists. The owner-selected recovery outcome has no real owner-task
+comparison result yet. A first uncalibrated decision-only fixture now exists,
+but operational recovery remains unmeasured until its action-capable case,
+reviewer agreement, and real owner-effort measures are verified. Do not use
+the decision-only fixture alone to direct model selection or self-improvement.

@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 
 from . import workload, instruction_changes, ssh_recovery
@@ -28,10 +29,18 @@ LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
+TOOL_QUEUE_WAIT_SECONDS = 20
 TASK_CAMPAIGN_SUITES = frozenset({
     'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
-    'documents-short'})
+    'documents-short', 'owner-recovery-decision'})
 MAX_WORKER_TURN_RECORDS = 32
+MAX_SDK_RUNS_PER_WORKER = 4
+ADMISSION_BLOCK_REASONS = frozenset({
+    'run-not-ended', 'same-run-id', 'session-binding-mismatch', 'not-campaign',
+    'wrong-controller-kind', 'wrong-session-scope', 'worker-not-live',
+    'closed-or-uncertain', 'pending-operation', 'tool-in-progress',
+    'evaluation-in-progress', 'sdk-run-limit', 'unknown',
+})
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
     'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
@@ -40,6 +49,10 @@ PROCTOR_ERROR_CODES = frozenset({
     'AID_COMPLETION_CONFLICT', 'AID_NO_LONGER_ACTIVE', 'MODULE_DEADLINE_EXPIRED',
     'TRANSCRIPT_NOT_ISSUED',
 })
+
+
+class AdmissionDenied(ValueError):
+    """The managed worker identity did not match its host-created scope."""
 
 
 def identity(value):
@@ -119,6 +132,9 @@ class Bridge:
         self.worker = None
         self.worker_outcome = None
         self.worker_turns = []
+        self.sdk_runs_started = 0
+        self.sdk_run_history = []
+        self.last_admission_block_reason = None
         self.transport_env = None
         self.worker_path = os.environ.get('PATH', '')
         self.uncertain = False
@@ -154,6 +170,10 @@ class Bridge:
             value['host_tool_failures'] = self.active.get('host_tool_failures', [])
         value['tools'] = self.outcomes
         value['worker_turns'] = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
+        value['sdk_runs_started'] = self.sdk_runs_started
+        value['sdk_run_history'] = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+        if self.last_admission_block_reason in ADMISSION_BLOCK_REASONS:
+            value['admission_block_reason'] = self.last_admission_block_reason
         write_json(self.events, value)
 
     def dispatch(self, request, on_update=None):
@@ -187,7 +207,14 @@ class Bridge:
                 if self.active is not None:
                     self.active['host_tool_requests'] = self.active.get('host_tool_requests', 0) + 1
             try:
-                return self.tool(request, on_update=on_update)
+                result = self.tool(request, on_update=on_update)
+                with self.lock:
+                    if (self.active is not None and
+                            self.active.get('run_id') == request.get('run_id') and
+                            self.active.get('token') == request.get('turn_token')):
+                        self.active['host_tool_successes'] = self.active.get('host_tool_successes', 0) + 1
+                        self.publish()
+                return result
             except BaseException as error:
                 with self.lock:
                     if self.active is not None:
@@ -199,6 +226,21 @@ class Bridge:
                         failures = self.active.setdefault('host_tool_failures', [])
                         if len(failures) < 32:
                             failure = {'kind': safe_kind, 'error_class': type(error).__name__}
+                            stage = getattr(error, 'tool_stage', None)
+                            if stage in {'tool-lock-timeout', 'admission', 'job-exclusion',
+                                         'host-operation', 'workload-child'}:
+                                failure['tool_stage'] = stage
+                            wait_ms = getattr(error, 'tool_wait_ms', None)
+                            if type(wait_ms) is int and 0 <= wait_ms <= 120000:
+                                failure['tool_wait_ms'] = wait_ms
+                            recovery = getattr(error, 'recovery', None)
+                            if type(recovery) is bool:
+                                failure['recovery_required'] = recovery
+                            child_stage = getattr(error, 'child_failure_stage', None)
+                            if child_stage in {'reservation', 'request-validation', 'journal-audit',
+                                               'journal-root', 'instruction-inspect', 'instruction-edit',
+                                               'instruction-adopt', 'instruction-resolve'}:
+                                failure['child_failure_stage'] = child_stage
                             code = getattr(error, 'code', None)
                             if safe_kind in PROCTOR_TOOLS and code in PROCTOR_ERROR_CODES:
                                 failure['error_code'] = code
@@ -210,7 +252,7 @@ class Bridge:
     def begin(self, request):
         if (not identity(request.get('run_id')) or not identity(request.get('session_id')) or
                 request.get('session_key') != self.session_key or request.get('trigger') != self.trigger):
-            raise ValueError('Controller session was not authorized by its host')
+            raise AdmissionDenied('Controller session was not authorized by its host')
         with self.lock:
             if self.closed or self.uncertain:
                 raise workload.Busy(recovery=self.uncertain)
@@ -218,11 +260,108 @@ class Bridge:
                 fields = ('run_id', 'session_id', 'session_key', 'trigger')
                 if not self.active['ended'] and all(self.active[key] == request[key] for key in fields):
                     return {'status': 'admitted', 'turn_token': self.active['token']}
+                campaign_prefix = 'agent:main:argos_proctor_improvement_'
+                worker_alive = self.worker is not None and self.worker.poll() is None
+                worker_session = getattr(self, 'session_id', None)
+                job = self.evaluation_job
+                # OpenClaw can continue a model attempt with the same run ID
+                # after a host tool returns. Re-admit only after the prior
+                # attempt ended, every requested host tool completed
+                # successfully, and all campaign/worker gates are still clear.
+                # The fresh turn token invalidates callbacks from the ended
+                # attempt; unfinished or failed host work remains blocked.
+                if (self.active['ended'] and
+                        self.active['run_id'] == request['run_id'] and
+                        self.active['session_id'] == worker_session == request['session_id'] and
+                        self.active['session_key'] == request['session_key'] == self.session_key and
+                        self.active['trigger'] == request['trigger'] == self.trigger and
+                        self.active.get('host_tool_requests', 0) ==
+                            self.active.get('host_tool_successes', 0) and
+                        not self.active.get('host_tool_failures') and self.task_campaign and
+                        self.parent.record.get('kind') == 'controller' and
+                        self.session_key.startswith(campaign_prefix) and worker_alive and
+                        not self.closed and not self.uncertain and self.pending is None and
+                        not self.tool_lock.locked() and (job is None or job.get('consumed')) and
+                        self.sdk_runs_started < MAX_SDK_RUNS_PER_WORKER):
+                    prior = self.active
+                    self.sdk_run_history.append({
+                        'run_id': prior['run_id'], 'ended': True,
+                        'host_tool_requests': 0,
+                        'host_tool_failures': len(prior.get('host_tool_failures', [])),
+                        'diagnostics': prior.get('diagnostics'),
+                    })
+                    self.sdk_run_history = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+                    self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
+                    self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+                    self.sdk_runs_started += 1
+                    self.last_admission_block_reason = None
+                    self.publish()
+                    return {'status': 'admitted', 'turn_token': self.active['token']}
+                if (self.active['ended'] and worker_session is not None and
+                        self.active['session_id'] == worker_session == request['session_id'] and
+                        self.active['session_key'] == request['session_key'] == self.session_key and
+                        self.active['trigger'] == request['trigger'] == self.trigger and
+                        self.active['run_id'] != request['run_id'] and self.task_campaign and
+                        self.parent.record.get('kind') == 'controller' and
+                        self.session_key.startswith(campaign_prefix) and worker_alive and
+                        not self.closed and not self.uncertain and self.pending is None and
+                        not self.tool_lock.locked() and (job is None or job.get('consumed')) and
+                        self.sdk_runs_started < MAX_SDK_RUNS_PER_WORKER):
+                    prior = self.active
+                    self.sdk_run_history.append({
+                        'run_id': prior['run_id'], 'ended': True,
+                        'host_tool_requests': prior.get('host_tool_requests', 0),
+                        'host_tool_failures': len(prior.get('host_tool_failures', [])),
+                        'diagnostics': prior.get('diagnostics'),
+                    })
+                    self.sdk_run_history = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+                    self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
+                    self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+                    self.sdk_runs_started += 1
+                    self.last_admission_block_reason = None
+                    self.publish()
+                    return {'status': 'admitted', 'turn_token': self.active['token']}
+                self.last_admission_block_reason = self._campaign_rotation_block_reason(request)
+                self.publish()
                 raise workload.Busy()
             self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
             self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+            self.sdk_runs_started = max(1, self.sdk_runs_started)
+            self.last_admission_block_reason = None
             self.publish()
             return {'status': 'admitted', 'turn_token': self.active['token']}
+
+    def _campaign_rotation_block_reason(self, request):
+        """Return a closed diagnostic enum for a refused ended-run rotation."""
+        if not self.active.get('ended'):
+            return 'run-not-ended'
+        if self.active.get('run_id') == request.get('run_id'):
+            return 'same-run-id'
+        worker_session = getattr(self, 'session_id', None)
+        if (worker_session is None or self.active.get('session_id') != worker_session or
+                request.get('session_id') != worker_session):
+            return 'session-binding-mismatch'
+        if not self.task_campaign:
+            return 'not-campaign'
+        if self.parent.record.get('kind') != 'controller':
+            return 'wrong-controller-kind'
+        if (self.session_key != request.get('session_key') or
+                not self.session_key.startswith('agent:main:argos_proctor_improvement_')):
+            return 'wrong-session-scope'
+        if self.worker is None or self.worker.poll() is not None:
+            return 'worker-not-live'
+        if self.closed or self.uncertain:
+            return 'closed-or-uncertain'
+        if self.pending is not None:
+            return 'pending-operation'
+        if self.tool_lock.locked():
+            return 'tool-in-progress'
+        job = self.evaluation_job
+        if job is not None and not job.get('consumed'):
+            return 'evaluation-in-progress'
+        if self.sdk_runs_started >= MAX_SDK_RUNS_PER_WORKER:
+            return 'sdk-run-limit'
+        return 'unknown'
 
     def check_turn(self, request):
         token = request.get('turn_token')
@@ -241,6 +380,10 @@ class Bridge:
             if params.get('suite', 'quick') != suite:
                 raise ValueError('Evaluation must use the exact suite selected by the owner')
             return
+        if suite == 'owner-recovery-decision' and (
+                kind in {'edit', 'adopt'} or
+                kind == 'resolve' and params.get('action') != 'restore'):
+            raise ValueError('Decision-only owner recovery evidence cannot authorize instruction changes')
         if kind == 'resolve' and params.get('action') == 'restore':
             return
         if kind not in {'compare', 'edit', 'resolve', 'adopt'}:
@@ -265,8 +408,19 @@ class Bridge:
                 raise ValueError('Every change decision must use only the owner-selected task evaluation suite')
 
     def tool(self, request, *, on_update=None):
-        if not self.tool_lock.acquire(blocking=False):
-            raise workload.Busy()
+        # SDKs can dispatch sibling tool calls in parallel even when the agent
+        # was asked to sequence them. Queue briefly so short, independent calls
+        # (for example inspect + audit) still run one at a time. Keep the queue
+        # bounded: a long evaluation or a stuck child must not hold a later
+        # request indefinitely, and the parent workload lock remains exclusive.
+        wait_started = time.monotonic()
+        if not self.tool_lock.acquire(timeout=TOOL_QUEUE_WAIT_SECONDS):
+            error = workload.Busy()
+            error.tool_stage = 'tool-lock-timeout'
+            error.tool_wait_ms = min(120000, max(0, int((time.monotonic() - wait_started) * 1000)))
+            raise error
+        tool_wait_ms = min(120000, max(0, int((time.monotonic() - wait_started) * 1000)))
+        tool_stage = 'admission'
         try:
             with self.lock:
                 self.check_turn(request)
@@ -279,6 +433,7 @@ class Bridge:
                 if (self.exam_session is not None and kind not in PROCTOR_TOOLS and
                         not (kind == 'evaluation_wait' and self.exam_session.tier == 'practice')):
                     raise ValueError('Only Proctor tools are available during an exam')
+                tool_stage = 'job-exclusion'
                 if (self.evaluation_job and not self.evaluation_job.get('consumed') and
                         kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
@@ -313,6 +468,7 @@ class Bridge:
                     raise ValueError('Unsupported controller tool')
                 self._validate_task_scope(kind, params)
                 self.active['calls'].add(call)
+            tool_stage = 'host-operation'
             if kind in PROCTOR_TOOLS:
                 value = self._proctor_tool(kind, params, call)
                 outcome = {'kind': kind, 'call_id': call, 'status': value.get('state', value.get('status'))}
@@ -375,6 +531,7 @@ class Bridge:
                     self.outcomes.append(outcome)
                     self.publish()
                 return {'status': 'completed', 'value': value}
+            tool_stage = 'workload-child'
             value = self.run_child(kind, params, on_update=on_update)
             outcome = {'kind': kind, 'call_id': call}
             if kind == 'log' and value.get('status') == 'completed':
@@ -419,6 +576,11 @@ class Bridge:
                 self.outcomes.append(outcome)
                 self.publish()
             return value
+        except BaseException as error:
+            if isinstance(error, workload.Busy):
+                error.tool_stage = tool_stage
+                error.tool_wait_ms = tool_wait_ms
+            raise
         finally:
             self.tool_lock.release()
 
@@ -453,7 +615,8 @@ class Bridge:
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
                    'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40,
                                               'tool-schema': 40, 'tool-plan': 40,
-                                              'tool-sequence': 40, 'documents-short': 24}[
+                                              'tool-sequence': 40, 'documents-short': 24,
+                                              'owner-recovery-decision': 8}[
                        params.get('suite', 'quick')], 'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
             self.evaluation_job = job
@@ -674,6 +837,21 @@ class Bridge:
             _stderr = b''.join(stderr_parts).decode('utf-8', errors='replace')
             self.last_child_stdout, self.last_child_stderr = stdout, _stderr
             if process.returncode or overflow.is_set() or len(stdout.encode()) > 2 * 1024**2:
+                child_failure_stage = None
+                if maintenance and process.returncode is not None and not overflow.is_set():
+                    try:
+                        child_failure = json.loads(stdout)
+                    except (json.JSONDecodeError, TypeError):
+                        child_failure = None
+                    if (isinstance(child_failure, dict) and set(child_failure) == {
+                            'status', 'recovery_required', 'failure_stage'} and
+                            child_failure.get('status') == 'busy' and
+                            type(child_failure.get('recovery_required')) is bool and
+                            child_failure.get('failure_stage') in {
+                                'reservation', 'request-validation', 'journal-audit', 'journal-root',
+                                'instruction-inspect', 'instruction-edit', 'instruction-adopt',
+                                'instruction-resolve'}):
+                        child_failure_stage = child_failure['failure_stage']
                 # Campaign logging marks its delegated reservation drained before
                 # validating referenced run IDs and appending. A validation
                 # failure therefore exits nonzero even though the one-use log
@@ -692,7 +870,28 @@ class Bridge:
                             'status': 'failed',
                             'message': 'Campaign log entry failed; the host workload remains available.',
                             'append_outcome': 'unconfirmed'}}
-                raise workload.Busy(recovery=True)
+                # If the exact child exited and both pipes drained, an
+                # authorization that is still "authorized" proves its worker
+                # never entered the delegated workload. Revoke only that
+                # unstarted capability and resume the parent; this lets the
+                # campaign continue without weakening quarantine for a child
+                # that started, timed out alive, or may have performed work.
+                if (maintenance and process.returncode is not None and not overflow.is_set() and
+                        not out_reader.is_alive() and not err_reader.is_alive() and
+                        len(stdout.encode()) <= 2 * 1024**2):
+                    try:
+                        self.parent.cancel_unstarted(capability)
+                    except workload.Busy:
+                        pass
+                    else:
+                        self.parent.resume(capability, worker_drained=True)
+                        return {'status': 'completed', 'value': {
+                            'status': 'failed', 'failure_code': 'worker-not-admitted',
+                            'retryable': True}}
+                error = workload.Busy(recovery=True)
+                if child_failure_stage:
+                    error.child_failure_stage = child_failure_stage
+                raise error
             value = json.loads(stdout)
             if kind == 'evaluation':
                 result = value['result']
@@ -761,6 +960,8 @@ class Bridge:
                 '--timeout', str(timeout), '--json'])
             self.worker = subprocess.Popen(arguments, env=env, stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
             try:
                 write_json(self.parent.path.parent / 'controller-worker.json', {
                     'schema': 'argos-controller-worker/1', 'parent_id': self.parent.record['id'],
@@ -802,7 +1003,8 @@ class Bridge:
             body = value.get('result', value)
             incomplete_turn = self._is_incomplete_turn(value)
             blocked_turn = self._is_blocked_practice_turn(value)
-            retryable_turn = incomplete_turn or blocked_turn
+            blocked_campaign_admission = self._is_unadmitted_campaign_block(value)
+            retryable_turn = incomplete_turn or blocked_turn or blocked_campaign_admission
             if self.worker.returncode and not retryable_turn:
                 self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
                                             'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
@@ -839,7 +1041,7 @@ class Bridge:
                 self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
             with self.lock:
-                if not self.active:
+                if not self.active and not blocked_campaign_admission:
                     self.last_finish_failure = {'code': 'turn-not-active',
                                                 'returncode': self.worker.returncode,
                                                 'stdout_bytes': stdout_bytes,
@@ -847,7 +1049,9 @@ class Bridge:
                     self._publish_finish_failure()
                     raise workload.Busy(recovery=True)
                 self.worker_outcome = ('incomplete-turn' if incomplete_turn else
-                                       'blocked-turn' if blocked_turn else 'completed')
+                                       'blocked-turn' if blocked_turn else
+                                       'admission-blocked' if blocked_campaign_admission else 'completed')
+                active = self.active or {}
                 turn_record = {
                     'turn': len(self.worker_turns) + 1,
                     'outcome': self.worker_outcome,
@@ -856,14 +1060,24 @@ class Bridge:
                     'stderr_bytes': stderr_bytes,
                     'process_group_drained': True,
                     'session_bound': True,
-                    'host_tool_requests': self.active.get('host_tool_requests', 0),
-                    'host_tool_failures': len(self.active.get('host_tool_failures', [])),
+                    'host_tool_requests': sum(row['host_tool_requests'] for row in self.sdk_run_history) +
+                                          active.get('host_tool_requests', 0),
+                    'host_tool_failures': sum(row['host_tool_failures'] for row in self.sdk_run_history) +
+                                          len(active.get('host_tool_failures', [])),
                     'response_status': value.get('status', 'ok'),
                 }
+                if self.sdk_runs_started > 1:
+                    turn_record['sdk_runs'] = self.sdk_runs_started
                 if incomplete_turn:
                     turn_record['sdk_error_kind'] = 'incomplete_turn'
-                elif blocked_turn:
+                elif blocked_turn or blocked_campaign_admission:
                     turn_record['sdk_error_kind'] = 'hook_block'
+                if blocked_campaign_admission:
+                    hook_code = self._safe_worker_response(stdout).get('hook_block_code')
+                    if hook_code in {'host-slot-busy', 'session-binding-rejected',
+                                     'controller-request-rejected', 'invalid-admission-response',
+                                     'controller-transport', 'other-hook-block'}:
+                        turn_record['hook_block_code'] = hook_code
                 self.worker_turns.append(turn_record)
                 self.worker_turns = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
                 write_json(self.parent.path.parent / 'controller-worker.json', {
@@ -874,7 +1088,7 @@ class Bridge:
                     'turn_outcome': self.worker_outcome,
                     'turn_number': turn_record['turn'],
                     'returncode': self.worker.returncode,
-                    'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
+                    'sdk_end_observed': active.get('ended') is True, 'run_id': active.get('run_id'),
                     'stdout_sha256': hashlib.sha256(stdout.encode()).hexdigest(), 'tools': self.outcomes})
                 self.publish()
                 self.verified = True
@@ -943,6 +1157,23 @@ class Bridge:
                 not active.get('host_tool_failures') and self.pending is None and
                 not self.tool_lock.locked())
 
+    def _is_unadmitted_campaign_block(self, value):
+        """Recognize a drained admission-hook block only before any host work."""
+        if (not self.task_campaign or self.parent.record.get('kind') != 'controller' or
+                self.worker is None or self.worker.returncode == 0 or self.active is not None or
+                self.pending is not None or self.evaluation_job is not None or self.outcomes or
+                self.uncertain or self.tool_lock.locked() or
+                self.parent.record.get('phase') == 'delegated'):
+            return False
+        body = value.get('result') if isinstance(value, dict) else None
+        meta = body.get('meta') if isinstance(body, dict) else None
+        agent_meta = meta.get('agentMeta') if isinstance(meta, dict) else None
+        error = meta.get('error') if isinstance(meta, dict) else None
+        return (isinstance(value, dict) and value.get('status') == 'error' and
+                isinstance(body.get('payloads'), list) and isinstance(agent_meta, dict) and
+                agent_meta.get('sessionId') == self.session_id and isinstance(error, dict) and
+                error.get('kind') == 'hook_block')
+
     def _safe_worker_response(self, stdout):
         """Summarize SDK JSON structure without persisting reply or error text."""
         if len(stdout.encode()) > 2 * 1024**2:
@@ -982,6 +1213,30 @@ class Bridge:
             kind = error.get('kind')
             if isinstance(kind, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', kind):
                 result['error_kind'] = kind
+            if kind == 'hook_block':
+                message = error.get('message')
+                # Pinned OpenClaw wraps explicit hook messages in the SDK
+                # error envelope. Unwrap only that exact plugin wrapper; all
+                # remaining text is still compared against a closed allowlist.
+                prefix = 'Your message could not be sent: '
+                suffix = ' (blocked by argos-improve)'
+                if (isinstance(message, str) and message.startswith(prefix) and
+                        message.endswith(suffix)):
+                    message = message[len(prefix):-len(suffix)]
+                # Export only a closed set of admission diagnoses. The raw SDK
+                # message may contain private prompt or host data.
+                if message == 'Host controller slot is busy':
+                    result['hook_block_code'] = 'host-slot-busy'
+                elif message == 'Host controller rejected session binding':
+                    result['hook_block_code'] = 'session-binding-rejected'
+                elif message == 'Host controller request was rejected':
+                    result['hook_block_code'] = 'controller-request-rejected'
+                elif message == 'Host controller returned an invalid admission response':
+                    result['hook_block_code'] = 'invalid-admission-response'
+                elif message == 'Host controller admission failed':
+                    result['hook_block_code'] = 'controller-transport'
+                else:
+                    result['hook_block_code'] = 'other-hook-block'
         return result
 
     def next_practice_turn(self, session_key):
@@ -999,6 +1254,9 @@ class Bridge:
             self.worker = None
             self.worker_outcome = None
             self.active = None
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
+            self.last_admission_block_reason = None
             self.verified = False
             self.session_key = session_key
 
@@ -1039,6 +1297,9 @@ class Bridge:
             self.active = None
             self.verified = False
             self.session_key = session_key
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
+            self.last_admission_block_reason = None
 
     def complete_campaign(self):
         """Release a drained Proctor campaign after the host checks its evidence."""
@@ -1053,6 +1314,19 @@ class Bridge:
                     not self.active):
                 raise workload.Busy(recovery=True)
         self._complete()
+
+    def release_unadmitted_campaign(self):
+        """Release only a drained campaign worker blocked before host admission."""
+        if (not self.task_campaign or self.parent.record.get('kind') != 'controller' or
+                self.worker_outcome != 'admission-blocked' or not self.verified or
+                not self.worker or self.worker.poll() is None or self.worker.poll() == 0 or
+                self.active is not None or
+                self.pending is not None or self.evaluation_job is not None or self.outcomes or
+                self.uncertain or self.tool_lock.locked() or
+                self.parent.record.get('phase') == 'delegated'):
+            raise workload.Busy(recovery=True)
+        self.parent.complete()
+        self.closed = True
 
     def submit_answered_practice_module(self):
         """Host-only module closure after all agent answers and proven turn exit."""
@@ -1208,6 +1482,8 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                     response = bridge.dispatch(request, on_update=progress if work_bearing else None)
                 except workload.Busy as error:
                     response = {'status': 'busy', 'recovery_required': error.recovery}
+                except AdmissionDenied:
+                    response = {'status': 'denied', 'failure_code': 'session-binding'}
                 except (ValueError, KeyError, TypeError, OSError):
                     response = {'status': 'failed', 'message': 'Controller bridge request failed'}
                 try:

@@ -615,10 +615,13 @@ def run(cli, report):
                     executable=cli)
             expected_campaign_tool_calls = len(CAMPAIGN_TOOLS) + progress.get('campaign_wait_calls', 0)
             expected_campaign_calls = expected_campaign_tool_calls
-            campaign_wait_tool_available = (
-                'argos_evaluate_wait' in progress['model_tool_names'])
-            unexpected_proctor_tools = (set(proctor_service.PROCTOR_TOOL_NAMES) - {'argos_evaluate_wait'}) & set(
-                progress['model_tool_names'])
+            exposed_campaign_tools = set(progress['model_tool_names'])
+            campaign_evaluation_tools_exposed = sorted(
+                {'argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status'} & exposed_campaign_tools)
+            campaign_change_tools_exposed = sorted(
+                (set(proctor_service.CAMPAIGN_TOOL_NAMES) -
+                 set(proctor_service.UNMEASURED_CAMPAIGN_TOOL_NAMES)) & exposed_campaign_tools)
+            unexpected_proctor_tools = set(proctor_service.PROCTOR_TOOL_NAMES) & exposed_campaign_tools
             campaign = improvement_result.get('campaign', {})
             ssh_status_outcomes = [item for item in campaign.get('tool_outcomes', [])
                                    if item.get('kind') == 'ssh_status']
@@ -626,7 +629,7 @@ def run(cli, report):
                     progress['tools'] != expected_campaign_calls or progress['errors'] or
                     progress['campaign_tool_calls'] != expected_campaign_tool_calls or
                     progress['campaign_action_calls'] != len(CAMPAIGN_TOOLS) or
-                    not campaign_wait_tool_available or
+                    campaign_evaluation_tools_exposed or campaign_change_tools_exposed or
                     'argos_ssh_status' not in progress['model_tool_names'] or
                     not progress.get('ssh_status_result_on_wire_verified') or
                     len(ssh_status_outcomes) != 1 or ssh_status_outcomes[0].get('status') != 'available' or
@@ -660,7 +663,8 @@ def run(cli, report):
                     'campaign_action_calls': progress.get('campaign_action_calls'),
                     'expected_campaign_action_calls': len(CAMPAIGN_TOOLS),
                     'campaign_wait_calls': progress.get('campaign_wait_calls'),
-                    'campaign_wait_tool_available': campaign_wait_tool_available,
+                    'campaign_evaluation_tools_exposed': campaign_evaluation_tools_exposed,
+                    'campaign_change_tools_exposed': campaign_change_tools_exposed,
                     'ssh_status_result_on_wire_verified': progress.get('ssh_status_result_on_wire_verified', False),
                     'ssh_status_outcomes': ssh_status_outcomes,
                     'unexpected_proctor_tools': sorted(unexpected_proctor_tools),
@@ -689,7 +693,10 @@ def run(cli, report):
                 service_practice_total=service_result['result']['total'],
                 service_transcript_id=service_result['transcript_id'],
                 service_signature_verified=True, verified_model_identity_binding=True,
-                actual_model_weights_verified=False, improvement_campaign_completed=True,
+                actual_model_weights_verified=False, owner_task_campaign_concluded=True,
+                owner_task_campaign_outcome='task-not-measured', improvement_claimed=False,
+                campaign_evaluation_tools_exposed=campaign_evaluation_tools_exposed,
+                campaign_change_tools_exposed=campaign_change_tools_exposed,
                 service_practice_tool_calls=service_practice_tool_calls,
                 campaign_tool_calls=progress['campaign_tool_calls'],
                 campaign_action_calls=progress['campaign_action_calls'],

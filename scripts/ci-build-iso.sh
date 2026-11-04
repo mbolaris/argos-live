@@ -6,10 +6,29 @@ set -euo pipefail
 }
 src=$(realpath "$(dirname "$0")/..")
 [[ "$src" == "$(realpath "${GITHUB_WORKSPACE:?}")" ]] || { echo 'Unexpected checkout.' >&2; exit 1; }
-# Fixed hosted-image tool directories only; never derive deletion targets from inputs.
-rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+# Fixed, unused hosted-image toolchains, SDKs, and build-only caches; never
+# derive deletion targets from inputs. ubuntu-24.04 periodically adds large
+# preinstalled toolchains, so remove known build-irrelevant paths before
+# checking capacity. The runner is gated
+# above to a disposable hosted VM running as root.
+for path in \
+  /usr/local/lib/android \
+  /usr/share/dotnet \
+  /opt/ghc \
+  /opt/hostedtoolcache/CodeQL \
+  /usr/local/share/boost \
+  /usr/local/.ghcup \
+  /usr/share/swift \
+  /usr/share/miniconda; do
+  if [[ -e "$path" ]]; then rm -rf -- "$path"; fi
+done
 available=$(df --output=avail -B1 "$src" | tail -1)
-(( available >= 35 * 1024 * 1024 * 1024 )) || { echo 'At least 35 GiB free is required.' >&2; exit 1; }
+printf 'Free space after fixed runner cleanup: %s bytes\n' "$available"
+df -h "$src"
+if (( available < 35 * 1024 * 1024 * 1024 )); then
+  echo 'At least 35 GiB free is required after cleanup.' >&2
+  exit 1
+fi
 apt-get update
 apt-get install -y debootstrap debian-archive-keyring ca-certificates curl gnupg xz-utils zstd python3
 mkdir -p /var/lib/argos-live

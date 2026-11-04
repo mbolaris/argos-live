@@ -53,6 +53,10 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('immediately call argos_log', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('click “Approve one safe SSH start”', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('call only argos_inspect and argos_ssh_status, in that order, one at a time',
+                      proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('Do not call shell, exec, browser, filesystem, or any other tools',
+                      proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('report that SSH is already healthy and no action is needed', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('Do not ask for terminal commands, reboot, re-pairing, or manual configuration',
                       proctor_service.CAMPAIGN_MESSAGE)
@@ -65,6 +69,64 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('ready after unlock with no terminal command', prompt)
         self.assertIn('make no instruction or model change', prompt)
         self.assertNotIn('Proctor feedback', prompt)
+
+    def test_unmeasured_campaign_uses_compact_task_prompt(self):
+        prompt = proctor_service._campaign_prompt(
+            'recover Argos after reboot', 'ready after unlock with no terminal command', None)
+        self.assertIn('argos_inspect', prompt)
+        self.assertIn('argos_ssh_status', prompt)
+        self.assertIn('argos_audit_instructions', prompt)
+        self.assertIn('Approve one safe SSH start', prompt)
+        self.assertIn('Never request terminal commands, reboot, re-pairing', prompt)
+        self.assertIn('Report task-not-measured', prompt)
+        self.assertNotIn('two distinct matched baseline runs', prompt)
+        self.assertNotIn('argos_log', prompt)
+        self.assertLess(len(prompt), 2000)
+
+        measured = proctor_service._campaign_prompt(
+            'answer owner documents accurately', 'supported fact', 'documents-short')
+        self.assertIn('task-level evidence', measured)
+        self.assertIn('Owner-approved evaluation suite: documents-short', measured)
+        self.assertNotIn('No task-specific evaluation suite was approved', measured)
+
+    def test_unmeasured_followup_stays_task_focused(self):
+        prompt = proctor_service._campaign_followup(
+            2, [{'kind': 'inspect'}], {'missing': ['signed SSH status']},
+            owner_task='recover Argos after reboot',
+            success_criteria='ready after unlock with no terminal command')
+        self.assertIn('argos_ssh_status', prompt)
+        self.assertIn('argos_audit_instructions', prompt)
+        self.assertIn('No task-specific suite is approved', prompt)
+        self.assertNotIn('matched baselines', prompt)
+
+    def test_ssh_recovery_campaign_uses_one_tool_and_stops_after_signed_status(self):
+        provider = lambda: None
+        verifier = lambda _value: True
+        task = ('After I enter the USB passphrase, Argos is at the desktop but paired SSH is inactive. '
+                'Restore access with as few manual steps as safely possible.')
+        criteria = ('If signed status permits recovery, request only dashboard approval.')
+        self.assertTrue(proctor_service._is_ssh_recovery_task(task, criteria, None, provider, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, 'quick', provider, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, None, None, verifier))
+
+        prompt = proctor_service._campaign_prompt(task, criteria, None, recovery_mode=True)
+        self.assertIn('exactly one call to argos_ssh_status', prompt)
+        self.assertIn('tell the owner once to click', prompt)
+        self.assertIn('Never request terminal commands', prompt)
+        self.assertNotIn('argos_inspect', prompt)
+        self.assertNotIn('argos_audit_instructions', prompt)
+
+        assessment = proctor_service._campaign_assessment(
+            [{'kind': 'ssh_status', 'status': 'available'}], recovery_mode=True)
+        self.assertTrue(assessment['ready'])
+        self.assertTrue(assessment['safe_to_release'])
+        self.assertEqual(assessment['outcome'], 'task-not-measured')
+        self.assertFalse(proctor_service._campaign_assessment([], recovery_mode=True)['ready'])
+
+        followup = proctor_service._campaign_followup(
+            2, [], {'missing': ['one signed SSH status check']}, recovery_mode=True)
+        self.assertIn('exactly one call', followup)
+        self.assertNotIn('argos_audit_instructions', followup)
 
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
@@ -202,6 +264,23 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('argos_ssh_status', config['tools']['alsoAllow'])
         self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
 
+    def test_unmeasured_campaign_profile_grants_only_read_and_audit_tools(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        _root, _workspace, config_path, _digest = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='campaign',
+            campaign_tools=proctor_service.UNMEASURED_CAMPAIGN_TOOL_NAMES)
+        config = json.loads(config_path.read_text())
+        self.assertEqual(config['tools']['alsoAllow'], ['argos_inspect', 'argos_audit_instructions',
+                                                        'argos_ssh_status'])
+        self.assertNotIn('argos_evaluate', config['tools']['alsoAllow'])
+        self.assertNotIn('argos_edit_instructions', config['tools']['alsoAllow'])
+        self.assertIn('exec', config['tools']['deny'])
+        with self.assertRaisesRegex(ValueError, 'subset of host-approved tools'):
+            proctor_service.private_profile(self.home, 'qwen3.8:27b',
+                plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config,
+                purpose='campaign', campaign_tools=['exec'])
+
     def test_practice_profile_does_not_expose_live_ssh_status(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
         _root, _workspace, config_path, _digest = proctor_service.private_profile(
@@ -318,6 +397,24 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertTrue(assessment['ready'])
 
         outcomes[1] = evaluation_outcome('sequence-one', 'tool-sequence', correct=18, total=20)
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertIn('host-verified suite, complete coverage, and score metadata for every completed evaluation',
+                      assessment['missing'])
+
+    def test_campaign_validates_complete_owner_recovery_decision_receipts(self):
+        outcomes = [{'kind': 'inspect'},
+                    evaluation_outcome('recovery-one', 'owner-recovery-decision', correct=6, total=8),
+                    log_outcome('recovery-one'),
+                    evaluation_outcome('recovery-two', 'owner-recovery-decision', correct=7, total=8),
+                    log_outcome('recovery-two'),
+                    {'kind': 'compare', 'baseline_id': 'recovery-one', 'candidate_id': 'recovery-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+        self.assertEqual(assessment['outcome'], 'no_change_audited')
+
+        outcomes[1] = evaluation_outcome('recovery-one', 'owner-recovery-decision', correct=6, total=7)
         assessment = proctor_service._campaign_assessment(outcomes)
         self.assertFalse(assessment['ready'])
         self.assertIn('host-verified suite, complete coverage, and score metadata for every completed evaluation',
