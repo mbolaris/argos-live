@@ -99,6 +99,35 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('No task-specific suite is approved', prompt)
         self.assertNotIn('matched baselines', prompt)
 
+    def test_ssh_recovery_campaign_uses_one_tool_and_stops_after_signed_status(self):
+        provider = lambda: None
+        verifier = lambda _value: True
+        task = ('After I enter the USB passphrase, Argos is at the desktop but paired SSH is inactive. '
+                'Restore access with as few manual steps as safely possible.')
+        criteria = ('If signed status permits recovery, request only dashboard approval.')
+        self.assertTrue(proctor_service._is_ssh_recovery_task(task, criteria, None, provider, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, 'quick', provider, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, None, None, verifier))
+
+        prompt = proctor_service._campaign_prompt(task, criteria, None, recovery_mode=True)
+        self.assertIn('exactly one call to argos_ssh_status', prompt)
+        self.assertIn('tell the owner once to click', prompt)
+        self.assertIn('Never request terminal commands', prompt)
+        self.assertNotIn('argos_inspect', prompt)
+        self.assertNotIn('argos_audit_instructions', prompt)
+
+        assessment = proctor_service._campaign_assessment(
+            [{'kind': 'ssh_status', 'status': 'available'}], recovery_mode=True)
+        self.assertTrue(assessment['ready'])
+        self.assertTrue(assessment['safe_to_release'])
+        self.assertEqual(assessment['outcome'], 'task-not-measured')
+        self.assertFalse(proctor_service._campaign_assessment([], recovery_mode=True)['ready'])
+
+        followup = proctor_service._campaign_followup(
+            2, [], {'missing': ['one signed SSH status check']}, recovery_mode=True)
+        self.assertIn('exactly one call', followup)
+        self.assertNotIn('argos_audit_instructions', followup)
+
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
         runtime_root = self.home / '.local/state/argos-live'
