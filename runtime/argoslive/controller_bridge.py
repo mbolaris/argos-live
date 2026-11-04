@@ -257,6 +257,36 @@ class Bridge:
                 worker_alive = self.worker is not None and self.worker.poll() is None
                 worker_session = getattr(self, 'session_id', None)
                 job = self.evaluation_job
+                # OpenClaw can run another model attempt using the same run ID.
+                # Re-admit that attempt only after the prior attempt ended, no
+                # Argos host tool was requested, and all campaign/worker gates
+                # are still clear. The fresh turn token invalidates any stale
+                # callbacks from the ended attempt.
+                if (self.active['ended'] and
+                        self.active['run_id'] == request['run_id'] and
+                        self.active['session_id'] == worker_session == request['session_id'] and
+                        self.active['session_key'] == request['session_key'] == self.session_key and
+                        self.active['trigger'] == request['trigger'] == self.trigger and
+                        self.active.get('host_tool_requests', 0) == 0 and self.task_campaign and
+                        self.parent.record.get('kind') == 'controller' and
+                        self.session_key.startswith(campaign_prefix) and worker_alive and
+                        not self.closed and not self.uncertain and self.pending is None and
+                        not self.tool_lock.locked() and (job is None or job.get('consumed')) and
+                        self.sdk_runs_started < MAX_SDK_RUNS_PER_WORKER):
+                    prior = self.active
+                    self.sdk_run_history.append({
+                        'run_id': prior['run_id'], 'ended': True,
+                        'host_tool_requests': 0,
+                        'host_tool_failures': len(prior.get('host_tool_failures', [])),
+                        'diagnostics': prior.get('diagnostics'),
+                    })
+                    self.sdk_run_history = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+                    self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
+                    self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+                    self.sdk_runs_started += 1
+                    self.last_admission_block_reason = None
+                    self.publish()
+                    return {'status': 'admitted', 'turn_token': self.active['token']}
                 if (self.active['ended'] and worker_session is not None and
                         self.active['session_id'] == worker_session == request['session_id'] and
                         self.active['session_key'] == request['session_key'] == self.session_key and

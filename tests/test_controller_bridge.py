@@ -79,6 +79,43 @@ class ControllerBridgeTests(unittest.TestCase):
                 bridge.dispatch({**first_turn, 'op': 'ended'})
             parent.complete()
 
+    def test_campaign_may_retry_same_run_id_only_before_any_host_tool_request(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            first, first_turn = self.begin(bridge)
+            bridge.session_id = first['session_id']
+            worker = SimpleNamespace(poll=lambda: None)
+            bridge.worker = worker
+            bridge.dispatch({**first_turn, 'op': 'ended'})
+
+            retry = bridge.dispatch(first)
+            self.assertEqual(retry['status'], 'admitted')
+            self.assertNotEqual(retry['turn_token'], first_turn['turn_token'])
+            self.assertEqual(bridge.active['run_id'], first['run_id'])
+            self.assertFalse(bridge.active['ended'])
+            self.assertEqual(bridge.sdk_runs_started, 2)
+            self.assertIs(bridge.worker, worker)
+            self.assertEqual(bridge.sdk_run_history[0]['host_tool_requests'], 0)
+            with self.assertRaises(workload.Busy):
+                bridge.dispatch({**first_turn, 'op': 'ended'})
+            parent.complete()
+
+    def test_campaign_same_run_retry_is_refused_after_a_host_tool_request(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            first, first_turn = self.begin(bridge)
+            bridge.session_id = first['session_id']
+            bridge.worker = SimpleNamespace(poll=lambda: None)
+            bridge.active['host_tool_requests'] = 1
+            bridge.dispatch({**first_turn, 'op': 'ended'})
+            with self.assertRaises(workload.Busy):
+                bridge.dispatch(first)
+            self.assertEqual(bridge.last_admission_block_reason, 'same-run-id')
+            self.assertTrue(bridge.active['ended'])
+            parent.complete()
+
     def test_campaign_sdk_run_rotation_requires_ended_live_bounded_idle_turn(self):
         session_key = 'agent:main:argos_proctor_improvement_owner-task'
         for state in ('not-ended', 'worker-exited', 'pending', 'tool-locked', 'run-cap'):
