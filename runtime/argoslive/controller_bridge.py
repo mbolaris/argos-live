@@ -1068,6 +1068,14 @@ class Bridge:
                 result['error_kind'] = kind
             if kind == 'hook_block':
                 message = error.get('message')
+                # Pinned OpenClaw wraps explicit hook messages in the SDK
+                # error envelope. Unwrap only that exact plugin wrapper; all
+                # remaining text is still compared against a closed allowlist.
+                prefix = 'Your message could not be sent: '
+                suffix = ' (blocked by argos-improve)'
+                if (isinstance(message, str) and message.startswith(prefix) and
+                        message.endswith(suffix)):
+                    message = message[len(prefix):-len(suffix)]
                 # Export only a closed set of admission diagnoses. The raw SDK
                 # message may contain private prompt or host data.
                 if message == 'Host controller slot is busy':

@@ -19,10 +19,18 @@ class ProctorRealDiagnosticTests(unittest.TestCase):
         bridge.session_id = 'session-1'
         for message, expected in (
                 ('Host controller slot is busy', 'host-slot-busy'),
+                ('Your message could not be sent: Host controller slot is busy (blocked by argos-improve)',
+                 'host-slot-busy'),
                 ('Host controller rejected session binding', 'session-binding-rejected'),
+                ('Your message could not be sent: Host controller rejected session binding (blocked by argos-improve)',
+                 'session-binding-rejected'),
                 ('Host controller request was rejected', 'controller-request-rejected'),
+                ('Your message could not be sent: Host controller request was rejected (blocked by argos-improve)',
+                 'controller-request-rejected'),
                 ('Host controller returned an invalid admission response', 'invalid-admission-response'),
                 ('Host controller admission failed', 'controller-transport'),
+                ('Your message could not be sent: private model or host content (blocked by argos-improve)',
+                 'other-hook-block'),
                 ('private model or host content', 'other-hook-block')):
             value = {'status': 'error', 'result': {'payloads': [], 'meta': {
                 'agentMeta': {'sessionId': 'session-1'},

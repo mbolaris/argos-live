@@ -416,9 +416,11 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.equal(requests[4].kind,'adopt');
     assert.deepEqual(requests[4].params,adoption);
     const busy = await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'});
-    assert.deepEqual(busy,{outcome:'block',reason:'Host controller slot is busy'});
+    assert.deepEqual(busy,{outcome:'block',reason:'Host controller slot is busy',
+      message:'Host controller slot is busy'});
     const rejected = await hooks.get('before_agent_run')({}, {...ctx,runId:'run-binding'});
-    assert.deepEqual(rejected,{outcome:'block',reason:'Host controller rejected session binding'});
+    assert.deepEqual(rejected,{outcome:'block',reason:'Host controller rejected session binding',
+      message:'Host controller rejected session binding'});
     assert.ok(requests.every((value) => value.auth === 'fictional-bridge-secret'));
   } finally {
     if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET;
