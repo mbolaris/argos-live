@@ -70,6 +70,35 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('make no instruction or model change', prompt)
         self.assertNotIn('Proctor feedback', prompt)
 
+    def test_unmeasured_campaign_uses_compact_task_prompt(self):
+        prompt = proctor_service._campaign_prompt(
+            'recover Argos after reboot', 'ready after unlock with no terminal command', None)
+        self.assertIn('argos_inspect', prompt)
+        self.assertIn('argos_ssh_status', prompt)
+        self.assertIn('argos_audit_instructions', prompt)
+        self.assertIn('Approve one safe SSH start', prompt)
+        self.assertIn('Never request terminal commands, reboot, re-pairing', prompt)
+        self.assertIn('Report task-not-measured', prompt)
+        self.assertNotIn('two distinct matched baseline runs', prompt)
+        self.assertNotIn('argos_log', prompt)
+        self.assertLess(len(prompt), 2000)
+
+        measured = proctor_service._campaign_prompt(
+            'answer owner documents accurately', 'supported fact', 'documents-short')
+        self.assertIn('task-level evidence', measured)
+        self.assertIn('Owner-approved evaluation suite: documents-short', measured)
+        self.assertNotIn('No task-specific evaluation suite was approved', measured)
+
+    def test_unmeasured_followup_stays_task_focused(self):
+        prompt = proctor_service._campaign_followup(
+            2, [{'kind': 'inspect'}], {'missing': ['signed SSH status']},
+            owner_task='recover Argos after reboot',
+            success_criteria='ready after unlock with no terminal command')
+        self.assertIn('argos_ssh_status', prompt)
+        self.assertIn('argos_audit_instructions', prompt)
+        self.assertIn('No task-specific suite is approved', prompt)
+        self.assertNotIn('matched baselines', prompt)
+
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
         runtime_root = self.home / '.local/state/argos-live'
