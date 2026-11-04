@@ -1,3 +1,4 @@
+import io
 import json
 import os
 from pathlib import Path
@@ -355,6 +356,45 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(failures, [])
             self.assertCountEqual([row['status'] for row in responses], ['completed', 'completed'])
             self.assertEqual(calls, ['inspect', 'audit'])
+            self.assertEqual([row['kind'] for row in bridge.outcomes], ['inspect', 'audit'])
+            parent.complete()
+
+    def test_failed_unstarted_maintenance_worker_is_revoked_without_quarantine(self):
+        class FailedBeforeAdmission:
+            def __init__(self):
+                self.stdin = io.BytesIO()
+                self.stdout = io.BytesIO()
+                self.stderr = io.BytesIO()
+                self.returncode = None
+
+            def wait(self, timeout=None):
+                self.returncode = 70
+                return self.returncode
+
+            def poll(self):
+                return self.returncode
+
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            with patch.object(controller_bridge.subprocess, 'Popen', return_value=FailedBeforeAdmission()):
+                value = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'inspect-worker-failed',
+                    'kind': 'inspect', 'params': {}})
+
+            self.assertEqual(value, {'status': 'completed', 'value': {
+                'status': 'failed', 'failure_code': 'worker-not-admitted', 'retryable': True}})
+            self.assertFalse(bridge.uncertain)
+            self.assertEqual(parent.record['phase'], 'running')
+            children = list((self.home / '.local/state/argos-live/workload/child').glob('*.json'))
+            self.assertEqual(len(children), 1)
+            self.assertEqual(json.loads(children[0].read_text())['state'], 'released')
+            self.assertEqual(json.loads(children[0].read_text())['outcome'],
+                             'cancelled-before-start')
+            audit = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'audit-after-retryable-inspect',
+                'kind': 'audit', 'params': {}})
+            self.assertEqual(audit['status'], 'completed')
+            self.assertEqual(audit['value']['status'], 'empty')
             self.assertEqual([row['kind'] for row in bridge.outcomes], ['inspect', 'audit'])
             parent.complete()
 

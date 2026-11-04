@@ -728,6 +728,24 @@ class Bridge:
                             'status': 'failed',
                             'message': 'Campaign log entry failed; the host workload remains available.',
                             'append_outcome': 'unconfirmed'}}
+                # If the exact child exited and both pipes drained, an
+                # authorization that is still "authorized" proves its worker
+                # never entered the delegated workload. Revoke only that
+                # unstarted capability and resume the parent; this lets the
+                # campaign continue without weakening quarantine for a child
+                # that started, timed out alive, or may have performed work.
+                if (maintenance and process.returncode is not None and not overflow.is_set() and
+                        not out_reader.is_alive() and not err_reader.is_alive() and
+                        len(stdout.encode()) <= 2 * 1024**2):
+                    try:
+                        self.parent.cancel_unstarted(capability)
+                    except workload.Busy:
+                        pass
+                    else:
+                        self.parent.resume(capability, worker_drained=True)
+                        return {'status': 'completed', 'value': {
+                            'status': 'failed', 'failure_code': 'worker-not-admitted',
+                            'retryable': True}}
                 raise workload.Busy(recovery=True)
             value = json.loads(stdout)
             if kind == 'evaluation':
