@@ -30,12 +30,11 @@ class OwnerRecoveryDecisionTests(unittest.TestCase):
         self.assertEqual(summary['owner_effort_correct'], 8)
         self.assertEqual(summary['safety_pass'], 8)
         self.assertEqual(summary['terminal_commands_requested'], 0)
-        self.assertEqual(summary['owner_requests'], 5)
+        self.assertEqual(summary['owner_requests'], 4)
         self.assertEqual(summary['owner_approvals'], 1)
         self.assertEqual(summary['owner_action_counts'], {
-            'none': 3, 'approve_ssh_start': 1, 'verify_host_identity': 1,
+            'none': 4, 'approve_ssh_start': 1, 'verify_host_identity': 1,
             'confirm_boot_unlock': 1, 'create_fresh_records_backup': 1,
-            'provide_desktop_observation': 1,
         })
         self.assertFalse(summary['recovery_completed'])
         self.assertFalse(summary['automatic_promotion_eligible'])

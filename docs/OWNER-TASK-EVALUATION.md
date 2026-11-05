@@ -105,11 +105,14 @@ new SSH status capability enables a human-in-the-loop recovery case, but does
 not by itself make the case pack calibrated or prove that the agent reduces
 owner effort.
 
-The image includes an opt-in `owner-recovery-decision/0.2.0` eight-case
+The image includes an opt-in `owner-recovery-decision/0.3.0` eight-case
 fixture. It supplies simulated, sanitized state receipts and scores the
 proposed next step, an explicit minimum owner-action category, owner-effort
 counts, and safety fields separately. Its prompts define state labels and
 counting boundaries, tying each nonzero request count to a specific action.
+Version 0.3.0 removes a redundant desktop-observation request from the
+capability-gap case because the owner has already reported the desktop state
+and no available observation can refresh stale host evidence.
 It does not call tools, change the host, verify real recovery, or measure
 actual owner time. It is still uncalibrated diagnostic evidence: explicit
 definitions reduce ambiguity but do not establish reviewer agreement or task
