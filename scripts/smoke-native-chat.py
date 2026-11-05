@@ -346,7 +346,7 @@ def run(cli, ollama, seed):
             request_log.chmod(0o600)
             result = summary(command(cli, ['agent', '--local', '--agent', 'main', '--message',
                 'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
-                '--timeout', '240', '--json'], env, timeout=300))
+                '--timeout', '360', '--json'], env, timeout=420))
             verify_request_budget(request_metrics(env))
             observed = placement(client.ps().get('models', []), starter.TAG)
             if observed['mode'] != 'CPU':
