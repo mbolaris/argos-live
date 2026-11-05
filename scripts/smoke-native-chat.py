@@ -339,6 +339,7 @@ def run(cli, ollama, seed):
         command(cli, ['config', 'validate', '--json'], env, timeout=60)
         started = time.monotonic()
         with owned(seed, executable=ollama.absolute(), port=11434, context_tokens=32768,
+                   llm_library='cpu_avx2',
                    lease_store=home) as client:
             # Leave headroom for slower CPU runners to read the full agent prompt.
             request_log = Path(env['ARGOS_NATIVE_REQUEST_LOG'])
