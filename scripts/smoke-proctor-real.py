@@ -371,9 +371,15 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
         if not all(after_checks.values()):
             receipt['failed_checks'] = [key for key, passed in after_checks.items() if not passed]
             raise ValueError('Real model did not report healthy from the fresh signed status without retry')
-        receipt.update(dashboard_approval_requests=2, accepted_dashboard_approvals=1,
-            human_owner_click_measured=False,
-            duplicate_approval_rejected=True,
+        receipt.update(
+            model_approval_requests=int(before['ask_approval']) + int(after['ask_approval']),
+            simulated_accepted_owner_approvals=1,
+            dashboard_approval_submissions=2,
+            duplicate_approval_submissions_rejected=1,
+            human_owner_approval_measured=False,
+            terminal_commands_requested=int(before['asks_for_terminal_command']) +
+                int(after['asks_for_terminal_command']),
+            ssh_status_tool_calls=before['ssh_status_tool_calls'] + after['ssh_status_tool_calls'],
             recovery_job_completed=True, completion_receipt_signed=operation_signed,
             same_boot_verified=True, ssh_enabled=True, ssh_active=True, listener_verified=True,
             restart_calls=len(restart_calls), passed=True)
