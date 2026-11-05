@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def scan_log(path):
-    if path.stat().st_size > 512 * 1024**2:
+    if path.stat().st_size > 4 * 1024**3:
         raise ValueError('Build log exceeds review bound')
     patterns = [rb'-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----',
                 rb'gh[pousr]_[A-Za-z0-9]{20,}', rb'github_pat_[A-Za-z0-9_]{20,}',
@@ -70,13 +70,21 @@ def report(root, commit):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('artifacts', type=Path)
+    parser.add_argument('artifacts', type=Path, nargs='?')
     parser.add_argument('--commit')
     parser.add_argument('--log-only', action='store_true')
+    parser.add_argument('--scan-log', type=Path,
+                        help='scan a private full stage log without creating a build report')
     args = parser.parse_args()
-    if args.log_only:
+    if args.scan_log:
+        scan_log(args.scan_log)
+    elif args.log_only:
+        if args.artifacts is None:
+            parser.error('artifacts directory is required with --log-only')
         scan_log(args.artifacts / 'build.log')
     elif args.commit:
+        if args.artifacts is None:
+            parser.error('artifacts directory is required with --commit')
         print(json.dumps(report(args.artifacts, args.commit), indent=2))
     else:
         parser.error('--commit is required unless --log-only is used')

@@ -31,38 +31,29 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh host 2>&1 | tee artifacts/build.log
+          bash scripts/ci-stage.sh 'Host preparation' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh host 2>&1 | tee artifacts/build.log
       - name: Bootstrap the pinned Debian build root
         timeout-minutes: 120
         shell: bash
-        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh bootstrap 2>&1 | tee -a artifacts/build.log
+        run: bash scripts/ci-stage.sh 'Debian bootstrap' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh bootstrap 2>&1 | tee -a artifacts/build.log
       - name: Install pinned build-root packages
         timeout-minutes: 120
         shell: bash
-        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh builder-packages 2>&1 | tee -a artifacts/build.log
+        run: bash scripts/ci-stage.sh 'Builder package install' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh builder-packages 2>&1 | tee -a artifacts/build.log
       - name: Lock runtime dependencies
         timeout-minutes: 120
         shell: bash
-        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh runtime 2>&1 | tee -a artifacts/build.log
+        run: bash scripts/ci-stage.sh 'Runtime dependency lock' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh runtime 2>&1 | tee -a artifacts/build.log
       - name: Download the pinned seed model
         timeout-minutes: 120
         shell: bash
-        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh seed 2>&1 | tee -a artifacts/build.log
+        run: bash scripts/ci-stage.sh 'Pinned model seed' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh seed 2>&1 | tee -a artifacts/build.log
       - name: Build the ISO
         timeout-minutes: 120
         shell: bash
         run: |
-          set -uo pipefail
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh iso 2>&1 | tee -a artifacts/build.log &
-          build_pid=$!
-          while kill -0 "$build_pid" 2>/dev/null; do
-            sleep 45
-            if kill -0 "$build_pid" 2>/dev/null; then
-              echo 'ISO build is still active; continuing the pinned live-build stages.'
-            fi
-          done
-          if wait "$build_pid"; then status=0; else status=$?; fi
-          exit "$status"
+          set -euo pipefail
+          bash scripts/ci-stage.sh 'ISO build' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh iso 2>&1 | tee -a artifacts/build.log
       - name: Verify artifacts and record checksum
         id: verify
         shell: bash
