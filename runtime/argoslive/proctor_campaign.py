@@ -195,6 +195,12 @@ class Controller:
                 message = MESSAGES['idle']
         elif phase == 'idle':
             message = 'Ready. Starting pauses everyday chat; Argos resumes after the model reply is verified.'
+        if phase == 'incomplete' and isinstance(result, dict):
+            campaign_result = result.get('campaign')
+            if (isinstance(campaign_result, dict) and
+                    campaign_result.get('outcome') == 'task-not-measured'):
+                message = ('No task-specific measurement was run. Review the diagnostic report and '
+                           'missing evidence below; no score or improvement is claimed.')
         if phase == 'failed' and failure_code:
             stage = failure_stage or 'campaign'
             message = f'Proctor {stage} stopped ({failure_code}); Argos is back at its verified model.'

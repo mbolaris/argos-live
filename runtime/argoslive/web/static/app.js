@@ -4659,7 +4659,10 @@ async function refreshProctorCampaign() {
     const labels = {idle: 'Ready', pausing: 'Pausing chat', practice: 'Practice', campaign: 'Campaign',
       restarting: 'Restarting Argos', completed: 'Complete', incomplete: 'Incomplete', failed: 'Failed',
       'recovery-failed': 'Recovery needed'};
-    document.getElementById('proctor-campaign-phase').textContent = labels[data.phase] || 'Checking';
+    const taskNotMeasured = data.phase === 'incomplete' &&
+      data.result?.campaign?.outcome === 'task-not-measured';
+    document.getElementById('proctor-campaign-phase').textContent =
+      taskNotMeasured ? 'Task not measured' : (labels[data.phase] || 'Checking');
     const button = document.getElementById('proctor-campaign-start');
     button.disabled = proctorCampaignStarting || !data.can_start;
     const recoverButton = document.getElementById('proctor-campaign-recover');
