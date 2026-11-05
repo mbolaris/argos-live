@@ -29,7 +29,7 @@ child_pid=$!
     if kill -0 "$child_pid" 2>/dev/null; then
       bytes=$(wc -c < "$log")
       echo "${label} is still running; captured $bytes log bytes."
-      if python3 "$script_dir/report-iso-build.py" --scan-log "$log"; then
+      if python3 "$script_dir/report-iso-build.py" --scan-log-tail "$log"; then
         tail -n 12 "$log"
       else
         echo "${label} progress tail suppressed by the credential scan."

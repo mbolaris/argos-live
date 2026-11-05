@@ -9,19 +9,30 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def scan_log(path):
-    if path.stat().st_size > 4 * 1024**3:
-        raise ValueError('Build log exceeds review bound')
+def _scan_stream(stream):
     patterns = [rb'-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----',
                 rb'gh[pousr]_[A-Za-z0-9]{20,}', rb'github_pat_[A-Za-z0-9_]{20,}',
                 rb'\bsk-[A-Za-z0-9_-]{20,}']
     tail = b''
+    for chunk in iter(lambda: stream.read(1024**2), b''):
+        combined = tail + chunk
+        if any(re.search(pattern, combined) for pattern in patterns):
+            raise ValueError('Credential-shaped material detected; build log must not be uploaded')
+        tail = combined[-4096:]
+
+
+def scan_log(path):
+    # Snapshot retries can produce very large diagnostics. Stream the entire file
+    # without loading it into memory or rejecting a successful build by size.
     with path.open('rb') as stream:
-        for chunk in iter(lambda: stream.read(1024**2), b''):
-            combined = tail + chunk
-            if any(re.search(pattern, combined) for pattern in patterns):
-                raise ValueError('Credential-shaped material detected; build log must not be uploaded')
-            tail = combined[-4096:]
+        _scan_stream(stream)
+
+
+def scan_log_tail(path, max_bytes=1024**2):
+    # Heartbeats only expose a short tail; the full log is scanned once on exit.
+    with path.open('rb') as stream:
+        stream.seek(max(0, path.stat().st_size - max_bytes))
+        _scan_stream(stream)
 
 
 def report(root, commit):
@@ -75,9 +86,13 @@ def main():
     parser.add_argument('--log-only', action='store_true')
     parser.add_argument('--scan-log', type=Path,
                         help='scan a private full stage log without creating a build report')
+    parser.add_argument('--scan-log-tail', type=Path,
+                        help='scan only the recent private log tail for a heartbeat')
     args = parser.parse_args()
     if args.scan_log:
         scan_log(args.scan_log)
+    elif args.scan_log_tail:
+        scan_log_tail(args.scan_log_tail)
     elif args.log_only:
         if args.artifacts is None:
             parser.error('artifacts directory is required with --log-only')

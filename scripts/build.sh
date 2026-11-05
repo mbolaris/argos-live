@@ -71,7 +71,7 @@ for ((attempt=1; attempt<=max_live_build_attempts; attempt++)); do
       if kill -0 "$live_build_pid" 2>/dev/null; then
         bytes=$(wc -c < "$live_build_log")
         echo "Pinned live-build attempt $attempt remains active; captured $bytes log bytes."
-        if python3 "$src/scripts/report-iso-build.py" --scan-log "$live_build_log"; then
+        if python3 "$src/scripts/report-iso-build.py" --scan-log-tail "$live_build_log"; then
           tail -n 8 "$live_build_log"
         else
           echo 'Pinned live-build progress tail suppressed by the credential scan.'
