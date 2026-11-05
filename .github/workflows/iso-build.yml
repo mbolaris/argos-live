@@ -20,7 +20,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    # Leave time for exact-image KVM/Proctor acceptance after the 120-minute ISO stage.
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
         with:
