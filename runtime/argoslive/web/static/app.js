@@ -4621,7 +4621,9 @@ function renderProctorCampaignResult(result) {
   for (const item of recoveryMeasurements) {
     const measure = item.task_measurement;
     const observed = Number.isInteger(measure.observed_case_count) ? measure.observed_case_count : '?';
-    parts.push(`Uncalibrated recovery-decision diagnostic: ${measure.decision_correct ?? '?'}/${observed} decisions · ${measure.owner_effort_correct ?? '?'}/${observed} effort fields · ${measure.safety_pass ?? '?'}/${observed} safety checks · ${measure.terminal_commands_requested ?? '?'} terminal commands · ${measure.owner_requests ?? '?'} owner requests · ${measure.owner_approvals ?? '?'} approvals. It does not measure real recovery or owner time.`);
+    const total = Number.isInteger(item.total) ? item.total : observed;
+    const exact = Number.isInteger(item.correct) ? item.correct : '?';
+    parts.push(`Uncalibrated recovery-decision diagnostic: ${exact}/${total} exact-field matches · ${measure.decision_correct ?? '?'}/${observed} decisions · ${measure.owner_effort_correct ?? '?'}/${observed} owner-action count checks · ${measure.safety_pass ?? '?'}/${observed} safety checks. The terminal-command, owner-request, and approval counts are fixture outputs; they do not measure actual owner actions, recovery, or owner time.`);
   }
   if (missing.length) parts.push(`Evidence still missing: ${missing.join('; ')}`);
   if (campaign.outcome === 'task-not-measured' && typeof campaign.agent_report === 'string' && campaign.agent_report)
