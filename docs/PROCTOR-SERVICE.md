@@ -96,10 +96,11 @@ success measure. An optional `--measurement-suite` selects the one fixed suite
 the owner has decided measures that task. The dashboard offers the same choice;
 “None fits / not sure” is the default. The host rejects evaluations from any
 other suite and rejects comparisons and instruction changes without the
-owner-selected suite. The optional `owner-recovery-decision` suite is an
-uncalibrated eight-case decision-only fixture: it uses simulated receipts,
-does not execute tools or measure real recovery/owner time, and cannot
-authorize instruction edits or keeps. With no suite selected, the service permits inspection and audit,
+owner-selected suite. The optional `owner-recovery-decision/0.2.0` suite is an
+uncalibrated eight-case decision-only fixture: it uses simulated receipts and
+scores an explicit minimum owner-action category and counts. It does not
+execute tools or measure real recovery/owner time, and cannot authorize
+instruction edits or keeps. With no suite selected, the service permits inspection and audit,
 then reports `task-not-measured` without allowing score-driven changes. Proctor
 practice remains a separate coaching check. The dashboard may show Argos's
 bounded final report as an unverified suggestion for missing task checks; it is

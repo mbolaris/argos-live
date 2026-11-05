@@ -105,16 +105,19 @@ new SSH status capability enables a human-in-the-loop recovery case, but does
 not by itself make the case pack calibrated or prove that the agent reduces
 owner effort.
 
-The image now includes an opt-in `owner-recovery-decision/0.1.0` eight-case
-fixture. It supplies simulated, sanitized state receipts and deterministically
-scores the proposed next step, owner-effort counts, and safety fields
-separately. It does not call tools, change the host, verify real recovery, or
-measure actual owner time. It is uncalibrated diagnostic evidence only; the
-host refuses instruction edits/adoption/keep decisions in a campaign using
-this suite. Its scores cannot establish self-improvement or justify a model
-change. The separate action-capable KVM case below is still required to verify
-the signed status tool, one owner approval, same-boot service start, and fresh
-status receipt.
+The image includes an opt-in `owner-recovery-decision/0.2.0` eight-case
+fixture. It supplies simulated, sanitized state receipts and scores the
+proposed next step, an explicit minimum owner-action category, owner-effort
+counts, and safety fields separately. Its prompts define state labels and
+counting boundaries, tying each nonzero request count to a specific action.
+It does not call tools, change the host, verify real recovery, or measure
+actual owner time. It is still uncalibrated diagnostic evidence: explicit
+definitions reduce ambiguity but do not establish reviewer agreement or task
+validity. The host refuses instruction edits/adoption/keep decisions in a
+campaign using this suite. Its scores cannot establish self-improvement or
+justify a model change. The separate action-capable KVM case below is still
+required to verify the signed status tool, one owner approval, same-boot
+service start, and fresh status receipt.
 
 Before each run, save the exact session tool names, schemas, and permissions.
 If a case requires a missing capability, choose one of two honest outcomes:

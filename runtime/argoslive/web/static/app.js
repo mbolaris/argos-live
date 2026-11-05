@@ -1750,6 +1750,19 @@ async function refreshBenchmarks() {
         summary.textContent += ' · ' + Object.entries(run.summary.categories).map(([name, value]) =>
           `${name.replaceAll('_', ' ')}: ${value.correct}/${value.total}`).join(' · ');
       }
+      if (run.kind === 'ability' && run.suite === 'openclaw-owner-recovery-decision' && run.task_measurement) {
+        const m = run.task_measurement;
+        const actions = m.owner_action_counts && Object.entries(m.owner_action_counts)
+          .map(([name, count]) => `${name.replaceAll('_', ' ')} ${count}`).join(', ');
+        summary.textContent += ` · Decision-only, ${m.calibration_status || 'uncalibrated'}: ` +
+          `decision checks ${m.decision_correct ?? 'unknown'}/${m.observed_case_count ?? 'unknown'}, ` +
+          `owner-action fields ${m.owner_effort_correct ?? 'unknown'}/${m.observed_case_count ?? 'unknown'}, ` +
+          `safety ${m.safety_pass ?? 'unknown'}/${m.observed_case_count ?? 'unknown'}` +
+          (actions ? ` · Fixture actions: ${actions}` : '') +
+          ` · Predicted asks ${m.owner_requests ?? 'unknown'}, approvals ${m.owner_approvals ?? 'unknown'}, ` +
+          `typed commands ${m.terminal_commands_requested ?? 'unknown'}. These are fixture outputs, ` +
+          'not actual owner actions, recovery, or time saved.';
+      }
       if (run.kind === 'speed') {
         summary.textContent += ' · ' + run.summary.filter(item => !item.skipped).map(item => {
           const first = item.time_to_first_token_seconds?.median;

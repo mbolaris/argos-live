@@ -5,6 +5,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
@@ -149,10 +150,23 @@ class OwnedTests(unittest.TestCase):
             self.assertEqual(env['OLLAMA_CONTEXT_LENGTH'], '32768')
         self.assertTrue(self.stopped(pid))
 
+    def test_allowlisted_llm_library_is_explicit_and_inherited_override_is_stripped(self):
+        import json
+        with patch.dict(os.environ, {'OLLAMA_LLM_LIBRARY': 'cuda'}):
+            with owned(self.root, executable=self.binary, timeout=3, llm_library='cpu_avx2') as client:
+                self.assertEqual(client.version(), PIN)
+                env = json.loads((self.root / 'env.json').read_text())
+                self.assertEqual(env['OLLAMA_LLM_LIBRARY'], 'cpu_avx2')
+        with self.assertRaisesRegex(ValueError, 'allowlist'):
+            with owned(self.root, executable=self.binary, timeout=3, llm_library='cuda'):
+                self.fail('An unapproved LLM library reached the owned backend')
+        self.assertTrue(self.stopped(int((self.root / 'pid').read_text())))
+
     def test_invalid_fixed_port_or_context_starts_no_process(self):
         for options in ({'port': True}, {'port': -1}, {'port': 65536}, {'port': '11434'},
                         {'context_tokens': True}, {'context_tokens': 0}, {'context_tokens': 1048577},
-                        {'timeout': True}, {'timeout': 0}, {'timeout': float('inf')}, {'timeout': 601}):
+                        {'timeout': True}, {'timeout': 0}, {'timeout': float('inf')}, {'timeout': 601},
+                        {'llm_library': 'cuda'}):
             with self.assertRaises(ValueError):
                 with owned(self.root, executable=self.binary, **options):
                     self.fail('Invalid options started a service')

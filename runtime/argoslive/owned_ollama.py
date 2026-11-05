@@ -122,7 +122,8 @@ def owned(target, **options):
 
 
 @contextmanager
-def _owned(target, *, executable=None, timeout=180, lease_store=None, port=0, context_tokens=2048, cancel=None):
+def _owned(target, *, executable=None, timeout=180, lease_store=None, port=0, context_tokens=2048,
+           cancel=None, llm_library=None):
     if sys.platform != 'linux':
         raise ValueError('Owned Ollama onboarding requires Linux')
     if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 600:
@@ -131,6 +132,8 @@ def _owned(target, *, executable=None, timeout=180, lease_store=None, port=0, co
         raise ValueError('Owned Ollama requires an integer loopback port')
     if type(context_tokens) is not int or not 256 <= context_tokens <= 1048576:
         raise ValueError('Owned Ollama context is outside the supported bounds')
+    if llm_library is not None and llm_library not in {'cpu', 'cpu_avx', 'cpu_avx2', 'cpu_avx512'}:
+        raise ValueError('Owned Ollama LLM library is outside the supported allowlist')
     target = safe_local(target)
     executable = executable or shutil.which('ollama')
     if not executable:
@@ -148,6 +151,10 @@ def _owned(target, *, executable=None, timeout=180, lease_store=None, port=0, co
     env.update(OLLAMA_HOST=f'127.0.0.1:{port}', OLLAMA_MODELS=str(target),
                OLLAMA_NO_CLOUD='1', OLLAMA_NOPRUNE='1', OLLAMA_CONTEXT_LENGTH=str(context_tokens),
                OLLAMA_MAX_LOADED_MODELS='1', OLLAMA_NUM_PARALLEL='1')
+    if llm_library is not None:
+        # Backend selection is explicit and allowlisted; arbitrary inherited
+        # OLLAMA_* overrides remain stripped from the owned process.
+        env['OLLAMA_LLM_LIBRARY'] = llm_library
     env['PYTHONPATH'] = str(Path(__file__).resolve().parents[1])
     store = (safe_local(lease_store) if lease_store is not None else
              target.parent.parent if target.parent.name == '.argos-pulls' else target)
