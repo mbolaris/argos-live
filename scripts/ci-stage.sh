@@ -27,7 +27,8 @@ child_pid=$!
   while kill -0 "$child_pid" 2>/dev/null; do
     sleep 45
     if kill -0 "$child_pid" 2>/dev/null; then
-      echo "${label} is still running."
+      bytes=$(wc -c < "$log")
+      echo "${label} is still running; captured $bytes log bytes."
     fi
   done
 ) &

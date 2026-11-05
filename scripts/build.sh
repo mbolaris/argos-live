@@ -56,17 +56,31 @@ mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
 mount -t sysfs sysfs "$builder/sys"
 trap 'umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
-chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --mirror-binary-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --security true --updates true --apt-source-archives false --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::Languages=none -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=30 -o Acquire::Retries=3' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'"
+chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --mirror-binary-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --security true --updates true --apt-source-archives false --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::Languages=none -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=15 -o Acquire::http::Timeout=15 -o Acquire::Retries=0' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'"
 live_build_log=$(mktemp /var/lib/argos-live/live-build.XXXXXX)
 cleanup_live_build_log() { rm -f -- "$live_build_log"; }
 trap 'cleanup_live_build_log; umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
 max_live_build_attempts=${ARGOS_LIVE_BUILD_ATTEMPTS:-5}
 for ((attempt=1; attempt<=max_live_build_attempts; attempt++)); do
-  if chroot "$builder" /bin/bash -c 'cd /work && lb build' >"$live_build_log" 2>&1; then
+  chroot "$builder" /bin/bash -c 'cd /work && lb build' >"$live_build_log" 2>&1 &
+  live_build_pid=$!
+  (
+    while kill -0 "$live_build_pid" 2>/dev/null; do
+      sleep 45
+      if kill -0 "$live_build_pid" 2>/dev/null; then
+        bytes=$(wc -c < "$live_build_log")
+        echo "Pinned live-build attempt $attempt remains active; captured $bytes log bytes."
+      fi
+    done
+  ) &
+  heartbeat_pid=$!
+  if wait "$live_build_pid"; then
     status=0
   else
     status=$?
   fi
+  kill "$heartbeat_pid" 2>/dev/null || true
+  wait "$heartbeat_pid" 2>/dev/null || true
   python3 "$src/scripts/report-iso-build.py" --scan-log "$live_build_log"
   tail -n 80 "$live_build_log"
   if (( status == 0 )); then
