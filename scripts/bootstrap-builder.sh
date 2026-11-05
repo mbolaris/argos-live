@@ -53,7 +53,8 @@ apt_retry() {
   local label=$1; shift
   local attempt status delay max_attempts=${ARGOS_APT_ATTEMPTS:-8}
   for ((attempt=1; attempt<=max_attempts; attempt++)); do
-    DEBIAN_FRONTEND=noninteractive chroot "$root" apt-get -qq "${apt_opts[@]}" "$@" &
+    timeout --foreground --signal=TERM --kill-after=10s 300s \
+      env DEBIAN_FRONTEND=noninteractive chroot "$root" apt-get -qq "${apt_opts[@]}" "$@" &
     local apt_pid=$!
     (
       while kill -0 "$apt_pid" 2>/dev/null; do
