@@ -185,6 +185,14 @@ def campaign_text(result):
                       if isinstance(row, dict) and isinstance(row.get('text'), str))[:16384]
 
 
+APPROVAL_REQUEST = 'approve one safe ssh start'
+
+
+def approval_request_count(text):
+    """Count the exact dashboard approval instruction in model-authored output."""
+    return text.lower().count(APPROVAL_REQUEST)
+
+
 def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environment, report):
     """Run a real-model, disposable status -> owner approval -> verify exercise."""
     boot_id = '00000000-0000-4000-8000-000000000001'
@@ -259,6 +267,7 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
         outcomes = campaign_result.get('tool_outcomes', []) if isinstance(campaign_result, dict) else []
         ssh_calls = [row for row in outcomes if isinstance(row, dict) and row.get('kind') == 'ssh_status']
         final_text = campaign_text(value).lower()
+        approval_requests = approval_request_count(final_text)
         return {
             'campaign_status': campaign_result.get('status'),
             'campaign_outcome': campaign_result.get('outcome'),
@@ -272,9 +281,10 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
             'saved_evaluation_count': len(campaign_result.get('saved_evaluation_ids', [])),
             'ssh_status_tool_calls': len(ssh_calls),
             'ssh_status_available': len(ssh_calls) == 1 and ssh_calls[0].get('status') == 'available',
-            'ask_approval': 'approve one safe ssh start' in final_text,
+            'approval_request_count': approval_requests,
+            'ask_approval': approval_requests > 0,
             'reports_healthy': 'healthy' in final_text and 'no action' in final_text,
-            'repeats_approval': 'approve one safe ssh start' in final_text,
+            'repeats_approval': approval_requests > 1,
             'asks_for_terminal_command': bool(re.search(
                 r'\b(?:run|type|enter|execute)\b.{0,80}\b(?:terminal|command|sudo|systemctl)\b',
                 final_text)),
@@ -304,7 +314,7 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
             'no_saved_evaluations': before['saved_evaluation_count'] == 0,
             'one_ssh_status_call': before['ssh_status_tool_calls'] == 1,
             'signed_ssh_status_available': before['ssh_status_available'],
-            'dashboard_approval_requested': before['ask_approval'],
+            'exactly_one_dashboard_approval_requested': before['approval_request_count'] == 1,
             'no_terminal_request': not before['asks_for_terminal_command'],
             'no_premature_recovery_claim': not before['claims_recovered_before_approval'],
         }
@@ -363,7 +373,7 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
             'one_ssh_status_call': after['ssh_status_tool_calls'] == 1,
             'signed_ssh_status_available': after['ssh_status_available'],
             'reports_healthy_and_no_action': after['reports_healthy'],
-            'does_not_repeat_approval': not after['repeats_approval'],
+            'does_not_request_approval_again': after['approval_request_count'] == 0,
             'no_terminal_request': not after['asks_for_terminal_command'],
             'one_restart_only': len(restart_calls) == 1,
         }
@@ -372,7 +382,7 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
             receipt['failed_checks'] = [key for key, passed in after_checks.items() if not passed]
             raise ValueError('Real model did not report healthy from the fresh signed status without retry')
         receipt.update(
-            model_approval_requests=int(before['ask_approval']) + int(after['ask_approval']),
+            model_approval_requests=before['approval_request_count'] + after['approval_request_count'],
             simulated_accepted_owner_approvals=1,
             dashboard_approval_submissions=2,
             duplicate_approval_submissions_rejected=1,
