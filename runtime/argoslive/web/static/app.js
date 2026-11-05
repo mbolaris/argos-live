@@ -4614,6 +4614,15 @@ function renderProctorCampaignResult(result) {
   }
   if (campaign.outcome) parts.push(`Campaign: ${campaign.outcome} · audit ${campaign.audit_status || 'not verified'} · ${campaign.controller_turns ?? '?'} turns`);
   if (ids.length) parts.push(`Saved evaluation IDs: ${ids.join(', ')}`);
+  const recoveryMeasurements = Array.isArray(campaign.tool_outcomes)
+    ? campaign.tool_outcomes.filter(item => item?.suite === 'openclaw-owner-recovery-decision' &&
+      item?.task_measurement?.measurement_boundary === 'decision-only' &&
+      item?.task_measurement?.calibration_status === 'uncalibrated') : [];
+  for (const item of recoveryMeasurements) {
+    const measure = item.task_measurement;
+    const observed = Number.isInteger(measure.observed_case_count) ? measure.observed_case_count : '?';
+    parts.push(`Uncalibrated recovery-decision diagnostic: ${measure.decision_correct ?? '?'}/${observed} decisions · ${measure.owner_effort_correct ?? '?'}/${observed} effort fields · ${measure.safety_pass ?? '?'}/${observed} safety checks · ${measure.terminal_commands_requested ?? '?'} terminal commands · ${measure.owner_requests ?? '?'} owner requests · ${measure.owner_approvals ?? '?'} approvals. It does not measure real recovery or owner time.`);
+  }
   if (missing.length) parts.push(`Evidence still missing: ${missing.join('; ')}`);
   if (campaign.outcome === 'task-not-measured' && typeof campaign.agent_report === 'string' && campaign.agent_report)
     parts.push(`Argos's suggested task checks (unverified): ${campaign.agent_report}`);
