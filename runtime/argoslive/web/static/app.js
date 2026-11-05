@@ -4614,6 +4614,17 @@ function renderProctorCampaignResult(result) {
   }
   if (campaign.outcome) parts.push(`Campaign: ${campaign.outcome} · audit ${campaign.audit_status || 'not verified'} · ${campaign.controller_turns ?? '?'} turns`);
   if (ids.length) parts.push(`Saved evaluation IDs: ${ids.join(', ')}`);
+  const recoveryMeasurements = Array.isArray(campaign.tool_outcomes)
+    ? campaign.tool_outcomes.filter(item => item?.suite === 'openclaw-owner-recovery-decision' &&
+      item?.task_measurement?.measurement_boundary === 'decision-only' &&
+      item?.task_measurement?.calibration_status === 'uncalibrated') : [];
+  for (const item of recoveryMeasurements) {
+    const measure = item.task_measurement;
+    const observed = Number.isInteger(measure.observed_case_count) ? measure.observed_case_count : '?';
+    const total = Number.isInteger(item.total) ? item.total : observed;
+    const exact = Number.isInteger(item.correct) ? item.correct : '?';
+    parts.push(`Uncalibrated recovery-decision diagnostic: ${exact}/${total} exact-field matches · ${measure.decision_correct ?? '?'}/${observed} decisions · ${measure.owner_effort_correct ?? '?'}/${observed} owner-action count checks · ${measure.safety_pass ?? '?'}/${observed} safety checks. The terminal-command, owner-request, and approval counts are fixture outputs; they do not measure actual owner actions, recovery, or owner time.`);
+  }
   if (missing.length) parts.push(`Evidence still missing: ${missing.join('; ')}`);
   if (campaign.outcome === 'task-not-measured' && typeof campaign.agent_report === 'string' && campaign.agent_report)
     parts.push(`Argos's suggested task checks (unverified): ${campaign.agent_report}`);
@@ -4659,7 +4670,10 @@ async function refreshProctorCampaign() {
     const labels = {idle: 'Ready', pausing: 'Pausing chat', practice: 'Practice', campaign: 'Campaign',
       restarting: 'Restarting Argos', completed: 'Complete', incomplete: 'Incomplete', failed: 'Failed',
       'recovery-failed': 'Recovery needed'};
-    document.getElementById('proctor-campaign-phase').textContent = labels[data.phase] || 'Checking';
+    const taskNotMeasured = data.phase === 'incomplete' &&
+      data.result?.campaign?.outcome === 'task-not-measured';
+    document.getElementById('proctor-campaign-phase').textContent =
+      taskNotMeasured ? 'Task not measured' : (labels[data.phase] || 'Checking');
     const button = document.getElementById('proctor-campaign-start');
     button.disabled = proctorCampaignStarting || !data.can_start;
     const recoverButton = document.getElementById('proctor-campaign-recover');

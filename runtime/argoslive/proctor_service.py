@@ -724,7 +724,7 @@ def _campaign_ledger(outcomes):
     fields = ('kind', 'state', 'result_id', 'baseline_id', 'candidate_id', 'change_id', 'status', 'passed',
               'qualified_experiment', 'configuration_preserved', 'baseline_ids', 'candidate_ids',
               'suite', 'suite_version', 'coverage_complete', 'correct', 'total', 'format_errors',
-              'logged_result_ids', 'appended', 'append_outcome')
+              'task_measurement', 'logged_result_ids', 'appended', 'append_outcome')
     return [{key: item[key] for key in fields if key in item}
             for item in outcomes if isinstance(item, dict)]
 

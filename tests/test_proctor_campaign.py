@@ -179,6 +179,27 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         with self.assertRaises(proctor_campaign.Refused):
             self.controller.start(task, criteria)
 
+    def test_task_not_measured_is_explained_without_calling_it_a_failure(self):
+        self.controller.runner = lambda _home, **_callbacks: {
+            'status': 'incomplete',
+            'campaign': {'status': 'incomplete', 'outcome': 'task-not-measured',
+                         'audit_status': None, 'controller_turns': 1, 'missing':
+                         ['No task-specific measurement was run.'],
+                         'saved_evaluation_ids': []},
+        }
+        self.controller.start('restore paired SSH after boot',
+                              'report healthy state or recover with no terminal commands')
+        self.wait_finished()
+        status = self.controller.snapshot()
+        self.assertEqual(status['phase'], 'incomplete')
+        self.assertIn('No task-specific measurement was run', status['message'])
+        self.assertIn('no score or improvement is claimed', status['message'])
+        self.assertNotIn('campaign stopped without all required evidence', status['message'])
+        app = (Path(__file__).resolve().parents[1] /
+               'runtime/argoslive/web/static/app.js').read_text(encoding='utf-8')
+        self.assertIn("data.result?.campaign?.outcome === 'task-not-measured'", app)
+        self.assertIn("taskNotMeasured ? 'Task not measured'", app)
+
     def test_failed_campaign_still_restarts_argos(self):
         self.controller.runner = lambda home, **_callbacks: (_ for _ in ()).throw(ValueError('private detail'))
         self.controller.start('recover Argos after reboot', 'ready after unlock with no terminal command')

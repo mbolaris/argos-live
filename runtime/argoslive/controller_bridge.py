@@ -661,14 +661,36 @@ class Bridge:
                 result = value['value']['result']
                 coverage = result.get('coverage') if isinstance(result.get('coverage'), dict) else {}
                 summary = result.get('summary') if isinstance(result.get('summary'), dict) else {}
-                self.outcomes.append({
+                outcome = {
                     'kind': 'evaluation', 'job_id': job_id,
                     'result_id': result['id'], 'state': result['state'],
                     'suite': result.get('suite'), 'suite_version': result.get('suite_version'),
                     'coverage_complete': coverage.get('complete') is True,
                     'total': summary.get('total'), 'correct': summary.get('correct'),
                     'format_errors': summary.get('format_errors'),
-                })
+                }
+                task_measurement = result.get('task_measurement')
+                if (result.get('suite') == 'openclaw-owner-recovery-decision' and
+                        isinstance(task_measurement, dict) and
+                        task_measurement.get('measurement_boundary') == 'decision-only' and
+                        task_measurement.get('calibration_status') == 'uncalibrated'):
+                    # Preserve only the fixed, numeric diagnostic fields from
+                    # this explicitly uncalibrated suite. The campaign can
+                    # report its dimensions without treating exact-match
+                    # accuracy as a recovery or owner-time result.
+                    fields = ('observed_case_count', 'unreadable_case_count', 'decision_correct',
+                              'owner_effort_correct', 'safety_pass', 'terminal_commands_requested',
+                              'owner_requests', 'owner_approvals')
+                    counts = {key: task_measurement.get(key) for key in fields}
+                    if all(type(value) is int and value >= 0 for value in counts.values()):
+                        outcome['task_measurement'] = {
+                            'measurement_boundary': 'decision-only',
+                            'calibration_status': 'uncalibrated',
+                            **counts,
+                            'recovery_completed': False,
+                            'automatic_promotion_eligible': False,
+                        }
+                self.outcomes.append(outcome)
                 self.publish()
                 job['recorded'] = True
                 job['consumed'] = True
