@@ -167,7 +167,11 @@ def _is_ssh_recovery_task(owner_task, success_criteria, measurement_suite, provi
     if measurement_suite is not None or not callable(provider) or not callable(verifier):
         return False
     text = f'{owner_task} {success_criteria}'.casefold()
-    return 'ssh' in text and any(word in text for word in ('recover', 'recovery', 'inactive', 'boot'))
+    ssh_context = any(term in text for term in (
+        'ssh', 'secure shell', 'remote access', 'remote-access', 'port 22'))
+    recovery_context = any(word in text for word in (
+        'recover', 'recovery', 'inactive', 'boot', 'startup'))
+    return ssh_context and recovery_context
 
 
 def _private_directory(path):
