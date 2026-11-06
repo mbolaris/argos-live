@@ -155,6 +155,18 @@ def rescue(log, chroot, cache_root):
                             raise ValueError(f"conflicting package already exists at {destination}")
                     else:
                         shutil.copyfile(candidate, destination)
+                environment = os.environ.copy()
+                environment["DEBIAN_FRONTEND"] = "noninteractive"
+                offline_install = subprocess.run(
+                    ["chroot", str(chroot), "apt-get", "--yes", "--no-download",
+                     "install", f"{identity['Package']}={identity['Version']}"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    env=environment,
+                )
+                if offline_install.returncode == 0:
+                    print(f"Installed {identity['Package']}={identity['Version']} offline from verified APT cache.")
+                else:
+                    print(f"Offline install of {identity['Package']} was unavailable; retaining verified cache entries.")
                 rescued += 1
                 print(f"Snapshot-hash-verified cache entry: {filename} sha256={digest}")
             except (HTTPError, URLError, OSError, subprocess.CalledProcessError, ValueError) as exc:
