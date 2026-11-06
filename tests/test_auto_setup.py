@@ -122,6 +122,46 @@ class AutoSetupTests(unittest.TestCase):
             self.configure()
         self.assertEqual((self.state.read_bytes(), self.config.read_bytes()), before)
 
+    def test_existing_reviewed_tool_policy_is_snapshotted_and_migrated_idempotently(self):
+        self.configure()
+        config = json.loads(self.config.read_text())
+        for name in auto_setup.PROCTOR_READONLY_TOOLS:
+            config['tools']['alsoAllow'].remove(name)
+        before = (json.dumps(config, indent=2) + '\n').encode()
+        self.config.write_bytes(before)
+
+        result = self.configure()
+
+        migration = result['proctor_tools_migration']
+        self.assertEqual(migration['status'], 'updated')
+        snapshot = self.home / '.local/state/argos-live/snapshots' / migration['snapshot']
+        self.assertEqual(snapshot.read_bytes(), before)
+        updated = json.loads(self.config.read_text())
+        self.assertEqual(updated['tools']['alsoAllow'], config['tools']['alsoAllow'] +
+                         auto_setup.PROCTOR_READONLY_TOOLS)
+        self.assertEqual({key: value for key, value in updated.items() if key != 'tools'},
+                         {key: value for key, value in config.items() if key != 'tools'})
+        self.assertEqual(auto_setup.upgrade_legacy_proctor_tools(self.home, self.config)['status'],
+                         'already-current')
+        self.assertEqual(len(list(snapshot.parent.glob('openclaw-before-proctor-tools-*.json'))), 1)
+        if os.name != 'nt':
+            self.assertEqual(snapshot.stat().st_mode & 0o777, 0o600)
+
+    def test_proctor_tool_migration_refuses_unreviewed_policy_without_writing(self):
+        self.configure()
+        config = json.loads(self.config.read_text())
+        for name in auto_setup.PROCTOR_READONLY_TOOLS:
+            config['tools']['alsoAllow'].remove(name)
+        config['tools']['alsoAllow'].append('browser')
+        self.config.write_text(json.dumps(config, indent=2) + '\n')
+        before = self.config.read_bytes()
+
+        result = auto_setup.upgrade_legacy_proctor_tools(self.home, self.config)
+
+        self.assertEqual(result['status'], 'not-reviewed-tool-policy')
+        self.assertEqual(self.config.read_bytes(), before)
+        self.assertFalse((self.home / '.local/state/argos-live/snapshots').exists())
+
     def test_existing_exact_legacy_heartbeat_prompt_is_snapshotted_and_upgraded(self):
         self.configure()
         config = json.loads(self.config.read_text())
