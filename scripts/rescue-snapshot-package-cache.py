@@ -166,7 +166,11 @@ def rescue(log, chroot, cache_root):
                 if offline_install.returncode == 0:
                     print(f"Installed {identity['Package']}={identity['Version']} offline from verified APT cache.")
                 else:
-                    print(f"Offline install of {identity['Package']} was unavailable; retaining verified cache entries.")
+                    diagnostic = (offline_install.stdout + "\n" + offline_install.stderr).strip()
+                    if diagnostic:
+                        print(f"Offline install of {identity['Package']} failed:\n{diagnostic[-4000:]}")
+                    else:
+                        print(f"Offline install of {identity['Package']} failed without diagnostics.")
                 rescued += 1
                 print(f"Snapshot-hash-verified cache entry: {filename} sha256={digest}")
             except (HTTPError, URLError, OSError, subprocess.CalledProcessError, ValueError) as exc:
