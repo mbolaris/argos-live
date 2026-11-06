@@ -97,6 +97,9 @@ def fetch(url, destination):
 
 
 def rescue(log, chroot, cache_root):
+    builder_root = chroot.parent.parent
+    if builder_root.name != "builder" or not (builder_root / "etc/debian_version").is_file():
+        raise ValueError("unexpected live-build builder root")
     urls = []
     for line in log.read_text(errors="replace").splitlines():
         if not re.search(r"(?:Failed to fetch|Couldn't download|Unable to fetch)", line, re.I):
@@ -141,6 +144,7 @@ def rescue(log, chroot, cache_root):
                     cache_root / "packages.binary" / filename,
                     cache_root / "packages.chroot" / filename,
                     chroot / "var/cache/apt/archives" / filename,
+                    builder_root / "var/cache/apt/archives" / filename,
                 ]
                 for destination in destinations:
                     destination_dir = destination.parent
