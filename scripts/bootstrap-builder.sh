@@ -46,14 +46,14 @@ if [[ $phase == bootstrap ]]; then
 fi
 [[ -f "$root/etc/debian_version" && -f "$root/etc/apt/sources.list" ]] || { echo 'Run bootstrap phase first.' >&2; exit 1; }
 if [[ $phase == all || $phase == packages ]]; then
-apt_opts=(-o Acquire::Check-Valid-Until=false -o Acquire::Retries=3 -o Acquire::Queue-Mode=host -o Acquire::https::Timeout=30 \
-  -o Acquire::http::Timeout=30 -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 \
+apt_opts=(-o Acquire::Check-Valid-Until=false -o Acquire::Retries=1 -o Acquire::Queue-Mode=access -o Acquire::https::Timeout=20 \
+  -o Acquire::http::Timeout=20 -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 \
   -o Acquire::Languages=none -o Dpkg::Use-Pty=0)
 apt_retry() {
   local label=$1; shift
   local attempt status delay max_attempts=${ARGOS_APT_ATTEMPTS:-8}
   for ((attempt=1; attempt<=max_attempts; attempt++)); do
-    timeout --signal=TERM --kill-after=10s 300s \
+    timeout --signal=TERM --kill-after=10s 180s \
       env DEBIAN_FRONTEND=noninteractive chroot "$root" apt-get -qq "${apt_opts[@]}" "$@" &
     local apt_pid=$!
     (
