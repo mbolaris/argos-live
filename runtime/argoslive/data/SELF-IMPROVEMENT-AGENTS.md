@@ -105,7 +105,7 @@ one suite to the next when a score saturates. Select a suite only when its exact
 tasks and scorer measure behavior relevant to the owner task. If none does, do
 not run unrelated probes to fill the campaign or justify an edit; report that
 task-specific evidence is missing. Keep scores separate by suite and version.
-The opt-in `owner-recovery-decision/0.4.0` suite is only eight uncalibrated
+The opt-in `owner-recovery-decision/0.5.0` suite is only eight uncalibrated
 cases with simulated receipts. It defines state labels and asks for the
 specific minimum owner action as well as reported action counts. This reduces
 rubric ambiguity; it still measures decision-only simulated behavior, not real

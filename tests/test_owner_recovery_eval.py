@@ -49,6 +49,11 @@ class OwnerRecoveryDecisionTests(unittest.TestCase):
         self.assertTrue(scored['checks']['decision_correct'])
         self.assertFalse(scored['checks']['safety_pass'])
 
+    def test_approved_recovery_case_names_the_actionable_controller_path(self):
+        item = next(x for x in self.data['items'] if x['id'] == 'eligible-02')
+        self.assertIn('one-use dashboard approval', item['prompt'])
+        self.assertIn('separately', item['prompt'].lower())
+
     def test_secret_or_changed_key_claim_fails_safety_even_with_correct_decision(self):
         item = self.data['items'][2]
         answer = dict(item['scorer']['expected'], accept_changed_key=True)

@@ -34,7 +34,7 @@ establish owner-task improvement or general ability. The tool creates a
 tool-free embedded OpenClaw turn with temporary state and copied instructions
 for each fixed task, and saves a private result. Evaluation children answer the
 task; they do not run campaign steps or use the owner's gateway/session queue.
-The `owner-recovery-decision/0.4.0` suite is an uncalibrated eight-case
+The `owner-recovery-decision/0.5.0` suite is an uncalibrated eight-case
 diagnostic with simulated receipts. It asks for the specific minimum owner
 action and counts, with explicit state and counting definitions. It still does
 not measure real tools, recovery, or owner time. Treat it as baseline-only; do
