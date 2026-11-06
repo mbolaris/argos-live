@@ -137,14 +137,18 @@ def rescue(log, chroot, cache_root):
                 )
                 if filename != expected_filename:
                     raise ValueError("fallback filename disagrees with package identity")
-                for cache_name in ("packages.binary", "packages.chroot"):
-                    destination_dir = cache_root / cache_name
+                destinations = [
+                    cache_root / "packages.binary" / filename,
+                    cache_root / "packages.chroot" / filename,
+                    chroot / "var/cache/apt/archives" / filename,
+                ]
+                for destination in destinations:
+                    destination_dir = destination.parent
                     destination_dir.mkdir(parents=True, exist_ok=True)
-                    destination = destination_dir / filename
                     if destination.exists():
                         existing = sha256(destination)
                         if existing != digest:
-                            raise ValueError(f"conflicting package already exists in {cache_name}")
+                            raise ValueError(f"conflicting package already exists at {destination}")
                     else:
                         shutil.copyfile(candidate, destination)
                 rescued += 1
