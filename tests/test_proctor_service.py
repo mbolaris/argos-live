@@ -106,8 +106,16 @@ class ProctorServiceTests(unittest.TestCase):
                 'Restore access with as few manual steps as safely possible.')
         criteria = ('If signed status permits recovery, request only dashboard approval.')
         self.assertTrue(proctor_service._is_ssh_recovery_task(task, criteria, None, provider, verifier))
+        reported_task = ('Recover Argos on Toronado when startup or remote access fails, '
+                         'with the owner priority of reducing manual recovery work.')
+        reported_criteria = ('For a naturally occurring real recovery, verify current host evidence '
+                             'and record owner actions; do not induce a failure.')
+        self.assertTrue(proctor_service._is_ssh_recovery_task(
+            reported_task, reported_criteria, None, provider, verifier))
         self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, 'quick', provider, verifier))
         self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, None, None, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(
+            'Improve the model after startup', 'Keep the 27B model healthy.', None, provider, verifier))
 
         prompt = proctor_service._campaign_prompt(task, criteria, None, recovery_mode=True)
         self.assertIn('exactly one call to argos_ssh_status', prompt)
