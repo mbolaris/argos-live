@@ -17,7 +17,7 @@ if [[ ! -f "$root/etc/debian_version" ]]; then
   mkdir -p "$cache"
   attempt=1
   while :; do
-    if debootstrap "${keyring[@]}" --verbose --cache-dir="$cache" --arch=amd64 --include=ca-certificates,live-build,curl,git,xz-utils,zstd,python3 "$DEBIAN_SUITE" "$root" "https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/"; then
+    if debootstrap "${keyring[@]}" --verbose --cache-dir="$cache" --arch=amd64 --include=ca-certificates,live-build,curl,git,xz-utils,zstd,python3 "$DEBIAN_SUITE" "$root" "https://snapshot-cloudflare.debian.org/archive/debian/$DEBIAN_SNAPSHOT/"; then
       break
     else
       status=$?
@@ -36,9 +36,9 @@ if [[ ! -f "$root/etc/debian_version" ]]; then
     ((attempt+=1))
   done
 fi
-printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/%s/ %s main\n' "$DEBIAN_SNAPSHOT" "$DEBIAN_SUITE" > "$root/etc/apt/sources.list"
-printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/%s/ %s-updates main\n' "$DEBIAN_SNAPSHOT" "$DEBIAN_SUITE" >> "$root/etc/apt/sources.list"
-printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/%s/ %s-security main\n' "$DEBIAN_SECURITY_SNAPSHOT" "$DEBIAN_SUITE" >> "$root/etc/apt/sources.list"
+printf 'deb [check-valid-until=no] https://snapshot-cloudflare.debian.org/archive/debian/%s/ %s main\n' "$DEBIAN_SNAPSHOT" "$DEBIAN_SUITE" > "$root/etc/apt/sources.list"
+printf 'deb [check-valid-until=no] https://snapshot-cloudflare.debian.org/archive/debian/%s/ %s-updates main\n' "$DEBIAN_SNAPSHOT" "$DEBIAN_SUITE" >> "$root/etc/apt/sources.list"
+printf 'deb [check-valid-until=no] https://snapshot-cloudflare.debian.org/archive/debian-security/%s/ %s-security main\n' "$DEBIAN_SECURITY_SNAPSHOT" "$DEBIAN_SUITE" >> "$root/etc/apt/sources.list"
 fi
 if [[ $phase == bootstrap ]]; then
   printf 'Debian bootstrap phase ready: %s\n' "$root"
