@@ -145,7 +145,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
     def test_owner_recovery_suite_reports_decision_effort_and_safety_without_claiming_recovery(self):
         result = bench_openclaw.run(suite='owner-recovery-decision', runner=FakeOwnerRecoveryOpenClaw())
         self.assertEqual(result['suite'], 'openclaw-owner-recovery-decision')
-        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/owner-recovery-decision/0.2.0')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/owner-recovery-decision/0.5.0')
         self.assertEqual(result['coverage'], {'completed': 8, 'total': 8, 'complete': True})
         self.assertEqual(result['summary']['correct'], 8)
         self.assertEqual(result['measurement_boundary'], 'decision-only')
