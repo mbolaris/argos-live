@@ -263,7 +263,7 @@ def upgrade_legacy_proctor_tools(home, config_path):
             not isinstance(elevated, dict) or elevated.get('enabled') is not False or
             not isinstance(exec_config, dict) or exec_config.get('host') != 'gateway' or
             not (exec_config.get('security') == 'full' or exec_config.get('mode') == 'full') or
-            set(allowed) not in LEGACY_IMPROVEMENT_TOOL_POLICIES):
+            (set(allowed) - set(PROCTOR_READONLY_TOOLS)) not in LEGACY_IMPROVEMENT_TOOL_POLICIES):
         return {'status': 'not-reviewed-tool-policy'}
     missing = [name for name in PROCTOR_READONLY_TOOLS if name not in allowed]
     if not missing:
