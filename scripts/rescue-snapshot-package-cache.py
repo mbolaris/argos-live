@@ -45,10 +45,11 @@ def dpkg_fields(path):
         ["dpkg-deb", "-f", str(path), "Package", "Version", "Architecture"],
         check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     )
-    values = completed.stdout.splitlines()
-    if len(values) != 3 or any(not value for value in values):
+    values = fields(completed.stdout)
+    required = ("Package", "Version", "Architecture")
+    if any(not values.get(key) for key in required):
         raise ValueError("package identity fields are incomplete")
-    return dict(zip(("Package", "Version", "Architecture"), values))
+    return {key: values[key] for key in required}
 
 
 def sha256(path):
@@ -97,16 +98,19 @@ def fetch(url, destination):
 
 def rescue(log, chroot, cache_root):
     urls = []
-    for match in SNAPSHOT_URL.finditer(log.read_text(errors="replace")):
-        archive, snapshot, encoded_pool_path = match.groups()
-        if archive not in ARCHIVES:
+    for line in log.read_text(errors="replace").splitlines():
+        if not re.search(r"(?:Failed to fetch|Couldn't download|Unable to fetch)", line, re.I):
             continue
-        pool_path = unquote(encoded_pool_path)
-        if not pool_path.startswith("pool/") or ".." in Path(pool_path).parts:
-            continue
-        item = (archive, snapshot, encoded_pool_path, pool_path)
-        if item not in urls:
-            urls.append(item)
+        for match in SNAPSHOT_URL.finditer(line):
+            archive, snapshot, encoded_pool_path = match.groups()
+            if archive not in ARCHIVES:
+                continue
+            pool_path = unquote(encoded_pool_path)
+            if not pool_path.startswith("pool/") or ".." in Path(pool_path).parts:
+                continue
+            item = (archive, snapshot, encoded_pool_path, pool_path)
+            if item not in urls:
+                urls.append(item)
 
     if not urls:
         print("No failed Snapshot package URLs found for cache rescue.")
