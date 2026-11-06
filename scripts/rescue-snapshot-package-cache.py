@@ -130,7 +130,12 @@ def rescue(log, chroot, cache_root):
                 if digest.lower() != trusted["SHA256"].lower():
                     raise ValueError("fallback package hash differs from trusted Snapshot metadata")
                 filename = unquote(encoded_path.rsplit("/", 1)[-1])
-                if filename != f"{identity['Package']}_{identity['Version']}_{identity['Architecture']}.deb":
+                version_in_filename = re.sub(r"^[0-9]+:", "", identity["Version"])
+                expected_filename = (
+                    f"{identity['Package']}_{version_in_filename}_"
+                    f"{identity['Architecture']}.deb"
+                )
+                if filename != expected_filename:
                     raise ValueError("fallback filename disagrees with package identity")
                 for cache_name in ("packages.binary", "packages.chroot"):
                     destination_dir = cache_root / cache_name
