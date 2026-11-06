@@ -98,9 +98,8 @@ jobs:
           chmod -R a-w "$RUNNER_TEMP/argos-proctor-model"
       - name: Native conversation-only CPU reply without seed copies
         if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only }}
-        # Hosted runners can expose accelerator devices. Make this acceptance
-        # fixture CPU-only so its placement assertion measures the shipped
-        # CPU path instead of depending on runner hardware.
+        # Hide hosted-runner accelerators; the fixture also sends num_gpu: 0
+        # and checks it on every wire request so CPU placement is explicit.
         env:
           CUDA_VISIBLE_DEVICES: '-1'
           HIP_VISIBLE_DEVICES: '-1'
