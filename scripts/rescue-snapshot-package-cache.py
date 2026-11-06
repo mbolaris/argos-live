@@ -96,6 +96,19 @@ def fetch(url, destination):
     raise last_error
 
 
+def failed_snapshot_urls(text):
+    urls = []
+    for match in SNAPSHOT_URL.finditer(text):
+        archive, snapshot, encoded_pool_path = match.groups()
+        pool_path = unquote(encoded_pool_path)
+        if archive not in ARCHIVES or not pool_path.startswith("pool/") or ".." in Path(pool_path).parts:
+            continue
+        item = (archive, snapshot, encoded_pool_path, pool_path)
+        if item not in urls:
+            urls.append(item)
+    return urls
+
+
 def rescue(log, chroot, cache_root):
     builder_root = chroot.parent.parent
     if builder_root.name != "builder" or not (builder_root / "etc/debian_version").is_file():
@@ -104,14 +117,7 @@ def rescue(log, chroot, cache_root):
     for line in log.read_text(errors="replace").splitlines():
         if not re.search(r"(?:Failed to fetch|Couldn't download|Unable to fetch)", line, re.I):
             continue
-        for match in SNAPSHOT_URL.finditer(line):
-            archive, snapshot, encoded_pool_path = match.groups()
-            if archive not in ARCHIVES:
-                continue
-            pool_path = unquote(encoded_pool_path)
-            if not pool_path.startswith("pool/") or ".." in Path(pool_path).parts:
-                continue
-            item = (archive, snapshot, encoded_pool_path, pool_path)
+        for item in failed_snapshot_urls(line):
             if item not in urls:
                 urls.append(item)
 
@@ -155,6 +161,47 @@ def rescue(log, chroot, cache_root):
                             raise ValueError(f"conflicting package already exists at {destination}")
                     else:
                         shutil.copyfile(candidate, destination)
+
+                # Ask APT for its complete install plan while keeping the
+                # signed Snapshot indexes as the source of package metadata.
+                # --print-uris does not download; it exposes transitive .debs
+                # (for example liblzo2-2) that must also be rescued before the
+                # subsequent --no-download install can succeed.
+                plan = subprocess.run(
+                    ["chroot", str(chroot), "apt-get", "--yes", "--print-uris",
+                     "install", f"{identity['Package']}={identity['Version']}"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                )
+                if plan.returncode == 0:
+                    for dep_index, (dep_archive, _dep_snapshot, dep_encoded, dep_pool) in enumerate(
+                        failed_snapshot_urls(plan.stdout + "\n" + plan.stderr)
+                    ):
+                        dep_url = f"https://deb.debian.org/{dep_archive}/{dep_encoded}"
+                        dep_candidate = temp_root / f"dependency-{index}-{dep_index}.deb"
+                        fetch(dep_url, dep_candidate)
+                        dep_identity = dpkg_fields(dep_candidate)
+                        dep_trusted = snapshot_metadata(chroot, dep_identity, dep_pool)
+                        dep_digest = sha256(dep_candidate)
+                        if dep_digest.lower() != dep_trusted["SHA256"].lower():
+                            raise ValueError("fallback dependency hash differs from trusted Snapshot metadata")
+                        dep_filename = unquote(dep_encoded.rsplit("/", 1)[-1])
+                        dep_version = re.sub(r"^[0-9]+:", "", dep_identity["Version"])
+                        if dep_filename != f"{dep_identity['Package']}_{dep_version}_{dep_identity['Architecture']}.deb":
+                            raise ValueError("fallback dependency filename disagrees with package identity")
+                        for dep_destination in (
+                            cache_root / "packages.binary" / dep_filename,
+                            cache_root / "packages.chroot" / dep_filename,
+                            chroot / "var/cache/apt/archives" / dep_filename,
+                            builder_root / "var/cache/apt/archives" / dep_filename,
+                        ):
+                            dep_destination.parent.mkdir(parents=True, exist_ok=True)
+                            if dep_destination.exists():
+                                if sha256(dep_destination) != dep_digest:
+                                    raise ValueError(f"conflicting dependency package already exists at {dep_destination}")
+                            else:
+                                shutil.copyfile(dep_candidate, dep_destination)
+                        print(f"Snapshot-hash-verified dependency cache entry: {dep_filename} sha256={dep_digest}")
+
                 environment = os.environ.copy()
                 environment["DEBIAN_FRONTEND"] = "noninteractive"
                 offline_install = subprocess.run(
