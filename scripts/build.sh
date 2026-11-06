@@ -115,6 +115,12 @@ for ((attempt=1; attempt<=max_live_build_attempts; attempt++)); do
     echo 'Live-build failed for a non-transient reason; stopping without retry.' >&2
     exit "$status"
   fi
+  # Snapshot's CDN can return persistent 5xx responses for a single package while
+  # the byte-identical package remains available from Debian's current mirror.
+  # Only inject fallback bytes after matching package identity and SHA-256 against
+  # the package record from the already trusted Snapshot indexes in the built chroot.
+  python3 "$src/scripts/rescue-snapshot-package-cache.py" \
+    "$live_build_log" "$work/chroot" "$work/cache"
   if (( attempt == max_live_build_attempts )); then
     echo "Pinned live-build failed after $attempt transient-download attempts." >&2
     exit "$status"
