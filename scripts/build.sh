@@ -111,7 +111,7 @@ for ((attempt=1; attempt<=max_live_build_attempts; attempt++)); do
   if (( status == 0 )); then
     break
   fi
-  if ! grep -Eqi "Couldn't download|TooManyRequests| 503 | 504 |Gateway Timeout|Connection timed out|Temporary failure resolving|Could not connect" "$live_build_log"; then
+  if ! grep -Eqi "Couldn't download|TooManyRequests| 503 | 504 |Gateway Timeout|Connection (failed|timed out)|Temporary failure resolving|Could not connect" "$live_build_log"; then
     echo 'Live-build failed for a non-transient reason; stopping without retry.' >&2
     exit "$status"
   fi
