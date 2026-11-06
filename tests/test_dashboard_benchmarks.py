@@ -18,6 +18,47 @@ from test_bench_speed import Backend
 
 
 class DashboardBenchmarkTests(unittest.TestCase):
+    def test_suite_diagnostic_checks_are_visible_but_do_not_change_scores(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store = Store(temp)
+            first = ability_result()
+            first['calibration_status'] = 'uncalibrated'
+            first['items'][0]['checks'] = {'decision_correct': True, 'owner_effort_correct': False,
+                                            'safety_pass': True, 'ignored_label': 'yes'}
+            first['items'][1]['checks'] = {'decision_correct': False, 'owner_effort_correct': True,
+                                            'safety_pass': True, 'unsafe key!': True}
+            store.save(first)
+            view = View(store)
+            row = next(row for row in view.listing()['runs'] if row['id'] == first['id'])
+            self.assertEqual(row['summary'], first['summary'])
+            self.assertEqual(row['calibration_status'], 'uncalibrated')
+            self.assertEqual(row['diagnostic_checks'], {
+                'decision_correct': {'passed': 1, 'total': 2},
+                'owner_effort_correct': {'passed': 1, 'total': 2},
+                'safety_pass': {'passed': 2, 'total': 2},
+            })
+
+            second = ability_result('wrong')
+            second['calibration_status'] = 'uncalibrated'
+            second['items'][0]['checks'] = {'decision_correct': False, 'owner_effort_correct': False,
+                                             'safety_pass': True}
+            second['items'][1]['checks'] = {'decision_correct': False, 'owner_effort_correct': False,
+                                             'safety_pass': False}
+            store.save(second)
+            compared = view.comparison([first['id'], second['id']])
+            runs = {run['id']: run for run in compared['runs']}
+            self.assertEqual(runs[first['id']]['diagnostic_checks']['safety_pass'], {'passed': 2, 'total': 2})
+            self.assertEqual(runs[second['id']]['diagnostic_checks']['safety_pass'], {'passed': 1, 'total': 2})
+            self.assertEqual(runs[first['id']]['calibration_status'], 'uncalibrated')
+
+    def test_ordinary_ability_results_have_no_diagnostic_checks(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store = Store(temp)
+            run = ability_result()
+            store.save(run)
+            row = View(store).listing()['runs'][0]
+            self.assertNotIn('diagnostic_checks', row)
+
     def test_missing_speed_timings_are_visible_and_not_ranked(self):
         with tempfile.TemporaryDirectory() as temp:
             store = Store(temp)

@@ -1750,6 +1750,12 @@ async function refreshBenchmarks() {
         summary.textContent += ' · ' + Object.entries(run.summary.categories).map(([name, value]) =>
           `${name.replaceAll('_', ' ')}: ${value.correct}/${value.total}`).join(' · ');
       }
+      if (run.kind === 'ability' && run.diagnostic_checks) {
+        const diagnostics = Object.entries(run.diagnostic_checks).map(([name, value]) =>
+          `${name.replaceAll('_', ' ')}: ${value.passed}/${value.total}`);
+        if (diagnostics.length) summary.textContent += ' · Suite diagnostics (not part of score): ' + diagnostics.join(' · ');
+      }
+      if (run.calibration_status) summary.textContent += ` · Calibration: ${run.calibration_status}`;
       if (run.kind === 'ability' && run.suite === 'openclaw-owner-recovery-decision' && run.task_measurement) {
         const m = run.task_measurement;
         const actions = m.owner_action_counts && Object.entries(m.owner_action_counts)
@@ -1918,6 +1924,19 @@ function renderMatched(output, result) {
     const cats = [...new Set(runs.flatMap((r) => Object.keys(r.categories || {})))];
     if (cats.length) table(output, 'By category', ['Category', ...names], cats.map((c) => [c.replace('_', ' '),
       ...runs.map((r) => { const v = (r.categories || {})[c]; return v ? `${v.correct}/${v.total}` : 'n/a'; })]));
+    const checks = [...new Set(runs.flatMap((r) => Object.keys(r.diagnostic_checks || {})))];
+    if (checks.length) table(output, 'Suite-defined diagnostics (descriptive only; excluded from score and qualification)',
+      ['Check', ...names], checks.map((name) => [name.replaceAll('_', ' '), ...runs.map((r) => {
+        const value = (r.diagnostic_checks || {})[name];
+        return value ? `${value.passed}/${value.total}` : 'n/a';
+      })]));
+    if (runs.some((r) => r.calibration_status)) {
+      const calibration = document.createElement('p');
+      calibration.textContent = 'Calibration status: ' + runs.map((r, i) =>
+        `${names[i]} — ${r.calibration_status || 'not recorded'}`).join('; ') +
+        '. Descriptive checks do not establish ability outside this suite.';
+      output.append(calibration);
+    }
     const items = result.items || [];
     const changed = items.filter((i) => new Set(Object.values(i.runs).map((x) => x.outcome)).size > 1);
     const heading = document.createElement('h3'); heading.textContent = `Same questions, side by side (${changed.length} of ${items.length} differ)`; output.append(heading);

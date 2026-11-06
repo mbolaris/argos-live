@@ -2,7 +2,7 @@
 from itertools import islice
 from pathlib import Path
 
-from argoslive.results import Store, compare, export_csv, identifier
+from argoslive.results import Store, compare, diagnostic_checks, export_csv, identifier
 
 
 class View:
@@ -27,9 +27,13 @@ class View:
             try:
                 run = self.store.load(path.stem)
                 row = {key: run.get(key) for key in
-                       ('id', 'created', 'kind', 'suite_version', 'model', 'manifest_digest', 'state', 'coverage')}
+                       ('id', 'created', 'kind', 'suite_version', 'model', 'manifest_digest', 'state', 'coverage',
+                        'calibration_status')}
                 if run['kind'] == 'ability':
                     row['summary'] = run['summary']
+                    diagnostics = diagnostic_checks(run.get('items', []))
+                    if diagnostics:
+                        row['diagnostic_checks'] = diagnostics
                     for key in ('qualification', 'document_context'):
                         if isinstance(run.get(key), dict):
                             row[key] = run[key]
