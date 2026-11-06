@@ -17,7 +17,7 @@ if [[ ! -f "$root/etc/debian_version" ]]; then
   mkdir -p "$cache"
   attempt=1
   while :; do
-    if debootstrap "${keyring[@]}" --verbose --cache-dir="$cache" --arch=amd64 --include=ca-certificates "$DEBIAN_SUITE" "$root" "https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/"; then
+    if debootstrap "${keyring[@]}" --verbose --cache-dir="$cache" --arch=amd64 --include=ca-certificates,live-build,curl,git,xz-utils,zstd,python3 "$DEBIAN_SUITE" "$root" "https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/"; then
       break
     else
       status=$?
@@ -46,47 +46,11 @@ if [[ $phase == bootstrap ]]; then
 fi
 [[ -f "$root/etc/debian_version" && -f "$root/etc/apt/sources.list" ]] || { echo 'Run bootstrap phase first.' >&2; exit 1; }
 if [[ $phase == all || $phase == packages ]]; then
-apt_opts=(-o Acquire::Check-Valid-Until=false -o Acquire::Retries=1 -o Acquire::Queue-Mode=access -o Acquire::https::Timeout=20 \
-  -o Acquire::http::Timeout=20 -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 \
-  -o Acquire::Languages=none -o Dpkg::Use-Pty=0)
-apt_retry() {
-  local label=$1; shift
-  local attempt status delay max_attempts=${ARGOS_APT_ATTEMPTS:-8}
-  for ((attempt=1; attempt<=max_attempts; attempt++)); do
-    timeout --signal=TERM --kill-after=10s 180s \
-      env DEBIAN_FRONTEND=noninteractive chroot "$root" apt-get -qq "${apt_opts[@]}" "$@" &
-    local apt_pid=$!
-    (
-      while kill -0 "$apt_pid" 2>/dev/null; do
-        sleep 45
-        if kill -0 "$apt_pid" 2>/dev/null; then
-          echo "Pinned builder apt $label is still running." >&2
-        fi
-      done
-    ) &
-    local heartbeat_pid=$!
-    if wait "$apt_pid"; then
-      status=0
-    else
-      status=$?
-    fi
-    kill "$heartbeat_pid" 2>/dev/null || true
-    wait "$heartbeat_pid" 2>/dev/null || true
-    if (( status == 0 )); then
-      return 0
-    fi
-    if (( attempt == max_attempts )); then
-      echo "Pinned builder apt $label failed after $attempt attempts." >&2
-      return "$status"
-    fi
-    delay=$((30 * attempt))
-    if (( delay > 120 )); then delay=120; fi
-    echo "Pinned builder apt $label attempt $attempt failed; retrying in ${delay}s with cached indexes/packages." >&2
-    sleep "$delay"
-  done
+installed_live_build=$(chroot "$root" dpkg-query -W -f='${Version}' live-build)
+[[ "$installed_live_build" == "$DEBIAN_LIVE_BUILD_VERSION" ]] || {
+  echo "Unexpected live-build version: $installed_live_build" >&2
+  exit 1
 }
-apt_retry update update
-apt_retry install install -y "live-build=$DEBIAN_LIVE_BUILD_VERSION" ca-certificates curl git xz-utils zstd python3
 chroot "$root" dpkg-query -W > /var/lib/argos-live/builder-packages.txt
-printf 'Builder ready: %s\n' "$root"
+printf 'Builder packages verified from the pinned bootstrap snapshot: %s\n' "$root"
 fi
