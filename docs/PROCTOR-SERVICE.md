@@ -96,7 +96,7 @@ success measure. An optional `--measurement-suite` selects the one fixed suite
 the owner has decided measures that task. The dashboard offers the same choice;
 “None fits / not sure” is the default. The host rejects evaluations from any
 other suite and rejects comparisons and instruction changes without the
-owner-selected suite. The optional `owner-recovery-decision/0.3.0` suite is an
+owner-selected suite. The optional `owner-recovery-decision/0.4.0` suite is an
 uncalibrated eight-case decision-only fixture: it uses simulated receipts and
 scores an explicit minimum owner-action category and counts. It does not
 execute tools or measure real recovery/owner time, and cannot authorize
