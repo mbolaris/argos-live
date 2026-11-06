@@ -109,6 +109,20 @@ OWNER_TASK_STOP_GUIDANCE = '''Stop when the owner-valued task outcome is measura
 inconclusive after a reasonable number of trials, or the next step needs an
 owner decision. A synthetic-suite plateau does not prove maximum capability.'''
 
+# Read-only Proctor tools needed to close instruction audits and perform
+# signed SSH status checks without asking the owner to type terminal commands.
+PROCTOR_READONLY_TOOLS = ['argos_inspect', 'argos_audit_instructions', 'argos_ssh_status']
+LEGACY_IMPROVEMENT_TOOL_BASE = {
+    'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_evaluate_wait',
+    'argos_evaluate_status', 'argos_compare', 'argos_log',
+}
+LEGACY_IMPROVEMENT_TOOL_POLICIES = (
+    frozenset(LEGACY_IMPROVEMENT_TOOL_BASE),
+    frozenset(LEGACY_IMPROVEMENT_TOOL_BASE - {'argos_log'}),
+    frozenset(LEGACY_IMPROVEMENT_TOOL_BASE - {'argos_evaluate_wait', 'argos_evaluate_status'}),
+    frozenset(LEGACY_IMPROVEMENT_TOOL_BASE - {'argos_log', 'argos_evaluate_wait', 'argos_evaluate_status'}),
+)
+
 
 def workspace_file(name):
     return (Path(__file__).resolve().parent / 'data' / name).read_bytes()
@@ -133,7 +147,8 @@ def conversation_config(model, workspace, *, plugin_root=PLUGIN_ROOT):
                         'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}}]}}},
         'tools': {'profile': 'minimal',
                   'alsoAllow': ['group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_evaluate_wait',
-                                'argos_evaluate_status', 'argos_compare', 'argos_log'],
+                                'argos_evaluate_status', 'argos_compare', 'argos_log',
+                                *PROCTOR_READONLY_TOOLS],
                   'deny': ['gateway', 'browser'],
                   'exec': {'host': 'gateway', 'security': 'full', 'ask': 'off'},
                   'elevated': {'enabled': False},
@@ -230,6 +245,74 @@ def upgrade_legacy_heartbeat(home, config_path):
             'after_sha256': hashlib.sha256(new_raw).hexdigest()}
 
 
+def upgrade_legacy_proctor_tools(home, config_path):
+    """Snapshot and add only the reviewed read-only Proctor tools to old defaults."""
+    config_path = storage.safe_local(config_path)
+    raw = config_path.read_bytes()
+    config = json.loads(raw)
+    tools = config.get('tools')
+    if not isinstance(tools, dict):
+        return {'status': 'not-managed'}
+    allowed = tools.get('alsoAllow')
+    denied = tools.get('deny')
+    elevated = tools.get('elevated')
+    exec_config = tools.get('exec')
+    if (tools.get('profile') != 'minimal' or not isinstance(allowed, list) or
+            any(not isinstance(item, str) for item in allowed) or
+            not isinstance(denied, list) or set(denied) != {'gateway', 'browser'} or
+            not isinstance(elevated, dict) or elevated.get('enabled') is not False or
+            not isinstance(exec_config, dict) or exec_config.get('host') != 'gateway' or
+            not (exec_config.get('security') == 'full' or exec_config.get('mode') == 'full') or
+            (set(allowed) - set(PROCTOR_READONLY_TOOLS)) not in LEGACY_IMPROVEMENT_TOOL_POLICIES):
+        return {'status': 'not-reviewed-tool-policy'}
+    missing = [name for name in PROCTOR_READONLY_TOOLS if name not in allowed]
+    if not missing:
+        return {'status': 'already-current'}
+
+    updated = json.loads(json.dumps(config))
+    updated['tools']['alsoAllow'].extend(missing)
+    new_raw = (json.dumps(updated, indent=2) + '\n').encode()
+    state_root = storage.safe_local(home / '.local/state/argos-live')
+    snapshots = storage.safe_local(state_root / 'snapshots')
+    state_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    snapshots.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if os.name != 'nt':
+        for directory in (state_root, snapshots):
+            metadata = directory.stat()
+            if metadata.st_uid != os.getuid() or metadata.st_mode & 0o077:
+                return {'status': 'snapshot-directory-not-private'}
+    before = hashlib.sha256(raw).hexdigest()
+    snapshot = snapshots / ('openclaw-before-proctor-tools-' + secrets.token_hex(12) + '.json')
+    descriptor = os.open(snapshot, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, 'wb') as stream:
+        stream.write(raw)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary = config_path.parent / ('.proctor-tools-config-' + secrets.token_hex(12))
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                             config_path.stat().st_mode & 0o777)
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(new_raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if config_path.read_bytes() != raw:
+            return {'status': 'config-changed-during-migration', 'snapshot': snapshot.name}
+        os.replace(temporary, config_path)
+        if os.name != 'nt':
+            descriptor = os.open(config_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {'status': 'updated', 'snapshot': snapshot.name,
+            'before_sha256': before,
+            'after_sha256': hashlib.sha256(new_raw).hexdigest(),
+            'added_tools': missing}
+
+
 def upgrade_legacy_owner_guide(home):
     """Migrate only Toronado's exact known guide; preserve other owner edits."""
     path = storage.safe_local(home / '.openclaw/workspace/AGENTS.md')
@@ -319,10 +402,17 @@ def configure(home=None, *, planner=storage.plan, verify_seed=starter.read_only,
         except (OSError, ValueError):
             # Never block startup or replace a guide if snapshotting fails.
             owner_guide_migration = {'status': 'not-applied'}
+        try:
+            proctor_tools_migration = upgrade_legacy_proctor_tools(home, config_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            # A failed private snapshot or concurrent owner edit must never
+            # block startup or replace the current owner configuration.
+            proctor_tools_migration = {'status': 'not-applied'}
         return {'status': 'existing', **{key: state.get(key) for key in
                 ('mode', 'model', 'model_source', 'storage', 'permissions')},
                 'heartbeat_prompt_migration': heartbeat_migration,
-                'owner_guide_migration': owner_guide_migration}
+                'owner_guide_migration': owner_guide_migration,
+                'proctor_tools_migration': proctor_tools_migration}
     if config_path.exists() or (config_path.parent.exists() and any(config_path.parent.iterdir())):
         raise ValueError('Existing OpenClaw state needs review; automatic setup will not replace it')
     report('verify-starter')

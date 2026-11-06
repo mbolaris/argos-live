@@ -214,7 +214,7 @@ def request_metrics(env):
                    'request_process_missing_summary_count', 'no_request_missing_summary_count',
                    'unhooked_process_count', 'orphan_summary_count',
                    'request_without_probe_count', 'summary_mismatch_count',
-                   'request_bytes', 'num_predict', 'num_ctx',
+                   'request_bytes', 'num_predict', 'num_ctx', 'num_gpu',
                    'message_chars', 'tool_schema_chars', 'temperature', 'tool_result_messages')
         result = {key: value[key] for key in allowed if type(value.get(key)) in (int, float)
                   and math.isfinite(value[key]) and -2 <= value[key] <= 10**12}
@@ -224,7 +224,7 @@ def request_metrics(env):
                       if type(value.get(key)) is bool})
         records = value.get('requests')
         if isinstance(records, list) and len(records) <= 64:
-            numeric = ('request_bytes', 'num_predict', 'num_ctx', 'message_chars',
+            numeric = ('request_bytes', 'num_predict', 'num_ctx', 'num_gpu', 'message_chars',
                        'tool_schema_chars', 'temperature', 'tool_result_messages')
             booleans = ('body_inspected', 'num_predict_present', 'num_ctx_present', 'think')
             result['requests'] = [{**{key: row[key] for key in numeric
@@ -321,8 +321,10 @@ def run(cli, ollama, seed):
         # A bounded CI response, not a change to the shipped assistant budget.
         config['models']['providers']['ollama']['models'][0]['maxTokens'] = 32
         # maxTokens is catalog metadata in the pinned native provider. The
-        # actual Ollama request budget must be an explicit native model option.
-        config['models']['providers']['ollama']['models'][0]['params'] = {'num_predict': 32}
+        # actual generation budget and CPU-only placement must be explicit
+        # native model options. Device visibility alone does not disable offload.
+        config['models']['providers']['ollama']['models'][0]['params'] = {
+            'num_predict': 32, 'num_gpu': 0}
         config['gateway']['auth']['token'] = 'fictional-public-native-chat-fixture'
         path = state / 'openclaw.json'
         path.write_text(json.dumps(config))
@@ -348,7 +350,11 @@ def run(cli, ollama, seed):
             result = summary(command(cli, ['agent', '--local', '--agent', 'main', '--message',
                 'Say hello in one short sentence. Do not use any tools.', '--thinking', 'off',
                 '--timeout', '360', '--json'], env, timeout=420))
-            verify_request_budget(request_metrics(env))
+            metrics = request_metrics(env)
+            verify_request_budget(metrics)
+            requests = metrics.get('requests', [])
+            if (not requests or any(row.get('num_gpu') != 0 for row in requests)):
+                raise ValueError('Native chat CPU placement option was not established on every wire request')
             observed = placement(client.ps().get('models', []), starter.TAG)
             if observed['mode'] != 'CPU':
                 raise ValueError('Native chat CPU placement was not established: ' + json.dumps(observed))
