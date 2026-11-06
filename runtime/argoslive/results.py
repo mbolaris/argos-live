@@ -17,6 +17,26 @@ from .storage import safe_local
 DEFAULT = Path.home() / '.local/share/argos-live/results'
 
 
+def diagnostic_checks(items):
+    """Summarize suite-authored boolean dimensions without changing ability scores.
+
+    These optional checks are diagnostic metadata, not calibrated evidence. Only
+    simple identifier keys and literal booleans are projected into the dashboard.
+    """
+    dimensions = {}
+    for item in items:
+        if not isinstance(item, dict) or not isinstance(item.get('checks'), dict):
+            continue
+        for name, passed in item['checks'].items():
+            if (not isinstance(name, str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', name)
+                    or type(passed) is not bool):
+                continue
+            value = dimensions.setdefault(name, {'passed': 0, 'total': 0})
+            value['passed'] += int(passed)
+            value['total'] += 1
+    return dimensions
+
+
 def identifier(value):
     if not isinstance(value, str) or not re.fullmatch(r'[a-f0-9]{32}', value):
         raise ValueError('Choose a benchmark run ID (32 lowercase hexadecimal characters)')
@@ -445,7 +465,7 @@ def matched_details(values):
         entry = {'id': value['id'], 'model': value['model'], 'created': value['created'],
                  'manifest_digest': value.get('manifest_digest'),
                  'prompt_fingerprint': value.get('prompt_fingerprint'), 'kind': value['kind'],
-                 'suite_version': value['suite_version']}
+                 'suite_version': value['suite_version'], 'calibration_status': value.get('calibration_status')}
         if value['kind'] == 'ability':
             summary = value['summary']
             entry.update(accuracy=summary['accuracy'], correct=summary['correct'], total=summary['total'],
@@ -453,6 +473,9 @@ def matched_details(values):
                          partitions=summary.get('partitions'),
                          qualification=value.get('qualification'), document_context=value.get('document_context'),
                          context=value['settings'].get('context'))
+            diagnostics = diagnostic_checks(value.get('items', []))
+            if diagnostics:
+                entry['diagnostic_checks'] = diagnostics
         else:
             entry['prompts'] = []
             for p in value['prompts']:
