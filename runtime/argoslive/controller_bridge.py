@@ -109,6 +109,31 @@ def _validate_ssh_agent_status(value, verifier):
         raise ValueError('Bounded SSH status receipt unavailable')
 
 
+def _ssh_status_observation(value):
+    """Project a verified SSH receipt into small, safe campaign evidence."""
+    if value.get('available') is not True:
+        return {'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+                'verified': False, 'state': 'unavailable',
+                'failure_code': 'signed-status-unavailable'}
+    status = value['status']
+    ready = (status['persistence_state'] == 'verified' and
+             status['paired_policy_valid'] is True and status['ssh_enabled'] is True and
+             status['ssh_active'] is True and status['port22_listening'] is True and
+             status['failure_code'] is None)
+    return {
+        'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+        'verified': True, 'state': 'ready' if ready else 'not-ready',
+        'persistence_state': status['persistence_state'],
+        'paired_policy_valid': status['paired_policy_valid'],
+        'ssh_enabled': status['ssh_enabled'], 'ssh_active': status['ssh_active'],
+        'port22_listening': status['port22_listening'],
+        'restart_eligible': status['restart_eligible'],
+        'owner_approval_available': value['owner_approval_available'],
+        'recovery_job_state': value['recovery_job_state'],
+        'failure_code': status['failure_code'],
+    }
+
+
 class Bridge:
     def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800,
                  exam_session=None, task_campaign=False, owner_task_suite=None,
@@ -504,7 +529,8 @@ class Bridge:
                 value = self.ssh_status_provider()
                 _validate_ssh_agent_status(value, self.ssh_status_verifier)
                 outcome = {'kind': kind, 'call_id': call,
-                           'status': 'available' if value['available'] else 'unavailable'}
+                           'status': 'available' if value['available'] else 'unavailable',
+                           'host_observation': _ssh_status_observation(value)}
                 with self.lock:
                     self.outcomes.append(outcome)
                     self.publish()

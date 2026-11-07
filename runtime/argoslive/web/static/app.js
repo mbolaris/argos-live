@@ -4627,6 +4627,16 @@ function renderProctorCampaignResult(result) {
   }
   if (campaign.outcome) parts.push(`Campaign: ${campaign.outcome} · audit ${campaign.audit_status || 'not verified'} · ${campaign.controller_turns ?? '?'} turns`);
   if (ids.length) parts.push(`Saved evaluation IDs: ${ids.join(', ')}`);
+  const hostObservation = campaign.host_observation;
+  if (hostObservation?.schema === 'argos-host-observation/1' && hostObservation.system === 'paired-ssh') {
+    if (hostObservation.verified === true) {
+      const listener = hostObservation.port22_listening === true ? 'port 22 listening' : 'port 22 not listening';
+      const active = hostObservation.ssh_active === true ? 'SSH active' : 'SSH inactive';
+      parts.push(`Verified live host observation: paired SSH ${hostObservation.state} · ${active} · ${listener} · persistence ${hostObservation.persistence_state}. This is a real status snapshot, not proof of a recovery action, owner-time savings, or model improvement.`);
+    } else if (hostObservation.state === 'unavailable') {
+      parts.push('Live host observation: signed SSH status unavailable; no host state is claimed.');
+    }
+  }
   const recoveryMeasurements = Array.isArray(campaign.tool_outcomes)
     ? campaign.tool_outcomes.filter(item => item?.suite === 'openclaw-owner-recovery-decision' &&
       item?.task_measurement?.measurement_boundary === 'decision-only' &&

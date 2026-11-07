@@ -125,10 +125,19 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertNotIn('argos_audit_instructions', prompt)
 
         assessment = proctor_service._campaign_assessment(
-            [{'kind': 'ssh_status', 'status': 'available'}], recovery_mode=True)
+            [{'kind': 'ssh_status', 'status': 'available', 'host_observation': {
+                'schema': 'argos-host-observation/1', 'system': 'paired-ssh', 'verified': True,
+                'state': 'ready', 'persistence_state': 'verified', 'paired_policy_valid': True,
+                'ssh_enabled': True, 'ssh_active': True, 'port22_listening': True,
+                'restart_eligible': False, 'owner_approval_available': False,
+                'recovery_job_state': 'idle', 'failure_code': None,
+            }}], recovery_mode=True)
         self.assertTrue(assessment['ready'])
         self.assertTrue(assessment['safe_to_release'])
         self.assertEqual(assessment['outcome'], 'task-not-measured')
+        self.assertTrue(assessment['host_observation']['verified'])
+        self.assertEqual(assessment['host_observation']['state'], 'ready')
+        self.assertNotIn('boot_id', assessment['host_observation'])
         self.assertFalse(proctor_service._campaign_assessment([], recovery_mode=True)['ready'])
 
         followup = proctor_service._campaign_followup(

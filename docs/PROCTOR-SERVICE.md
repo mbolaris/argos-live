@@ -109,6 +109,15 @@ owns one workload reservation at a time, and the controller saves evaluations
 even if the campaign agent turn ends. Practice scores never count as evidence
 that an ability improved. The campaign follows the installed Argos improvement
 skill for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
+For a recovery campaign that obtains `argos_ssh_status`, the host also records a
+sanitized `host_observation` from the signature-verified receipt. It shows the
+bounded current SSH/persistence state separately from `task-not-measured` and
+from benchmark scores. The structured observation omits receipt signatures,
+receipt IDs, boot IDs, addresses and raw diagnostics. A ready observation means
+SSH was already ready at that check; it does not say that the agent recovered
+SSH, reduced owner time, or improved its ability. The agent's prose remains a
+separate, unverified report.
+
 There is no automatic progression from quick to standard or challenge when a
 score is saturated. A diagnostic suite is selected only when its tasks match the
 owner's stated goal; scores remain separate by suite and cannot be compared
