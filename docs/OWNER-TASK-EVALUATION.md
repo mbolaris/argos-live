@@ -274,11 +274,12 @@ alone.
 The hosted native Proctor workflow also runs the real model through this
 status-to-approval conversation against a disposable dashboard/controller.
 Its restart provider and encrypted-persistence claim are simulated. It checks
-that the model asks for dashboard approval instead of terminal commands, that
-the one-use approval completes with a signed same-boot receipt, and that a
-fresh status leads to a healthy/no-action report. The harness posts the
-approval itself; it does not measure a human click or elapsed owner time, and
-it is not shipped-image or physical-host acceptance evidence.
+that the model makes exactly one dashboard-approval request before approval,
+does not request it again after approval, and does not ask for terminal commands.
+The one-use approval must complete with a signed same-boot receipt, followed by
+a fresh status and healthy/no-action report. The harness posts the approval
+itself; it does not measure a human click or elapsed owner time, and it is not
+shipped-image or physical-host acceptance evidence.
 
 ## Comparing models or changes
 
