@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+"""Fill live-build's package cache from Debian's current mirror, hash-locked to Snapshot metadata.
+
+Snapshot occasionally returns transient 5xx errors for individual .deb files. A package
+with the same pool path can still be present on deb.debian.org. This helper only caches
+such a copy when the package metadata already loaded from the signed Snapshot indexes
+matches its identity, filename, and SHA-256 exactly. APT continues to use the pinned
+Snapshot indexes; fallback bytes are checked against the selected package record.
+"""
+
+import argparse
+import hashlib
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+import time
+from urllib.error import HTTPError, URLError
+from urllib.parse import unquote
+from urllib.request import Request, urlopen
+
+
+SNAPSHOT_URL = re.compile(
+    r"https://snapshot\.debian\.org/archive/"
+    r"(debian|debian-security)/([0-9]{8}T[0-9]{6}Z)/(pool/[^\s'\"<>]+?\.deb)"
+)
+ARCHIVES = {"debian", "debian-security"}
+
+
+def fields(paragraph):
+    result = {}
+    for line in paragraph.splitlines():
+        if line[:1].isspace():
+            continue
+        key, sep, value = line.partition(":")
+        if sep:
+            result[key] = value.strip()
+    return result
+
+
+def dpkg_fields(path):
+    completed = subprocess.run(
+        ["dpkg-deb", "-f", str(path), "Package", "Version", "Architecture"],
+        check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    values = fields(completed.stdout)
+    required = ("Package", "Version", "Architecture")
+    if any(not values.get(key) for key in required):
+        raise ValueError("package identity fields are incomplete")
+    return {key: values[key] for key in required}
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def snapshot_metadata(chroot, identity, pool_path):
+    completed = subprocess.run(
+        ["chroot", str(chroot), "apt-cache", "show", identity["Package"]],
+        check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    matches = []
+    for paragraph in re.split(r"\n\s*\n", completed.stdout):
+        record = fields(paragraph)
+        if all(record.get(key) == identity.get(key) for key in identity):
+            if record.get("Filename") == pool_path and re.fullmatch(
+                r"[0-9a-fA-F]{64}", record.get("SHA256", "")
+            ):
+                matches.append(record)
+    distinct = {(record["Filename"], record["SHA256"].lower()) for record in matches}
+    if len(distinct) != 1:
+        raise ValueError("exact package is not uniquely present in the trusted Snapshot indexes")
+    return matches[0]
+
+
+def fetch(url, destination):
+    last_error = None
+    for attempt in range(3):
+        try:
+            request = Request(url, headers={"User-Agent": "argos-live-pinned-build/1"})
+            with urlopen(request, timeout=45) as response, destination.open("wb") as output:
+                if response.status != 200:
+                    raise ValueError(f"fallback mirror returned HTTP {response.status}")
+                shutil.copyfileobj(response, output)
+            return
+        except (HTTPError, URLError, OSError) as exc:
+            last_error = exc
+            if attempt < 2:
+                time.sleep(2 * (attempt + 1))
+    raise last_error
+
+
+def failed_snapshot_urls(text):
+    urls = []
+    for match in SNAPSHOT_URL.finditer(text):
+        archive, snapshot, encoded_pool_path = match.groups()
+        pool_path = unquote(encoded_pool_path)
+        if archive not in ARCHIVES or not pool_path.startswith("pool/") or ".." in Path(pool_path).parts:
+            continue
+        item = (archive, snapshot, encoded_pool_path, pool_path)
+        if item not in urls:
+            urls.append(item)
+    return urls
+
+
+def rescue(log, chroot, cache_root):
+    builder_root = chroot.parent.parent
+    if builder_root.name != "builder" or not (builder_root / "etc/debian_version").is_file():
+        raise ValueError("unexpected live-build builder root")
+    urls = []
+    for line in log.read_text(errors="replace").splitlines():
+        if not re.search(r"(?:Failed to fetch|Couldn't download|Unable to fetch)", line, re.I):
+            continue
+        for item in failed_snapshot_urls(line):
+            if item not in urls:
+                urls.append(item)
+
+    if not urls:
+        print("No failed Snapshot package URLs found for cache rescue.")
+        return 0
+
+    rescued = 0
+    with tempfile.TemporaryDirectory(prefix="argos-snapshot-cache-") as temporary:
+        temp_root = Path(temporary)
+        for index, (archive, _snapshot, encoded_path, pool_path) in enumerate(urls):
+            url = f"https://deb.debian.org/{archive}/{encoded_path}"
+            candidate = temp_root / f"package-{index}.deb"
+            try:
+                fetch(url, candidate)
+                identity = dpkg_fields(candidate)
+                trusted = snapshot_metadata(chroot, identity, pool_path)
+                digest = sha256(candidate)
+                if digest.lower() != trusted["SHA256"].lower():
+                    raise ValueError("fallback package hash differs from trusted Snapshot metadata")
+                filename = unquote(encoded_path.rsplit("/", 1)[-1])
+                version_in_filename = re.sub(r"^[0-9]+:", "", identity["Version"])
+                expected_filename = (
+                    f"{identity['Package']}_{version_in_filename}_"
+                    f"{identity['Architecture']}.deb"
+                )
+                if filename != expected_filename:
+                    raise ValueError("fallback filename disagrees with package identity")
+                destinations = [
+                    cache_root / "packages.binary" / filename,
+                    cache_root / "packages.chroot" / filename,
+                    chroot / "var/cache/apt/archives" / filename,
+                    builder_root / "var/cache/apt/archives" / filename,
+                ]
+                for destination in destinations:
+                    destination_dir = destination.parent
+                    destination_dir.mkdir(parents=True, exist_ok=True)
+                    if destination.exists():
+                        existing = sha256(destination)
+                        if existing != digest:
+                            raise ValueError(f"conflicting package already exists at {destination}")
+                    else:
+                        shutil.copyfile(candidate, destination)
+
+                # Ask APT for its complete install plan while keeping the
+                # signed Snapshot indexes as the source of package metadata.
+                # --print-uris does not download; it exposes transitive .debs
+                # (for example liblzo2-2) that must also be rescued before the
+                # subsequent --no-download install can succeed.
+                plan = subprocess.run(
+                    ["chroot", str(chroot), "apt-get", "--yes", "--print-uris",
+                     "install", f"{identity['Package']}={identity['Version']}"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                )
+                if plan.returncode == 0:
+                    for dep_index, (dep_archive, _dep_snapshot, dep_encoded, dep_pool) in enumerate(
+                        failed_snapshot_urls(plan.stdout + "\n" + plan.stderr)
+                    ):
+                        dep_url = f"https://deb.debian.org/{dep_archive}/{dep_encoded}"
+                        dep_candidate = temp_root / f"dependency-{index}-{dep_index}.deb"
+                        fetch(dep_url, dep_candidate)
+                        dep_identity = dpkg_fields(dep_candidate)
+                        dep_trusted = snapshot_metadata(chroot, dep_identity, dep_pool)
+                        dep_digest = sha256(dep_candidate)
+                        if dep_digest.lower() != dep_trusted["SHA256"].lower():
+                            raise ValueError("fallback dependency hash differs from trusted Snapshot metadata")
+                        dep_filename = unquote(dep_encoded.rsplit("/", 1)[-1])
+                        dep_version = re.sub(r"^[0-9]+:", "", dep_identity["Version"])
+                        if dep_filename != f"{dep_identity['Package']}_{dep_version}_{dep_identity['Architecture']}.deb":
+                            raise ValueError("fallback dependency filename disagrees with package identity")
+                        for dep_destination in (
+                            cache_root / "packages.binary" / dep_filename,
+                            cache_root / "packages.chroot" / dep_filename,
+                            chroot / "var/cache/apt/archives" / dep_filename,
+                            builder_root / "var/cache/apt/archives" / dep_filename,
+                        ):
+                            dep_destination.parent.mkdir(parents=True, exist_ok=True)
+                            if dep_destination.exists():
+                                if sha256(dep_destination) != dep_digest:
+                                    raise ValueError(f"conflicting dependency package already exists at {dep_destination}")
+                            else:
+                                shutil.copyfile(dep_candidate, dep_destination)
+                        print(f"Snapshot-hash-verified dependency cache entry: {dep_filename} sha256={dep_digest}")
+
+                environment = os.environ.copy()
+                environment["DEBIAN_FRONTEND"] = "noninteractive"
+                offline_install = subprocess.run(
+                    ["chroot", str(chroot), "apt-get", "--yes", "--no-download",
+                     "install", f"{identity['Package']}={identity['Version']}"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    env=environment,
+                )
+                if offline_install.returncode == 0:
+                    print(f"Installed {identity['Package']}={identity['Version']} offline from verified APT cache.")
+                else:
+                    diagnostic = (offline_install.stdout + "\n" + offline_install.stderr).strip()
+                    if diagnostic:
+                        print(f"Offline install of {identity['Package']} failed:\n{diagnostic[-4000:]}")
+                    else:
+                        print(f"Offline install of {identity['Package']} failed without diagnostics.")
+                rescued += 1
+                print(f"Snapshot-hash-verified cache entry: {filename} sha256={digest}")
+            except (HTTPError, URLError, OSError, subprocess.CalledProcessError, ValueError) as exc:
+                print(f"Cache rescue unavailable for {encoded_path}: {exc}")
+
+    print(f"Added {rescued} Snapshot-hash-verified package cache entr{'y' if rescued == 1 else 'ies'}.")
+    return rescued
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("log", type=Path)
+    parser.add_argument("chroot", type=Path)
+    parser.add_argument("cache_root", type=Path)
+    args = parser.parse_args()
+    if not args.log.is_file() or not args.chroot.is_dir():
+        parser.error("build log and live-build chroot must exist")
+    if not os.geteuid() == 0:
+        parser.error("must run as root inside the disposable CI builder")
+    rescue(args.log, args.chroot, args.cache_root)
+
+
+if __name__ == "__main__":
+    main()

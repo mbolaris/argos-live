@@ -120,6 +120,16 @@ An incomplete practice is retained for review. An exam whose timer reached a
 terminal state with unanswered items also remains incomplete; timed completion
 does not produce a calibrated ability score.
 
+The everyday agent's fresh local-tool profile includes the read-only
+`argos_inspect`, `argos_audit_instructions`, and `argos_ssh_status` tools. On
+startup, an existing configuration is migrated only when its local tool
+policy matches the reviewed legacy profile; the full prior config is saved in
+the private Argos state snapshots before those tools are added. Owner-edited or
+otherwise unrecognized policies are left unchanged. This lets the agent inspect
+saved evidence, complete the required instruction audit, and report SSH status
+without asking the owner to type diagnostic commands. These tools do not grant
+shell access or change the selected model.
+
 The service refuses to start if the everyday OpenClaw gateway or Ollama already
 occupies its loopback port. Close the everyday assistant first; the Proctor
 command then owns and shuts down both its private Ollama process and gateway.
