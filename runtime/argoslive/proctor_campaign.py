@@ -67,6 +67,43 @@ def safe_failure_code(error, stage):
     return f'{stage}-{cause}'
 
 
+def _public_host_observation(value):
+    """Expose only the bounded, host-verified SSH state in a campaign result."""
+    if not isinstance(value, dict) or value.get('schema') != 'argos-host-observation/1' or \
+            value.get('system') != 'paired-ssh':
+        return None
+    if value.get('verified') is False and value.get('state') == 'unavailable':
+        return {'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+                'verified': False, 'state': 'unavailable',
+                'failure_code': 'signed-status-unavailable'}
+    fields = {'schema', 'system', 'verified', 'state', 'persistence_state', 'paired_policy_valid',
+              'ssh_enabled', 'ssh_active', 'port22_listening', 'restart_eligible',
+              'owner_approval_available', 'recovery_job_state', 'failure_code'}
+    if set(value) != fields or value.get('verified') is not True or \
+            not isinstance(value.get('state'), str) or value['state'] not in {'ready', 'not-ready'} or \
+            not isinstance(value.get('persistence_state'), str) or \
+            value['persistence_state'] not in {'verified', 'unverified'} or \
+            not isinstance(value.get('recovery_job_state'), str) or \
+            value['recovery_job_state'] not in {'idle', 'running', 'completed', 'failed', 'refused'}:
+        return None
+    bool_fields = ('paired_policy_valid', 'ssh_enabled', 'ssh_active', 'port22_listening',
+                   'restart_eligible', 'owner_approval_available')
+    if any(type(value.get(key)) is not bool for key in bool_fields):
+        return None
+    failure = value.get('failure_code')
+    if failure is not None and (not isinstance(failure, str) or failure not in {
+            'component-missing', 'preflight-unavailable', 'paired-policy-unready',
+            'persistence-unverified', 'service-disabled', 'already-active', 'restart-failed',
+            'restart-not-verified', 'boot-changed'}):
+        return None
+    ready = (value['persistence_state'] == 'verified' and value['paired_policy_valid'] and
+             value['ssh_enabled'] and value['ssh_active'] and value['port22_listening'] and
+             failure is None)
+    if value['state'] != ('ready' if ready else 'not-ready'):
+        return None
+    return {key: value[key] for key in fields}
+
+
 class Controller:
     """Reserve shared assistant resources until Proctor is finished and Argos is verified again."""
 
@@ -141,20 +178,24 @@ class Controller:
         measurement_suite = value.get('measurement_suite')
         if measurement_suite not in MEASUREMENT_SUITES:
             measurement_suite = None
+        host_observation = _public_host_observation(campaign.get('host_observation'))
+        public_campaign = {
+            'status': campaign.get('status'),
+            'outcome': campaign.get('outcome'),
+            'audit_status': campaign.get('audit_status'),
+            'controller_turns': campaign.get('controller_turns'),
+            'missing': missing,
+            'saved_evaluation_ids': ids,
+            'agent_report': agent_report,
+        }
+        if host_observation is not None:
+            public_campaign['host_observation'] = host_observation
         return {
             'status': value.get('status') if value.get('status') in {'completed', 'incomplete'} else 'incomplete',
             'owner_task': owner_task,
             'success_criteria': success_criteria,
             'measurement_suite': measurement_suite,
-            'campaign': {
-                'status': campaign.get('status'),
-                'outcome': campaign.get('outcome'),
-                'audit_status': campaign.get('audit_status'),
-                'controller_turns': campaign.get('controller_turns'),
-                'missing': missing,
-                'saved_evaluation_ids': ids,
-                'agent_report': agent_report,
-            },
+            'campaign': public_campaign,
             'failure_code': failure_code,
             'failure_stage': failure_stage,
         }

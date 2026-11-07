@@ -604,12 +604,15 @@ def _campaign_assessment(outcomes, *, recovery_mode=False):
     if recovery_mode:
         status_checks = [item for _index, item in indexed if item.get('kind') == 'ssh_status']
         if status_checks:
+            observation = status_checks[-1].get('host_observation')
             return {'ready': True, 'status': 'incomplete', 'outcome': 'task-not-measured',
                     'missing': ['Recovery status was checked; no task-specific ability measurement was run.'],
-                    'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': True}
+                    'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': True,
+                    'host_observation': observation if isinstance(observation, dict) else None}
         return {'ready': False, 'status': 'incomplete', 'outcome': 'task-not-measured',
                 'missing': ['one signed SSH status check'],
-                'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
+                'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False,
+                'host_observation': None}
     audits = [(index, item) for index, item in indexed if item.get('kind') == 'audit']
     audit_index, audit = audits[-1] if audits else (-1, {})
     missing = []
@@ -728,7 +731,7 @@ def _campaign_ledger(outcomes):
     fields = ('kind', 'state', 'result_id', 'baseline_id', 'candidate_id', 'change_id', 'status', 'passed',
               'qualified_experiment', 'configuration_preserved', 'baseline_ids', 'candidate_ids',
               'suite', 'suite_version', 'coverage_complete', 'correct', 'total', 'format_errors',
-              'task_measurement', 'logged_result_ids', 'appended', 'append_outcome')
+              'task_measurement', 'host_observation', 'logged_result_ids', 'appended', 'append_outcome')
     return [{key: item[key] for key in fields if key in item}
             for item in outcomes if isinstance(item, dict)]
 
@@ -863,7 +866,8 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
     return {'status': assessment['status'], 'outcome': assessment['outcome'],
             'missing': assessment['missing'], 'audit_status': assessment['audit_status'],
             'controller_turns': turn, 'agent_summary': result.get('result', result).get('payloads', []),
-            'tool_outcomes': outcomes, 'saved_evaluation_ids': assessment['saved_evaluation_ids']}
+            'tool_outcomes': outcomes, 'saved_evaluation_ids': assessment['saved_evaluation_ids'],
+            'host_observation': assessment.get('host_observation')}
 
 
 def run_improvement(home, *, owner_task, success_criteria, measurement_suite=None,

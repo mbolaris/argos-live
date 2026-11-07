@@ -192,6 +192,12 @@ class ControllerBridgeTests(unittest.TestCase):
             parent.complete()
 
     def test_signed_ssh_status_is_read_only_and_campaign_scoped(self):
+        self.assertEqual(controller_bridge._ssh_status_observation({
+            'schema': 'argos-proctor-ssh-status/1', 'available': False,
+            'failure_code': 'signed-status-unavailable'}), {
+                'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+                'verified': False, 'state': 'unavailable',
+                'failure_code': 'signed-status-unavailable'})
         status = {'schema': 'argos-ssh-status/1', 'boot_id': 'a' * 36,
                   'persistence_state': 'verified', 'paired_policy_valid': True,
                   'ssh_enabled': True, 'ssh_active': False, 'port22_listening': False,
@@ -214,8 +220,16 @@ class ControllerBridgeTests(unittest.TestCase):
                 self.assertEqual(value, {'status': 'completed', 'value': snapshot})
                 self.assertEqual(calls, ['status'])
                 self.assertEqual(bridge.outcomes, [{'kind': 'ssh_status', 'call_id': 'ssh-status-one',
-                                                    'status': 'available'}])
+                    'status': 'available', 'host_observation': {
+                        'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+                        'verified': True, 'state': 'not-ready', 'persistence_state': 'verified',
+                        'paired_policy_valid': True, 'ssh_enabled': True, 'ssh_active': False,
+                        'port22_listening': False, 'restart_eligible': True,
+                        'owner_approval_available': True, 'recovery_job_state': 'idle',
+                        'failure_code': None,
+                    }}])
                 self.assertNotIn('boot_id', bridge.events.read_text())
+                self.assertNotIn('receipt_id', bridge.events.read_text())
                 parent.complete()
 
             with workload.reserve(self.home, 'controller') as parent:
