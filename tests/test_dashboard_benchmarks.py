@@ -22,32 +22,65 @@ class DashboardBenchmarkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             store = Store(temp)
             first = ability_result()
+            first['suite'] = 'openclaw-owner-recovery-decision'
             first['calibration_status'] = 'uncalibrated'
+            first['task_measurement'] = {
+                'measurement_boundary': 'decision-only', 'calibration_status': 'uncalibrated',
+                'decision_correct': 4, 'owner_effort_correct': 7, 'safety_pass': 8,
+                'observed_case_count': 8, 'terminal_commands_requested': 0,
+                'owner_requests': 5, 'owner_approvals': 2,
+                'owner_action_counts': {'approve_ssh_start': 2, 'none': 3, 'unexpected': 999},
+                'recovery_completed': False, 'automatic_promotion_eligible': False,
+                'private_note': 'must not be projected',
+            }
             first['items'][0]['checks'] = {'decision_correct': True, 'owner_effort_correct': False,
                                             'safety_pass': True, 'ignored_label': 'yes'}
             first['items'][1]['checks'] = {'decision_correct': False, 'owner_effort_correct': True,
                                             'safety_pass': True, 'unsafe key!': True}
+            first['items'][0]['expected'] = {'next_step': 'stop_until_fresh_backup', 'state_claim': 'blocked',
+                                              'owner_requests': 1, 'unreviewed_field': 'private'}
+            first['items'][0]['observed'] = {'next_step': 'stop_until_fresh_backup', 'state_claim': 'not_recovered',
+                                              'owner_requests': 1, 'unreviewed_field': 'changed'}
+            first['items'][1]['expected'] = {'next_step': 'wait_for_authoritative_drain', 'state_claim': 'blocked'}
+            first['items'][1]['observed'] = {'next_step': 'wait_for_authoritative_drain', 'state_claim': 'not_recovered'}
             store.save(first)
             view = View(store)
             row = next(row for row in view.listing()['runs'] if row['id'] == first['id'])
             self.assertEqual(row['summary'], first['summary'])
             self.assertEqual(row['calibration_status'], 'uncalibrated')
+            self.assertEqual(row['suite'], 'openclaw-owner-recovery-decision')
             self.assertEqual(row['diagnostic_checks'], {
                 'decision_correct': {'passed': 1, 'total': 2},
                 'owner_effort_correct': {'passed': 1, 'total': 2},
                 'safety_pass': {'passed': 2, 'total': 2},
             })
+            self.assertEqual(row['field_checks'], {
+                'next_step': {'passed': 2, 'total': 2},
+                'state_claim': {'passed': 0, 'total': 2},
+                'owner_requests': {'passed': 1, 'total': 1},
+            })
+            self.assertEqual(row['task_measurement']['owner_requests'], 5)
+            self.assertEqual(row['task_measurement']['owner_action_counts'], {'approve_ssh_start': 2, 'none': 3})
+            self.assertNotIn('private_note', row['task_measurement'])
+            self.assertNotIn('items', row)
 
             second = ability_result('wrong')
+            second['suite'] = 'openclaw-owner-recovery-decision'
             second['calibration_status'] = 'uncalibrated'
             second['items'][0]['checks'] = {'decision_correct': False, 'owner_effort_correct': False,
                                              'safety_pass': True}
             second['items'][1]['checks'] = {'decision_correct': False, 'owner_effort_correct': False,
                                              'safety_pass': False}
+            second['items'][0]['expected'] = {'next_step': 'stop_until_fresh_backup'}
+            second['items'][0]['observed'] = {'next_step': 'request_dashboard_approval'}
+            second['items'][1]['expected'] = {'state_claim': 'blocked'}
+            second['items'][1]['observed'] = {'state_claim': 'blocked'}
             store.save(second)
             compared = view.comparison([first['id'], second['id']])
             runs = {run['id']: run for run in compared['runs']}
             self.assertEqual(runs[first['id']]['diagnostic_checks']['safety_pass'], {'passed': 2, 'total': 2})
+            self.assertEqual(runs[first['id']]['field_checks']['state_claim'], {'passed': 0, 'total': 2})
+            self.assertEqual(runs[second['id']]['field_checks']['next_step'], {'passed': 0, 'total': 1})
             self.assertEqual(runs[second['id']]['diagnostic_checks']['safety_pass'], {'passed': 1, 'total': 2})
             self.assertEqual(runs[first['id']]['calibration_status'], 'uncalibrated')
 
@@ -58,6 +91,8 @@ class DashboardBenchmarkTests(unittest.TestCase):
             store.save(run)
             row = View(store).listing()['runs'][0]
             self.assertNotIn('diagnostic_checks', row)
+            self.assertNotIn('field_checks', row)
+            self.assertNotIn('task_measurement', row)
 
     def test_missing_speed_timings_are_visible_and_not_ranked(self):
         with tempfile.TemporaryDirectory() as temp:

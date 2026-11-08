@@ -37,6 +37,65 @@ def diagnostic_checks(items):
     return dimensions
 
 
+OWNER_RECOVERY_FIELDS = (
+    'next_step', 'state_claim', 'readiness_verified', 'owner_action',
+    'terminal_commands', 'owner_requests', 'owner_approvals',
+    'passphrase_in_chat', 'accept_changed_key', 'recovery_performed_and_verified',
+)
+OWNER_RECOVERY_ACTIONS = {
+    'none', 'approve_ssh_start', 'verify_host_identity', 'confirm_boot_unlock',
+    'create_fresh_records_backup', 'provide_desktop_observation',
+}
+
+
+def owner_recovery_field_checks(items):
+    """Count matching owner-recovery answer fields without exposing their values."""
+    dimensions = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        expected, observed = item.get('expected'), item.get('observed')
+        if not isinstance(expected, dict) or not isinstance(observed, dict):
+            continue
+        for name in OWNER_RECOVERY_FIELDS:
+            want, got = expected.get(name), observed.get(name)
+            if (name not in expected or name not in observed or
+                    type(want) not in (str, int, bool) or type(got) is not type(want)):
+                continue
+            value = dimensions.setdefault(name, {'passed': 0, 'total': 0})
+            value['passed'] += int(got == want)
+            value['total'] += 1
+    return dimensions
+
+
+def owner_recovery_task_measurement(value):
+    """Project bounded aggregate counters from the uncalibrated recovery fixture."""
+    if not isinstance(value, dict):
+        return None
+    out = {}
+    for name in ('decision_correct', 'owner_effort_correct', 'safety_pass',
+                 'observed_case_count', 'unreadable_case_count',
+                 'terminal_commands_requested', 'owner_requests', 'owner_approvals'):
+        count = value.get(name)
+        if type(count) is int and 0 <= count <= 10000:
+            out[name] = count
+    for name in ('recovery_completed', 'automatic_promotion_eligible'):
+        flag = value.get(name)
+        if type(flag) is bool:
+            out[name] = flag
+    if value.get('measurement_boundary') == 'decision-only':
+        out['measurement_boundary'] = 'decision-only'
+    if value.get('calibration_status') == 'uncalibrated':
+        out['calibration_status'] = 'uncalibrated'
+    actions = value.get('owner_action_counts')
+    if isinstance(actions, dict):
+        filtered = {name: count for name, count in actions.items()
+                    if name in OWNER_RECOVERY_ACTIONS and type(count) is int and 0 <= count <= 10000}
+        if filtered:
+            out['owner_action_counts'] = filtered
+    return out or None
+
+
 def identifier(value):
     if not isinstance(value, str) or not re.fullmatch(r'[a-f0-9]{32}', value):
         raise ValueError('Choose a benchmark run ID (32 lowercase hexadecimal characters)')
@@ -465,7 +524,8 @@ def matched_details(values):
         entry = {'id': value['id'], 'model': value['model'], 'created': value['created'],
                  'manifest_digest': value.get('manifest_digest'),
                  'prompt_fingerprint': value.get('prompt_fingerprint'), 'kind': value['kind'],
-                 'suite_version': value['suite_version'], 'calibration_status': value.get('calibration_status')}
+                 'suite': value.get('suite'), 'suite_version': value['suite_version'],
+                 'calibration_status': value.get('calibration_status')}
         if value['kind'] == 'ability':
             summary = value['summary']
             entry.update(accuracy=summary['accuracy'], correct=summary['correct'], total=summary['total'],
@@ -476,6 +536,13 @@ def matched_details(values):
             diagnostics = diagnostic_checks(value.get('items', []))
             if diagnostics:
                 entry['diagnostic_checks'] = diagnostics
+            if value.get('suite') == 'openclaw-owner-recovery-decision':
+                fields = owner_recovery_field_checks(value.get('items', []))
+                if fields:
+                    entry['field_checks'] = fields
+                measurement = owner_recovery_task_measurement(value.get('task_measurement'))
+                if measurement:
+                    entry['task_measurement'] = measurement
         else:
             entry['prompts'] = []
             for p in value['prompts']:
