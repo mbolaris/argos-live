@@ -243,6 +243,10 @@ class Controller:
                     campaign_result.get('outcome') == 'task-not-measured'):
                 message = ('No task-specific measurement was run. Review the diagnostic report and '
                            'missing evidence below; no score or improvement is claimed.')
+            elif (isinstance(campaign_result, dict) and
+                  campaign_result.get('outcome') == 'agent-turn-incomplete'):
+                message = ('Argos did not finish its bounded read-only campaign turns. The unused '
+                           'campaign reservation was released; no evaluation or improvement is claimed.')
         if phase == 'failed' and failure_code:
             stage = failure_stage or 'campaign'
             message = f'Proctor {stage} stopped ({failure_code}); Argos is back at its verified model.'
