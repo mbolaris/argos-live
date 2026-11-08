@@ -26,6 +26,52 @@ def status(*, boot='a' * 36, eligible=True, active=False, listening=False,
 
 
 class PrivilegedRecoveryTests(unittest.TestCase):
+    def test_snapshot_allows_only_verified_systemd_socket_conflict(self):
+        with patch.object(ssh_recovery.ssh_boot, 'ready'), \
+                patch.object(ssh_recovery, '_run', return_value=('enabled', None)), \
+                patch.object(ssh_recovery, '_unit_active_state', side_effect=['inactive', 'active']), \
+                patch.object(ssh_recovery, '_port22_listening', return_value=True), \
+                patch.object(ssh_recovery, '_boot_id', return_value='a' * 36):
+            value = ssh_recovery.privileged_snapshot()
+        self.assertEqual(value['failure_code'], 'socket-conflict')
+        self.assertTrue(value['port22_listening'])
+        self.assertTrue(value['restart_eligible'])
+        self.assertTrue(ssh_recovery._safe_root_status(value)['restart_eligible'])
+
+    def test_snapshot_blocks_unknown_listener_or_unavailable_listener_check(self):
+        cases = ((['inactive', 'inactive'], True, 'listener-conflict'),
+                 (['inactive', 'inactive'], None, 'preflight-unavailable'))
+        for states, listening, failure in cases:
+            with self.subTest(listening=listening), \
+                    patch.object(ssh_recovery.ssh_boot, 'ready'), \
+                    patch.object(ssh_recovery, '_run', return_value=('enabled', None)), \
+                    patch.object(ssh_recovery, '_unit_active_state', side_effect=states), \
+                    patch.object(ssh_recovery, '_port22_listening', return_value=listening), \
+                    patch.object(ssh_recovery, '_boot_id', return_value='a' * 36):
+                value = ssh_recovery.privileged_snapshot()
+            self.assertEqual(value['failure_code'], failure)
+            self.assertFalse(value['restart_eligible'])
+
+    def test_approved_socket_recovery_stops_only_socket_then_starts_paired_service(self):
+        before = status(eligible=True, listening=True)
+        before['failure_code'] = 'socket-conflict'
+        after_stop = status(eligible=True, listening=False)
+        after = status(eligible=False, active=True, listening=True)
+        snapshots = iter([before, after_stop, after])
+        runs = iter([(None, None), (None, None), ('active', None)])
+        with patch.object(ssh_recovery, 'privileged_snapshot', side_effect=lambda: next(snapshots)), \
+                patch.object(ssh_recovery, '_run', side_effect=lambda *a, **k: next(runs)) as run, \
+                patch.object(ssh_recovery, '_boot_id', return_value=before['boot_id']), \
+                patch.object(ssh_recovery, '_port22_listening', return_value=True), \
+                patch.object(ssh_recovery, '_unit_active_state', return_value='inactive'):
+            result = ssh_recovery.privileged_restart()
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual([call.args[0] for call in run.call_args_list], [
+            ['/usr/bin/systemctl', 'stop', 'ssh.socket'],
+            ['/usr/bin/systemctl', 'start', 'ssh.service'],
+            ['/usr/bin/systemctl', 'is-active', 'ssh.service'],
+        ])
+
     def test_refuses_when_any_start_gate_is_not_met(self):
         for value in (
             status(policy=False, eligible=False),

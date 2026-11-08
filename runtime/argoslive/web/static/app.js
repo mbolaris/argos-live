@@ -4772,6 +4772,22 @@ refreshProctorCampaign();
 
 let sshRecoveryStarting = false;
 let sshRecoveryRefreshing = false;
+const sshRecoveryReasons = {
+  'component-missing': 'The local recovery helper is missing from this image.',
+  'preflight-unavailable': 'Argos could not finish the local safety check.',
+  'paired-policy-unready': 'The encrypted SSH pairing or key-only policy did not pass validation.',
+  'persistence-unverified': 'Encrypted persistent storage could not be verified.',
+  'service-disabled': 'The paired SSH service is disabled.',
+  'already-active': 'The SSH service is already active; Argos did not restart it.',
+  'listener-conflict': 'Port 22 is listening while the paired SSH service is inactive. Argos blocks a restart to avoid disrupting an unverified listener.',
+  'socket-conflict': 'Systemd’s SSH socket is holding port 22 while the paired SSH service is stopped.',
+  'restart-failed': 'The approved SSH start failed.',
+  'restart-not-verified': 'The SSH service did not pass its post-start checks.',
+  'boot-changed': 'Toronado rebooted during the SSH check.'
+};
+function sshRecoveryReason(code) {
+  return sshRecoveryReasons[code] || 'The SSH recovery check did not complete.';
+}
 async function refreshSshRecovery() {
   const statusNode = document.getElementById('ssh-recovery-status');
   const button = document.getElementById('ssh-recovery-start');
@@ -4783,6 +4799,8 @@ async function refreshSshRecovery() {
     const job = data.job;
     button.hidden = !data.can_restart;
     button.disabled = sshRecoveryStarting || !data.can_restart;
+    button.textContent = status?.failure_code === 'socket-conflict' ?
+      'Approve switch to paired SSH' : 'Approve one safe SSH start';
     button.dataset.receipt = data.receipt?.payload?.receipt_id || '';
     button.dataset.boot = status?.boot_id || '';
     if (!data.available || !status) {
@@ -4791,14 +4809,20 @@ async function refreshSshRecovery() {
       statusNode.textContent = 'Argos is checking the approved SSH start. This continues if the chat turn ends.';
     } else if (status.ssh_active && status.port22_listening && status.paired_policy_valid) {
       statusNode.textContent = 'SSH is active and listening; a remote login has not been verified.';
+    } else if (status.failure_code === 'socket-conflict') {
+      statusNode.textContent = data.can_restart ?
+        'The approved switch will stop ssh.socket for this boot, then start the existing paired ssh.service. Persistent SSH settings and keys stay unchanged.' :
+        'Systemd’s SSH socket is holding port 22, but the signed approval check is unavailable. No service was changed.';
+    } else if (status.port22_listening && !status.ssh_active) {
+      statusNode.textContent = sshRecoveryReason('listener-conflict');
     } else if (job?.state === 'completed') {
       statusNode.textContent = 'SSH is active, port 22 is listening, and the paired policy passed for this boot.';
     } else if (job?.state === 'failed' || job?.state === 'refused') {
-      statusNode.textContent = `SSH was not restored (${job.failure_code || 'verification-incomplete'}). No keys or policy were changed.`;
+      statusNode.textContent = `${sshRecoveryReason(job.failure_code)} No keys or policy were changed.`;
     } else if (data.can_restart) {
       statusNode.textContent = 'SSH is stopped. One safe start is available after the checks passed.';
     } else if (status.failure_code) {
-      statusNode.textContent = `SSH cannot be started safely (${status.failure_code}). No settings were changed.`;
+      statusNode.textContent = `${sshRecoveryReason(status.failure_code)} No settings were changed.`;
     } else {
       statusNode.textContent = 'Paired SSH is not ready; the checks do not permit an automatic start.';
     }

@@ -23,7 +23,7 @@ ROOT_RESTART = '/usr/local/sbin/argos-ssh-restart'
 FAILURE_CODES = frozenset({
     'component-missing', 'preflight-unavailable', 'paired-policy-unready',
     'persistence-unverified', 'service-disabled', 'already-active',
-    'restart-failed', 'restart-not-verified', 'boot-changed',
+    'listener-conflict', 'socket-conflict', 'restart-failed', 'restart-not-verified', 'boot-changed',
 })
 ID = re.compile(r'^[a-f0-9]{32}$')
 RECEIPT_MAX_AGE_SECONDS = 20
@@ -45,12 +45,28 @@ def _run(argv, *, timeout=10):
 def _port22_listening():
     output, error = _run(['/usr/bin/ss', '-ltnH'], timeout=5)
     if error:
-        return False
+        return None
     for line in output.splitlines():
         fields = line.split()
         if len(fields) >= 4 and fields[3].rsplit(':', 1)[-1] == '22':
             return True
     return False
+
+
+def _unit_active_state(unit):
+    """Read a systemd unit state while preserving the meaningful inactive state."""
+    try:
+        result = subprocess.run(['/usr/bin/systemctl', 'is-active', unit],
+                                stdin=subprocess.DEVNULL, capture_output=True,
+                                text=True, timeout=5)
+    except FileNotFoundError:
+        return None
+    except subprocess.TimeoutExpired:
+        return None
+    state = result.stdout.strip()
+    if state in {'active', 'inactive', 'failed', 'activating', 'deactivating', 'reloading'}:
+        return state
+    return None
 
 
 def _boot_id():
@@ -77,9 +93,11 @@ def privileged_snapshot():
         policy_valid, gate_failure = False, 'paired-policy-unready'
 
     enabled_text, enabled_error = _run(['/usr/bin/systemctl', 'is-enabled', 'ssh.service'])
-    active_text, active_error = _run(['/usr/bin/systemctl', 'is-active', 'ssh.service'])
+    service_state = _unit_active_state('ssh.service')
+    socket_state = _unit_active_state('ssh.socket')
     ssh_enabled = enabled_error is None and enabled_text == 'enabled'
-    ssh_active = active_error is None and active_text == 'active'
+    ssh_active = service_state == 'active'
+    socket_active = socket_state == 'active'
     persistence = 'verified' if policy_valid else 'unverified'
     code = gate_failure
     if code is None and persistence != 'verified':
@@ -87,8 +105,21 @@ def privileged_snapshot():
     if code is None and not ssh_enabled:
         code = 'service-disabled'
     port_listening = _port22_listening()
-    eligible = bool(boot_id and persistence == 'verified' and policy_valid and ssh_enabled and
-                    not ssh_active and not port_listening)
+    if code is None and (service_state is None or socket_state is None or
+                         service_state not in {'active', 'inactive', 'failed'} or
+                         socket_state not in {'active', 'inactive', 'failed'} or
+                         port_listening is None):
+        code = 'preflight-unavailable'
+    socket_conflict = socket_active and port_listening is True and not ssh_active
+    if code is None and socket_conflict:
+        code = 'socket-conflict'
+    elif code is None and port_listening is True and not ssh_active:
+        code = 'listener-conflict'
+    elif code is None and ssh_active:
+        code = 'already-active'
+    checks_pass = bool(boot_id and persistence == 'verified' and policy_valid and ssh_enabled and
+                       service_state in {'inactive', 'failed'})
+    eligible = bool(checks_pass and ((port_listening is False and not socket_active) or socket_conflict))
     return {
         'schema': STATUS_SCHEMA,
         'boot_id': boot_id or None,
@@ -96,14 +127,14 @@ def privileged_snapshot():
         'paired_policy_valid': policy_valid,
         'ssh_enabled': ssh_enabled,
         'ssh_active': ssh_active,
-        'port22_listening': port_listening,
+        'port22_listening': port_listening is True,
         'restart_eligible': eligible,
         'failure_code': code if code in FAILURE_CODES else None,
     }
 
 
 def privileged_restart():
-    """Start only an enabled, inactive SSH service after rechecking the boot gate."""
+    """Start paired SSH, replacing only a verified ssh.socket listener when needed."""
     before = privileged_snapshot()
     if before['persistence_state'] != 'verified':
         return {'status': 'refused', 'failure_code': 'persistence-unverified', 'before': before}
@@ -111,10 +142,29 @@ def privileged_restart():
         return {'status': 'refused', 'failure_code': 'paired-policy-unready', 'before': before}
     if not before['ssh_enabled']:
         return {'status': 'refused', 'failure_code': 'service-disabled', 'before': before}
-    if before['ssh_active'] or before['port22_listening']:
+    socket_recovery = before.get('failure_code') == 'socket-conflict' and before['restart_eligible']
+    if before['ssh_active']:
         return {'status': 'refused', 'failure_code': 'already-active', 'before': before}
+    if before['port22_listening'] and not socket_recovery:
+        return {'status': 'refused', 'failure_code': 'listener-conflict', 'before': before}
     if not before['boot_id']:
         return {'status': 'refused', 'failure_code': 'preflight-unavailable', 'before': before}
+    if not before['restart_eligible']:
+        return {'status': 'refused', 'failure_code': before.get('failure_code') or 'preflight-unavailable',
+                'before': before}
+
+    if socket_recovery:
+        _output, error = _run(['/usr/bin/systemctl', 'stop', 'ssh.socket'], timeout=15)
+        if error:
+            return {'status': 'failed', 'failure_code': 'restart-failed', 'before': before}
+        after_stop = privileged_snapshot()
+        if after_stop.get('boot_id') != before['boot_id']:
+            return {'status': 'failed', 'failure_code': 'boot-changed', 'before': before,
+                    'after': after_stop}
+        if (not after_stop.get('restart_eligible') or after_stop.get('port22_listening') or
+                after_stop.get('ssh_active') or _unit_active_state('ssh.socket') != 'inactive'):
+            return {'status': 'failed', 'failure_code': 'restart-not-verified', 'before': before,
+                    'after': after_stop}
 
     _output, error = _run(['/usr/bin/systemctl', 'start', 'ssh.service'], timeout=15)
     if error:
@@ -133,7 +183,8 @@ def privileged_restart():
                         'after': after}
             if (after.get('persistence_state') == 'verified' and
                     after.get('paired_policy_valid') is True and after.get('ssh_enabled') is True and
-                    after.get('ssh_active') is True and after.get('port22_listening') is True):
+                    after.get('ssh_active') is True and after.get('port22_listening') is True and
+                    (not socket_recovery or _unit_active_state('ssh.socket') == 'inactive')):
                 return {'status': 'completed', 'failure_code': None, 'before': before, 'after': after}
             return {'status': 'failed', 'failure_code': 'restart-not-verified', 'before': before,
                     'after': after}
@@ -164,9 +215,19 @@ def _safe_root_status(value):
         raise ValueError('SSH status receipt unavailable')
     if value['failure_code'] is not None and value['failure_code'] not in FAILURE_CODES:
         raise ValueError('SSH status receipt unavailable')
-    if value['restart_eligible'] != bool(value['boot_id'] and value['persistence_state'] == 'verified' and
-            value['paired_policy_valid'] and value['ssh_enabled'] and not value['ssh_active'] and
-            not value['port22_listening']):
+    if value['failure_code'] == 'listener-conflict' and (value['ssh_active'] or not value['port22_listening']):
+        raise ValueError('SSH status receipt unavailable')
+    if value['failure_code'] == 'socket-conflict' and (value['ssh_active'] or not value['port22_listening']):
+        raise ValueError('SSH status receipt unavailable')
+    if value['failure_code'] == 'already-active' and not value['ssh_active']:
+        raise ValueError('SSH status receipt unavailable')
+    direct_start = bool(value['failure_code'] is None and value['boot_id'] and value['persistence_state'] == 'verified' and
+                        value['paired_policy_valid'] and value['ssh_enabled'] and not value['ssh_active'] and
+                        not value['port22_listening'])
+    socket_recovery = bool(value['boot_id'] and value['persistence_state'] == 'verified' and
+                           value['paired_policy_valid'] and value['ssh_enabled'] and not value['ssh_active'] and
+                           value['port22_listening'] and value['failure_code'] == 'socket-conflict')
+    if value['restart_eligible'] != (direct_start or socket_recovery):
         raise ValueError('SSH status receipt unavailable')
     return value
 

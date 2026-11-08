@@ -227,6 +227,17 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertIn('Verified live host observation:', app)
         self.assertIn('not proof of a recovery action, owner-time savings, or model improvement.', app)
 
+    def test_public_host_observation_accepts_verified_socket_conflict(self):
+        observation = {
+            'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+            'verified': True, 'state': 'not-ready', 'persistence_state': 'verified',
+            'paired_policy_valid': True, 'ssh_enabled': True, 'ssh_active': False,
+            'port22_listening': True, 'restart_eligible': True,
+            'owner_approval_available': True, 'recovery_job_state': 'idle',
+            'failure_code': 'socket-conflict',
+        }
+        self.assertEqual(proctor_campaign._public_host_observation(observation), observation)
+
     def test_failed_campaign_still_restarts_argos(self):
         self.controller.runner = lambda home, **_callbacks: (_ for _ in ()).throw(ValueError('private detail'))
         self.controller.start('recover Argos after reboot', 'ready after unlock with no terminal command')

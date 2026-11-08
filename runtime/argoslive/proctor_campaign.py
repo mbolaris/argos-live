@@ -93,7 +93,8 @@ def _public_host_observation(value):
     failure = value.get('failure_code')
     if failure is not None and (not isinstance(failure, str) or failure not in {
             'component-missing', 'preflight-unavailable', 'paired-policy-unready',
-            'persistence-unverified', 'service-disabled', 'already-active', 'restart-failed',
+            'persistence-unverified', 'service-disabled', 'already-active', 'listener-conflict',
+            'socket-conflict', 'restart-failed',
             'restart-not-verified', 'boot-changed'}):
         return None
     ready = (value['persistence_state'] == 'verified' and value['paired_policy_valid'] and
