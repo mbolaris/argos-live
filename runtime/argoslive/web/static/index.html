@@ -74,7 +74,7 @@
       <section id="ssh-recovery" class="notice ssh-recovery-card" aria-label="Remote access recovery">
         <strong>Paired remote access</strong>
         <p id="ssh-recovery-status" role="status" aria-live="polite">Checking encrypted storage and SSH pairing…</p>
-        <p class="ssh-recovery-detail">If SSH is stopped, Argos can start the existing key-only service after encrypted persistence and its paired policy pass. It does not create keys or change the policy.</p>
+        <p class="ssh-recovery-detail">After encrypted persistence and the paired key-only policy pass, Argos can start the existing service. If systemd’s SSH socket is holding port 22, approval stops that socket for this boot before starting the paired service. Keys and persistent SSH settings are unchanged.</p>
         <button id="ssh-recovery-start" type="button" hidden>Approve one safe SSH start</button>
       </section>
         <div id="arena" class="arena-deck" hidden aria-live="polite">
