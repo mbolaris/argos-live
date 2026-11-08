@@ -26,11 +26,41 @@ def status(*, boot='a' * 36, eligible=True, active=False, listening=False,
 
 
 class PrivilegedRecoveryTests(unittest.TestCase):
+    def test_socket_conflict_requires_systemd_listener_mapping_and_pid_one_ownership(self):
+        outputs = iter([
+            ('0.0.0.0:22 (Stream) ssh.socket ssh.service\n[::]:22 (Stream) ssh.socket ssh.service', None),
+            ('LISTEN 0 4096 0.0.0.0:22 0.0.0.0:* users:(("systemd",pid=1,fd=63))\n'
+             'LISTEN 0 4096 [::]:22 [::]:* users:(("systemd",pid=1,fd=64))', None),
+        ])
+        with patch.object(ssh_recovery, '_run', side_effect=lambda *a, **k: next(outputs)) as run:
+            self.assertTrue(ssh_recovery._ssh_socket_owns_port22())
+        self.assertEqual([call.args[0] for call in run.call_args_list], [
+            ['/usr/bin/systemctl', 'list-sockets', '--no-legend', '--no-pager'],
+            ['/usr/bin/ss', '-ltnpH'],
+        ])
+
+    def test_socket_conflict_rejects_other_socket_or_listener_owner(self):
+        cases = (
+            ('0.0.0.0:22 (Stream) other.socket other.service', None, False),
+            ('0.0.0.0:22 (Stream) ssh.socket other.service', None, False),
+            ('0.0.0.0:22 (Stream) ssh.socket ssh.service',
+             'LISTEN 0 4096 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=80,fd=3))', False),
+            ('0.0.0.0:22 (Stream) ssh.socket ssh.service',
+             'LISTEN 0 4096 0.0.0.0:22 0.0.0.0:*', None),
+        )
+        for sockets, listeners, expected in cases:
+            with self.subTest(sockets=sockets, listeners=listeners), \
+                    patch.object(ssh_recovery, '_run', side_effect=[(sockets, None),
+                        (listeners, None)] if listeners is not None else [(sockets, None),
+                        (None, 'preflight-unavailable')]):
+                self.assertIs(ssh_recovery._ssh_socket_owns_port22(), expected)
+
     def test_snapshot_allows_only_verified_systemd_socket_conflict(self):
         with patch.object(ssh_recovery.ssh_boot, 'ready'), \
                 patch.object(ssh_recovery, '_run', return_value=('enabled', None)), \
                 patch.object(ssh_recovery, '_unit_active_state', side_effect=['inactive', 'active']), \
                 patch.object(ssh_recovery, '_port22_listening', return_value=True), \
+                patch.object(ssh_recovery, '_ssh_socket_owns_port22', return_value=True), \
                 patch.object(ssh_recovery, '_boot_id', return_value='a' * 36):
             value = ssh_recovery.privileged_snapshot()
         self.assertEqual(value['failure_code'], 'socket-conflict')
@@ -39,14 +69,17 @@ class PrivilegedRecoveryTests(unittest.TestCase):
         self.assertTrue(ssh_recovery._safe_root_status(value)['restart_eligible'])
 
     def test_snapshot_blocks_unknown_listener_or_unavailable_listener_check(self):
-        cases = ((['inactive', 'inactive'], True, 'listener-conflict'),
-                 (['inactive', 'inactive'], None, 'preflight-unavailable'))
-        for states, listening, failure in cases:
+        cases = ((['inactive', 'inactive'], True, False, 'listener-conflict'),
+                 (['inactive', 'active'], True, False, 'listener-conflict'),
+                 (['inactive', 'active'], True, None, 'listener-conflict'),
+                 (['inactive', 'inactive'], None, False, 'preflight-unavailable'))
+        for states, listening, socket_owner, failure in cases:
             with self.subTest(listening=listening), \
                     patch.object(ssh_recovery.ssh_boot, 'ready'), \
                     patch.object(ssh_recovery, '_run', return_value=('enabled', None)), \
                     patch.object(ssh_recovery, '_unit_active_state', side_effect=states), \
                     patch.object(ssh_recovery, '_port22_listening', return_value=listening), \
+                    patch.object(ssh_recovery, '_ssh_socket_owns_port22', return_value=socket_owner), \
                     patch.object(ssh_recovery, '_boot_id', return_value='a' * 36):
                 value = ssh_recovery.privileged_snapshot()
             self.assertEqual(value['failure_code'], failure)

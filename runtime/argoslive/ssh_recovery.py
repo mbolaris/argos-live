@@ -53,6 +53,49 @@ def _port22_listening():
     return False
 
 
+def _ssh_socket_owns_port22():
+    """Return true only when systemd maps its PID 1 listener to ssh.service."""
+    output, error = _run(['/usr/bin/systemctl', 'list-sockets', '--no-legend',
+                          '--no-pager'], timeout=5)
+    if error:
+        return None
+    port_rows = []
+    for line in output.splitlines():
+        fields = line.split()
+        addresses = [field.rstrip(',') for field in fields
+                     if field.rstrip(',').rsplit(':', 1)[-1] == '22']
+        if not addresses:
+            continue
+        try:
+            socket_index = fields.index('ssh.socket')
+        except ValueError:
+            return False
+        activated = fields[socket_index + 1:]
+        if 'ssh.service' not in activated:
+            return False
+        port_rows.extend(addresses)
+    if not port_rows:
+        return False
+
+    output, error = _run(['/usr/bin/ss', '-ltnpH'], timeout=5)
+    if error:
+        return None
+    listener_rows = []
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) < 5 or fields[0] != 'LISTEN':
+            continue
+        if fields[3].rsplit(':', 1)[-1] != '22':
+            continue
+        owners = re.findall(r'\("([^\"]+)",pid=(\d+),fd=\d+\)', line)
+        if not owners:
+            return None
+        if any(name != 'systemd' or pid != '1' for name, pid in owners):
+            return False
+        listener_rows.append(line)
+    return bool(listener_rows)
+
+
 def _unit_active_state(unit):
     """Read a systemd unit state while preserving the meaningful inactive state."""
     try:
@@ -110,7 +153,10 @@ def privileged_snapshot():
                          socket_state not in {'active', 'inactive', 'failed'} or
                          port_listening is None):
         code = 'preflight-unavailable'
-    socket_conflict = socket_active and port_listening is True and not ssh_active
+    socket_owns_port = (_ssh_socket_owns_port22()
+                        if socket_active and port_listening is True and not ssh_active else False)
+    socket_conflict = (socket_active and port_listening is True and not ssh_active and
+                       socket_owns_port is True)
     if code is None and socket_conflict:
         code = 'socket-conflict'
     elif code is None and port_listening is True and not ssh_active:

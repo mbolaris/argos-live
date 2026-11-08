@@ -25,8 +25,9 @@ skip startup. The gate never generates or replaces keys or modifies pairing.
 Mission Control also shows a signed SSH readiness status. The owner-approved
 one-click start appears only when encrypted persistence and the paired policy
 pass and `ssh.service` is enabled but inactive. If port 22 is already listening,
-Argos reports the conflict and blocks recovery unless systemd confirms that
-`ssh.socket` owns the listener. In that one case, owner approval stops
+Argos reports the conflict and blocks recovery unless the active systemd socket
+table maps TCP/22 to `ssh.service` and `ss` attributes every port-22 listener to
+systemd PID 1. In that one case, owner approval stops
 `ssh.socket` for the current boot, verifies that the port is free, and starts the
 existing paired `ssh.service`. An unknown listener is never stopped. The
 dashboard names the detected condition instead of showing a generic “not ready”
