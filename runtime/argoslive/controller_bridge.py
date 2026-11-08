@@ -1167,8 +1167,14 @@ class Bridge:
     def _is_incomplete_turn(self, value):
         """Recognize only the pinned SDK's terminal, no-answer result for this session."""
         if not isinstance(value, dict) or value.get('status') != 'error' or self.worker is None or \
-                self.worker.returncode == 0 or self.exam_session is None or \
-                self.exam_session.tier != 'practice':
+                self.worker.returncode == 0:
+            return False
+        practice_turn = self.exam_session is not None and self.exam_session.tier == 'practice'
+        campaign_turn = (self.exam_session is None and self.task_campaign and
+                         self.parent.record.get('kind') == 'controller' and
+                         self.parent.record.get('phase') != 'delegated' and
+                         self.session_key.startswith('agent:main:argos_proctor_improvement_'))
+        if not (practice_turn or campaign_turn):
             return False
         body = value.get('result')
         if not isinstance(body, dict) or not isinstance(body.get('payloads'), list):
@@ -1178,11 +1184,25 @@ class Bridge:
             return False
         agent_meta = meta.get('agentMeta')
         error = meta.get('error')
-        return (isinstance(agent_meta, dict) and agent_meta.get('sessionId') == self.session_id and
-                isinstance(error, dict) and error.get('kind') == 'incomplete_turn' and
-                isinstance(self.active, dict) and self.active.get('session_id') == self.session_id and
-                self.active.get('host_tool_requests', 0) == 0 and not self.active.get('host_tool_failures') and
-                self.pending is None and not self.tool_lock.locked())
+        active = self.active
+        common = (isinstance(agent_meta, dict) and agent_meta.get('sessionId') == self.session_id and
+                  isinstance(error, dict) and error.get('kind') == 'incomplete_turn' and
+                  isinstance(active, dict) and active.get('session_id') == self.session_id and
+                  self.pending is None and not self.tool_lock.locked())
+        if not common:
+            return False
+        if practice_turn:
+            return (active.get('host_tool_requests', 0) == 0 and
+                    not active.get('host_tool_failures'))
+        # A campaign may retry only a terminal, drained turn that did no host
+        # work at all. Include earlier SDK runs in this worker: a later
+        # incomplete response must not hide an earlier tool call or failure.
+        history_requests = sum(row.get('host_tool_requests', 0) for row in self.sdk_run_history)
+        history_failures = sum(row.get('host_tool_failures', 0) for row in self.sdk_run_history)
+        job = self.evaluation_job
+        return (active.get('ended') is True and active.get('host_tool_requests', 0) == 0 and
+                not active.get('host_tool_failures') and history_requests == 0 and history_failures == 0 and
+                (job is None or job.get('consumed')))
 
     def _is_blocked_practice_turn(self, value):
         """Accept only an admitted, ended, side-effect-free practice hook block for retry."""
@@ -1337,7 +1357,7 @@ class Bridge:
         self._settle_campaign_evaluation()
         with self.lock:
             job = self.evaluation_job
-            if (not self.verified or not self.worker or self.worker.poll() != 0 or
+            if (not self.verified or not self._accepted_campaign_worker_exit() or
                     self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
                     not self.active or job is not None and not job.get('consumed')):
                 raise workload.Busy(recovery=True)
@@ -1348,6 +1368,43 @@ class Bridge:
             self.sdk_runs_started = 0
             self.sdk_run_history = []
             self.last_admission_block_reason = None
+
+    def _accepted_campaign_worker_exit(self):
+        """Accept success or a fully drained no-tool incomplete campaign turn."""
+        if not self.worker or self.worker.poll() is None:
+            return False
+        if self.worker.poll() == 0:
+            return True
+        if (self.worker_outcome != 'incomplete-turn' or not self.task_campaign or
+                self.parent.record.get('kind') != 'controller' or
+                self.parent.record.get('phase') == 'delegated' or
+                not self.session_key.startswith('agent:main:argos_proctor_improvement_') or
+                not self.worker_turns):
+            return False
+        turn = self.worker_turns[-1]
+        return (turn.get('outcome') == 'incomplete-turn' and
+                turn.get('host_tool_requests') == 0 and turn.get('host_tool_failures') == 0 and
+                self.active is not None and self.active.get('ended') is True and
+                self.active.get('session_id') == self.session_id and
+                self.pending is None and not self.tool_lock.locked() and not self.uncertain)
+
+    def release_unmeasured_incomplete_campaign(self):
+        """Release only a no-suite campaign that exhausted turns without mutating state."""
+        safe_read_kinds = {'inspect', 'audit', 'ssh_status'}
+        with self.lock:
+            job = self.evaluation_job
+            if (not self.task_campaign or self.owner_task_suite is not None or
+                    self.parent.record.get('kind') != 'controller' or
+                    self.parent.record.get('phase') == 'delegated' or
+                    not self.verified or not self._accepted_campaign_worker_exit() or
+                    self.worker_outcome != 'incomplete-turn' or self.closed or self.uncertain or
+                    self.pending is not None or self.tool_lock.locked() or
+                    job is not None and not job.get('consumed') or
+                    any(not isinstance(item, dict) or item.get('kind') not in safe_read_kinds
+                        for item in self.outcomes)):
+                raise workload.Busy(recovery=True)
+            self.parent.complete()
+            self.closed = True
 
     def complete_campaign(self):
         """Release a drained Proctor campaign after the host checks its evidence."""

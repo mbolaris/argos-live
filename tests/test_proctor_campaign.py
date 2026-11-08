@@ -200,6 +200,25 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertIn("data.result?.campaign?.outcome === 'task-not-measured'", app)
         self.assertIn("taskNotMeasured ? 'Task not measured'", app)
 
+    def test_exhausted_unmeasured_campaign_reports_safe_release_without_claim(self):
+        self.controller.runner = lambda _home, **_callbacks: {
+            'status': 'incomplete',
+            'campaign': {'status': 'incomplete', 'outcome': 'agent-turn-incomplete',
+                         'audit_status': None, 'controller_turns': 4,
+                         'missing': ['The agent exhausted bounded turns before completing required reads.'],
+                         'saved_evaluation_ids': []},
+        }
+        self.controller.start('resume Argos after boot',
+                              'ready without terminal commands')
+        self.wait_finished()
+        status = self.controller.snapshot()
+        self.assertEqual(status['phase'], 'incomplete')
+        self.assertIn('reservation was released', status['message'])
+        self.assertIn('no evaluation or improvement is claimed', status['message'])
+        result = proctor_campaign.Controller._public_result(self.controller.result)
+        self.assertEqual(result['campaign']['outcome'], 'agent-turn-incomplete')
+        self.assertEqual(result['campaign']['saved_evaluation_ids'], [])
+
     def test_public_campaign_keeps_signed_live_observation_separate_from_measurement(self):
         observation = {
             'schema': 'argos-host-observation/1', 'system': 'paired-ssh',

@@ -836,11 +836,23 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             outcomes = list(bridge.outcomes)
             assessment = _campaign_assessment(outcomes, recovery_mode=recovery_mode)
             admission_blocked = getattr(bridge, 'worker_outcome', None) == 'admission-blocked'
+            incomplete_turn = getattr(bridge, 'worker_outcome', None) == 'incomplete-turn'
             if admission_blocked:
                 assessment = {'ready': False, 'status': 'incomplete',
                     'outcome': 'campaign-admission-blocked',
                     'missing': ['the host admission hook blocked before any host tool ran'],
                     'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
+            elif (incomplete_turn and turn == CAMPAIGN_MAX_TURNS and measurement_suite is None and
+                  not assessment.get('ready')):
+                # No task-specific suite means this campaign can only perform
+                # host-selected reads. After bounded incomplete turns, release
+                # only through the bridge's stricter no-mutation gate and make
+                # the missing evidence explicit; never treat this as a gain.
+                assessment = {'ready': False, 'status': 'incomplete',
+                    'outcome': 'agent-turn-incomplete',
+                    'missing': ['the agent exhausted bounded turns before completing the required read-only evidence'],
+                    'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
+                bridge.release_unmeasured_incomplete_campaign()
             _report_progress(on_progress, phase='campaign', stage='turn-finished', turn=turn,
                              total=CAMPAIGN_MAX_TURNS,
                              saved_evaluation_count=len(assessment['saved_evaluation_ids']),
@@ -856,7 +868,11 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
                                         measurement_suite=measurement_suite,
                                         recovery_mode=recovery_mode)
         if assessment and assessment.get('safe_to_release'):
-            bridge.complete_campaign()
+            if (measurement_suite is None and
+                    getattr(bridge, 'worker_outcome', None) == 'incomplete-turn'):
+                bridge.release_unmeasured_incomplete_campaign()
+            else:
+                bridge.complete_campaign()
         elif getattr(bridge, 'worker_outcome', None) == 'admission-blocked':
             bridge.release_unadmitted_campaign()
     if assessment is None:
