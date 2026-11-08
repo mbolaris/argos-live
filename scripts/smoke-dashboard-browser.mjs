@@ -94,11 +94,18 @@ try {
     'Owner-recovery case misses'));
   const recoveryCard = await runCards[recoveryIndexes[0]].textContent();
   const recoveryComparison = await page.locator('#benchmark-comparison').textContent();
-  if (!recoveryCard.includes('disabled-05: state claim') ||
-      !recoveryComparison.includes('disabled-05') || !recoveryComparison.includes('state claim') ||
-      !recoveryComparison.includes('next step') || recoveryCard.includes('not_recovered') ||
-      recoveryCard.includes('request_dashboard_approval')) {
-    throw new Error('Owner-recovery case diagnostics were missing or exposed answer values');
+  const recoveryDiagnosticChecks = {
+    cardShowsDisabledCase: recoveryCard.includes('disabled-05'),
+    cardShowsMissedField: recoveryCard.includes('state claim'),
+    compareShowsDisabledCase: recoveryComparison.includes('disabled-05'),
+    compareShowsStateClaim: recoveryComparison.includes('state claim'),
+    compareShowsNextStep: recoveryComparison.includes('next step'),
+    cardHidesObservedState: !recoveryCard.includes('not_recovered'),
+    cardHidesObservedAction: !recoveryCard.includes('request_dashboard_approval'),
+  };
+  if (Object.values(recoveryDiagnosticChecks).some(passed => !passed)) {
+    throw new Error('Owner-recovery case diagnostic browser checks failed: ' +
+      JSON.stringify(recoveryDiagnosticChecks));
   }
   const csvPending = page.waitForEvent('download');
   await page.locator('#download-comparison').click();
