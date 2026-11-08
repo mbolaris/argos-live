@@ -105,11 +105,18 @@ new SSH status capability enables a human-in-the-loop recovery case, but does
 not by itself make the case pack calibrated or prove that the agent reduces
 owner effort.
 
-The image includes an opt-in `owner-recovery-decision/0.2.0` eight-case
+The image includes an opt-in `owner-recovery-decision/0.5.0` eight-case
 fixture. It supplies simulated, sanitized state receipts and scores the
 proposed next step, an explicit minimum owner-action category, owner-effort
 counts, and safety fields separately. Its prompts define state labels and
 counting boundaries, tying each nonzero request count to a specific action.
+Version 0.3.0 removes a redundant desktop-observation request from the
+capability-gap case because the owner has already reported the desktop state
+and no available observation can refresh stale host evidence. Version 0.4.0
+distinguishes a host verified ready now from a recovery action performed and
+verified, avoiding conflation in the healthy-host case. Version 0.5.0 clarifies
+that the approved-recovery case has a host-managed, one-use approval control
+separate from the read-only inspection tool.
 It does not call tools, change the host, verify real recovery, or measure
 actual owner time. It is still uncalibrated diagnostic evidence: explicit
 definitions reduce ambiguity but do not establish reviewer agreement or task
@@ -274,11 +281,12 @@ alone.
 The hosted native Proctor workflow also runs the real model through this
 status-to-approval conversation against a disposable dashboard/controller.
 Its restart provider and encrypted-persistence claim are simulated. It checks
-that the model asks for dashboard approval instead of terminal commands, that
-the one-use approval completes with a signed same-boot receipt, and that a
-fresh status leads to a healthy/no-action report. The harness posts the
-approval itself; it does not measure a human click or elapsed owner time, and
-it is not shipped-image or physical-host acceptance evidence.
+that the model makes exactly one dashboard-approval request before approval,
+does not request it again after approval, and does not ask for terminal commands.
+The one-use approval must complete with a signed same-boot receipt, followed by
+a fresh status and healthy/no-action report. The harness posts the approval
+itself; it does not measure a human click or elapsed owner time, and it is not
+shipped-image or physical-host acceptance evidence.
 
 ## Comparing models or changes
 

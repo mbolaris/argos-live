@@ -106,8 +106,16 @@ class ProctorServiceTests(unittest.TestCase):
                 'Restore access with as few manual steps as safely possible.')
         criteria = ('If signed status permits recovery, request only dashboard approval.')
         self.assertTrue(proctor_service._is_ssh_recovery_task(task, criteria, None, provider, verifier))
+        reported_task = ('Recover Argos on Toronado when startup or remote access fails, '
+                         'with the owner priority of reducing manual recovery work.')
+        reported_criteria = ('For a naturally occurring real recovery, verify current host evidence '
+                             'and record owner actions; do not induce a failure.')
+        self.assertTrue(proctor_service._is_ssh_recovery_task(
+            reported_task, reported_criteria, None, provider, verifier))
         self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, 'quick', provider, verifier))
         self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, None, None, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(
+            'Improve the model after startup', 'Keep the 27B model healthy.', None, provider, verifier))
 
         prompt = proctor_service._campaign_prompt(task, criteria, None, recovery_mode=True)
         self.assertIn('exactly one call to argos_ssh_status', prompt)
@@ -117,10 +125,19 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertNotIn('argos_audit_instructions', prompt)
 
         assessment = proctor_service._campaign_assessment(
-            [{'kind': 'ssh_status', 'status': 'available'}], recovery_mode=True)
+            [{'kind': 'ssh_status', 'status': 'available', 'host_observation': {
+                'schema': 'argos-host-observation/1', 'system': 'paired-ssh', 'verified': True,
+                'state': 'ready', 'persistence_state': 'verified', 'paired_policy_valid': True,
+                'ssh_enabled': True, 'ssh_active': True, 'port22_listening': True,
+                'restart_eligible': False, 'owner_approval_available': False,
+                'recovery_job_state': 'idle', 'failure_code': None,
+            }}], recovery_mode=True)
         self.assertTrue(assessment['ready'])
         self.assertTrue(assessment['safe_to_release'])
         self.assertEqual(assessment['outcome'], 'task-not-measured')
+        self.assertTrue(assessment['host_observation']['verified'])
+        self.assertEqual(assessment['host_observation']['state'], 'ready')
+        self.assertNotIn('boot_id', assessment['host_observation'])
         self.assertFalse(proctor_service._campaign_assessment([], recovery_mode=True)['ready'])
 
         followup = proctor_service._campaign_followup(
@@ -553,6 +570,63 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(progress[2]['saved_evaluation_count'], 2)
         self.assertEqual(progress[-1]['saved_evaluation_count'], 3)
         self.assertEqual(progress[-1]['audit_status'], 'empty')
+
+    def test_unmeasured_campaign_retries_incomplete_turn_then_releases_without_claim(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement_owner-task', outcomes=[],
+                                 launches=0, continuations=0, completed=False, released=False,
+                                 worker_outcome=None)
+
+        def launch(_executable, _prompt, **_kwargs):
+            bridge.launches += 1
+
+        def finish(**kwargs):
+            self.assertFalse(kwargs['finalize'])
+            self.assertTrue(kwargs['retain_controller'])
+            bridge.worker_outcome = 'incomplete-turn'
+            return {'status': 'error', 'result': {'payloads': []}}, ''
+
+        def next_turn(session_key):
+            bridge.continuations += 1
+            bridge.session_key = session_key
+
+        bridge.launch = launch
+        bridge.finish = finish
+        bridge.next_campaign_turn = next_turn
+        bridge.drain_campaign_evaluation = Mock()
+        bridge.drain_before_backends_stop = Mock()
+        bridge.complete_campaign = lambda: setattr(bridge, 'completed', True)
+        bridge.release_unmeasured_incomplete_campaign = lambda: setattr(bridge, 'released', True)
+
+        @contextmanager
+        def owned_bridge(*_args, **_kwargs):
+            yield bridge, {}
+
+        @contextmanager
+        def owned_resource(*_args, **_kwargs):
+            yield object()
+
+        with patch.object(proctor_service, 'private_profile', return_value=(
+                 self.home, self.home, self.owner_config, 'a' * 64)), \
+             patch.object(proctor_service, 'refuse_live_gateway'), \
+             patch.object(proctor_service, 'refuse_live_backend'), \
+             patch.object(proctor_service.controller_bridge, 'owned', owned_bridge), \
+             patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
+             patch.object(proctor_service.owned_gateway, 'owned', owned_resource):
+            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
+                owner_task='resume Argos after boot',
+                success_criteria='ready without terminal commands', executable='openclaw')
+
+        self.assertEqual(result['status'], 'incomplete')
+        self.assertEqual(result['outcome'], 'agent-turn-incomplete')
+        self.assertEqual(result['controller_turns'], proctor_service.CAMPAIGN_MAX_TURNS)
+        self.assertEqual(result['saved_evaluation_ids'], [])
+        self.assertEqual(result['tool_outcomes'], [])
+        self.assertIn('exhausted bounded turns', result['missing'][0])
+        self.assertEqual(bridge.launches, proctor_service.CAMPAIGN_MAX_TURNS)
+        self.assertEqual(bridge.continuations, proctor_service.CAMPAIGN_MAX_TURNS - 1)
+        self.assertTrue(bridge.released)
+        self.assertFalse(bridge.completed)
 
     def test_run_improvement_reports_campaign_incomplete(self):
         state_path = self.home / '.config/argos-live/state.json'

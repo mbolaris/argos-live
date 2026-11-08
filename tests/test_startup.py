@@ -270,6 +270,8 @@ class StartupTests(unittest.TestCase):
         self.assertEqual(tag, state['model'])
         verify.assert_called_once()
         self.assertEqual(config, original)
+        self.assertTrue(set(auto_setup.PROCTOR_READONLY_TOOLS).issubset(
+            config['tools']['alsoAllow']))
         filesystem_allowed = copy.deepcopy(config)
         filesystem_allowed['tools']['profile'] = 'minimal'
         filesystem_allowed['tools'].pop('exec')
@@ -284,6 +286,13 @@ class StartupTests(unittest.TestCase):
         doctor_normalized = copy.deepcopy(config)
         doctor_normalized['tools']['exec'] = {'host': 'gateway', 'mode': 'full'}
         with patch('argoslive.startup.read_json', side_effect=[state, doctor_normalized]), \
+                patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                patch('argoslive.startup.model_verify.verify') as verify:
+            startup.source(self.home)
+        verify.assert_called_once()
+        partial_readonly = copy.deepcopy(config)
+        partial_readonly['tools']['alsoAllow'].remove('argos_ssh_status')
+        with patch('argoslive.startup.read_json', side_effect=[state, partial_readonly]), \
                 patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
                 patch('argoslive.startup.model_verify.verify') as verify:
             startup.source(self.home)
@@ -307,6 +316,14 @@ class StartupTests(unittest.TestCase):
         unexpected_tool = copy.deepcopy(config)
         unexpected_tool['tools']['alsoAllow'].append('browser')
         with patch('argoslive.startup.read_json', side_effect=[state, unexpected_tool]), \
+                patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
+                patch('argoslive.startup.model_verify.verify') as verify:
+            with self.assertRaises(ValueError):
+                startup.source(self.home)
+        verify.assert_not_called()
+        unknown_proctor_tool = copy.deepcopy(config)
+        unknown_proctor_tool['tools']['alsoAllow'].append('argos_unknown_admin')
+        with patch('argoslive.startup.read_json', side_effect=[state, unknown_proctor_tool]), \
                 patch('argoslive.startup.storage.validate_configured', return_value=self.home / 'models'), \
                 patch('argoslive.startup.model_verify.verify') as verify:
             with self.assertRaises(ValueError):

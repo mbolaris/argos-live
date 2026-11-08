@@ -42,9 +42,29 @@ def source(home, *, include_model_identity=False):
                      'group:fs' not in denied and allowed == reviewed_tools)
     improvement_base = {'group:fs', 'group:runtime', 'web_fetch', 'argos_evaluate', 'argos_compare'}
     improvement_job_tools = improvement_base | {'argos_evaluate_wait', 'argos_evaluate_status'}
+    readonly_proctor_tools = {'argos_inspect', 'argos_audit_instructions', 'argos_ssh_status'}
+    reviewed_improvement_policies = [
+        frozenset(improvement_base),
+        frozenset(improvement_base | {'argos_log'}),
+        frozenset(improvement_job_tools),
+        frozenset(improvement_job_tools | {'argos_log'}),
+    ]
+    reviewed_improvement_policies.extend(
+        policy | proctor_subset
+        for policy in tuple(reviewed_improvement_policies)
+        for proctor_subset in (
+            set(),
+            {'argos_inspect'},
+            {'argos_audit_instructions'},
+            {'argos_ssh_status'},
+            {'argos_inspect', 'argos_audit_instructions'},
+            {'argos_inspect', 'argos_ssh_status'},
+            {'argos_audit_instructions', 'argos_ssh_status'},
+            readonly_proctor_tools,
+        )
+    )
     improvement_policy = (tools.get('profile') == 'minimal' and denied == {'gateway', 'browser'} and
-                          allowed in (improvement_base, improvement_base | {'argos_log'},
-                                      improvement_job_tools, improvement_job_tools | {'argos_log'}) and
+                          allowed in reviewed_improvement_policies and
                           # OpenClaw doctor normalizes security=full/ask=off to the equivalent mode=full.
                           tools.get('exec') in ({'host': 'gateway', 'security': 'full', 'ask': 'off'},
                                                 {'host': 'gateway', 'mode': 'full'}))

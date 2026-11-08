@@ -200,6 +200,63 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertIn("data.result?.campaign?.outcome === 'task-not-measured'", app)
         self.assertIn("taskNotMeasured ? 'Task not measured'", app)
 
+    def test_exhausted_unmeasured_campaign_reports_safe_release_without_claim(self):
+        self.controller.runner = lambda _home, **_callbacks: {
+            'status': 'incomplete',
+            'campaign': {'status': 'incomplete', 'outcome': 'agent-turn-incomplete',
+                         'audit_status': None, 'controller_turns': 4,
+                         'missing': ['The agent exhausted bounded turns before completing required reads.'],
+                         'saved_evaluation_ids': []},
+        }
+        self.controller.start('resume Argos after boot',
+                              'ready without terminal commands')
+        self.wait_finished()
+        status = self.controller.snapshot()
+        self.assertEqual(status['phase'], 'incomplete')
+        self.assertIn('reservation was released', status['message'])
+        self.assertIn('no evaluation or improvement is claimed', status['message'])
+        result = proctor_campaign.Controller._public_result(self.controller.result)
+        self.assertEqual(result['campaign']['outcome'], 'agent-turn-incomplete')
+        self.assertEqual(result['campaign']['saved_evaluation_ids'], [])
+
+    def test_public_campaign_keeps_signed_live_observation_separate_from_measurement(self):
+        observation = {
+            'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+            'verified': True, 'state': 'ready', 'persistence_state': 'verified',
+            'paired_policy_valid': True, 'ssh_enabled': True, 'ssh_active': True,
+            'port22_listening': True, 'restart_eligible': False,
+            'owner_approval_available': False, 'recovery_job_state': 'idle', 'failure_code': None,
+        }
+        value = {'status': 'incomplete', 'owner_task': 'restore paired SSH',
+                 'success_criteria': 'ready without terminal typing',
+                 'campaign': {'status': 'incomplete', 'outcome': 'task-not-measured',
+                              'audit_status': None, 'controller_turns': 1, 'missing': [],
+                              'saved_evaluation_ids': [], 'agent_summary': [],
+                              'host_observation': observation}}
+        result = proctor_campaign.Controller._public_result(value)
+        self.assertEqual(result['campaign']['outcome'], 'task-not-measured')
+        self.assertEqual(result['campaign']['host_observation'], observation)
+        self.assertNotIn('tool_outcomes', result['campaign'])
+        self.assertNotIn('boot_id', result['campaign']['host_observation'])
+        self.assertNotIn('receipt_id', result['campaign']['host_observation'])
+        self.assertIsNone(proctor_campaign._public_host_observation({**observation, 'boot_id': 'private'}))
+        self.assertIsNone(proctor_campaign._public_host_observation({**observation, 'failure_code': {}}))
+        app = (Path(__file__).resolve().parents[1] /
+               'runtime/argoslive/web/static/app.js').read_text(encoding='utf-8')
+        self.assertIn('Verified live host observation:', app)
+        self.assertIn('not proof of a recovery action, owner-time savings, or model improvement.', app)
+
+    def test_public_host_observation_accepts_verified_socket_conflict(self):
+        observation = {
+            'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+            'verified': True, 'state': 'not-ready', 'persistence_state': 'verified',
+            'paired_policy_valid': True, 'ssh_enabled': True, 'ssh_active': False,
+            'port22_listening': True, 'restart_eligible': True,
+            'owner_approval_available': True, 'recovery_job_state': 'idle',
+            'failure_code': 'socket-conflict',
+        }
+        self.assertEqual(proctor_campaign._public_host_observation(observation), observation)
+
     def test_failed_campaign_still_restarts_argos(self):
         self.controller.runner = lambda home, **_callbacks: (_ for _ in ()).throw(ValueError('private detail'))
         self.controller.start('recover Argos after reboot', 'ready after unlock with no terminal command')

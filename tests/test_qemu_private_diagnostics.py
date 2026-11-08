@@ -67,6 +67,11 @@ class DiagnosticFlagsTests(unittest.TestCase):
                           {'kind': secret}, {'kind': [secret]}]}))
             (root / 'workload/controller-worker.json').write_text(json.dumps({
                 'process_group_drained': True, 'stderr': secret}))
+            (root / 'workload/controller-failure.json').write_text(json.dumps({
+                'failure': {'code': 'worker-exit', 'returncode': 1, 'stdout_bytes': 28,
+                    'stderr_bytes': 79, 'worker_response': {'json_valid': True, 'status': 'error',
+                        'payload_count': 0, 'session_bound': True, 'error_kind': 'incomplete_turn',
+                        'error_present': True, 'raw_response': secret, 'error_code': secret}}}))
             (root / 'workload/reservation.json').write_text(json.dumps({
                 'state': 'quarantined', 'secret': secret}))
             with closing(sqlite3.connect(root / 'proctor/state.sqlite3')) as db:
@@ -84,6 +89,10 @@ class DiagnosticFlagsTests(unittest.TestCase):
             self.assertEqual(value['admission_counters'], {'tool_hooks': 0, 'unknown_tool': 0})
             self.assertTrue(value['worker_drained'])
             self.assertEqual(value['reservation_state'], 'quarantined')
+            self.assertEqual(value['controller_failure'], {
+                'code': 'worker-exit', 'returncode': 1, 'stdout_bytes': 28, 'stderr_bytes': 79,
+                'worker_response': {'json_valid': True, 'session_bound': True, 'status': 'error',
+                    'payload_count': 0, 'error_kind': 'incomplete_turn', 'error_present': True}})
 
 
     def test_startup_measurement_rejection_reports_only_fixed_indicators(self):

@@ -56,8 +56,27 @@ mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
 mount -t sysfs sysfs "$builder/sys"
 trap 'umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
-# Retry failed package files individually, with one active request per host, before retrying the full live-build stage.
-chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --mirror-binary-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --security true --updates true --apt-source-archives false --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::Languages=none -o Acquire::Queue-Mode=host -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=15 -o Acquire::http::Timeout=15 -o Acquire::Retries=3' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'"
+# Let the bounded outer loop below retry transient package failures. Debian APT 3.0.3
+# can spin and grow memory while retrying delayed items (Debian bug #1152704);
+# Acquire::Retries=0 avoids that inner retry loop while cached packages survive each attempt.
+chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --mirror-binary-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --security true --updates true --apt-source-archives false --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::Languages=none -o Acquire::Queue-Mode=host -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=15 -o Acquire::http::Timeout=15 -o Acquire::Retries=0' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'"
+# Import only cached Debian package archives from prior interrupted hosted builds.
+# APT still validates selected package hashes against the signed snapshot indexes.
+if [[ -n ${ARGOS_LIVE_BUILD_CACHE_DIR:-} ]]; then
+  expected_cache_dir="$src/.argos-live-package-cache"
+  [[ "$ARGOS_LIVE_BUILD_CACHE_DIR" == "$expected_cache_dir" ]] || {
+    echo 'Unexpected live-build package cache path.' >&2
+    exit 1
+  }
+  for package_cache in packages.bootstrap packages.chroot packages.binary; do
+    source_cache="$ARGOS_LIVE_BUILD_CACHE_DIR/$package_cache"
+    target_cache="$work/cache/$package_cache"
+    mkdir -p "$target_cache"
+    if [[ -d "$source_cache" ]]; then
+      find "$source_cache" -maxdepth 1 -type f -name '*.deb' -exec cp -an -- {} "$target_cache/" \;
+    fi
+  done
+fi
 live_build_log=$(mktemp /var/lib/argos-live/live-build.XXXXXX)
 cleanup_live_build_log() { rm -f -- "$live_build_log"; }
 trap 'cleanup_live_build_log; umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
@@ -92,10 +111,16 @@ for ((attempt=1; attempt<=max_live_build_attempts; attempt++)); do
   if (( status == 0 )); then
     break
   fi
-  if ! grep -Eqi "Couldn't download|TooManyRequests| 503 | 504 |Gateway Timeout|Connection timed out|Temporary failure resolving|Could not connect" "$live_build_log"; then
+  if ! grep -Eqi "Couldn't download|TooManyRequests| 503 | 504 |Gateway Timeout|Connection (failed|timed out)|Temporary failure resolving|Could not connect" "$live_build_log"; then
     echo 'Live-build failed for a non-transient reason; stopping without retry.' >&2
     exit "$status"
   fi
+  # Snapshot's CDN can return persistent 5xx responses for a single package while
+  # the byte-identical package remains available from Debian's current mirror.
+  # Only inject fallback bytes after matching package identity and SHA-256 against
+  # the package record from the already trusted Snapshot indexes in the built chroot.
+  python3 "$src/scripts/rescue-snapshot-package-cache.py" \
+    "$live_build_log" "$work/chroot" "$work/cache"
   if (( attempt == max_live_build_attempts )); then
     echo "Pinned live-build failed after $attempt transient-download attempts." >&2
     exit "$status"

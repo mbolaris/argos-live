@@ -192,6 +192,12 @@ class ControllerBridgeTests(unittest.TestCase):
             parent.complete()
 
     def test_signed_ssh_status_is_read_only_and_campaign_scoped(self):
+        self.assertEqual(controller_bridge._ssh_status_observation({
+            'schema': 'argos-proctor-ssh-status/1', 'available': False,
+            'failure_code': 'signed-status-unavailable'}), {
+                'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+                'verified': False, 'state': 'unavailable',
+                'failure_code': 'signed-status-unavailable'})
         status = {'schema': 'argos-ssh-status/1', 'boot_id': 'a' * 36,
                   'persistence_state': 'verified', 'paired_policy_valid': True,
                   'ssh_enabled': True, 'ssh_active': False, 'port22_listening': False,
@@ -214,8 +220,16 @@ class ControllerBridgeTests(unittest.TestCase):
                 self.assertEqual(value, {'status': 'completed', 'value': snapshot})
                 self.assertEqual(calls, ['status'])
                 self.assertEqual(bridge.outcomes, [{'kind': 'ssh_status', 'call_id': 'ssh-status-one',
-                                                    'status': 'available'}])
+                    'status': 'available', 'host_observation': {
+                        'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+                        'verified': True, 'state': 'not-ready', 'persistence_state': 'verified',
+                        'paired_policy_valid': True, 'ssh_enabled': True, 'ssh_active': False,
+                        'port22_listening': False, 'restart_eligible': True,
+                        'owner_approval_available': True, 'recovery_job_state': 'idle',
+                        'failure_code': None,
+                    }}])
                 self.assertNotIn('boot_id', bridge.events.read_text())
+                self.assertNotIn('receipt_id', bridge.events.read_text())
                 parent.complete()
 
             with workload.reserve(self.home, 'controller') as parent:
@@ -264,6 +278,94 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertFalse(bridge.verified)
             self.assertEqual(parent.record['phase'], 'running')
             parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
+    def test_no_tool_incomplete_owner_campaign_turn_can_continue(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            bridge.active['ended'] = True
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'incomplete_turn', 'message': 'private model detail'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+
+            result, _stderr = bridge.finish(timeout=1, finalize=False, retain_controller=True)
+            self.assertEqual(result['status'], 'error')
+            self.assertTrue(bridge.verified)
+            self.assertFalse(bridge.uncertain)
+            self.assertEqual(bridge.worker_outcome, 'incomplete-turn')
+            bridge.next_campaign_turn('agent:main:argos_proctor_improvement_retry')
+            self.assertEqual(bridge.session_key, 'agent:main:argos_proctor_improvement_retry')
+            self.assertIsNone(bridge.worker)
+            self.assertFalse(bridge.verified)
+            self.assertEqual(parent.record['phase'], 'running')
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
+    def test_incomplete_campaign_turn_with_prior_host_work_is_not_retryable(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            bridge.active['ended'] = True
+            bridge.sdk_run_history.append({'run_id': 'prior-run', 'ended': True,
+                'host_tool_requests': 1, 'host_tool_failures': 0})
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'incomplete_turn', 'message': 'private model detail'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+
+            with self.assertRaises(workload.Busy):
+                bridge.finish(timeout=1, finalize=False, retain_controller=True)
+            self.assertTrue(bridge.uncertain)
+            self.assertFalse(bridge.verified)
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
+    def test_no_suite_incomplete_campaign_release_rejects_mutating_tool_outcomes(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            bridge.active['ended'] = True
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'incomplete_turn', 'message': 'private model detail'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+
+            bridge.finish(timeout=1, finalize=False, retain_controller=True)
+            bridge.outcomes.append({'kind': 'edit', 'status': 'changed'})
+            with self.assertRaises(workload.Busy):
+                bridge.release_unmeasured_incomplete_campaign()
+            parent.complete()
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
+    def test_no_suite_incomplete_campaign_can_release_after_read_only_evidence(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            bridge.active['ended'] = True
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'incomplete_turn', 'message': 'private model detail'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+
+            bridge.finish(timeout=1, finalize=False, retain_controller=True)
+            bridge.outcomes.extend([{'kind': 'inspect'}, {'kind': 'audit'}, {'kind': 'ssh_status'}])
+            bridge.release_unmeasured_incomplete_campaign()
+            self.assertTrue(parent.drained)
+            self.assertTrue(bridge.closed)
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
     def test_admitted_side_effect_free_hook_block_in_practice_is_drained_and_retryable(self):

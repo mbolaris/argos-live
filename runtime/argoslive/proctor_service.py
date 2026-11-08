@@ -167,7 +167,11 @@ def _is_ssh_recovery_task(owner_task, success_criteria, measurement_suite, provi
     if measurement_suite is not None or not callable(provider) or not callable(verifier):
         return False
     text = f'{owner_task} {success_criteria}'.casefold()
-    return 'ssh' in text and any(word in text for word in ('recover', 'recovery', 'inactive', 'boot'))
+    ssh_context = any(term in text for term in (
+        'ssh', 'secure shell', 'remote access', 'remote-access', 'port 22'))
+    recovery_context = any(word in text for word in (
+        'recover', 'recovery', 'inactive', 'boot', 'startup'))
+    return ssh_context and recovery_context
 
 
 def _private_directory(path):
@@ -600,12 +604,15 @@ def _campaign_assessment(outcomes, *, recovery_mode=False):
     if recovery_mode:
         status_checks = [item for _index, item in indexed if item.get('kind') == 'ssh_status']
         if status_checks:
+            observation = status_checks[-1].get('host_observation')
             return {'ready': True, 'status': 'incomplete', 'outcome': 'task-not-measured',
                     'missing': ['Recovery status was checked; no task-specific ability measurement was run.'],
-                    'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': True}
+                    'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': True,
+                    'host_observation': observation if isinstance(observation, dict) else None}
         return {'ready': False, 'status': 'incomplete', 'outcome': 'task-not-measured',
                 'missing': ['one signed SSH status check'],
-                'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
+                'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False,
+                'host_observation': None}
     audits = [(index, item) for index, item in indexed if item.get('kind') == 'audit']
     audit_index, audit = audits[-1] if audits else (-1, {})
     missing = []
@@ -724,7 +731,7 @@ def _campaign_ledger(outcomes):
     fields = ('kind', 'state', 'result_id', 'baseline_id', 'candidate_id', 'change_id', 'status', 'passed',
               'qualified_experiment', 'configuration_preserved', 'baseline_ids', 'candidate_ids',
               'suite', 'suite_version', 'coverage_complete', 'correct', 'total', 'format_errors',
-              'task_measurement', 'logged_result_ids', 'appended', 'append_outcome')
+              'task_measurement', 'host_observation', 'logged_result_ids', 'appended', 'append_outcome')
     return [{key: item[key] for key in fields if key in item}
             for item in outcomes if isinstance(item, dict)]
 
@@ -829,11 +836,23 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             outcomes = list(bridge.outcomes)
             assessment = _campaign_assessment(outcomes, recovery_mode=recovery_mode)
             admission_blocked = getattr(bridge, 'worker_outcome', None) == 'admission-blocked'
+            incomplete_turn = getattr(bridge, 'worker_outcome', None) == 'incomplete-turn'
             if admission_blocked:
                 assessment = {'ready': False, 'status': 'incomplete',
                     'outcome': 'campaign-admission-blocked',
                     'missing': ['the host admission hook blocked before any host tool ran'],
                     'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
+            elif (incomplete_turn and turn == CAMPAIGN_MAX_TURNS and measurement_suite is None and
+                  not assessment.get('ready')):
+                # No task-specific suite means this campaign can only perform
+                # host-selected reads. After bounded incomplete turns, release
+                # only through the bridge's stricter no-mutation gate and make
+                # the missing evidence explicit; never treat this as a gain.
+                assessment = {'ready': False, 'status': 'incomplete',
+                    'outcome': 'agent-turn-incomplete',
+                    'missing': ['the agent exhausted bounded turns before completing the required read-only evidence'],
+                    'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
+                bridge.release_unmeasured_incomplete_campaign()
             _report_progress(on_progress, phase='campaign', stage='turn-finished', turn=turn,
                              total=CAMPAIGN_MAX_TURNS,
                              saved_evaluation_count=len(assessment['saved_evaluation_ids']),
@@ -849,7 +868,11 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
                                         measurement_suite=measurement_suite,
                                         recovery_mode=recovery_mode)
         if assessment and assessment.get('safe_to_release'):
-            bridge.complete_campaign()
+            if (measurement_suite is None and
+                    getattr(bridge, 'worker_outcome', None) == 'incomplete-turn'):
+                bridge.release_unmeasured_incomplete_campaign()
+            else:
+                bridge.complete_campaign()
         elif getattr(bridge, 'worker_outcome', None) == 'admission-blocked':
             bridge.release_unadmitted_campaign()
     if assessment is None:
@@ -859,7 +882,8 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
     return {'status': assessment['status'], 'outcome': assessment['outcome'],
             'missing': assessment['missing'], 'audit_status': assessment['audit_status'],
             'controller_turns': turn, 'agent_summary': result.get('result', result).get('payloads', []),
-            'tool_outcomes': outcomes, 'saved_evaluation_ids': assessment['saved_evaluation_ids']}
+            'tool_outcomes': outcomes, 'saved_evaluation_ids': assessment['saved_evaluation_ids'],
+            'host_observation': assessment.get('host_observation')}
 
 
 def run_improvement(home, *, owner_task, success_criteria, measurement_suite=None,

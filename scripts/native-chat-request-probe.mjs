@@ -67,7 +67,7 @@ export function observeRequests(original, reportPath, logPath=null) {
             const options=body?.options;
             if (typeof options?.temperature==='number' && Number.isFinite(options.temperature) &&
                 options.temperature>=0 && options.temperature<=2) metrics.temperature=options.temperature;
-            for (const key of ['num_predict','num_ctx']) {
+            for (const key of ['num_predict','num_ctx','num_gpu']) {
               metrics[key+'_present']=typeof options?.[key]==='number';
               if (Number.isFinite(options?.[key]) && options[key]>=-2 && options[key]<=1e12)
                 metrics[key]=options[key];

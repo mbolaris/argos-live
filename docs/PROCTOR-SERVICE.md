@@ -96,7 +96,7 @@ success measure. An optional `--measurement-suite` selects the one fixed suite
 the owner has decided measures that task. The dashboard offers the same choice;
 “None fits / not sure” is the default. The host rejects evaluations from any
 other suite and rejects comparisons and instruction changes without the
-owner-selected suite. The optional `owner-recovery-decision/0.2.0` suite is an
+owner-selected suite. The optional `owner-recovery-decision/0.5.0` suite is an
 uncalibrated eight-case decision-only fixture: it uses simulated receipts and
 scores an explicit minimum owner-action category and counts. It does not
 execute tools or measure real recovery/owner time, and cannot authorize
@@ -109,6 +109,15 @@ owns one workload reservation at a time, and the controller saves evaluations
 even if the campaign agent turn ends. Practice scores never count as evidence
 that an ability improved. The campaign follows the installed Argos improvement
 skill for matched baseline/candidate runs, keep/restore decisions, and saved run IDs.
+For a recovery campaign that obtains `argos_ssh_status`, the host also records a
+sanitized `host_observation` from the signature-verified receipt. It shows the
+bounded current SSH/persistence state separately from `task-not-measured` and
+from benchmark scores. The structured observation omits receipt signatures,
+receipt IDs, boot IDs, addresses and raw diagnostics. A ready observation means
+SSH was already ready at that check; it does not say that the agent recovered
+SSH, reduced owner time, or improved its ability. The agent's prose remains a
+separate, unverified report.
+
 There is no automatic progression from quick to standard or challenge when a
 score is saturated. A diagnostic suite is selected only when its tasks match the
 owner's stated goal; scores remain separate by suite and cannot be compared
@@ -119,6 +128,16 @@ change until it has appropriate scoring and independent confirmation.
 An incomplete practice is retained for review. An exam whose timer reached a
 terminal state with unanswered items also remains incomplete; timed completion
 does not produce a calibrated ability score.
+
+The everyday agent's fresh local-tool profile includes the read-only
+`argos_inspect`, `argos_audit_instructions`, and `argos_ssh_status` tools. On
+startup, an existing configuration is migrated only when its local tool
+policy matches the reviewed legacy profile; the full prior config is saved in
+the private Argos state snapshots before those tools are added. Owner-edited or
+otherwise unrecognized policies are left unchanged. This lets the agent inspect
+saved evidence, complete the required instruction audit, and report SSH status
+without asking the owner to type diagnostic commands. These tools do not grant
+shell access or change the selected model.
 
 The service refuses to start if the everyday OpenClaw gateway or Ollama already
 occupies its loopback port. Close the everyday assistant first; the Proctor
