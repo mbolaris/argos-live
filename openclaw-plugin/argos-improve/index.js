@@ -253,7 +253,7 @@ export default function register(api) {
   };
   api.registerTool({
     name:'argos_ssh_status', label:'Check paired SSH recovery status',
-    description:'Read a signed, versioned snapshot of encrypted persistence, paired SSH policy, service/listener state and any recovery job. No logs, addresses, keys, device IDs or paths are returned. This tool is read-only and never starts SSH. If owner approval is available, tell the owner to click “Approve one safe SSH start” in the Argos dashboard; do not ask for terminal commands.',
+    description:'Read a signed, versioned snapshot of encrypted persistence, paired SSH policy, service/listener state and any recovery job. No logs, addresses, keys, device IDs or paths are returned. This tool is read-only and never starts SSH. Tell the owner to click “Approve one safe SSH start” only when the signed status says owner_approval_available=true and restart_eligible=true and no recovery job is running. If either gate is false, the status is unavailable, or failure_code is service-disabled, report the blocker and stop; approval cannot enable or configure a disabled service. Never ask for terminal commands.',
     parameters:Type.Object({}, {additionalProperties:false}),
     async execute(id, params, signal) { return controlled(id,'ssh_status',params,signal); }
   }, {optional:true});
