@@ -1750,6 +1750,22 @@ async function refreshBenchmarks() {
         summary.textContent += ' · ' + Object.entries(run.summary.categories).map(([name, value]) =>
           `${name.replaceAll('_', ' ')}: ${value.correct}/${value.total}`).join(' · ');
       }
+      if (run.kind === 'ability' && run.diagnostic_checks) {
+        const diagnostics = Object.entries(run.diagnostic_checks).map(([name, value]) =>
+          `${name.replaceAll('_', ' ')}: ${value.passed}/${value.total}`);
+        if (diagnostics.length) summary.textContent += ' · Suite diagnostics (not part of score): ' + diagnostics.join(' · ');
+      }
+      if (run.kind === 'ability' && run.field_checks) {
+        const fields = Object.entries(run.field_checks).map(([name, value]) =>
+          `${name.replaceAll('_', ' ')}: ${value.passed}/${value.total}`);
+        if (fields.length) summary.textContent += ' · Recovery field matches (descriptive only): ' + fields.join(' · ');
+      }
+      if (run.kind === 'ability' && run.case_misses) {
+        const misses = run.case_misses.map(item =>
+          `${item.item_id}: ${item.missed_fields.map(name => name.replaceAll('_', ' ')).join(', ')}`);
+        if (misses.length) summary.textContent += ' · Recovery case misses (field names only): ' + misses.join('; ');
+      }
+      if (run.calibration_status) summary.textContent += ` · Calibration: ${run.calibration_status}`;
       if (run.kind === 'ability' && run.suite === 'openclaw-owner-recovery-decision' && run.task_measurement) {
         const m = run.task_measurement;
         const actions = m.owner_action_counts && Object.entries(m.owner_action_counts)
@@ -1918,6 +1934,49 @@ function renderMatched(output, result) {
     const cats = [...new Set(runs.flatMap((r) => Object.keys(r.categories || {})))];
     if (cats.length) table(output, 'By category', ['Category', ...names], cats.map((c) => [c.replace('_', ' '),
       ...runs.map((r) => { const v = (r.categories || {})[c]; return v ? `${v.correct}/${v.total}` : 'n/a'; })]));
+    const checks = [...new Set(runs.flatMap((r) => Object.keys(r.diagnostic_checks || {})))];
+    if (checks.length) table(output, 'Suite-defined diagnostics (descriptive only; excluded from score and qualification)',
+      ['Check', ...names], checks.map((name) => [name.replaceAll('_', ' '), ...runs.map((r) => {
+        const value = (r.diagnostic_checks || {})[name];
+        return value ? `${value.passed}/${value.total}` : 'n/a';
+      })]));
+    const fieldChecks = [...new Set(runs.flatMap((r) => Object.keys(r.field_checks || {})))];
+    if (fieldChecks.length) table(output,
+      'Owner-recovery field matches (format-valid answers only; descriptive; exact score unchanged)',
+      ['Field', ...names], fieldChecks.map((name) => [name.replaceAll('_', ' '), ...runs.map((r) => {
+        const value = (r.field_checks || {})[name];
+        return value ? `${value.passed}/${value.total}` : 'n/a';
+      })]));
+    const recoveryCaseIds = [...new Set(runs.flatMap((r) =>
+      (r.case_misses || []).map(item => item.item_id)))];
+    if (recoveryCaseIds.length) table(output,
+      'Owner-recovery case misses (case IDs and field names only; descriptive; exact score unchanged)',
+      ['Case', ...names], recoveryCaseIds.map((itemId) => [itemId, ...runs.map((r) => {
+        const item = (r.case_misses || []).find(candidate => candidate.item_id === itemId);
+        return item ? item.missed_fields.map(name => name.replaceAll('_', ' ')).join(', ') : 'no miss';
+      })]));
+    const recoveryRuns = runs.map((r, i) => ({run: r, name: names[i]}))
+      .filter(({run}) => run.suite === 'openclaw-owner-recovery-decision' && run.task_measurement);
+    if (recoveryRuns.length) {
+      const diagnostics = document.createElement('p');
+      diagnostics.textContent = 'Decision-only fixture outputs (uncalibrated; not real recovery or owner time): ' +
+        recoveryRuns.map(({run, name}) => {
+          const m = run.task_measurement;
+          return `${name}: decisions ${m.decision_correct ?? 'unknown'}/${m.observed_case_count ?? 'unknown'}, ` +
+            `owner-action fields ${m.owner_effort_correct ?? 'unknown'}/${m.observed_case_count ?? 'unknown'}, ` +
+            `safety ${m.safety_pass ?? 'unknown'}/${m.observed_case_count ?? 'unknown'}, ` +
+            `fixture requests ${m.owner_requests ?? 'unknown'}, approvals ${m.owner_approvals ?? 'unknown'}, ` +
+            `typed commands ${m.terminal_commands_requested ?? 'unknown'}`;
+        }).join('; ');
+      output.append(diagnostics);
+    }
+    if (runs.some((r) => r.calibration_status)) {
+      const calibration = document.createElement('p');
+      calibration.textContent = 'Calibration status: ' + runs.map((r, i) =>
+        `${names[i]} — ${r.calibration_status || 'not recorded'}`).join('; ') +
+        '. Descriptive checks do not establish ability outside this suite.';
+      output.append(calibration);
+    }
     const items = result.items || [];
     const changed = items.filter((i) => new Set(Object.values(i.runs).map((x) => x.outcome)).size > 1);
     const heading = document.createElement('h3'); heading.textContent = `Same questions, side by side (${changed.length} of ${items.length} differ)`; output.append(heading);
