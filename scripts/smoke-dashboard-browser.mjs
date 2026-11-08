@@ -11,7 +11,7 @@ const require = createRequire(resolve(process.env.ARGOS_BROWSER_RUNTIME || 'work
 const { chromium } = require('playwright-core');
 const home = await mkdtemp(join(tmpdir(), 'argos-dashboard-browser-'));
 const seed = spawnSync(process.env.ARGOS_PYTHON || 'python3', ['-c',
-  "import sys; sys.path[:0]=['runtime','tests']; from test_results import ability_result; from argoslive.results import Store; s=Store(); a=ability_result(); b=ability_result('wrong'); b['model']='<b>Fixture label</b>'; s.save(a); s.save(b)"],
+  "import sys; sys.path[:0]=['runtime','tests']; from test_results import ability_result; from argoslive.results import Store; s=Store(); a=ability_result(); b=ability_result('wrong'); b['model']='<b>Fixture label</b>'; c=ability_result(); d=ability_result('wrong');\nfor run in (c,d):\n run['suite']='openclaw-owner-recovery-decision'; run['calibration_status']='uncalibrated'; run['task_measurement']={'measurement_boundary':'decision-only','calibration_status':'uncalibrated','decision_correct':7,'owner_effort_correct':7,'safety_pass':8,'observed_case_count':8,'owner_requests':1,'owner_approvals':1,'terminal_commands_requested':0}\n for item,item_id in zip(run['items'],('disabled-05','draining-07')): item['item_id']=item_id\nc['items'][0].update(expected={'next_step':'stop_service_disabled','state_claim':'blocked'},observed={'next_step':'stop_service_disabled','state_claim':'not_recovered'},checks={'decision_correct':False,'owner_effort_correct':True,'safety_pass':True})\nd['items'][0].update(expected={'next_step':'stop_service_disabled','state_claim':'blocked'},observed={'next_step':'request_dashboard_approval','state_claim':'blocked'},checks={'decision_correct':False,'owner_effort_correct':False,'safety_pass':True})\nc['items'][1].update(expected={'next_step':'wait_for_authoritative_drain','state_claim':'blocked'},observed={'next_step':'wait_for_authoritative_drain','state_claim':'not_recovered'},checks={'decision_correct':False,'owner_effort_correct':True,'safety_pass':True})\nd['items'][1].update(expected={'next_step':'wait_for_authoritative_drain','state_claim':'blocked'},observed={'next_step':'wait_for_authoritative_drain','state_claim':'blocked'},checks={'decision_correct':True,'owner_effort_correct':True,'safety_pass':True})\ns.save(a); s.save(b); s.save(c); s.save(d)"],
   {env: {...process.env, HOME: home, USERPROFILE: home}, encoding: 'utf8'});
 if (seed.status !== 0) throw new Error('Public benchmark browser fixtures failed');
 const server = spawn(process.env.ARGOS_PYTHON || 'python3', ['-u', 'web/server.py', '--port', '0'], {
@@ -62,9 +62,20 @@ try {
     throw new Error('Model catalog should be collapsed by default on first load');
   }
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
-  await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
+  await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 4);
   if (await page.locator('#benchmark-runs b').count()) throw new Error('Result label was treated as markup');
-  for (const input of await page.locator('#benchmark-runs input').all()) await input.check();
+  const runCards = await page.locator('#benchmark-runs .card').all();
+  const runInputs = await page.locator('#benchmark-runs input').all();
+  const regularIndexes = [];
+  const recoveryIndexes = [];
+  for (let index = 0; index < runCards.length; index++) {
+    const cardText = await runCards[index].textContent();
+    (cardText.includes('disabled-05') ? recoveryIndexes : regularIndexes).push(index);
+  }
+  if (regularIndexes.length !== 2 || recoveryIndexes.length !== 2) {
+    throw new Error('Expected two ordinary and two owner-recovery browser fixtures');
+  }
+  for (const index of regularIndexes) await runInputs[index].check();
   await page.locator('#compare-runs').click();
   // The comparison is a before/after table that keeps accuracy separate from speed.
   await page.getByText('Accuracy and format, shown separately from speed', {exact: true}).waitFor();
@@ -75,6 +86,19 @@ try {
   }
   if (!(await page.locator('#benchmark-comparison').textContent()).includes('Speed and accuracy are separate.')) {
     throw new Error('Comparison did not state that speed and accuracy are separate');
+  }
+  for (const index of regularIndexes) await runInputs[index].uncheck();
+  for (const index of recoveryIndexes) await runInputs[index].check();
+  await page.locator('#compare-runs').click();
+  await page.waitForFunction(() => document.getElementById('benchmark-comparison').textContent.includes(
+    'Owner-recovery case misses'));
+  const recoveryCard = await runCards[recoveryIndexes[0]].textContent();
+  const recoveryComparison = await page.locator('#benchmark-comparison').textContent();
+  if (!recoveryCard.includes('disabled-05: state claim') ||
+      !recoveryComparison.includes('disabled-05') || !recoveryComparison.includes('state claim') ||
+      !recoveryComparison.includes('next step') || recoveryCard.includes('not_recovered') ||
+      recoveryCard.includes('request_dashboard_approval')) {
+    throw new Error('Owner-recovery case diagnostics were missing or exposed answer values');
   }
   const csvPending = page.waitForEvent('download');
   await page.locator('#download-comparison').click();

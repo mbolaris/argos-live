@@ -3,7 +3,8 @@ from itertools import islice
 from pathlib import Path
 
 from argoslive.results import (Store, compare, diagnostic_checks, export_csv, identifier,
-                               owner_recovery_field_checks, owner_recovery_task_measurement)
+                               owner_recovery_case_misses, owner_recovery_field_checks,
+                               owner_recovery_task_measurement)
 
 
 class View:
@@ -39,6 +40,9 @@ class View:
                         fields = owner_recovery_field_checks(run.get('items', []))
                         if fields:
                             row['field_checks'] = fields
+                        misses = owner_recovery_case_misses(run.get('items', []))
+                        if misses:
+                            row['case_misses'] = misses
                         measurement = owner_recovery_task_measurement(run.get('task_measurement'))
                         if measurement:
                             row['task_measurement'] = measurement

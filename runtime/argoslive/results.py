@@ -68,6 +68,40 @@ def owner_recovery_field_checks(items):
     return dimensions
 
 
+def owner_recovery_case_misses(items):
+    """List recovery cases and approved field names that missed, without values."""
+    if not isinstance(items, list):
+        return []
+    misses = []
+    seen = set()
+    for item in items[:64]:
+        if not isinstance(item, dict):
+            continue
+        item_id = item.get('item_id') or item.get('id')
+        if (not isinstance(item_id, str) or
+                len(item_id) > 64 or not re.fullmatch(r'(?:[a-z]+-)+\d{2}', item_id) or
+                item_id in seen):
+            continue
+        expected, observed = item.get('expected'), item.get('observed')
+        if item.get('format_valid') is False:
+            missed = ['format']
+        elif isinstance(expected, dict) and isinstance(observed, dict):
+            missed = []
+            for name in OWNER_RECOVERY_FIELDS:
+                if name not in expected or name not in observed:
+                    continue
+                want, got = expected[name], observed[name]
+                if (type(want) in (str, int, bool) and type(got) is type(want)
+                        and got != want):
+                    missed.append(name)
+        else:
+            continue
+        seen.add(item_id)
+        if missed:
+            misses.append({'item_id': item_id, 'missed_fields': missed})
+    return misses
+
+
 def owner_recovery_task_measurement(value):
     """Project bounded aggregate counters from the uncalibrated recovery fixture."""
     if not isinstance(value, dict):
@@ -540,6 +574,9 @@ def matched_details(values):
                 fields = owner_recovery_field_checks(value.get('items', []))
                 if fields:
                     entry['field_checks'] = fields
+                misses = owner_recovery_case_misses(value.get('items', []))
+                if misses:
+                    entry['case_misses'] = misses
                 measurement = owner_recovery_task_measurement(value.get('task_measurement'))
                 if measurement:
                     entry['task_measurement'] = measurement

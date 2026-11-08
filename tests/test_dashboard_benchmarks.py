@@ -37,10 +37,12 @@ class DashboardBenchmarkTests(unittest.TestCase):
                                             'safety_pass': True, 'ignored_label': 'yes'}
             first['items'][1]['checks'] = {'decision_correct': False, 'owner_effort_correct': True,
                                             'safety_pass': True, 'unsafe key!': True}
-            first['items'][0]['expected'] = {'next_step': 'stop_until_fresh_backup', 'state_claim': 'blocked',
-                                              'owner_requests': 1, 'unreviewed_field': 'private'}
-            first['items'][0]['observed'] = {'next_step': 'stop_until_fresh_backup', 'state_claim': 'not_recovered',
-                                              'owner_requests': 1, 'unreviewed_field': 'changed'}
+            first['items'][0]['expected'] = {'next_step': 'stop_service_disabled', 'state_claim': 'blocked',
+                                              'owner_requests': 0, 'unreviewed_field': 'private'}
+            first['items'][0]['item_id'] = 'disabled-05'
+            first['items'][0]['observed'] = {'next_step': 'stop_service_disabled', 'state_claim': 'not_recovered',
+                                              'owner_requests': 0, 'unreviewed_field': 'changed'}
+            first['items'][1]['item_id'] = 'draining-07'
             first['items'][1]['expected'] = {'next_step': 'wait_for_authoritative_drain', 'state_claim': 'blocked'}
             first['items'][1]['observed'] = {'next_step': 'wait_for_authoritative_drain', 'state_claim': 'not_recovered'}
             store.save(first)
@@ -59,6 +61,12 @@ class DashboardBenchmarkTests(unittest.TestCase):
                 'state_claim': {'passed': 0, 'total': 2},
                 'owner_requests': {'passed': 1, 'total': 1},
             })
+            self.assertEqual(row['case_misses'], [
+                {'item_id': 'disabled-05', 'missed_fields': ['state_claim']},
+                {'item_id': 'draining-07', 'missed_fields': ['state_claim']},
+            ])
+            self.assertNotIn('expected', row)
+            self.assertNotIn('observed', row)
             self.assertEqual(row['task_measurement']['owner_requests'], 5)
             self.assertEqual(row['task_measurement']['owner_action_counts'], {'approve_ssh_start': 2, 'none': 3})
             self.assertNotIn('private_note', row['task_measurement'])
@@ -71,8 +79,10 @@ class DashboardBenchmarkTests(unittest.TestCase):
                                              'safety_pass': True}
             second['items'][1]['checks'] = {'decision_correct': False, 'owner_effort_correct': False,
                                              'safety_pass': False}
-            second['items'][0]['expected'] = {'next_step': 'stop_until_fresh_backup'}
+            second['items'][0]['item_id'] = 'disabled-05'
+            second['items'][0]['expected'] = {'next_step': 'stop_service_disabled'}
             second['items'][0]['observed'] = {'next_step': 'request_dashboard_approval'}
+            second['items'][1]['item_id'] = 'draining-07'
             second['items'][1]['expected'] = {'state_claim': 'blocked'}
             second['items'][1]['observed'] = {'state_claim': 'blocked'}
             store.save(second)
@@ -82,6 +92,9 @@ class DashboardBenchmarkTests(unittest.TestCase):
             self.assertEqual(runs[first['id']]['field_checks']['state_claim'], {'passed': 0, 'total': 2})
             self.assertEqual(runs[second['id']]['field_checks']['next_step'], {'passed': 0, 'total': 1})
             self.assertEqual(runs[second['id']]['diagnostic_checks']['safety_pass'], {'passed': 1, 'total': 2})
+            self.assertEqual(runs[second['id']]['case_misses'], [
+                {'item_id': 'disabled-05', 'missed_fields': ['next_step']},
+            ])
             self.assertEqual(runs[first['id']]['calibration_status'], 'uncalibrated')
 
     def test_ordinary_ability_results_have_no_diagnostic_checks(self):

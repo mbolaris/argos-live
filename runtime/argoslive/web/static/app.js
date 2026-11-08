@@ -1760,6 +1760,11 @@ async function refreshBenchmarks() {
           `${name.replaceAll('_', ' ')}: ${value.passed}/${value.total}`);
         if (fields.length) summary.textContent += ' · Recovery field matches (descriptive only): ' + fields.join(' · ');
       }
+      if (run.kind === 'ability' && run.case_misses) {
+        const misses = run.case_misses.map(item =>
+          `${item.item_id}: ${item.missed_fields.map(name => name.replaceAll('_', ' ')).join(', ')}`);
+        if (misses.length) summary.textContent += ' · Recovery case misses (field names only): ' + misses.join('; ');
+      }
       if (run.calibration_status) summary.textContent += ` · Calibration: ${run.calibration_status}`;
       if (run.kind === 'ability' && run.suite === 'openclaw-owner-recovery-decision' && run.task_measurement) {
         const m = run.task_measurement;
@@ -1941,6 +1946,14 @@ function renderMatched(output, result) {
       ['Field', ...names], fieldChecks.map((name) => [name.replaceAll('_', ' '), ...runs.map((r) => {
         const value = (r.field_checks || {})[name];
         return value ? `${value.passed}/${value.total}` : 'n/a';
+      })]));
+    const recoveryCaseIds = [...new Set(runs.flatMap((r) =>
+      (r.case_misses || []).map(item => item.item_id)))];
+    if (recoveryCaseIds.length) table(output,
+      'Owner-recovery case misses (case IDs and field names only; descriptive; exact score unchanged)',
+      ['Case', ...names], recoveryCaseIds.map((itemId) => [itemId, ...runs.map((r) => {
+        const item = (r.case_misses || []).find(candidate => candidate.item_id === itemId);
+        return item ? item.missed_fields.map(name => name.replaceAll('_', ' ')).join(', ') : 'no miss';
       })]));
     const recoveryRuns = runs.map((r, i) => ({run: r, name: names[i]}))
       .filter(({run}) => run.suite === 'openclaw-owner-recovery-decision' && run.task_measurement);
