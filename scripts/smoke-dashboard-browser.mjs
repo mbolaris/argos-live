@@ -480,7 +480,26 @@ try {
   if (!liveWatchRequests || !liveWatchAuthValid) {
     throw new Error('Live Proctor watch did not use the authenticated status request');
   }
-  await page.getByText(liveItem.question, {exact: true}).waitFor();
+  await page.screenshot({path: 'work/dashboard-live-proctor-watch-thinking.png', fullPage: true});
+  try {
+    await page.locator('#proctor-live-question').waitFor({state: 'visible'});
+  } catch (error) {
+    const visibility = await page.locator('#proctor-live-question').evaluate(node => {
+      const chain = [];
+      for (let current = node; current && chain.length < 8; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        const rect = current.getBoundingClientRect();
+        chain.push({tag: current.tagName, id: current.id, hidden: current.hidden,
+          display: style.display, visibility: style.visibility, width: Math.round(rect.width),
+          height: Math.round(rect.height)});
+      }
+      return chain;
+    });
+    throw new Error(`Live Proctor question remained hidden (${JSON.stringify(visibility)}): ${error.message}`);
+  }
+  if ((await page.locator('#proctor-live-question').textContent()) !== liveItem.question) {
+    throw new Error('Live Proctor question text did not match the active evaluation item');
+  }
   if (!(await page.locator('#proctor-live-status').textContent()).includes('working on this one')) {
     throw new Error('Live watch did not identify the in-flight model turn');
   }

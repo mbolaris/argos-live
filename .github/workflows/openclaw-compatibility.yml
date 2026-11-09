@@ -193,5 +193,6 @@ jobs:
             work/dashboard-selection-review.png
             work/dashboard-model-lab.png
             work/dashboard-live-proctor-watch.png
+            work/dashboard-live-proctor-watch-thinking.png
           if-no-files-found: error
           retention-days: 14
