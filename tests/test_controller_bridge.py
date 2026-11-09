@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import controller_bridge, workload, ssh_recovery
+from argoslive import bench_openclaw, controller_bridge, workload, ssh_recovery
 from argoslive.proctor import ProctorError
 from argoslive.results import Store
 from test_bench_openclaw import configure_fake
@@ -1046,6 +1046,18 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertNotIn('expected_answer', live[0])
             self.assertNotIn('Tuesday', json.dumps(live[0]))
             parent.complete()
+
+    def test_live_progress_buffer_covers_the_largest_capped_suite(self):
+        worst_answer_json_bytes = len(json.dumps(chr(0) * 8192, ensure_ascii=False).encode('utf-8'))
+        for suite in bench_openclaw.SUITES:
+            with self.subTest(suite=suite):
+                _, tasks, _, _ = bench_openclaw.suite_content(suite)
+                prompt_json_bytes = sum(len(json.dumps(task['prompt'], ensure_ascii=False).encode('utf-8'))
+                                        for task in tasks)
+                # Every item carries its prompt once before inference and once
+                # with the scored answer. Allow 4 KiB of event metadata each.
+                estimate = 2 * prompt_json_bytes + len(tasks) * (worst_answer_json_bytes + 4096)
+                self.assertLessEqual(estimate, controller_bridge.MAX_PROGRESS_STDERR_BYTES)
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_documents_short_suite_is_admitted_by_host_controller(self):

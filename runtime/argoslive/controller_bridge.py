@@ -37,8 +37,9 @@ MAX_WORKER_TURN_RECORDS = 32
 MAX_SDK_RUNS_PER_WORKER = 4
 # A standard run can emit 70 question and answer events. Keep enough bounded
 # stderr progress for the dashboard to receive the whole run, including the
-# benchmark's capped prompt and response text for each item.
-MAX_PROGRESS_STDERR_BYTES = 2 * 1024**2
+# benchmark's capped prompt and response text for each item. The 8 MiB ceiling
+# covers the current corpus and worst-case JSON escaping of capped answers.
+MAX_PROGRESS_STDERR_BYTES = 8 * 1024**2
 CAMPAIGN_PROGRESS_TOOLS = frozenset({
     'evaluation', 'evaluation_wait', 'inspect', 'audit', 'edit', 'resolve', 'adopt',
     'compare', 'log', 'ssh_status'})
