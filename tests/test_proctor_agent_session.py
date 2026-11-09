@@ -458,12 +458,20 @@ class AgentSessionTests(unittest.TestCase):
 
     def test_unstarted_practice_gets_bounded_retry_when_model_makes_no_host_call(self):
         exam = self.session(tier='practice')
+        clock = self.clock
+        actions = [None, None,
+            lambda: exam.start('retried-start'), None,
+            lambda: exam.answer('q1', 'B', 'retry-q1'),
+            lambda: exam.answer('q2', '3', 'retry-q2'),
+            lambda: exam.answer('q3', 'A', 'retry-q3'),
+            lambda: exam.answer('q4', '-1.25', 'retry-q4')]
 
         class NoToolThenStart:
             completed = False
             count = 0
             messages = []
             active = None
+            outcomes = []
             def launch(self, executable, message, **kwargs):
                 self.messages.append(message)
                 self.active = {'host_tool_requests': 0, 'host_tool_failures': []}
@@ -471,25 +479,36 @@ class AgentSessionTests(unittest.TestCase):
                 self_test.assertFalse(kwargs['finalize'])
                 if self.count in (1, 2):
                     self_test.assertIn('previous turn ended without starting', self.messages[-1].lower())
-                if self.count == 2:
-                    self.active['host_tool_requests'] = 1
-                    exam.start('retried-start')
-                    exam.host_abandon()
+                action = actions[self.count]
+                if action is not None:
+                    self.active['host_tool_requests'] += 1
+                    action()
                 self.count += 1
                 return {'payloads': []}, ''
+            def present_proctor_item(self, item_id): return exam.item(item_id)
             def next_practice_turn(self, key): pass
-            def submit_answered_practice_module(self): pass
+            def submit_answered_practice_module(self):
+                if exam.session_id is None:
+                    return False
+                status = exam.status()
+                if (status['state'] == 'ACTIVE' and status['item_ids'] and
+                        all(status['answer_revisions'].get(item) for item in status['item_ids'])):
+                    exam.submit(status['module_id'], 'retry-submit-' + status['module_id'])
             def _complete(self): self.completed = True
 
         self_test = self
         bridge = NoToolThenStart()
-        result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
-        self.assertEqual(result['host_turns'], 3)
+        with patch.object(proctor_service.time, 'sleep',
+                          side_effect=lambda seconds: setattr(clock, 'now',
+                              clock.now + int(seconds * 10**9))):
+            result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
+        self.assertEqual(result['host_turns'], 8)
         self.assertEqual(result['start_retries'], 2)
+        self.assertEqual(exam.status()['state'], 'COMPLETED')
         self.assertTrue(bridge.completed)
         self.assertIn('argos_proctor_start', bridge.messages[1])
         self.assertIn('argos_proctor_start', bridge.messages[2])
-        self.assertEqual(exam.status()['state'], 'ABANDONED')
+        self.assertEqual(exam.practice_feedback()['correct'], 3)
 
     def test_unstarted_practice_does_not_retry_after_a_host_tool_attempt(self):
         for activity in (
@@ -515,9 +534,9 @@ class AgentSessionTests(unittest.TestCase):
 
                 bridge = FailedStart()
                 result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
-                self.assertEqual(result['host_turns'], 2)
+                self.assertEqual(result['host_turns'], 1)
                 self.assertEqual(result['start_retries'], 0)
-                self.assertEqual(bridge.messages[1], proctor_service.MESSAGE)
+                self.assertEqual(bridge.messages, [proctor_service.MESSAGE])
                 self.assertEqual(exam.status()['state'], 'ABANDONED')
 
     def test_invalid_answer_format_gets_bounded_targeted_retry(self):
