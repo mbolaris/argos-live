@@ -557,15 +557,28 @@ def proctor_failure_diagnostics(home):
     failures = turn.get('host_tool_failures', [])
     classes = {'Busy', 'ValueError', 'TypeError', 'KeyError', 'OSError', 'ProctorError',
                'OperationalError', 'TimeoutExpired', 'RuntimeError'}
+    proctor_error_codes = {
+        'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
+        'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
+        'INVALID_SUBMISSION_ARGUMENTS', 'ITEM_NOT_IN_MODULE', 'MODULE_NOT_RELEASED',
+        'INVALID_ANSWER_FORMAT', 'STALE_REVISION', 'AID_NOT_ALLOWED', 'UNKNOWN_AID',
+        'AID_COMPLETION_CONFLICT', 'AID_NO_LONGER_ACTIVE', 'MODULE_DEADLINE_EXPIRED',
+        'TRANSCRIPT_NOT_ISSUED',
+    }
     receipt['tool_failures'] = []
     if isinstance(failures, list):
         for row in failures[:32]:
             if not isinstance(row, dict):
                 continue
             kind, error = row.get('kind'), row.get('error_class')
-            receipt['tool_failures'].append({
+            safe_failure = {
                 'kind': kind if isinstance(kind, str) and kind in names else 'other',
-                'error_class': error if isinstance(error, str) and error in classes else 'other'})
+                'error_class': error if isinstance(error, str) and error in classes else 'other'}
+            code = row.get('error_code')
+            if (safe_failure['kind'].startswith('proctor_') and isinstance(code, str) and
+                    code in proctor_error_codes):
+                safe_failure['error_code'] = code
+            receipt['tool_failures'].append(safe_failure)
     receipt['worker_state'] = (worker.get('state') if worker.get('state') in
                                ('starting', 'completed') else 'unknown')
     # Preserve only fixed controller failure classes and bounded counters. The
