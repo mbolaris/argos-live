@@ -63,6 +63,9 @@ MESSAGE = ('Your first action must be to call argos_proctor_start with an empty 
            'Do not use outside tools or infer whether an answer '
            'was correct before the host returns practice feedback. Then briefly identify '
            'the domains to practice next and stop without changing files or instructions.')
+START_RETRY_MESSAGE = ('The previous turn ended without starting the Proctor exam. Your first action must be a real '
+                       'argos_proctor_start tool call with an empty JSON object {}. Do not answer in prose or print '
+                       'tool-call syntax as text. Use only Proctor tools. ')
 CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement campaign. '
     'Owner-selected task: {owner_task}\n'
     'Owner-defined success criteria: {success_criteria}\n'
@@ -451,6 +454,8 @@ def run_practice_turns(bridge, exam, executable, config_path, *, on_progress=Non
     message, stagnant, payloads = MESSAGE, 0, []
     format_retries_remaining = 2
     no_answer_retries_remaining = 2
+    no_start_retries_remaining = 2
+    start_tool_attempted = False
     terminal = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
     turns = 0
     for number in range(PRACTICE_MAX_TURNS):
@@ -471,6 +476,12 @@ def run_practice_turns(bridge, exam, executable, config_path, *, on_progress=Non
         bridge.submit_answered_practice_module()
         active = getattr(bridge, 'active', None)
         failures = active.get('host_tool_failures', []) if isinstance(active, dict) else []
+        host_tool_requests = active.get('host_tool_requests', 0) if isinstance(active, dict) else None
+        if (exam.session_id is None and
+                (host_tool_requests != 0 or (isinstance(failures, list) and failures))):
+            # Once the first host action was attempted, do not replay the start prompt:
+            # a failed or side-effecting request needs its own diagnosis.
+            start_tool_attempted = True
         outcomes = getattr(bridge, 'outcomes', [])
         new_outcomes = outcomes[outcomes_before:] if isinstance(outcomes, list) else []
         answer_attempted = (any(isinstance(outcome, dict) and outcome.get('kind') == 'proctor_answer'
@@ -497,13 +508,20 @@ def run_practice_turns(bridge, exam, executable, config_path, *, on_progress=Non
                            after == before and not answer_attempted)
         if retry_tool_call:
             no_answer_retries_remaining -= 1
+        retry_start = (no_start_retries_remaining > 0 and not start_tool_attempted and
+                       exam.session_id is None and before is None and after is None and
+                       isinstance(active, dict) and host_tool_requests == 0 and not failures)
+        if retry_start:
+            no_start_retries_remaining -= 1
         stagnant = stagnant + 1 if after == before else 0
-        if ((stagnant >= 2 and not (retry_format or retry_tool_call)) or number + 1 == PRACTICE_MAX_TURNS or
+        if ((stagnant >= 2 and not (retry_format or retry_tool_call or retry_start)) or
+                number + 1 == PRACTICE_MAX_TURNS or
                 time.monotonic() >= deadline):
             break
         message = (practice_turn_message(exam, bridge, retry_format=retry_format,
                                          retry_tool_call=retry_tool_call)
-                   if exam.session_id is not None else MESSAGE)
+                   if exam.session_id is not None else
+                   START_RETRY_MESSAGE + MESSAGE if retry_start else MESSAGE)
         if not message:
             break
     # This still requires proven worker drainage. An incomplete practice signs
