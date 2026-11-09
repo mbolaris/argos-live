@@ -471,7 +471,8 @@ try {
   });
   await page.reload();
   try {
-    await page.waitForFunction(() => document.getElementById('proctor-live-evaluation')?.hidden === false,
+    await page.waitForFunction(() => document.getElementById('workbench')?.open === true &&
+      document.getElementById('proctor-live-evaluation')?.hidden === false,
       null, {timeout: 10000});
   } catch (error) {
     const cardHidden = await page.locator('#proctor-campaign-card').evaluate(node => node.hidden);
@@ -479,6 +480,9 @@ try {
   }
   if (!liveWatchRequests || !liveWatchAuthValid) {
     throw new Error('Live Proctor watch did not use the authenticated status request');
+  }
+  if (!(await page.locator('#workbench').evaluate(node => node.open))) {
+    throw new Error('Active Proctor campaign did not open the workbench for live viewing');
   }
   await page.screenshot({path: 'work/dashboard-live-proctor-watch-thinking.png', fullPage: true});
   try {
