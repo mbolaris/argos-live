@@ -30,6 +30,37 @@ def inrelease_for(index_path, body):
 
 
 class SnapshotIndexProxyTests(unittest.TestCase):
+    def test_compressed_request_uses_signed_snapshot_by_hash_bytes(self):
+        relative = "dists/trixie/contrib/binary-amd64/Packages.xz"
+        compressed = lzma.compress(b"Package: demo\nVersion: pinned\n\n")
+        release = inrelease_for("contrib/binary-amd64/Packages.xz", compressed)
+        expected_hash = hashlib.sha256(compressed).hexdigest()
+        inrelease_url = proxy.snapshot_url(
+            "debian", "20261011T000000Z", "dists/trixie/InRelease"
+        )
+        by_hash_url = proxy.snapshot_url(
+            "debian",
+            "20261011T000000Z",
+            "dists/trixie/contrib/binary-amd64/by-hash/SHA256/" + expected_hash,
+        )
+        requests = []
+
+        def fetch(url):
+            requests.append(url)
+            if url == inrelease_url:
+                return release
+            if url == by_hash_url:
+                return compressed
+            raise AssertionError("compressed Snapshot index should use its signed by-hash URL")
+
+        fallback = proxy.SnapshotIndexFallback(
+            "/unused/keyring.gpg", fetch=fetch, verify=lambda _release, _keyring: None
+        )
+        self.assertEqual(
+            fallback.recover("debian", "20261011T000000Z", relative), compressed
+        )
+        self.assertEqual(requests, [inrelease_url, by_hash_url])
+
     def test_missing_uncompressed_index_uses_exact_xz_bytes_from_current_mirror(self):
         relative = "dists/trixie/contrib/binary-amd64/Packages"
         body = b"Package: demo\nVersion: 1\n\n"

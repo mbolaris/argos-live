@@ -131,19 +131,43 @@ class SnapshotIndexFallback:
         expected_hash, expected_size = index_sha256(release, index_path)
 
         candidate_base = ARCHIVES[archive]
+        compressed_request = index_path.endswith((".xz", ".gz", ".bz2"))
         candidate_paths = [index_path]
-        if not index_path.endswith((".xz", ".gz", ".bz2")):
+        if not compressed_request:
             candidate_paths.extend(index_path + suffix for suffix in (".xz", ".gz", ".bz2"))
         errors = []
+
+        # Snapshot exposes the signed object by its content hash below each
+        # index directory. Prefer this exact historical object over a live
+        # mirror, which may have moved to newer Packages bytes since the pin.
+        index_directory = str(PurePosixPath(index_path).parent)
+        by_hash_path = (
+            f"dists/{suite}/{index_directory}/by-hash/SHA256/{expected_hash}"
+        )
+        try:
+            body = self.fetch(snapshot_url(archive, snapshot, by_hash_path))
+            if len(body) != expected_size or hashlib.sha256(body).hexdigest() != expected_hash:
+                errors.append("Snapshot by-hash object did not match the signed Release hash")
+            else:
+                return body
+        except (HTTPError, URLError, OSError, ValueError) as exc:
+            if isinstance(exc, HTTPError):
+                exc.close()
+            errors.append(f"Snapshot by-hash object: {exc}")
+
         for candidate_path in candidate_paths:
             try:
                 body = self.fetch(f"{candidate_base}/dists/{suite}/{candidate_path}")
-                decoded = decode_index_candidate(candidate_path, body)
-                digest = hashlib.sha256(decoded).hexdigest()
-                if digest != expected_hash or len(decoded) != expected_size:
+                # Release hashes describe the exact named file. For a
+                # compressed request compare its compressed bytes; only when
+                # the caller requested plain Packages may we decompress a
+                # mirror variant and compare it with the plain-file hash.
+                comparable = body if compressed_request else decode_index_candidate(candidate_path, body)
+                digest = hashlib.sha256(comparable).hexdigest()
+                if digest != expected_hash or len(comparable) != expected_size:
                     errors.append(f"{candidate_path} did not match the pinned Release hash")
                     continue
-                return decoded
+                return body if compressed_request else comparable
             except (HTTPError, URLError, OSError, EOFError, lzma.LZMAError, gzip.BadGzipFile, ValueError) as exc:
                 if isinstance(exc, HTTPError):
                     exc.close()
@@ -207,7 +231,10 @@ class SnapshotHandler(BaseHTTPRequestHandler):
                 )
             self.respond(status, body, send_body)
         except (HTTPError, URLError, OSError, ValueError, subprocess.SubprocessError) as exc:
-            print(f"Snapshot proxy request failed: {type(exc).__name__}: {exc}", flush=True)
+            print(
+                f"Snapshot proxy request failed for {self.path}: {type(exc).__name__}: {exc}",
+                flush=True,
+            )
             self.respond(503, b"Pinned Snapshot source unavailable\n", send_body)
 
     def respond(self, status, body, send_body):
