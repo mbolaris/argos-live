@@ -19,13 +19,14 @@ p { line-height: 1.6; color: var(--muted); }
 .intro { font-size: 16px; max-width: 64ch; margin: 0; }
 section { margin-top: 40px; }
 a { color: var(--blue); }
-button, input, textarea { font: inherit; }
+button, input, textarea, select { font: inherit; }
 button { min-height: 44px; margin-top: 18px; padding: 11px 18px; border: 1px solid #599f9d; border-radius: 10px; background: var(--accent); color: #082627; font-weight: 650; cursor: pointer; max-width: 100%; }
 button:hover:not(:disabled) { filter: brightness(1.08); }
 button:disabled { opacity: .5; cursor: default; }
-button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); vertical-align: middle; }
-textarea, input[type="text"] { display: block; width: 100%; background: var(--canvas); color: var(--text); padding: 13px; margin: 8px 0 18px; border: 1px solid #506576; border-radius: 10px; font-size: 16px; }
+textarea, input[type="text"], select { display: block; width: 100%; background: var(--canvas); color: var(--text); padding: 13px; margin: 8px 0 18px; border: 1px solid #506576; border-radius: 10px; font-size: 16px; }
+select option { background: var(--canvas); color: var(--text); }
 textarea { resize: vertical; }
 .notice { margin: 24px 0; padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .notice p:last-child { margin-bottom: 0; }
@@ -2042,12 +2043,17 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .replay-checks li.ok { color: #9de8d8; }
 .replay-checks li.no { color: #f3b3a2; }
 .replay-diagnosis { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
-/* U10: the everyday-assistant trial reuses the Improve card styles. */
+/* U10: the optional practice trial reuses the Improve card styles. */
 .assistant-trial { margin: 24px 0 8px; padding: 22px 24px; border: 1px solid #2c4252; border-radius: 16px; background: #0f1c26; }
 .assistant-trial .mission-label { color: var(--blue); margin: 0 0 6px; }
 .assistant-trial h4 { margin: 0 0 8px; font-size: 20px; }
 .assistant-trial-actions { display: grid; gap: 9px; margin-top: 12px; }
 .assistant-trial-actions > button { width: 100%; margin: 0; }
+.assistant-trial-practice-launch { padding: 2px 0; }
+.assistant-trial-practice-launch > summary { width: fit-content; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
+.assistant-trial-practice-launch > p { margin: 8px 0; color: var(--muted); font-size: 13px; }
+.assistant-trial-practice-launch > button { width: 100%; margin: 0; }
+.assistant-trial-practice-launch[hidden] { display: none; }
 .assistant-trial-alternatives { padding: 2px 0; }
 .assistant-trial-alternatives > summary { width: fit-content; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
 .assistant-trial-alternatives > button { width: 100%; margin: 9px 0 0; }
@@ -2314,6 +2320,7 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .history-verdict { font-weight: 700; text-transform: uppercase; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
 .history-verdict.kept { background: #0f302b; color: #9de8d8; }
 .history-verdict.restored { background: #2f2518; color: var(--amber); }
+.history-verdict.practice-only { background: #2b2c36; color: #c7c7f2; }
 .history-verdict.skipped { background: #202b36; color: var(--muted); }
 .auto-climb-summary-actions { margin-top: 14px; }
 .auto-climb-summary-actions button { margin: 0; width: 100%; }
@@ -2341,6 +2348,9 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .proctor-campaign-actions span { color: var(--muted); font-size: 13px; }
 .proctor-campaign-progress { padding: 9px 12px; border-radius: 8px; background: #10272a; border: 1px solid #315b55; font-size: 13px; }
 .proctor-campaign-result { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-radius: 8px; background: #101b27; font-size: 13px; }
+.ssh-recovery-card { margin: 18px 0; border-left: 3px solid var(--accent); }
+.ssh-recovery-detail { color: var(--muted); font-size: 13px; }
+.ssh-recovery-card button { min-height: 42px; }
 .improve-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 10px; margin: 16px 0; }
 .improve-stat { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--raised); min-width: 0; }
 .improve-stat span { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
@@ -2352,5 +2362,4 @@ h1 { margin-top: 30px; font-size: clamp(32px, 5vw, 52px); }
 .improve-items li span { color: var(--muted); overflow-wrap: anywhere; }
 .improve-items li.improve-ok { border-left-color: var(--accent); }
 .improve-items li.improve-miss { border-left-color: var(--amber); }
-.improve-chart { width: 100%; height: auto; display: block; }
 .improve-journal { margin: 0; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; color: var(--muted); }

@@ -37,6 +37,8 @@ install -D -m 755 "$src/scripts/argos-collect-boot" "$work/config/includes.chroo
 install -D -m 755 "$src/scripts/argos-export-boot" "$work/config/includes.chroot/usr/local/sbin/argos-export-boot"
 install -D -m 755 "$src/runtime/argos-refresh-runtime" "$work/config/includes.chroot/usr/local/sbin/argos-refresh-runtime"
 install -D -m 755 "$src/runtime/argos-ssh-ready" "$work/config/includes.chroot/usr/local/sbin/argos-ssh-ready"
+install -D -m 755 "$src/runtime/argos-ssh-status" "$work/config/includes.chroot/usr/local/sbin/argos-ssh-status"
+install -D -m 755 "$src/runtime/argos-ssh-restart" "$work/config/includes.chroot/usr/local/sbin/argos-ssh-restart"
 install -D -m 755 "$src/scripts/argos-start-screensaver.sh" "$work/config/includes.chroot/usr/local/sbin/argos-start-screensaver"
 # Optional cached upstream archives are still hash-checked by the chroot hook.
 for archive in node.tar.xz ollama.tar.zst; do
@@ -54,7 +56,80 @@ mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
 mount -t sysfs sysfs "$builder/sys"
 trap 'umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
-chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --mirror-binary-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --security true --updates true --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=30 -o Acquire::Retries=3' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0' && lb build"
+# Let the bounded outer loop below retry transient package failures. Debian APT 3.0.3
+# can spin and grow memory while retrying delayed items (Debian bug #1152704);
+# Acquire::Retries=0 avoids that inner retry loop while cached packages survive each attempt.
+chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --mirror-binary-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --security true --updates true --apt-source-archives false --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::Languages=none -o Acquire::Queue-Mode=host -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=15 -o Acquire::http::Timeout=15 -o Acquire::Retries=0' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'"
+# Import only cached Debian package archives from prior interrupted hosted builds.
+# APT still validates selected package hashes against the signed snapshot indexes.
+if [[ -n ${ARGOS_LIVE_BUILD_CACHE_DIR:-} ]]; then
+  expected_cache_dir="$src/.argos-live-package-cache"
+  [[ "$ARGOS_LIVE_BUILD_CACHE_DIR" == "$expected_cache_dir" ]] || {
+    echo 'Unexpected live-build package cache path.' >&2
+    exit 1
+  }
+  for package_cache in packages.bootstrap packages.chroot packages.binary; do
+    source_cache="$ARGOS_LIVE_BUILD_CACHE_DIR/$package_cache"
+    target_cache="$work/cache/$package_cache"
+    mkdir -p "$target_cache"
+    if [[ -d "$source_cache" ]]; then
+      find "$source_cache" -maxdepth 1 -type f -name '*.deb' -exec cp -an -- {} "$target_cache/" \;
+    fi
+  done
+fi
+live_build_log=$(mktemp /var/lib/argos-live/live-build.XXXXXX)
+cleanup_live_build_log() { rm -f -- "$live_build_log"; }
+trap 'cleanup_live_build_log; umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
+max_live_build_attempts=${ARGOS_LIVE_BUILD_ATTEMPTS:-5}
+for ((attempt=1; attempt<=max_live_build_attempts; attempt++)); do
+  chroot "$builder" /bin/bash -c 'cd /work && lb build' >"$live_build_log" 2>&1 &
+  live_build_pid=$!
+  (
+    while kill -0 "$live_build_pid" 2>/dev/null; do
+      sleep 45
+      if kill -0 "$live_build_pid" 2>/dev/null; then
+        bytes=$(wc -c < "$live_build_log")
+        echo "Pinned live-build attempt $attempt remains active; captured $bytes log bytes."
+        if python3 "$src/scripts/report-iso-build.py" --scan-log-tail "$live_build_log"; then
+          tail -n 8 "$live_build_log"
+        else
+          echo 'Pinned live-build progress tail suppressed by the credential scan.'
+        fi
+      fi
+    done
+  ) &
+  heartbeat_pid=$!
+  if wait "$live_build_pid"; then
+    status=0
+  else
+    status=$?
+  fi
+  kill "$heartbeat_pid" 2>/dev/null || true
+  wait "$heartbeat_pid" 2>/dev/null || true
+  python3 "$src/scripts/report-iso-build.py" --scan-log "$live_build_log"
+  tail -n 80 "$live_build_log"
+  if (( status == 0 )); then
+    break
+  fi
+  if ! grep -Eqi "Couldn't download|TooManyRequests| 503 | 504 |Gateway Timeout|Connection (failed|timed out)|Temporary failure resolving|Could not connect" "$live_build_log"; then
+    echo 'Live-build failed for a non-transient reason; stopping without retry.' >&2
+    exit "$status"
+  fi
+  # Snapshot's CDN can return persistent 5xx responses for a single package while
+  # the byte-identical package remains available from Debian's current mirror.
+  # Only inject fallback bytes after matching package identity and SHA-256 against
+  # the package record from the already trusted Snapshot indexes in the built chroot.
+  python3 "$src/scripts/rescue-snapshot-package-cache.py" \
+    "$live_build_log" "$work/chroot" "$work/cache"
+  if (( attempt == max_live_build_attempts )); then
+    echo "Pinned live-build failed after $attempt transient-download attempts." >&2
+    exit "$status"
+  fi
+  delay=$((30 * attempt))
+  if (( delay > 120 )); then delay=120; fi
+  echo "Pinned live-build attempt $attempt hit a transient download error; retrying in ${delay}s with the existing stage cache." >&2
+  sleep "$delay"
+done
 mkdir -p "$src/artifacts"
 cp "$work/live-image-amd64.hybrid.iso" "$src/artifacts/argos-live-amd64.iso"
 cd "$src/artifacts"

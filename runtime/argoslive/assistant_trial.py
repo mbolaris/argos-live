@@ -1,4 +1,4 @@
-"""One reviewed, reversible change to the everyday assistant, measured through the assistant itself.
+"""One reversible instruction trial measured on short-passage practice questions.
 
 The change is an Argos-managed block appended to the workspace AGENTS.md. Personality
 files, OpenClaw configuration and Argos settings must stay byte-identical. Evidence comes
@@ -81,7 +81,7 @@ UNCHANGED = ['Model and its files', 'Personality (SOUL.md, IDENTITY.md, USER.md)
              'Tools, permissions and channels', 'Argos and OpenClaw settings']
 UNCERTAINTY = ('One run per task and only eight tasks; replies vary between runs, so a difference of one task '
                'is not meaningful. Automated text checks are limited evidence, not a general ability rating. '
-               'These are everyday-assistant results only, separate from lab scores.')
+               'These results cover only short-passage practice questions and do not predict performance on owner tasks.')
 OPINION_PREFIX = 'ARGOS_TRIAL_OPINION/1\n'
 QUOTE = re.compile(r'[“"]([^”"]{15,})[”"]')
 NOT_STATED = re.compile(r"\b(doesn['’]?t|does not|didn['’]?t|did not|isn['’]?t|is not|not|no)\b[^.?!]{0,60}?"
@@ -211,11 +211,13 @@ def compare(before, after):
         return sum(1 for r in rows if r['kind'] == kind and r[side]['passed'])
     totals = {kind: {'before': passed('before', kind), 'after': passed('after', kind),
                      'total': sum(1 for r in rows if r['kind'] == kind)} for kind in ('answer', 'not_stated', 'control')}
+    # This score selects a candidate for review and gates Auto Climb's
+    # independent holdout checks. It is never an owner-facing keep decision.
     suggestion = 'keep' if len(gains) >= 2 and not regressions else 'restore'
     return {'rows': rows, 'totals': totals, 'gains': gains, 'regressions': regressions,
             'gained_checks': sum(len(row['gained']) for row in rows),
             'regressed_checks': sum(len(row['regressed']) for row in rows),
-            'suggestion': suggestion, 'uncertainty': UNCERTAINTY, 'evidence': 'everyday-assistant'}
+            'suggestion': suggestion, 'uncertainty': UNCERTAINTY, 'evidence': 'practice-only'}
 
 
 def tested_change_ids(record):
@@ -243,15 +245,15 @@ def planned_changes(raw_before, previous_record=None):
 
 
 def session_result(experiments, selected_id=None):
-    """Keep each matched comparison distinct; only one candidate can remain on trial."""
+    """Keep practice comparisons distinct; an owner must choose what stays on trial."""
     selected = next((item for item in experiments if item['change']['id'] == selected_id), None)
     basis = selected or (experiments[0] if experiments else {})
     comparison = basis.get('comparison', {})
     return {**comparison, 'experiments': experiments, 'selected_change': selected_id,
-            'suggestion': 'keep' if selected else 'restore',
-            'uncertainty': ('Each idea had one pass through the same eight questions. Small differences are not meaningful on their own; '
-                            'this is evidence about these checks, not proof of a smarter assistant.'),
-            'evidence': 'everyday-assistant'}
+            'suggestion': 'review',
+            'uncertainty': ('Each idea had one pass through the same eight short-passage questions. Small differences are not meaningful on their own; '
+                            'these practice checks do not establish improvement on owner tasks.'),
+            'evidence': 'practice-only'}
 
 
 def opinion_prompt(result):
@@ -268,8 +270,8 @@ def opinion_prompt(result):
                        for kind, values in comparison['totals'].items()},
         })
     return (OPINION_PREFIX +
-            'You are the local assistant taking part in a small, private improvement game. In at most two short '
-            'first-person sentences, say which idea looks most promising from these counts and one thing you would like to investigate '
+            'You are the local assistant taking part in a small, private practice-question comparison. In at most two short '
+            'first-person sentences, describe one pattern in these counts and one kind of owner task that would need testing '
             'next (or say that you need more evidence). Be candid and curious. These checks are limited text '
             'heuristics: do not claim general ability, learning, statistical significance, or proven improvement. '
             'Do not change anything, call tools, or choose Keep/Restore; the owner decides. Suggest only a future '
@@ -981,7 +983,7 @@ class Controller:
                     templates = self.runner.bootstrap_templates()
                 except Exception:
                     self.message = ('I could not verify the pinned first-run workspace defaults. '
-                                    'No challenge was tested and no idea was applied.')
+                                    'No practice question was tested and no idea was applied.')
                     return 'failed'
             baseline = self._reconcile_openclaw_bootstrap(approved_raw, approved_fingerprint, templates,
                                                          approved_workspace)
@@ -993,7 +995,7 @@ class Controller:
             missing = (['AGENTS.md'] if raw_before is None else []) + [
                 name for name in OPENCLAW_REQUIRED_FIRST_RUN_FILES if name != 'AGENTS.md' and protected.get(name) is None]
             if missing and not callable(getattr(self.runner, 'seed_workspace_defaults', None)):
-                self.message = 'The first-run workspace setup is unavailable. No challenge was scored and no idea was applied.'
+                self.message = 'The first-run workspace setup is unavailable. No practice question was scored and no idea was applied.'
                 return 'failed'
             if missing and callable(getattr(self.runner, 'seed_workspace_defaults', None)):
                 if any(name not in templates for name in missing):
@@ -1001,7 +1003,7 @@ class Controller:
                     return 'failed'
                 self.phase = 'workspace'
                 self.message = ('Setting up only missing standard starter files from the pinned OpenClaw defaults. '
-                                'Existing files will not be overwritten. No challenge is scored yet.')
+                                'Existing files will not be overwritten. No practice question is scored yet.')
                 self.progress = {'side': 'before', 'done': 0, 'total': len(self.tasks['tasks']),
                                  'current': {'kind': 'setup', 'question': 'One quick private setup check before scoring.'},
                                  'latest': None, 'session_done': 0,
@@ -1013,7 +1015,7 @@ class Controller:
                 try:
                     self.runner.seed_workspace_defaults(missing, templates)
                 except Exception:
-                    self.message = ('The first-run setup could not be verified. No challenge was scored and no idea '
+                    self.message = ('The first-run setup could not be verified. No practice question was scored and no idea '
                                     'was applied; review the workspace before trying again.')
                     return 'failed'
                 if self.cancel_event.is_set():
@@ -1029,7 +1031,7 @@ class Controller:
                 remaining = (['AGENTS.md'] if raw_before is None else []) + [
                     name for name in OPENCLAW_REQUIRED_FIRST_RUN_FILES if name != 'AGENTS.md' and protected.get(name) is None]
                 if remaining:
-                    self.message = 'OpenClaw did not finish first-run setup. No challenge was scored and no idea was applied.'
+                    self.message = 'OpenClaw did not finish first-run setup. No practice question was scored and no idea was applied.'
                     return 'failed'
             if [change['id'] for change in plan] != [change['id'] for change in planned_changes(
                     raw_before, previous_record)]:
@@ -1039,7 +1041,7 @@ class Controller:
             self.progress = {'side': 'before', 'done': 0, 'total': len(self.tasks['tasks']),
                              'current': None, 'latest': None,
                              'session_done': 0, 'session_total': len(self.tasks['tasks']) * (1 + len(plan))}
-            self.message = ('First-run workspace is ready. Starting the scored challenges.' if initialized else None)
+            self.message = ('First-run workspace is ready. Starting the short-passage practice questions.' if initialized else None)
             return self.execute(plan, previous_record, expected_raw=raw_before,
                                 expected_fingerprint=protected, expected_workspace=workspace_before,
                                 bootstrap_templates=templates)
@@ -1271,7 +1273,7 @@ class Controller:
             if winner is None:
                 result['opinion'] = self.reflect(result, model)
                 self.session_result = result
-                self.message = 'No idea earned a clean two-challenge win. Your original setup is back; nothing new was kept.'
+                self.message = 'No idea cleared the practice review threshold. Your original setup is back; nothing new was kept.'
                 return 'no-improvement'
 
             selected = change_for(winner['change']['id'])

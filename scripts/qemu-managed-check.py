@@ -537,6 +537,8 @@ def proctor_failure_diagnostics(home):
             return {}
     turn = metadata('controller-turn.json')
     worker = metadata('controller-worker.json')
+    controller_failure = metadata('controller-failure.json').get('failure', {})
+    controller_failure = controller_failure if isinstance(controller_failure, dict) else {}
     reservation = metadata('reservation.json')
     names = {'proctor_start', 'proctor_status', 'proctor_item', 'proctor_answer',
              'proctor_continue', 'proctor_submit', 'proctor_host_submit', 'proctor_feedback', 'proctor_finalize'}
@@ -566,6 +568,47 @@ def proctor_failure_diagnostics(home):
                 'error_class': error if isinstance(error, str) and error in classes else 'other'})
     receipt['worker_state'] = (worker.get('state') if worker.get('state') in
                                ('starting', 'completed') else 'unknown')
+    # Preserve only fixed controller failure classes and bounded counters. The
+    # controller's raw worker output can contain model text, so never export it.
+    failure_codes = {'worker-output-limit', 'worker-exit', 'worker-response-invalid',
+                     'worker-group-still-live', 'turn-not-active', 'finish-exception'}
+    safe_failure = {}
+    code = controller_failure.get('code')
+    if isinstance(code, str) and code in failure_codes:
+        safe_failure['code'] = code
+    failure_classes = {'Busy', 'TimeoutExpired', 'ValueError', 'TypeError', 'KeyError',
+                       'OSError', 'RuntimeError', 'JSONDecodeError'}
+    exception_class = controller_failure.get('exception_class')
+    if isinstance(exception_class, str) and exception_class in failure_classes:
+        safe_failure['exception_class'] = exception_class
+    for key in ('returncode', 'stdout_bytes', 'stderr_bytes', 'live_group_members'):
+        value = controller_failure.get(key)
+        if type(value) is int and -255 <= value <= 2 * 1024 * 1024:
+            safe_failure[key] = value
+    response = controller_failure.get('worker_response')
+    if isinstance(response, dict):
+        safe_response = {}
+        safe_response['json_valid'] = response.get('json_valid') is True
+        if type(response.get('session_bound')) is bool:
+            safe_response['session_bound'] = response['session_bound']
+        status = response.get('status')
+        if isinstance(status, str) and status in {'ok', 'error'}:
+            safe_response['status'] = status
+        count = response.get('payload_count')
+        if type(count) is int and 0 <= count <= 10000:
+            safe_response['payload_count'] = count
+        error_kind = response.get('error_kind')
+        if isinstance(error_kind, str) and error_kind in {'incomplete_turn', 'hook_block'}:
+            safe_response['error_kind'] = error_kind
+        if response.get('error_present') in (True, False):
+            safe_response['error_present'] = response['error_present']
+        hook_code = response.get('hook_block_code')
+        if isinstance(hook_code, str) and hook_code in {
+                'host-slot-busy', 'session-binding-rejected', 'controller-request-rejected',
+                'invalid-admission-response', 'controller-transport', 'other-hook-block'}:
+            safe_response['hook_block_code'] = hook_code
+        safe_failure['worker_response'] = safe_response
+    receipt['controller_failure'] = safe_failure
     stats = turn.get('admission_diagnostics', {})
     receipt['admission_counters'] = {}
     if isinstance(stats, dict):

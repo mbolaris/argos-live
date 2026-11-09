@@ -39,20 +39,20 @@
         <h3 id="cc-next-title">Checking your systems…</h3>
         <p id="cc-next-reason"></p>
         <section id="cc-next-trial-offer" class="cc-next-trial-offer" hidden aria-label="What GO will do">
-          <p class="cc-next-trial-kicker">ONE GO · 3 IDEAS · 8 CHALLENGES EACH</p>
-          <p>I’ll show every answer, then recommend a winner. You choose Keep or Restore. Uses your current model; no download or storage setup.</p>
+          <p class="cc-next-trial-kicker">OPTIONAL PRACTICE TRIAL · 3 IDEAS · 8 QUESTIONS EACH</p>
+          <p>Review how instruction changes affect these short-passage questions. The results do not predict performance on your actual tasks. You choose Keep or Restore. Uses your current model; no download or storage setup.</p>
           <p id="cc-next-trial-first-run" class="cc-next-trial-first-run" hidden></p>
           <details id="cc-next-trial-ideas-details">
             <summary id="cc-next-trial-ideas-summary">See the exact ideas</summary>
             <div id="cc-next-trial-instructions" class="cc-next-trial-instructions"></div>
           </details>
           <details>
-            <summary>See the eight challenges</summary>
+            <summary>See the eight practice questions</summary>
             <ol id="cc-next-trial-tasks"></ol>
           </details>
         </section>
         <div class="cc-hero-actions">
-          <button id="cc-next-go" class="mission-primary cc-go-button" type="button" hidden aria-label="Go: start the next mission">Start improvement round <span aria-hidden="true">▶</span></button>
+        <button id="cc-next-go" class="mission-primary cc-go-button" type="button" hidden aria-label="Go: start the next mission">Start practice trial <span aria-hidden="true">▶</span></button>
         </div>
         <div class="cc-chat-area"><span>Have a task or a question?</span> <button id="chat" class="mission-secondary" type="button" disabled>Open chat ↗</button></div>
         <details class="mission-rules"><summary>What will it test?</summary><div class="mission-preview-box" aria-label="Mission scope and qualification requirements">
@@ -71,6 +71,12 @@
         </div></details>
         <p id="cc-live-trial" role="status" aria-live="polite"></p>
       </article>
+      <section id="ssh-recovery" class="notice ssh-recovery-card" aria-label="Remote access recovery">
+        <strong>Paired remote access</strong>
+        <p id="ssh-recovery-status" role="status" aria-live="polite">Checking encrypted storage and SSH pairing…</p>
+        <p class="ssh-recovery-detail">After encrypted persistence and the paired key-only policy pass, Argos can start the existing service. If systemd’s SSH socket is holding port 22, approval stops that socket for this boot before starting the paired service. Keys and persistent SSH settings are unchanged.</p>
+        <button id="ssh-recovery-start" type="button" hidden>Approve one safe SSH start</button>
+      </section>
         <div id="arena" class="arena-deck" hidden aria-live="polite">
           <div class="watch-heading"><div><p class="mission-label">Live mission</p><h3>Watch your AI work</h3></div><button id="lab-cancel" type="button" disabled>Stop test</button></div>
           <p id="watch-status" class="watch-status" role="status">Getting ready…</p>
@@ -129,7 +135,7 @@
             <strong id="arena-summary-headline">Trial complete</strong>
             <p id="arena-summary-detail"></p>
             <div class="arena-summary-actions">
-              <button id="arena-next-action" type="button" class="mission-primary arena-summary-btn">Review result &amp; debrief ↑</button>
+              <button id="arena-next-action" type="button" class="mission-secondary arena-summary-btn">Review result &amp; debrief ↑</button>
               <button id="arena-secondary-action" type="button" class="mission-secondary arena-summary-btn" hidden>Restore standard</button>
             </div>
           </div>
@@ -216,14 +222,14 @@
               </div>
               <span id="auto-climb-badge" class="auto-climb-badge">Ready</span>
             </div>
-            <p id="auto-climb-message" class="auto-climb-message">Find my AI’s level → try the best eligible model for this machine → climb again → improve its configuration → stop with an understandable result.</p>
+            <p id="auto-climb-message" class="auto-climb-message">General practice for short synthetic tasks. It can show whether those tasks improve, but it does not measure your Argos support work or justify a model change. Use the task-focused campaign below for your recurring goal.</p>
 
             <!-- Start View -->
             <div id="auto-climb-start-view" class="auto-climb-panel">
               <div class="auto-climb-envelope-summary">
                 <span class="envelope-item"><strong>Duration:</strong> 60m budget</span>
                 <span class="envelope-item"><strong>Experiments:</strong> ≤6 completed</span>
-                <span class="envelope-item"><strong>Downloads:</strong> ≤1 model (≤8 GiB)</span>
+                <span class="envelope-item"><strong>Model downloads:</strong> off by default</span>
               </div>
               <div class="auto-climb-start-actions">
                 <button id="auto-climb-start-btn" type="button" class="auto-climb-primary">Start Auto Climb <span aria-hidden="true">▶</span></button>
@@ -232,9 +238,10 @@
                 <summary>Session limits &amp; safety rules</summary>
                 <ul class="auto-climb-rules-list">
                   <li>Each experiment has a 30-second preview with Try now, Skip, Pause, and Stop.</li>
-                  <li>Candidate improvements are tested on practice challenges and confirmed by independent held-out validation.</li>
-                  <li>Improvements are kept automatically; non-improving changes are restored byte-for-byte.</li>
-                  <li>Stops honestly at measured plateau (3 attempts without gain) or budget exhaustion.</li>
+                  <li>Instruction changes are tested on short synthetic tasks and separate held-out examples. These results do not establish better boot recovery, support, or general ability.</li>
+                  <li>Model fit alone never proposes an upgrade. A model trial needs a separately defined owner task and evidence that model capability is the limiting factor.</li>
+                  <li>Auto Climb is practice only. Even a gain on its synthetic practice and held-out challenges is restored before everyday Argos resumes; it does not keep prompt or model changes.</li>
+                  <li>Stops after three completed experiments without a repeatable gain on these practice tasks, or when the time budget ends. This is not an owner-task result.</li>
                 </ul>
               </details>
             </div>
@@ -394,11 +401,11 @@
               <p id="cc-debrief-note"></p>
             </article>
             <section id="assistant-trial" class="assistant-trial" aria-labelledby="assistant-trial-title" hidden>
-              <p class="mission-label">Your everyday assistant</p>
-              <h4 id="assistant-trial-title">Let your AI prove one change</h4>
+              <p class="mission-label">Short-passage practice</p>
+              <h4 id="assistant-trial-title">Review a practice change</h4>
               <p id="assistant-trial-text"></p>
               <section id="assistant-trial-plan" class="assistant-trial-plan" hidden aria-label="The approved improvement test">
-                <p class="assistant-trial-plan-label">ONE GO · SAME EIGHT CHALLENGES · YOU CHOOSE WHAT STAYS</p>
+                <p class="assistant-trial-plan-label">PRACTICE ONLY · SAME EIGHT QUESTIONS · YOU CHOOSE WHAT STAYS</p>
                 <p id="assistant-trial-plan-summary"></p>
                 <details id="assistant-trial-plan-details">
                   <summary>See the exact ideas and test</summary>
@@ -407,14 +414,14 @@
                   <ol id="assistant-trial-tasks"></ol>
                 </details>
               </section>
-              <div id="assistant-trial-progress" class="assistant-trial-watch" role="region" aria-label="Assistant trial watch" hidden>
+              <div id="assistant-trial-progress" class="assistant-trial-watch" role="region" aria-label="Practice trial watch" hidden>
                 <div class="trial-watch-topline"><span id="assistant-trial-stage" class="trial-watch-stage" role="status" aria-live="polite">Getting ready</span><strong id="assistant-trial-count">0 of 32 model replies</strong><button id="assistant-trial-cancel" type="button" class="mission-secondary" hidden>Stop the trial</button></div>
                 <progress id="assistant-trial-bar" max="32" value="0" aria-label="Model reply progress"></progress>
-                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight challenges in the current round"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div id="assistant-trial-pips" class="trial-watch-pips" role="img" aria-label="Eight practice questions in the current round"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
                 <div class="trial-watch-steps" aria-hidden="true"><span id="assistant-trial-step-before">BASELINE</span><span id="assistant-trial-step-change">IDEAS</span><span id="assistant-trial-step-after">SAME QUESTIONS</span></div>
                 <article class="trial-watch-current">
-                  <p class="trial-watch-kicker">THE CHALLENGE</p>
-                  <h5 id="assistant-trial-question">Preparing the first challenge…</h5>
+                  <p class="trial-watch-kicker">PRACTICE QUESTION</p>
+                  <h5 id="assistant-trial-question">Preparing the first practice question…</h5>
                   <p id="assistant-trial-thinking" class="trial-watch-thinking" role="status" aria-live="polite">Getting the assistant ready…</p>
                   <details id="assistant-trial-source" open hidden><summary>Source notice</summary><p id="assistant-trial-source-text"></p></details>
                 </article>
@@ -429,7 +436,11 @@
               <div class="assistant-trial-actions">
                 <button id="assistant-trial-keep" type="button" class="mission-primary" hidden>Keep in my assistant</button>
                 <button id="assistant-trial-restore" type="button" class="mission-secondary" hidden>Restore the original</button>
-                <button id="assistant-trial-next-round" type="button" class="mission-primary" hidden>Run the next improvement round</button>
+                <details id="assistant-trial-practice-launch" class="assistant-trial-practice-launch" hidden>
+                  <summary>Optional practice trial</summary>
+                  <p>Short-passage scores are practice evidence only; they do not show whether a change helps with your real tasks.</p>
+                  <button id="assistant-trial-next-round" type="button" class="mission-primary" hidden>Start optional practice trial</button>
+                </details>
                 <button id="assistant-trial-chat" type="button" class="mission-primary" hidden>Try it with a real question</button>
                 <details id="assistant-trial-alternatives" class="assistant-trial-alternatives" hidden>
                   <summary>Choose a different outcome</summary>
@@ -574,7 +585,7 @@
     <details id="workbench" class="workbench"><summary>Models &amp; setup <span>Storage, downloads, test records and hardware</span></summary>
     <section class="notice" aria-label="Assistant status">
       <strong id="assistant-status">Checking your workspace…</strong>
-      <p id="assistant-help">This page observes your workspace. It does not start or change services.</p>
+      <p id="assistant-help">This page checks your workspace and manages the local assistant service.</p>
       <div id="startup-controls" hidden>
         <p id="startup-status" role="status" aria-live="polite">Preparing your assistant…</p>
         <progress id="startup-progress" max="5" value="0" aria-label="Assistant setup progress"></progress>
@@ -587,16 +598,33 @@
     <nav class="lab-nav" aria-label="Workspace sections"><a href="#improve-title">Self-improvement</a><a href="#cc-title">Mission Control</a><a href="#benchmarks-title">Test performance</a><a href="#storage-title">Choose model storage</a><a href="#models-title">Explore models</a><a href="#capabilities-title">Add a capability</a><a href="#hardware-title">Hardware details</a></nav>
     <section aria-labelledby="improve-title" id="improve">
       <h2 id="improve-title">Self-improvement</h2>
-      <p>Tell your assistant <strong>"improve yourself"</strong> in chat. It benchmarks itself, upgrades and reconfigures, and keeps only what measurably helps. Watch its tool calls in the chat; follow its scores here.</p>
+      <p>Tell your assistant <strong>"improve yourself"</strong> in chat. Start with a task you care about, define what a good result looks like, and verify one reversible change at a time. Fit estimates and Argos-authored practice scores do not establish that an upgrade helps your work.</p>
       <article class="card proctor-campaign-card" id="proctor-campaign-card" hidden>
         <div class="proctor-campaign-header">
-          <div><p class="mission-label">Managed ability check</p><h3>Proctor + self-improvement</h3></div>
+          <div><p class="mission-label">Owner task and evidence</p><h3>Task-focused self-improvement</h3></div>
           <span id="proctor-campaign-phase" class="auto-climb-badge">Ready</span>
         </div>
-        <p>One dashboard action runs the host-selected eight-item composed practice, then gives Argos up to four bounded campaign turns to inspect its instructions, test a reversible idea, compare saved runs, and audit the result. It can take a while, but no terminal commands or reboot are needed. Practice is coaching only; no gain is claimed without audited benchmark evidence.</p>
-        <p class="proctor-campaign-disclosure">Starting pauses everyday chat and writes signed practice, benchmark records, and any reversible instruction trial to verified encrypted persistent Argos storage. Argos may keep a change only through the existing evidence and host-resolution rules. The dashboard restarts Argos and verifies a reply afterward. No terminal commands or reboot are needed.</p>
+        <p>Describe one recurring task you want Argos to improve and how you will recognize success. The campaign uses that goal directly; it does not require the fixed Proctor quiz. If available measures cannot test your task, Argos reports the gap instead of claiming improvement. Proctor practice remains a separate coaching check.</p>
+        <p class="proctor-campaign-disclosure">The task and success measure are sent to Argos for this local run. Starting pauses everyday chat and writes benchmark records and any reversible instruction trial to verified encrypted persistent Argos storage. Argos may keep a change only through the existing evidence and host-resolution rules. The dashboard restarts Argos and verifies a reply afterward. No terminal commands or reboot are needed.</p>
+        <label for="proctor-owner-task">Recurring task</label>
+        <textarea id="proctor-owner-task" maxlength="1200" rows="3" placeholder="Describe the recurring outcome you want Argos to improve."></textarea>
+        <label for="proctor-success-criteria">What counts as success?</label>
+        <textarea id="proctor-success-criteria" maxlength="1200" rows="2" placeholder="State what observable result would count as success."></textarea>
+          <label for="proctor-measurement-suite">Optional fixed suite (leave at None unless it directly measures this task)</label>
+          <select id="proctor-measurement-suite">
+            <option value="">None fits / not sure — do not use benchmark scores</option>
+            <option value="quick">Quick — 20 synthetic arithmetic, choice, instruction, JSON, and tool-call items</option>
+            <option value="standard">Standard — 70 synthetic arithmetic, choice, instruction, JSON, and tool-call items</option>
+            <option value="challenge">Challenge — 40 harder synthetic arithmetic, choice, instruction, JSON, and tool-call items</option>
+            <option value="tool-schema">Tool schema — 40 synthetic tool name and argument formatting items</option>
+            <option value="tool-plan">Tool plan — 40 synthetic multi-constraint tool selection items</option>
+            <option value="tool-sequence">Tool sequence — 40 synthetic ordered call-planning items; calls are not executed</option>
+            <option value="documents-short">Read this brief — 24 short passages (answers, quotes, “not stated”)</option>
+            <option value="owner-recovery-decision">Owner recovery decisions — 8 simulated receipts; decision-only, uncalibrated, no real recovery</option>
+          </select>
+          <p>These fixed tasks are bundled with Argos. “Read this brief” covers only its short passages; it does not measure long-document or file-reading work. Leave the selector at None unless a suite’s exact tasks directly test the recurring goal above. With “None fits,” Argos will inspect and report what task-specific evaluation is missing without changing instructions or using quiz scores.</p>
         <div class="proctor-campaign-actions">
-          <button id="proctor-campaign-start" type="button">Start Proctor campaign</button>
+          <button id="proctor-campaign-start" type="button">Start task-focused campaign</button>
           <button id="proctor-campaign-recover" type="button" hidden>Retry Argos recovery</button>
           <span id="proctor-campaign-elapsed"></span>
         </div>
@@ -606,9 +634,7 @@
       </article>
       <div class="improve-stats">
         <div class="improve-stat"><span>Model</span><strong id="improve-model">-</strong></div>
-        <div class="improve-stat"><span>Best score</span><strong id="improve-best">-</strong></div>
-        <div class="improve-stat"><span>Since first run</span><strong id="improve-gain">-</strong></div>
-        <div class="improve-stat"><span>Assistant runs</span><strong id="improve-count">0</strong></div>
+        <div class="improve-stat"><span>Diagnostic runs</span><strong id="improve-count">0</strong></div>
       </div>
       <article class="card improve-live" id="improve-live" hidden>
         <h3 id="improve-live-title">Live test</h3>
@@ -617,9 +643,9 @@
         <ol id="improve-live-items" class="improve-items"></ol>
       </article>
       <article class="card">
-        <h3>Score history</h3>
-        <svg id="improve-chart" class="improve-chart" viewBox="0 0 640 230" role="img" aria-label="Assistant benchmark scores over time"></svg>
-        <p id="improve-chart-note">No assistant benchmark yet.</p>
+        <h3>Diagnostic history</h3>
+        <p>Each row is one fixed probe run. Different suites or suite versions measure different things, so these scores are not a shared progress scale and do not establish owner-task performance.</p>
+        <ol id="improve-run-history" class="improve-items"></ol>
       </article>
       <article class="card">
         <h3>Agent journal</h3>
@@ -628,11 +654,11 @@
     </section>
     <section aria-labelledby="benchmarks-title">
       <h2 id="benchmarks-title">Detailed test records</h2>
-      <p>How fast does it answer? Which tasks does it get right? Build a baseline you can compare after each model upgrade.</p>
+      <p>How fast does it answer, and which fixed probe items does it get right? Use those records to diagnose a specific gap; they do not rank models for your work without a matched owner-task evaluation.</p>
       <div class="cards">
         <article class="card"><h3>Responsiveness</h3><p>Output tokens/s measures generation speed. First-token latency measures the wait before an answer starts. Prompt tokens/s measures how quickly it reads input.</p></article>
-        <article class="card"><h3>Tested ability</h3><p>Fixed, scored tasks measure specific abilities. Quick and standard provide the original probes; challenge adds multi-step tasks; tool-schema checks proposed calls against explicit schemas; tool-plan adds multi-constraint selection; tool-sequence checks ordered calls with explicit references to earlier results. Bundled held-out items are internal transfer checks, not independent validation or a test of real tool execution.</p></article>
-        <article class="card"><h3>Your upgrade loop</h3><p>1. Test this model. 2. Choose an upgrade for a useful task. 3. Repeat the same suite. 4. Compare gains and regressions. Keep speed and quality separate.</p></article>
+        <article class="card"><h3>Tested ability</h3><p>Fixed, scored tasks measure only the behaviors their prompts and scorers specify. Quick and standard provide original probes; challenge adds multi-step tasks; tool-schema checks proposed calls against explicit schemas; tool-plan adds multi-constraint selection; tool-sequence checks ordered calls. Bundled held-out items are internal transfer checks, not independent validation or a test of real tool execution. Uncalibrated Proctor practice is coaching, not ability verification.</p></article>
+        <article class="card"><h3>Improve a useful task</h3><p>1. Name a recurring task and define success. 2. Save a baseline. 3. Change one likely cause. 4. Repeat the same task and compare outcome, time, reliability, and owner effort. Treat synthetic probes as diagnostics, not the goal.</p></article>
       </div>
       <div id="lab-controls" class="notice" hidden>
         <h3>Live proving ground</h3>

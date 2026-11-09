@@ -28,7 +28,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None, ssh_recovery=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -42,6 +42,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.assistant_trial = assistant_trial
         self.auto_climb = auto_climb
         self.proctor_campaign = proctor_campaign
+        self.ssh_recovery = ssh_recovery
         self.storage = storage
         self.command = command
         self.status_provider = status_provider
@@ -120,6 +121,15 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == '/api/proctor-campaign':
             self.reply(200, self.server.proctor_campaign.snapshot() if self.server.proctor_campaign else {'available': False}, head=head)
+            return
+        if path == '/api/ssh-recovery':
+            if not self.server.ssh_recovery:
+                self.reply(200, {'available': False}, head=head)
+            else:
+                try:
+                    self.reply(200, self.server.ssh_recovery.snapshot(), head=head)
+                except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                    self.reply(503, {'error': 'Paired SSH status unavailable'}, head=head)
             return
         if path == '/api/auto-climb':
             self.reply(200, self.server.auto_climb.snapshot() if self.server.auto_climb else {'available': False}, head=head)
@@ -260,14 +270,49 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized(mutation=True):
             return
         path = urlsplit(self.path).path
-        if self.command == 'POST' and self.server.proctor_campaign and path in (
-                '/api/proctor-campaign/start', '/api/proctor-campaign/recover'):
-            if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
-                self.reply(400, {'error': 'An empty request is required'})
+        if path == '/api/ssh-recovery/start' and self.server.ssh_recovery:
+            lengths = self.headers.get_all('Content-Length')
+            if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                    or len(lengths[0]) > 5 or not lengths[0].isdigit() or
+                    not 1 <= int(lengths[0]) <= 2048 or
+                    self.headers.get('Content-Type') != 'application/json'):
+                self.reply(400, {'error': 'A bounded SSH approval is required'})
                 return
             try:
-                action = self.server.proctor_campaign.start if path.endswith('/start') else self.server.proctor_campaign.recover
-                self.reply(200, action())
+                self.connection.settimeout(3)
+                body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                if not isinstance(body, dict) or set(body) != {'receipt_id', 'boot_id'}:
+                    raise ValueError('Invalid SSH approval')
+                result = self.server.ssh_recovery.restart(body['receipt_id'], body['boot_id'])
+                self.reply(202, result)
+            except (ValueError, OSError, UnicodeError, TypeError, KeyError):
+                self.reply(409, {'error': 'SSH is not eligible for the requested safe start'})
+            return
+        if self.command == 'POST' and self.server.proctor_campaign and path in (
+                '/api/proctor-campaign/start', '/api/proctor-campaign/recover'):
+            try:
+                if path.endswith('/start'):
+                    lengths = self.headers.get_all('Content-Length')
+                    if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                            or len(lengths[0]) > 5 or not lengths[0].isdigit() or
+                            not 1 <= int(lengths[0]) <= 10000 or
+                            self.headers.get('Content-Type') != 'application/json'):
+                        self.reply(400, {'error': 'A bounded task and success measure are required'})
+                        return
+                    body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    if (not isinstance(body, dict) or
+                            set(body) - {'owner_task', 'success_criteria', 'measurement_suite'} or
+                            not {'owner_task', 'success_criteria'} <= set(body)):
+                        self.reply(400, {'error': 'Provide owner_task, success_criteria, and optional measurement_suite'})
+                        return
+                    response = self.server.proctor_campaign.start(
+                        body['owner_task'], body['success_criteria'], body.get('measurement_suite'))
+                else:
+                    if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                        self.reply(400, {'error': 'An empty request is required'})
+                        return
+                    response = self.server.proctor_campaign.recover()
+                self.reply(200, response)
             except (ValueError, OSError) as exc:
                 from argoslive.proctor_campaign import Refused
                 self.reply(409, {'error': str(exc) if isinstance(exc, Refused) else 'Proctor campaign unavailable'})

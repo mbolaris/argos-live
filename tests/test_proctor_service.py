@@ -1,11 +1,12 @@
 import json
 import hashlib
+import io
 import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager, ExitStack, redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import patch, Mock
 
@@ -43,15 +44,106 @@ class ProctorServiceTests(unittest.TestCase):
         self.owner_config.write_text(json.dumps(owner))
 
     def test_campaign_prompt_rejects_diagnoses_from_underspecified_items(self):
+        prompt = proctor_service.CAMPAIGN_MESSAGE.format(
+            owner_task=json.dumps('recover Argos after reboot'),
+            success_criteria=json.dumps('ready after unlock with no terminal command'))
         self.assertIn('inspect the exact item prompt and scorer requirements', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('do not infer intent from hidden answer labels', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('separately versioned, fully specified form', proctor_service.CAMPAIGN_MESSAGE)
         self.assertIn('immediately call argos_log', proctor_service.CAMPAIGN_MESSAGE)
-        self.assertIn('complete 70-task standard', proctor_service.CAMPAIGN_MESSAGE)
-        self.assertIn('separate 40-task challenge suite', proctor_service.CAMPAIGN_MESSAGE)
-        self.assertIn('use tool-sequence to probe ordered two- and three-call plans',
+        self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('click “Approve one safe SSH start”', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('call only argos_inspect and argos_ssh_status, in that order, one at a time',
                       proctor_service.CAMPAIGN_MESSAGE)
-        self.assertIn('tool-sequence', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('Do not call shell, exec, browser, filesystem, or any other tools',
+                      proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('report that SSH is already healthy and no action is needed', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('Do not ask for terminal commands, reboot, re-pairing, or manual configuration',
+                      proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('do not suggest the approval button unless the signed facts allow it',
+                      proctor_service.CAMPAIGN_MESSAGE)
+        self.assertNotIn('complete 70-task standard', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertNotIn('separate 40-task challenge suite', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('no mandatory suite ladder or saturation escalation', proctor_service.CAMPAIGN_MESSAGE)
+        self.assertIn('recover Argos after reboot', prompt)
+        self.assertIn('ready after unlock with no terminal command', prompt)
+        self.assertIn('make no instruction or model change', prompt)
+        self.assertNotIn('Proctor feedback', prompt)
+
+    def test_unmeasured_campaign_uses_compact_task_prompt(self):
+        prompt = proctor_service._campaign_prompt(
+            'recover Argos after reboot', 'ready after unlock with no terminal command', None)
+        self.assertIn('argos_inspect', prompt)
+        self.assertIn('argos_ssh_status', prompt)
+        self.assertIn('argos_audit_instructions', prompt)
+        self.assertIn('Approve one safe SSH start', prompt)
+        self.assertIn('Never request terminal commands, reboot, re-pairing', prompt)
+        self.assertIn('Report task-not-measured', prompt)
+        self.assertNotIn('two distinct matched baseline runs', prompt)
+        self.assertNotIn('argos_log', prompt)
+        self.assertLess(len(prompt), 2000)
+
+        measured = proctor_service._campaign_prompt(
+            'answer owner documents accurately', 'supported fact', 'documents-short')
+        self.assertIn('task-level evidence', measured)
+        self.assertIn('Owner-approved evaluation suite: documents-short', measured)
+        self.assertNotIn('No task-specific evaluation suite was approved', measured)
+
+    def test_unmeasured_followup_stays_task_focused(self):
+        prompt = proctor_service._campaign_followup(
+            2, [{'kind': 'inspect'}], {'missing': ['signed SSH status']},
+            owner_task='recover Argos after reboot',
+            success_criteria='ready after unlock with no terminal command')
+        self.assertIn('argos_ssh_status', prompt)
+        self.assertIn('argos_audit_instructions', prompt)
+        self.assertIn('No task-specific suite is approved', prompt)
+        self.assertNotIn('matched baselines', prompt)
+
+    def test_ssh_recovery_campaign_uses_one_tool_and_stops_after_signed_status(self):
+        provider = lambda: None
+        verifier = lambda _value: True
+        task = ('After I enter the USB passphrase, Argos is at the desktop but paired SSH is inactive. '
+                'Restore access with as few manual steps as safely possible.')
+        criteria = ('If signed status permits recovery, request only dashboard approval.')
+        self.assertTrue(proctor_service._is_ssh_recovery_task(task, criteria, None, provider, verifier))
+        reported_task = ('Recover Argos on Toronado when startup or remote access fails, '
+                         'with the owner priority of reducing manual recovery work.')
+        reported_criteria = ('For a naturally occurring real recovery, verify current host evidence '
+                             'and record owner actions; do not induce a failure.')
+        self.assertTrue(proctor_service._is_ssh_recovery_task(
+            reported_task, reported_criteria, None, provider, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, 'quick', provider, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(task, criteria, None, None, verifier))
+        self.assertFalse(proctor_service._is_ssh_recovery_task(
+            'Improve the model after startup', 'Keep the 27B model healthy.', None, provider, verifier))
+
+        prompt = proctor_service._campaign_prompt(task, criteria, None, recovery_mode=True)
+        self.assertIn('exactly one call to argos_ssh_status', prompt)
+        self.assertIn('tell the owner once to click', prompt)
+        self.assertIn('Never request terminal commands', prompt)
+        self.assertNotIn('argos_inspect', prompt)
+        self.assertNotIn('argos_audit_instructions', prompt)
+
+        assessment = proctor_service._campaign_assessment(
+            [{'kind': 'ssh_status', 'status': 'available', 'host_observation': {
+                'schema': 'argos-host-observation/1', 'system': 'paired-ssh', 'verified': True,
+                'state': 'ready', 'persistence_state': 'verified', 'paired_policy_valid': True,
+                'ssh_enabled': True, 'ssh_active': True, 'port22_listening': True,
+                'restart_eligible': False, 'owner_approval_available': False,
+                'recovery_job_state': 'idle', 'failure_code': None,
+            }}], recovery_mode=True)
+        self.assertTrue(assessment['ready'])
+        self.assertTrue(assessment['safe_to_release'])
+        self.assertEqual(assessment['outcome'], 'task-not-measured')
+        self.assertTrue(assessment['host_observation']['verified'])
+        self.assertEqual(assessment['host_observation']['state'], 'ready')
+        self.assertNotIn('boot_id', assessment['host_observation'])
+        self.assertFalse(proctor_service._campaign_assessment([], recovery_mode=True)['ready'])
+
+        followup = proctor_service._campaign_followup(
+            2, [], {'missing': ['one signed SSH status check']}, recovery_mode=True)
+        self.assertIn('exactly one call', followup)
+        self.assertNotIn('argos_audit_instructions', followup)
 
     @unittest.skipIf(os.name == 'nt', 'POSIX directory modes are not available')
     def test_private_directory_tightens_existing_owned_state_directories(self):
@@ -186,26 +278,91 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('group:fs', config['tools']['deny'])
         self.assertIn('exec', config['tools']['deny'])
         self.assertNotIn('argos_proctor_start', config['tools']['alsoAllow'])
+        self.assertIn('argos_ssh_status', config['tools']['alsoAllow'])
         self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
 
-    def test_improvement_campaign_starts_only_after_completed_practice(self):
+    def test_unmeasured_campaign_profile_grants_only_read_and_audit_tools(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        _root, _workspace, config_path, _digest = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='campaign',
+            campaign_tools=proctor_service.UNMEASURED_CAMPAIGN_TOOL_NAMES)
+        config = json.loads(config_path.read_text())
+        self.assertEqual(config['tools']['alsoAllow'], ['argos_inspect', 'argos_audit_instructions',
+                                                        'argos_ssh_status'])
+        self.assertNotIn('argos_evaluate', config['tools']['alsoAllow'])
+        self.assertNotIn('argos_edit_instructions', config['tools']['alsoAllow'])
+        self.assertIn('exec', config['tools']['deny'])
+        with self.assertRaisesRegex(ValueError, 'subset of host-approved tools'):
+            proctor_service.private_profile(self.home, 'qwen3.8:27b',
+                plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config,
+                purpose='campaign', campaign_tools=['exec'])
+
+    def test_practice_profile_does_not_expose_live_ssh_status(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        _root, _workspace, config_path, _digest = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='practice')
+        config = json.loads(config_path.read_text())
+        self.assertNotIn('argos_ssh_status', config['tools']['alsoAllow'])
+
+    def test_campaign_tool_grant_change_gets_a_new_profile_and_preserves_old_bytes(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        first = proctor_service.private_profile(
+            self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+            owner_config_path=self.owner_config, purpose='campaign')
+        prior = first[2].read_bytes()
+        with patch.object(proctor_service, 'CAMPAIGN_TOOL_NAMES',
+                          [*proctor_service.CAMPAIGN_TOOL_NAMES, 'fixture-capability']):
+            second = proctor_service.private_profile(
+                self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+                owner_config_path=self.owner_config, purpose='campaign')
+        self.assertNotEqual(first[2], second[2])
+        self.assertEqual(first[2].read_bytes(), prior)
+        self.assertIn('fixture-capability', json.loads(second[2].read_text())['tools']['alsoAllow'])
+
+    def test_improve_cli_injects_and_closes_the_ssh_status_controller(self):
+        status_provider = Mock(return_value={'available': False})
+        status_verifier = Mock(return_value=False)
+        close = Mock()
+        recovery = SimpleNamespace(proctor_status=status_provider,
+                                   verify_proctor_status=status_verifier,
+                                   close=close)
+        result = {'status': 'completed', 'campaign': {
+            'saved_evaluation_ids': [], 'controller_turns': 1,
+            'outcome': 'task-not-measured'}}
+        with patch.object(Path, 'home', return_value=self.home), \
+                patch('argoslive.ssh_recovery.Controller', return_value=recovery), \
+                patch.object(proctor_service, 'run_improvement', return_value=result) as run, \
+                redirect_stdout(io.StringIO()):
+            exit_code = proctor_service.main([
+                'improve', '--owner-task', 'recover after boot',
+                '--success-criteria', 'Argos is ready'])
+        self.assertEqual(exit_code, 0)
+        self.assertIs(run.call_args.kwargs['ssh_status_provider'], status_provider)
+        self.assertIs(run.call_args.kwargs['ssh_status_verifier'], status_verifier)
+        close.assert_called_once_with()
+
+    def test_improvement_campaign_uses_owner_task_without_running_practice(self):
         state_path = self.home / '.config/argos-live/state.json'
         state_path.parent.mkdir(parents=True)
         state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
-        feedback = {'state': 'COMPLETED', 'correct': 3, 'total': 4, 'unanswered': 0}
         campaign = {'status': 'completed', 'saved_evaluation_ids': ['run-1']}
         events = []
-        with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'completed', 'result': feedback, 'transcript_id': 'transcript-1'}) as practice, \
+        with patch.object(proctor_service, 'run_practice') as practice, \
              patch.object(proctor_service.startup, 'source', return_value=(self.home / 'Models', 'qwen3.8:27b')), \
              patch.object(proctor_service, 'run_campaign', side_effect=lambda *args, **kwargs:
-                          events.append(('campaign', args[3])) or campaign):
-            result = proctor_service.run_improvement(self.home, executable='openclaw')
-        practice.assert_called_once()
-        self.assertEqual(events, [('campaign', feedback)])
+                          events.append(('campaign', kwargs['owner_task'],
+                                         kwargs['success_criteria'])) or campaign):
+            result = proctor_service.run_improvement(self.home, executable='openclaw',
+                owner_task='answer owner documents accurately',
+                success_criteria='accepted answers include a supported fact')
+        practice.assert_not_called()
+        self.assertEqual(events, [('campaign', 'answer owner documents accurately',
+                                   'accepted answers include a supported fact')])
         self.assertEqual(result['campaign'], campaign)
         self.assertEqual(result['status'], 'completed')
-        self.assertIs(result['practice_is_improvement_evidence'], False)
+        self.assertNotIn('practice', result)
 
     def test_campaign_assessment_requires_comparison_then_audit_for_no_change(self):
         runs = [evaluation_outcome(run_id, correct=19) for run_id in ('baseline-one', 'baseline-two')]
@@ -218,12 +375,32 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(assessment['status'], 'completed')
         self.assertEqual(assessment['outcome'], 'no_change_audited')
         self.assertEqual(assessment['saved_evaluation_ids'], ['baseline-one', 'baseline-two'])
-
         outcomes = [*outcomes[:-2], outcomes[-1], outcomes[-2]]
         assessment = proctor_service._campaign_assessment(outcomes)
         self.assertFalse(assessment['ready'])
         self.assertIn('a passed host instruction audit after the final comparison, evaluation, and log entry',
                       assessment['missing'])
+
+    def test_campaign_can_stop_after_clean_audit_when_no_task_relevant_suite_exists(self):
+        assessment = proctor_service._campaign_assessment([
+            {'kind': 'inspect'}, {'kind': 'audit', 'status': 'empty', 'passed': True}])
+        self.assertTrue(assessment['ready'])
+        self.assertTrue(assessment['safe_to_release'])
+        self.assertEqual(assessment['status'], 'incomplete')
+        self.assertEqual(assessment['outcome'], 'task-not-measured')
+        self.assertEqual(assessment['saved_evaluation_ids'], [])
+        self.assertIn('no improvement is claimed', assessment['missing'][0])
+
+    def test_campaign_without_clean_task_gap_audit_keeps_existing_evidence_gate(self):
+        for outcomes in ([{'kind': 'inspect'}],
+                         [{'kind': 'audit', 'status': 'empty', 'passed': True}]):
+            with self.subTest(outcomes=outcomes):
+                assessment = proctor_service._campaign_assessment(outcomes)
+                self.assertFalse(assessment['ready'])
+                self.assertEqual(assessment['outcome'], 'no_change_audited')
+                self.assertIn('two distinct saved baseline evaluations', assessment['missing'])
+                if outcomes[0]['kind'] == 'audit':
+                    self.assertIn('host instruction/configuration inspection', assessment['missing'])
 
     def test_campaign_accepts_only_complete_tool_sequence_receipts(self):
         outcomes = [{'kind': 'inspect'},
@@ -237,6 +414,24 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertTrue(assessment['ready'])
 
         outcomes[1] = evaluation_outcome('sequence-one', 'tool-sequence', correct=18, total=20)
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertFalse(assessment['ready'])
+        self.assertIn('host-verified suite, complete coverage, and score metadata for every completed evaluation',
+                      assessment['missing'])
+
+    def test_campaign_validates_complete_owner_recovery_decision_receipts(self):
+        outcomes = [{'kind': 'inspect'},
+                    evaluation_outcome('recovery-one', 'owner-recovery-decision', correct=6, total=8),
+                    log_outcome('recovery-one'),
+                    evaluation_outcome('recovery-two', 'owner-recovery-decision', correct=7, total=8),
+                    log_outcome('recovery-two'),
+                    {'kind': 'compare', 'baseline_id': 'recovery-one', 'candidate_id': 'recovery-two'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+        self.assertEqual(assessment['outcome'], 'no_change_audited')
+
+        outcomes[1] = evaluation_outcome('recovery-one', 'owner-recovery-decision', correct=6, total=7)
         assessment = proctor_service._campaign_assessment(outcomes)
         self.assertFalse(assessment['ready'])
         self.assertIn('host-verified suite, complete coverage, and score metadata for every completed evaluation',
@@ -265,79 +460,20 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('a passed host instruction audit after the keep/restore decision',
                       assessment['missing'])
 
-    def test_saturated_standard_requires_a_logged_complete_challenge_after_latest_decision(self):
-        outcomes = [{'kind': 'inspect'},
-                    evaluation_outcome('standard-one', 'standard', correct=70, total=70),
-                    log_outcome('standard-one'),
-                    evaluation_outcome('standard-two', 'standard', correct=70, total=70),
-                    log_outcome('standard-two'),
-                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
-                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
-
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertFalse(assessment['ready'])
-        self.assertTrue(any('40-task challenge' in item for item in assessment['missing']))
-
-        outcomes.extend([evaluation_outcome('challenge-one', 'challenge', correct=33, total=40),
-                         log_outcome('challenge-one')])
-        outcomes.append({'kind': 'audit', 'status': 'empty', 'passed': True})
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertTrue(assessment['ready'])
-
-    def test_saturated_quick_requires_standard_after_the_latest_quick_run(self):
-        outcomes = [{'kind': 'inspect'},
-                    evaluation_outcome('quick-one'), log_outcome('quick-one'),
-                    evaluation_outcome('standard-before-latest-quick', 'standard',
-                                       correct=69, total=70),
-                    log_outcome('standard-before-latest-quick'),
-                    evaluation_outcome('quick-two'), log_outcome('quick-two'),
-                    {'kind': 'compare', 'baseline_id': 'quick-one', 'candidate_id': 'quick-two'},
-                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertFalse(assessment['ready'])
-        self.assertTrue(any('70-task standard' in item for item in assessment['missing']))
-
-        outcomes.extend([{'kind': 'edit', 'status': 'changed', 'change_id': 'change-1'},
-                         {'kind': 'resolve', 'status': 'restored', 'change_id': 'change-1',
-                          'configuration_preserved': True}])
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertFalse(assessment['ready'])
-        self.assertTrue(any('70-task standard' in item for item in assessment['missing']))
-
-        outcomes.extend([evaluation_outcome('standard-after-latest-decision', 'standard',
-                                            correct=69, total=70),
-                         log_outcome('standard-after-latest-decision'),
-                         {'kind': 'audit', 'status': 'verified', 'passed': True}])
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertTrue(assessment['ready'])
-
-    def test_saturated_standard_does_not_accept_a_challenge_before_latest_edit(self):
-        outcomes = [{'kind': 'inspect'},
-                    evaluation_outcome('standard-one', 'standard', correct=70, total=70),
-                    log_outcome('standard-one'),
-                    evaluation_outcome('challenge-one', 'challenge', correct=33, total=40),
-                    log_outcome('challenge-one'),
-                    {'kind': 'edit', 'status': 'changed', 'change_id': 'change-1'},
-                    {'kind': 'resolve', 'status': 'restored', 'change_id': 'change-1',
-                     'configuration_preserved': True},
-                    evaluation_outcome('standard-two', 'standard', correct=70, total=70),
-                    log_outcome('standard-two'),
-                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
-                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertFalse(assessment['ready'])
-        self.assertTrue(any('40-task challenge' in item for item in assessment['missing']))
-
-    def test_standard_with_a_miss_does_not_trigger_saturation_gate(self):
-        outcomes = [{'kind': 'inspect'},
-                    evaluation_outcome('standard-one', 'standard', correct=69, total=70),
-                    log_outcome('standard-one'),
-                    evaluation_outcome('standard-two', 'standard', correct=69, total=70),
-                    log_outcome('standard-two'),
-                    {'kind': 'compare', 'baseline_id': 'standard-one', 'candidate_id': 'standard-two'},
-                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
-        assessment = proctor_service._campaign_assessment(outcomes)
-        self.assertTrue(assessment['ready'])
+    def test_perfect_relevant_suite_does_not_force_a_larger_or_different_suite(self):
+        for suite, total in (('quick', 20), ('standard', 70)):
+            with self.subTest(suite=suite):
+                outcomes = [{'kind': 'inspect'},
+                            evaluation_outcome('baseline', suite, correct=total, total=total),
+                            log_outcome('baseline'),
+                            evaluation_outcome('replicate', suite, correct=total, total=total),
+                            log_outcome('replicate'),
+                            {'kind': 'compare', 'baseline_id': 'baseline', 'candidate_id': 'replicate'},
+                            {'kind': 'audit', 'status': 'empty', 'passed': True}]
+                assessment = proctor_service._campaign_assessment(outcomes)
+                self.assertTrue(assessment['ready'])
+                self.assertEqual(assessment['outcome'], 'no_change_audited')
+                self.assertEqual(assessment['saved_evaluation_ids'], ['baseline', 'replicate'])
 
     def test_every_saved_evaluation_needs_a_host_verified_log_receipt(self):
         outcomes = [{'kind': 'inspect'}, evaluation_outcome('baseline-one', correct=19),
@@ -362,7 +498,7 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(ledger, [outcome])
         followup = proctor_service._campaign_followup(2, [outcome], {'missing': []})
         self.assertIn('"append_outcome": "unconfirmed"', followup)
-        self.assertIn('complete 70-task standard suite', followup)
+        self.assertNotIn('complete 70-task standard suite', followup)
 
     def test_campaign_continues_clean_turns_until_host_evidence_is_complete(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
@@ -418,8 +554,10 @@ class ProctorServiceTests(unittest.TestCase):
              patch.object(proctor_service.controller_bridge, 'owned', owned_bridge), \
              patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
              patch.object(proctor_service.owned_gateway, 'owned', owned_resource):
-            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home, {},
-                                                  executable='openclaw', on_progress=progress.append)
+            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
+                owner_task='answer owner documents accurately',
+                success_criteria='accepted answers include a supported fact',
+                executable='openclaw', on_progress=progress.append)
 
         self.assertEqual(result['status'], 'completed')
         self.assertEqual(result['controller_turns'], 2)
@@ -433,18 +571,76 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(progress[-1]['saved_evaluation_count'], 3)
         self.assertEqual(progress[-1]['audit_status'], 'empty')
 
+    def test_unmeasured_campaign_retries_incomplete_turn_then_releases_without_claim(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement_owner-task', outcomes=[],
+                                 launches=0, continuations=0, completed=False, released=False,
+                                 worker_outcome=None)
+
+        def launch(_executable, _prompt, **_kwargs):
+            bridge.launches += 1
+
+        def finish(**kwargs):
+            self.assertFalse(kwargs['finalize'])
+            self.assertTrue(kwargs['retain_controller'])
+            bridge.worker_outcome = 'incomplete-turn'
+            return {'status': 'error', 'result': {'payloads': []}}, ''
+
+        def next_turn(session_key):
+            bridge.continuations += 1
+            bridge.session_key = session_key
+
+        bridge.launch = launch
+        bridge.finish = finish
+        bridge.next_campaign_turn = next_turn
+        bridge.drain_campaign_evaluation = Mock()
+        bridge.drain_before_backends_stop = Mock()
+        bridge.complete_campaign = lambda: setattr(bridge, 'completed', True)
+        bridge.release_unmeasured_incomplete_campaign = lambda: setattr(bridge, 'released', True)
+
+        @contextmanager
+        def owned_bridge(*_args, **_kwargs):
+            yield bridge, {}
+
+        @contextmanager
+        def owned_resource(*_args, **_kwargs):
+            yield object()
+
+        with patch.object(proctor_service, 'private_profile', return_value=(
+                 self.home, self.home, self.owner_config, 'a' * 64)), \
+             patch.object(proctor_service, 'refuse_live_gateway'), \
+             patch.object(proctor_service, 'refuse_live_backend'), \
+             patch.object(proctor_service.controller_bridge, 'owned', owned_bridge), \
+             patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
+             patch.object(proctor_service.owned_gateway, 'owned', owned_resource):
+            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
+                owner_task='resume Argos after boot',
+                success_criteria='ready without terminal commands', executable='openclaw')
+
+        self.assertEqual(result['status'], 'incomplete')
+        self.assertEqual(result['outcome'], 'agent-turn-incomplete')
+        self.assertEqual(result['controller_turns'], proctor_service.CAMPAIGN_MAX_TURNS)
+        self.assertEqual(result['saved_evaluation_ids'], [])
+        self.assertEqual(result['tool_outcomes'], [])
+        self.assertIn('exhausted bounded turns', result['missing'][0])
+        self.assertEqual(bridge.launches, proctor_service.CAMPAIGN_MAX_TURNS)
+        self.assertEqual(bridge.continuations, proctor_service.CAMPAIGN_MAX_TURNS - 1)
+        self.assertTrue(bridge.released)
+        self.assertFalse(bridge.completed)
+
     def test_run_improvement_reports_campaign_incomplete(self):
         state_path = self.home / '.config/argos-live/state.json'
         state_path.parent.mkdir(parents=True)
         state_path.write_text(json.dumps({'model': 'qwen3.8:27b'}))
         campaign = {'status': 'incomplete', 'saved_evaluation_ids': ['run-1']}
-        with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'completed', 'result': {'state': 'COMPLETED', 'unanswered': 0},
-                'transcript_id': 'transcript-1'}), \
+        with patch.object(proctor_service, 'run_practice') as practice, \
              patch.object(proctor_service.startup, 'source', return_value=(self.home / 'Models', 'qwen3.8:27b')), \
              patch.object(proctor_service, 'run_campaign', return_value=campaign):
-            result = proctor_service.run_improvement(self.home, executable='openclaw')
+            result = proctor_service.run_improvement(self.home, executable='openclaw',
+                owner_task='answer owner documents accurately',
+                success_criteria='accepted answers include a supported fact')
         self.assertEqual(result['status'], 'incomplete')
+        practice.assert_not_called()
 
     def test_interrupted_services_drain_evaluations_before_stopping_backends(self):
         state_path = self.home / '.config/argos-live/state.json'
@@ -488,7 +684,10 @@ class ProctorServiceTests(unittest.TestCase):
                         proctor_service.run_practice(self.home, self.home / 'cartridge', executable='openclaw')
                         self.fail('Practice swallowed the interruption')
                     else:
-                        proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home, {}, executable='openclaw')
+                        proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
+                            owner_task='answer owner documents accurately',
+                            success_criteria='accepted answers include a supported fact',
+                            executable='openclaw')
                         self.fail('Campaign swallowed the interruption')
                 self.assertEqual(events, ['evaluation-saved', 'gateway-stop', 'backend-stop', 'bridge-stop'])
                 if service == 'campaign':
@@ -496,21 +695,17 @@ class ProctorServiceTests(unittest.TestCase):
                 else:
                     db.close.assert_called_once()
 
-    def test_incomplete_practice_never_starts_campaign(self):
-        with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'incomplete', 'result': {'state': 'ABANDONED'}}), \
-             patch.object(proctor_service, 'run_campaign') as campaign:
-            with self.assertRaisesRegex(ValueError, 'Practice did not complete'):
-                proctor_service.run_improvement(self.home)
-        campaign.assert_not_called()
-
-    def test_timed_terminal_exam_with_unanswered_items_cannot_start_campaign(self):
-        with patch.object(proctor_service, 'run_practice', return_value={
-                'status': 'completed', 'result': {'state': 'COMPLETED', 'unanswered': 4}}), \
-             patch.object(proctor_service, 'run_campaign') as campaign:
-            with self.assertRaisesRegex(ValueError, 'Practice did not complete'):
-                proctor_service.run_improvement(self.home)
-        campaign.assert_not_called()
+    def test_task_campaign_rejects_missing_or_oversized_objective_before_work(self):
+        for task, criteria in (('', 'ready after unlock'), ('recover Argos', ''),
+                               ('x' * 1201, 'ready after unlock')):
+            with self.subTest(task_length=len(task), criteria=criteria), \
+                    patch.object(proctor_service, 'run_practice') as practice, \
+                    patch.object(proctor_service.startup, 'source') as source:
+                with self.assertRaises(ValueError):
+                    proctor_service.run_improvement(self.home, owner_task=task,
+                        success_criteria=criteria)
+                practice.assert_not_called()
+                source.assert_not_called()
 
     def test_existing_gateway_is_refused_before_any_proctor_reservation(self):
         _root, _workspace, config_path, _digest = proctor_service.private_profile(

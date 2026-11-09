@@ -20,17 +20,75 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    # Leave time for exact-image KVM/Proctor acceptance after the 120-minute ISO stage.
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Build pinned ISO in the disposable hosted runner
+      - uses: actions/cache/restore@v4
+        with:
+          path: .argos-live-package-cache
+          key: argos-live-debian-packages-${{ hashFiles('versions.env') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            argos-live-debian-packages-${{ hashFiles('versions.env') }}-
+      - name: Prepare pinned build tools on the disposable hosted runner
+        timeout-minutes: 120
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh 2>&1 | tee artifacts/build.log
+          bash scripts/ci-stage.sh 'Host preparation' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh host 2>&1 | tee artifacts/build.log
+      - name: Bootstrap the pinned Debian build root
+        timeout-minutes: 120
+        shell: bash
+        run: bash scripts/ci-stage.sh 'Debian bootstrap' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh bootstrap 2>&1 | tee -a artifacts/build.log
+      - name: Install pinned build-root packages
+        timeout-minutes: 120
+        shell: bash
+        run: bash scripts/ci-stage.sh 'Builder package install' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh builder-packages 2>&1 | tee -a artifacts/build.log
+      - name: Lock runtime dependencies
+        timeout-minutes: 120
+        shell: bash
+        run: bash scripts/ci-stage.sh 'Runtime dependency lock' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh runtime 2>&1 | tee -a artifacts/build.log
+      - name: Download the pinned seed model
+        timeout-minutes: 120
+        shell: bash
+        run: bash scripts/ci-stage.sh 'Pinned model seed' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE bash scripts/ci-build-iso.sh seed 2>&1 | tee -a artifacts/build.log
+      - name: Build the ISO
+        timeout-minutes: 120
+        shell: bash
+        env:
+          ARGOS_LIVE_BUILD_CACHE_DIR: ${{ github.workspace }}/.argos-live-package-cache
+        run: |
+          set -euo pipefail
+          bash scripts/ci-stage.sh 'ISO build' sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_WORKSPACE,ARGOS_LIVE_BUILD_CACHE_DIR bash scripts/ci-build-iso.sh iso 2>&1 | tee -a artifacts/build.log
+      - name: Preserve Debian package downloads from this attempt
+        id: package-cache
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cache="$GITHUB_WORKSPACE/.argos-live-package-cache"
+          sudo mkdir -p "$cache"
+          for package_cache in packages.bootstrap packages.chroot packages.binary; do
+            source_cache="/var/lib/argos-live/builder/work/cache/$package_cache"
+            if [[ -d "$source_cache" ]]; then
+              sudo mkdir -p "$cache/$package_cache"
+              sudo cp -an "$source_cache"/*.deb "$cache/$package_cache/" 2>/dev/null || true
+            fi
+          done
+          sudo chmod -R a+rX "$cache"
+          if find "$cache" -type f -name '*.deb' -print -quit | grep -q .; then
+            echo 'has_packages=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'has_packages=false' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/cache/save@v4
+        if: always() && steps.package-cache.outputs.has_packages == 'true'
+        with:
+          path: .argos-live-package-cache
+          key: argos-live-debian-packages-${{ hashFiles('versions.env') }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Verify artifacts and record checksum
         id: verify
         shell: bash

@@ -15,12 +15,14 @@ test('dedicated Proctor tools are registered as optional managed-only tools', as
   registerPlugin({registerTool(tool, metadata) { tools.set(tool.name, tool); options.set(tool.name, metadata); }});
   for (const name of ['argos_proctor_start','argos_proctor_status','argos_proctor_item',
     'argos_proctor_answer','argos_proctor_continue','argos_proctor_submit','argos_proctor_feedback',
-    'argos_adopt_external_instruction_edit']) {
+    'argos_adopt_external_instruction_edit','argos_ssh_status']) {
     assert.equal(options.get(name)?.optional, true);
     await assert.rejects(tools.get(name).execute('unmanaged', {}, undefined), /managed host controller/);
   }
   assert.deepEqual(tools.get('argos_proctor_item').parameters.additionalProperties, false);
   assert.deepEqual(tools.get('argos_proctor_answer').parameters.additionalProperties, false);
+  assert.match(tools.get('argos_ssh_status').description, /read-only and never starts SSH/);
+  assert.match(tools.get('argos_ssh_status').description, /Approve one safe SSH start/);
   const adoption = tools.get('argos_adopt_external_instruction_edit').parameters;
   assert.deepEqual(Object.keys(adoption.properties),
     ['expected_sha256','previous_sha256','reason','baseline_ids','candidate_ids']);
@@ -51,7 +53,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     pair_checks:{same_suite_version:true,same_recipe:false,same_coverage:true}}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
-  const total = suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
+  const total = suite === 'owner-recovery-decision' ? 8 : suite === 'documents-short' ? 24 : suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
   const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
   console.error(JSON.stringify({phase:'unrelated',completed:0,total}));
@@ -63,7 +65,8 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     id:'a'.repeat(32), suite:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'quick':'openclaw-'+suite, suite_version:'argos-openclaw-ability/'+suite+'/fixture1', state:'completed',
     settings:{suite_sha256:'b'.repeat(64),execution_path:'openclaw embedded; ephemeral state; tools denied; v2'}, prompt_fingerprint:{workspace_agents_sha256:'c'.repeat(64)},
     summary:{correct,total,...(['tool-schema','tool-plan','tool-sequence'].includes(suite) ? {partitions:{practice:{correct:18,total:20},heldout:{correct:20,total:20}}} : {})},
-    coverage:{completed:total,total,complete:true}, elapsed_seconds:12
+    ...(suite === 'owner-recovery-decision' ? {measurement_boundary:'decision-only',calibration_status:'uncalibrated',task_measurement:{decision_correct:6,owner_effort_correct:5,safety_pass:8,terminal_commands_requested:2,owner_requests:3,owner_approvals:1,recovery_completed:false,automatic_promotion_eligible:false}} : {}),
+    coverage:{completed:total,total,complete:true}, qualification:suite === 'documents-short' ? {checks:[{label:'Correct answers',observed:8,required:7,met:true}],qualified:true,scope:'Short documents only'} : undefined, elapsed_seconds:12
   }}));
 } else {
   console.log(JSON.stringify({kind:'ability',suite_version:fs.existsSync(process.env.ARGOS_CAPTURE+'.raw')?'raw/quick/1':'argos-openclaw-ability/quick/fixture1',settings:{execution_path:'openclaw embedded; ephemeral state; tools denied; v2'},workspace_agents_changed:false, rows:[]}));
@@ -115,7 +118,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'tool-schema', '--json']);
     assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite),
-      /bundled held-out items; these are internal transfer checks, not independent validation/);
+      /Tool-suite held-out items are internal transfer checks, not independent validation/);
 
     const planRun = await tools.get('argos_evaluate').execute('plan-eval', {suite:'tool-plan'}, undefined,
       () => {});
@@ -133,6 +136,28 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
       ['bench', 'openclaw', '--suite', 'tool-sequence', '--json']);
     assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite), /tool-sequence/);
+
+    const documentProgress = [];
+    const documentRun = await tools.get('argos_evaluate').execute('documents-eval',
+      {suite:'documents-short'}, undefined, event => documentProgress.push(event));
+    assert.match(documentRun.content[0].text, /22\/24 passed/);
+    assert.match(documentRun.content[0].text, /Task criteria: Correct answers 8\/7 met/);
+    assert.match(documentRun.content[0].text, /Qualified: yes\. Scope: Short documents only/);
+    assert.equal(documentRun.details.coverage.total, 24);
+    assert.equal(documentRun.details.qualification.qualified, true);
+    assert.equal(documentProgress[0].details.progress.total, 24);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'documents-short', '--json']);
+    assert.match(JSON.stringify(tools.get('argos_evaluate').parameters.properties.suite), /documents-short/);
+
+    const ownerRecovery = await tools.get('argos_evaluate').execute('owner-recovery-eval',
+      {suite:'owner-recovery-decision'}, undefined, () => {});
+    assert.match(ownerRecovery.content[0].text, /Decision-only diagnostic: decisions 6\/8/);
+    assert.match(ownerRecovery.content[0].text, /terminal commands requested 2/);
+    assert.match(ownerRecovery.content[0].text, /do not change instructions or claim improvement/);
+    assert.equal(ownerRecovery.details.coverage.total, 8);
+    assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')),
+      ['bench', 'openclaw', '--suite', 'owner-recovery-decision', '--json']);
 
     await tools.get('argos_compare').execute('compare', {
       baseline_id: '1'.repeat(32), candidate_id: '2'.repeat(32)
@@ -340,8 +365,9 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
       const value = JSON.parse(raw);
       requests.push(value);
       let response;
-      if (value.op === 'begin') response = requests.length === 1 ?
-        {status:'admitted',turn_token:'fictional-turn'} : {status:'busy'};
+      if (value.op === 'begin') response = value.run_id === 'run-binding' ?
+        {status:'denied',failure_code:'session-binding'} : requests.length === 1 ?
+          {status:'admitted',turn_token:'fictional-turn'} : {status:'busy'};
       else if (value.op === 'tool') {
         socket.write(JSON.stringify({status:'progress',progress:{phase:'asking',completed:0,total:20}}) + '\n');
         response = {status:'completed',value:{status:'appended'}};
@@ -365,7 +391,7 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.deepEqual(await admission.execute('log-1','log',{text:'Unicode note 你好'},undefined,
       (update) => updates.push(update)),{status:'appended'});
     assert.equal(updates.length,1);
-    assert.match(updates[0].content[0].text,/Working on challenge 1\/20/);
+    assert.match(updates[0].content[0].text,/Working on evaluation 1\/20/);
     await assert.rejects(admission.execute('log-1','log',{text:'replay'}),/no current host admission/);
     hooks.get('before_tool_call')({toolName:'argos_proctor_item',runId:'run-1',toolCallId:'exam-item'},ctx);
     assert.deepEqual(await admission.execute('exam-item','proctor_item',{item_id:'q1'}),{status:'appended'});
@@ -389,7 +415,12 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
     assert.deepEqual(requests[3].params,{});
     assert.equal(requests[4].kind,'adopt');
     assert.deepEqual(requests[4].params,adoption);
-    assert.equal((await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'})).outcome,'block');
+    const busy = await hooks.get('before_agent_run')({}, {...ctx,runId:'run-2'});
+    assert.deepEqual(busy,{outcome:'block',reason:'Host controller slot is busy',
+      message:'Host controller slot is busy'});
+    const rejected = await hooks.get('before_agent_run')({}, {...ctx,runId:'run-binding'});
+    assert.deepEqual(rejected,{outcome:'block',reason:'Host controller rejected session binding',
+      message:'Host controller rejected session binding'});
     assert.ok(requests.every((value) => value.auth === 'fictional-bridge-secret'));
   } finally {
     if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET;

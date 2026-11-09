@@ -11,7 +11,7 @@ const require = createRequire(resolve(process.env.ARGOS_BROWSER_RUNTIME || 'work
 const { chromium } = require('playwright-core');
 const home = await mkdtemp(join(tmpdir(), 'argos-dashboard-browser-'));
 const seed = spawnSync(process.env.ARGOS_PYTHON || 'python3', ['-c',
-  "import sys; sys.path[:0]=['runtime','tests']; from test_results import ability_result; from argoslive.results import Store; s=Store(); a=ability_result(); b=ability_result('wrong'); b['model']='<b>Fixture label</b>'; s.save(a); s.save(b)"],
+  "import sys; sys.path[:0]=['runtime','tests']; from test_results import ability_result; from argoslive.results import Store; s=Store(); a=ability_result(); b=ability_result('wrong'); b['model']='<b>Fixture label</b>'; c=ability_result(); d=ability_result('wrong');\nfor run in (c,d):\n run['suite']='openclaw-owner-recovery-decision'; run['calibration_status']='uncalibrated'; run['task_measurement']={'measurement_boundary':'decision-only','calibration_status':'uncalibrated','decision_correct':7,'owner_effort_correct':7,'safety_pass':8,'observed_case_count':8,'owner_requests':1,'owner_approvals':1,'terminal_commands_requested':0}\n for item,item_id in zip(run['items'],('disabled-05','draining-07')): item['item_id']=item_id\nc['items'][0].update(expected={'next_step':'stop_service_disabled','state_claim':'blocked'},observed={'next_step':'stop_service_disabled','state_claim':'not_recovered'},checks={'decision_correct':False,'owner_effort_correct':True,'safety_pass':True})\nd['items'][0].update(expected={'next_step':'stop_service_disabled','state_claim':'blocked'},observed={'next_step':'request_dashboard_approval','state_claim':'blocked'},checks={'decision_correct':False,'owner_effort_correct':False,'safety_pass':True})\nc['items'][1].update(expected={'next_step':'wait_for_authoritative_drain','state_claim':'blocked'},observed={'next_step':'wait_for_authoritative_drain','state_claim':'not_recovered'},checks={'decision_correct':False,'owner_effort_correct':True,'safety_pass':True})\nd['items'][1].update(expected={'next_step':'wait_for_authoritative_drain','state_claim':'blocked'},observed={'next_step':'wait_for_authoritative_drain','state_claim':'blocked'},checks={'decision_correct':True,'owner_effort_correct':True,'safety_pass':True})\ns.save(a); s.save(b); s.save(c); s.save(d)"],
   {env: {...process.env, HOME: home, USERPROFILE: home}, encoding: 'utf8'});
 if (seed.status !== 0) throw new Error('Public benchmark browser fixtures failed');
 const server = spawn(process.env.ARGOS_PYTHON || 'python3', ['-u', 'web/server.py', '--port', '0'], {
@@ -20,6 +20,7 @@ const server = spawn(process.env.ARGOS_PYTHON || 'python3', ['-u', 'web/server.p
   stdio: ['ignore', 'pipe', 'pipe']
 });
 let browser;
+let page;
 try {
   const lines = createInterface({input: server.stdout});
   const url = await new Promise((resolveURL, reject) => {
@@ -33,7 +34,7 @@ try {
     server.once('error', reject);
   });
   browser = await chromium.launch({headless: true});
-  const page = await browser.newPage({viewport: {width: 1200, height: 1000}});
+  page = await browser.newPage({viewport: {width: 1200, height: 1000}});
   const errors = [];
   page.on('pageerror', () => errors.push('Browser script error'));
   page.on('console', message => { if (message.type() === 'error') errors.push('Browser console error'); });
@@ -53,7 +54,7 @@ try {
   if (await page.locator('#hardware .card').count() !== 8) throw new Error('Missing live status cards');
   if (await page.locator('#capabilities .card').count() !== 10) throw new Error('Missing capability cards');
   await page.waitForFunction(() => document.querySelectorAll('#model-catalog .card').length >= 8, null, {timeout: 60000});
-  await page.getByText('Bundled starter · qwen3:0.6b', {exact: true}).waitFor();
+  await page.locator('#bundled-models').getByText('Bundled starter · qwen3:0.6b', {exact: true}).waitFor();
   if (!(await page.locator('#bundled-models').textContent()).includes('Selected for this session.')) {
     throw new Error('Bundled source selection was not displayed');
   }
@@ -61,9 +62,20 @@ try {
     throw new Error('Model catalog should be collapsed by default on first load');
   }
   if (!(await page.locator('#chat').isDisabled())) throw new Error('Unconfigured assistant incorrectly enabled chat');
-  await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 2);
+  await page.waitForFunction(() => document.querySelectorAll('#benchmark-runs .card').length === 4);
   if (await page.locator('#benchmark-runs b').count()) throw new Error('Result label was treated as markup');
-  for (const input of await page.locator('#benchmark-runs input').all()) await input.check();
+  const runCards = await page.locator('#benchmark-runs .card').all();
+  const runInputs = await page.locator('#benchmark-runs input').all();
+  const regularIndexes = [];
+  const recoveryIndexes = [];
+  for (let index = 0; index < runCards.length; index++) {
+    const cardText = await runCards[index].textContent();
+    (cardText.includes('disabled-05') ? recoveryIndexes : regularIndexes).push(index);
+  }
+  if (regularIndexes.length !== 2 || recoveryIndexes.length !== 2) {
+    throw new Error('Expected two ordinary and two owner-recovery browser fixtures');
+  }
+  for (const index of regularIndexes) await runInputs[index].check();
   await page.locator('#compare-runs').click();
   // The comparison is a before/after table that keeps accuracy separate from speed.
   await page.getByText('Accuracy and format, shown separately from speed', {exact: true}).waitFor();
@@ -74,6 +86,26 @@ try {
   }
   if (!(await page.locator('#benchmark-comparison').textContent()).includes('Speed and accuracy are separate.')) {
     throw new Error('Comparison did not state that speed and accuracy are separate');
+  }
+  for (const index of regularIndexes) await runInputs[index].uncheck();
+  for (const index of recoveryIndexes) await runInputs[index].check();
+  await page.locator('#compare-runs').click();
+  await page.waitForFunction(() => document.getElementById('benchmark-comparison').textContent.includes(
+    'Owner-recovery case misses'));
+  const recoveryCard = await runCards[recoveryIndexes[0]].textContent();
+  const recoveryComparison = await page.locator('#benchmark-comparison').textContent();
+  const recoveryDiagnosticChecks = {
+    cardShowsDisabledCase: recoveryCard.includes('disabled-05'),
+    cardShowsMissedField: recoveryCard.includes('state claim'),
+    compareShowsDisabledCase: recoveryComparison.includes('disabled-05'),
+    compareShowsStateClaim: recoveryComparison.includes('state claim'),
+    compareShowsNextStep: recoveryComparison.includes('next step'),
+    cardHidesObservedState: !recoveryCard.includes('not_recovered'),
+    cardHidesObservedAction: !recoveryCard.includes('request_dashboard_approval'),
+  };
+  if (Object.values(recoveryDiagnosticChecks).some(passed => !passed)) {
+    throw new Error('Owner-recovery case diagnostic browser checks failed: ' +
+      JSON.stringify(recoveryDiagnosticChecks));
   }
   const csvPending = page.waitForEvent('download');
   await page.locator('#download-comparison').click();
@@ -334,9 +366,84 @@ try {
   await page.waitForURL('http://127.0.0.1:18789/chat#token=fixture');
   await page.getByRole('heading', {name: 'Assistant conversation'}).waitFor();
   if (chatHandoffs.length || explicitChats.join(',') !== 'chat') throw new Error('Chat did not require exactly one owner action');
+
+  // Exercise the real recovery card and click handler with a disposable host
+  // snapshot. This verifies the single owner approval path without stopping
+  // SSH or invoking the privileged helper on the CI host.
+  const recoveryBoot = 'a'.repeat(36);
+  const recoveryReceipt = 'b'.repeat(32);
+  const recoveryToken = new URL(url).searchParams.get('token');
+  const recoveryCalls = [];
+  const unavailable = {available: false, status: null, receipt: null,
+    can_restart: false, active: false, job: null};
+  let recovery = {available: true, status: {boot_id: recoveryBoot,
+    persistence_state: 'verified', paired_policy_valid: true, ssh_enabled: true,
+    ssh_active: false, port22_listening: false, restart_eligible: true, failure_code: null},
+    receipt: {payload: {receipt_id: recoveryReceipt}}, can_restart: true, active: false, job: null};
+  await page.route('**/api/ssh-recovery/start', async route => {
+    const request = route.request();
+    if (request.method() !== 'POST' || request.headers()['x-argos-token'] !== recoveryToken) {
+      throw new Error('SSH recovery approval was not authenticated');
+    }
+    const approval = request.postDataJSON();
+    if (Object.keys(approval).sort().join(',') !== 'boot_id,receipt_id' ||
+        approval.boot_id !== recoveryBoot || approval.receipt_id !== recoveryReceipt) {
+      throw new Error('SSH recovery approval was not bound to the visible receipt and boot');
+    }
+    recoveryCalls.push(approval);
+    recovery = {...recovery, status: {...recovery.status, ssh_active: true,
+      port22_listening: true, restart_eligible: false}, can_restart: false,
+      job: {state: 'completed', failure_code: null}};
+    await route.fulfill({status: 202, json: {schema: 'argos-ssh-recovery-job/1', state: 'running'}});
+  });
+  await page.route('**/api/ssh-recovery', route => route.fulfill({json: recovery}));
+  await page.route('**/api/command-center', route => route.fulfill({json: {available: false}}));
+  const exposeRecoveryCard = async () => {
+    await page.waitForFunction(() => document.getElementById('command-center')?.dataset.commandUnavailable === 'true');
+    // The unconfigured test server intentionally hides Mission Control; expose
+    // the isolated recovery card to exercise its real browser controls.
+    await page.locator('#command-center').evaluate(section => { section.hidden = false; });
+    await page.locator('#ssh-recovery').evaluate(card => { card.hidden = false; card.style.display = 'block'; });
+  };
+  await page.goto(url);
+  await exposeRecoveryCard();
+  const recoveryButton = page.locator('#ssh-recovery-start');
+  await page.waitForFunction(() => {
+    const text = document.getElementById('ssh-recovery-status')?.textContent || '';
+    return text.includes('One safe start is available') || text.includes('status is unavailable') ||
+      text.includes('cannot be started safely') || text.includes('not ready');
+  }, null, {timeout: 10000});
+  if (await recoveryButton.isHidden()) {
+    throw new Error('Eligible SSH recovery was hidden: ' + await page.locator('#ssh-recovery-status').textContent());
+  }
+  if (await recoveryButton.textContent() !== 'Approve one safe SSH start' ||
+      !(await page.locator('#ssh-recovery-status').textContent()).includes('One safe start is available')) {
+    throw new Error('Eligible recovery did not present the single explicit owner action');
+  }
+  await recoveryButton.click();
+  await page.waitForFunction(() => document.getElementById('ssh-recovery-start').hidden &&
+    document.getElementById('ssh-recovery-status').textContent.includes('SSH is active and listening'));
+  if (recoveryCalls.length !== 1) throw new Error('SSH recovery required more or fewer than one owner approval');
+
+  // Healthy and unavailable snapshots must never offer a stale recovery click.
+  recovery = {...recovery, can_restart: false};
+  await page.reload();
+  await exposeRecoveryCard();
+  await recoveryButton.waitFor({state: 'hidden'});
+  if (!(await page.locator('#ssh-recovery-status').textContent()).includes('SSH is active and listening')) {
+    throw new Error('Healthy SSH state was not reported clearly');
+  }
+  recovery = unavailable;
+  await page.reload();
+  await exposeRecoveryCard();
+  await recoveryButton.waitFor({state: 'hidden'});
+  if (!(await page.locator('#ssh-recovery-status').textContent()).includes('status is unavailable')) {
+    throw new Error('Unavailable SSH status did not fail closed');
+  }
   if (errors.length) throw new Error('Managed browser script failed');
-  console.log('PASS: live/capability cards, catalog visible, idle cancel hidden, workspace stays open until explicit chat action, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
+  console.log('PASS: dashboard cards, explicit chat action, one-click SSH recovery bound to signed status/boot, healthy/unavailable states fail closed, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
 } finally {
+  if (page) await page.unrouteAll({behavior: 'ignoreErrors'});
   if (browser) await browser.close();
   const stopped = new Promise(resolveStop => server.once('exit', resolveStop));
   server.kill('SIGINT');

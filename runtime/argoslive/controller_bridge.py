@@ -18,9 +18,10 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 
-from . import workload, instruction_changes
+from . import workload, instruction_changes, ssh_recovery
 from .pull_jobs import read_json, write_json
 from .results import Store, compare, comparison_rejection
 
@@ -28,7 +29,18 @@ LIMIT = 32768
 PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
+TOOL_QUEUE_WAIT_SECONDS = 20
+TASK_CAMPAIGN_SUITES = frozenset({
+    'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
+    'documents-short', 'owner-recovery-decision'})
 MAX_WORKER_TURN_RECORDS = 32
+MAX_SDK_RUNS_PER_WORKER = 4
+ADMISSION_BLOCK_REASONS = frozenset({
+    'run-not-ended', 'same-run-id', 'session-binding-mismatch', 'not-campaign',
+    'wrong-controller-kind', 'wrong-session-scope', 'worker-not-live',
+    'closed-or-uncertain', 'pending-operation', 'tool-in-progress',
+    'evaluation-in-progress', 'sdk-run-limit', 'unknown',
+})
 PROCTOR_ERROR_CODES = frozenset({
     'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
     'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
@@ -39,25 +51,115 @@ PROCTOR_ERROR_CODES = frozenset({
 })
 
 
+class AdmissionDenied(ValueError):
+    """The managed worker identity did not match its host-created scope."""
+
+
 def identity(value):
     return isinstance(value, str) and bool(re.fullmatch(r'[A-Za-z0-9_.:-]{1,256}', value))
 
 
+def _validate_ssh_agent_status(value, verifier):
+    if (not isinstance(value, dict) or value.get('schema') != 'argos-proctor-ssh-status/1' or
+            type(value.get('available')) is not bool or len(json.dumps(value).encode('utf-8')) > 8192):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    if value['available'] is False:
+        if (set(value) != {'schema', 'available', 'failure_code'} or
+                value.get('failure_code') != 'signed-status-unavailable'):
+            raise ValueError('Bounded SSH status receipt unavailable')
+        return
+    if set(value) != {'schema', 'available', 'status', 'receipt',
+                      'owner_approval_available', 'recovery_job_state'}:
+        raise ValueError('Bounded SSH status receipt unavailable')
+    status = ssh_recovery._safe_root_status(value.get('status'))
+    receipt = value.get('receipt')
+    if (not isinstance(receipt, dict) or set(receipt) != {
+            'envelope_version', 'payload_json', 'signature'} or
+            receipt.get('envelope_version') != 'argos.proctor.envelope.v1' or
+            not isinstance(receipt.get('payload_json'), str) or
+            len(receipt['payload_json'].encode('utf-8')) > 4096):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    signature = receipt.get('signature')
+    if (not isinstance(signature, dict) or set(signature) != {'algorithm', 'key_id', 'sig_base64'} or
+            signature.get('algorithm') != 'Ed25519' or
+            not isinstance(signature.get('key_id'), str) or
+            not re.fullmatch(r'[a-f0-9]{64}', signature['key_id']) or
+            not isinstance(signature.get('sig_base64'), str) or
+            not re.fullmatch(r'[A-Za-z0-9+/]{86}==', signature['sig_base64'])):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    try:
+        payload = json.loads(receipt['payload_json'])
+    except (ValueError, TypeError):
+        raise ValueError('Bounded SSH status receipt unavailable') from None
+    if (not isinstance(payload, dict) or set(payload) != {
+            'schema', 'receipt_id', 'created_utc', 'status',
+            'owner_approval_available', 'recovery_job_state'} or
+            payload.get('schema') != ssh_recovery.PROCTOR_STATUS_RECEIPT_SCHEMA or
+            not isinstance(payload.get('receipt_id'), str) or
+            not ssh_recovery.ID.fullmatch(payload['receipt_id']) or
+            payload.get('status') != status or
+            payload.get('owner_approval_available') is not value.get('owner_approval_available') or
+            payload.get('recovery_job_state') != value.get('recovery_job_state')):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    if (type(value.get('owner_approval_available')) is not bool or
+            value['owner_approval_available'] and not status['restart_eligible'] or
+            value.get('recovery_job_state') not in {'idle', 'running', 'completed', 'failed', 'refused'}):
+        raise ValueError('Bounded SSH status receipt unavailable')
+    if not callable(verifier) or verifier(value) is not True:
+        raise ValueError('Bounded SSH status receipt unavailable')
+
+
+def _ssh_status_observation(value):
+    """Project a verified SSH receipt into small, safe campaign evidence."""
+    if value.get('available') is not True:
+        return {'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+                'verified': False, 'state': 'unavailable',
+                'failure_code': 'signed-status-unavailable'}
+    status = value['status']
+    ready = (status['persistence_state'] == 'verified' and
+             status['paired_policy_valid'] is True and status['ssh_enabled'] is True and
+             status['ssh_active'] is True and status['port22_listening'] is True and
+             status['failure_code'] is None)
+    return {
+        'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
+        'verified': True, 'state': 'ready' if ready else 'not-ready',
+        'persistence_state': status['persistence_state'],
+        'paired_policy_valid': status['paired_policy_valid'],
+        'ssh_enabled': status['ssh_enabled'], 'ssh_active': status['ssh_active'],
+        'port22_listening': status['port22_listening'],
+        'restart_eligible': status['restart_eligible'],
+        'owner_approval_available': value['owner_approval_available'],
+        'recovery_job_state': value['recovery_job_state'],
+        'failure_code': status['failure_code'],
+    }
+
+
 class Bridge:
     def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800,
-                 exam_session=None):
+                 exam_session=None, task_campaign=False, owner_task_suite=None,
+                 ssh_status_provider=None, ssh_status_verifier=None):
         if not identity(session_key) or trigger not in {'user', 'heartbeat'}:
             raise ValueError('Host-selected controller identity required')
         self.home, self.parent = Path(home), parent
         self.session_key, self.trigger = session_key, trigger
         self.worker_timeout = worker_timeout
         self.exam_session = exam_session
+        self.task_campaign = task_campaign
+        if (owner_task_suite is not None and
+                (not isinstance(owner_task_suite, str) or owner_task_suite not in TASK_CAMPAIGN_SUITES)):
+            raise ValueError('Unsupported owner-selected task evaluation suite')
+        self.owner_task_suite = owner_task_suite
+        self.ssh_status_provider = ssh_status_provider
+        self.ssh_status_verifier = ssh_status_verifier
         self.secret = secrets.token_hex(32)
         self.active = None
         self.pending = None
         self.worker = None
         self.worker_outcome = None
         self.worker_turns = []
+        self.sdk_runs_started = 0
+        self.sdk_run_history = []
+        self.last_admission_block_reason = None
         self.transport_env = None
         self.worker_path = os.environ.get('PATH', '')
         self.uncertain = False
@@ -93,6 +195,10 @@ class Bridge:
             value['host_tool_failures'] = self.active.get('host_tool_failures', [])
         value['tools'] = self.outcomes
         value['worker_turns'] = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
+        value['sdk_runs_started'] = self.sdk_runs_started
+        value['sdk_run_history'] = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+        if self.last_admission_block_reason in ADMISSION_BLOCK_REASONS:
+            value['admission_block_reason'] = self.last_admission_block_reason
         write_json(self.events, value)
 
     def dispatch(self, request, on_update=None):
@@ -126,18 +232,40 @@ class Bridge:
                 if self.active is not None:
                     self.active['host_tool_requests'] = self.active.get('host_tool_requests', 0) + 1
             try:
-                return self.tool(request, on_update=on_update)
+                result = self.tool(request, on_update=on_update)
+                with self.lock:
+                    if (self.active is not None and
+                            self.active.get('run_id') == request.get('run_id') and
+                            self.active.get('token') == request.get('turn_token')):
+                        self.active['host_tool_successes'] = self.active.get('host_tool_successes', 0) + 1
+                        self.publish()
+                return result
             except BaseException as error:
                 with self.lock:
                     if self.active is not None:
                         kind = request.get('kind')
                         allowed_kinds = PROCTOR_TOOLS | {
                             'evaluation', 'evaluation_wait', 'evaluation_status', 'compare', 'log',
-                            'inspect', 'audit', 'edit', 'resolve', 'adopt'}
+                            'inspect', 'audit', 'edit', 'resolve', 'adopt', 'ssh_status'}
                         safe_kind = kind if isinstance(kind, str) and kind in allowed_kinds else 'other'
                         failures = self.active.setdefault('host_tool_failures', [])
                         if len(failures) < 32:
                             failure = {'kind': safe_kind, 'error_class': type(error).__name__}
+                            stage = getattr(error, 'tool_stage', None)
+                            if stage in {'tool-lock-timeout', 'admission', 'job-exclusion',
+                                         'host-operation', 'workload-child'}:
+                                failure['tool_stage'] = stage
+                            wait_ms = getattr(error, 'tool_wait_ms', None)
+                            if type(wait_ms) is int and 0 <= wait_ms <= 120000:
+                                failure['tool_wait_ms'] = wait_ms
+                            recovery = getattr(error, 'recovery', None)
+                            if type(recovery) is bool:
+                                failure['recovery_required'] = recovery
+                            child_stage = getattr(error, 'child_failure_stage', None)
+                            if child_stage in {'reservation', 'request-validation', 'journal-audit',
+                                               'journal-root', 'instruction-inspect', 'instruction-edit',
+                                               'instruction-adopt', 'instruction-resolve'}:
+                                failure['child_failure_stage'] = child_stage
                             code = getattr(error, 'code', None)
                             if safe_kind in PROCTOR_TOOLS and code in PROCTOR_ERROR_CODES:
                                 failure['error_code'] = code
@@ -149,7 +277,7 @@ class Bridge:
     def begin(self, request):
         if (not identity(request.get('run_id')) or not identity(request.get('session_id')) or
                 request.get('session_key') != self.session_key or request.get('trigger') != self.trigger):
-            raise ValueError('Controller session was not authorized by its host')
+            raise AdmissionDenied('Controller session was not authorized by its host')
         with self.lock:
             if self.closed or self.uncertain:
                 raise workload.Busy(recovery=self.uncertain)
@@ -157,11 +285,108 @@ class Bridge:
                 fields = ('run_id', 'session_id', 'session_key', 'trigger')
                 if not self.active['ended'] and all(self.active[key] == request[key] for key in fields):
                     return {'status': 'admitted', 'turn_token': self.active['token']}
+                campaign_prefix = 'agent:main:argos_proctor_improvement_'
+                worker_alive = self.worker is not None and self.worker.poll() is None
+                worker_session = getattr(self, 'session_id', None)
+                job = self.evaluation_job
+                # OpenClaw can continue a model attempt with the same run ID
+                # after a host tool returns. Re-admit only after the prior
+                # attempt ended, every requested host tool completed
+                # successfully, and all campaign/worker gates are still clear.
+                # The fresh turn token invalidates callbacks from the ended
+                # attempt; unfinished or failed host work remains blocked.
+                if (self.active['ended'] and
+                        self.active['run_id'] == request['run_id'] and
+                        self.active['session_id'] == worker_session == request['session_id'] and
+                        self.active['session_key'] == request['session_key'] == self.session_key and
+                        self.active['trigger'] == request['trigger'] == self.trigger and
+                        self.active.get('host_tool_requests', 0) ==
+                            self.active.get('host_tool_successes', 0) and
+                        not self.active.get('host_tool_failures') and self.task_campaign and
+                        self.parent.record.get('kind') == 'controller' and
+                        self.session_key.startswith(campaign_prefix) and worker_alive and
+                        not self.closed and not self.uncertain and self.pending is None and
+                        not self.tool_lock.locked() and (job is None or job.get('consumed')) and
+                        self.sdk_runs_started < MAX_SDK_RUNS_PER_WORKER):
+                    prior = self.active
+                    self.sdk_run_history.append({
+                        'run_id': prior['run_id'], 'ended': True,
+                        'host_tool_requests': 0,
+                        'host_tool_failures': len(prior.get('host_tool_failures', [])),
+                        'diagnostics': prior.get('diagnostics'),
+                    })
+                    self.sdk_run_history = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+                    self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
+                    self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+                    self.sdk_runs_started += 1
+                    self.last_admission_block_reason = None
+                    self.publish()
+                    return {'status': 'admitted', 'turn_token': self.active['token']}
+                if (self.active['ended'] and worker_session is not None and
+                        self.active['session_id'] == worker_session == request['session_id'] and
+                        self.active['session_key'] == request['session_key'] == self.session_key and
+                        self.active['trigger'] == request['trigger'] == self.trigger and
+                        self.active['run_id'] != request['run_id'] and self.task_campaign and
+                        self.parent.record.get('kind') == 'controller' and
+                        self.session_key.startswith(campaign_prefix) and worker_alive and
+                        not self.closed and not self.uncertain and self.pending is None and
+                        not self.tool_lock.locked() and (job is None or job.get('consumed')) and
+                        self.sdk_runs_started < MAX_SDK_RUNS_PER_WORKER):
+                    prior = self.active
+                    self.sdk_run_history.append({
+                        'run_id': prior['run_id'], 'ended': True,
+                        'host_tool_requests': prior.get('host_tool_requests', 0),
+                        'host_tool_failures': len(prior.get('host_tool_failures', [])),
+                        'diagnostics': prior.get('diagnostics'),
+                    })
+                    self.sdk_run_history = self.sdk_run_history[-MAX_WORKER_TURN_RECORDS:]
+                    self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
+                    self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+                    self.sdk_runs_started += 1
+                    self.last_admission_block_reason = None
+                    self.publish()
+                    return {'status': 'admitted', 'turn_token': self.active['token']}
+                self.last_admission_block_reason = self._campaign_rotation_block_reason(request)
+                self.publish()
                 raise workload.Busy()
             self.active = {key: request[key] for key in ('run_id', 'session_id', 'session_key', 'trigger')}
             self.active.update(ended=False, token=secrets.token_hex(32), calls=set())
+            self.sdk_runs_started = max(1, self.sdk_runs_started)
+            self.last_admission_block_reason = None
             self.publish()
             return {'status': 'admitted', 'turn_token': self.active['token']}
+
+    def _campaign_rotation_block_reason(self, request):
+        """Return a closed diagnostic enum for a refused ended-run rotation."""
+        if not self.active.get('ended'):
+            return 'run-not-ended'
+        if self.active.get('run_id') == request.get('run_id'):
+            return 'same-run-id'
+        worker_session = getattr(self, 'session_id', None)
+        if (worker_session is None or self.active.get('session_id') != worker_session or
+                request.get('session_id') != worker_session):
+            return 'session-binding-mismatch'
+        if not self.task_campaign:
+            return 'not-campaign'
+        if self.parent.record.get('kind') != 'controller':
+            return 'wrong-controller-kind'
+        if (self.session_key != request.get('session_key') or
+                not self.session_key.startswith('agent:main:argos_proctor_improvement_')):
+            return 'wrong-session-scope'
+        if self.worker is None or self.worker.poll() is not None:
+            return 'worker-not-live'
+        if self.closed or self.uncertain:
+            return 'closed-or-uncertain'
+        if self.pending is not None:
+            return 'pending-operation'
+        if self.tool_lock.locked():
+            return 'tool-in-progress'
+        job = self.evaluation_job
+        if job is not None and not job.get('consumed'):
+            return 'evaluation-in-progress'
+        if self.sdk_runs_started >= MAX_SDK_RUNS_PER_WORKER:
+            return 'sdk-run-limit'
+        return 'unknown'
 
     def check_turn(self, request):
         token = request.get('turn_token')
@@ -169,9 +394,58 @@ class Bridge:
                 not isinstance(token, str) or not hmac.compare_digest(token, self.active['token'])):
             raise workload.Busy(recovery=True)
 
+    def _validate_task_scope(self, kind, params):
+        """Enforce the evaluator explicitly selected by the owner for this campaign."""
+        if not self.task_campaign:
+            return
+        suite = self.owner_task_suite
+        if kind == 'evaluation':
+            if suite is None:
+                raise ValueError('No owner-selected evaluation suite; report task-not-measured without evaluating')
+            if params.get('suite', 'quick') != suite:
+                raise ValueError('Evaluation must use the exact suite selected by the owner')
+            return
+        if suite == 'owner-recovery-decision' and (
+                kind in {'edit', 'adopt'} or
+                kind == 'resolve' and params.get('action') != 'restore'):
+            raise ValueError('Decision-only owner recovery evidence cannot authorize instruction changes')
+        if kind == 'resolve' and params.get('action') == 'restore':
+            return
+        if kind not in {'compare', 'edit', 'resolve', 'adopt'}:
+            return
+        if suite is None:
+            raise ValueError('No owner-selected evaluation suite; task evidence cannot justify a change')
+
+        if kind == 'compare':
+            run_ids = [params['baseline_id'], params['candidate_id']]
+        elif kind == 'edit':
+            run_ids = [params['baseline_id']]
+        else:
+            run_ids = list(params.get('baseline_ids', [])) + list(params.get('candidate_ids', []))
+        expected_suite = 'openclaw-' + suite
+        store = Store(self.home / '.local/share/argos-live/results')
+        for run_id in run_ids:
+            run = store.load(run_id)
+            suite_version = run.get('suite_version')
+            if (run.get('suite') != expected_suite or
+                    not isinstance(suite_version, str) or
+                    not suite_version.startswith('argos-openclaw-ability/' + suite + '/')):
+                raise ValueError('Every change decision must use only the owner-selected task evaluation suite')
+
     def tool(self, request, *, on_update=None):
-        if not self.tool_lock.acquire(blocking=False):
-            raise workload.Busy()
+        # SDKs can dispatch sibling tool calls in parallel even when the agent
+        # was asked to sequence them. Queue briefly so short, independent calls
+        # (for example inspect + audit) still run one at a time. Keep the queue
+        # bounded: a long evaluation or a stuck child must not hold a later
+        # request indefinitely, and the parent workload lock remains exclusive.
+        wait_started = time.monotonic()
+        if not self.tool_lock.acquire(timeout=TOOL_QUEUE_WAIT_SECONDS):
+            error = workload.Busy()
+            error.tool_stage = 'tool-lock-timeout'
+            error.tool_wait_ms = min(120000, max(0, int((time.monotonic() - wait_started) * 1000)))
+            raise error
+        tool_wait_ms = min(120000, max(0, int((time.monotonic() - wait_started) * 1000)))
+        tool_stage = 'admission'
         try:
             with self.lock:
                 self.check_turn(request)
@@ -184,12 +458,12 @@ class Bridge:
                 if (self.exam_session is not None and kind not in PROCTOR_TOOLS and
                         not (kind == 'evaluation_wait' and self.exam_session.tier == 'practice')):
                     raise ValueError('Only Proctor tools are available during an exam')
+                tool_stage = 'job-exclusion'
                 if (self.evaluation_job and not self.evaluation_job.get('consumed') and
                         kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
                 if kind == 'evaluation':
-                    if set(params) - {'suite'} or params.get('suite', 'quick') not in {
-                            'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'}:
+                    if set(params) - {'suite'} or params.get('suite', 'quick') not in TASK_CAMPAIGN_SUITES:
                         raise ValueError('Unsupported evaluation request')
                 elif kind == 'evaluation_wait':
                     if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or
@@ -207,13 +481,19 @@ class Bridge:
                         raise ValueError('Invalid comparison request')
                 elif kind in {'inspect', 'audit', 'edit', 'resolve', 'adopt'}:
                     instruction_changes.validate_request(kind, params)
+                elif kind == 'ssh_status':
+                    if (not self.task_campaign or self.exam_session is not None or params or
+                            self.ssh_status_provider is None or self.ssh_status_verifier is None):
+                        raise ValueError('SSH status is available only in an owner improvement campaign')
                 elif kind in PROCTOR_TOOLS:
                     self._validate_proctor_request(kind, params)
                     if self.exam_session is None or self.parent.record.get('kind') != 'proctor':
                         raise ValueError('No host-preauthorized exam is active')
                 else:
                     raise ValueError('Unsupported controller tool')
+                self._validate_task_scope(kind, params)
                 self.active['calls'].add(call)
+            tool_stage = 'host-operation'
             if kind in PROCTOR_TOOLS:
                 value = self._proctor_tool(kind, params, call)
                 outcome = {'kind': kind, 'call_id': call, 'status': value.get('state', value.get('status'))}
@@ -245,6 +525,16 @@ class Bridge:
                 if value.get('status') == 'running':
                     return value
                 return {'status': 'completed', 'value': value}
+            if kind == 'ssh_status':
+                value = self.ssh_status_provider()
+                _validate_ssh_agent_status(value, self.ssh_status_verifier)
+                outcome = {'kind': kind, 'call_id': call,
+                           'status': 'available' if value['available'] else 'unavailable',
+                           'host_observation': _ssh_status_observation(value)}
+                with self.lock:
+                    self.outcomes.append(outcome)
+                    self.publish()
+                return {'status': 'completed', 'value': value}
             if kind == 'compare':
                 store = Store(self.home / '.local/share/argos-live/results')
                 values = []
@@ -267,6 +557,7 @@ class Bridge:
                     self.outcomes.append(outcome)
                     self.publish()
                 return {'status': 'completed', 'value': value}
+            tool_stage = 'workload-child'
             value = self.run_child(kind, params, on_update=on_update)
             outcome = {'kind': kind, 'call_id': call}
             if kind == 'log' and value.get('status') == 'completed':
@@ -311,8 +602,14 @@ class Bridge:
                 self.outcomes.append(outcome)
                 self.publish()
             return value
+        except BaseException as error:
+            if isinstance(error, workload.Busy):
+                error.tool_stage = tool_stage
+                error.tool_wait_ms = tool_wait_ms
+            raise
         finally:
             self.tool_lock.release()
+
 
     def _proctor_evaluation_wait(self, params, call_id):
         """Handle the registered wait tool as a no-inference Proctor simulation."""
@@ -344,7 +641,8 @@ class Bridge:
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
                    'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40,
                                               'tool-schema': 40, 'tool-plan': 40,
-                                              'tool-sequence': 40}[
+                                              'tool-sequence': 40, 'documents-short': 24,
+                                              'owner-recovery-decision': 8}[
                        params.get('suite', 'quick')], 'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
             self.evaluation_job = job
@@ -389,14 +687,36 @@ class Bridge:
                 result = value['value']['result']
                 coverage = result.get('coverage') if isinstance(result.get('coverage'), dict) else {}
                 summary = result.get('summary') if isinstance(result.get('summary'), dict) else {}
-                self.outcomes.append({
+                outcome = {
                     'kind': 'evaluation', 'job_id': job_id,
                     'result_id': result['id'], 'state': result['state'],
                     'suite': result.get('suite'), 'suite_version': result.get('suite_version'),
                     'coverage_complete': coverage.get('complete') is True,
                     'total': summary.get('total'), 'correct': summary.get('correct'),
                     'format_errors': summary.get('format_errors'),
-                })
+                }
+                task_measurement = result.get('task_measurement')
+                if (result.get('suite') == 'openclaw-owner-recovery-decision' and
+                        isinstance(task_measurement, dict) and
+                        task_measurement.get('measurement_boundary') == 'decision-only' and
+                        task_measurement.get('calibration_status') == 'uncalibrated'):
+                    # Preserve only the fixed, numeric diagnostic fields from
+                    # this explicitly uncalibrated suite. The campaign can
+                    # report its dimensions without treating exact-match
+                    # accuracy as a recovery or owner-time result.
+                    fields = ('observed_case_count', 'unreadable_case_count', 'decision_correct',
+                              'owner_effort_correct', 'safety_pass', 'terminal_commands_requested',
+                              'owner_requests', 'owner_approvals')
+                    counts = {key: task_measurement.get(key) for key in fields}
+                    if all(type(value) is int and value >= 0 for value in counts.values()):
+                        outcome['task_measurement'] = {
+                            'measurement_boundary': 'decision-only',
+                            'calibration_status': 'uncalibrated',
+                            **counts,
+                            'recovery_completed': False,
+                            'automatic_promotion_eligible': False,
+                        }
+                self.outcomes.append(outcome)
                 self.publish()
                 job['recorded'] = True
                 job['consumed'] = True
@@ -565,6 +885,21 @@ class Bridge:
             _stderr = b''.join(stderr_parts).decode('utf-8', errors='replace')
             self.last_child_stdout, self.last_child_stderr = stdout, _stderr
             if process.returncode or overflow.is_set() or len(stdout.encode()) > 2 * 1024**2:
+                child_failure_stage = None
+                if maintenance and process.returncode is not None and not overflow.is_set():
+                    try:
+                        child_failure = json.loads(stdout)
+                    except (json.JSONDecodeError, TypeError):
+                        child_failure = None
+                    if (isinstance(child_failure, dict) and set(child_failure) == {
+                            'status', 'recovery_required', 'failure_stage'} and
+                            child_failure.get('status') == 'busy' and
+                            type(child_failure.get('recovery_required')) is bool and
+                            child_failure.get('failure_stage') in {
+                                'reservation', 'request-validation', 'journal-audit', 'journal-root',
+                                'instruction-inspect', 'instruction-edit', 'instruction-adopt',
+                                'instruction-resolve'}):
+                        child_failure_stage = child_failure['failure_stage']
                 # Campaign logging marks its delegated reservation drained before
                 # validating referenced run IDs and appending. A validation
                 # failure therefore exits nonzero even though the one-use log
@@ -583,7 +918,28 @@ class Bridge:
                             'status': 'failed',
                             'message': 'Campaign log entry failed; the host workload remains available.',
                             'append_outcome': 'unconfirmed'}}
-                raise workload.Busy(recovery=True)
+                # If the exact child exited and both pipes drained, an
+                # authorization that is still "authorized" proves its worker
+                # never entered the delegated workload. Revoke only that
+                # unstarted capability and resume the parent; this lets the
+                # campaign continue without weakening quarantine for a child
+                # that started, timed out alive, or may have performed work.
+                if (maintenance and process.returncode is not None and not overflow.is_set() and
+                        not out_reader.is_alive() and not err_reader.is_alive() and
+                        len(stdout.encode()) <= 2 * 1024**2):
+                    try:
+                        self.parent.cancel_unstarted(capability)
+                    except workload.Busy:
+                        pass
+                    else:
+                        self.parent.resume(capability, worker_drained=True)
+                        return {'status': 'completed', 'value': {
+                            'status': 'failed', 'failure_code': 'worker-not-admitted',
+                            'retryable': True}}
+                error = workload.Busy(recovery=True)
+                if child_failure_stage:
+                    error.child_failure_stage = child_failure_stage
+                raise error
             value = json.loads(stdout)
             if kind == 'evaluation':
                 result = value['result']
@@ -652,6 +1008,8 @@ class Bridge:
                 '--timeout', str(timeout), '--json'])
             self.worker = subprocess.Popen(arguments, env=env, stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
             try:
                 write_json(self.parent.path.parent / 'controller-worker.json', {
                     'schema': 'argos-controller-worker/1', 'parent_id': self.parent.record['id'],
@@ -693,7 +1051,8 @@ class Bridge:
             body = value.get('result', value)
             incomplete_turn = self._is_incomplete_turn(value)
             blocked_turn = self._is_blocked_practice_turn(value)
-            retryable_turn = incomplete_turn or blocked_turn
+            blocked_campaign_admission = self._is_unadmitted_campaign_block(value)
+            retryable_turn = incomplete_turn or blocked_turn or blocked_campaign_admission
             if self.worker.returncode and not retryable_turn:
                 self.last_finish_failure = {'code': 'worker-exit', 'returncode': self.worker.returncode,
                                             'stdout_bytes': stdout_bytes, 'stderr_bytes': stderr_bytes,
@@ -730,7 +1089,7 @@ class Bridge:
                 self._publish_finish_failure()
                 raise workload.Busy(recovery=True)
             with self.lock:
-                if not self.active:
+                if not self.active and not blocked_campaign_admission:
                     self.last_finish_failure = {'code': 'turn-not-active',
                                                 'returncode': self.worker.returncode,
                                                 'stdout_bytes': stdout_bytes,
@@ -738,7 +1097,9 @@ class Bridge:
                     self._publish_finish_failure()
                     raise workload.Busy(recovery=True)
                 self.worker_outcome = ('incomplete-turn' if incomplete_turn else
-                                       'blocked-turn' if blocked_turn else 'completed')
+                                       'blocked-turn' if blocked_turn else
+                                       'admission-blocked' if blocked_campaign_admission else 'completed')
+                active = self.active or {}
                 turn_record = {
                     'turn': len(self.worker_turns) + 1,
                     'outcome': self.worker_outcome,
@@ -747,14 +1108,24 @@ class Bridge:
                     'stderr_bytes': stderr_bytes,
                     'process_group_drained': True,
                     'session_bound': True,
-                    'host_tool_requests': self.active.get('host_tool_requests', 0),
-                    'host_tool_failures': len(self.active.get('host_tool_failures', [])),
+                    'host_tool_requests': sum(row['host_tool_requests'] for row in self.sdk_run_history) +
+                                          active.get('host_tool_requests', 0),
+                    'host_tool_failures': sum(row['host_tool_failures'] for row in self.sdk_run_history) +
+                                          len(active.get('host_tool_failures', [])),
                     'response_status': value.get('status', 'ok'),
                 }
+                if self.sdk_runs_started > 1:
+                    turn_record['sdk_runs'] = self.sdk_runs_started
                 if incomplete_turn:
                     turn_record['sdk_error_kind'] = 'incomplete_turn'
-                elif blocked_turn:
+                elif blocked_turn or blocked_campaign_admission:
                     turn_record['sdk_error_kind'] = 'hook_block'
+                if blocked_campaign_admission:
+                    hook_code = self._safe_worker_response(stdout).get('hook_block_code')
+                    if hook_code in {'host-slot-busy', 'session-binding-rejected',
+                                     'controller-request-rejected', 'invalid-admission-response',
+                                     'controller-transport', 'other-hook-block'}:
+                        turn_record['hook_block_code'] = hook_code
                 self.worker_turns.append(turn_record)
                 self.worker_turns = self.worker_turns[-MAX_WORKER_TURN_RECORDS:]
                 write_json(self.parent.path.parent / 'controller-worker.json', {
@@ -765,7 +1136,7 @@ class Bridge:
                     'turn_outcome': self.worker_outcome,
                     'turn_number': turn_record['turn'],
                     'returncode': self.worker.returncode,
-                    'sdk_end_observed': self.active['ended'], 'run_id': self.active['run_id'],
+                    'sdk_end_observed': active.get('ended') is True, 'run_id': active.get('run_id'),
                     'stdout_sha256': hashlib.sha256(stdout.encode()).hexdigest(), 'tools': self.outcomes})
                 self.publish()
                 self.verified = True
@@ -796,8 +1167,14 @@ class Bridge:
     def _is_incomplete_turn(self, value):
         """Recognize only the pinned SDK's terminal, no-answer result for this session."""
         if not isinstance(value, dict) or value.get('status') != 'error' or self.worker is None or \
-                self.worker.returncode == 0 or self.exam_session is None or \
-                self.exam_session.tier != 'practice':
+                self.worker.returncode == 0:
+            return False
+        practice_turn = self.exam_session is not None and self.exam_session.tier == 'practice'
+        campaign_turn = (self.exam_session is None and self.task_campaign and
+                         self.parent.record.get('kind') == 'controller' and
+                         self.parent.record.get('phase') != 'delegated' and
+                         self.session_key.startswith('agent:main:argos_proctor_improvement_'))
+        if not (practice_turn or campaign_turn):
             return False
         body = value.get('result')
         if not isinstance(body, dict) or not isinstance(body.get('payloads'), list):
@@ -807,11 +1184,25 @@ class Bridge:
             return False
         agent_meta = meta.get('agentMeta')
         error = meta.get('error')
-        return (isinstance(agent_meta, dict) and agent_meta.get('sessionId') == self.session_id and
-                isinstance(error, dict) and error.get('kind') == 'incomplete_turn' and
-                isinstance(self.active, dict) and self.active.get('session_id') == self.session_id and
-                self.active.get('host_tool_requests', 0) == 0 and not self.active.get('host_tool_failures') and
-                self.pending is None and not self.tool_lock.locked())
+        active = self.active
+        common = (isinstance(agent_meta, dict) and agent_meta.get('sessionId') == self.session_id and
+                  isinstance(error, dict) and error.get('kind') == 'incomplete_turn' and
+                  isinstance(active, dict) and active.get('session_id') == self.session_id and
+                  self.pending is None and not self.tool_lock.locked())
+        if not common:
+            return False
+        if practice_turn:
+            return (active.get('host_tool_requests', 0) == 0 and
+                    not active.get('host_tool_failures'))
+        # A campaign may retry only a terminal, drained turn that did no host
+        # work at all. Include earlier SDK runs in this worker: a later
+        # incomplete response must not hide an earlier tool call or failure.
+        history_requests = sum(row.get('host_tool_requests', 0) for row in self.sdk_run_history)
+        history_failures = sum(row.get('host_tool_failures', 0) for row in self.sdk_run_history)
+        job = self.evaluation_job
+        return (active.get('ended') is True and active.get('host_tool_requests', 0) == 0 and
+                not active.get('host_tool_failures') and history_requests == 0 and history_failures == 0 and
+                (job is None or job.get('consumed')))
 
     def _is_blocked_practice_turn(self, value):
         """Accept only an admitted, ended, side-effect-free practice hook block for retry."""
@@ -833,6 +1224,23 @@ class Bridge:
                 active.get('ended') is True and active.get('host_tool_requests', 0) == 0 and
                 not active.get('host_tool_failures') and self.pending is None and
                 not self.tool_lock.locked())
+
+    def _is_unadmitted_campaign_block(self, value):
+        """Recognize a drained admission-hook block only before any host work."""
+        if (not self.task_campaign or self.parent.record.get('kind') != 'controller' or
+                self.worker is None or self.worker.returncode == 0 or self.active is not None or
+                self.pending is not None or self.evaluation_job is not None or self.outcomes or
+                self.uncertain or self.tool_lock.locked() or
+                self.parent.record.get('phase') == 'delegated'):
+            return False
+        body = value.get('result') if isinstance(value, dict) else None
+        meta = body.get('meta') if isinstance(body, dict) else None
+        agent_meta = meta.get('agentMeta') if isinstance(meta, dict) else None
+        error = meta.get('error') if isinstance(meta, dict) else None
+        return (isinstance(value, dict) and value.get('status') == 'error' and
+                isinstance(body.get('payloads'), list) and isinstance(agent_meta, dict) and
+                agent_meta.get('sessionId') == self.session_id and isinstance(error, dict) and
+                error.get('kind') == 'hook_block')
 
     def _safe_worker_response(self, stdout):
         """Summarize SDK JSON structure without persisting reply or error text."""
@@ -873,6 +1281,30 @@ class Bridge:
             kind = error.get('kind')
             if isinstance(kind, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', kind):
                 result['error_kind'] = kind
+            if kind == 'hook_block':
+                message = error.get('message')
+                # Pinned OpenClaw wraps explicit hook messages in the SDK
+                # error envelope. Unwrap only that exact plugin wrapper; all
+                # remaining text is still compared against a closed allowlist.
+                prefix = 'Your message could not be sent: '
+                suffix = ' (blocked by argos-improve)'
+                if (isinstance(message, str) and message.startswith(prefix) and
+                        message.endswith(suffix)):
+                    message = message[len(prefix):-len(suffix)]
+                # Export only a closed set of admission diagnoses. The raw SDK
+                # message may contain private prompt or host data.
+                if message == 'Host controller slot is busy':
+                    result['hook_block_code'] = 'host-slot-busy'
+                elif message == 'Host controller rejected session binding':
+                    result['hook_block_code'] = 'session-binding-rejected'
+                elif message == 'Host controller request was rejected':
+                    result['hook_block_code'] = 'controller-request-rejected'
+                elif message == 'Host controller returned an invalid admission response':
+                    result['hook_block_code'] = 'invalid-admission-response'
+                elif message == 'Host controller admission failed':
+                    result['hook_block_code'] = 'controller-transport'
+                else:
+                    result['hook_block_code'] = 'other-hook-block'
         return result
 
     def next_practice_turn(self, session_key):
@@ -890,6 +1322,9 @@ class Bridge:
             self.worker = None
             self.worker_outcome = None
             self.active = None
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
+            self.last_admission_block_reason = None
             self.verified = False
             self.session_key = session_key
 
@@ -922,7 +1357,7 @@ class Bridge:
         self._settle_campaign_evaluation()
         with self.lock:
             job = self.evaluation_job
-            if (not self.verified or not self.worker or self.worker.poll() != 0 or
+            if (not self.verified or not self._accepted_campaign_worker_exit() or
                     self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
                     not self.active or job is not None and not job.get('consumed')):
                 raise workload.Busy(recovery=True)
@@ -930,6 +1365,46 @@ class Bridge:
             self.active = None
             self.verified = False
             self.session_key = session_key
+            self.sdk_runs_started = 0
+            self.sdk_run_history = []
+            self.last_admission_block_reason = None
+
+    def _accepted_campaign_worker_exit(self):
+        """Accept success or a fully drained no-tool incomplete campaign turn."""
+        if not self.worker or self.worker.poll() is None:
+            return False
+        if self.worker.poll() == 0:
+            return True
+        if (self.worker_outcome != 'incomplete-turn' or not self.task_campaign or
+                self.parent.record.get('kind') != 'controller' or
+                self.parent.record.get('phase') == 'delegated' or
+                not self.session_key.startswith('agent:main:argos_proctor_improvement_') or
+                not self.worker_turns):
+            return False
+        turn = self.worker_turns[-1]
+        return (turn.get('outcome') == 'incomplete-turn' and
+                turn.get('host_tool_requests') == 0 and turn.get('host_tool_failures') == 0 and
+                self.active is not None and self.active.get('ended') is True and
+                self.active.get('session_id') == self.session_id and
+                self.pending is None and not self.tool_lock.locked() and not self.uncertain)
+
+    def release_unmeasured_incomplete_campaign(self):
+        """Release only a no-suite campaign that exhausted turns without mutating state."""
+        safe_read_kinds = {'inspect', 'audit', 'ssh_status'}
+        with self.lock:
+            job = self.evaluation_job
+            if (not self.task_campaign or self.owner_task_suite is not None or
+                    self.parent.record.get('kind') != 'controller' or
+                    self.parent.record.get('phase') == 'delegated' or
+                    not self.verified or not self._accepted_campaign_worker_exit() or
+                    self.worker_outcome != 'incomplete-turn' or self.closed or self.uncertain or
+                    self.pending is not None or self.tool_lock.locked() or
+                    job is not None and not job.get('consumed') or
+                    any(not isinstance(item, dict) or item.get('kind') not in safe_read_kinds
+                        for item in self.outcomes)):
+                raise workload.Busy(recovery=True)
+            self.parent.complete()
+            self.closed = True
 
     def complete_campaign(self):
         """Release a drained Proctor campaign after the host checks its evidence."""
@@ -944,6 +1419,19 @@ class Bridge:
                     not self.active):
                 raise workload.Busy(recovery=True)
         self._complete()
+
+    def release_unadmitted_campaign(self):
+        """Release only a drained campaign worker blocked before host admission."""
+        if (not self.task_campaign or self.parent.record.get('kind') != 'controller' or
+                self.worker_outcome != 'admission-blocked' or not self.verified or
+                not self.worker or self.worker.poll() is None or self.worker.poll() == 0 or
+                self.active is not None or
+                self.pending is not None or self.evaluation_job is not None or self.outcomes or
+                self.uncertain or self.tool_lock.locked() or
+                self.parent.record.get('phase') == 'delegated'):
+            raise workload.Busy(recovery=True)
+        self.parent.complete()
+        self.closed = True
 
     def submit_answered_practice_module(self):
         """Host-only module closure after all agent answers and proven turn exit."""
@@ -1058,7 +1546,9 @@ class Bridge:
 
 
 @contextmanager
-def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None):
+def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None,
+          task_campaign=False, owner_task_suite=None, ssh_status_provider=None,
+          ssh_status_verifier=None):
     if sys.platform != 'linux':
         raise ValueError('Native controller bridge requires Linux')
     if exam_session is not None and trigger != 'user':
@@ -1066,7 +1556,10 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
     workload_kind = 'proctor' if exam_session is not None else 'controller'
     with workload.reserve(home, workload_kind) as parent:
         bridge = Bridge(home, parent, session_key=session_key, trigger=trigger,
-                        worker_timeout=worker_timeout, exam_session=exam_session)
+                        worker_timeout=worker_timeout, exam_session=exam_session,
+                        task_campaign=task_campaign, owner_task_suite=owner_task_suite,
+                        ssh_status_provider=ssh_status_provider,
+                        ssh_status_verifier=ssh_status_verifier)
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
                 work_bearing = False
@@ -1094,6 +1587,8 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                     response = bridge.dispatch(request, on_update=progress if work_bearing else None)
                 except workload.Busy as error:
                     response = {'status': 'busy', 'recovery_required': error.recovery}
+                except AdmissionDenied:
+                    response = {'status': 'denied', 'failure_code': 'session-binding'}
                 except (ValueError, KeyError, TypeError, OSError):
                     response = {'status': 'failed', 'message': 'Controller bridge request failed'}
                 try:

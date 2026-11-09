@@ -52,7 +52,15 @@ systemctl enable argos-shutdown-root.service
 # The unit's read-only gate refuses guest/unpaired/unsafe configurations.
 systemctl disable ssh.socket 2>/dev/null || true
 systemctl enable ssh.service
+systemctl enable systemd-timesyncd.service
 systemctl enable argos-refresh-runtime.service
+# Allow only the two fixed, argument-free helpers. The restart helper repeats
+# the complete encrypted-persistence and paired-policy preflight itself.
+install -d -m 755 /etc/sudoers.d
+printf '%s\n' 'argos ALL=(root) NOPASSWD: /usr/local/sbin/argos-ssh-status "", /usr/local/sbin/argos-ssh-restart ""' \
+  >/etc/sudoers.d/argos-ssh-recovery
+chmod 440 /etc/sudoers.d/argos-ssh-recovery
+visudo -cf /etc/sudoers.d/argos-ssh-recovery
 rm -f /etc/ssh/ssh_host_*key /etc/ssh/ssh_host_*key.pub
 truncate -s 0 /etc/machine-id
 find /usr/share/doc -name copyright -print0 | tar --null -T - -czf /usr/local/share/argos-live/debian-copyrights.tar.gz

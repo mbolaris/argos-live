@@ -15,7 +15,9 @@ Before following the last `## Next`, reconcile it with host-saved receipts using
 and configuration. A missing log line does not mean a completed evaluation was
 lost. If matching saved results already satisfy a step, do not repeat it: append
 the verified run IDs and scores with `argos_log`, then advance `## Next`. Create
-the log if missing. Aim for the best measured setup this machine supports.
+the log if missing. Aim to improve useful owner task outcomes, including
+reliability and the amount of manual work required. A benchmark score is a
+diagnostic signal, not the objective.
 
 Append one entry per step with `argos_log` (one `text` field), under ten lines: hypothesis, change, snapshot,
 before/after saved run IDs, scores, elapsed time, decision, and a complete
@@ -32,13 +34,23 @@ Continue authorized reversible steps without asking at each step.
 
 ## 2. Measure one change at a time
 
-Use native `argos_evaluate` (suite `quick`, `standard`, `challenge`, `tool-schema`, `tool-plan`, or `tool-sequence`) and `argos_compare`
-(`baseline_id`, `candidate_id`). These are tools, not shell commands. If absent,
-use `argos bench openclaw --suite quick --json`; never invent a control-script
-`evaluate` subcommand. Raw `argos bench ability` measures a model, not your
-workspace instructions, and cannot establish an assistant gain.
+First state the owner task, its success measure, and what evidence would be
+relevant. Use a fixed evaluation suite (`quick`, `standard`, `challenge`,
+`tool-schema`, `tool-plan`, `tool-sequence`, or `documents-short`) only when its
+exact tasks directly measure behavior needed for the owner task. The optional
+`documents-short` suite reuses the existing "Read this brief" passages to score
+short-document answers, supporting quotes, and "not stated" responses; its
+owner-judged summaries are excluded. It does not measure long-document or file
+reading ability. Use only the owner-selected suite; the host rejects other
+suites. If no suite fits, do not steer the owner toward a
+generic score, and do not evaluate, compare, adopt, edit, or keep instructions
+from unrelated scores. Inspect and audit, then report `task-not-measured` with
+the specific task examples or checks needed. Raw-model `argos bench ability`
+measures a model, not your workspace instructions, and cannot establish an
+assistant gain.
 
-Get a fresh baseline, choose one hypothesis, snapshot, change one thing, evaluate,
+Only when a relevant suite exists and a testable change is justified, get a
+matched baseline, choose one hypothesis, snapshot, change one thing, evaluate,
 compare, then keep or restore. Every retest needs a new saved ID. Each wait is
 bounded to eight minutes: if `argos_evaluate` returns a running job, use
 `argos_evaluate_wait` with its job ID until the saved result arrives. If a turn
@@ -62,7 +74,9 @@ do not infer intent from hidden answer labels. Report that measurement as
 under-specified and use a separately versioned, fully specified form for a new
 baseline. Never change a fixed suite to fit a candidate.
 
-In challenge 1.0.0, the eight tool-call prompts omit tool inventories and
+These suite-specific limitations apply only when the owner task makes the suite
+relevant. They do not create a reason to run that suite. In challenge 1.0.0, the
+eight tool-call prompts omit tool inventories and
 schemas. Keep their measured outcomes in the full score, but do not use those
 items to diagnose tool behavior or support an instruction edit. Host keep-policy
 v3 excludes that category from challenge-based qualification; use tool-schema
@@ -84,52 +98,30 @@ a tool question argument unspecified. Keep-policy v4 excludes its choice, JSON
 and tool-call categories from qualification. Challenge 1.3.1 states those
 details explicitly; establish a fresh baseline for that version.
 
-Quick scores vary by 1–2 of 20. A complete quick run with every item correct
-and zero format errors is a ceiling signal, not a plateau: follow it with a
-complete 70-task `standard` evaluation after the latest instruction decision.
-Log every evaluation before continuing. If standard is saturated, run the
-separate 40-task `challenge` form. Its prompts use
-multi-step arithmetic, multiple constraints, structured extraction and proposed
-actions; it remains an Argos-authored probe, not an external benchmark. Compare
-only matching suite names and versions. Confirm a gain with at least two more
-correct answers in TWO fresh candidate quick runs against the baseline, or with
-repeated matched gains on standard/challenge. Fewer format errors with correct
-count maintained or improved is a reliability gain. An unchanged score with a
-large slowdown is not better. Report noise, uncertainty and regressions. Restore
-failed changes and verify the restore; never claim a general capability gain
-from one suite.
+The quick, standard, challenge, tool-schema, tool-plan, tool-sequence and
+documents-short suites
+are optional Argos-authored diagnostics. There is no required progression from
+one suite to the next when a score saturates. Select a suite only when its exact
+tasks and scorer measure behavior relevant to the owner task. If none does, do
+not run unrelated probes to fill the campaign or justify an edit; report that
+task-specific evidence is missing. Keep scores separate by suite and version.
+The opt-in `owner-recovery-decision/0.5.0` suite is only eight uncalibrated
+cases with simulated receipts. It defines state labels and asks for the
+specific minimum owner action as well as reported action counts. This reduces
+rubric ambiguity; it still measures decision-only simulated behavior, not real
+tool use, recovery, or owner time. Use it as a diagnostic baseline only; do
+not edit or adopt instructions from its score. The host rejects instruction
+changes in campaigns that select it.
 
-When tool-call formatting is the measured weakness, use `tool-schema`. Every
-item supplies the exact available tool names and argument schemas. Its 20
-practice and 20 unseen-vocabulary tasks use disjoint tool names and argument
-keys, and target position is balanced so always choosing the first tool is
-insufficient. Both partitions and answer keys ship in the image, so the
-unseen-vocabulary score is a within-suite transfer signal, not independent or
-sealed validation. For an instruction change to qualify on this form, repeated
-runs must gain at least 3/40 overall, avoid more format errors, and each
-candidate unseen-vocabulary score must match or exceed the strongest baseline
-on that partition. The form remains an Argos-authored probe.
-
-When direct schema-grounded calls saturate, use `tool-plan`: it tests selecting
-among four tools, resolving multiple request constraints, deriving small values
-and assembling full arguments. Its 20 practice and 20 bundled held-out items
-use disjoint tool names and argument keys. The held-out half is an internal
-vocabulary-transfer signal only; prompts and answer keys ship with the image.
-Require repeated 3/40 gains, no format-error increase and held-out
-nonregression. It remains an Argos-authored probe, not independent validation
-or evidence that real tools execute.
-
-When `tool-plan` saturates, use `tool-sequence` to probe ordered two- and
-three-call workflows. Every item provides four tool schemas, a fully specified
-request, and literal `$stepN.field` bindings for values returned by earlier
-calls. The expected answer is a minimal JSON call sequence; the benchmark never
-executes those calls. Practice and held-out partitions use disjoint tool names
-and argument keys. The bundled held-out workflows are an internal transfer
-signal only: prompts and answer keys ship with the image. For an instruction
-change to qualify, repeated runs must gain at least 3/40 overall, avoid more
-format errors, and each held-out candidate score must match or exceed the
-strongest baseline on that partition. Keep these scores separate from every
-other suite and do not treat a perfect score as evidence of real tool execution.
+Inspect each item's wording and scoring requirements before diagnosing a miss.
+If the prompt omits requirements that the scorer expects, treat the item as
+under-specified and do not infer the intended behavior from the hidden answer.
+Tool-schema, tool-plan and tool-sequence can diagnose structured call formatting
+or planning only when that behavior is part of the owner task. They return
+proposed calls rather than executing them. Their held-out prompts and answers
+ship with the image, so they provide an internal transfer signal, not sealed or
+independent validation. Report uncertainty, reliability and latency separately;
+never claim general ability from one suite.
 
 Treat historical `tool-plan` 1.0.0 misses on `sort_order`, `order_by` and
 `reviewer_role` as under-specified: the prompts supplied only the primitive
@@ -138,7 +130,8 @@ those allowed literals in the tool descriptions. Establish a fresh 1.1.0
 baseline before diagnosing those skills or attempting an instruction change;
 never compare its scores with 1.0.0.
 
-For a workspace-instruction experiment, use `argos_inspect` first. It returns
+For a workspace-instruction experiment supported by relevant task evidence, use
+`argos_inspect` first. It returns
 the canonical `AGENTS.md`, current hash, configuration receipt, active change,
 and exact host keep policy. Establish a saved baseline through this controller,
 then use `argos_edit_instructions` with its ID, the inspected hash, one unique
@@ -177,28 +170,38 @@ free-form log or establish independent transfer; state those limits plainly.
 
 ## 3. Improvement order and authority
 
-Prefer a stronger fitting controller, honoring any owner selection. Do not switch on a single 1–3-point standard
-suite gap; an alternative needs a clear repeated matched advantage and reliable
-tool use and truthful records.
+Before choosing a change, write down: (1) the recurring owner task, (2) what a
+successful result looks like to the owner, (3) the baseline and its evidence,
+and (4) what outcome would count as a worthwhile improvement. Include owner
+time or manual steps when those matter. If no real task and success measure are
+available, do not optimize a synthetic score or change models; report that the
+current probes cannot answer the owner's question.
 
-**A. Model first.** Inspect `argos hw --json`, `argos catalog --json`,
-`argos storage --json`, then `python3 tools/argos-control.py upgrades`. Use exact
-reviewed tags and the returned `next` command, never guessed names. Fit includes
-weights, 32k KV cache and 2 GB headroom. Prefer a stronger fitting dense model;
-try the barely fitting qwen3:30b MoE only if the dense candidate disappoints.
+Use benchmark suites to diagnose a specific skill only when their prompts and
+scorers specify the behavior being measured. Inspect each miss. If wording,
+units, accepted alternatives, provenance, or scorer assumptions are ambiguous,
+classify the item as a measurement limitation; do not use it to justify an
+instruction or model change. Bundled held-out items are internal probes, not
+independent validation. Proctor practice forms marked `uncalibrated` are
+coaching only and do not verify general ability.
 
-The campaign controller may download via
-`python3 tools/argos-control.py download <tag>`. Write `## Next` first. After
-resuming, rerun `upgrades` and check `installed`/`next`; do not assume failure.
-Inspect a failed job's `error_detail` in `~/.config/argos-live/pull-jobs/`. Retry
-only after its cause is gone; the same error twice is a blocker to log/report,
-then pursue another authorized lever.
+Choose the smallest reversible intervention that plausibly addresses the
+observed task gap. Prefer workflow, tool reliability, configuration, or a
+targeted instruction/skill change when evidence points there. Treat a model
+change as a hypothesis, never the default next step. A hardware fit estimate,
+parameter count, or leaderboard position is not evidence of a task benefit.
 
-Select installed weights with `printf 'yes\n' | argos select-model --model <tag>`.
-Switches between downloaded models hot-apply; leaving bundled qwen3:0.6b needs
-the Argos restart below. Verify actual selected/configured model and
-`curl -s http://127.0.0.1:11434/api/ps`; a GPU upgrade is fully in VRAM only when
-`size_vram` equals `size`. Then evaluate. Keep prior weights until a confirmed gain.
+**A. Model trials.** Consider another model only after the same owner-valued
+task fails repeatedly, non-model causes have been checked, and a model
+capability limitation is plausible. Record the hypothesis and expected task
+outcome before any download. Use exact reviewed tags and inspect
+`argos hw --json`, `argos catalog --json`, and `argos storage --json` for fit,
+space, and rollback feasibility. A trial must compare the current and candidate
+on the same task, prompts, tools, configuration, and hardware, with repeated
+runs and the same success criteria. Track quality, latency, resource use, and
+manual owner steps separately. Keep the current model unless the owner task
+improves without unacceptable regressions. Do not download a model merely
+because it fits or because an Argos-authored probe has room for a higher score.
 
 **B. Configuration.** You may tune context, thinking, temperature, timeouts and
 enabled skills in `~/.openclaw/openclaw.json`. Snapshot first; validate JSON with
@@ -206,7 +209,7 @@ the pinned host and verify the effective setting. Catalog token metadata alone
 need not bound native generation. Check `config hot reload applied` in
 `~/.local/state/argos-live/gateway.log`. Never change permissions/security.
 
-**C. Instructions/skills.** Diagnose recurring task-level misses, add a short
+**C. Instructions/skills.** Diagnose recurring owner-task misses, add a short
 `## Lessons` section here or a workspace skill, and evaluate the change. Snapshot
 before every edit. Undo only your own section; do not restore an old whole guide
 over newer owner rules. Never weaken section 7 or SOUL.md honesty rules.
@@ -244,9 +247,10 @@ their evidence or bypass the startup guard.
 
 ## 6. Stop conditions
 
-Stop at a measured plateau when the strongest reviewed fitting model is selected
-(or larger candidates measured worse), three distinct recent experiments yield
-no confirmed gain, and any software upgrade found has been proposed.
+Stop when the owner-valued task outcome is measurably better, evidence is
+inconclusive after a reasonable number of trials, or the next step needs an
+owner decision. A synthetic-suite plateau or the largest fitting model is not
+proof of maximum capability.
 Stop immediately when told, or when an owner-dependent blocker leaves no
 authorized next step (money, credentials, more hardware, approval).
 

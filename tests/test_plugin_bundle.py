@@ -22,11 +22,13 @@ class ImprovementPluginBundleTests(unittest.TestCase):
         self.assertEqual(manifest['id'], 'argos-improve')
         self.assertEqual(manifest['contracts']['tools'], ['argos_evaluate', 'argos_evaluate_wait', 'argos_evaluate_status', 'argos_compare', 'argos_log',
                          'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions', 'argos_resolve_instructions',
+                         'argos_adopt_external_instruction_edit', 'argos_ssh_status',
                          'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
                          'argos_proctor_answer', 'argos_proctor_continue', 'argos_proctor_submit',
                          'argos_proctor_feedback'])
         self.assertTrue(all(manifest['toolMetadata'][name]['optional'] for name in
                            ('argos_evaluate_wait', 'argos_evaluate_status', 'argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions', 'argos_resolve_instructions',
+                            'argos_adopt_external_instruction_edit', 'argos_ssh_status',
                             'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
                             'argos_proctor_answer', 'argos_proctor_continue', 'argos_proctor_submit',
                             'argos_proctor_feedback')))
@@ -51,6 +53,7 @@ class ImprovementPluginBundleTests(unittest.TestCase):
     def test_agent_skill_teaches_the_host_verified_experiment_path(self):
         skill = (ROOT / 'openclaw-plugin/argos-improve/skills/argos-improvement/SKILL.md').read_text()
         guide = (ROOT / 'runtime/argoslive/data/SELF-IMPROVEMENT-AGENTS.md').read_text()
+        plugin = (ROOT / 'openclaw-plugin/argos-improve/index.js').read_text()
         for text in (skill, guide):
             for tool in ('argos_inspect', 'argos_audit_instructions', 'argos_edit_instructions', 'argos_resolve_instructions'):
                 self.assertIn(tool, text)
@@ -62,6 +65,12 @@ class ImprovementPluginBundleTests(unittest.TestCase):
         self.assertIn('2/20', guide)
         self.assertIn('4/70', guide)
         self.assertIn('3/40', guide)
+        self.assertIn('There is no required progression', guide)
+        self.assertIn('only when an available suite measures a behavior relevant', skill)
+        self.assertIn('Do not recommend or trial a larger model based on fit', skill)
+        self.assertNotIn('Prefer a comfortably fitting stronger model early', skill)
+        self.assertIn('only when its exact tasks measure behavior relevant to the owner\'s goal', plugin)
+        self.assertIn('a compatible pair does not prove that its suite measures the task', plugin)
 
 
 if __name__ == '__main__':

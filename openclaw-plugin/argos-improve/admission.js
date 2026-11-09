@@ -11,6 +11,7 @@ const TOOLS = new Map([
   ['argos_proctor_item', 'proctor_item'], ['argos_proctor_answer', 'proctor_answer'],
   ['argos_proctor_continue', 'proctor_continue'], ['argos_proctor_submit', 'proctor_submit'],
   ['argos_proctor_feedback', 'proctor_feedback'],
+  ['argos_ssh_status', 'ssh_status'],
 ]);
 
 export function registerAdmission(api) {
@@ -55,8 +56,8 @@ export function registerAdmission(api) {
             if (frame.progress && onUpdate) {
               const progress = frame.progress;
               const text = progress.phase === 'scored'
-                ? `Challenge ${progress.completed}/${progress.total}: ${progress.passed ? 'passed' : 'not passed'}.`
-                : `Working on challenge ${Number(progress.completed ?? 0) + 1}/${progress.total}.`;
+                ? `Evaluation ${progress.completed}/${progress.total}: ${progress.passed ? 'passed' : 'not passed'}.`
+                : `Working on evaluation ${Number(progress.completed ?? 0) + 1}/${progress.total}.`;
               try { onUpdate({content:[{type:'text',text}], details:{progress}}); }
               catch { /* Progress display cannot own or cancel host work. */ }
             }
@@ -81,14 +82,24 @@ export function registerAdmission(api) {
     try {
       const value = await request({op:'begin', run_id:ctx.runId, session_id:ctx.sessionId,
         session_key:ctx.sessionKey, trigger:ctx.trigger});
-      if (value.status !== 'admitted' || typeof value.turn_token !== 'string')
-        return {outcome:'block', reason:'Host controller slot is not available'};
+      if (value.status !== 'admitted' || typeof value.turn_token !== 'string') {
+        const reason = value.status === 'busy' ? 'Host controller slot is busy' :
+          value.status === 'denied' && value.failure_code === 'session-binding'
+            ? 'Host controller rejected session binding' :
+          value.status === 'failed' ? 'Host controller request was rejected' :
+          'Host controller returned an invalid admission response';
+        // OpenClaw wraps hook blocks for the SDK response. Supplying the same
+        // fixed, bounded text as `message` lets the host classify this known
+        // admission outcome without exporting arbitrary hook or model text.
+        return {outcome:'block', reason, message:reason};
+      }
       turns.set(ctx.runId, value.turn_token);
       diagnostics.set(ctx.runId, {tool_hooks:0, bound_calls:0, executions:0,
         rejected:{unknown_tool:0, missing_admission:0, invalid_call_id:0, stale_binding:0}});
       return {outcome:'pass'};
     } catch {
-      return {outcome:'block', reason:'Host controller admission failed'};
+      const reason = 'Host controller admission failed';
+      return {outcome:'block', reason, message:reason};
     }
   });
   api.on('before_tool_call', (event, ctx) => {

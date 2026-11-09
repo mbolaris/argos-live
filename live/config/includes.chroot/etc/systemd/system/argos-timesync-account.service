@@ -1,0 +1,10 @@
+[Unit]
+Description=Ensure the systemd-timesync service account exists
+DefaultDependencies=no
+After=local-fs.target
+Before=systemd-timesyncd.service sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-sysusers /usr/lib/sysusers.d/systemd-timesync.conf
+RemainAfterExit=yes

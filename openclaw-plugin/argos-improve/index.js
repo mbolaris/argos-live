@@ -88,12 +88,12 @@ function runArgos(command, args, signal, onUpdate) {
           const event = JSON.parse(line);
           if (!event || !["asking", "scored"].includes(event.phase) ||
               !Number.isInteger(event.completed) || !Number.isInteger(event.total) ||
-              ![20, 40, 70].includes(event.total) || event.completed < 0 ||
+              ![20, 24, 40, 70].includes(event.total) || event.completed < 0 ||
               event.completed > event.total ||
               (event.phase === "asking" && event.completed === event.total)) continue;
           const text = event.phase === "scored"
-            ? `Challenge ${event.completed}/${event.total}: ${event.receipt?.score ? "passed" : "not passed"}. ${event.receipt?.output ?? ""}`
-            : `Working on challenge ${event.completed + 1}/${event.total}.`;
+            ? `Evaluation ${event.completed}/${event.total}: ${event.receipt?.score ? "passed" : "not passed"}. ${event.receipt?.output ?? ""}`
+            : `Working on evaluation ${event.completed + 1}/${event.total}.`;
           onUpdate?.({ content: [{ type: "text", text }], details: { progress: event } });
         } catch { if (Buffer.byteLength(stderr) < 32768) stderr += line; }
       }
@@ -145,13 +145,23 @@ function renderEvaluation(value) {
   const partitions = summary.partitions
     ? ` Practice: ${summary.partitions.practice?.correct ?? 0}/20; ${partitionLabel}: ${summary.partitions.heldout?.correct ?? 0}/20 (same bundled suite, not independent validation).`
     : "";
-  const next = run.state === "completed"
+  const qualification = run.qualification?.checks?.length
+    ? ` Task criteria: ${run.qualification.checks.map(check => `${check.label} ${check.observed}/${check.required} ${check.met ? "met" : "missed"}`).join("; ")}. Qualified: ${run.qualification.qualified ? "yes" : "no"}. Scope: ${run.qualification.scope}`
+    : "";
+  const ownerRecovery = run.suite === "openclaw-owner-recovery-decision" ? run.task_measurement : null;
+  const ownerRecoverySummary = ownerRecovery
+    ? ` Decision-only diagnostic: decisions ${ownerRecovery.decision_correct}/${summary.total}; effort fields ${ownerRecovery.owner_effort_correct}/${summary.total}; safety ${ownerRecovery.safety_pass}/${summary.total}; terminal commands requested ${ownerRecovery.terminal_commands_requested}; owner requests ${ownerRecovery.owner_requests}; approvals ${ownerRecovery.owner_approvals}. Uncalibrated; no real tools, recovery, or owner time measured; do not change instructions or claim improvement.`
+    : "";
+  const next = ownerRecovery
+    ? "Next: keep the saved run as a diagnostic baseline. It cannot authorize an instruction or model change."
+    : run.state === "completed"
     ? "Next: append the saved run ID and score to IMPROVEMENT-LOG.md. Compare matched runs and repeat a candidate to confirm a gain. Change only one thing between experiments; do not change setup during a run."
     : "Next: note the failure in IMPROVEMENT-LOG.md and fix its cause before retesting.";
-  const text = `OpenClaw benchmark ${outcome}.${partitions} Run ID: ${run.id}. Suite: ${run.suite_version}. Complete coverage: ${run.coverage.complete ? "yes" : "no"}. Saved privately at ${value.path}. ${next}`;
+  const text = `OpenClaw benchmark ${outcome}.${partitions}${qualification ? ` ${qualification}` : ""}${ownerRecoverySummary} Run ID: ${run.id}. Suite: ${run.suite_version}. Complete coverage: ${run.coverage.complete ? "yes" : "no"}. Saved privately at ${value.path}. ${next}`;
   return textResult(text, {run_id:run.id, suite_version:run.suite_version,
     suite_sha256:run.settings?.suite_sha256, prompt_fingerprint:run.prompt_fingerprint,
-    state:run.state, summary, coverage:run.coverage, elapsed_seconds:run.elapsed_seconds});
+    state:run.state, summary, coverage:run.coverage, qualification:run.qualification,
+    elapsed_seconds:run.elapsed_seconds});
 }
 
 function evaluationProgress(job, callback, event) {
@@ -184,7 +194,7 @@ async function waitForDirectEvaluation(job, signal, onUpdate) {
 function startDirectEvaluation(suite, signal, onUpdate) {
   if (signal?.aborted) throw new Error("Argos request was cancelled before dispatch; no command started.");
   const id = randomBytes(16).toString("hex");
-  const job = {id, suite, progress:{completed:0,total:suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" || suite === "tool-sequence" ? 40 : suite === "standard" ? 70 : 20}};
+  const job = {id, suite, progress:{completed:0,total:suite === "owner-recovery-decision" ? 8 : suite === "documents-short" ? 24 : suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" || suite === "tool-sequence" ? 40 : suite === "standard" ? 70 : 20}};
   job.ownerCancellation = new AbortController();
   job.cancel = () => job.ownerCancellation.abort();
   job.completion = runArgos("openclaw", ["--suite", suite, "--json"], job.ownerCancellation.signal,
@@ -241,6 +251,12 @@ export default function register(api) {
     }
     return textResult((instruction ? instruction + '\n\n' : '') + JSON.stringify(value, null, 2), value);
   };
+  api.registerTool({
+    name:'argos_ssh_status', label:'Check paired SSH recovery status',
+    description:'Read a signed, versioned snapshot of encrypted persistence, paired SSH policy, service/listener state and any recovery job. No logs, addresses, keys, device IDs or paths are returned. This tool is read-only and never starts SSH. Tell the owner to click “Approve one safe SSH start” only when the signed status says owner_approval_available=true and restart_eligible=true and no recovery job is running. If either gate is false, the status is unavailable, or failure_code is service-disabled, report the blocker and stop; approval cannot enable or configure a disabled service. Never ask for terminal commands.',
+    parameters:Type.Object({}, {additionalProperties:false}),
+    async execute(id, params, signal) { return controlled(id,'ssh_status',params,signal); }
+  }, {optional:true});
   api.registerTool({
     name:'argos_inspect', label:'Inspect current experiment setup',
     description:'Read your current AGENTS.md, its hash, safe configured generation settings, pending change and keep evidence policy. No arbitrary file paths or credentials.',
@@ -324,11 +340,11 @@ export default function register(api) {
   }, {optional:true});
   api.registerTool({
     name: "argos_evaluate",
-    label: "Evaluate OpenClaw",
-    description: "Measure fixed text tasks with copies of your current instructions in isolated, tool-free OpenClaw state. Save a scored run. Run evaluations sequentially; repeat a candidate to confirm a gain before making another change. Does not change owner configuration.",
+    label: "Run a fixed diagnostic suite",
+    description: "Run one Argos-authored fixed suite with copies of your instructions in isolated, tool-free OpenClaw state. Use a suite only when its exact tasks measure behavior relevant to the owner's goal; otherwise do not run it. Its score is diagnostic, not proof of owner-task improvement or general ability. No suite progression is required when a score is saturated. Save the run. Does not change owner configuration.",
     parameters: Type.Object({
-      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema"), Type.Literal("tool-plan"), Type.Literal("tool-sequence")],
-        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), or tool-sequence (40 ordered two- and three-call plans with explicit prior-result references). Tool suites include bundled held-out items; these are internal transfer checks, not independent validation or real tool execution." }))
+      suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema"), Type.Literal("tool-plan"), Type.Literal("tool-sequence"), Type.Literal("documents-short"), Type.Literal("owner-recovery-decision")],
+        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), tool-sequence (40 ordered two- and three-call plans), documents-short (24 short-passage questions), or owner-recovery-decision (8 simulated receipt decisions with explicit minimum owner actions; uncalibrated, no real tools or recovery, diagnostic only and ineligible for instruction keeps). Choose only a suite whose exact tasks match the owner-selected task. Tool-suite held-out items are internal transfer checks, not independent validation or real tool execution." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const suite = params.suite ?? 'quick';
@@ -383,7 +399,7 @@ export default function register(api) {
   api.registerTool({
     name: "argos_compare",
     label: "Compare OpenClaw runs",
-    description: "Compare two completed saved runs only when suite version, execution method, settings, recipe, and item coverage match. Different suites (for example quick and tool-plan) cannot be compared as before/after evidence. If runs are incompatible, the tool returns safe fingerprints, pair compatibility checks, and correction guidance.",
+    description: "Compare two completed saved runs only when suite version, execution method, settings, recipe, and item coverage match. Compare only runs selected for the same owner task; a compatible pair does not prove that its suite measures the task or that the owner task improved. Different suites cannot be compared as before/after evidence. If runs are incompatible, the tool returns safe fingerprints, pair compatibility checks, and correction guidance.",
     parameters: Type.Object({
       baseline_id: Type.String({ minLength: 32, maxLength: 32, pattern: "^[a-f0-9]{32}$" }),
       candidate_id: Type.String({ minLength: 32, maxLength: 32, pattern: "^[a-f0-9]{32}$" })

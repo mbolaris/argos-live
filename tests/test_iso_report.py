@@ -54,6 +54,15 @@ class ISOReportTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     module.scan_log(path)
 
+    def test_heartbeat_scans_recent_tail_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'build.log'
+            path.write_bytes(b'ghp_' + b'a' * 30 + b'\n' + b'x' * 4096)
+            module.scan_log_tail(path, max_bytes=4096)
+            path.write_bytes(b'x' * 4096 + b'\nghp_' + b'a' * 30)
+            with self.assertRaises(ValueError):
+                module.scan_log_tail(path, max_bytes=4096)
+
 
 if __name__ == '__main__':
     unittest.main()

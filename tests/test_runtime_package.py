@@ -13,6 +13,53 @@ spec.loader.exec_module(cli)
 
 
 class RuntimePackageTests(unittest.TestCase):
+    def test_image_installs_and_enables_non_blocking_network_time_sync(self):
+        packages = (ROOT / 'live/config/package-lists/argos.list.chroot').read_text()
+        self.assertIn('\nsystemd-timesyncd\n', '\n' + packages)
+        hook = (ROOT / 'live/config/hooks/live/010-argos.hook.chroot').read_text()
+        self.assertIn('systemctl enable systemd-timesyncd.service', hook)
+        account_unit = (ROOT / 'live/config/includes.chroot/etc/systemd/system/'
+                        'argos-timesync-account.service').read_text()
+        self.assertIn('DefaultDependencies=no', account_unit)
+        self.assertIn('After=local-fs.target', account_unit)
+        self.assertIn('Before=systemd-timesyncd.service sysinit.target', account_unit)
+        self.assertIn('ExecStart=/usr/bin/systemd-sysusers '
+                      '/usr/lib/sysusers.d/systemd-timesync.conf', account_unit)
+        self.assertNotIn('\nUser=', account_unit)
+        dropin = (ROOT / 'live/config/includes.chroot/etc/systemd/system/'
+                  'systemd-timesyncd.service.d/10-argos-sysusers.conf').read_text()
+        self.assertIn('Requires=argos-timesync-account.service', dropin)
+        self.assertIn('After=argos-timesync-account.service', dropin)
+        self.assertNotIn('ExecStartPre=', dropin)
+        guest_check = (ROOT / 'scripts/qemu-guest-check.py').read_text()
+        self.assertIn("systemctl', 'is-enabled', 'systemd-timesyncd.service'", guest_check)
+        self.assertIn("systemctl', 'is-active', 'systemd-timesyncd.service'", guest_check)
+        self.assertIn("'getent', 'passwd', 'systemd-timesync'", guest_check)
+        self.assertIn("'argos-timesync-account.service'", guest_check)
+        self.assertNotIn('systemd-time-wait-sync.service', hook + guest_check)
+
+    @unittest.skipUnless(shutil.which('systemd-sysusers'),
+                         'Persistent-account migration fixture requires systemd-sysusers')
+    def test_sysusers_recreates_missing_account_from_older_persistent_etc(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            etc = root / 'etc'
+            etc.mkdir()
+            (etc / 'passwd').write_text(
+                'root:x:0:0:root:/root:/bin/sh\n'
+                'argos:x:1000:1000:Argos:/home/argos:/bin/bash\n')
+            (etc / 'group').write_text('root:x:0:\nargos:x:1000:\n')
+            (etc / 'shadow').write_text('root:*:19700:0:99999:7:::\n')
+            result = subprocess.run(
+                [shutil.which('systemd-sysusers'), f'--root={root}', '--inline',
+                 'u! systemd-timesync - "systemd Time Synchronization"'],
+                capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            self.assertRegex((etc / 'passwd').read_text(), r'(?m)^systemd-timesync:[^\n]+$',
+                             'service user was not recreated in persistent /etc/passwd')
+            self.assertRegex((etc / 'group').read_text(), r'(?m)^systemd-timesync:[^\n]+$',
+                             'service group was not recreated in persistent /etc/group')
+
     def test_checkout_and_installed_paths(self):
         self.assertEqual(cli.runtime_package_path(), ROOT / 'runtime')
         with tempfile.TemporaryDirectory() as directory:
@@ -109,6 +156,7 @@ class RuntimePackageTests(unittest.TestCase):
                        'import argoslive, argoslive.pack_apply, argoslive.catalog, argoslive.addons; '
                        'from argoslive.web.server import ASSETS; '
                        'from argoslive.ability import load, DATA; '
+                       'from argoslive.owner_recovery_eval import load as recovery_decisions; '
                        'from argoslive.proctor.cartridge import DIRECTORY; '
                        'from argoslive.proctor_service import PILOT_DEFINITION, COMPOSED_DEFINITION; '
                        'assert (DIRECTORY / "cartridge.sql").is_file(); '
@@ -124,6 +172,8 @@ class RuntimePackageTests(unittest.TestCase):
                        'assert len(load("tool-plan")["items"]) == 40; '
                        'assert load("tool-plan", version="1.0.0")["version"] == "1.0.0"; '
                        'assert len(load("tool-sequence")["items"]) == 40; '
+                       'assert len(recovery_decisions()["items"]) == 8; '
+                       'assert recovery_decisions()["calibration_status"] == "uncalibrated"; '
                        'assert (DATA / "NOTICE.txt").is_file(); '
                        'from argoslive.doc_trial import load as docs; assert len(docs()["items"]) == 32; '
                        'assert (ASSETS / "index.html").is_file(); '

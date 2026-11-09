@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import bench_openclaw, workload
 from argoslive.evaluation_jobs import Jobs, WaitAborted
-from test_bench_openclaw import FakeOpenClaw, configure_fake
+from test_bench_openclaw import (FakeDocumentOpenClaw, FakeOpenClaw,
+                                 FakeOwnerRecoveryOpenClaw, configure_fake)
 
 
 class EvaluationJobTests(unittest.TestCase):
@@ -37,7 +38,11 @@ class EvaluationJobTests(unittest.TestCase):
             while not self.gate.wait(.005):
                 if options['cancel'].is_set():
                     break
-            return bench_openclaw._run(**options, runner=FakeOpenClaw(suite=options.get('suite', 'quick')))
+            suite = options.get('suite', 'quick')
+            runner = (FakeDocumentOpenClaw() if suite == 'documents-short' else
+                      FakeOwnerRecoveryOpenClaw() if suite == 'owner-recovery-decision' else
+                      FakeOpenClaw(suite=suite))
+            return bench_openclaw._run(**options, runner=runner)
         self.jobs = Jobs(self.home, evaluate=evaluate)
         return self.jobs
 
@@ -66,6 +71,27 @@ class EvaluationJobTests(unittest.TestCase):
         finished = jobs.wait(started['job_id'], seconds=10)
         self.assertEqual(finished['result']['suite'], 'openclaw-challenge')
         self.assertEqual(finished['result']['coverage']['total'], 40)
+
+    def test_documents_short_job_advertises_and_saves_its_own_workload(self):
+        jobs = self.make_jobs()
+        started = jobs.start('documents-short')
+        self.assertEqual(started['total'], 24)
+        self.gate.set()
+        finished = jobs.wait(started['job_id'], seconds=10)
+        self.assertEqual(finished['result']['suite'], 'openclaw-documents-short')
+        self.assertEqual(finished['result']['coverage']['total'], 24)
+        self.assertTrue(finished['result']['qualification']['qualified'])
+
+    def test_owner_recovery_job_is_bounded_and_saves_decision_only_measurements(self):
+        jobs = self.make_jobs()
+        started = jobs.start('owner-recovery-decision')
+        self.assertEqual(started['total'], 8)
+        self.gate.set()
+        finished = jobs.wait(started['job_id'], seconds=10)
+        self.assertEqual(finished['result']['suite'], 'openclaw-owner-recovery-decision')
+        self.assertEqual(finished['result']['coverage'], {'completed': 8, 'total': 8, 'complete': True})
+        self.assertEqual(finished['result']['task_measurement']['owner_effort_correct'], 8)
+        self.assertFalse(finished['result']['task_measurement']['recovery_completed'])
 
     def test_tool_schema_job_runs_through_host_owned_evaluation(self):
         jobs = self.make_jobs()

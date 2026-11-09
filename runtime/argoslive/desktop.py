@@ -94,7 +94,7 @@ def reconnect(home, *, browser=open_browser, view=None):
 
 
 def start_first_model(home, controller, downloads, selection, stop):
-    """Move a fresh install off the bundled starter; never let it disturb the desktop."""
+    """Record that model selection awaits an owner-task need; never auto-upgrade on fit alone."""
     from . import first_model
     try:
         first_model.run(home, controller, downloads, selection, stop)
@@ -129,12 +129,16 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
     selection = Selection(controller, store=results)
     trial = assistant_trial.Controller(controller, home=home)
     auto_climb_controller = auto_climb.Controller(controller, home=home, selection=selection, downloads=downloads)
-    proctor_campaign_controller = proctor_campaign.Controller(controller, home=home)
+    from . import ssh_recovery
+    ssh_recovery_controller = ssh_recovery.Controller(home=home)
+    proctor_campaign_controller = proctor_campaign.Controller(
+        controller, home=home, ssh_recovery=ssh_recovery_controller)
     storage_controller = storage_view.Controller(controller, home=home)
     command = command_center.Controller(home, results, lab=lab, storage=storage_controller)
     with DashboardServer(port=port, startup=controller, lab=lab, downloads=downloads, selection=selection,
             storage=storage_controller, command=command, assistant_trial=trial, auto_climb=auto_climb_controller,
             proctor_campaign=proctor_campaign_controller,
+            ssh_recovery=ssh_recovery_controller,
             benchmarks=BenchmarkView(results), models_provider=lambda: model_view.snapshot(home),
             status_provider=lambda: status_view.snapshot(home)) as server:
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)
@@ -159,6 +163,7 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
         finally:
             temporary.unlink(missing_ok=True)
             proctor_campaign_controller.close()
+            ssh_recovery_controller.close()
             auto_climb_controller.close()
             trial.close()
             selection.close()

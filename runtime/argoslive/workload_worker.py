@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sys
 
-from . import bench_openclaw, campaign_log, instruction_changes
+from . import bench_openclaw, campaign_log, instruction_changes, workload
 from .workload import Delegation
 
 
@@ -35,7 +35,7 @@ def main(argv=None):
             return 0
         if args.kind == 'evaluation':
             suite = request.get('suite', 'quick')
-            if suite not in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
+            if suite not in bench_openclaw.SUITES:
                 raise ValueError('Unsupported suite')
             # Fixed argv and explicit output root: no owner/global result store
             # is selected through inherited environment or request data.
@@ -46,6 +46,16 @@ def main(argv=None):
         if not isinstance(text, str):
             raise ValueError('Log note must be text')
         return campaign_log.main(['--home', str(args.home), '--text=' + text, '--json'], delegation=capability)
+    except workload.Busy as error:
+        # The request contains a capability. Keep recovery diagnostics bounded
+        # and never dump a traceback, local paths, or raw exception details.
+        stage = getattr(error, 'operation_stage', None)
+        safe_stages = {'reservation', 'request-validation', 'journal-audit', 'journal-root',
+                       'instruction-inspect', 'instruction-edit', 'instruction-adopt',
+                       'instruction-resolve'}
+        print(json.dumps({'status': 'busy', 'recovery_required': error.recovery,
+                          'failure_stage': stage if stage in safe_stages else 'reservation'}))
+        return 75
     except (ValueError, TypeError, KeyError, OSError):
         # The request contains a capability. Do not dump it, a traceback, parser
         # locals, or the exception payload into agent-visible output.

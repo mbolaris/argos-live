@@ -1,6 +1,6 @@
-# U10 — one reversible, measured change to the everyday assistant
+# U10 — optional, reversible instruction practice trial
 
-The lab improves how Argos *tests* a model. U10 is the first change to the assistant the owner actually talks to, and it must earn its place there on its own evidence. Lab results never promote it.
+The lab improves how Argos *tests* a model. This optional trial checks how instruction changes affect eight short-passage practice questions. Those questions do not establish whether a change helps the owner's real work. Lab results never promote it, and the trial does not recommend keeping a change from quiz scores alone.
 
 ## What exists and is reused
 
@@ -17,7 +17,7 @@ The current starter set contains three small, separate changes to `AGENTS.md`: *
 - **Show the source:** add one exact supporting sentence to answers about supplied text.
 - **Be honest when it is missing:** say when the supplied source does not contain the answer.
 
-The initial round tests all three. After a winner is kept, the next action is to try the assistant on a real question; no second GO is needed to reach another starter idea. Already-tested ideas are recorded with the kept change and are not repeated as if new. If a prior two-idea record exists, the remaining untried idea is still offered. If no idea clears the win threshold, nothing new is recorded; another GO repeats the same set to check whether the result holds, or the owner can continue to chat.
+The initial round tests all three. A leading candidate can be left on trial for the owner to review, but its quiz result is not a recommendation or proof of improvement on owner tasks. The owner can restore it or keep it only if that narrow behavior is wanted. Already-tested ideas are recorded with a kept change and are not repeated as if new. If no idea clears the internal comparison threshold, nothing new is staged.
 
 The original **Grounded answers** (`grounded-answers` v1) block remains recognized so existing Keep/Restore records can be recovered. New rounds do not add that combined block.
 
@@ -43,7 +43,7 @@ The Improve page offers one focused card: one **GO** runs the whole bounded camp
 1. **Gates:** no other workload; no unfinished journal; the reviewed profile passes; the `AGENTS.md` and protected-file hashes are recorded. GO may be pressed while the already-starting local assistant is warming up. The run visibly stays in **Warming up your AI** until a verified reply is ready; no trial question or instruction change starts before then. The owner may cancel warm-up. If startup fails or the owner edits protected instructions while waiting, the run stops without applying an idea.
 2. **Baseline:** run the independent tasks through the assistant path (current configuration), one fresh session per task.
 3. **One idea at a time:** for each disclosed candidate, journal the exact bytes, stop the assistant, append that single block atomically, restart and run the same tasks in fresh sessions. Restore and verify the baseline before testing the next candidate. The session is capped at one baseline and three candidates (32 task answers total).
-4. **Select:** only a candidate that improves at least two challenges without a regression can be recommended. If multiple qualify, use the fixed score ordering; apply only the leading idea again for the owner's Keep/Restore decision. If none qualifies, restore the original or prior-kept bytes and report the no-win result. No idea is silently kept.
+4. **Select for review:** only a candidate that improves at least two practice questions without a regression can be surfaced for owner review. If multiple qualify, use the fixed score ordering; apply only the leading idea again for the owner's Keep/Restore decision. The score cannot recommend keeping it or establish benefit on owner tasks. If none qualifies, restore the original or prior-kept bytes and report the result. No idea is silently kept.
 5. **Reflect:** ask the selected local model for a bounded opinion using aggregate check counts for each idea only. No raw replies, personal profile, tools or hidden reasoning enter this prompt. This opinion cannot change scores or the controller's Keep/Restore recommendation. Failure to produce an opinion does not discard the scored result.
 6. **Verify:** protected files unchanged; `AGENTS.md` equals the staged bytes. An ordinary failure restores the exact pre-round bytes and restarts, with verification before clearing the journal. Owner edits block automatic recovery: keep their bytes, stop the assistant and retain the journal for review. Never claim a restore that failed.
 7. **Decision:** the leading idea stays applied, marked *on trial*, until the owner chooses. Keep records all ideas tested in that campaign, so the next action advances to a real task; Restore unwinds the kept choice and its history.
@@ -62,7 +62,7 @@ While an approved trial is running, the watch view first shows a distinct warm-u
 
 ## Result shown to the owner
 
-Each idea gets a side-by-side plain-language scorecard: challenges improved, unchanged or worse, plus its target check count. The recommended idea is selected by the fixed threshold and tie-break order; all other results remain available. One run per task means small differences are noisy and are not proof of general improvement. The selected model can add a short first-person opinion based only on aggregate counts; it is prominently labeled as opinion and displayed separately from scored facts. The code recommendation remains authoritative. Evidence records the model, profile hash, task version/hash and exact instruction hash. Assistant evidence is labeled "everyday assistant"; it never appears in lab scores and lab scores never appear in it.
+Each idea gets a side-by-side plain-language scorecard: practice questions improved, unchanged or worse, plus its target check count. A leading idea may be staged for review using the fixed threshold and tie-break order; all other results remain available. One run per question means small differences are noisy and do not show improvement on owner tasks. The selected model can add a short first-person observation based only on aggregate counts; it is labeled as opinion and displayed separately from scored facts. Evidence records the model, profile hash, task version/hash and exact instruction hash. Evidence is labeled "practice-only"; it never appears in lab scores and lab scores never appear in it.
 
 ## Keep or Restore
 
@@ -77,6 +77,6 @@ The "next action" no longer recommends a larger model when every miss kept an ac
 ## Acceptance
 
 - Unit tests: block apply/restore is byte-exact; protected-file and owner-edit guards; crash recovery; task scoring per check on recorded replies; gain/regression arithmetic; journal and record schemas; routes are authenticated and empty-bodied.
-- Fixture browser smoke: review the exact three-idea plan → one GO → baseline and each isolated candidate with visible progress → side-by-side results and opinion → Keep one winner → direct real-question next step → Restore to byte-exact prior state, plus cancellation and stable opened evidence across polling. Uses a fixture assistant runner, never a real model; simulated previews are labeled.
+- Fixture browser smoke: verify the trial remains optional after a document result → open the exact three-idea practice plan → one GO → baseline and each isolated candidate with visible progress → practice-only results and opinion → owner chooses Keep or Restore → Restore to byte-exact prior state, plus cancellation and stable opened evidence across polling. Uses a fixture assistant runner, never a real model; simulated previews are labeled.
 - `command_center` and Improve no longer recommend a model candidate for wording-only or requirement-only misses.
 - Not in PR #86: deployment, a real-assistant run on Toronado, physical phone, reboot. Fixture browser evidence is not real-model evidence. Any real trial still needs the owner's explicit GO on the device.

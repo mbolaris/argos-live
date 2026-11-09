@@ -43,8 +43,7 @@ try {
     await page.setViewportSize({width:1280,height:900});
   };
   const waitForResultNavigation=()=>page.waitForFunction(()=>
-    document.getElementById('session-result').getAttribute('aria-disabled')==='false' &&
-    document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
+    document.getElementById('session-result').getAttribute('aria-disabled')==='false');
   const scrollTo=id=>page.evaluate(id=>{const el=document.getElementById(id);window.scrollTo(0,el.getBoundingClientRect().top+scrollY-12);},id);
   await page.goto(url);
   await page.locator('#cc-next-go').waitFor({state:'visible'});
@@ -137,6 +136,7 @@ try {
   await both('replay',()=>scrollTo('replay'));
   await page.reload();
   // Result navigation is disabled until async workspace hydration completes.
+  // Owner-task-first flow no longer requires an assistant-trial offer to appear.
   await waitForResultNavigation();
   await page.locator('#session-result').click();
   await page.waitForFunction(()=>!document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
