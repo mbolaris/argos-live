@@ -44,6 +44,7 @@ RECOVERY_CAMPAIGN_TOOL_NAMES = ['argos_ssh_status']
 POLICY = {'enforcement_level': 'declared', 'assistance_policy': 'closed_book'}
 PRACTICE_MAX_TURNS = 16
 PRACTICE_MAX_SECONDS = 1800
+PRACTICE_START_RETRIES_MAX = 2
 MESSAGE = ('Your first action must be to call argos_proctor_start with an empty JSON object {}. '
            'Do not answer this message in prose or ask the owner to supply questions. '
            'Complete the host-selected Argos ability practice exam using only the '
@@ -66,6 +67,12 @@ MESSAGE = ('Your first action must be to call argos_proctor_start with an empty 
 START_RETRY_MESSAGE = ('The previous turn ended without starting the Proctor exam. Your first action must be a real '
                        'argos_proctor_start tool call with an empty JSON object {}. Do not answer in prose or print '
                        'tool-call syntax as text. Use only Proctor tools. ')
+
+
+def valid_practice_turn_receipt(host_turns, start_retries):
+    return (type(host_turns) is int and 1 <= host_turns <= PRACTICE_MAX_TURNS and
+            type(start_retries) is int and 0 <= start_retries <= PRACTICE_START_RETRIES_MAX and
+            start_retries < host_turns)
 CAMPAIGN_MESSAGE = ('The owner has explicitly requested a new self-improvement campaign. '
     'Owner-selected task: {owner_task}\n'
     'Owner-defined success criteria: {success_criteria}\n'
@@ -454,8 +461,9 @@ def run_practice_turns(bridge, exam, executable, config_path, *, on_progress=Non
     message, stagnant, payloads = MESSAGE, 0, []
     format_retries_remaining = 2
     no_answer_retries_remaining = 2
-    no_start_retries_remaining = 2
+    no_start_retries_remaining = PRACTICE_START_RETRIES_MAX
     start_tool_attempted = False
+    start_retry_count = 0
     terminal = {'COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'}
     turns = 0
     for number in range(PRACTICE_MAX_TURNS):
@@ -513,6 +521,7 @@ def run_practice_turns(bridge, exam, executable, config_path, *, on_progress=Non
                        isinstance(active, dict) and host_tool_requests == 0 and not failures)
         if retry_start:
             no_start_retries_remaining -= 1
+            start_retry_count += 1
         stagnant = stagnant + 1 if after == before else 0
         if ((stagnant >= 2 and not (retry_format or retry_tool_call or retry_start)) or
                 number + 1 == PRACTICE_MAX_TURNS or
@@ -527,7 +536,7 @@ def run_practice_turns(bridge, exam, executable, config_path, *, on_progress=Non
     # This still requires proven worker drainage. An incomplete practice signs
     # ABANDONED before release; failed/uncertain workers cannot reach this call.
     bridge._complete()
-    return {'payloads': payloads, 'host_turns': turns}
+    return {'payloads': payloads, 'host_turns': turns, 'start_retries': start_retry_count}
 
 
 def default_cartridge(home, form_id='pilot-a'):
@@ -604,6 +613,7 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
                 'signing_key_id': exam.engine.signer.key_id,
                 'result': feedback,
                 'host_turns': result['host_turns'],
+                'start_retries': result['start_retries'],
                 'agent_summary': result.get('result', result).get('payloads', [])}
     finally:
         db.close()

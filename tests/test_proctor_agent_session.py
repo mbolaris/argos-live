@@ -469,8 +469,9 @@ class AgentSessionTests(unittest.TestCase):
                 self.active = {'host_tool_requests': 0, 'host_tool_failures': []}
             def finish(self, **kwargs):
                 self_test.assertFalse(kwargs['finalize'])
-                if self.count == 1:
+                if self.count in (1, 2):
                     self_test.assertIn('previous turn ended without starting', self.messages[-1].lower())
+                if self.count == 2:
                     self.active['host_tool_requests'] = 1
                     exam.start('retried-start')
                     exam.host_abandon()
@@ -483,9 +484,11 @@ class AgentSessionTests(unittest.TestCase):
         self_test = self
         bridge = NoToolThenStart()
         result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
-        self.assertEqual(result['host_turns'], 2)
+        self.assertEqual(result['host_turns'], 3)
+        self.assertEqual(result['start_retries'], 2)
         self.assertTrue(bridge.completed)
         self.assertIn('argos_proctor_start', bridge.messages[1])
+        self.assertIn('argos_proctor_start', bridge.messages[2])
         self.assertEqual(exam.status()['state'], 'ABANDONED')
 
     def test_unstarted_practice_does_not_retry_after_a_host_tool_attempt(self):
@@ -513,6 +516,7 @@ class AgentSessionTests(unittest.TestCase):
                 bridge = FailedStart()
                 result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
                 self.assertEqual(result['host_turns'], 2)
+                self.assertEqual(result['start_retries'], 0)
                 self.assertEqual(bridge.messages[1], proctor_service.MESSAGE)
                 self.assertEqual(exam.status()['state'], 'ABANDONED')
 
