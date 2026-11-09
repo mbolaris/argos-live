@@ -55,11 +55,56 @@ fi
 mount --bind /dev "$builder/dev"
 mount -t proc proc "$builder/proc"
 mount -t sysfs sysfs "$builder/sys"
-trap 'umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
+snapshot_proxy_pid=
+snapshot_proxy_port_file=
+snapshot_proxy_log=
+live_build_log=
+cleanup_build() {
+  status=$?
+  trap - EXIT
+  if [[ -n ${snapshot_proxy_pid:-} ]]; then
+    kill "$snapshot_proxy_pid" 2>/dev/null || true
+    wait "$snapshot_proxy_pid" 2>/dev/null || true
+  fi
+  [[ -z ${snapshot_proxy_port_file:-} ]] || rm -f -- "$snapshot_proxy_port_file"
+  [[ -z ${snapshot_proxy_log:-} ]] || rm -f -- "$snapshot_proxy_log"
+  [[ -z ${live_build_log:-} ]] || rm -f -- "$live_build_log"
+  umount "$builder/sys" 2>/dev/null || true
+  umount "$builder/proc" 2>/dev/null || true
+  umount "$builder/dev" 2>/dev/null || true
+  exit "$status"
+}
+trap cleanup_build EXIT
+# Debootstrap needs the uncompressed Packages index. Snapshot stores it, while
+# current Debian mirrors often publish only compressed indexes. The loopback
+# proxy recovers an index only after verifying the pinned InRelease signature
+# and exact hash, then forwards every other request to its original Snapshot URL.
+snapshot_proxy_port_file=$(mktemp /tmp/argos-snapshot-proxy-port.XXXXXX)
+snapshot_proxy_log=$(mktemp /tmp/argos-snapshot-proxy-log.XXXXXX)
+python3 "$src/scripts/snapshot-index-proxy.py" \
+  --debian-snapshot "$DEBIAN_SNAPSHOT" \
+  --security-snapshot "$DEBIAN_SECURITY_SNAPSHOT" \
+  --keyring "$builder/usr/share/keyrings/debian-archive-keyring.gpg" \
+  --port-file "$snapshot_proxy_port_file" >"$snapshot_proxy_log" 2>&1 &
+snapshot_proxy_pid=$!
+for _ in {1..50}; do
+  [[ -s "$snapshot_proxy_port_file" ]] && break
+  kill -0 "$snapshot_proxy_pid" 2>/dev/null || break
+  sleep 0.1
+done
+if [[ ! -s "$snapshot_proxy_port_file" ]]; then
+  cat "$snapshot_proxy_log" >&2
+  echo 'Pinned Snapshot index proxy failed to start.' >&2
+  exit 1
+fi
+snapshot_proxy_port=$(cat "$snapshot_proxy_port_file")
+[[ "$snapshot_proxy_port" =~ ^[0-9]+$ ]] || { echo 'Snapshot proxy returned an invalid port.' >&2; exit 1; }
+debian_mirror="http://127.0.0.1:$snapshot_proxy_port/archive/debian/$DEBIAN_SNAPSHOT/"
+security_mirror="http://127.0.0.1:$snapshot_proxy_port/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/"
 # Let the bounded outer loop below retry transient package failures. Debian APT 3.0.3
 # can spin and grow memory while retrying delayed items (Debian bug #1152704);
 # Acquire::Retries=0 avoids that inner retry loop while cached packages survive each attempt.
-chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-binary https://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT/ --mirror-chroot-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --mirror-binary-security https://snapshot.debian.org/archive/debian-security/$DEBIAN_SECURITY_SNAPSHOT/ --security true --updates true --apt-source-archives false --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::Languages=none -o Acquire::Queue-Mode=host -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=15 -o Acquire::http::Timeout=15 -o Acquire::Retries=0' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'"
+chroot "$builder" /bin/bash -c "cd /work && lb config --mode debian --distribution $DEBIAN_SUITE --architectures amd64 --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --mirror-bootstrap $debian_mirror --mirror-chroot $debian_mirror --mirror-binary $debian_mirror --mirror-chroot-security $security_mirror --mirror-binary-security $security_mirror --security true --updates true --apt-source-archives false --apt-options '--yes -o Acquire::Check-Valid-Until=false -o Acquire::Languages=none -o Acquire::Queue-Mode=host -o Acquire::https::Pipeline-Depth=0 -o Acquire::http::Pipeline-Depth=0 -o Acquire::https::Timeout=15 -o Acquire::http::Timeout=15 -o Acquire::Retries=0' --debian-installer false --bootappend-live 'boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0'"
 # Import only cached Debian package archives from prior interrupted hosted builds.
 # APT still validates selected package hashes against the signed snapshot indexes.
 if [[ -n ${ARGOS_LIVE_BUILD_CACHE_DIR:-} ]]; then
@@ -78,8 +123,6 @@ if [[ -n ${ARGOS_LIVE_BUILD_CACHE_DIR:-} ]]; then
   done
 fi
 live_build_log=$(mktemp /var/lib/argos-live/live-build.XXXXXX)
-cleanup_live_build_log() { rm -f -- "$live_build_log"; }
-trap 'cleanup_live_build_log; umount "$builder/sys"; umount "$builder/proc"; umount "$builder/dev"' EXIT
 max_live_build_attempts=${ARGOS_LIVE_BUILD_ATTEMPTS:-5}
 for ((attempt=1; attempt<=max_live_build_attempts; attempt++)); do
   chroot "$builder" /bin/bash -c 'cd /work && lb build' >"$live_build_log" 2>&1 &
@@ -108,6 +151,9 @@ for ((attempt=1; attempt<=max_live_build_attempts; attempt++)); do
   wait "$heartbeat_pid" 2>/dev/null || true
   python3 "$src/scripts/report-iso-build.py" --scan-log "$live_build_log"
   tail -n 80 "$live_build_log"
+  if [[ -s "$snapshot_proxy_log" ]]; then
+    cat "$snapshot_proxy_log"
+  fi
   if (( status == 0 )); then
     break
   fi
