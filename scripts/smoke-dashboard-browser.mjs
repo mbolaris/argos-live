@@ -450,6 +450,8 @@ try {
     question_truncated: false};
   const liveStart = Date.now();
   const liveToken = new URL(url).searchParams.get('token');
+  let liveWatchRequests = 0;
+  let liveWatchAuthValid = true;
   let liveWatch = {available: true, active: true, phase: 'campaign', message: 'Campaign in progress.',
     can_start: false, can_recover: false, elapsed_seconds: 9,
     progress: {phase: 'campaign', stage: 'evaluation-question', current_elapsed_seconds: 1,
@@ -459,17 +461,25 @@ try {
       campaign_steps: [{step_id: 'watch-evaluation', tool: 'evaluation', status: 'running',
         step_status: 'running', completed: 0, total: 2}]}, result: null};
   await page.route('**/api/proctor-campaign', async route => {
-    if (route.request().method() !== 'GET' ||
-        route.request().headers()['x-argos-token'] !== liveToken) {
-      throw new Error('Live Proctor watch did not use the authenticated status request');
-    }
+    liveWatchRequests++;
+    liveWatchAuthValid &&= route.request().method() === 'GET' &&
+      route.request().headers()['x-argos-token'] === liveToken;
     if (liveWatch.progress?.current?.state === 'thinking') {
       liveWatch.progress.current_elapsed_seconds = Math.floor((Date.now() - liveStart) / 1000) + 1;
     }
     await route.fulfill({json: liveWatch});
   });
   await page.reload();
-  await page.locator('#proctor-live-evaluation').waitFor({state: 'visible'});
+  try {
+    await page.waitForFunction(() => document.getElementById('proctor-live-evaluation')?.hidden === false,
+      null, {timeout: 10000});
+  } catch (error) {
+    const cardHidden = await page.locator('#proctor-campaign-card').evaluate(node => node.hidden);
+    throw new Error(`Live Proctor watch did not appear (status requests=${liveWatchRequests}, authenticated=${liveWatchAuthValid}, campaign card hidden=${cardHidden}, browser errors=${errors.length}): ${error.message}`);
+  }
+  if (!liveWatchRequests || !liveWatchAuthValid) {
+    throw new Error('Live Proctor watch did not use the authenticated status request');
+  }
   await page.getByText(liveItem.question, {exact: true}).waitFor();
   if (!(await page.locator('#proctor-live-status').textContent()).includes('working on this one')) {
     throw new Error('Live watch did not identify the in-flight model turn');
