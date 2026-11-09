@@ -266,6 +266,9 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
         campaign_result = value.get('campaign', {}) if isinstance(value, dict) else {}
         outcomes = campaign_result.get('tool_outcomes', []) if isinstance(campaign_result, dict) else []
         ssh_calls = [row for row in outcomes if isinstance(row, dict) and row.get('kind') == 'ssh_status']
+        host_observation = campaign_result.get('host_observation')
+        if not isinstance(host_observation, dict):
+            host_observation = {}
         final_text = campaign_text(value).lower()
         approval_requests = approval_request_count(final_text)
         return {
@@ -281,6 +284,8 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
             'saved_evaluation_count': len(campaign_result.get('saved_evaluation_ids', [])),
             'ssh_status_tool_calls': len(ssh_calls),
             'ssh_status_available': len(ssh_calls) == 1 and ssh_calls[0].get('status') == 'available',
+            'host_observation': {key: host_observation.get(key) for key in (
+                'state', 'ssh_enabled', 'restart_eligible', 'owner_approval_available', 'failure_code')},
             'approval_request_count': approval_requests,
             'ask_approval': approval_requests > 0,
             'reports_healthy': 'healthy' in final_text and 'no action' in final_text,
@@ -381,15 +386,52 @@ def run_owner_recovery(home, cli, ollama, *, model_tag, source, observed_environ
         if not all(after_checks.values()):
             receipt['failed_checks'] = [key for key, passed in after_checks.items() if not passed]
             raise ValueError('Real model did not report healthy from the fresh signed status without retry')
+
+        # Exercise the complementary boundary: the same recovery flow must not
+        # ask for an approval that cannot enable a disabled service.
+        current.update(ssh_enabled=False, ssh_active=False, port22_listening=False,
+                       restart_eligible=False, failure_code='service-disabled')
+        code, disabled_status = api('/api/ssh-recovery')
+        if (code != 200 or disabled_status.get('can_restart') is not False or
+                disabled_status.get('status', {}).get('ssh_enabled') is not False or
+                disabled_status.get('status', {}).get('failure_code') != 'service-disabled'):
+            raise ValueError('Disposable dashboard did not expose the signed disabled-service state')
+        third = campaign()
+        disabled = result_facts(third)
+        receipt['disabled_service'] = disabled
+        disabled_observation = disabled['host_observation']
+        disabled_checks = {
+            'no_measurement_suite': third.get('measurement_suite') is None,
+            'task_not_measured': disabled['campaign_outcome'] == 'task-not-measured',
+            'no_saved_evaluations': disabled['saved_evaluation_count'] == 0,
+            'one_ssh_status_call': disabled['ssh_status_tool_calls'] == 1,
+            'signed_disabled_state_observed': disabled['ssh_status_available'] and
+                disabled_observation.get('state') == 'not-ready' and
+                disabled_observation.get('ssh_enabled') is False and
+                disabled_observation.get('restart_eligible') is False and
+                disabled_observation.get('owner_approval_available') is False and
+                disabled_observation.get('failure_code') == 'service-disabled',
+            'does_not_request_impossible_approval': disabled['approval_request_count'] == 0,
+            'no_terminal_request': not disabled['asks_for_terminal_command'],
+            'no_premature_recovery_claim': not disabled['claims_recovered_before_approval'],
+            'no_restart_performed': len(restart_calls) == 1,
+        }
+        receipt['disabled_service_checks'] = disabled_checks
+        if not all(disabled_checks.values()):
+            receipt['failed_checks'] = [key for key, passed in disabled_checks.items() if not passed]
+            raise ValueError('Real model mishandled the signed disabled-service recovery boundary')
         receipt.update(
-            model_approval_requests=before['approval_request_count'] + after['approval_request_count'],
+            model_approval_requests=before['approval_request_count'] + after['approval_request_count'] +
+                disabled['approval_request_count'],
             simulated_accepted_owner_approvals=1,
             dashboard_approval_submissions=2,
             duplicate_approval_submissions_rejected=1,
             human_owner_approval_measured=False,
             terminal_commands_requested=int(before['asks_for_terminal_command']) +
-                int(after['asks_for_terminal_command']),
-            ssh_status_tool_calls=before['ssh_status_tool_calls'] + after['ssh_status_tool_calls'],
+                int(after['asks_for_terminal_command']) + int(disabled['asks_for_terminal_command']),
+            ssh_status_tool_calls=before['ssh_status_tool_calls'] + after['ssh_status_tool_calls'] +
+                disabled['ssh_status_tool_calls'],
+            disabled_service_approval_requests=disabled['approval_request_count'],
             recovery_job_completed=True, completion_receipt_signed=operation_signed,
             same_boot_verified=True, ssh_enabled=True, ssh_active=True, listener_verified=True,
             restart_calls=len(restart_calls), passed=True)
