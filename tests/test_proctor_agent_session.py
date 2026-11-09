@@ -515,9 +515,9 @@ class AgentSessionTests(unittest.TestCase):
 
                 bridge = FailedStart()
                 result = proctor_service.run_practice_turns(bridge, exam, 'fixture', 'fixture-config')
-                self.assertEqual(result['host_turns'], 2)
+                self.assertEqual(result['host_turns'], 1)
                 self.assertEqual(result['start_retries'], 0)
-                self.assertEqual(bridge.messages[1], proctor_service.MESSAGE)
+                self.assertEqual(bridge.messages, [proctor_service.MESSAGE])
                 self.assertEqual(exam.status()['state'], 'ABANDONED')
 
     def test_invalid_answer_format_gets_bounded_targeted_retry(self):

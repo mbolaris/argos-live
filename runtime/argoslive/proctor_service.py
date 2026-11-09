@@ -524,6 +524,7 @@ def run_practice_turns(bridge, exam, executable, config_path, *, on_progress=Non
             start_retry_count += 1
         stagnant = stagnant + 1 if after == before else 0
         if ((stagnant >= 2 and not (retry_format or retry_tool_call or retry_start)) or
+                (start_tool_attempted and exam.session_id is None) or
                 number + 1 == PRACTICE_MAX_TURNS or
                 time.monotonic() >= deadline):
             break
