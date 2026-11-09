@@ -35,6 +35,10 @@ TASK_CAMPAIGN_SUITES = frozenset({
     'documents-short', 'owner-recovery-decision'})
 MAX_WORKER_TURN_RECORDS = 32
 MAX_SDK_RUNS_PER_WORKER = 4
+# A standard run can emit 70 question and answer events. Keep enough bounded
+# stderr progress for the dashboard to receive the whole run, including the
+# benchmark's capped prompt and response text for each item.
+MAX_PROGRESS_STDERR_BYTES = 2 * 1024**2
 CAMPAIGN_PROGRESS_TOOLS = frozenset({
     'evaluation', 'evaluation_wait', 'inspect', 'audit', 'edit', 'resolve', 'adopt',
     'compare', 'log', 'ssh_status'})
@@ -999,7 +1003,8 @@ class Bridge:
 
             out_reader = threading.Thread(target=drain, args=(process.stdout, stdout_parts, 2 * 1024**2),
                                           name='argos-child-stdout', daemon=True)
-            err_reader = threading.Thread(target=drain, args=(process.stderr, stderr_parts, 32768, True),
+            err_reader = threading.Thread(target=drain,
+                                          args=(process.stderr, stderr_parts, MAX_PROGRESS_STDERR_BYTES, True),
                                           name='argos-child-stderr', daemon=True)
             out_reader.start()
             err_reader.start()
