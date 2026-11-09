@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import controller_bridge, workload, ssh_recovery
+from argoslive import bench_openclaw, controller_bridge, workload, ssh_recovery
 from argoslive.proctor import ProctorError
 from argoslive.results import Store
 from test_bench_openclaw import configure_fake
@@ -994,7 +994,9 @@ class ControllerBridgeTests(unittest.TestCase):
             '"sessionId":session,"provider":"ollama","model":"qwen3:4b-instruct-2507-q4_K_M"}}}))\n')
         executable.chmod(0o700)
         with workload.reserve(self.home, 'controller') as parent:
-            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            live = []
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session',
+                                              on_progress=live.append)
             bridge.worker_path = str(binary) + os.pathsep + bridge.worker_path
             _, turn = self.begin(bridge)
             updates = []
@@ -1006,11 +1008,56 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertTrue(updates)
             self.assertEqual(updates[0]['phase'], 'asking')
             self.assertEqual(updates[-1]['phase'], 'scored')
+            asking = [event for event in live if event['stage'] == 'evaluation-question']
+            scored = [event for event in live if event['stage'] == 'evaluation-scored']
+            self.assertEqual(len(asking), 40)
+            self.assertEqual(len(scored), 40)
+            self.assertTrue(asking[0]['question'])
+            self.assertEqual(scored[0]['answer'], 'synthetic answer')
+            self.assertIn(scored[0]['outcome'], {'pass', 'wrong_answer', 'format_error', 'unscored'})
+            self.assertGreaterEqual(scored[0]['latency_seconds'], 0)
             self.assertEqual(value['value']['result']['suite'], 'openclaw-challenge')
             self.assertEqual(value['value']['result']['coverage']['completed'], 40)
             self.assertEqual(value['value']['result']['coverage']['total'], 40)
             self.assertEqual(parent.record['phase'], 'running')
             parent.complete()
+
+    def test_live_evaluation_event_publishes_prompt_and_scored_reply_without_answer_key(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            live = []
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:host-session', on_progress=live.append)
+            base = {'run_id': 'a' * 32, 'item_id': 'note-1', 'total': 1,
+                    'completed': 0, 'suite': 'documents-short',
+                    'suite_version': 'documents-short/v1', 'model': 'qwen-test',
+                    'category': 'grounded-recall',
+                    'question': 'What day did the parcel arrive?',
+                    'expected_answer': 'Tuesday'}
+            bridge._publish_evaluation_progress({'phase': 'asking', **base})
+            bridge._publish_evaluation_progress({'phase': 'scored', **base, 'completed': 1,
+                'receipt': {'output': 'It arrived Tuesday.', 'outcome': 'pass',
+                            'score': 1, 'latency_seconds': 2.5}})
+            self.assertEqual(live[0]['stage'], 'evaluation-question')
+            self.assertEqual(live[0]['question'], 'What day did the parcel arrive?')
+            self.assertEqual(live[1]['stage'], 'evaluation-scored')
+            self.assertEqual(live[1]['answer'], 'It arrived Tuesday.')
+            self.assertEqual(live[1]['outcome'], 'pass')
+            self.assertEqual(live[1]['latency_seconds'], 2.5)
+            self.assertNotIn('expected_answer', live[0])
+            self.assertNotIn('Tuesday', json.dumps(live[0]))
+            parent.complete()
+
+    def test_live_progress_buffer_covers_the_largest_capped_suite(self):
+        worst_answer_json_bytes = len(json.dumps(chr(0) * 8192, ensure_ascii=False).encode('utf-8'))
+        for suite in bench_openclaw.SUITES:
+            with self.subTest(suite=suite):
+                _, tasks, _, _ = bench_openclaw.suite_content(suite)
+                prompt_json_bytes = sum(len(json.dumps(task['prompt'], ensure_ascii=False).encode('utf-8'))
+                                        for task in tasks)
+                # Every item carries its prompt once before inference and once
+                # with the scored answer. Allow 4 KiB of event metadata each.
+                estimate = 2 * prompt_json_bytes + len(tasks) * (worst_answer_json_bytes + 4096)
+                self.assertLessEqual(estimate, controller_bridge.MAX_PROGRESS_STDERR_BYTES)
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')
     def test_documents_short_suite_is_admitted_by_host_controller(self):

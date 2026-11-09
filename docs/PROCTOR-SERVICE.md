@@ -117,6 +117,30 @@ receipt IDs, boot IDs, addresses and raw diagnostics. A ready observation means
 SSH was already ready at that check; it does not say that the agent recovered
 SSH, reduced owner time, or improved its ability. The agent's prose remains a
 separate, unverified report.
+The paired-SSH dashboard separately distinguishes an already-ready status from
+a recovery job accepted through its one-use approval. It records that accepted
+dashboard approval and the host-measured interval to its post-check; if the
+service process had to reconcile an interrupted job, the interval is labeled as
+time to the later observation. This is not total time from boot or dashboard
+opening, and the page cannot count terminal commands outside itself. An already
+ready status is never counted as a recovery success.
+
+During an owner-started campaign, the local dashboard's Live test floor shows
+the current fixed-suite question while Argos is answering, an elapsed timer,
+and each completed response with its host-scored outcome and measured latency.
+The live board retains the four most recent runs for the campaign.
+The campaign timeline records bounded milestones such as instruction audit,
+reversible change, resolution, and saved evaluation result; it omits tool
+arguments and free-form campaign notes. A saved partial or failed run is labeled
+with its state and is not presented as full coverage.
+This is dashboard-only transient progress; it does not expose expected answers
+or add the question text to saved evaluation records. The CLI runner returns a
+response when the turn completes rather than streaming its tokens, so the live
+view shows the question and a working timer until that complete response arrives;
+it does not imitate a token stream. Round cards show median end-to-end reply time
+and score movement only after complete runs with matching suite versions and
+question order; score movement alone is not evidence that the owner's real task
+got easier.
 
 There is no automatic progression from quick to standard or challenge when a
 score is saturated. A diagnostic suite is selected only when its tasks match the

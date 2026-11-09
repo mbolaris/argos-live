@@ -4725,9 +4725,28 @@ function renderProctorCampaignProgress(progress) {
     ? `${progress.turn}/${progress.total}` : null;
   if (progress.phase === 'practice') {
     const state = progress.state ? ` · exam ${progress.state.toLowerCase()}` : '';
-    node.textContent = turn
+    if (progress.stage === 'practice-question') node.textContent = `Practice question surfaced · Argos is answering${state}. Practice is coaching, not improvement evidence.`;
+    else if (progress.stage === 'practice-answer') node.textContent = `Practice answer recorded · final feedback is held until the exam ends${state}.`;
+    else node.textContent = turn
       ? `Proctor practice lap ${turn}: ${progress.stage === 'turn-start' ? 'Argos is answering' : 'checkpoint recorded'}${state}. Practice is coaching, not a score claim.`
       : 'Proctor is getting the signed practice session ready.';
+  } else if (['evaluation-question', 'evaluation-scored'].includes(progress.stage)) {
+    const current = progress.current || {};
+    const activeRun = (progress.evaluation_runs || []).find(run => run.run_id === current.run_id);
+    const total = activeRun?.total || '?';
+    const questionNumber = progress.stage === 'evaluation-question'
+      ? Math.min(total, (activeRun?.completed || 0) + 1) : (activeRun?.completed || 0);
+    node.textContent = `Live evaluation · question ${questionNumber}/${total} · ${progress.stage === 'evaluation-question' ? 'Argos is answering now' : 'answer scored'}.`;
+  } else if (progress.stage === 'campaign-step') {
+    const latest = (progress.campaign_steps || []).at(-1);
+    const names = {inspect: 'Inspect', audit: 'Audit', edit: 'Instruction change', adopt: 'Adopt change',
+      resolve: 'Keep or restore', evaluation: 'Evaluation', evaluation_wait: 'Evaluation wait',
+      compare: 'Run comparison', log: 'Campaign note', ssh_status: 'Recovery status'};
+    const attention = latest && (latest.status === 'failed' || latest.step_status === 'failed' ||
+      latest.run_state === 'failed' || latest.run_state === 'cancelled');
+    node.textContent = latest
+      ? `${names[latest.tool] || 'Campaign step'} · ${latest.status === 'running' ? 'in progress' : attention ? 'needs attention' : 'recorded'}.`
+      : 'Campaign step recorded.';
   } else {
     const saved = Number.isInteger(progress.saved_evaluation_count)
       ? `${progress.saved_evaluation_count} saved evaluation${progress.saved_evaluation_count === 1 ? '' : 's'}` : null;
@@ -4740,6 +4759,191 @@ function renderProctorCampaignProgress(progress) {
       : 'Argos is setting up its evidence campaign.';
   }
   node.hidden = false;
+}
+
+function renderProctorLiveEvaluation(progress) {
+  const panel = document.getElementById('proctor-live-evaluation');
+  if (!panel) return;
+  const runs = Array.isArray(progress?.evaluation_runs) ? progress.evaluation_runs : [];
+  const practiceItems = Array.isArray(progress?.practice_items) ? progress.practice_items : [];
+  const steps = Array.isArray(progress?.campaign_steps) ? progress.campaign_steps : [];
+  const current = progress?.current;
+  if (!runs.length && !practiceItems.length && !steps.length && !current?.question) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const practice = progress?.phase === 'practice';
+  const title = document.getElementById('proctor-live-title');
+  if (title) title.textContent = practice ? 'Proctor practice · coaching only'
+    : current?.question ? 'Live evaluation · Argos is on the clock' : 'Campaign timeline';
+  const activeRun = runs.find(run => run.run_id === current?.run_id) || runs.at(-1);
+  const boundary = document.getElementById('proctor-live-boundary');
+  if (boundary) boundary.textContent = practice
+    ? 'Practice is coaching only; it does not count as improvement evidence.'
+    : activeRun?.suite === 'owner-recovery-decision'
+      ? 'Simulated recovery fixture · decision checks only. It does not measure real recovery or owner time.'
+      : 'Fixed-suite score · useful for these questions, but it does not prove the owner’s recurring task got easier.';
+  const timeline = document.getElementById('proctor-live-timeline');
+  if (timeline) {
+    const names = {inspect: 'Read current instructions', audit: 'Check experiment journal',
+      edit: 'Apply reversible instruction change', adopt: 'Record external change',
+      resolve: 'Keep or restore change', evaluation: 'Run fixed-suite evaluation',
+      evaluation_wait: 'Wait for evaluation result', compare: 'Compare saved runs',
+      log: 'Append campaign note', ssh_status: 'Check recovery state'};
+    timeline.replaceChildren(...steps.map(step => {
+      const item = document.createElement('li');
+      item.className = `proctor-live-step ${step.status || ''}`;
+      const heading = document.createElement('strong');
+      heading.textContent = names[step.tool] || 'Campaign step';
+      const detail = document.createElement('span');
+      if ((step.tool === 'evaluation' || step.tool === 'evaluation_wait') &&
+          (step.status === 'running' || step.step_status === 'running')) {
+        const progressText = Number.isInteger(step.completed) && Number.isInteger(step.total)
+          ? ` · ${step.completed}/${step.total} answered` : '';
+        detail.textContent = `In progress${progressText}`;
+      } else if (step.status === 'running' || step.step_status === 'running') detail.textContent = 'In progress';
+      else if (step.status === 'failed' || step.step_status === 'failed' ||
+               step.run_state === 'failed' || step.run_state === 'cancelled') {
+        detail.textContent = `Needs attention${step.error_class ? ` · ${step.error_class}` : ''}`;
+      }
+      else if (step.tool === 'audit') detail.textContent = step.passed === true ? 'Host audit passed' : 'Host audit finished';
+      else if (step.tool === 'resolve' && step.resolution) detail.textContent =
+        step.resolution === 'kept' ? 'Kept after host checks' : 'Restored prior instructions';
+      else if (step.tool === 'evaluation' || step.tool === 'evaluation_wait') {
+        const progressText = Number.isInteger(step.completed) && Number.isInteger(step.total)
+          ? ` · ${step.completed}/${step.total}` : '';
+        const scoreText = Number.isInteger(step.correct) && Number.isInteger(step.total)
+          ? ` · ${step.correct}/${step.total} correct` : '';
+        const savedState = step.run_state && step.run_state !== 'completed'
+          ? ` (${step.run_state})` : '';
+        detail.textContent = step.result_id
+          ? `Saved run ${step.result_id}${savedState}${scoreText}${step.coverage_complete ? ' · full coverage' : ''}`
+          : `${step.step_status === 'running' ? 'Running' : 'Evaluation requested'}${progressText}`;
+      } else if (step.step_status === 'changed') detail.textContent = 'Change applied · snapshot saved';
+      else if (step.step_status === 'adopted') detail.textContent = 'Change recorded · not a qualified experiment';
+      else detail.textContent = step.status === 'completed' ? 'Recorded' : 'In progress';
+      item.append(heading, detail);
+      return item;
+    }));
+  }
+  const items = [...runs.flatMap((run, index) => (run.items || []).map(item => ({...item, round: run.round_number || index + 1}))),
+    ...practiceItems.map(item => ({...item, round: 'practice'}))];
+  const roundItems = activeRun?.items || [];
+  const roundScored = roundItems.filter(item => item.outcome !== 'unscored' && Number.isFinite(item.score));
+  const roundCorrect = roundScored.filter(item => item.score === 1).length;
+  const count = document.getElementById('proctor-live-count');
+  if (count) count.textContent = practice
+    ? `${practiceItems.length} practice answers recorded · feedback at the end`
+    : `${activeRun?.completed || 0}/${activeRun?.total || 0} answered · ${roundCorrect}/${roundScored.length} correct this round`;
+  const bar = document.getElementById('proctor-live-progress');
+  if (bar) {
+    bar.hidden = practice;
+    bar.max = Math.max(1, activeRun?.total || 1);
+    bar.value = Math.min(activeRun?.completed || 0, bar.max);
+  }
+  const rounds = document.getElementById('proctor-live-rounds');
+  if (rounds) {
+    rounds.replaceChildren(...runs.map((run, index) => {
+      const scored = (run.items || []).filter(item => item.outcome !== 'unscored' && Number.isFinite(item.score));
+      const correct = scored.filter(item => item.score === 1).length;
+      const previous = runs.slice(0, index).reverse().find(candidate => candidate.suite === run.suite &&
+        candidate.suite_version && candidate.suite_version === run.suite_version &&
+        candidate.completed === candidate.total && candidate.items?.length === candidate.total &&
+        candidate.items?.length && candidate.items.length === run.items?.length &&
+        candidate.items.every((item, itemIndex) => item.item_id === run.items[itemIndex]?.item_id));
+      const previousScored = previous?.items?.filter(item => item.outcome !== 'unscored' && Number.isFinite(item.score)) || [];
+      const previousCorrect = previousScored.filter(item => item.score === 1).length;
+      const delta = previous && run.completed === run.total && run.items?.length === run.total &&
+        scored.length && scored.length === previousScored.length
+        ? ((correct / scored.length) - (previousCorrect / previousScored.length)) * 100 : null;
+      const latencies = scored.map(item => item.latency_seconds).filter(Number.isFinite).sort((a, b) => a - b);
+      const median = latencies.length
+        ? (latencies.length % 2 ? latencies[(latencies.length - 1) / 2]
+          : (latencies[latencies.length / 2 - 1] + latencies[latencies.length / 2]) / 2) : null;
+      const card = document.createElement('article');
+      card.className = 'proctor-live-round';
+      const title = document.createElement('strong');
+      title.textContent = `Round ${run.round_number || index + 1} · ${run.suite || 'fixed suite'}`;
+      const score = document.createElement('span');
+      score.textContent = `${correct}/${scored.length} correct` +
+        (delta === null ? '' : ` · ${delta > 0 ? '+' : ''}${delta.toFixed(0)} pp vs same test`);
+      const model = document.createElement('small');
+      model.textContent = (run.model && run.model !== 'identity pending first OpenClaw turn' ? run.model : 'model identity pending') +
+        (median === null ? '' : ` · median end-to-end reply ${median.toFixed(2)} s`);
+      card.append(title, score, model);
+      return card;
+    }));
+  }
+  const kind = document.getElementById('proctor-live-kind');
+  if (kind) kind.textContent = current ? `${current.item_id || 'Question'} · ${current.category || 'challenge'}` : 'Between questions';
+  const question = document.getElementById('proctor-live-question');
+  if (question) question.textContent = (current?.question || 'Waiting for the next question…') +
+    (current?.question_truncated ? '\n[Question excerpt truncated in the live view]' : '');
+  const status = document.getElementById('proctor-live-status');
+  const answer = document.getElementById('proctor-live-answer');
+  const time = document.getElementById('proctor-live-time');
+  const verdict = document.getElementById('proctor-live-verdict');
+  if (current?.state === 'thinking') {
+    if (status) status.textContent = 'Argos is working on this one…';
+    if (answer) answer.textContent = 'Answer appears here when the model finishes.';
+    if (time) time.textContent = `Thinking · ${Math.floor(progress.current_elapsed_seconds || 0)} s`;
+    if (verdict) verdict.hidden = true;
+  } else if (current?.state === 'scored') {
+    if (status) status.textContent = current.answer_truncated
+      ? 'Answer received and scored. The recorded response was truncated by the benchmark capture limit.'
+      : 'Answer received and scored.';
+    if (answer) answer.textContent = current.answer || '(No answer text returned)';
+    if (time) time.textContent = Number.isFinite(current.latency_seconds)
+      ? `End-to-end reply · ${current.latency_seconds.toFixed(2)} s` : 'Reply time unavailable';
+    if (verdict) {
+      const label = ({pass: '✓ Correct', wrong_answer: 'Miss', format_error: 'Format miss', unscored: 'Not scored'})[current.outcome] || 'Outcome unavailable';
+      verdict.textContent = `${label}${current.outcome === 'unscored' ? ' · summary' : ''}`;
+      verdict.className = `proctor-live-verdict ${current.outcome || ''}`;
+      verdict.hidden = false;
+    }
+  } else if (current?.state === 'recorded') {
+    if (status) status.textContent = 'Answer recorded. Proctor practice feedback is held until the exam ends.';
+    if (answer) answer.textContent = current.answer || '(No answer text returned)';
+    if (time) time.textContent = Number.isFinite(current.latency_seconds)
+      ? `Reply time · ${current.latency_seconds.toFixed(2)} s` : 'Reply time unavailable';
+    if (verdict) {
+      verdict.textContent = 'Recorded · pending final feedback';
+      verdict.className = 'proctor-live-verdict unscored';
+      verdict.hidden = false;
+    }
+  } else if (current?.state === 'interrupted') {
+    if (status) status.textContent = 'This round ended before a complete answer and score were returned.';
+    if (answer) answer.textContent = '(No completed answer receipt)';
+    if (time) time.textContent = `Stopped after · ${Math.floor(progress.current_elapsed_seconds || 0)} s`;
+    if (verdict) {
+      verdict.textContent = 'Incomplete · not scored';
+      verdict.className = 'proctor-live-verdict format_error';
+      verdict.hidden = false;
+    }
+  }
+  const list = document.getElementById('proctor-live-results');
+  if (list) {
+    list.replaceChildren(...items.map(item => {
+      const entry = document.createElement('li');
+      entry.className = `proctor-live-result ${item.outcome || 'unscored'}`;
+      const heading = document.createElement('div');
+      heading.className = 'proctor-live-result-heading';
+      const verdictText = ({pass: '✓ Correct', wrong_answer: 'Miss', format_error: 'Format miss', unscored: 'Not scored'})[item.outcome] || 'Result';
+      heading.textContent = `${item.round === 'practice' ? 'Practice' : `Round ${item.round}`} · ${item.item_id} · ${item.category || 'challenge'} · ${item.round === 'practice' ? 'Recorded · pending final feedback' : verdictText}` +
+        (Number.isFinite(item.latency_seconds) ? ` · ${item.latency_seconds.toFixed(2)} s` : '');
+      const prompt = document.createElement('p');
+      prompt.className = 'proctor-live-result-question';
+      prompt.textContent = (item.question || 'Question unavailable') +
+        (item.question_truncated ? '\n[Question excerpt truncated in the live view]' : '');
+      const reply = document.createElement('pre');
+      reply.className = 'proctor-live-result-answer';
+      reply.textContent = (item.answer || '(No answer text returned)') +
+        (item.answer_truncated ? '\n[Response truncated by benchmark capture limit]' : '');
+      entry.append(heading, prompt, reply);
+      return entry;
+    }));
+  }
 }
 
 async function refreshProctorCampaign() {
@@ -4771,6 +4975,7 @@ async function refreshProctorCampaign() {
     document.getElementById('proctor-campaign-elapsed').textContent = data.active && Number.isFinite(data.elapsed_seconds)
       ? `${Math.floor(data.elapsed_seconds / 60)}m ${data.elapsed_seconds % 60}s` : '';
     renderProctorCampaignProgress(data.progress);
+    renderProctorLiveEvaluation(data.progress);
     renderProctorCampaignResult(data.result);
   } catch (_) {}
 }
@@ -4849,6 +5054,7 @@ function sshRecoveryReason(code) {
 }
 async function refreshSshRecovery() {
   const statusNode = document.getElementById('ssh-recovery-status');
+  const evidenceNode = document.getElementById('ssh-recovery-evidence');
   const button = document.getElementById('ssh-recovery-start');
   if (!statusNode || !button || sshRecoveryRefreshing) return;
   sshRecoveryRefreshing = true;
@@ -4856,6 +5062,12 @@ async function refreshSshRecovery() {
     const data = await api('/api/ssh-recovery');
     const status = data.status;
     const job = data.job;
+    const jobId = typeof job?.job_id === 'string' && /^[a-f0-9]{32}$/.test(job.job_id) ? job.job_id : null;
+    const signedOperation = job?.receipt?.signature_status === 'signed'
+      ? job.receipt?.payload?.operation : null;
+    const acceptedApproval = Boolean(jobId && job.approval_count === 1 &&
+      typeof job.approved_receipt_id === 'string' &&
+      (job.state === 'running' || Boolean(signedOperation) || job.state === 'failed'));
     button.hidden = !data.can_restart;
     button.disabled = sshRecoveryStarting || !data.can_restart;
     button.textContent = status?.failure_code === 'socket-conflict' ?
@@ -4885,8 +5097,38 @@ async function refreshSshRecovery() {
     } else {
       statusNode.textContent = 'Paired SSH is not ready; the checks do not permit an automatic start.';
     }
+    if (evidenceNode) {
+      const verifiedNow = Boolean(status && job?.state === 'completed' && job.boot_id &&
+        job.receipt?.signature_status === 'signed' &&
+        job.receipt?.payload?.operation?.status === 'completed' &&
+        status.boot_id === job.boot_id && status.persistence_state === 'verified' &&
+        status.paired_policy_valid === true && status.ssh_enabled === true &&
+        status.ssh_active === true && status.port22_listening === true);
+      const duration = Number.isFinite(signedOperation?.approval_to_check_seconds) &&
+        signedOperation.approval_to_check_seconds >= 0 && signedOperation.approval_to_check_seconds <= 86400
+        ? signedOperation.approval_to_check_seconds : null;
+      const elapsedText = duration !== null
+        ? ` · ${duration.toFixed(1)} s approval-to-host-check${signedOperation.timing_basis === 'reconciled-observation' ? ' (observed after service restart)' : ''}` : '';
+      if (acceptedApproval && verifiedNow) {
+        evidenceNode.textContent = `Same-boot SSH service readiness verified; remote login not checked · 1 accepted dashboard approval${elapsedText}.`;
+      } else if (acceptedApproval && job?.state === 'running') {
+        const approvedAt = typeof job.approved_at_utc === 'string' ? Date.parse(job.approved_at_utc) : NaN;
+        const runningText = Number.isFinite(approvedAt)
+          ? ` · ${Math.max(0, (Date.now() - approvedAt) / 1000).toFixed(1)} s since approval` : '';
+        evidenceNode.textContent = `1 accepted dashboard approval · recovery check is still running${runningText}.`;
+      } else if (acceptedApproval) {
+        evidenceNode.textContent = `1 accepted dashboard approval · no same-boot ready result is verified${elapsedText}.`;
+      } else if (status?.ssh_active && status?.port22_listening && status?.paired_policy_valid) {
+        evidenceNode.textContent = 'SSH was already ready at this check; no recovery action was recorded.';
+      } else if (status) {
+        evidenceNode.textContent = 'No accepted dashboard recovery is recorded for this status.';
+      } else {
+        evidenceNode.textContent = 'No verified recovery outcome is available.';
+      }
+    }
   } catch (_) {
     statusNode.textContent = 'Paired SSH status is temporarily unavailable.';
+    if (evidenceNode) evidenceNode.textContent = 'No verified recovery outcome is available.';
     button.hidden = true;
     button.disabled = true;
   } finally {

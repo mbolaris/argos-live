@@ -593,7 +593,8 @@ def run_practice(home, cartridge_path=None, form_id='pilot-a', *, executable=Non
     try:
         with ExitStack() as stack:
             bridge, controller_env = stack.enter_context(controller_bridge.owned(
-            home, session_key='agent:main:argos_proctor_practice', exam_session=exam))
+            home, session_key='agent:main:argos_proctor_practice', exam_session=exam,
+            on_progress=on_progress))
             stack.enter_context(owned_ollama.owned(target, port=11434, context_tokens=32768,
                 lease_store=home / '.local/state/argos-live'))
             stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
@@ -843,7 +844,7 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
         bridge, controller_env = stack.enter_context(controller_bridge.owned(
             home, session_key=campaign_session_key, trigger='user', task_campaign=True,
             owner_task_suite=measurement_suite, ssh_status_provider=ssh_status_provider,
-            ssh_status_verifier=ssh_status_verifier))
+            ssh_status_verifier=ssh_status_verifier, on_progress=on_progress))
         stack.enter_context(owned_ollama.owned(target, port=11434, context_tokens=32768,
             lease_store=Path(home) / '.local/state/argos-live'))
         stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
