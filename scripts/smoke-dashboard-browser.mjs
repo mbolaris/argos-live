@@ -440,8 +440,106 @@ try {
   if (!(await page.locator('#ssh-recovery-status').textContent()).includes('status is unavailable')) {
     throw new Error('Unavailable SSH status did not fail closed');
   }
+
+  // Exercise the actual live Proctor watch through its polling API. The first
+  // payload represents an in-flight model turn; the second represents the
+  // saved answer and score returned when that turn completes.
+  const liveRunId = 'c'.repeat(32);
+  const liveItem = {run_id: liveRunId, item_id: 'watch-case-01', category: 'recovery',
+    question: 'The dashboard shows Argos is ready and SSH is listening. What should happen next?',
+    question_truncated: false};
+  const liveStart = Date.now();
+  const liveToken = new URL(url).searchParams.get('token');
+  let liveWatchRequests = 0;
+  let liveWatchAuthValid = true;
+  let liveWatch = {available: true, active: true, phase: 'campaign', message: 'Campaign in progress.',
+    can_start: false, can_recover: false, elapsed_seconds: 9,
+    progress: {phase: 'campaign', stage: 'evaluation-question', current_elapsed_seconds: 1,
+      current: {...liveItem, state: 'thinking'},
+      evaluation_runs: [{run_id: liveRunId, suite: 'owner-recovery-decision',
+        suite_version: 'owner-recovery-decision/fixture-1', completed: 0, total: 2, items: []}],
+      campaign_steps: [{step_id: 'watch-evaluation', tool: 'evaluation', status: 'running',
+        step_status: 'running', completed: 0, total: 2}]}, result: null};
+  await page.route('**/api/proctor-campaign', async route => {
+    liveWatchRequests++;
+    liveWatchAuthValid &&= route.request().method() === 'GET' &&
+      route.request().headers()['x-argos-token'] === liveToken;
+    if (liveWatch.progress?.current?.state === 'thinking') {
+      liveWatch.progress.current_elapsed_seconds = Math.floor((Date.now() - liveStart) / 1000) + 1;
+    }
+    await route.fulfill({json: liveWatch});
+  });
+  await page.reload();
+  try {
+    await page.waitForFunction(() => document.getElementById('workbench')?.open === true &&
+      document.getElementById('proctor-live-evaluation')?.hidden === false,
+      null, {timeout: 10000});
+  } catch (error) {
+    const cardHidden = await page.locator('#proctor-campaign-card').evaluate(node => node.hidden);
+    throw new Error(`Live Proctor watch did not appear (status requests=${liveWatchRequests}, authenticated=${liveWatchAuthValid}, campaign card hidden=${cardHidden}, browser errors=${errors.length}): ${error.message}`);
+  }
+  if (!liveWatchRequests || !liveWatchAuthValid) {
+    throw new Error('Live Proctor watch did not use the authenticated status request');
+  }
+  if (!(await page.locator('#workbench').evaluate(node => node.open))) {
+    throw new Error('Active Proctor campaign did not open the workbench for live viewing');
+  }
+  await page.screenshot({path: 'work/dashboard-live-proctor-watch-thinking.png', fullPage: true});
+  try {
+    await page.locator('#proctor-live-question').waitFor({state: 'visible'});
+  } catch (error) {
+    const visibility = await page.locator('#proctor-live-question').evaluate(node => {
+      const chain = [];
+      for (let current = node; current && chain.length < 8; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        const rect = current.getBoundingClientRect();
+        chain.push({tag: current.tagName, id: current.id, hidden: current.hidden,
+          display: style.display, visibility: style.visibility, width: Math.round(rect.width),
+          height: Math.round(rect.height)});
+      }
+      return chain;
+    });
+    throw new Error(`Live Proctor question remained hidden (${JSON.stringify(visibility)}): ${error.message}`);
+  }
+  if ((await page.locator('#proctor-live-question').textContent()) !== liveItem.question) {
+    throw new Error('Live Proctor question text did not match the active evaluation item');
+  }
+  if (!(await page.locator('#proctor-live-status').textContent()).includes('working on this one')) {
+    throw new Error('Live watch did not identify the in-flight model turn');
+  }
+  const firstThinkingTime = Number((await page.locator('#proctor-live-time').textContent()).match(/(\d+) s/)?.[1]);
+  if (!Number.isFinite(firstThinkingTime)) throw new Error('Live watch did not display the thinking timer');
+  await page.waitForFunction(initial => {
+    const match = document.getElementById('proctor-live-time')?.textContent.match(/(\d+) s/);
+    return match && Number(match[1]) > initial;
+  }, firstThinkingTime, {timeout: 7000});
+  const liveProgress = await page.locator('#proctor-live-progress').evaluate(node => ({value: node.value, max: node.max}));
+  if (liveProgress.value !== 0 || liveProgress.max !== 2 ||
+      !(await page.locator('#proctor-live-timeline').textContent()).includes('0/2 answered')) {
+    throw new Error('Live watch did not show question and campaign progress');
+  }
+
+  const liveAnswer = 'Report the healthy state; do not restart SSH or ask for a terminal command.';
+  liveWatch = {...liveWatch, elapsed_seconds: 12, progress: {...liveWatch.progress,
+    stage: 'evaluation-scored', current_elapsed_seconds: null,
+    current: {...liveItem, answer: liveAnswer, answer_truncated: false, latency_seconds: 2.75,
+      outcome: 'wrong_answer', score: 0, state: 'scored'},
+    evaluation_runs: [{run_id: liveRunId, suite: 'owner-recovery-decision',
+      suite_version: 'owner-recovery-decision/fixture-1', completed: 1, total: 2,
+      items: [{...liveItem, answer: liveAnswer, answer_truncated: false, latency_seconds: 2.75,
+        outcome: 'wrong_answer', score: 0}]}],
+    campaign_steps: [{step_id: 'watch-evaluation', tool: 'evaluation', status: 'running',
+      step_status: 'running', completed: 1, total: 2}]}};
+  await page.waitForFunction(answer => document.getElementById('proctor-live-answer')?.textContent === answer,
+    liveAnswer, {timeout: 7000});
+  if (!(await page.locator('#proctor-live-time').textContent()).includes('2.75 s') ||
+      !(await page.locator('#proctor-live-verdict').textContent()).includes('Miss') ||
+      !(await page.locator('#proctor-live-results').textContent()).includes('watch-case-01')) {
+    throw new Error('Live watch did not publish the completed answer, latency, score and round receipt');
+  }
+  await page.screenshot({path: 'work/dashboard-live-proctor-watch.png', fullPage: true});
   if (errors.length) throw new Error('Managed browser script failed');
-  console.log('PASS: dashboard cards, explicit chat action, one-click SSH recovery bound to signed status/boot, healthy/unavailable states fail closed, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
+  console.log('PASS: dashboard cards, explicit chat action, one-click SSH recovery bound to signed status/boot, healthy/unavailable states fail closed, live Proctor question/timer/answer/score/latency, responsive layout, no script errors. Chromium proxy; Firefox/physical acceptance pending.');
 } finally {
   if (page) await page.unrouteAll({behavior: 'ignoreErrors'});
   if (browser) await browser.close();

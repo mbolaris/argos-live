@@ -4953,6 +4953,10 @@ async function refreshProctorCampaign() {
     const data = await api('/api/proctor-campaign');
     card.hidden = !data.available;
     if (!data.available) return;
+    if (data.active) {
+      const workbench = document.getElementById('workbench');
+      if (workbench) workbench.open = true;
+    }
     const labels = {idle: 'Ready', pausing: 'Pausing chat', practice: 'Practice', campaign: 'Campaign',
       restarting: 'Restarting Argos', completed: 'Complete', incomplete: 'Incomplete', failed: 'Failed',
       'recovery-failed': 'Recovery needed'};
