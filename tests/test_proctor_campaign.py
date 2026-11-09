@@ -4,6 +4,7 @@ import http.client
 from pathlib import Path
 import tempfile
 import threading
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -105,6 +106,57 @@ class ProctorCampaignControllerTests(unittest.TestCase):
             proctor_campaign.validate_measurement_suite('documents-long')
         self.assertFalse(self.startup.lab_active)
         self.assertIsNone(self.controller.worker)
+
+    def test_live_evaluation_watch_shows_question_answer_score_and_elapsed_time(self):
+        now = [10.0]
+        self.controller.clock = lambda: now[0]
+        self.controller.worker = SimpleNamespace(is_alive=lambda: True, join=lambda **_kwargs: None)
+        self.controller._set_progress({
+            'phase': 'campaign', 'stage': 'evaluation-question', 'run_id': 'a' * 32,
+            'item_id': 'fact-1', 'category': 'grounded-recall',
+            'question': 'What did the note say?', 'total': 2, 'completed': 0,
+            'suite': 'documents-short', 'suite_version': 'documents-short/v1',
+            'model': 'qwen-test', 'expected_answer': 'must never be exposed',
+        })
+        now[0] += 4.25
+        waiting = self.controller.snapshot()['progress']
+        self.assertEqual(waiting['current']['question'], 'What did the note say?')
+        self.assertEqual(waiting['current']['state'], 'thinking')
+        self.assertAlmostEqual(waiting['current_elapsed_seconds'], 4.25)
+        self.assertNotIn('_current_started_at', waiting)
+        self.assertNotIn('expected_answer', waiting)
+
+        self.controller._set_progress({
+            'phase': 'campaign', 'stage': 'evaluation-scored', 'run_id': 'a' * 32,
+            'item_id': 'fact-1', 'category': 'grounded-recall',
+            'question': 'What did the note say?', 'total': 2, 'completed': 1,
+            'suite': 'documents-short', 'suite_version': 'documents-short/v1',
+            'model': 'qwen-test', 'answer': 'It said the package arrived Tuesday.',
+            'outcome': 'pass', 'latency_seconds': 4.25, 'score': 1,
+        })
+        scored = self.controller.snapshot()['progress']
+        self.assertEqual(scored['current']['answer'], 'It said the package arrived Tuesday.')
+        self.assertEqual(scored['current']['outcome'], 'pass')
+        self.assertEqual(scored['current']['latency_seconds'], 4.25)
+        self.assertEqual(scored['evaluation_runs'][0]['completed'], 1)
+        self.assertEqual(scored['evaluation_runs'][0]['items'][0]['score'], 1)
+        self.assertNotIn('expected_answer', scored)
+
+    def test_live_campaign_timeline_omits_agent_arguments_and_private_paths(self):
+        self.controller.worker = SimpleNamespace(is_alive=lambda: True, join=lambda **_kwargs: None)
+        self.controller._set_progress({
+            'phase': 'campaign', 'stage': 'campaign-step', 'step_id': 'call-1',
+            'tool': 'evaluation', 'status': 'completed', 'step_status': 'completed',
+            'result_id': 'b' * 32, 'suite': 'documents-short', 'completed': 2,
+            'total': 2, 'correct': 2, 'coverage_complete': True,
+            'private_path': 'C:/private/results.json', 'arguments': {'secret': 'hidden'},
+        })
+        progress = self.controller.snapshot()['progress']
+        self.assertEqual(progress['campaign_steps'][0]['correct'], 2)
+        self.assertEqual(progress['campaign_steps'][0]['result_id'], 'b' * 32)
+        self.assertNotIn('private_path', progress['campaign_steps'][0])
+        self.assertNotIn('arguments', progress['campaign_steps'][0])
+        self.assertNotIn('secret', json.dumps(progress))
 
     def test_dashboard_exposes_document_suite_with_its_narrow_scope(self):
         dashboard = (Path(__file__).resolve().parents[1] /

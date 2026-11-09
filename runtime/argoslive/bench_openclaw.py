@@ -172,7 +172,9 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
             item_started = clock()
             if progress:
                 progress({'phase': 'asking', 'completed': index - 1, 'run_id': result['id'],
-                          'total': len(tasks), 'item_id': item_id, 'category': item_category})
+                          'total': len(tasks), 'item_id': item_id, 'category': item_category,
+                          'question': task['prompt'], 'suite': suite,
+                          'suite_version': result['suite_version'], 'model': result['model']})
             try:
                 answer = runner.turn(task['prompt'])
             except TrialTurnError as exc:
@@ -195,7 +197,9 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                 result['items'].append(scored)
                 if progress:
                     progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
-                              'total': len(tasks), 'item_id': item_id,
+                              'total': len(tasks), 'item_id': item_id, 'category': item_category,
+                              'question': task['prompt'],
+                              'suite': suite, 'suite_version': result['suite_version'],
                               'model': result['model'], 'receipt': scored})
                 continue
             protect(task['id'])
@@ -222,7 +226,9 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
             result['items'].append(scored)
             if progress:
                 progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
-                          'total': len(tasks), 'item_id': item_id,
+                          'total': len(tasks), 'item_id': item_id, 'category': item_category,
+                          'question': task['prompt'],
+                          'suite': suite, 'suite_version': result['suite_version'],
                           'model': result['model'], 'receipt': scored})
         protect('final')
         result['state'] = 'completed'

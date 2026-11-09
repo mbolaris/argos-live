@@ -35,6 +35,9 @@ TASK_CAMPAIGN_SUITES = frozenset({
     'documents-short', 'owner-recovery-decision'})
 MAX_WORKER_TURN_RECORDS = 32
 MAX_SDK_RUNS_PER_WORKER = 4
+CAMPAIGN_PROGRESS_TOOLS = frozenset({
+    'evaluation', 'evaluation_wait', 'inspect', 'audit', 'edit', 'resolve', 'adopt',
+    'compare', 'log', 'ssh_status'})
 ADMISSION_BLOCK_REASONS = frozenset({
     'run-not-ended', 'same-run-id', 'session-binding-mismatch', 'not-campaign',
     'wrong-controller-kind', 'wrong-session-scope', 'worker-not-live',
@@ -137,7 +140,7 @@ def _ssh_status_observation(value):
 class Bridge:
     def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800,
                  exam_session=None, task_campaign=False, owner_task_suite=None,
-                 ssh_status_provider=None, ssh_status_verifier=None):
+                 ssh_status_provider=None, ssh_status_verifier=None, on_progress=None):
         if not identity(session_key) or trigger not in {'user', 'heartbeat'}:
             raise ValueError('Host-selected controller identity required')
         self.home, self.parent = Path(home), parent
@@ -151,6 +154,7 @@ class Bridge:
         self.owner_task_suite = owner_task_suite
         self.ssh_status_provider = ssh_status_provider
         self.ssh_status_verifier = ssh_status_verifier
+        self.on_progress = on_progress
         self.secret = secrets.token_hex(32)
         self.active = None
         self.pending = None
@@ -167,6 +171,8 @@ class Bridge:
         self.verified = False
         self.outcomes = []
         self.presented_proctor_items = set()
+        self.proctor_item_started = {}
+        self.proctor_items = {}
         self.evaluation_job = None
         self.last_finish_failure = None
         self.lock = threading.RLock()
@@ -231,8 +237,11 @@ class Bridge:
             with self.lock:
                 if self.active is not None:
                     self.active['host_tool_requests'] = self.active.get('host_tool_requests', 0) + 1
+            kind, call_id = request.get('kind'), request.get('call_id')
+            self._publish_campaign_tool_step(call_id, kind, 'running')
             try:
                 result = self.tool(request, on_update=on_update)
+                self._publish_campaign_tool_step(call_id, kind, 'completed', result=result)
                 with self.lock:
                     if (self.active is not None and
                             self.active.get('run_id') == request.get('run_id') and
@@ -241,6 +250,7 @@ class Bridge:
                         self.publish()
                 return result
             except BaseException as error:
+                self._publish_campaign_tool_step(call_id, kind, 'failed', error=error)
                 with self.lock:
                     if self.active is not None:
                         kind = request.get('kind')
@@ -273,6 +283,72 @@ class Bridge:
                         self.publish()
                 raise
         raise ValueError('Unknown bridge operation')
+
+    def _publish_campaign_tool_step(self, call_id, kind, status, *, result=None, error=None):
+        """Publish bounded campaign milestones without agent arguments or free-form notes."""
+        if (not self.task_campaign or self.on_progress is None or
+                not isinstance(kind, str) or kind not in CAMPAIGN_PROGRESS_TOOLS or
+                status not in {'running', 'completed', 'failed'} or
+                not identity(call_id)):
+            return
+        event = {'phase': 'campaign', 'stage': 'campaign-step', 'step_id': call_id,
+                 'tool': kind, 'status': status}
+        if status == 'failed':
+            event['error_class'] = type(error).__name__ if error is not None else 'UnknownError'
+        elif status == 'completed' and isinstance(result, dict):
+            result_status = result.get('status')
+            if result_status == 'running':
+                event['status'] = 'running'
+            event['step_status'] = result_status if isinstance(result_status, str) and result_status in {
+                'completed', 'running', 'changed', 'kept', 'restored', 'adopted', 'appended',
+                'empty', 'verified', 'failed', 'available', 'unavailable', 'cancel_requested',
+                'already_finished', 'compatible', 'incompatible', 'rejected'} else None
+            value = result.get('value') if isinstance(result.get('value'), dict) else result
+            # Evaluations return {result, path}; waits wrap that same shape in
+            # the bridge's {status, value} envelope. Read only the saved result
+            # fields needed for the dashboard, and never publish the local path.
+            evaluation = value.get('result') if isinstance(value, dict) else None
+            if isinstance(evaluation, dict):
+                value = evaluation
+            if isinstance(value, dict):
+                inner_status = value.get('status')
+                if result_status == 'completed' and isinstance(inner_status, str) and inner_status in {
+                        'changed', 'kept', 'restored', 'adopted', 'appended', 'empty', 'verified',
+                        'failed', 'available', 'unavailable', 'cancel_requested', 'already_finished',
+                        'compatible', 'incompatible', 'rejected'}:
+                    event['step_status'] = inner_status
+                suite = value.get('suite')
+                if isinstance(suite, str):
+                    normalized_suite = suite.removeprefix('openclaw-')
+                    if normalized_suite in TASK_CAMPAIGN_SUITES:
+                        event['suite'] = normalized_suite
+                summary = value.get('summary') if isinstance(value.get('summary'), dict) else {}
+                coverage = value.get('coverage') if isinstance(value.get('coverage'), dict) else {}
+                counts = {'completed': coverage.get('completed', value.get('completed')),
+                          'total': coverage.get('total', value.get('total')),
+                          'correct': summary.get('correct'),
+                          'format_errors': summary.get('format_errors')}
+                for key, number in counts.items():
+                    if type(number) is int and 0 <= number <= 1000:
+                        event[key] = number
+                result_id = value.get('id', value.get('result_id'))
+                if isinstance(result_id, str) and re.fullmatch(r'[a-f0-9]{32}', result_id):
+                    event['result_id'] = result_id
+                if coverage.get('complete') is True or value.get('coverage_complete') is True:
+                    event['coverage_complete'] = True
+                run_state = value.get('state', value.get('run_state'))
+                if isinstance(run_state, str) and run_state in {'completed', 'cancelled', 'failed', 'running'}:
+                    event['run_state'] = run_state
+                for key in ('passed', 'qualified_experiment', 'independent_gain_verified'):
+                    if type(value.get(key)) is bool:
+                        event[key] = value[key]
+                resolution = value.get('status')
+                if kind == 'resolve' and isinstance(resolution, str) and resolution in {'kept', 'restored'}:
+                    event['resolution'] = resolution
+        try:
+            self.on_progress(event)
+        except Exception:
+            pass
 
     def begin(self, request):
         if (not identity(request.get('run_id')) or not identity(request.get('session_id')) or
@@ -509,6 +585,8 @@ class Bridge:
             if kind == 'evaluation_wait':
                 if self.exam_session is not None:
                     value, item_id = self._proctor_evaluation_wait(params, call)
+                    answer = json.dumps({'name': 'argos_evaluate_wait', 'arguments': params}, ensure_ascii=False)
+                    self._publish_practice_answer(item_id, answer)
                     outcome = {'kind': 'proctor_tool_call', 'call_id': call,
                                'tool': 'argos_evaluate_wait', 'item_id': item_id,
                                'status': 'simulated'}
@@ -651,6 +729,7 @@ class Bridge:
                 with self.lock:
                     job['completed'] = event.get('completed', job['completed'])
                     job['total'] = event.get('total', job['total'])
+                self._publish_evaluation_progress(event)
                 callback = job.get('on_update')
                 if callback is not None:
                     try:
@@ -667,6 +746,37 @@ class Bridge:
             job['thread'] = threading.Thread(target=execute, name='argos-controller-evaluation', daemon=False)
             job['thread'].start()
         return self.wait_evaluation(job_id, on_update=on_update, seconds=seconds)
+
+    def _publish_evaluation_progress(self, event):
+        """Forward only the live question, finished answer, and measured result to the local dashboard."""
+        callback = self.on_progress
+        if callback is None or not isinstance(event, dict):
+            return
+        phase = event.get('phase')
+        if phase not in {'asking', 'scored'}:
+            return
+        task_prompt = event.get('question')
+        receipt = event.get('receipt') if isinstance(event.get('receipt'), dict) else {}
+        output = receipt.get('output')
+        if not isinstance(task_prompt, str):
+            task_prompt = ''
+        if not isinstance(output, str):
+            output = ''
+        value = {'phase': 'campaign', 'stage': 'evaluation-question' if phase == 'asking' else 'evaluation-scored',
+                 'run_id': event.get('run_id'), 'item_id': event.get('item_id'),
+                 'category': event.get('category'), 'question': task_prompt[:6000],
+                 'question_truncated': len(task_prompt) > 6000,
+                 'completed': event.get('completed'), 'total': event.get('total'),
+                 'suite': event.get('suite'), 'suite_version': event.get('suite_version'),
+                 'model': event.get('model')}
+        if phase == 'scored':
+            value.update(answer=output[:8192], outcome=receipt.get('outcome'),
+                         answer_truncated=receipt.get('output_truncated') is True,
+                         latency_seconds=receipt.get('latency_seconds'), score=receipt.get('score'))
+        try:
+            callback(value)
+        except Exception:
+            pass
 
     def wait_evaluation(self, job_id, *, on_update=None, seconds=EVALUATION_WAIT_SECONDS):
         job = self.evaluation_job
@@ -786,6 +896,7 @@ class Bridge:
             if item and item.get('domain') == 'tool_call_format':
                 raise ValueError('This item must be completed through its observed tool call')
             result = self.exam_session.answer(item_id, params['answer'], call_id)
+            self._publish_practice_answer(item_id, params['answer'])
             return {'item_id': item_id, **result}
         if kind == 'proctor_continue':
             return self.exam_session.continue_module(call_id)
@@ -805,7 +916,35 @@ class Bridge:
             raise ValueError('Only an active item in the current module may be surfaced')
         value = self.exam_session.item(item_id)
         self.presented_proctor_items.add((module_id, item_id))
+        self.proctor_items[item_id] = value
+        self.proctor_item_started[item_id] = time.monotonic()
+        if self.on_progress is not None:
+            prompt = json.dumps(value, ensure_ascii=False)
+            try:
+                self.on_progress({'phase': 'practice', 'stage': 'practice-question',
+                                  'item_id': item_id, 'category': value.get('domain'),
+                                  'question': prompt[:6000], 'question_truncated': len(prompt) > 6000})
+            except Exception:
+                pass
         return value
+
+    def _publish_practice_answer(self, item_id, answer):
+        if self.on_progress is None:
+            return
+        item = self.proctor_items.get(item_id)
+        if not isinstance(item, dict):
+            return
+        started = self.proctor_item_started.get(item_id)
+        latency = max(0, time.monotonic() - started) if isinstance(started, (int, float)) else None
+        question = json.dumps(item, ensure_ascii=False)
+        try:
+            self.on_progress({'phase': 'practice', 'stage': 'practice-answer',
+                              'item_id': item_id, 'category': item.get('domain'),
+                              'question': question[:6000], 'question_truncated': len(question) > 6000,
+                              'answer': answer[:8192] if isinstance(answer, str) else '',
+                              'latency_seconds': latency})
+        except Exception:
+            pass
 
     def run_child(self, kind, params, *, on_update=None):
         maintenance = kind in {'inspect', 'audit', 'edit', 'resolve', 'adopt'}
@@ -1548,7 +1687,7 @@ class Bridge:
 @contextmanager
 def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None,
           task_campaign=False, owner_task_suite=None, ssh_status_provider=None,
-          ssh_status_verifier=None):
+          ssh_status_verifier=None, on_progress=None):
     if sys.platform != 'linux':
         raise ValueError('Native controller bridge requires Linux')
     if exam_session is not None and trigger != 'user':
@@ -1559,7 +1698,7 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                         worker_timeout=worker_timeout, exam_session=exam_session,
                         task_campaign=task_campaign, owner_task_suite=owner_task_suite,
                         ssh_status_provider=ssh_status_provider,
-                        ssh_status_verifier=ssh_status_verifier)
+                        ssh_status_verifier=ssh_status_verifier, on_progress=on_progress)
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
                 work_bearing = False

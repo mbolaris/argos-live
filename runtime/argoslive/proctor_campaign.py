@@ -225,6 +225,10 @@ class Controller:
         if started is not None:
             end = finished if finished is not None else self.clock()
             elapsed = max(0, int(end - started))
+        if isinstance(progress, dict):
+            question_started = progress.pop('_current_started_at', None)
+            if isinstance(question_started, (int, float)):
+                progress['current_elapsed_seconds'] = max(0, self.clock() - question_started)
         message = MESSAGES.get(phase, 'Proctor campaign status unavailable.')
         if phase == 'idle' and not can_start:
             if not storage_confirmed:
@@ -367,33 +371,177 @@ class Controller:
                     self.progress = {'phase': phase, 'stage': 'starting'}
 
     def _set_progress(self, event):
-        """Expose only bounded host progress fields, never agent text or tool payloads."""
+        """Expose bounded evaluation questions and final answers to the local live watch."""
         if (not isinstance(event, dict) or not isinstance(event.get('phase'), str) or
                 event.get('phase') not in {'practice', 'campaign'}):
             return
         phase, stage = event['phase'], event.get('stage')
-        allowed_stages = {'starting', 'turn-start', 'turn-finished'}
+        allowed_stages = {'starting', 'turn-start', 'turn-finished',
+                          'evaluation-question', 'evaluation-scored',
+                          'practice-question', 'practice-answer', 'campaign-step'}
         if not isinstance(stage, str) or stage not in allowed_stages:
             return
-        value = {'phase': phase, 'stage': stage}
-        if phase == 'practice':
-            state = event.get('state')
-            if isinstance(state, str) and state in {'ACTIVE', 'BREAK', 'COMPLETED', 'ABANDONED', 'TIMED_OUT',
-                                                     'INVALIDATED', 'starting', 'unavailable'}:
-                value['state'] = state
-        turn, total = event.get('turn'), event.get('total')
-        if type(turn) is int and type(total) is int and 0 <= turn <= 32 and 1 <= total <= 32:
-            value.update(turn=turn, total=total)
-        count = event.get('saved_evaluation_count')
-        if type(count) is int and 0 <= count <= 128:
-            value['saved_evaluation_count'] = count
-        audit_status = event.get('audit_status')
-        if audit_status is None or (isinstance(audit_status, str) and
-                                    audit_status in {'empty', 'verified', 'unverified', 'failed', 'pending'}):
-            value['audit_status'] = audit_status
         with self.lock:
-            if self.worker is not None and self.worker.is_alive():
-                self.progress = value
+            if self.worker is None or not self.worker.is_alive():
+                return
+            previous = self.progress if isinstance(self.progress, dict) and self.progress.get('phase') == phase else {}
+            value = copy.deepcopy(previous)
+            value.update(phase=phase, stage=stage)
+            if phase == 'practice':
+                state = event.get('state')
+                if isinstance(state, str) and state in {'ACTIVE', 'BREAK', 'COMPLETED', 'ABANDONED', 'TIMED_OUT',
+                                                         'INVALIDATED', 'starting', 'unavailable'}:
+                    value['state'] = state
+                if stage in {'practice-question', 'practice-answer'}:
+                    item_id = event.get('item_id')
+                    if not isinstance(item_id, str) or not item_id or len(item_id) > 128:
+                        return
+                    question = event.get('question')
+                    question = question[:6000] if isinstance(question, str) else ''
+                    category = event.get('category')
+                    category = category[:80] if isinstance(category, str) else ''
+                    if stage == 'practice-question':
+                        value['current'] = {'item_id': item_id, 'category': category,
+                                            'question': question,
+                                            'question_truncated': event.get('question_truncated') is True,
+                                            'state': 'thinking'}
+                        value['_current_started_at'] = self.clock()
+                    else:
+                        answer = event.get('answer')
+                        answer = answer[:8192] if isinstance(answer, str) else ''
+                        latency = event.get('latency_seconds')
+                        latency = latency if isinstance(latency, (int, float)) and not isinstance(latency, bool) and latency >= 0 else None
+                        item = {'item_id': item_id, 'category': category, 'question': question,
+                                'question_truncated': event.get('question_truncated') is True,
+                                'answer': answer, 'latency_seconds': latency,
+                                'outcome': None, 'score': None}
+                        items = value.get('practice_items')
+                        if not isinstance(items, list):
+                            items = []
+                        if not any(existing.get('item_id') == item_id for existing in items):
+                            items.append(item)
+                        value['practice_items'] = items[-100:]
+                        value['current'] = {**item, 'state': 'recorded'}
+                        value['_current_started_at'] = None
+            turn, total = event.get('turn'), event.get('total')
+            if type(turn) is int and type(total) is int and 0 <= turn <= 32 and 1 <= total <= 32:
+                value.update(turn=turn, total=total)
+            count = event.get('saved_evaluation_count')
+            if type(count) is int and 0 <= count <= 128:
+                value['saved_evaluation_count'] = count
+            audit_status = event.get('audit_status')
+            if audit_status is None or (isinstance(audit_status, str) and
+                                        audit_status in {'empty', 'verified', 'unverified', 'failed', 'pending'}):
+                value['audit_status'] = audit_status
+            if phase == 'campaign' and stage == 'campaign-step':
+                step_id, tool, status = event.get('step_id'), event.get('tool'), event.get('status')
+                if (not isinstance(step_id, str) or not 1 <= len(step_id) <= 256 or
+                        any(character not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-'
+                            for character in step_id) or
+                        not isinstance(tool, str) or not isinstance(status, str) or
+                        tool not in {'evaluation', 'evaluation_wait', 'inspect', 'audit', 'edit', 'resolve',
+                                     'adopt', 'compare', 'log', 'ssh_status'} or
+                        status not in {'running', 'completed', 'failed'}):
+                    return
+                steps = value.get('campaign_steps')
+                if not isinstance(steps, list):
+                    steps = []
+                step = {'step_id': step_id, 'tool': tool, 'status': status}
+                step_status = event.get('step_status')
+                if isinstance(step_status, str) and step_status in {
+                        'completed', 'running', 'changed', 'kept', 'restored', 'adopted', 'appended',
+                        'empty', 'verified', 'failed', 'available', 'unavailable', 'cancel_requested',
+                        'already_finished', 'compatible', 'incompatible', 'rejected'}:
+                    step['step_status'] = step_status
+                error_class = event.get('error_class')
+                if isinstance(error_class, str) and len(error_class) <= 80:
+                    step['error_class'] = error_class
+                for key in ('suite', 'result_id', 'resolution', 'run_state'):
+                    item = event.get(key)
+                    if isinstance(item, str) and len(item) <= 160:
+                        if key != 'result_id' or (len(item) == 32 and
+                                                  all(char in '0123456789abcdef' for char in item)):
+                            step[key] = item
+                if event.get('coverage_complete') is True:
+                    step['coverage_complete'] = True
+                for key in ('completed', 'total', 'correct', 'format_errors'):
+                    number = event.get(key)
+                    if type(number) is int and 0 <= number <= 1000:
+                        step[key] = number
+                for key in ('passed', 'qualified_experiment', 'independent_gain_verified'):
+                    if type(event.get(key)) is bool:
+                        step[key] = event[key]
+                existing = next((index for index, item in enumerate(steps)
+                                 if isinstance(item, dict) and item.get('step_id') == step_id), None)
+                if existing is None:
+                    steps.append(step)
+                else:
+                    merged = dict(steps[existing])
+                    merged.update(step)
+                    steps[existing] = merged
+                value['campaign_steps'] = steps[-32:]
+            if phase == 'campaign' and stage in {'evaluation-question', 'evaluation-scored'}:
+                run_id, item_id = event.get('run_id'), event.get('item_id')
+                if (not isinstance(run_id, str) or len(run_id) > 64 or
+                        not isinstance(item_id, str) or not item_id or len(item_id) > 128):
+                    return
+                question = event.get('question')
+                question = question[:6000] if isinstance(question, str) else ''
+                category = event.get('category')
+                category = category[:80] if isinstance(category, str) else ''
+                runs = value.get('evaluation_runs')
+                if not isinstance(runs, list):
+                    runs = []
+                run = next((entry for entry in runs if entry.get('run_id') == run_id), None)
+                if run is None:
+                    last_round = runs[-1].get('round_number', len(runs)) if runs else 0
+                    round_number = last_round + 1 if type(last_round) is int else len(runs) + 1
+                    run = {'run_id': run_id, 'total': event.get('total'), 'completed': 0, 'items': [],
+                           'round_number': round_number,
+                           'suite': event.get('suite') if isinstance(event.get('suite'), str) else None,
+                           'suite_version': event.get('suite_version')
+                           if isinstance(event.get('suite_version'), str) else None,
+                           'model': event.get('model') if isinstance(event.get('model'), str) else None}
+                    runs.append(run)
+                    if len(runs) > 4:
+                        runs.pop(0)
+                run['total'] = event.get('total') if type(event.get('total')) is int else run.get('total')
+                if isinstance(event.get('suite'), str):
+                    run['suite'] = event['suite'][:80]
+                if isinstance(event.get('suite_version'), str):
+                    run['suite_version'] = event['suite_version'][:160]
+                if isinstance(event.get('model'), str):
+                    run['model'] = event['model'][:160]
+                if stage == 'evaluation-question':
+                    value['current'] = {'run_id': run_id, 'item_id': item_id, 'category': category,
+                                        'question': question,
+                                        'question_truncated': event.get('question_truncated') is True,
+                                        'state': 'thinking'}
+                    value['_current_started_at'] = self.clock()
+                else:
+                    answer = event.get('answer')
+                    answer = answer[:8192] if isinstance(answer, str) else ''
+                    outcome = event.get('outcome')
+                    outcome = outcome if outcome in {'pass', 'wrong_answer', 'format_error', 'unscored'} else None
+                    latency = event.get('latency_seconds')
+                    latency = latency if isinstance(latency, (int, float)) and not isinstance(latency, bool) and latency >= 0 else None
+                    score = event.get('score')
+                    score = score if type(score) in (int, float) and score in (0, 1) else None
+                    item = {'run_id': run_id, 'item_id': item_id, 'category': category, 'question': question,
+                            'question_truncated': event.get('question_truncated') is True,
+                            'answer': answer, 'answer_truncated': event.get('answer_truncated') is True,
+                            'outcome': outcome, 'latency_seconds': latency, 'score': score}
+                    items = run.get('items') if isinstance(run.get('items'), list) else []
+                    if not any(existing.get('item_id') == item_id for existing in items):
+                        items.append(item)
+                    run['items'] = items[-100:]
+                    completed = event.get('completed')
+                    if type(completed) is int and completed >= 0:
+                        run['completed'] = completed
+                    value['current'] = {**item, 'state': 'scored'}
+                    value['_current_started_at'] = None
+                value['evaluation_runs'] = runs
+            self.progress = value
 
     def _wait_stopped(self):
         deadline = self.clock() + self.stop_timeout
@@ -472,6 +620,12 @@ class Controller:
                 else:
                     self.startup.lab_active = False
                     self.phase = outcome_phase
+                if isinstance(self.progress, dict) and isinstance(self.progress.get('current'), dict) and \
+                        self.progress['current'].get('state') == 'thinking':
+                    current_started = self.progress.pop('_current_started_at', None)
+                    if isinstance(current_started, (int, float)):
+                        self.progress['current_elapsed_seconds'] = max(0, self.clock() - current_started)
+                    self.progress['current']['state'] = 'interrupted'
                 self.owner_task = None
                 self.success_criteria = None
                 self.measurement_suite = None

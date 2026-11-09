@@ -3,6 +3,7 @@ import tempfile
 import threading
 import time
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -276,6 +277,16 @@ class ControllerTests(unittest.TestCase):
             saved = json.loads((controller.root / 'latest-job.json').read_text())
             self.assertEqual(saved['state'], 'completed')
             self.assertEqual(saved['receipt']['signature_status'], 'signed')
+            self.assertEqual(saved['approval_count'], 1)
+            self.assertGreaterEqual(saved['approval_to_check_seconds'], 0)
+            self.assertEqual(saved['timing_basis'], 'host-monotonic')
+            self.assertIn('approved_at_utc', saved)
+            self.assertIn('finished_at_utc', saved)
+            signed_operation = saved['receipt']['payload']['operation']
+            self.assertEqual(signed_operation['accepted_dashboard_approvals'], 1)
+            self.assertEqual(signed_operation['approval_to_check_seconds'],
+                             saved['approval_to_check_seconds'])
+            self.assertEqual(signed_operation['timing_basis'], 'host-monotonic')
             self.assertTrue((controller.root / (saved['receipt']['payload']['receipt_id'] + '.json')).exists())
             self.assertEqual(self.calls, 1)
             with self.assertRaises(ValueError):
@@ -312,6 +323,8 @@ class ControllerTests(unittest.TestCase):
         controller.job = {'schema': 'argos-ssh-recovery-job/1', 'job_id': 'c' * 32,
                           'state': 'running', 'boot_id': self.current['boot_id'],
                           'approved_receipt_id': 'b' * 32, 'receipt': None,
+                          'approved_at_utc': (datetime.now(timezone.utc) - timedelta(seconds=6)).isoformat(),
+                          'approval_count': 1,
                           'failure_code': None}
         controller.root.mkdir(parents=True)
         controller.root.chmod(0o700)
@@ -322,6 +335,10 @@ class ControllerTests(unittest.TestCase):
             snapshot = controller.snapshot()
             self.assertEqual(snapshot['job']['state'], 'completed')
             self.assertEqual(snapshot['job']['receipt']['signature_status'], 'signed')
+            self.assertEqual(snapshot['job']['timing_basis'], 'reconciled-observation')
+            self.assertGreaterEqual(snapshot['job']['approval_to_check_seconds'], 5)
+            self.assertEqual(snapshot['job']['receipt']['payload']['operation'][
+                'timing_basis'], 'reconciled-observation')
             saved = json.loads((controller.root / 'latest-job.json').read_text())
             self.assertEqual(saved['state'], 'completed')
         finally:

@@ -291,6 +291,7 @@ class Controller:
         self.lock = threading.RLock()
         self.worker = None
         self.job = None
+        self.job_started_monotonic = None
         self.latest = None
 
     def _persistent(self):
@@ -474,7 +475,14 @@ class Controller:
                 self.job = job
                 self.job['state'] = result['status']
                 self.job['failure_code'] = result['failure_code']
-                self.job['receipt'] = self._receipt(status, result=result, persist=True)
+                self.job['finished_at_utc'] = datetime.now(timezone.utc).isoformat()
+                approved_at = self._parse_utc(self.job.get('approved_at_utc'))
+                operation = result
+                if approved_at is not None:
+                    elapsed = (datetime.now(timezone.utc) - approved_at).total_seconds()
+                    operation = self._timed_operation(result, elapsed_seconds=elapsed,
+                                                       timing_basis='reconciled-observation')
+                self.job['receipt'] = self._receipt(status, result=operation, persist=True)
                 self._save_job()
                 job = dict(self.job)
         return {'available': status is not None, 'status': status, 'receipt': receipt,
@@ -495,6 +503,28 @@ class Controller:
 
     def _save_job(self):
         write_json(self.root / 'latest-job.json', self.job)
+
+    @staticmethod
+    def _parse_utc(value):
+        if not isinstance(value, str) or len(value) > 64:
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return parsed if parsed.tzinfo is not None else None
+        except ValueError:
+            return None
+
+    def _timed_operation(self, result, *, elapsed_seconds, timing_basis):
+        elapsed_seconds = round(max(0, elapsed_seconds), 3)
+        fields = {'accepted_dashboard_approvals': 1,
+                  'approved_at_utc': self.job.get('approved_at_utc'),
+                  'approval_to_check_seconds': elapsed_seconds,
+                  'timing_basis': timing_basis}
+        self.job.update(approval_count=1, approval_to_check_seconds=elapsed_seconds,
+                        timing_basis=timing_basis)
+        operation = dict(result)
+        operation.update(fields)
+        return operation
 
     def restart(self, receipt_id, boot_id):
         if not isinstance(receipt_id, str) or not ID.fullmatch(receipt_id):
@@ -525,7 +555,9 @@ class Controller:
             self.job = {'schema': 'argos-ssh-recovery-job/1', 'job_id': secrets.token_hex(16),
                         'state': 'running', 'boot_id': boot_id,
                         'approved_receipt_id': receipt_id, 'receipt': None,
-                        'failure_code': None}
+                        'failure_code': None, 'approved_at_utc': datetime.now(timezone.utc).isoformat(),
+                        'approval_count': 1}
+            self.job_started_monotonic = self.clock()
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
             self._save_job()
             self.worker = threading.Thread(target=self._run_restart, daemon=True,
@@ -545,13 +577,22 @@ class Controller:
                     status.get('paired_policy_valid') is True and status.get('ssh_enabled') is True and
                     status.get('ssh_active') is True and status.get('port22_listening') is True):
                 result = {'status': 'failed', 'failure_code': 'restart-not-verified'}
+            elapsed = (self.clock() - self.job_started_monotonic
+                       if self.job_started_monotonic is not None else 0)
+            operation = self._timed_operation(result, elapsed_seconds=elapsed,
+                                               timing_basis='host-monotonic')
             self.job['state'] = result['status']
             self.job['failure_code'] = result.get('failure_code')
-            self.job['receipt'] = self._receipt(status, result=result, persist=True)
+            self.job['receipt'] = self._receipt(status, result=operation, persist=True)
         except Exception:
             self.job['state'] = 'failed'
             self.job['failure_code'] = 'restart-failed'
         finally:
+            self.job['finished_at_utc'] = datetime.now(timezone.utc).isoformat()
+            if self.job_started_monotonic is not None:
+                if 'approval_to_check_seconds' not in self.job:
+                    self.job['approval_to_check_seconds'] = round(max(0,
+                        self.clock() - self.job_started_monotonic), 3)
             try:
                 self._save_job()
             except OSError:
