@@ -129,6 +129,10 @@ def safe_controller_diagnostics(turn):
     return result
 
 
+def valid_practice_turn_receipt(host_turns, start_retries):
+    return proctor_service.valid_practice_turn_receipt(host_turns, start_retries)
+
+
 def safe_finish_failure(path):
     """Copy only fixed-schema controller failure facts; never export text output."""
     if not path.is_file():
@@ -535,6 +539,8 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
                     json.dumps(failure, indent=2) + '\n')
                 raise
         root = home / '.local/state/argos-live/proctor'
+        if not valid_practice_turn_receipt(result.get('host_turns'), result.get('start_retries')):
+            raise ValueError('Real-model Proctor returned invalid turn/retry counters')
         import sqlite3
         from contextlib import closing
         with closing(sqlite3.connect(root / 'state.sqlite3')) as db:
@@ -553,6 +559,7 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             'answered': len(payload['accepted_answers']), 'correct': payload['accepted_correct'],
             'practice_only': True, 'calibration_status': 'uncalibrated',
             'host_turns': result['host_turns'],
+            'start_retries': result['start_retries'],
             'requested_temperature': config['models']['providers']['ollama']['models'][0].get('params', {}).get('temperature'),
             'owner_recovery_action_smoke': recovery_receipt,
             'image_acceptance': False}

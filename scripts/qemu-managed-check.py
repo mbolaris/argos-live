@@ -701,6 +701,10 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
                 outcome not in terminal_states or
                 not isinstance(transcript_id, str) or not re.fullmatch(r'[a-f0-9]{32}', transcript_id)):
             raise ValueError('Bundled-model Proctor practice did not return a terminal host receipt')
+        host_turns = practice.get('host_turns')
+        start_retries = practice.get('start_retries')
+        if not proctor_service.valid_practice_turn_receipt(host_turns, start_retries):
+            raise ValueError('Bundled-model Proctor turn/retry counters are invalid')
         managed_stage('proctor-result-' + outcome.lower())
         failure_code = 'transcript-store'
         proctor_root = home / '.local/state/argos-live/proctor'
@@ -746,6 +750,7 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
             'proctor_calibration_status': 'uncalibrated', 'proctor_campaign_started': False,
             'proctor_backend_weights_loaded_attested': False, 'proctor_transcript_id': transcript_id,
             'proctor_model_tag': model_tag,
+            'proctor_host_turns': host_turns, 'proctor_start_retries': start_retries,
             'proctor_answered': len(payload['accepted_answers']),
             'proctor_modules_submitted': (len(payload['modules']) == 2 and
                                          all(module['state'] == 'SUBMITTED' for module in payload['modules'])),

@@ -18,6 +18,8 @@ import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
 GUEST_PAYLOAD_CHUNK_SIZE = 240
+MANAGED_PROCTOR_MAX_HOST_TURNS = 16
+MANAGED_PROCTOR_MAX_START_RETRIES = 2
 
 
 def desktop_entry(text, *, guest=False):
@@ -163,6 +165,13 @@ def guest_result(serial, *, setup_mode='interactive', guest=False, proctor_smoke
                     result['proctor_answered'] != result['proctor_score']['total'] or
                     not 0 <= result['proctor_score']['correct'] <= result['proctor_score']['total']):
                 raise ValueError('Managed guest Proctor receipt is incomplete')
+            host_turns = result.get('proctor_host_turns')
+            start_retries = result.get('proctor_start_retries')
+            if (type(host_turns) is not int or not 1 <= host_turns <= MANAGED_PROCTOR_MAX_HOST_TURNS or
+                    type(start_retries) is not int or
+                    not 0 <= start_retries <= MANAGED_PROCTOR_MAX_START_RETRIES or
+                    start_retries >= host_turns):
+                raise ValueError('Managed guest Proctor turn/retry counters are invalid')
         backend = result.get('startup_metrics', {}).get('backend', {})
         mode = backend.get('mode') if isinstance(backend, dict) else None
         cpu_path = mode == 'CPU' or (vm_has_no_compute_gpu_passthrough and mode == 'split')

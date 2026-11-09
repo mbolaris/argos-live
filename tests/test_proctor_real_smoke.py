@@ -13,6 +13,13 @@ SPEC.loader.exec_module(smoke)
 
 
 class ApprovalRequestCountTests(unittest.TestCase):
+    def test_practice_turn_receipt_bounds_and_types(self):
+        self.assertTrue(smoke.valid_practice_turn_receipt(1, 0))
+        self.assertTrue(smoke.valid_practice_turn_receipt(3, 2))
+        for turns, retries in ((0, 0), (17, 0), (True, 0), (1, 1), (3, 3), (3, True)):
+            with self.subTest(turns=turns, retries=retries):
+                self.assertFalse(smoke.valid_practice_turn_receipt(turns, retries))
+
     def test_counts_one_approval_instruction(self):
         self.assertEqual(smoke.approval_request_count(
             'Click “Approve one safe SSH start” in the dashboard.'), 1)

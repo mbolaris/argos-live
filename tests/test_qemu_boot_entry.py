@@ -111,6 +111,7 @@ class BootEntryTests(unittest.TestCase):
             'proctor_assistant_resumed': True, 'proctor_calibration_status': 'uncalibrated',
             'proctor_campaign_started': False, 'proctor_backend_weights_loaded_attested': False,
             'proctor_transcript_id': 'a' * 32, 'proctor_model_tag': 'qwen3:0.6b',
+            'proctor_host_turns': 1, 'proctor_start_retries': 0,
             'proctor_score': {'correct': 3, 'total': 5}, 'proctor_answered': 5,
             'proctor_modules_submitted': True}
         wire = 'ARGOS_C3_RESULT ' + json.dumps(value) + '\n'
@@ -140,7 +141,11 @@ class BootEntryTests(unittest.TestCase):
                         dict(value, proctor_backend_weights_loaded_attested=True),
                         dict(value, proctor_score={'correct': 1, 'total': 1}),
                         dict(value, proctor_score={'correct': 5, 'total': 4}),
-                        dict(value, proctor_answered=0), dict(value, proctor_answered=True)):
+                        dict(value, proctor_answered=0), dict(value, proctor_answered=True),
+                        dict(value, proctor_host_turns=0), dict(value, proctor_host_turns=17),
+                        dict(value, proctor_host_turns=True), dict(value, proctor_start_retries=-1),
+                        dict(value, proctor_start_retries=3), dict(value, proctor_start_retries=True),
+                        dict(value, proctor_host_turns=1, proctor_start_retries=1)):
             with self.assertRaises(ValueError):
                 module.guest_result('ARGOS_C3_RESULT ' + json.dumps(changed) + '\n',
                                     setup_mode='managed', proctor_smoke=True)
