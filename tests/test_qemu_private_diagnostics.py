@@ -58,8 +58,10 @@ class DiagnosticFlagsTests(unittest.TestCase):
             secret = 'PRIVATE-PROMPT-ANSWER-TOKEN'
             (root / 'workload/controller-turn.json').write_text(json.dumps({
                 'host_tool_requests': 3, 'prompt': secret,
-                'host_tool_failures': [{'kind': 'proctor_status', 'error_class': 'ValueError',
-                                        'error_text': secret},
+                'host_tool_failures': [{'kind': 'proctor_answer', 'error_class': 'ProctorError',
+                                        'error_code': 'INVALID_ANSWER_FORMAT', 'error_text': secret},
+                                       {'kind': 'proctor_answer', 'error_class': 'ProctorError',
+                                        'error_code': secret},
                                        {'kind': secret, 'error_class': secret}],
                 'admission_diagnostics': {'tool_hooks': 0, 'executions': secret,
                     'rejected': {'unknown_tool': 0, 'private': secret}},
@@ -83,7 +85,9 @@ class DiagnosticFlagsTests(unittest.TestCase):
             self.assertNotIn(secret, output.getvalue())
             self.assertEqual(value['tool_kinds'], ['proctor_start'])
             self.assertEqual(value['tool_failures'], [
-                {'kind': 'proctor_status', 'error_class': 'ValueError'},
+                {'kind': 'proctor_answer', 'error_class': 'ProctorError',
+                 'error_code': 'INVALID_ANSWER_FORMAT'},
+                {'kind': 'proctor_answer', 'error_class': 'ProctorError'},
                 {'kind': 'other', 'error_class': 'other'}])
             self.assertEqual(value['exam_states'], {'ACTIVE': 1})
             self.assertEqual(value['admission_counters'], {'tool_hooks': 0, 'unknown_tool': 0})

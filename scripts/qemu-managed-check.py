@@ -557,15 +557,28 @@ def proctor_failure_diagnostics(home):
     failures = turn.get('host_tool_failures', [])
     classes = {'Busy', 'ValueError', 'TypeError', 'KeyError', 'OSError', 'ProctorError',
                'OperationalError', 'TimeoutExpired', 'RuntimeError'}
+    proctor_error_codes = {
+        'UNAUTHORIZED_CALLER', 'UNAUTHORIZED_SESSION', 'CARTRIDGE_UNAVAILABLE',
+        'IDEMPOTENCY_CONFLICT', 'MODULE_NOT_STARTABLE', 'MODULE_NOT_ACTIVE',
+        'INVALID_SUBMISSION_ARGUMENTS', 'ITEM_NOT_IN_MODULE', 'MODULE_NOT_RELEASED',
+        'INVALID_ANSWER_FORMAT', 'STALE_REVISION', 'AID_NOT_ALLOWED', 'UNKNOWN_AID',
+        'AID_COMPLETION_CONFLICT', 'AID_NO_LONGER_ACTIVE', 'MODULE_DEADLINE_EXPIRED',
+        'TRANSCRIPT_NOT_ISSUED',
+    }
     receipt['tool_failures'] = []
     if isinstance(failures, list):
         for row in failures[:32]:
             if not isinstance(row, dict):
                 continue
             kind, error = row.get('kind'), row.get('error_class')
-            receipt['tool_failures'].append({
+            safe_failure = {
                 'kind': kind if isinstance(kind, str) and kind in names else 'other',
-                'error_class': error if isinstance(error, str) and error in classes else 'other'})
+                'error_class': error if isinstance(error, str) and error in classes else 'other'}
+            code = row.get('error_code')
+            if (safe_failure['kind'].startswith('proctor_') and isinstance(code, str) and
+                    code in proctor_error_codes):
+                safe_failure['error_code'] = code
+            receipt['tool_failures'].append(safe_failure)
     receipt['worker_state'] = (worker.get('state') if worker.get('state') in
                                ('starting', 'completed') else 'unknown')
     # Preserve only fixed controller failure classes and bounded counters. The
@@ -848,6 +861,16 @@ def managed_check_body(started, desktop_seconds, native_lab):
         raise ValueError('Automatic browser/gateway startup exceeded the guest deadline')
     state = json.loads((home / '.config/argos-live/state.json').read_text())
     is_guest = globals().get('ARGOS_QEMU_GUEST_MODE', False)
+    ssh_enabled = subprocess.run(['systemctl', 'is-enabled', 'ssh.service'],
+                                 capture_output=True, text=True, timeout=10)
+    ssh_active = subprocess.run(['systemctl', 'is-active', 'ssh.service'],
+                                capture_output=True, text=True, timeout=10)
+    ssh_enabled_state = ssh_enabled.stdout.strip()
+    ssh_active_state = ssh_active.stdout.strip()
+    if ssh_enabled.returncode != 0 or ssh_enabled_state != 'enabled':
+        raise ValueError('Image does not enable the paired SSH service at boot')
+    if ssh_active_state != 'inactive':
+        raise ValueError('SSH did not stay closed without an encrypted owner pairing')
     if state.get('mode') != ('guest' if is_guest else 'try') or state.get('model_source') != 'bundled':
         raise ValueError('Automatic setup did not use immutable try-mode starter')
     starter.read_only()
@@ -996,6 +1019,8 @@ def managed_check_body(started, desktop_seconds, native_lab):
         'model_lab_speed_result_saved': True, 'model_lab_ability_result_saved': True,
         'model_lab_assistant_resumed': True, 'model_lab_run_ids': run_ids,
         'model_lab_interaction': 'shipped Firefox binary; isolated Marionette test profile',
+        'ssh_enabled_by_default': ssh_enabled_state == 'enabled',
+        'ssh_closed_without_owner_pairing': ssh_active_state == 'inactive',
         'original_launcher_tab_interaction_verified': False,
         'setup_mode': 'managed', 'automatic_first_boot': True, 'bundled_read_only_source': True,
         'model_reply_verified': True, 'startup_metrics': metrics,

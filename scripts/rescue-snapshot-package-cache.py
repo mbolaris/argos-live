@@ -23,7 +23,7 @@ from urllib.request import Request, urlopen
 
 
 SNAPSHOT_URL = re.compile(
-    r"https://snapshot\.debian\.org/archive/"
+    r"(?:https://snapshot\.debian\.org|http://127\.0\.0\.1:[0-9]+)/archive/"
     r"(debian|debian-security)/([0-9]{8}T[0-9]{6}Z)/(pool/[^\s'\"<>]+?\.deb)"
 )
 ARCHIVES = {"debian", "debian-security"}
