@@ -4691,7 +4691,8 @@ function renderProctorCampaignResult(result) {
     if (hostObservation.verified === true) {
       const listener = hostObservation.port22_listening === true ? 'port 22 listening' : 'port 22 not listening';
       const active = hostObservation.ssh_active === true ? 'SSH active' : 'SSH inactive';
-      parts.push(`Verified live host observation: paired SSH ${hostObservation.state} · ${active} · ${listener} · persistence ${hostObservation.persistence_state}. This is a real status snapshot, not proof of a recovery action, owner-time savings, or model improvement.`);
+      const action = hostObservation.failure_code === 'already-active' ? ' · no restart needed' : '';
+      parts.push(`Verified live host observation: paired SSH ${hostObservation.state} · ${active} · ${listener} · persistence ${hostObservation.persistence_state}${action}. This is a real status snapshot, not proof of a recovery action, owner-time savings, or model improvement.`);
     } else if (hostObservation.state === 'unavailable') {
       parts.push('Live host observation: signed SSH status unavailable; no host state is claimed.');
     }

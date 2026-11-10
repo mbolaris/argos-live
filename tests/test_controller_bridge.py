@@ -243,6 +243,18 @@ class ControllerBridgeTests(unittest.TestCase):
         finally:
             recovery.close()
 
+    def test_signed_ssh_status_treats_already_active_as_ready(self):
+        status = {'schema': 'argos-ssh-status/1', 'boot_id': 'b' * 36,
+                  'persistence_state': 'verified', 'paired_policy_valid': True,
+                  'ssh_enabled': True, 'ssh_active': True, 'port22_listening': True,
+                  'restart_eligible': False, 'failure_code': 'already-active'}
+        snapshot = {'schema': 'argos-proctor-ssh-status/1', 'available': True,
+                    'status': status, 'receipt': {}, 'owner_approval_available': False,
+                    'recovery_job_state': 'idle'}
+        observation = controller_bridge._ssh_status_observation(snapshot)
+        self.assertEqual(observation['state'], 'ready')
+        self.assertEqual(observation['failure_code'], 'already-active')
+
     @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
     def test_session_bound_incomplete_practice_turn_is_drained_and_retryable(self):
         exam = SimpleNamespace(tier='practice')

@@ -127,7 +127,7 @@ def _ssh_status_observation(value):
     ready = (status['persistence_state'] == 'verified' and
              status['paired_policy_valid'] is True and status['ssh_enabled'] is True and
              status['ssh_active'] is True and status['port22_listening'] is True and
-             status['failure_code'] is None)
+             status['failure_code'] in (None, 'already-active'))
     return {
         'schema': 'argos-host-observation/1', 'system': 'paired-ssh',
         'verified': True, 'state': 'ready' if ready else 'not-ready',

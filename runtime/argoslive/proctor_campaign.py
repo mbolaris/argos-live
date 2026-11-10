@@ -99,7 +99,7 @@ def _public_host_observation(value):
         return None
     ready = (value['persistence_state'] == 'verified' and value['paired_policy_valid'] and
              value['ssh_enabled'] and value['ssh_active'] and value['port22_listening'] and
-             failure is None)
+             failure in (None, 'already-active'))
     if value['state'] != ('ready' if ready else 'not-ready'):
         return None
     return {key: value[key] for key in fields}
