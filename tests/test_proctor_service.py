@@ -121,6 +121,8 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('exactly one call to argos_ssh_status', prompt)
         self.assertIn('tell the owner once to click', prompt)
         self.assertIn('Never request terminal commands', prompt)
+        self.assertIn('during the next naturally occurring recovery, record actual', prompt)
+        self.assertIn('Do not induce a failure on Toronado', prompt)
         self.assertNotIn('argos_inspect', prompt)
         self.assertNotIn('argos_audit_instructions', prompt)
 
