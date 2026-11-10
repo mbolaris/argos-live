@@ -5113,19 +5113,27 @@ async function refreshSshRecovery() {
         ? signedOperation.approval_to_check_seconds : null;
       const elapsedText = duration !== null
         ? ` · ${duration.toFixed(1)} s approval-to-host-check${signedOperation.timing_basis === 'reconciled-observation' ? ' (observed after service restart)' : ''}` : '';
+      const availabilityDuration = Number.isFinite(signedOperation?.approval_availability_to_click_seconds) &&
+        signedOperation.approval_availability_to_click_seconds >= 0 &&
+        signedOperation.approval_availability_to_click_seconds <= 86400
+        ? signedOperation.approval_availability_to_click_seconds : null;
+      const availabilityText = availabilityDuration !== null
+        ? ` · ${availabilityDuration.toFixed(1)} s from host-observed approval availability to click` : '';
       if (acceptedApproval && verifiedNow) {
-        evidenceNode.textContent = `Same-boot SSH service readiness verified; remote login not checked · 1 accepted dashboard approval${elapsedText}.`;
+        evidenceNode.textContent = `Same-boot SSH service readiness verified; remote login not checked · 1 accepted dashboard approval${availabilityText}${elapsedText}.`;
       } else if (acceptedApproval && job?.state === 'running') {
         const approvedAt = typeof job.approved_at_utc === 'string' ? Date.parse(job.approved_at_utc) : NaN;
         const runningText = Number.isFinite(approvedAt)
           ? ` · ${Math.max(0, (Date.now() - approvedAt) / 1000).toFixed(1)} s since approval` : '';
-        evidenceNode.textContent = `1 accepted dashboard approval · recovery check is still running${runningText}.`;
+        evidenceNode.textContent = `1 accepted dashboard approval${availabilityText} · recovery check is still running${runningText}.`;
       } else if (acceptedApproval) {
-        evidenceNode.textContent = `1 accepted dashboard approval · no same-boot ready result is verified${elapsedText}.`;
+        evidenceNode.textContent = `1 accepted dashboard approval${availabilityText} · no same-boot ready result is verified${elapsedText}.`;
       } else if (status?.ssh_active && status?.port22_listening && status?.paired_policy_valid) {
         evidenceNode.textContent = 'SSH was already ready at this check; no recovery action was recorded.';
       } else if (status) {
-        evidenceNode.textContent = 'No accepted dashboard recovery is recorded for this status.';
+        const availableFor = data.can_restart && Number.isFinite(data.approval_available_seconds)
+          ? ` One dashboard approval has been available for ${Math.max(0, data.approval_available_seconds).toFixed(1)} s since the host first observed eligibility.` : '';
+        evidenceNode.textContent = `No accepted dashboard recovery is recorded for this status.${availableFor}`;
       } else {
         evidenceNode.textContent = 'No verified recovery outcome is available.';
       }

@@ -76,7 +76,7 @@
         <p id="ssh-recovery-status" role="status" aria-live="polite">Checking encrypted storage and SSH pairing…</p>
         <p class="ssh-recovery-detail">After encrypted persistence and the paired key-only policy pass, Argos can start the existing service. If systemd’s SSH socket is holding port 22, approval stops that socket for this boot before starting the paired service. Keys and persistent SSH settings are unchanged.</p>
         <p id="ssh-recovery-evidence" class="ssh-recovery-evidence">Waiting for a signed recovery status.</p>
-        <p class="ssh-recovery-measure-note">This records accepted dashboard approvals and when the page observes verification. It cannot count terminal commands outside this page.</p>
+        <p class="ssh-recovery-measure-note">This records when the host first sees a safe approval become available, the dashboard approval click, and the host’s readiness check. The first interval starts at host observation, not at the beginning of the incident, and resets if Argos restarts or eligibility changes. It cannot count terminal commands outside this page.</p>
         <button id="ssh-recovery-start" type="button" hidden>Approve one safe SSH start</button>
       </section>
         <div id="arena" class="arena-deck" hidden aria-live="polite">

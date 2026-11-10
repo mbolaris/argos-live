@@ -293,6 +293,9 @@ class Controller:
         self.job = None
         self.job_started_monotonic = None
         self.latest = None
+        self.approval_available_boot_id = None
+        self.approval_available_since_utc = None
+        self.approval_available_monotonic = None
 
     def _persistent(self):
         from . import storage_view
@@ -459,6 +462,25 @@ class Controller:
         with self.lock:
             job = dict(self.job) if self.job else self._saved_job()
             active = self.worker is not None and self.worker.is_alive()
+            can_restart = bool(status and status.get('restart_eligible') and
+                               receipt and receipt.get('signature_status') == 'signed' and
+                               not active and not (job and job.get('state') == 'running'))
+            if can_restart:
+                boot_id = status.get('boot_id')
+                if (self.approval_available_monotonic is None or
+                        self.approval_available_boot_id != boot_id):
+                    self.approval_available_boot_id = boot_id
+                    self.approval_available_since_utc = datetime.now(timezone.utc).isoformat()
+                    self.approval_available_monotonic = self.clock()
+                approval_available_seconds = round(max(
+                    0, self.clock() - self.approval_available_monotonic), 3)
+                approval_available_since_utc = self.approval_available_since_utc
+            else:
+                self.approval_available_boot_id = None
+                self.approval_available_since_utc = None
+                self.approval_available_monotonic = None
+                approval_available_seconds = None
+                approval_available_since_utc = None
             # If the desktop process ended mid-operation, reconcile its
             # persisted job from current host evidence instead of displaying a
             # permanent spinner or retrying silently.
@@ -486,8 +508,9 @@ class Controller:
                 self._save_job()
                 job = dict(self.job)
         return {'available': status is not None, 'status': status, 'receipt': receipt,
-                'can_restart': bool(status and status.get('restart_eligible') and
-                                    receipt and receipt.get('signature_status') == 'signed' and not active),
+                'can_restart': can_restart,
+                'approval_available_since_utc': approval_available_since_utc,
+                'approval_available_seconds': approval_available_seconds,
                 'active': active, 'job': job}
 
     def _saved_job(self):
@@ -520,6 +543,13 @@ class Controller:
                   'approved_at_utc': self.job.get('approved_at_utc'),
                   'approval_to_check_seconds': elapsed_seconds,
                   'timing_basis': timing_basis}
+        available_seconds = self.job.get('approval_availability_to_click_seconds')
+        available_since = self.job.get('approval_available_since_utc')
+        if (isinstance(available_seconds, (int, float)) and available_seconds >= 0 and
+                isinstance(available_since, str)):
+            fields.update(approval_available_since_utc=available_since,
+                          approval_availability_to_click_seconds=round(available_seconds, 3),
+                          approval_availability_timing_basis='host-monotonic')
         self.job.update(approval_count=1, approval_to_check_seconds=elapsed_seconds,
                         timing_basis=timing_basis)
         operation = dict(result)
@@ -551,12 +581,27 @@ class Controller:
                 raise ValueError('SSH restart is not eligible for the current verified boot')
             if not self._persistent():
                 raise ValueError('Verified encrypted persistent storage is required')
+            approval_available_seconds = None
+            approval_available_since = None
+            if (self.approval_available_boot_id == boot_id and
+                    self.approval_available_monotonic is not None and
+                    isinstance(self.approval_available_since_utc, str)):
+                approval_available_seconds = round(max(
+                    0, self.clock() - self.approval_available_monotonic), 3)
+                approval_available_since = self.approval_available_since_utc
+            self.approval_available_boot_id = None
+            self.approval_available_since_utc = None
+            self.approval_available_monotonic = None
             self.latest = None  # consume the owner approval before starting work
             self.job = {'schema': 'argos-ssh-recovery-job/1', 'job_id': secrets.token_hex(16),
                         'state': 'running', 'boot_id': boot_id,
                         'approved_receipt_id': receipt_id, 'receipt': None,
                         'failure_code': None, 'approved_at_utc': datetime.now(timezone.utc).isoformat(),
                         'approval_count': 1}
+            if approval_available_seconds is not None:
+                self.job.update(approval_available_since_utc=approval_available_since,
+                                approval_availability_to_click_seconds=approval_available_seconds,
+                                approval_availability_timing_basis='host-monotonic')
             self.job_started_monotonic = self.clock()
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
             self._save_job()
