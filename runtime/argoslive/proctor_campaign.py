@@ -1,9 +1,25 @@
 """Owner-started dashboard controller for a managed Proctor improvement campaign."""
 import copy
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import re
+import secrets
 import threading
 import time
 
 from . import storage_view
+from .pack_export import private_directory
+from .pull_jobs import write_json
+from .storage import safe_local
+
+# The watch says so plainly when nothing has been heard for this long. These
+# only label what the owner sees; the host timeouts still decide when work stops.
+SLOW_ANSWER_SECONDS = 120
+QUIET_SECONDS = 300
+OWNER_ACTIONS = frozenset({'start', 'retry-recovery', 'ssh-recovery-approval'})
+RECORD_LIMIT = 512 * 1024
+WATCH_ID = re.compile(r'[a-f0-9]{32}')
 
 
 class Refused(ValueError):
@@ -136,6 +152,12 @@ class Controller:
         self.storage_checked_at = None
         self.storage_is_safe = False
         self.closed = False
+        self.watch_id = None
+        self.started_at = None
+        self.owner_actions = []
+        self.last_event = None
+        self.record_saved = None
+        self.records_root = Path(self.home) / '.local/state/argos-live/proctor-watch'
 
     @staticmethod
     def _public_result(value):
@@ -209,6 +231,8 @@ class Controller:
                                                                    self.failure_stage)
             started, finished, model, closed = self.started, self.finished, self.model, self.closed
             measurement_suite = self.measurement_suite
+            watch_id, started_at, last_event = self.watch_id, self.started_at, self.last_event
+            owner_actions, record_saved = copy.deepcopy(self.owner_actions), self.record_saved
         try:
             assistant = self.startup.snapshot()
         except Exception:
@@ -225,10 +249,31 @@ class Controller:
         if started is not None:
             end = finished if finished is not None else self.clock()
             elapsed = max(0, int(end - started))
+        answering_seconds = None
         if isinstance(progress, dict):
             question_started = progress.pop('_current_started_at', None)
             if isinstance(question_started, (int, float)):
                 progress['current_elapsed_seconds'] = max(0, self.clock() - question_started)
+                answering_seconds = progress['current_elapsed_seconds']
+        watch = None
+        if watch_id is not None:
+            quiet = max(0, int(self.clock() - last_event)) if active and last_event is not None else None
+            if not active:
+                stall = None
+            elif answering_seconds is not None and answering_seconds >= SLOW_ANSWER_SECONDS:
+                stall = 'slow-answer'
+            elif answering_seconds is None and quiet is not None and quiet >= QUIET_SECONDS:
+                stall = 'quiet'
+            else:
+                stall = None
+            watch = {'id': watch_id, 'started_at': started_at,
+                     # The pinned OpenClaw CLI returns each answer only after the turn
+                     # finishes. Partial text is shown only when the runner sends it.
+                     'answer_streaming': bool(isinstance(progress, dict) and progress.get('answer_streaming')),
+                     'seconds_since_event': quiet, 'stall': stall,
+                     'slow_answer_seconds': SLOW_ANSWER_SECONDS, 'quiet_seconds': QUIET_SECONDS,
+                     'owner_actions': owner_actions, 'owner_action_count': len(owner_actions),
+                     'record_saved': record_saved}
         message = MESSAGES.get(phase, 'Proctor campaign status unavailable.')
         if phase == 'idle' and not can_start:
             if not storage_confirmed:
@@ -263,7 +308,107 @@ class Controller:
             'result': result, 'progress': progress,
             'assistant_phase': assistant.get('phase'), 'assistant_ready': assistant.get('phase') == 'ready',
             'storage_confirmed': storage_confirmed,
+            'watch': watch,
         }
+
+    def note_owner_action(self, action):
+        """Count an owner click this dashboard accepted while a campaign owns the reservation."""
+        if action not in OWNER_ACTIONS:
+            return
+        with self.lock:
+            if self.watch_id is None or self.started is None or self.finished is not None:
+                return
+            if len(self.owner_actions) < 32:
+                self.owner_actions.append({'action': action,
+                                           'at_seconds': max(0, int(self.clock() - self.started))})
+
+    def _save_record(self):
+        """Keep a bounded, already-public account of the finished campaign for later replay."""
+        try:
+            value = self.snapshot()
+            watch = value.get('watch')
+            # Called as the last act of the worker, after the final phase is set.
+            if not isinstance(watch, dict):
+                return
+            progress = value.get('progress') if isinstance(value.get('progress'), dict) else {}
+            rounds = [{key: run.get(key) for key in ('run_id', 'round_number', 'suite', 'suite_version',
+                                                     'model', 'completed', 'total')}
+                      for run in progress.get('evaluation_runs', []) if isinstance(run, dict)]
+            current = progress.get('current') if isinstance(progress.get('current'), dict) else None
+            interrupted = None
+            if current and current.get('state') == 'interrupted':
+                interrupted = {key: current.get(key) for key in ('run_id', 'item_id', 'category', 'question')}
+                interrupted['elapsed_seconds'] = progress.get('current_elapsed_seconds')
+            record = {
+                'schema': 'argos-proctor-watch/1', 'id': watch['id'], 'started_at': watch['started_at'],
+                'finished_at': datetime.now(timezone.utc).isoformat(),
+                'elapsed_seconds': value.get('elapsed_seconds'), 'phase': value.get('phase'),
+                'model': value.get('model'), 'failure_code': value.get('failure_code'),
+                'failure_stage': value.get('failure_stage'), 'result': value.get('result'),
+                'rounds': rounds, 'campaign_steps': progress.get('campaign_steps', []),
+                'interrupted': interrupted,
+                'owner_actions': watch['owner_actions'], 'owner_action_count': watch['owner_action_count'],
+            }
+            if len(json.dumps(record).encode('utf-8')) > RECORD_LIMIT:
+                record['campaign_steps'], record['result'] = [], None
+            root = safe_local(self.records_root)
+            if not root.exists():
+                root.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                private_directory(root)
+            path = safe_local(root / (watch['id'] + '.json'))
+            if not path.exists():
+                write_json(path, record)
+            with self.lock:
+                if self.watch_id == watch['id']:
+                    self.record_saved = True
+        except (OSError, ValueError, TypeError):
+            with self.lock:
+                self.record_saved = False
+
+    @staticmethod
+    def _load_record(path):
+        with path.open('rb') as stream:
+            raw = stream.read(RECORD_LIMIT + 1)
+        if len(raw) > RECORD_LIMIT:
+            raise ValueError('watch-record-too-large')
+        value = json.loads(raw.decode('utf-8'))
+        if (not isinstance(value, dict) or value.get('schema') != 'argos-proctor-watch/1' or
+                value.get('id') != path.stem):
+            raise ValueError('watch-record-invalid')
+        return value
+
+    def history(self, limit=24):
+        """Newest finished campaigns this dashboard recorded, including failed and interrupted ones."""
+        try:
+            root = safe_local(self.records_root)
+            if not root.is_dir():
+                return []
+            paths = [path for path in root.glob('*.json') if WATCH_ID.fullmatch(path.stem)][:2048]
+        except (OSError, ValueError):
+            return []
+        records = []
+        for path in paths:
+            try:
+                value = self._load_record(path)
+            except (OSError, ValueError, UnicodeError):
+                continue
+            result = value.get('result') if isinstance(value.get('result'), dict) else {}
+            campaign = result.get('campaign') if isinstance(result.get('campaign'), dict) else {}
+            row = {key: value.get(key) for key in (
+                'id', 'started_at', 'finished_at', 'elapsed_seconds', 'phase', 'model', 'failure_code',
+                'failure_stage', 'rounds', 'interrupted', 'owner_action_count')}
+            row['outcome'] = campaign.get('outcome')
+            records.append(row)
+        records.sort(key=lambda item: str(item.get('finished_at') or ''), reverse=True)
+        return records[:limit]
+
+    def record(self, watch_id):
+        if not isinstance(watch_id, str) or not WATCH_ID.fullmatch(watch_id):
+            raise Refused('Choose a saved campaign watch ID.')
+        path = safe_local(self.records_root / (watch_id + '.json'))
+        if not path.is_file():
+            raise Refused('Saved campaign watch not found.')
+        return self._load_record(path)
 
     def start(self, owner_task=None, success_criteria=None, measurement_suite=None):
         owner_task, success_criteria = validate_owner_task(owner_task, success_criteria)
@@ -292,6 +437,11 @@ class Controller:
             self.recovery_target_phase = None
             self.started = self.clock()
             self.finished = None
+            self.watch_id = secrets.token_hex(16)
+            self.started_at = datetime.now(timezone.utc).isoformat()
+            self.owner_actions = [{'action': 'start', 'at_seconds': 0}]
+            self.last_event = self.started
+            self.record_saved = None
             self.phase = 'pausing'
             self.startup.lab_active = True
             self.startup.chat_claimed = True
@@ -335,6 +485,10 @@ class Controller:
             self.phase = 'restarting'
             self.failure_code = None
             self.failure_stage = None
+            if self.watch_id is not None and self.started is not None and len(self.owner_actions) < 32:
+                self.owner_actions.append({'action': 'retry-recovery',
+                                           'at_seconds': max(0, int(self.clock() - self.started))})
+            self.last_event = self.clock()
             self.worker = threading.Thread(target=self._retry_recovery, daemon=True,
                                            name='argos-proctor-recovery')
             self.worker.start()
@@ -360,12 +514,15 @@ class Controller:
                 self.success_criteria = None
                 self.measurement_suite = None
                 self.finished = self.clock()
+        if not failed:
+            self._save_record()
 
     def _set_phase(self, phase):
         if phase not in {'practice', 'campaign'}:
             return
         with self.lock:
             if self.worker is not None and self.worker.is_alive():
+                self.last_event = self.clock()
                 self.phase = phase
                 if self.progress is None or self.progress.get('phase') != phase:
                     self.progress = {'phase': phase, 'stage': 'starting'}
@@ -377,7 +534,7 @@ class Controller:
             return
         phase, stage = event['phase'], event.get('stage')
         allowed_stages = {'starting', 'turn-start', 'turn-finished',
-                          'evaluation-question', 'evaluation-scored',
+                          'evaluation-question', 'evaluation-scored', 'evaluation-answer-partial',
                           'practice-question', 'practice-answer', 'campaign-step'}
         if not isinstance(stage, str) or stage not in allowed_stages:
             return
@@ -385,6 +542,22 @@ class Controller:
             if self.worker is None or not self.worker.is_alive():
                 return
             previous = self.progress if isinstance(self.progress, dict) and self.progress.get('phase') == phase else {}
+            if stage == 'evaluation-answer-partial':
+                # Genuine visible-answer snapshots only: bounded, for the question
+                # on the clock, and replaced by the scored answer when it lands.
+                current = previous.get('current') if isinstance(previous.get('current'), dict) else None
+                text = event.get('text')
+                if (phase != 'campaign' or current is None or current.get('state') != 'thinking' or
+                        current.get('run_id') != event.get('run_id') or
+                        current.get('item_id') != event.get('item_id') or not isinstance(text, str)):
+                    return
+                value = copy.deepcopy(previous)
+                value['current']['answer_partial'] = text[:8192]
+                value['answer_streaming'] = True
+                self.last_event = self.clock()
+                self.progress = value
+                return
+            self.last_event = self.clock()
             value = copy.deepcopy(previous)
             value.update(phase=phase, stage=stage)
             if phase == 'practice':
@@ -630,6 +803,7 @@ class Controller:
                 self.success_criteria = None
                 self.measurement_suite = None
                 self.finished = self.clock()
+            self._save_record()
 
     def close(self):
         with self.lock:
