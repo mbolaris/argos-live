@@ -82,6 +82,8 @@ def boot(second=False, gateway=False):
         print('Live guest login reached.', flush=True)
         send("grep -q 'persistence-media=removable-usb' /proc/cmdline && echo USB_ONLY_PERSISTENCE_OK\n")
         wait_for(['USB_ONLY_PERSISTENCE_OK\r\n', 'USB_ONLY_PERSISTENCE_OK\n'])
+        send("grep -q 'usb-storage.quirks=0bda:9201:u' /proc/cmdline && echo SSD_UAS_QUIRK_OK\n")
+        wait_for(['SSD_UAS_QUIRK_OK\r\n', 'SSD_UAS_QUIRK_OK\n'])
         if not second:
             qcommand('screendump', {'filename': '/mnt/c/Projects/Argos-Live/artifacts/live-desktop.png', 'format': 'png'})
         if not second:
