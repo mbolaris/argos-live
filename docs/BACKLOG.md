@@ -119,10 +119,11 @@ Each item is sized for one agent session and one pull request. Pick an item whos
 
 ## Feature backlog: Shakedown
 
-A proposed watchable evaluation modelled on a flight-control simulation, its self-improvement
-feedback loop, and a later track of forms modelled on familiar exams have their own design and
-ticket list: [design](shakedown/DESIGN.md) and [backlog](shakedown/BACKLOG.md) (items SIM1 to
-SIM36, all `todo`). The rules below apply to those items too.
+A proposed workbench for enthusiasts tuning a local model and agent framework has its own design
+and ticket list: [design](shakedown/DESIGN.md) and [backlog](shakedown/BACKLOG.md) (items SIM1 to
+SIM49). It covers a scorecard of the user's own builds, a watchable simulation that diagnoses
+weaknesses and feeds the self-improvement loop, subsets of public benchmarks, and forms modelled on
+familiar exams. The rules below apply to those items too.
 
 ## Rules for implementing agents
 

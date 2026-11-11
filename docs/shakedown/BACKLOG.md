@@ -8,16 +8,28 @@ This is a feature backlog. The repository-wide backlog and its rules stay in
 
 ## Start here
 
-**What we are building.** A watchable evaluation modelled on a flight-control integrated
-simulation. Argos is the system under test, the Proctor plays the simulation supervisor, each
-injected fault targets one console (one capability), and the NO-GO consoles become a structured
-debrief report that Argos uses to pick its next self-improvement experiment. A later track adds
-forms modelled on exams people know.
+**What we are building.** A workbench for enthusiasts who tune a local model and agent framework.
+They change something, run a lap, and read an honest verdict on a scorecard of their own builds.
+The showpiece is a watchable evaluation modelled on a flight-control integrated simulation:
+Argos is the system under test, the Proctor plays the simulation supervisor, each injected fault
+targets one console (one capability), and the NO-GO consoles become a structured debrief report
+that Argos uses to pick its next self-improvement experiment. Small subsets of public benchmarks
+and forms modelled on exams people know add numbers they recognise.
+
+**Who it is for.** Someone with one GPU who is having fun optimising their setup. Every ticket
+should be judged against their loop: a fast answer, numbers that mean something, an honest
+verdict, a reason and a next move (DESIGN §1).
 
 **Glossary.**
 
 | Term | Meaning |
 | --- | --- |
+| Loadout | Everything tunable about a build, captured automatically with each run. |
+| Lap | One run of speed plus the selected forms, in a quick, standard or full size. |
+| Slice | The fixed, nested set of items a lap size uses from a form. |
+| Scorecard | The home table: tests as rows, the user's loadouts as columns. |
+| Verdict | Better, worse, or too close to call, from a paired comparison. |
+| Benchmark pack | An adapter, item list and licence record for a public benchmark the user downloads. |
 | Console | One capability, for example EVIDENCE or COMMAND. Seventeen at launch. |
 | Fault family | A kind of injected problem: seeded generator, deterministic scorer, diagnostic matchers. |
 | Fault card | Host-side metadata for one item: console, family, tier, partition, matchers. |
@@ -51,8 +63,12 @@ of those:
 8. One evaluation at a time, through the existing workload owner.
 9. The setting is a simulation and says so. No real vehicle, mission, agency or person is named.
 10. Exam-style forms contain original items only, are named "modelled on", and report raw
-    scores only (DESIGN §6).
-11. No improvement campaign runs on Toronado from this work while the AGENTS.md mismatch
+    scores only (DESIGN §9).
+11. Third-party benchmark questions never enter the repository or the image. Rows built from
+    them say "subset" and "not the official score".
+12. Nothing is uploaded. No ticket adds a network call except an owner-started pack download.
+13. The bench verdict is descriptive help for the owner and is never used by the keep policy.
+14. No improvement campaign runs on Toronado from this work while the AGENTS.md mismatch
     decision of November 8, 2026 is open.
 
 **How to work without hardware.** `scripts/serve-match-fixture.py` (from PR #169) serves the real
@@ -60,8 +76,11 @@ dashboard, controller, scorers and store over a scripted model. Every UI ticket 
 smoke-tested against it. Real-model checks run on the hosted native-chat workflow. Toronado
 checks are listed separately in each ticket and are never claimed from a VM.
 
-**Dependency.** Phases 1 onward build on the match watch in PR #169 (`proctor_match.py`,
+**Dependency.** The bench and the benchmark packs (Phases 1 and 2) need nothing that is not on
+`main`. The sim phases (3 onward) build on the match watch in PR #169 (`proctor_match.py`,
 `match.js`, the fixture server). If it has not merged, branch from it.
+
+**Ticket numbers** are stable labels, not an order. The phase map gives the order.
 
 **Status values.** `todo`, `in progress (PR link)`, `done (PR link)`, `blocked (reason)`.
 
@@ -70,15 +89,18 @@ checks are listed separately in each ticket and are never claimed from a VM.
 | Phase | Outcome | Tickets |
 | --- | --- | --- |
 | 0. Contracts | Consoles light from runs already saved, with no UI and no new evaluation | SIM1 to SIM5 |
-| 1. The sim on screen | A watchable reference sim on the fixture server | SIM6 to SIM10 |
-| 2. Reference Sim A | The first original form, with seeded generators and a real-model run | SIM11 to SIM15 |
-| 3. The loop | Debrief report, corrective actions, the agent tool, fixes on record | SIM16 to SIM21 |
-| 4. Stress sims and real tools | Adaptive runs, a stateful simulator, live tool events, memory | SIM22 to SIM26 |
-| 5. Owner relevance and proof | Owner-task faults, the history view, Toronado acceptance | SIM27 to SIM30 |
-| 6. Familiar exams | Original forms modelled on exams people know, feeding the same consoles | SIM31 to SIM36 |
+| 1. The bench | Change something, run a lap, read a verdict on a scorecard of your own builds | SIM37 to SIM43 |
+| 2. Standard benchmark packs | Subsets of public benchmarks on the scorecard | SIM44 to SIM49 |
+| 3. The sim on screen | A watchable reference sim on the fixture server | SIM6 to SIM10 |
+| 4. Reference Sim A | The first original form, with seeded generators and a real-model run | SIM11 to SIM15 |
+| 5. The loop | Debrief report, corrective actions, the agent tool, fixes on record | SIM16 to SIM21 |
+| 6. Stress sims and real tools | Adaptive runs, a stateful simulator, live tool events, memory | SIM22 to SIM26 |
+| 7. Owner relevance and proof | Owner-task faults, the history view, Toronado acceptance | SIM27 to SIM30 |
+| 8. Familiar exams | Original forms modelled on exams people know, feeding the same consoles | SIM31 to SIM36 |
 
-Build order inside a phase is the ticket order. Phase 0 is the critical path for everything.
-Phase 6 needs only Phase 0 and SIM17, so it can run alongside Phases 4 and 5.
+Build order inside a phase is the ticket order. Phases 0 and 1 are independent and can run in
+parallel; Phase 1 is what a user sees first, so it has priority. Phase 2 needs SIM38, SIM39 and
+SIM44. Phase 8 needs only Phase 0 and SIM17.
 
 ---
 
@@ -89,7 +111,7 @@ Phase 6 needs only Phase 0 and SIM17, so it can run alongside Phases 4 and 5.
 **Goal.** One versioned source of truth for consoles, domains, fault families and failure codes.
 
 **Scope.** `runtime/argoslive/data/shakedown/taxonomy.json` (`argos-sim-taxonomy/1`): the
-seventeen consoles and their domains from DESIGN §4, the twelve fault families from §3, and
+seventeen consoles and their domains from DESIGN §6, the twelve fault families from §5, and
 every failure code with a one-line plain label ("Executed a command embedded in relayed
 material"). `runtime/argoslive/shakedown/__init__.py` and `taxonomy.py`: `load()`,
 `validate(data)`, `console(id)`, `code(id)`. Extend `runtime/argoslive/skill_map.py` `DOMAINS`
@@ -131,7 +153,7 @@ suite now and a Proctor cartridge form in SIM31.
 **Goal.** Turn the shape of a wrong answer into failure codes, by code only.
 
 **Scope.** `runtime/argoslive/shakedown/diagnose.py`: `diagnose(card, item, saved_item) ->
-[codes]` implementing the closed matcher set from DESIGN §5.1 (`equals`, `choice-is`,
+[codes]` implementing the closed matcher set from DESIGN §7.1 (`equals`, `choice-is`,
 `contains-token`, `numeric-delta`, `numeric-equals`, `json-path-mismatch`, `tool-name-is`,
 `tool-arg-mismatch`, `sequence-violation`, `reply-seconds-over`). It reads the saved visible
 answer and the saved outcome; it never rescores. A miss with no match yields
@@ -172,7 +194,7 @@ wrong answer has a recognisable cause; leave the rest to `miss.unclassified`.
 **Goal.** The longitudinal blind-spot record, rebuildable from saved runs at any time.
 
 **Scope.** `runtime/argoslive/shakedown/ledger.py`: `responses(run)`, `sim(run, baseline=None)`,
-`ledger(store, fingerprint)` per DESIGN §5.2 to §5.4, with the console-state rules of §4 as
+`ledger(store, fingerprint)` per DESIGN §7.2 to §7.4, with the console-state rules of §6 as
 named constants. Fingerprint is the model digest plus the existing workspace-instruction
 fingerprint; it is used for grouping and never returned by a public projection.
 `public_ledger()` and `public_sim()` are the only functions the web layer and the plugin may
@@ -194,7 +216,286 @@ native-chat workflow and attach the public ledger to the PR.
 
 ---
 
-## Phase 1. The sim on screen
+## Phase 1. The bench
+
+The enthusiast's loop: change something, run a lap, read the verdict. This phase needs no
+sidecars, no sim and no new test content; it works with the suites that ship today. Read
+DESIGN §1 and §2 first.
+
+### SIM37 — Loadout snapshot and plain-words diff — `todo`
+
+**Goal.** Every run knows exactly what build produced it, and any two builds can be compared in
+a sentence.
+
+**Scope.** `runtime/argoslive/shakedown/loadout.py`: `snapshot(run)` derives a loadout from what
+a saved run already records (model tag, manifest digest, the `argos-recipe/1` recipe with
+context, output cap, temperature, seed, thinking mode and request format, hardware, OpenClaw
+version) and adds what is missing at run start: quantization and parameter size from the model
+manifest, the names of enabled instruction cards, and the tool profile name. `diff(a, b)`
+returns changed fields with plain-words labels. `name(loadout_id, text)` stores an owner-given
+name in the owner-only state directory. Instruction text is never part of a loadout; only card
+names and "instructions changed: yes/no" derived from the existing fingerprint.
+
+**Not in scope.** Changing how runs are executed. New sampler controls (the recipe still fixes
+temperature at 0; the loadout records whatever the recipe allows).
+
+**Accept.**
+- Two runs with the same build produce the same loadout ID; changing any tunable changes it.
+- `diff` output for each field kind is covered by a test and reads as a sentence.
+- A run saved before this ticket yields a loadout with the unknown fields marked "not recorded",
+  never guessed.
+- The public loadout contains no instruction text, hash, path or session ID (asserted).
+
+**Depends.** None. **Verify.** Unit tests on saved-run fixtures.
+
+### SIM38 — Laps: three sizes with time estimates — `todo`
+
+**Goal.** One button, a size, and an honest estimate before it starts.
+
+**Scope.** `runtime/argoslive/shakedown/lap.py`: a lap is an ordered plan of existing jobs
+(speed, then each selected form) run through `evaluation_jobs`, one at a time. Each form
+declares nested fixed slices `quick`, `standard`, `full` as item-ID lists (for the shipped
+suites: quick 10, standard 20, full all). `estimate(plan, loadout)` uses the latest speed
+measurement and the median reply time of the last run on this loadout, and says "about N
+minutes" with a stated range. Dashboard: a Run control with the three sizes and the estimate.
+
+**Accept.**
+- Slices are nested and fixed; a test fails if `quick` is not a subset of `standard`.
+- A slice run is saved with its slice name and version; runs of different slices are never
+  compared with each other.
+- Cancel stops within the existing cancellation bounds; the partial lap is saved and marked not
+  comparable.
+- With no prior measurement the estimate says "unknown until the first lap", not a number.
+
+**Depends.** SIM37. **Verify.** Unit tests; fixture server run of each size.
+
+### SIM39 — The scorecard — `todo`
+
+**Goal.** The home screen: tests down the side, the user's loadouts across the top.
+
+**Scope.** `GET /api/shakedown/scorecard?loadouts=…` and a view in `shakedown.js`. Rows: speed
+(generation tokens per second, time to first token), then one row per form, with practice and
+sealed as separate rows where the form has them. Columns: up to four pinned loadouts and the
+current one, headed by the owner's names. Each cell: score, the number of questions, an
+uncertainty interval (Wilson, stdlib), slice, and date; tapping it opens the run. The best cell
+in a row is highlighted only when SIM40 says it is distinguishable. Footnote markers for
+subset, public and uncalibrated rows.
+
+**Accept.**
+- Renders at phone width (one loadout per screen with a switcher) and desktop width, light and
+  dark, from fixture data.
+- A cell never shows a percentage without its question count.
+- Cells from different slices or form versions in one row are visibly marked and never
+  highlighted against each other.
+- Keyboard and screen-reader users can reach every cell and hear row, column, score and count.
+- Empty state: a first-time user sees one clear action ("Run a quick lap").
+
+**Depends.** SIM37, SIM38. **Verify.** Browser smoke on the fixture server; screenshots.
+
+### SIM40 — Verdicts: better, worse, or too close to call — `todo`
+
+**Goal.** Stop the user chasing noise, in words they can act on.
+
+**Scope.** `runtime/argoslive/shakedown/verdict.py`: `compare(run_a, run_b)` on the items both
+runs answered in the same form version and slice. It counts the pairs where exactly one was
+right and applies an exact two-sided sign test (stdlib `math.comb`). Output: `better`, `worse`
+or `too-close`, the counts behind it, and for `too-close` an estimate of how many more shared
+questions would be needed at the observed rate. Speed uses the recorded repeated measurements
+and reports the relative change with its spread. Thresholds are named constants.
+
+**Not in scope.** The keep policy. This verdict is descriptive help for the owner's own bench
+and is never used to keep or roll back an instruction change.
+
+**Accept.**
+- Table-driven tests: identical runs, a clear win, a clear loss, a small difference on few
+  items (`too-close`), no shared items (refuses with a reason).
+- Runs of different form versions or slices are refused, not compared.
+- The "more questions needed" estimate is capped and says "more than the form has" when true.
+- The same pair always yields the same verdict.
+
+**Depends.** None. **Verify.** Unit tests.
+
+### SIM41 — The result screen: what changed, where, and one next move — `todo`
+
+**Goal.** After a lap, one screen that answers "did that help?" and "what now?".
+
+**Scope.** In `shakedown.js`: headline built from SIM40 verdicts per row against the previous
+loadout (or one the user picks); the loadout diff from SIM37; a list of rows that moved; and at
+most one suggested next move with a button that queues a lap. Before the debrief report exists
+(SIM17), suggestions come only from recorded configuration facts with fixed rules, for example
+prompts truncated at this context size, or replies cut at the output cap. After SIM17, a
+corrective action from the debrief report may be offered instead. Wording is templated from
+recorded facts.
+
+**Accept.**
+- With nothing to compare against, the screen says so and offers "Run this again later to see a
+  change".
+- A suggestion appears only when its rule's evidence is present in the run; otherwise none.
+- "Too close to call" rows offer "Run more questions" and that button queues exactly the next
+  slice.
+- No model writes any text on this screen (test renders it from fixtures).
+
+**Depends.** SIM39, SIM40. **Verify.** Browser smoke.
+
+### SIM42 — Queue: several loadouts while you are away — `todo`
+
+**Goal.** Line up "Q4, Q5 and Q6 at two context sizes", walk away, come back to a scorecard.
+
+**Scope.** A queue of (loadout, lap) entries executed strictly one at a time through the
+existing workload owner, with the model switched only inside Lab staging. Shows position,
+estimate and total. A finished queue raises one dashboard notice. Failures skip to the next
+entry and are listed. The queue survives a dashboard refresh and is cancelled cleanly by a
+reboot (nothing resumes on its own).
+
+**Accept.**
+- Never more than one evaluation active (test with a fake job runner).
+- The deployed assistant's model and instructions are identical before and after a queue
+  (asserted on fixtures).
+- A model that is not downloaded is reported before the queue starts, not midway.
+- Cancel stops the current entry within existing bounds and clears the rest.
+
+**Depends.** SIM38. **Verify.** Unit tests; fixture server run of a three-entry queue.
+
+### SIM43 — Share card and personal bests — `todo`
+
+**Goal.** Something to show, and a record of the best this hardware has done.
+
+**Scope.** Export the current scorecard to the owner's storage as an SVG (and PNG where the
+platform can render one) plus a JSON file: loadout names and summaries, hardware line, rows,
+counts, intervals, slice and subset labels, footnotes, date. Personal bests per form and
+hardware, shown as a small marker on the scorecard. No network call anywhere in this ticket.
+
+**Accept.**
+- The export contains no instruction text, fingerprint, path, session ID, token or answer
+  (asserted on the JSON and on the SVG text).
+- Footnotes for subset, public and uncalibrated rows are present in the image itself.
+- A personal best is recorded only from a complete lap, and only against runs of the same form
+  version and slice.
+
+**Depends.** SIM39. **Verify.** Unit tests; browser smoke for the export.
+
+---
+
+## Phase 2. Standard benchmark packs
+
+Small fixed subsets of public benchmarks, for the names enthusiasts already know. Read DESIGN §8
+first. The repository ships adapters and item lists; it never ships benchmark questions.
+
+### SIM44 — Benchmark pack format, licence gate and guided download — `todo`
+
+**Goal.** A safe, repeatable way to get a public benchmark onto the machine.
+
+**Scope.** `runtime/argoslive/data/shakedown/packs/<pack>.json` (`argos-benchmark-pack/1`):
+name, upstream URL, pinned revision, file SHA-256 values, licence identifier with the URL of the
+upstream licence file, whether the source is gated, the item-ID list and its version, the
+nested lap slices, and the display label ("MMLU, 100-question set"). `shakedown/packs.py`:
+validate a manifest, verify downloaded files by hash, and build an in-memory
+`argos-ability-suite/1` form from them through a named adapter. Download through the existing
+pull-job path, started only by the owner. Packs are stored with the owner's data.
+
+**Not in scope.** Any specific benchmark (SIM45 onward).
+
+**Accept.**
+- A manifest without a licence record, a pinned revision or hashes is rejected.
+- A hash mismatch refuses the pack and says which file.
+- Unit tests use synthetic files in the upstream format; no real benchmark item is in the
+  repository (a test greps fixtures for the published canary strings).
+- A gated pack shows the upstream terms link and requires the owner's explicit confirmation.
+- Offline, the pack row reads "not downloaded" and everything else works.
+
+**Depends.** SIM38. **Verify.** Unit tests. The first real download is checked in SIM45.
+
+### SIM45 — First packs: MMLU and GSM8K, 100 questions each — `todo`
+
+**Goal.** Two numbers every enthusiast recognises, in a lap they can afford.
+
+**Scope.** Adapters and manifests for MMLU (four-option multiple choice, `choice` scorer) and
+GSM8K (final number, `numeric` scorer), using the tinyBenchmarks 100-question selections if
+their licence permits, otherwise a fixed stratified list of our own. One fixed prompt format per
+pack, recorded in the manifest version. Answer extraction is strict and documented: a reply that
+does not contain a readable answer is a miss, shown as "no readable answer".
+
+**Accept.**
+- The licence gate: the upstream licence files for the dataset and for the selection were read,
+  and their identifiers and URLs are recorded in the manifest and the PR. If either cannot be
+  confirmed, the pack does not ship.
+- Rows read "MMLU, 100-question set" and "GSM8K, 100-question set", with the public-benchmark
+  and not-the-official-score footnotes.
+- A hosted real-model lap completes and its scorecard is attached to the PR.
+- Quick lap uses a fixed 25 of the 100.
+
+**Depends.** SIM44, SIM39. **Verify.** Unit tests on synthetic data; hosted real-model run.
+
+### SIM46 — Function-calling pack (BFCL subset) — `todo`
+
+**Goal.** The public benchmark that matters most to someone tuning an agent framework.
+
+**Scope.** Adapter for a fixed subset of the Berkeley Function Calling Leaderboard's
+single-turn categories (simple, multiple, parallel, and relevance detection), graded by a stdlib
+structural comparison of the produced call against the reference: function name, argument
+names, types and allowed values. Run through the agent framework's own tool-call path with the
+tools inert. Failures map to existing codes (`tool.wrong-name`, `tool.missing-arg`,
+`tool.bad-arg-type`, `tool.extra-arg`) and report to COMMAND and TOOLING.
+
+**Accept.**
+- The licence gate, as SIM45.
+- Grading agrees with the upstream grader on a synthetic set covering each category and each
+  failure kind.
+- No tool is executed; a test asserts the adapter exposes no callable.
+- Multi-turn and executable categories are listed as not included, with the reason.
+
+**Depends.** SIM44. **Verify.** Unit tests; pinned OpenClaw compatibility run; hosted real-model
+run.
+
+### SIM47 — Instruction-following pack (IFEval subset) — `todo`
+
+**Goal.** A recognised measure of "does it do what it was told".
+
+**Scope.** Adapter for a fixed subset of IFEval limited to instruction kinds that a stdlib
+checker can verify without language-detection or tokenizer libraries (length limits, required
+and forbidden keywords, formats such as JSON or bullet counts, casing, start and end phrases).
+Each instruction kind maps to a `format.*` failure code and reports to PROCEDURES.
+
+**Accept.**
+- The licence gate, as SIM45.
+- Every included instruction kind has a checker test with a passing and a failing reply.
+- Excluded kinds are listed in the manifest with the reason, and the row label says "subset".
+
+**Depends.** SIM44. **Verify.** Unit tests; hosted real-model run.
+
+### SIM48 — More drop-in packs — `todo`
+
+**Goal.** Fill out the scorecard with the rest of the easy ones.
+
+**Scope.** One small PR per pack, each only an adapter and a manifest: ARC (AI2), HellaSwag,
+TruthfulQA multiple choice, WinoGrande, MMLU-Pro, BIG-Bench Hard, and GPQA as a gated pack.
+Prefer published 100-question selections. A pack is added only if a 100-question lap finishes in
+reasonable time on the reference hardware and the model is not at the floor or ceiling on it;
+otherwise record why it was skipped.
+
+**Accept.** For each pack: the licence gate, the labels and footnotes, and a hosted real-model
+run.
+
+**Depends.** SIM45. **Verify.** Unit tests; hosted real-model run per pack.
+
+### SIM49 — Code packs (HumanEval and MBPP subsets) — `blocked (needs the execution sandbox, main backlog B4b2 and B5b)`
+
+**Goal.** A recognised coding number.
+
+**Scope.** Adapters for fixed subsets, executed only inside the enforced sandbox with the
+existing limits. Not started until the sandbox items are done and accepted.
+
+**Accept.**
+- The licence gate.
+- Generated code never runs outside the sandbox (containment tests).
+- A timeout or sandbox refusal is a miss with its own label, not an error.
+
+**Depends.** SIM44; main backlog B4b2 and B5b. **Verify.** Unit tests; containment tests; hosted
+run.
+
+---
+
+## Phase 3. The sim on screen
 
 ### SIM6 — Sim and ledger routes — `todo`
 
@@ -234,7 +535,7 @@ Honors reduced-motion; state is never colour-only (label and shape change too).
 
 ### SIM8 — Fault card, call beats, mission clock and loop log — `todo`
 
-**Goal.** The five beats of one fault (DESIGN §2), driven only by recorded events.
+**Goal.** The five beats of one fault (DESIGN §4), driven only by recorded events.
 
 **Scope.** In `shakedown.js`: the injection card (family, phase, targeted console, brief), the
 situation, the command-panel indicators (lit only by tool events the runtime reports), the call
@@ -295,7 +596,7 @@ CI job.
 
 ---
 
-## Phase 2. Reference Sim A
+## Phase 4. Reference Sim A
 
 ### SIM11 — Seeded generator framework — `todo`
 
@@ -384,7 +685,7 @@ workflow input to run a `reference-sim-a` sim.
 
 ---
 
-## Phase 3. The loop
+## Phase 5. The loop
 
 ### SIM16 — Corrective-action catalog — `todo`
 
@@ -410,7 +711,7 @@ action".
 **Goal.** The machine-readable debrief, and the SI1 proposal input.
 
 **Scope.** `runtime/argoslive/shakedown/debrief.py`: `build(sim, ledger, catalog)` per DESIGN
-§5.5 and `validate(report)`. Action rule: at least two misses with the same code from distinct
+§7.5 and `validate(report)`. Action rule: at least two misses with the same code from distinct
 faults. Each action names its drill as the matched test, its guard consoles, the preset bar and
 `confirm_on: sealed`. Ranking: sealed-confirmed misses first, then count, then number of
 distinct families. Stress-sim reports mark every action `needs_reference_reproduction`.
@@ -504,7 +805,7 @@ regressed fix distinctly.
 
 ---
 
-## Phase 4. Stress sims and real tools
+## Phase 6. Stress sims and real tools
 
 ### SIM22 — Stress sims — `todo`
 
@@ -589,7 +890,7 @@ form declares the span. Codes `memory.dropped`, `memory.confused`.
 
 ---
 
-## Phase 5. Owner relevance and proof
+## Phase 7. Owner relevance and proof
 
 ### SIM27 — Ground tickets — `todo`
 
@@ -653,10 +954,10 @@ is started until the owner settles the AGENTS.md mismatch.
 
 ---
 
-## Phase 6. Familiar exams
+## Phase 8. Familiar exams
 
 Forms modelled on exams people know: a reasoning battery of the kind used in IQ testing, and
-forms modelled on the SAT, the GRE General Test, the LSAT, the MCAT and the DAT. Read DESIGN §6
+forms modelled on the SAT, the GRE General Test, the LSAT, the MCAT and the DAT. Read DESIGN §9
 first. The three rules that matter most: original items only, named "modelled on", raw scores
 only.
 
@@ -685,7 +986,7 @@ cartridge form. Manifest fields: `modelled_on` (free text naming the public form
 
 **Goal.** Make it hard to ship an exam form that is unlawful or misleading.
 
-**Scope.** `docs/shakedown/EXAM-FORMS.md`: the rules of DESIGN §6 as an authoring checklist
+**Scope.** `docs/shakedown/EXAM-FORMS.md`: the rules of DESIGN §9 as an authoring checklist
 (original items only; no copying, paraphrasing or templating from official or leaked items;
 titles in the "…-style form" pattern; the non-affiliation line; raw scores only; no scaled
 score, percentile, IQ or admission prediction; item review for a single defensible key).
@@ -779,6 +1080,9 @@ marks them so.
 
 ## First three sessions
 
-1. **SIM1 to SIM3**, one branch each. Pure Python, no UI, fully unit-tested.
-2. **SIM4 and SIM5.** At the end of this session an existing saved run prints a ledger.
-3. **SIM6 and SIM7.** The console board appears on the fixture server.
+1. **SIM37 and SIM40.** Pure Python, fully unit-tested: loadouts, their diff, and the verdict.
+2. **SIM38 and SIM39.** Laps and the scorecard on the fixture server. At the end of this session a
+   user can change something, run a quick lap and see two builds side by side.
+3. **SIM44 and SIM45.** The first recognisable numbers on the scorecard.
+
+SIM1 to SIM3 (the diagnostic contracts) can proceed in parallel in their own sessions.
