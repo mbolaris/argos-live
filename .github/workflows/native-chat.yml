@@ -19,6 +19,11 @@ on:
         description: Run the 40-item real-model tool-sequence transfer check in disposable scratch
         type: boolean
         default: false
+      match_watch_rounds:
+        description: Only watch this many real-model quick-suite rounds through the Proctor match routes
+        type: choice
+        options: ['0', '1', '2']
+        default: '0'
   push:
     paths:
       - '.github/workflows/native-chat.yml'
@@ -56,7 +61,7 @@ jobs:
   native-chat:
     runs-on: ubuntu-latest
     # The 40-item CPU transfer check needs about 3 hours; keep routine CI bounded.
-    timeout-minutes: ${{ inputs.tool_sequence_only && 270 || 70 }}
+    timeout-minutes: ${{ (inputs.tool_sequence_only || (inputs.match_watch_rounds && inputs.match_watch_rounds != '0')) && 270 || 70 }}
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin
@@ -97,7 +102,7 @@ jobs:
           python3 scripts/fetch-catalog-model.py qwen3:4b-instruct-2507-q4_K_M "$RUNNER_TEMP/argos-proctor-model"
           chmod -R a-w "$RUNNER_TEMP/argos-proctor-model"
       - name: Native conversation-only CPU reply without seed copies
-        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only }}
+        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
         # Hide hosted-runner accelerators; the fixture also sends num_gpu: 0
         # and checks it on every wire request so CPU placement is explicit.
         env:
@@ -110,16 +115,20 @@ jobs:
         run: |
           python3 scripts/smoke-native-chat.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/native-chat.json
       - name: Native managed desktop startup and authenticated controls
-        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only }}
+        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
       - name: Real model Proctor practice and owner-approved recovery smoke
-        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && !inputs.tool_sequence_only }}
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && !inputs.tool_sequence_only && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
         run: |
           args=()
           if [[ '${{ inputs.deterministic_profile }}' == true ]]; then args+=(--deterministic-profile); fi
           if [[ '${{ inputs.proctor_form }}' == composed-a ]]; then args+=(--form composed-a); fi
           python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/proctor-real.json --owner-recovery "${args[@]}"
+      - name: Real model round watched through the Proctor match routes
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.match_watch_rounds && inputs.match_watch_rounds != '0' }}
+        run: |
+          python3 scripts/smoke-match-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --rounds '${{ inputs.match_watch_rounds }}' --report work/match-real-watch.json
       - name: Real model tool-sequence transfer check with execution denied
         if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.tool_sequence_only }}
         run: |
@@ -135,5 +144,6 @@ jobs:
             work/owner-recovery*.json
             work/tool-sequence-real.json
             work/tool-sequence-real-run.json
+            work/match-real-watch.json
           if-no-files-found: error
           retention-days: 14

@@ -17,6 +17,8 @@ FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
          '/favicon.svg': ('favicon.svg', 'image/svg+xml'),
          '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
          '/style.css': ('style.css', 'text/css; charset=utf-8'),
+         '/match.js': ('match.js', 'text/javascript; charset=utf-8'),
+         '/match.css': ('match.css', 'text/css; charset=utf-8'),
          '/prototype': ('prototype.html', 'text/html; charset=utf-8'),
          '/prototype.html': ('prototype.html', 'text/html; charset=utf-8'),
          '/prototype.js': ('prototype.js', 'text/javascript; charset=utf-8'),
@@ -121,6 +123,34 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == '/api/proctor-campaign':
             self.reply(200, self.server.proctor_campaign.snapshot() if self.server.proctor_campaign else {'available': False}, head=head)
+            return
+        if path.startswith('/api/proctor-match/'):
+            # Read-only replay and comparison of saved rounds. Projections exclude
+            # answer keys, scorer rules, session IDs and hardware details.
+            from argoslive import proctor_match
+            from argoslive.proctor_campaign import Refused
+            campaign = self.server.proctor_campaign
+            home = campaign.home if campaign else Path.home()
+            store = self.server.benchmarks.store
+            try:
+                if path == '/api/proctor-match/recent':
+                    self.reply(200, {'schema': proctor_match.SCHEMA, 'rounds': proctor_match.recent(store),
+                                     'campaigns': campaign.history() if campaign else []}, head=head)
+                elif path.startswith('/api/proctor-match/run/'):
+                    self.reply(200, proctor_match.match(home, store, path.removeprefix('/api/proctor-match/run/')),
+                               head=head)
+                elif path.startswith('/api/proctor-match/campaign/') and campaign:
+                    self.reply(200, campaign.record(path.removeprefix('/api/proctor-match/campaign/')), head=head)
+                else:
+                    self.reply(404, {'error': 'Unknown match route'}, head=head)
+            except Refused as exc:
+                self.reply(404, {'error': str(exc)}, head=head)
+            except ValueError as exc:
+                self.reply(404, {'error': str(exc) if str(exc) in (
+                    'Benchmark run not found', 'A match replay is available for saved ability evaluations')
+                    else 'Saved round unavailable'}, head=head)
+            except (OSError, TypeError, KeyError, AttributeError):
+                self.reply(409, {'error': 'Saved round unavailable'}, head=head)
             return
         if path == '/api/ssh-recovery':
             if not self.server.ssh_recovery:
@@ -284,6 +314,9 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(body, dict) or set(body) != {'receipt_id', 'boot_id'}:
                     raise ValueError('Invalid SSH approval')
                 result = self.server.ssh_recovery.restart(body['receipt_id'], body['boot_id'])
+                if self.server.proctor_campaign:
+                    # An accepted approval during a campaign is an owner step the watch counts.
+                    self.server.proctor_campaign.note_owner_action('ssh-recovery-approval')
                 self.reply(202, result)
             except (ValueError, OSError, UnicodeError, TypeError, KeyError):
                 self.reply(409, {'error': 'SSH is not eligible for the requested safe start'})

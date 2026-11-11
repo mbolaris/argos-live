@@ -4979,9 +4979,14 @@ async function refreshProctorCampaign() {
     document.getElementById('proctor-campaign-elapsed').textContent = data.active && Number.isFinite(data.elapsed_seconds)
       ? `${Math.floor(data.elapsed_seconds / 60)}m ${data.elapsed_seconds % 60}s` : '';
     renderProctorCampaignProgress(data.progress);
-    renderProctorLiveEvaluation(data.progress);
+    // The match view (match.js) wraps the live watch with the clock, score reveal,
+    // comparison and replay. Without it the plain live watch still renders.
+    if (window.proctorMatch) window.proctorMatch.onLive(data);
+    else renderProctorLiveEvaluation(data.progress);
     renderProctorCampaignResult(data.result);
-  } catch (_) {}
+  } catch (_) {
+    if (window.proctorMatch) window.proctorMatch.onDisconnect();
+  }
 }
 
 document.getElementById('proctor-campaign-start')?.addEventListener('click', async event => {

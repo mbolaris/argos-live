@@ -28,6 +28,10 @@ on:
       - runtime/argoslive/owned_ollama.py
       - scripts/smoke-addon-inventory.py
       - scripts/smoke-dashboard-browser.mjs
+      - scripts/smoke-proctor-match.mjs
+      - scripts/serve-match-fixture.py
+      - runtime/argoslive/proctor_match.py
+      - runtime/argoslive/proctor_campaign.py
       - scripts/smoke-journey-browser.mjs
       - scripts/smoke-mission-first.mjs
       - scripts/serve-journey-fixture.py
@@ -69,6 +73,10 @@ on:
       - runtime/argoslive/owned_ollama.py
       - scripts/smoke-addon-inventory.py
       - scripts/smoke-dashboard-browser.mjs
+      - scripts/smoke-proctor-match.mjs
+      - scripts/serve-match-fixture.py
+      - runtime/argoslive/proctor_match.py
+      - runtime/argoslive/proctor_campaign.py
       - scripts/smoke-journey-browser.mjs
       - scripts/smoke-mission-first.mjs
       - scripts/serve-journey-fixture.py
@@ -155,6 +163,7 @@ jobs:
         run: |
           node work/compatibility-runtime/node_modules/playwright-core/cli.js install --with-deps chromium
           scripts/ci-annotate-failure.sh 'Dashboard browser smoke' node scripts/smoke-dashboard-browser.mjs
+          scripts/ci-annotate-failure.sh 'Proctor match browser smoke' node scripts/smoke-proctor-match.mjs
           scripts/ci-annotate-failure.sh 'Journey browser smoke' node scripts/smoke-journey-browser.mjs
           scripts/ci-annotate-failure.sh 'Mission-first browser smoke' node scripts/smoke-mission-first.mjs
           scripts/ci-annotate-failure.sh 'Focused mission browser smoke' node scripts/smoke-mission-focus.mjs
@@ -194,5 +203,6 @@ jobs:
             work/dashboard-model-lab.png
             work/dashboard-live-proctor-watch.png
             work/dashboard-live-proctor-watch-thinking.png
+            work/proctor-match-*.png
           if-no-files-found: error
           retention-days: 14

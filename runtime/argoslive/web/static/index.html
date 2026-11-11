@@ -6,7 +6,9 @@
   <title>Argos Live · Local workspace</title>
   <link rel="icon" href="/favicon.svg?token=__SESSION_TOKEN__" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css?token=__SESSION_TOKEN__">
+  <link rel="stylesheet" href="/match.css?token=__SESSION_TOKEN__">
   <script src="/app.js?token=__SESSION_TOKEN__" defer></script>
+  <script src="/match.js?token=__SESSION_TOKEN__" defer></script>
 </head>
 <body>
   <main>
@@ -632,18 +634,47 @@
         </div>
         <p id="proctor-campaign-message" role="status" aria-live="polite">Checking Argos and storage readiness…</p>
         <p id="proctor-campaign-progress" class="proctor-campaign-progress" aria-live="polite" hidden></p>
+        <div id="proctor-match-replays" class="proctor-match-replays" hidden>
+          <label for="proctor-match-picker">Replays</label>
+          <select id="proctor-match-picker"><option value="">Choose a saved round or campaign…</option></select>
+          <button id="proctor-match-open" type="button">Open replay</button>
+          <span id="proctor-match-picker-status" role="status"></span>
+        </div>
         <section id="proctor-live-evaluation" class="proctor-live-evaluation" aria-label="Live evaluation watch" hidden>
+          <ol id="proctor-match-stages" class="proctor-match-stages" aria-label="Where this round is">
+            <li data-stage="setup">Setup</li><li data-stage="round">Round</li><li data-stage="score">Score</li><li data-stage="compare">What changed</li>
+          </ol>
+          <div class="proctor-match-hud">
+            <span id="proctor-match-mode" class="proctor-match-mode" data-mode="live">LIVE</span>
+            <div class="proctor-match-clock-wrap"><span id="proctor-match-clock" class="proctor-match-clock" role="timer" aria-live="off">0:00</span><span id="proctor-match-clock-label">campaign time</span></div>
+            <div class="proctor-match-ids"><span id="proctor-match-run"></span><span id="proctor-match-total"></span></div>
+          </div>
+          <p id="proctor-match-notice" class="proctor-match-notice" role="status" aria-live="polite" hidden></p>
           <div class="proctor-live-header"><div><p class="mission-label">Live test floor</p><h4 id="proctor-live-title">Argos is on the clock</h4></div><span id="proctor-live-count" class="proctor-live-count">Waiting for first question</span></div>
           <p id="proctor-live-boundary" class="proctor-live-boundary"></p>
           <div class="proctor-live-timeline-wrap"><h5>Campaign timeline</h5><ol id="proctor-live-timeline" class="proctor-live-timeline"></ol></div>
           <progress id="proctor-live-progress" max="1" value="0" aria-label="Evaluation question progress"></progress>
+          <ol id="proctor-match-pips" class="proctor-match-pips" aria-label="Questions this round" hidden></ol>
           <article class="proctor-live-current">
             <div class="proctor-live-meta"><span id="proctor-live-kind">Next question</span><span id="proctor-live-time">Waiting</span></div>
             <h5 id="proctor-live-question">The current question will appear here.</h5>
             <p id="proctor-live-status" role="status">Waiting for Argos to begin.</p>
             <blockquote id="proctor-live-answer"></blockquote>
             <p id="proctor-live-verdict" class="proctor-live-verdict" hidden></p>
+            <p id="proctor-match-reason" class="proctor-match-reason" hidden></p>
           </article>
+          <div id="proctor-match-controls" class="proctor-match-controls" hidden>
+            <button id="proctor-match-prev" type="button">Previous</button>
+            <button id="proctor-match-play" type="button">Pause</button>
+            <button id="proctor-match-next" type="button">Next</button>
+            <span id="proctor-match-position"></span>
+            <label for="proctor-match-speed">Speed</label>
+            <select id="proctor-match-speed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select>
+            <button id="proctor-match-result" type="button">Skip to result</button>
+            <button id="proctor-match-live-return" type="button" hidden>Back to the live round</button>
+            <button id="proctor-match-close" type="button">Close replay</button>
+          </div>
+          <section id="proctor-match-reveal" class="proctor-match-reveal" aria-label="Round result and comparison" aria-live="polite" hidden></section>
           <div class="proctor-live-rounds-wrap"><h5>Score shifts · same test only</h5><p>We compare only matching suite versions and question order. A score shift is a clue, not proof the real owner task got easier.</p><div id="proctor-live-rounds" class="proctor-live-rounds"></div></div>
           <div class="proctor-live-scoreboard"><h5>Round by round</h5><ol id="proctor-live-results"></ol></div>
         </section>
