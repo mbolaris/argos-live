@@ -41,6 +41,10 @@ if 'persistence-media=removable-usb' not in s:
                   'persistence-encryption=luks persistence-media=removable-usb username')
 if 'persistence-media=removable-usb' not in s:
     raise SystemExit('USB-only persistence boot policy missing; refuse repack.')
+if 'usb-storage.quirks=0bda:9201:u' not in s:
+    s = s.replace('console=tty0', 'console=tty0 usb-storage.quirks=0bda:9201:u', 1)
+if 'usb-storage.quirks=0bda:9201:u' not in s:
+    raise SystemExit('RTL9201 UAS quirk missing; refuse repack.')
 p.write_text(s)
 PY
 find "$work/.build" -maxdepth 1 -type f -name 'binary*' -delete
