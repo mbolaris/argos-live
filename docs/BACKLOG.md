@@ -117,6 +117,14 @@ Updated October 4, 2026. Goals and milestones: [PROJECT-GOALS.md](PROJECT-GOALS.
 
 Each item is sized for one agent session and one pull request. Pick an item whose dependencies are done, keep the change to its scope, and meet every acceptance criterion before opening the PR. If an item proves too large, split it in the PR description and update this file.
 
+## Feature backlog: Shakedown
+
+A proposed workbench for enthusiasts tuning a local model and agent framework has its own design
+and ticket list: [design](shakedown/DESIGN.md) and [backlog](shakedown/BACKLOG.md) (items SIM1 to
+SIM49). It covers a scorecard of the user's own builds, a watchable simulation that diagnoses
+weaknesses and feeds the self-improvement loop, subsets of public benchmarks, and forms modelled on
+familiar exams. The rules below apply to those items too.
+
 ## Rules for implementing agents
 
 1. **Branch and PR per item.** Title the PR with the item ID, for example `B3: speed benchmark`. Update the item's status in this file in the same PR. After checks pass and merge is authorized, merge through GitHub's PR action and delete the landed branch. Before deleting an older branch, verify its tip matches the merged PR and retain a local recovery reference; preserve branches with additional commits. Mark implemented items done when their scoped acceptance passes, and keep physical USB/release acceptance separate.
