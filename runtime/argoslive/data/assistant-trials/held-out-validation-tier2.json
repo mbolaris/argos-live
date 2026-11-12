@@ -1,0 +1,1190 @@
+{
+  "schema": "argos-assistant-tasks/1",
+  "version": "2.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "change": "held-out-validation",
+  "curriculum": "argos-foundation/2",
+  "note": "Held-out validation for the harder tier: 16 disjoint partitions, consumed on exposure. Kept out of prompts and reflection. Same construction as the tier-2 practice set.",
+  "passages": {
+    "t2-walkinclinic": "The walk-in clinic opens at 8 a.m. on weekdays and at 9 a.m. on Saturdays. It is closed on Sundays. Flu shots are given until 4 p.m. on weekdays. Patients should bring a photo ID.",
+    "t2-bikeshare": "Bike share passes cost $3 for 30 minutes or $12 for a full day. An annual membership costs $90. Electric bikes add $1 per ride. Bikes must be docked at a station before midnight.",
+    "t2-bins": "Blue recycling bins are collected every Tuesday. Green bins for food waste are collected every Friday. Glass goes to the drop-off depot on Mill Road. Bins must be at the curb by 7 a.m."
+  },
+  "tasks": [
+    {
+      "id": "t2-walkinclinic-answer",
+      "kind": "answer",
+      "passage": "t2-walkinclinic",
+      "question": "What time does the clinic open on Saturdays?",
+      "accepted": [
+        "9 a.m.",
+        "9 am"
+      ]
+    },
+    {
+      "id": "t2-bikeshare-answer",
+      "kind": "answer",
+      "passage": "t2-bikeshare",
+      "question": "How much is a full-day pass?",
+      "accepted": [
+        "$12",
+        "12 dollars",
+        "twelve dollars"
+      ]
+    },
+    {
+      "id": "t2-bins-answer",
+      "kind": "answer",
+      "passage": "t2-bins",
+      "question": "When are green bins collected?",
+      "accepted": [
+        "Friday",
+        "Fridays"
+      ]
+    },
+    {
+      "id": "t2-walkinclinic-missing",
+      "kind": "not_stated",
+      "passage": "t2-walkinclinic",
+      "question": "What time does the clinic close on Saturdays?"
+    },
+    {
+      "id": "t2-bikeshare-missing",
+      "kind": "not_stated",
+      "passage": "t2-bikeshare",
+      "question": "How much does an annual membership cost for students?"
+    },
+    {
+      "id": "t2-bins-missing",
+      "kind": "not_stated",
+      "passage": "t2-bins",
+      "question": "What are the opening hours of the drop-off depot?"
+    },
+    {
+      "id": "t2-val-p1-control-0",
+      "kind": "control",
+      "message": "Suggest one topping for a baked potato, in one short sentence."
+    },
+    {
+      "id": "t2-val-p1-control-1",
+      "kind": "control",
+      "message": "Give one tip for packing a lunch box, in one sentence."
+    }
+  ],
+  "partitions": [
+    {
+      "id": "t2-val-p1",
+      "passages": {
+        "t2-walkinclinic": "The walk-in clinic opens at 8 a.m. on weekdays and at 9 a.m. on Saturdays. It is closed on Sundays. Flu shots are given until 4 p.m. on weekdays. Patients should bring a photo ID.",
+        "t2-bikeshare": "Bike share passes cost $3 for 30 minutes or $12 for a full day. An annual membership costs $90. Electric bikes add $1 per ride. Bikes must be docked at a station before midnight.",
+        "t2-bins": "Blue recycling bins are collected every Tuesday. Green bins for food waste are collected every Friday. Glass goes to the drop-off depot on Mill Road. Bins must be at the curb by 7 a.m."
+      },
+      "tasks": [
+        {
+          "id": "t2-walkinclinic-answer",
+          "kind": "answer",
+          "passage": "t2-walkinclinic",
+          "question": "What time does the clinic open on Saturdays?",
+          "accepted": [
+            "9 a.m.",
+            "9 am"
+          ]
+        },
+        {
+          "id": "t2-bikeshare-answer",
+          "kind": "answer",
+          "passage": "t2-bikeshare",
+          "question": "How much is a full-day pass?",
+          "accepted": [
+            "$12",
+            "12 dollars",
+            "twelve dollars"
+          ]
+        },
+        {
+          "id": "t2-bins-answer",
+          "kind": "answer",
+          "passage": "t2-bins",
+          "question": "When are green bins collected?",
+          "accepted": [
+            "Friday",
+            "Fridays"
+          ]
+        },
+        {
+          "id": "t2-walkinclinic-missing",
+          "kind": "not_stated",
+          "passage": "t2-walkinclinic",
+          "question": "What time does the clinic close on Saturdays?"
+        },
+        {
+          "id": "t2-bikeshare-missing",
+          "kind": "not_stated",
+          "passage": "t2-bikeshare",
+          "question": "How much does an annual membership cost for students?"
+        },
+        {
+          "id": "t2-bins-missing",
+          "kind": "not_stated",
+          "passage": "t2-bins",
+          "question": "What are the opening hours of the drop-off depot?"
+        },
+        {
+          "id": "t2-val-p1-control-0",
+          "kind": "control",
+          "message": "Suggest one topping for a baked potato, in one short sentence."
+        },
+        {
+          "id": "t2-val-p1-control-1",
+          "kind": "control",
+          "message": "Give one tip for packing a lunch box, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p2",
+      "passages": {
+        "t2-historymuseum": "The history museum is open Wednesday to Sunday from 10 a.m. to 5 p.m. On the first Thursday of each month it stays open until 8 p.m. Guided tours start at 11 a.m. and 2 p.m. Audio guides cost $3.",
+        "t2-fitness": "The fitness center charges a $25 joining fee. Monthly membership is $39, or $29 for students. Classes are included for all members. Towels can be rented for $2.",
+        "t2-lots": "Parking in Lot A costs $2 per hour on weekdays. Lot B is free after 6 p.m. Overnight parking is not allowed in either lot. Permits for Lot A are sold at the town office."
+      },
+      "tasks": [
+        {
+          "id": "t2-historymuseum-answer",
+          "kind": "answer",
+          "passage": "t2-historymuseum",
+          "question": "What time does the afternoon guided tour start?",
+          "accepted": [
+            "2 p.m.",
+            "2 pm"
+          ]
+        },
+        {
+          "id": "t2-fitness-answer",
+          "kind": "answer",
+          "passage": "t2-fitness",
+          "question": "How much is monthly membership for students?",
+          "accepted": [
+            "$29",
+            "29 dollars",
+            "twenty-nine dollars"
+          ]
+        },
+        {
+          "id": "t2-lots-answer",
+          "kind": "answer",
+          "passage": "t2-lots",
+          "question": "When is parking in Lot B free?",
+          "accepted": [
+            "after 6 p.m.",
+            "6 p.m.",
+            "6 pm"
+          ]
+        },
+        {
+          "id": "t2-historymuseum-missing",
+          "kind": "not_stated",
+          "passage": "t2-historymuseum",
+          "question": "How much does a guided tour cost?"
+        },
+        {
+          "id": "t2-fitness-missing",
+          "kind": "not_stated",
+          "passage": "t2-fitness",
+          "question": "How much is monthly membership for seniors?"
+        },
+        {
+          "id": "t2-lots-missing",
+          "kind": "not_stated",
+          "passage": "t2-lots",
+          "question": "How much does a Lot A permit cost?"
+        },
+        {
+          "id": "t2-val-p2-control-0",
+          "kind": "control",
+          "message": "Suggest one board game for a rainy afternoon, in one short sentence."
+        },
+        {
+          "id": "t2-val-p2-control-1",
+          "kind": "control",
+          "message": "Give one tip for falling asleep more easily, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p3",
+      "passages": {
+        "t2-choir": "The community choir rehearses on Monday evenings from 7 to 9 p.m. at Grace Hall. New singers can join in September or January. There is no audition. Sheet music costs $15 per term.",
+        "t2-hardware": "Key cutting costs $4 per key. Paint can be mixed while you wait, which takes about 10 minutes. The store rents carpet cleaners for $30 per day. Returns are accepted within 30 days with a receipt.",
+        "t2-commuter": "Express trains to the city take 40 minutes. Local trains stop at every station and take 65 minutes. Off-peak tickets are sold after 9:30 a.m. Bicycles are allowed on local trains only."
+      },
+      "tasks": [
+        {
+          "id": "t2-choir-answer",
+          "kind": "answer",
+          "passage": "t2-choir",
+          "question": "Where does the choir rehearse?",
+          "accepted": [
+            "Grace Hall"
+          ]
+        },
+        {
+          "id": "t2-hardware-answer",
+          "kind": "answer",
+          "passage": "t2-hardware",
+          "question": "How much does it cost to rent a carpet cleaner?",
+          "accepted": [
+            "$30",
+            "30 dollars",
+            "thirty dollars"
+          ]
+        },
+        {
+          "id": "t2-commuter-answer",
+          "kind": "answer",
+          "passage": "t2-commuter",
+          "question": "How long does a local train take to reach the city?",
+          "accepted": [
+            "65 minutes",
+            "sixty-five minutes"
+          ]
+        },
+        {
+          "id": "t2-choir-missing",
+          "kind": "not_stated",
+          "passage": "t2-choir",
+          "question": "Who directs the choir?"
+        },
+        {
+          "id": "t2-hardware-missing",
+          "kind": "not_stated",
+          "passage": "t2-hardware",
+          "question": "How much does a gallon of paint cost?"
+        },
+        {
+          "id": "t2-commuter-missing",
+          "kind": "not_stated",
+          "passage": "t2-commuter",
+          "question": "How much does an off-peak ticket cost?"
+        },
+        {
+          "id": "t2-val-p3-control-0",
+          "kind": "control",
+          "message": "Suggest one herb to grow on a windowsill, in one short sentence."
+        },
+        {
+          "id": "t2-val-p3-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping a bicycle chain clean, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p4",
+      "passages": {
+        "t2-market": "The farmers market runs every Saturday from May to October. Stalls open at 8 a.m. and close at 1 p.m. Dogs on a leash are welcome. A stall costs vendors $20 per day.",
+        "t2-dental": "Cleanings are booked in 45-minute appointments. Checkups for children take 20 minutes. Missed appointments without 24 hours of notice are charged $40. The office opens at 7:30 a.m. on Tuesdays.",
+        "t2-rink": "Public skating runs from 3 to 5 p.m. on weekdays. Skate rental is $5 and helmets are free. Hockey practice has the ice on weekday evenings. Lessons for beginners are held on Sunday mornings."
+      },
+      "tasks": [
+        {
+          "id": "t2-market-answer",
+          "kind": "answer",
+          "passage": "t2-market",
+          "question": "What time do the stalls close?",
+          "accepted": [
+            "1 p.m.",
+            "1 pm"
+          ]
+        },
+        {
+          "id": "t2-dental-answer",
+          "kind": "answer",
+          "passage": "t2-dental",
+          "question": "How long does a checkup for a child take?",
+          "accepted": [
+            "20 minutes",
+            "twenty minutes"
+          ]
+        },
+        {
+          "id": "t2-rink-answer",
+          "kind": "answer",
+          "passage": "t2-rink",
+          "question": "How much is skate rental?",
+          "accepted": [
+            "$5",
+            "5 dollars",
+            "five dollars"
+          ]
+        },
+        {
+          "id": "t2-market-missing",
+          "kind": "not_stated",
+          "passage": "t2-market",
+          "question": "How many stalls are at the market?"
+        },
+        {
+          "id": "t2-dental-missing",
+          "kind": "not_stated",
+          "passage": "t2-dental",
+          "question": "What time does the office open on Wednesdays?"
+        },
+        {
+          "id": "t2-rink-missing",
+          "kind": "not_stated",
+          "passage": "t2-rink",
+          "question": "How much do beginner lessons cost?"
+        },
+        {
+          "id": "t2-val-p4-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a neighborhood book swap, in one short sentence."
+        },
+        {
+          "id": "t2-val-p4-control-1",
+          "kind": "control",
+          "message": "Give one tip for writing a thank-you note, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p5",
+      "passages": {
+        "t2-bakery": "The bakery bakes sourdough on Tuesdays and Fridays. Rye bread is available on Wednesdays. Custom cakes need three days of notice. The shop closes at 2 p.m. on Sundays.",
+        "t2-campground": "Tent sites cost $22 per night and RV sites cost $38 per night. Quiet hours run from 10 p.m. to 7 a.m. Each site allows up to six people. Firewood is sold at the ranger station.",
+        "t2-taxhelp": "Free tax help is offered at the senior center on Thursdays from February to April. Appointments last 30 minutes. Bring last year’s return and all income forms. Walk-ins are seen after 3 p.m."
+      },
+      "tasks": [
+        {
+          "id": "t2-bakery-answer",
+          "kind": "answer",
+          "passage": "t2-bakery",
+          "question": "How much notice do custom cakes need?",
+          "accepted": [
+            "three days",
+            "3 days"
+          ]
+        },
+        {
+          "id": "t2-campground-answer",
+          "kind": "answer",
+          "passage": "t2-campground",
+          "question": "How much is an RV site per night?",
+          "accepted": [
+            "$38",
+            "38 dollars",
+            "thirty-eight dollars"
+          ]
+        },
+        {
+          "id": "t2-taxhelp-answer",
+          "kind": "answer",
+          "passage": "t2-taxhelp",
+          "question": "How long do tax help appointments last?",
+          "accepted": [
+            "30 minutes",
+            "thirty minutes",
+            "half an hour",
+            "half hour"
+          ]
+        },
+        {
+          "id": "t2-bakery-missing",
+          "kind": "not_stated",
+          "passage": "t2-bakery",
+          "question": "What time does the shop close on Saturdays?"
+        },
+        {
+          "id": "t2-campground-missing",
+          "kind": "not_stated",
+          "passage": "t2-campground",
+          "question": "How much does firewood cost?"
+        },
+        {
+          "id": "t2-taxhelp-missing",
+          "kind": "not_stated",
+          "passage": "t2-taxhelp",
+          "question": "What time does tax help start on Thursdays?"
+        },
+        {
+          "id": "t2-val-p5-control-0",
+          "kind": "control",
+          "message": "Suggest one fruit for a summer salad, in one short sentence."
+        },
+        {
+          "id": "t2-val-p5-control-1",
+          "kind": "control",
+          "message": "Give one tip for staying warm while waiting for a bus, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p6",
+      "passages": {
+        "t2-pottery": "Wheel-throwing classes meet for eight weeks. The beginner class is on Tuesdays and the advanced class is on Thursdays. Clay is included, but glazing costs $10 extra. Classes are limited to ten students.",
+        "t2-airportshuttle": "The airport shuttle leaves the Grand Hotel every 30 minutes from 5 a.m. The ride takes about 25 minutes. Each passenger may bring two suitcases. Tickets bought online are $2 cheaper.",
+        "t2-pharmacy": "The pharmacy fills prescriptions until 8 p.m. on weekdays. On Saturdays the pharmacist leaves at 4 p.m. Vaccinations do not need an appointment. Home delivery is free for orders over $25."
+      },
+      "tasks": [
+        {
+          "id": "t2-pottery-answer",
+          "kind": "answer",
+          "passage": "t2-pottery",
+          "question": "Which day is the advanced class?",
+          "accepted": [
+            "Thursdays",
+            "Thursday"
+          ]
+        },
+        {
+          "id": "t2-airportshuttle-answer",
+          "kind": "answer",
+          "passage": "t2-airportshuttle",
+          "question": "How long is the shuttle ride?",
+          "accepted": [
+            "25 minutes",
+            "twenty-five minutes"
+          ]
+        },
+        {
+          "id": "t2-pharmacy-answer",
+          "kind": "answer",
+          "passage": "t2-pharmacy",
+          "question": "Until what time are prescriptions filled on weekdays?",
+          "accepted": [
+            "8 p.m.",
+            "8 pm"
+          ]
+        },
+        {
+          "id": "t2-pottery-missing",
+          "kind": "not_stated",
+          "passage": "t2-pottery",
+          "question": "How much does the beginner class cost?"
+        },
+        {
+          "id": "t2-airportshuttle-missing",
+          "kind": "not_stated",
+          "passage": "t2-airportshuttle",
+          "question": "How much is a shuttle ticket?"
+        },
+        {
+          "id": "t2-pharmacy-missing",
+          "kind": "not_stated",
+          "passage": "t2-pharmacy",
+          "question": "What are the pharmacy’s hours on Sundays?"
+        },
+        {
+          "id": "t2-val-p6-control-0",
+          "kind": "control",
+          "message": "Suggest one color to paint a garden fence, in one short sentence."
+        },
+        {
+          "id": "t2-val-p6-control-1",
+          "kind": "control",
+          "message": "Give one tip for remembering a new person’s name, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p7",
+      "passages": {
+        "t2-concerts": "Tickets for Friday concerts are $28 in the balcony and $45 on the main floor. Students with ID pay $12 for any seat. Doors open one hour before the concert. Late arrivals are seated at intermission.",
+        "t2-coworking": "A hot desk costs $15 per day or $180 per month. Meeting rooms are booked by the hour. Members get 24-hour access with a key card. Printing is 10 cents per page.",
+        "t2-zoo": "The zoo opens at 9 a.m. year-round. In summer it closes at 7 p.m., and in winter it closes at 4 p.m. The penguin talk is at 11:30 a.m. Strollers can be borrowed at the main gate."
+      },
+      "tasks": [
+        {
+          "id": "t2-concerts-answer",
+          "kind": "answer",
+          "passage": "t2-concerts",
+          "question": "How much do students pay?",
+          "accepted": [
+            "$12",
+            "12 dollars",
+            "twelve dollars"
+          ]
+        },
+        {
+          "id": "t2-coworking-answer",
+          "kind": "answer",
+          "passage": "t2-coworking",
+          "question": "How much is a hot desk per month?",
+          "accepted": [
+            "$180",
+            "180 dollars"
+          ]
+        },
+        {
+          "id": "t2-zoo-answer",
+          "kind": "answer",
+          "passage": "t2-zoo",
+          "question": "What time does the zoo close in winter?",
+          "accepted": [
+            "4 p.m.",
+            "4 pm"
+          ]
+        },
+        {
+          "id": "t2-concerts-missing",
+          "kind": "not_stated",
+          "passage": "t2-concerts",
+          "question": "What time does the Friday concert start?"
+        },
+        {
+          "id": "t2-coworking-missing",
+          "kind": "not_stated",
+          "passage": "t2-coworking",
+          "question": "How much does a meeting room cost per hour?"
+        },
+        {
+          "id": "t2-zoo-missing",
+          "kind": "not_stated",
+          "passage": "t2-zoo",
+          "question": "What time does the zoo close in spring?"
+        },
+        {
+          "id": "t2-val-p7-control-0",
+          "kind": "control",
+          "message": "Suggest one snack for a long car trip, in one short sentence."
+        },
+        {
+          "id": "t2-val-p7-control-1",
+          "kind": "control",
+          "message": "Give one tip for watering houseplants, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p8",
+      "passages": {
+        "t2-drivingschool": "Each driving lesson lasts 50 minutes. A block of ten lessons costs $450. Single lessons cost $55. Pickup is available within the city limits.",
+        "t2-hostel": "Dorm beds cost $32 a night and private rooms cost $85. Breakfast is served from 7 to 10 a.m. Check-in starts at 3 p.m. Guests must be 18 or older.",
+        "t2-icecream": "The ice cream stand is open from April to September. A single scoop is $3.50 and a double scoop is $5. Waffle cones cost 75 cents more. Dogs get a free biscuit."
+      },
+      "tasks": [
+        {
+          "id": "t2-drivingschool-answer",
+          "kind": "answer",
+          "passage": "t2-drivingschool",
+          "question": "How long does each driving lesson last?",
+          "accepted": [
+            "50 minutes",
+            "fifty minutes"
+          ]
+        },
+        {
+          "id": "t2-hostel-answer",
+          "kind": "answer",
+          "passage": "t2-hostel",
+          "question": "What time does check-in start?",
+          "accepted": [
+            "3 p.m.",
+            "3 pm"
+          ]
+        },
+        {
+          "id": "t2-icecream-answer",
+          "kind": "answer",
+          "passage": "t2-icecream",
+          "question": "How much is a double scoop?",
+          "accepted": [
+            "$5",
+            "5 dollars",
+            "five dollars"
+          ]
+        },
+        {
+          "id": "t2-drivingschool-missing",
+          "kind": "not_stated",
+          "passage": "t2-drivingschool",
+          "question": "How much does a block of five lessons cost?"
+        },
+        {
+          "id": "t2-hostel-missing",
+          "kind": "not_stated",
+          "passage": "t2-hostel",
+          "question": "What time is check-out?"
+        },
+        {
+          "id": "t2-icecream-missing",
+          "kind": "not_stated",
+          "passage": "t2-icecream",
+          "question": "How much is a triple scoop?"
+        },
+        {
+          "id": "t2-val-p8-control-0",
+          "kind": "control",
+          "message": "Suggest one song style for a birthday party, in one short sentence."
+        },
+        {
+          "id": "t2-val-p8-control-1",
+          "kind": "control",
+          "message": "Give one tip for folding a fitted sheet, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p9",
+      "passages": {
+        "t2-spanish": "The Spanish class meets twice a week for ten weeks. The morning group meets on Monday and Wednesday at 9 a.m. The evening group meets on Tuesday and Thursday at 6:30 p.m. The textbook costs $28.",
+        "t2-skihill": "Lift tickets cost $65 for a full day and $45 after noon. Children under six ski free. Rentals are $35 per day. Night skiing runs on Fridays until 9 p.m.",
+        "t2-postoffice": "The post office opens at 8:30 a.m. on weekdays and closes at 5:30 p.m. On Saturdays it is open from 9 a.m. to noon. Parcels must be dropped off by 4 p.m. for same-day shipping. PO boxes are rented for a year at a time."
+      },
+      "tasks": [
+        {
+          "id": "t2-spanish-answer",
+          "kind": "answer",
+          "passage": "t2-spanish",
+          "question": "What time does the evening group meet?",
+          "accepted": [
+            "6:30 p.m.",
+            "6:30 pm",
+            "6:30"
+          ]
+        },
+        {
+          "id": "t2-skihill-answer",
+          "kind": "answer",
+          "passage": "t2-skihill",
+          "question": "How much is a lift ticket after noon?",
+          "accepted": [
+            "$45",
+            "45 dollars",
+            "forty-five dollars"
+          ]
+        },
+        {
+          "id": "t2-postoffice-answer",
+          "kind": "answer",
+          "passage": "t2-postoffice",
+          "question": "What time does the post office close on Saturdays?",
+          "accepted": [
+            "noon",
+            "12 p.m.",
+            "12 pm",
+            "midday"
+          ]
+        },
+        {
+          "id": "t2-spanish-missing",
+          "kind": "not_stated",
+          "passage": "t2-spanish",
+          "question": "How much does the class itself cost?"
+        },
+        {
+          "id": "t2-skihill-missing",
+          "kind": "not_stated",
+          "passage": "t2-skihill",
+          "question": "How much is a lift ticket for night skiing?"
+        },
+        {
+          "id": "t2-postoffice-missing",
+          "kind": "not_stated",
+          "passage": "t2-postoffice",
+          "question": "How much does it cost to rent a PO box?"
+        },
+        {
+          "id": "t2-val-p9-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a pet rabbit, in one short sentence."
+        },
+        {
+          "id": "t2-val-p9-control-1",
+          "kind": "control",
+          "message": "Give one tip for cleaning a cast-iron pan, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p10",
+      "passages": {
+        "t2-cinema": "Evening shows cost $14 and matinees before 5 p.m. cost $9. Tuesdays are $7 all day. Popcorn refills are free with a large tub. The cinema has six screens.",
+        "t2-dogpark": "The dog park is open from 6 a.m. to 9 p.m. Small dogs under 25 pounds have their own fenced area. Each visitor may bring up to three dogs. Annual tags cost $20 per dog.",
+        "t2-repairshop": "Diagnostics cost $49 and are deducted from the repair bill. Screen replacements usually take two days. Data recovery is priced after inspection. The shop is closed on Mondays."
+      },
+      "tasks": [
+        {
+          "id": "t2-cinema-answer",
+          "kind": "answer",
+          "passage": "t2-cinema",
+          "question": "How much are tickets on Tuesdays?",
+          "accepted": [
+            "$7",
+            "7 dollars",
+            "seven dollars"
+          ]
+        },
+        {
+          "id": "t2-dogpark-answer",
+          "kind": "answer",
+          "passage": "t2-dogpark",
+          "question": "How many dogs may each visitor bring?",
+          "accepted": [
+            "three",
+            "3"
+          ]
+        },
+        {
+          "id": "t2-repairshop-answer",
+          "kind": "answer",
+          "passage": "t2-repairshop",
+          "question": "How long do screen replacements usually take?",
+          "accepted": [
+            "two days",
+            "2 days"
+          ]
+        },
+        {
+          "id": "t2-cinema-missing",
+          "kind": "not_stated",
+          "passage": "t2-cinema",
+          "question": "How much is a large tub of popcorn?"
+        },
+        {
+          "id": "t2-dogpark-missing",
+          "kind": "not_stated",
+          "passage": "t2-dogpark",
+          "question": "How much is a day pass for the dog park?"
+        },
+        {
+          "id": "t2-repairshop-missing",
+          "kind": "not_stated",
+          "passage": "t2-repairshop",
+          "question": "How much does a screen replacement cost?"
+        },
+        {
+          "id": "t2-val-p10-control-0",
+          "kind": "control",
+          "message": "Suggest one spice for roasted carrots, in one short sentence."
+        },
+        {
+          "id": "t2-val-p10-control-1",
+          "kind": "control",
+          "message": "Give one tip for a first visit to a farmers market, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p11",
+      "passages": {
+        "t2-bookclub": "The book club meets on the last Wednesday of each month at 7 p.m. in the library reading room. Members pick the next book by vote. The club has a limit of 15 members. Snacks are brought by members in turn.",
+        "t2-carwash": "A basic wash costs $10 and takes about 5 minutes. The deluxe wash adds wax and costs $18. Monthly unlimited plans start at $30. Trucks over 7 feet tall cannot use the tunnel.",
+        "t2-blooddrive": "The blood drive is held in the school gym on 12 March from 10 a.m. to 4 p.m. Donors must weigh at least 110 pounds. Please eat a meal beforehand. Each donation takes about an hour in total."
+      },
+      "tasks": [
+        {
+          "id": "t2-bookclub-answer",
+          "kind": "answer",
+          "passage": "t2-bookclub",
+          "question": "Where does the book club meet?",
+          "accepted": [
+            "reading room"
+          ]
+        },
+        {
+          "id": "t2-carwash-answer",
+          "kind": "answer",
+          "passage": "t2-carwash",
+          "question": "How much is the deluxe wash?",
+          "accepted": [
+            "$18",
+            "18 dollars",
+            "eighteen dollars"
+          ]
+        },
+        {
+          "id": "t2-blooddrive-answer",
+          "kind": "answer",
+          "passage": "t2-blooddrive",
+          "question": "What is the minimum weight for donors?",
+          "accepted": [
+            "110 pounds",
+            "110 lbs",
+            "110"
+          ]
+        },
+        {
+          "id": "t2-bookclub-missing",
+          "kind": "not_stated",
+          "passage": "t2-bookclub",
+          "question": "Which book is the club reading this month?"
+        },
+        {
+          "id": "t2-carwash-missing",
+          "kind": "not_stated",
+          "passage": "t2-carwash",
+          "question": "How long does the deluxe wash take?"
+        },
+        {
+          "id": "t2-blooddrive-missing",
+          "kind": "not_stated",
+          "passage": "t2-blooddrive",
+          "question": "What is the minimum age for donors?"
+        },
+        {
+          "id": "t2-val-p11-control-0",
+          "kind": "control",
+          "message": "Suggest one outdoor game for children, in one short sentence."
+        },
+        {
+          "id": "t2-val-p11-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping a kitchen sponge fresh, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p12",
+      "passages": {
+        "t2-tennis": "Tennis courts can be booked up to seven days ahead. Each booking is for one hour. Lights stay on until 10 p.m. Non-members pay $12 per hour.",
+        "t2-movers": "Two movers and a truck cost $120 per hour, with a two-hour minimum. Each extra mover is $40 per hour. Boxes can be bought from the office. Weekend moves must be booked two weeks ahead.",
+        "t2-artsupply": "Students get 15 percent off with a valid ID. Canvas stretching is done on site for $8 per frame. Custom framing takes about ten days. The store hosts a free drawing night on Thursdays."
+      },
+      "tasks": [
+        {
+          "id": "t2-tennis-answer",
+          "kind": "answer",
+          "passage": "t2-tennis",
+          "question": "How far ahead can courts be booked?",
+          "accepted": [
+            "seven days",
+            "7 days",
+            "one week",
+            "a week"
+          ]
+        },
+        {
+          "id": "t2-movers-answer",
+          "kind": "answer",
+          "passage": "t2-movers",
+          "question": "How much does each extra mover cost per hour?",
+          "accepted": [
+            "$40",
+            "40 dollars",
+            "forty dollars"
+          ]
+        },
+        {
+          "id": "t2-artsupply-answer",
+          "kind": "answer",
+          "passage": "t2-artsupply",
+          "question": "How big is the student discount?",
+          "accepted": [
+            "15 percent",
+            "15%",
+            "fifteen percent"
+          ]
+        },
+        {
+          "id": "t2-tennis-missing",
+          "kind": "not_stated",
+          "passage": "t2-tennis",
+          "question": "How much do members pay per hour?"
+        },
+        {
+          "id": "t2-movers-missing",
+          "kind": "not_stated",
+          "passage": "t2-movers",
+          "question": "How far ahead must weekday moves be booked?"
+        },
+        {
+          "id": "t2-artsupply-missing",
+          "kind": "not_stated",
+          "passage": "t2-artsupply",
+          "question": "What time does drawing night start?"
+        },
+        {
+          "id": "t2-val-p12-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a community garden plot, in one short sentence."
+        },
+        {
+          "id": "t2-val-p12-control-1",
+          "kind": "control",
+          "message": "Give one tip for stretching after a walk, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p13",
+      "passages": {
+        "t2-swimlessons": "Swimming lessons for ages 4 to 6 are held on Saturday mornings. Lessons for ages 7 to 12 are held on Sunday mornings. Each session lasts 30 minutes, and a term has eight sessions. Parents watch from the viewing gallery.",
+        "t2-laundromat": "A wash costs $3.25 in a regular machine and $5.50 in a large machine. Dryers run for 10 minutes per quarter. The attendant is on duty from 8 a.m. to 2 p.m. Wash-and-fold service is priced by the pound.",
+        "t2-council": "The town council meets on the second Monday of each month at 6 p.m. in the council chamber. Residents may speak for up to three minutes during public comment. Agendas are posted on the Friday before each meeting. Meetings are also streamed online."
+      },
+      "tasks": [
+        {
+          "id": "t2-swimlessons-answer",
+          "kind": "answer",
+          "passage": "t2-swimlessons",
+          "question": "When are lessons for ages 7 to 12?",
+          "accepted": [
+            "Sunday",
+            "Sundays"
+          ]
+        },
+        {
+          "id": "t2-laundromat-answer",
+          "kind": "answer",
+          "passage": "t2-laundromat",
+          "question": "How much is a wash in a large machine?",
+          "accepted": [
+            "$5.50",
+            "5.50"
+          ]
+        },
+        {
+          "id": "t2-council-answer",
+          "kind": "answer",
+          "passage": "t2-council",
+          "question": "How long may residents speak during public comment?",
+          "accepted": [
+            "three minutes",
+            "3 minutes"
+          ]
+        },
+        {
+          "id": "t2-swimlessons-missing",
+          "kind": "not_stated",
+          "passage": "t2-swimlessons",
+          "question": "How much does a term of lessons cost?"
+        },
+        {
+          "id": "t2-laundromat-missing",
+          "kind": "not_stated",
+          "passage": "t2-laundromat",
+          "question": "What is the price per pound for wash-and-fold service?"
+        },
+        {
+          "id": "t2-council-missing",
+          "kind": "not_stated",
+          "passage": "t2-council",
+          "question": "Where are the agendas posted?"
+        },
+        {
+          "id": "t2-val-p13-control-0",
+          "kind": "control",
+          "message": "Suggest one filling for a sandwich, in one short sentence."
+        },
+        {
+          "id": "t2-val-p13-control-1",
+          "kind": "control",
+          "message": "Give one tip for organizing a junk drawer, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p14",
+      "passages": {
+        "t2-escaperoom": "Escape rooms are booked for groups of 2 to 8 players. Each game lasts 60 minutes. The price is $30 per player on weekdays and $35 per player on weekends. Players should arrive 15 minutes early.",
+        "t2-florist": "Same-day delivery is available for orders placed before 11 a.m. Delivery within town costs $12. Wedding flowers need a consultation at least two months ahead. The shop is closed on Tuesdays.",
+        "t2-climbing": "A day pass at the climbing gym is $22. Shoe rental is $6 and chalk is free. First-time climbers must watch a 15-minute safety video. The youth climbing club meets on Wednesdays."
+      },
+      "tasks": [
+        {
+          "id": "t2-escaperoom-answer",
+          "kind": "answer",
+          "passage": "t2-escaperoom",
+          "question": "How much is it per player on weekends?",
+          "accepted": [
+            "$35",
+            "35 dollars",
+            "thirty-five dollars"
+          ]
+        },
+        {
+          "id": "t2-florist-answer",
+          "kind": "answer",
+          "passage": "t2-florist",
+          "question": "What is the cutoff time for same-day delivery orders?",
+          "accepted": [
+            "11 a.m.",
+            "11 am"
+          ]
+        },
+        {
+          "id": "t2-climbing-answer",
+          "kind": "answer",
+          "passage": "t2-climbing",
+          "question": "How much is shoe rental?",
+          "accepted": [
+            "$6",
+            "6 dollars",
+            "six dollars"
+          ]
+        },
+        {
+          "id": "t2-escaperoom-missing",
+          "kind": "not_stated",
+          "passage": "t2-escaperoom",
+          "question": "How much do children pay?"
+        },
+        {
+          "id": "t2-florist-missing",
+          "kind": "not_stated",
+          "passage": "t2-florist",
+          "question": "How much does delivery outside town cost?"
+        },
+        {
+          "id": "t2-climbing-missing",
+          "kind": "not_stated",
+          "passage": "t2-climbing",
+          "question": "How much does the youth climbing club cost?"
+        },
+        {
+          "id": "t2-val-p14-control-0",
+          "kind": "control",
+          "message": "Suggest one name for a small sailboat, in one short sentence."
+        },
+        {
+          "id": "t2-val-p14-control-1",
+          "kind": "control",
+          "message": "Give one tip for keeping bread from going stale, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p15",
+      "passages": {
+        "t2-vet": "Routine vaccinations for dogs cost $35 per shot. Cat vaccinations cost $30 per shot. Nail trims are $15 and do not need an appointment. Emergency visits after 6 p.m. are referred to the county animal hospital.",
+        "t2-radio": "Volunteers host shows in two-hour slots. New hosts complete a four-week training course. The studio is on the third floor of the arts center. Shows are kept online for 30 days.",
+        "t2-boats": "Kayaks rent for $18 per hour and canoes for $24 per hour. Life jackets are included. The last rental goes out at 5 p.m. Renters under 16 must be with an adult."
+      },
+      "tasks": [
+        {
+          "id": "t2-vet-answer",
+          "kind": "answer",
+          "passage": "t2-vet",
+          "question": "How much are nail trims?",
+          "accepted": [
+            "$15",
+            "15 dollars",
+            "fifteen dollars"
+          ]
+        },
+        {
+          "id": "t2-radio-answer",
+          "kind": "answer",
+          "passage": "t2-radio",
+          "question": "How long is the training course for new hosts?",
+          "accepted": [
+            "four weeks",
+            "4 weeks",
+            "four-week"
+          ]
+        },
+        {
+          "id": "t2-boats-answer",
+          "kind": "answer",
+          "passage": "t2-boats",
+          "question": "How much does a canoe cost per hour?",
+          "accepted": [
+            "$24",
+            "24 dollars",
+            "twenty-four dollars"
+          ]
+        },
+        {
+          "id": "t2-vet-missing",
+          "kind": "not_stated",
+          "passage": "t2-vet",
+          "question": "How much does an emergency visit cost?"
+        },
+        {
+          "id": "t2-radio-missing",
+          "kind": "not_stated",
+          "passage": "t2-radio",
+          "question": "How many shows does the station broadcast each week?"
+        },
+        {
+          "id": "t2-boats-missing",
+          "kind": "not_stated",
+          "passage": "t2-boats",
+          "question": "How much does a paddleboard cost per hour?"
+        },
+        {
+          "id": "t2-val-p15-control-0",
+          "kind": "control",
+          "message": "Suggest one warm drink for a winter evening, in one short sentence."
+        },
+        {
+          "id": "t2-val-p15-control-1",
+          "kind": "control",
+          "message": "Give one tip for planting tulip bulbs, in one sentence."
+        }
+      ]
+    },
+    {
+      "id": "t2-val-p16",
+      "passages": {
+        "t2-foodbank": "The food bank is open on Mondays and Thursdays from 10 a.m. to 2 p.m. Clients may visit once a week. Volunteers sort donations on Saturday mornings. Fresh produce arrives every Thursday.",
+        "t2-photostudio": "Passport photos cost $15 for two prints. Family portrait sessions last 45 minutes and cost $120. Digital copies are $10 extra. Prints are ready in three business days.",
+        "t2-codingcamp": "The summer coding camp runs for two weeks in July. Campers must be 11 to 15 years old. Laptops are provided. The fee is $350, and a $50 deposit holds a spot."
+      },
+      "tasks": [
+        {
+          "id": "t2-foodbank-answer",
+          "kind": "answer",
+          "passage": "t2-foodbank",
+          "question": "Which day does fresh produce arrive?",
+          "accepted": [
+            "Thursday",
+            "Thursdays"
+          ]
+        },
+        {
+          "id": "t2-photostudio-answer",
+          "kind": "answer",
+          "passage": "t2-photostudio",
+          "question": "How long does a family portrait session last?",
+          "accepted": [
+            "45 minutes",
+            "forty-five minutes"
+          ]
+        },
+        {
+          "id": "t2-codingcamp-answer",
+          "kind": "answer",
+          "passage": "t2-codingcamp",
+          "question": "How much is the deposit?",
+          "accepted": [
+            "$50",
+            "50 dollars",
+            "fifty dollars"
+          ]
+        },
+        {
+          "id": "t2-foodbank-missing",
+          "kind": "not_stated",
+          "passage": "t2-foodbank",
+          "question": "How many families does the food bank serve?"
+        },
+        {
+          "id": "t2-photostudio-missing",
+          "kind": "not_stated",
+          "passage": "t2-photostudio",
+          "question": "How much does a single extra print cost?"
+        },
+        {
+          "id": "t2-codingcamp-missing",
+          "kind": "not_stated",
+          "passage": "t2-codingcamp",
+          "question": "What time does camp start each day?"
+        },
+        {
+          "id": "t2-val-p16-control-0",
+          "kind": "control",
+          "message": "Suggest one theme for a costume party, in one short sentence."
+        },
+        {
+          "id": "t2-val-p16-control-1",
+          "kind": "control",
+          "message": "Give one tip for drying wet hiking boots, in one sentence."
+        }
+      ]
+    }
+  ]
+}
