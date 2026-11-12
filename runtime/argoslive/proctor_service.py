@@ -169,7 +169,10 @@ RECOVERY_CAMPAIGN_MESSAGE = (
     'and port 22 listening. For any other state, report the bounded state and stop. '
     'Never request terminal commands, reboot, re-pairing, or manual configuration. '
     'No task-specific evaluation suite is approved, so do not evaluate, audit, edit instructions, '
-    'or claim improvement from unrelated scores.')
+    'or claim improvement from unrelated scores. If no real failure occurred, say task-not-measured '
+    'and give the next measurable step: during the next naturally occurring recovery, record actual '
+    'owner-typed commands, approvals, and elapsed time against the signed same-boot readiness receipt. '
+    'Do not induce a failure on Toronado or claim owner-time savings from a healthy status check.')
 
 
 def _is_ssh_recovery_task(owner_task, success_criteria, measurement_suite, provider, verifier):
