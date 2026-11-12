@@ -294,6 +294,62 @@ class ControllerTests(unittest.TestCase):
         finally:
             controller.close()
 
+    def test_records_host_observed_approval_availability_until_click(self):
+        controller = self.controller()
+        self.signed_storage(controller)
+        now = [100.0]
+        controller.clock = lambda: now[0]
+        try:
+            first = controller.snapshot()
+            self.assertTrue(first['can_restart'])
+            self.assertEqual(first['approval_available_seconds'], 0)
+            first_seen = first['approval_available_since_utc']
+
+            now[0] = 106.25
+            refreshed = controller.snapshot()
+            self.assertEqual(refreshed['approval_available_since_utc'], first_seen)
+            self.assertAlmostEqual(refreshed['approval_available_seconds'], 6.25)
+
+            job = controller.restart(refreshed['receipt']['payload']['receipt_id'], self.current['boot_id'])
+            self.assertEqual(job['approval_available_since_utc'], first_seen)
+            self.assertAlmostEqual(job['approval_availability_to_click_seconds'], 6.25)
+            self.assertEqual(job['approval_availability_timing_basis'], 'host-monotonic')
+            self.release.set()
+            controller.close()
+            saved = json.loads((controller.root / 'latest-job.json').read_text())
+            operation = saved['receipt']['payload']['operation']
+            self.assertEqual(operation['approval_available_since_utc'], first_seen)
+            self.assertAlmostEqual(operation['approval_availability_to_click_seconds'], 6.25)
+            self.assertEqual(operation['approval_availability_timing_basis'], 'host-monotonic')
+        finally:
+            self.release.set()
+            controller.close()
+
+    def test_availability_timer_restarts_when_safe_approval_disappears(self):
+        controller = self.controller()
+        self.signed_storage(controller)
+        now = [200.0]
+        controller.clock = lambda: now[0]
+        try:
+            first = controller.snapshot()
+            now[0] = 205.0
+            self.assertAlmostEqual(controller.snapshot()['approval_available_seconds'], 5.0)
+            self.current.update(restart_eligible=False, ssh_active=True, port22_listening=True)
+            unavailable = controller.snapshot()
+            self.assertFalse(unavailable['can_restart'])
+            self.assertIsNone(unavailable['approval_available_since_utc'])
+            self.assertIsNone(unavailable['approval_available_seconds'])
+
+            self.current.update(restart_eligible=True, ssh_active=False, port22_listening=False)
+            now[0] = 220.0
+            restored = controller.snapshot()
+            self.assertTrue(restored['can_restart'])
+            self.assertNotEqual(restored['approval_available_since_utc'],
+                                first['approval_available_since_utc'])
+            self.assertEqual(restored['approval_available_seconds'], 0)
+        finally:
+            controller.close()
+
     def test_refuses_second_job_while_first_is_running(self):
         def slow_restart():
             self.calls += 1

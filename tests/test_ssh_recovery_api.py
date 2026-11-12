@@ -132,6 +132,8 @@ class SshRecoveryApiTests(unittest.TestCase):
             self.assertTrue(initial['can_restart'])
             self.assertEqual(initial['status']['boot_id'], boot_id)
             self.assertTrue(initial['receipt']['signature_status'] == 'signed')
+            self.assertIsInstance(initial['approval_available_since_utc'], str)
+            self.assertEqual(initial['approval_available_seconds'], 0)
             proctor_status = controller.proctor_status()
             self.assertTrue(controller.verify_proctor_status(proctor_status))
             self.assertTrue(proctor_status['owner_approval_available'])
@@ -174,6 +176,10 @@ class SshRecoveryApiTests(unittest.TestCase):
             self.assertEqual(operation['payload']['operation']['accepted_dashboard_approvals'], 1)
             self.assertGreaterEqual(operation['payload']['operation']['approval_to_check_seconds'], 0)
             self.assertEqual(operation['payload']['operation']['timing_basis'], 'host-monotonic')
+            self.assertGreaterEqual(operation['payload']['operation'][
+                'approval_availability_to_click_seconds'], 0)
+            self.assertEqual(operation['payload']['operation'][
+                'approval_availability_timing_basis'], 'host-monotonic')
             fresh_proctor = controller.proctor_status()
             self.assertTrue(controller.verify_proctor_status(fresh_proctor))
             self.assertFalse(fresh_proctor['owner_approval_available'])
