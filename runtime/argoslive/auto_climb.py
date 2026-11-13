@@ -126,6 +126,16 @@ def configured_model(home):
 
 PRACTICE_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'grounded-answers.json'
 VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'held-out-validation.json'
+TIER2_PRACTICE_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'grounded-answers-tier2.json'
+TIER2_VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'held-out-validation-tier2.json'
+FIRST_CURRICULUM = 'argos-foundation/1'
+# Ordered easiest first. A session moves up a tier only when the kept build already passes every
+# practice challenge of the current tier, because then no candidate can show a practice gain there.
+# Each tier has its own disjoint validation partitions; the exposure inventory spans all tiers.
+CURRICULA = (
+    (FIRST_CURRICULUM, PRACTICE_TASKS_PATH, VALIDATION_TASKS_PATH),
+    ('argos-foundation/2', TIER2_PRACTICE_TASKS_PATH, TIER2_VALIDATION_TASKS_PATH),
+)
 
 DEFAULT_ENVELOPE = {
     'max_duration_seconds': 3600,   # 60 minutes
@@ -342,15 +352,27 @@ class Controller:
                  time_fn=time.time, sleep_fn=time.sleep, practice_path=PRACTICE_TASKS_PATH,
                  validation_path=VALIDATION_TASKS_PATH, candidates=None,
                  model_recommender=None, model_switcher=None,
-                 model_restorer=None, download_runner=None, selection=None, downloads=None):
+                 model_restorer=None, download_runner=None, selection=None, downloads=None,
+                 curricula=None):
         self.startup = startup
         self.home = Path(home or getattr(startup, 'home', Path.home()))
         self.clock = clock
         self.time_fn = time_fn
         self.sleep_fn = sleep_fn
-        self.practice_tasks = load_task_file(practice_path)
-        self.validation_tasks = load_task_file(validation_path)
-        self.validation_partitions = load_validation_partitions(validation_path)
+        if curricula is None:
+            # Explicit task paths (tests, reviewed overrides) mean a single fixed tier.
+            if practice_path == PRACTICE_TASKS_PATH and validation_path == VALIDATION_TASKS_PATH:
+                curricula = CURRICULA
+            else:
+                curricula = ((FIRST_CURRICULUM, practice_path, validation_path),)
+        self.curricula = [{'version': version, 'practice': load_task_file(practice),
+                           'validation': load_task_file(validation),
+                           'partitions': load_validation_partitions(validation)}
+                          for version, practice, validation in curricula]
+        partition_ids = [p['id'] for tier in self.curricula for p in tier['partitions']]
+        if len(partition_ids) != len(set(partition_ids)):
+            raise ValueError('Validation partition IDs must be unique across curriculum tiers')
+        self._use_curriculum(self.curricula[0]['version'])
         if candidates is not None:
             self.candidate_pool = list(candidates)
             self.model_recommender = model_recommender
@@ -1139,10 +1161,18 @@ class Controller:
                 self.session['message'] = 'Refreshing the baseline to create traceable saved run evidence…'
                 self._save_session()
 
+            # Sessions saved before tiers existed have no version and ran foundation/1.
+            session_curriculum = self.session.get('curriculum_version') or FIRST_CURRICULUM
+            if session_curriculum != self.curriculum_version:
+                self._use_curriculum(session_curriculum)
+
             # 1. Assessment / Baseline check
-            if not self.session.get('starting_level'):
+            while not self.session.get('starting_level'):
                 self.session['phase'] = 'assess'
-                self.session['message'] = 'Assessing your AI’s current baseline on foundation challenges…'
+                self.session['message'] = (
+                    'Assessing your AI’s current baseline on foundation challenges…'
+                    if self.curriculum_version == FIRST_CURRICULUM else
+                    'Your AI passed every foundation challenge. Assessing it on harder challenges…')
                 self._save_session()
 
                 practice_baseline = self._run_task_suite(
@@ -1152,6 +1182,28 @@ class Controller:
                     return
 
                 passed_practice = sum(1 for r in practice_baseline if r['passed'])
+                if practice_baseline and passed_practice == len(practice_baseline):
+                    harder = self._next_curriculum()
+                    self.session.setdefault('saturated_curricula', []).append({
+                        'curriculum_version': self.curriculum_version,
+                        'practice_passed': passed_practice,
+                        'practice_total': len(practice_baseline),
+                        'run_id': self.latest_suite_run_id,
+                    })
+                    if harder is not None:
+                        self._use_curriculum(harder)
+                        self.session['curriculum_version'] = harder
+                        self._save_session()
+                        continue
+                    # No candidate can beat a perfect score; experiments here would only spend time.
+                    self.session['phase'] = 'options-exhausted'
+                    self.session['stopping_reason'] = (
+                        f'Practice saturated: the kept build already passes every practice challenge '
+                        f'({passed_practice}/{len(practice_baseline)}) at the hardest level, so no change can '
+                        f'show a gain. Nothing was changed.')
+                    self.session['message'] = self.session['stopping_reason']
+                    self._save_session()
+                    return
 
                 baseline_level = {
                     'practice_passed': passed_practice,
@@ -1341,6 +1393,22 @@ class Controller:
         elapsed = max(0, self.clock() - slice_start_time)
         return max(0.0, envelope.get('max_duration_seconds', 3600) -
                    budgets.get('duration_seconds', 0) - elapsed)
+
+    def _use_curriculum(self, version):
+        """Point practice and validation at one curriculum tier; unknown versions are refused."""
+        for tier in self.curricula:
+            if tier['version'] == version:
+                self.curriculum_version = version
+                self.practice_tasks = tier['practice']
+                self.validation_tasks = tier['validation']
+                self.validation_partitions = tier['partitions']
+                return tier
+        raise Refused(f'Unknown curriculum {version}')
+
+    def _next_curriculum(self):
+        versions = [tier['version'] for tier in self.curricula]
+        index = versions.index(self.curriculum_version)
+        return versions[index + 1] if index + 1 < len(versions) else None
 
     def _select_next_candidate(self):
         completed = set(self.session.get('completed_candidates', []))

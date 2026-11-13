@@ -63,15 +63,19 @@ so after any reboot you must re-apply the bundle. Making that refresher version-
 
 ## Open work, in order
 
-1. Read the finished Auto Climb session: what was kept or restored, and why. Report to the owner; do
-   not ask.
-2. Widen the candidate pool. Candidates are hard-coded in `INSTRUCTION_CANDIDATES` in
-   `runtime/argoslive/auto_climb.py` (answer-first, quote-evidence, honest-uncertainty), so a session
-   ends "options exhausted" in about 25 minutes. Add the saved `AGENTS.md` edit's pieces as candidates
-   (the "owner task first" rewrite and the Lessons), then deliver with the updater. This is a runtime
-   change: PR, checks, merge, bundle.
-3. Investigate the tool-schema suite results of 1/40 and 0/40 with 39 format errors; suspected
-   measurement problem.
+1. Done (November 12): the first Auto Climb session ended "options exhausted" with 8/8 practice, so no
+   candidate could show a gain. Auto Climb now has a harder tier, `argos-foundation/2`, and moves to it
+   when the kept build passes every foundation/1 practice challenge. If the top tier is also perfect it
+   stops at once with "Practice saturated" instead of spending time. Next: deliver that runtime with the
+   updater, start a session, and read whether the harder tier shows headroom on Toronado. If it is also
+   saturated, the next step is a harder task family, not more instruction candidates.
+2. Of the `AGENTS.md` edit Argos made on November 8, only the two Lessons lines are fit to be
+   candidates (one-letter answers; lowercase format names in tool JSON). Neither is measured by the
+   grounded-answer tiers, so they need a task family that checks those behaviors before they can be
+   tried. Its rewrites of section 2, section 3A and the stop conditions would loosen the keep standard;
+   they are an owner decision, not an experiment.
+3. Closed: the tool-schema 1/40 and 0/40 runs used suite v1.1.0, which expected `name` where the model
+   wrote `tool`. Suite v1.2.0 scores 40/40. Different suite versions are not a matched comparison.
 4. Build the read-only watch mirror on Yugo, and make the boot refresher version-aware.
 5. Shakedown (docs/shakedown/DESIGN.md and BACKLOG.md): Phase 1, the bench, is the next feature work.
    Design rules: real-world sci-fi, not fantasy; the typical user is an amateur LLM enthusiast tuning a

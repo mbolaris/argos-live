@@ -1,0 +1,77 @@
+{
+  "schema": "argos-assistant-tasks/1",
+  "version": "2.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "change": "grounded-answers",
+  "curriculum": "argos-foundation/2",
+  "note": "Harder tier, used when a build already passes every foundation/1 practice challenge. Each notice holds a similar distractor value, and each unanswerable question is a near miss: the notice gives a closely related fact but not the one asked. Independent of the foundation/1 sets.",
+  "passages": {
+    "t2-pool": "The Westgate pool offers lap swimming from 6 a.m. to 9 a.m. on weekdays. Family swim runs from 1 p.m. to 5 p.m. on Saturdays. A single visit costs $7 for adults and $4 for seniors. A ten-visit card costs $60 for adults.",
+    "t2-branchloans": "At the Eastside branch, books can be borrowed for 21 days and DVDs for 7 days. Each card may hold up to 5 items at once. Books can be renewed twice if nobody is waiting for them. Late DVDs are charged 50 cents per day.",
+    "t2-ferry": "The island ferry leaves the mainland dock at 7:15 a.m., 11:45 a.m. and 4:30 p.m. The crossing takes 35 minutes. Cars must check in 20 minutes before departure. Foot passengers can board until 5 minutes before departure."
+  },
+  "tasks": [
+    {
+      "id": "t2-pool-answer",
+      "kind": "answer",
+      "passage": "t2-pool",
+      "question": "How much does a single visit cost for a senior?",
+      "accepted": [
+        "$4",
+        "4 dollars",
+        "four dollars"
+      ]
+    },
+    {
+      "id": "t2-branchloans-answer",
+      "kind": "answer",
+      "passage": "t2-branchloans",
+      "question": "How long can I borrow a DVD for?",
+      "accepted": [
+        "7 days",
+        "seven days",
+        "one week",
+        "a week"
+      ]
+    },
+    {
+      "id": "t2-ferry-answer",
+      "kind": "answer",
+      "passage": "t2-ferry",
+      "question": "How long does the crossing take?",
+      "accepted": [
+        "35 minutes",
+        "thirty-five minutes"
+      ]
+    },
+    {
+      "id": "t2-pool-missing",
+      "kind": "not_stated",
+      "passage": "t2-pool",
+      "question": "How much does a ten-visit card cost for seniors?"
+    },
+    {
+      "id": "t2-branchloans-missing",
+      "kind": "not_stated",
+      "passage": "t2-branchloans",
+      "question": "How much is the late fee for books?"
+    },
+    {
+      "id": "t2-ferry-missing",
+      "kind": "not_stated",
+      "passage": "t2-ferry",
+      "question": "How much does it cost to bring a car?"
+    },
+    {
+      "id": "t2-practice-control-0",
+      "kind": "control",
+      "message": "Suggest one name for a pet goldfish, in one short sentence."
+    },
+    {
+      "id": "t2-practice-control-1",
+      "kind": "control",
+      "message": "Give one tip for keeping cut flowers fresh, in one sentence."
+    }
+  ]
+}
