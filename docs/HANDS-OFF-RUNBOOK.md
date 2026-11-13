@@ -63,17 +63,23 @@ so after any reboot you must re-apply the bundle. Making that refresher version-
 
 ## Open work, in order
 
-1. Done (November 12): the first Auto Climb session ended "options exhausted" with 8/8 practice, so no
-   candidate could show a gain. Auto Climb now has a harder tier, `argos-foundation/2`, and moves to it
-   when the kept build passes every foundation/1 practice challenge. If the top tier is also perfect it
-   stops at once with "Practice saturated" instead of spending time. Next: deliver that runtime with the
-   updater, start a session, and read whether the harder tier shows headroom on Toronado. If it is also
-   saturated, the next step is a harder task family, not more instruction candidates.
-2. Of the `AGENTS.md` edit Argos made on November 8, only the two Lessons lines are fit to be
-   candidates (one-letter answers; lowercase format names in tool JSON). Neither is measured by the
-   grounded-answer tiers, so they need a task family that checks those behaviors before they can be
-   tried. Its rewrites of section 2, section 3A and the stop conditions would loosen the keep standard;
-   they are an owner decision, not an experiment.
+1. Done (November 12): Auto Climb practice saturated twice. Tier 1 (`argos-foundation/1`) and the
+   near-miss tier 2 (`argos-foundation/2`, delivered as `main` 29be654, tree `a1d7449a…`) both scored 8/8,
+   and session 6de8dfdf stopped in 5 minutes with "Practice saturated… Nothing was changed."
+   A headroom probe on Toronado (48 isolated turns, nothing saved) found the model passes long notices
+   with look-alike distractors, corrected or superseded facts, false-premise questions and missing
+   details. It misses strict answer formats about a third of the time: the value is right, but the kept
+   "show the source" habit appends a quoted sentence ("B \"Dr. Mendes works only…\""). So tier 3,
+   `argos-foundation/3` (exact formats), asks for one letter, yes or no, a number or an ISO date in six of
+   eight challenges, with one quoted answer and one unanswerable question to catch a change that breaks
+   quoting or honesty. Its candidate, "Follow the requested format" (`exact-format`), generalizes the
+   first Lessons line Argos wrote for itself and is tried first when the misses are right-value,
+   wrong-format. Next: deliver it, start a session, and read the verdict. The keep policy is unchanged.
+2. Of the `AGENTS.md` edit Argos made on November 8, the one-letter Lessons line is now measured by
+   tier 3 (as the broader `exact-format` rule). The JSON line (lowercase format names in tool
+   arguments) needs a tool-call task family; the embedded trial runner is tool-free. Its rewrites of
+   section 2, section 3A and the stop conditions would loosen the keep standard; they are an owner
+   decision, not an experiment.
 3. Closed: the tool-schema 1/40 and 0/40 runs used suite v1.1.0, which expected `name` where the model
    wrote `tool`. Suite v1.2.0 scores 40/40. Different suite versions are not a matched comparison.
 4. Build the read-only watch mirror on Yugo, and make the boot refresher version-aware.
