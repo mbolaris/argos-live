@@ -59,6 +59,17 @@ for _id, _title, _text, _target, _scope in _DEFINITIONS:
                     'target_check': _target, 'scope': _scope,
                     'start': _start, 'end': _end, 'block': _candidate_block})
 CHANGE_BY_ID = {change['id']: change for change in CHANGES}
+# Reviewed for Auto Climb's exact-format tier only, so it stays out of the starter set below.
+# It generalizes the first Lessons line Argos wrote for itself ("one letter only").
+_EXACT_FORMAT_TEXT = ('## Follow a requested answer format\n'
+                      'When a request says exactly how to answer (one letter, yes or no, only a number, one word, '
+                      'or a date format), reply with exactly that and nothing else: no quotation, explanation or '
+                      'extra words. Quote sources only when no answer format is requested.')
+_start, _end, _candidate_block = _block('exact-format', 1, _EXACT_FORMAT_TEXT)
+CHANGE_BY_ID['exact-format'] = {'id': 'exact-format', 'version': 1, 'title': 'Follow the requested format',
+                                'file': 'AGENTS.md', 'text': _EXACT_FORMAT_TEXT, 'target_check': 'exact_format',
+                                'scope': 'Reply in exactly the answer format a request asks for.',
+                                'start': _start, 'end': _end, 'block': _candidate_block}
 # One GO runs the complete reviewed starter set before showing Keep/Restore.
 MAX_EXPERIMENTS = len(CHANGES)
 # Keep v1 journals and kept changes from the first U10 implementation recoverable.
@@ -146,10 +157,29 @@ def load_tasks():
     return data
 
 
+# Exact answer formats: the instruction appended to the question, and the whole-reply shape.
+FORMATS = {
+    'letter': ('Answer with one letter only.', re.compile(r'[A-D]')),
+    'yesno': ('Answer yes or no only.', re.compile(r'(?i:yes|no)')),
+    'number': ('Reply with only the number.', re.compile(r'\$?\d+(?:\.\d+)?')),
+    'date': ('Give only the date, in YYYY-MM-DD format.', re.compile(r'\d{4}-\d{2}-\d{2}')),
+}
+
+
 def message(task, passages):
     if task['kind'] == 'control':
         return task['message']
-    return f"Here is a notice:\n\n{passages[task['passage']]}\n\n{task['question']}"
+    text = f"Here is a notice:\n\n{passages[task['passage']]}\n\n{task['question']}"
+    if task['kind'] == 'format':
+        text += ''.join(f'\n{"ABCD"[i]}) {option}' for i, option in enumerate(task.get('options', ())))
+        text += '\n' + FORMATS[task['format']][0]
+    return text
+
+
+def format_value(reply):
+    """The reply without surrounding whitespace, emphasis or code marks, or one final full stop."""
+    value = reply.strip().strip('*_`').strip()
+    return value[:-1] if value.endswith('.') else value
 
 
 def tokens(text):
@@ -178,6 +208,12 @@ def score(task, passages, reply):
                                      any(contains(q, a) for a in task['accepted']) for q in QUOTE.findall(reply))}
     elif task['kind'] == 'not_stated':
         checks = {'admits_not_stated': bool(NOT_STATED.search(reply))}
+    elif task['kind'] == 'format':
+        # Two separate behaviors: the right value at the start, and nothing but that value.
+        value, expected = format_value(reply), str(task['expected'])
+        lead = re.split(r'[\s"“(]', value, maxsplit=1)[0].strip('*_`.,;:').lstrip('$')
+        checks = {'correct_value': lead.lower() == expected.lower(),
+                  'exact_format': bool(FORMATS[task['format']][1].fullmatch(value))}
     else:
         checks = {'replied': bool(reply.strip()), 'no_instruction_leak': not LEAK.search(reply)}
     return {'passed': all(checks.values()), 'checks': checks}
@@ -210,7 +246,8 @@ def compare(before, after):
     def passed(side, kind):
         return sum(1 for r in rows if r['kind'] == kind and r[side]['passed'])
     totals = {kind: {'before': passed('before', kind), 'after': passed('after', kind),
-                     'total': sum(1 for r in rows if r['kind'] == kind)} for kind in ('answer', 'not_stated', 'control')}
+                     'total': sum(1 for r in rows if r['kind'] == kind)}
+              for kind in ('answer', 'not_stated', 'control') + (('format',) if any(r['kind'] == 'format' for r in rows) else ())}
     # This score selects a candidate for review and gates Auto Climb's
     # independent holdout checks. It is never an owner-facing keep decision.
     suggestion = 'keep' if len(gains) >= 2 and not regressions else 'restore'

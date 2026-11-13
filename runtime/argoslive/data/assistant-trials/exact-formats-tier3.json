@@ -1,0 +1,95 @@
+{
+  "schema": "argos-assistant-tasks/1",
+  "version": "3.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "curriculum": "argos-foundation/3",
+  "change": "grounded-answers",
+  "note": "Exact-format tier, used when a build already passes every foundation/2 practice challenge. Six of eight challenges ask for a strict answer format (one letter, yes or no, a number, an ISO date); one asks for a quoted answer and one is unanswerable, so a change that breaks quoting or honesty shows as a regression. Picked from a November 2026 headroom probe on the production model, where format answers failed about a third of the time because a supporting quote was appended.",
+  "passages": {
+    "t3-garden": "The garden club meets on the second Tuesday of each month in the main hall of the town library. Correction to last month's newsletter: while the main hall is being repainted, meetings will be held in the library annex.",
+    "t3-clinic": "Harbor Family Clinic schedule. Dr. Lindqvist sees patients at the Downtown office on Mondays and Wednesdays and at the Riverside office on Fridays. Dr. Okafor sees patients at the Downtown office on Tuesdays and at the Riverside office on Thursdays. Dr. Mendes works only at the Riverside office, on Mondays.",
+    "t3-reunion": "The Hillcrest High class reunion will be on the evening of June 14, 2027, at the Riverside Hotel ballroom. Tickets are $45 and include dinner. Please RSVP to the reunion committee by May 30, 2027.",
+    "t3-fines": "Westbrook Library late fees. Children's books and magazines have no late fees. Adult books are charged 25 cents per day. Adult DVDs and video games are charged $1.50 per day, up to a maximum of $10 per item.",
+    "t3-center": "Maple Grove Community Center autumn programs. Advanced woodworking meets on Tuesday evenings in Room 12 and costs $95 for the eight-week term. Beginner woodworking meets on Thursday evenings in Room 14 and costs $80 for the same term. Watercolor painting meets on Wednesday mornings in the Garden Studio.",
+    "t3-conf": "Regional Teachers Conference, Saturday program. The opening talk by Priya Raman starts at 9:00 a.m. in the auditorium. Workshops run until the lunch break at 12:30 p.m. After lunch, Daniel Osei gives the second keynote at 1:30 p.m., followed by a panel led by Maria Costa at 2:45 p.m.",
+    "t3-stadium": "Parking at the stadium costs $20 for cars and $40 for buses and RVs. Bicycles can be locked at the racks by Gate C at no charge."
+  },
+  "tasks": [
+    {
+      "id": "t3-garden-letter",
+      "kind": "format",
+      "format": "letter",
+      "passage": "t3-garden",
+      "question": "Where will the garden club meet during the repainting?",
+      "options": [
+        "The main hall",
+        "The town hall",
+        "The library annex",
+        "Online"
+      ],
+      "expected": "C"
+    },
+    {
+      "id": "t3-clinic-letter",
+      "kind": "format",
+      "format": "letter",
+      "passage": "t3-clinic",
+      "question": "Where does Dr. Mendes work?",
+      "options": [
+        "Downtown office only",
+        "Riverside office only",
+        "Both offices",
+        "Neither office"
+      ],
+      "expected": "B"
+    },
+    {
+      "id": "t3-reunion-rsvp-date",
+      "kind": "format",
+      "format": "date",
+      "passage": "t3-reunion",
+      "question": "What is the RSVP deadline for the reunion?",
+      "expected": "2027-05-30"
+    },
+    {
+      "id": "t3-reunion-date",
+      "kind": "format",
+      "format": "date",
+      "passage": "t3-reunion",
+      "question": "On what date is the Hillcrest High reunion?",
+      "expected": "2027-06-14"
+    },
+    {
+      "id": "t3-fines-yesno",
+      "kind": "format",
+      "format": "yesno",
+      "passage": "t3-fines",
+      "question": "Do children's books have late fees at Westbrook Library?",
+      "expected": "no"
+    },
+    {
+      "id": "t3-center-number",
+      "kind": "format",
+      "format": "number",
+      "passage": "t3-center",
+      "question": "What room number is the beginner woodworking class in?",
+      "expected": "14"
+    },
+    {
+      "id": "t3-conf-answer",
+      "kind": "answer",
+      "passage": "t3-conf",
+      "question": "Who speaks first after the lunch break at the conference?",
+      "accepted": [
+        "Daniel Osei"
+      ]
+    },
+    {
+      "id": "t3-stadium-missing",
+      "kind": "not_stated",
+      "passage": "t3-stadium",
+      "question": "How much does motorcycle parking cost at the stadium?"
+    }
+  ]
+}

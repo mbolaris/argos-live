@@ -97,6 +97,8 @@ class TierRunner:
             return f'{answer}. "{sentence}"'
         if task['kind'] == 'not_stated':
             return 'The notice does not say.'
+        if task['kind'] == 'format':
+            return task['expected']
         return 'Try a warm scarf.'
 
 
@@ -116,6 +118,7 @@ class TierSwitchTests(unittest.TestCase):
         self.tiers = {
             'one': auto_climb.load_task_file(auto_climb.PRACTICE_TASKS_PATH),
             'two': auto_climb.load_task_file(auto_climb.TIER2_PRACTICE_TASKS_PATH),
+            'three': auto_climb.load_task_file(auto_climb.TIER3_PRACTICE_TASKS_PATH),
         }
 
     def tearDown(self):
@@ -141,7 +144,8 @@ class TierSwitchTests(unittest.TestCase):
     def test_default_controller_has_both_tiers_and_starts_on_the_first(self):
         controller = auto_climb.Controller(self.startup, home=self.home, runner=TierRunner(self.tiers, ()))
         try:
-            self.assertEqual([t['version'] for t in controller.curricula], ['argos-foundation/1', 'argos-foundation/2'])
+            self.assertEqual([t['version'] for t in controller.curricula], ['argos-foundation/1', 'argos-foundation/2',
+                                                                         'argos-foundation/3'])
             self.assertEqual(controller.curriculum_version, 'argos-foundation/1')
         finally:
             controller.close()
@@ -170,14 +174,22 @@ class TierSwitchTests(unittest.TestCase):
         self.assertEqual(len(runner.prompts), 16)
         self.assertIn('Practice options exhausted', snap['stopping_reason'])
 
-    def test_saturated_top_tier_stops_without_experiments(self):
+    def test_saturated_second_tier_moves_up_to_exact_formats(self):
         snap, session, runner = self.run_to_end(perfect_on=('one', 'two'))
+        self.assertEqual(session['curriculum_version'], 'argos-foundation/3')
+        self.assertEqual([s['curriculum_version'] for s in session['saturated_curricula']],
+                         ['argos-foundation/1', 'argos-foundation/2'])
+        self.assertEqual(len(runner.prompts), 24)
+        self.assertTrue(any(p.endswith('Answer with one letter only.') for p in runner.prompts[16:]))
+
+    def test_saturated_top_tier_stops_without_experiments(self):
+        snap, session, runner = self.run_to_end(perfect_on=('one', 'two', 'three'))
         self.assertEqual(snap['phase'], 'options-exhausted')
         self.assertIn('Practice saturated', snap['stopping_reason'])
         self.assertIn('Nothing was changed', snap['stopping_reason'])
-        self.assertEqual(len(session['saturated_curricula']), 2)
+        self.assertEqual(len(session['saturated_curricula']), 3)
         self.assertEqual(session['budgets_used']['completed_experiments'], 0)
-        self.assertEqual(len(runner.prompts), 16)
+        self.assertEqual(len(runner.prompts), 24)
         self.assertEqual((self.home / '.openclaw/workspace/AGENTS.md').read_text(), '# Operating notes\nBe concise.\n')
 
 

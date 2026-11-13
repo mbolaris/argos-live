@@ -1,0 +1,1371 @@
+{
+  "schema": "argos-assistant-tasks/1",
+  "version": "3.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "curriculum": "argos-foundation/3",
+  "change": "held-out-validation",
+  "note": "Held-out validation for the exact-format tier: 16 disjoint partitions, consumed on exposure. Kept out of prompts and reflection. Each partition is one generated event notice with six strict-format challenges, one quoted answer and one unanswerable question.",
+  "partitions": [
+    {
+      "id": "t3-val-p1",
+      "passages": {
+        "t3-spring-fundraiser-dinner": "The Ashford Rotary Club will hold its Spring Fundraiser Dinner on Friday, March 12, 2027, in Room 315 of the civic center. Adult tickets cost $8. Children under 12 attend free. Registration closes on February 26, 2027. Pets are not allowed, but service animals are welcome. Doors open at 5 p.m. Questions go to Esther Lindgren, the event coordinator. A smaller overflow room, Room 171, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-spring-fundraiser-dinner-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-spring-fundraiser-dinner",
+          "question": "Who coordinates the Spring Fundraiser Dinner?",
+          "options": [
+            "Dmitri Gallo",
+            "Esther Lindgren",
+            "Wendell Haddad",
+            "Amara Jansen"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-spring-fundraiser-dinner-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-spring-fundraiser-dinner",
+          "question": "In which room is the Spring Fundraiser Dinner held?",
+          "options": [
+            "Room 325",
+            "Room 305",
+            "Room 315",
+            "Room 171"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-spring-fundraiser-dinner-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-spring-fundraiser-dinner",
+          "question": "On what date is the Spring Fundraiser Dinner?",
+          "expected": "2027-03-12"
+        },
+        {
+          "id": "t3-spring-fundraiser-dinner-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-spring-fundraiser-dinner",
+          "question": "When does registration for the Spring Fundraiser Dinner close?",
+          "expected": "2027-02-26"
+        },
+        {
+          "id": "t3-spring-fundraiser-dinner-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-spring-fundraiser-dinner",
+          "question": "Do children under 12 attend the Spring Fundraiser Dinner for free?",
+          "expected": "yes"
+        },
+        {
+          "id": "t3-spring-fundraiser-dinner-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-spring-fundraiser-dinner",
+          "question": "How much is an adult ticket for the Spring Fundraiser Dinner, in dollars?",
+          "expected": "8"
+        },
+        {
+          "id": "t3-spring-fundraiser-dinner-doors-answer",
+          "kind": "answer",
+          "passage": "t3-spring-fundraiser-dinner",
+          "question": "What time do doors open for the Spring Fundraiser Dinner?",
+          "accepted": [
+            "5 p.m.",
+            "5 pm",
+            "5:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-spring-fundraiser-dinner-missing",
+          "kind": "not_stated",
+          "passage": "t3-spring-fundraiser-dinner",
+          "question": "How much does parking cost at the Spring Fundraiser Dinner?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p2",
+      "passages": {
+        "t3-used-book-fair": "The Birchwood Library Friends will hold its Used Book Fair on Friday, July 30, 2027, in Room 232 of the civic center. Adult tickets cost $25. Children under 12 pay half price, $12.5. Registration closes on July 21, 2027. Pets are not allowed, but service animals are welcome. Doors open at 6 p.m. Questions go to Jonas Gallo, the event coordinator. A smaller overflow room, Room 156, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-used-book-fair-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-used-book-fair",
+          "question": "Who coordinates the Used Book Fair?",
+          "options": [
+            "Amara Eriksen",
+            "Luis Okonkwo",
+            "Jonas Gallo",
+            "Rosa Gallo"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-used-book-fair-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-used-book-fair",
+          "question": "In which room is the Used Book Fair held?",
+          "options": [
+            "Room 156",
+            "Room 222",
+            "Room 232",
+            "Room 242"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-used-book-fair-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-used-book-fair",
+          "question": "On what date is the Used Book Fair?",
+          "expected": "2027-07-30"
+        },
+        {
+          "id": "t3-used-book-fair-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-used-book-fair",
+          "question": "When does registration for the Used Book Fair close?",
+          "expected": "2027-07-21"
+        },
+        {
+          "id": "t3-used-book-fair-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-used-book-fair",
+          "question": "Can I bring my pet dog (not a service animal) to the Used Book Fair?",
+          "expected": "no"
+        },
+        {
+          "id": "t3-used-book-fair-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-used-book-fair",
+          "question": "How much is an adult ticket for the Used Book Fair, in dollars?",
+          "expected": "25"
+        },
+        {
+          "id": "t3-used-book-fair-doors-answer",
+          "kind": "answer",
+          "passage": "t3-used-book-fair",
+          "question": "What time do doors open for the Used Book Fair?",
+          "accepted": [
+            "6 p.m.",
+            "6 pm",
+            "6:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-used-book-fair-missing",
+          "kind": "not_stated",
+          "passage": "t3-used-book-fair",
+          "question": "What time does the Used Book Fair end?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p3",
+      "passages": {
+        "t3-harbor-regatta": "The Cobalt Bay Rowing Club will hold its Harbor Regatta on Thursday, October 14, 2027, in Room 312 of the civic center. Adult tickets cost $15. Children under 12 attend free. Registration closes on October 4, 2027. Pets are not allowed, but service animals are welcome. Doors open at 7 p.m. Questions go to Bruno Nakamura, the event coordinator. A smaller overflow room, Room 256, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-harbor-regatta-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-harbor-regatta",
+          "question": "Who coordinates the Harbor Regatta?",
+          "options": [
+            "Nikhil Dubois",
+            "Bruno Nakamura",
+            "Dmitri Haddad",
+            "Celine Ivanova"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-harbor-regatta-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-harbor-regatta",
+          "question": "In which room is the Harbor Regatta held?",
+          "options": [
+            "Room 302",
+            "Room 322",
+            "Room 312",
+            "Room 256"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-harbor-regatta-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-harbor-regatta",
+          "question": "On what date is the Harbor Regatta?",
+          "expected": "2027-10-14"
+        },
+        {
+          "id": "t3-harbor-regatta-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-harbor-regatta",
+          "question": "When does registration for the Harbor Regatta close?",
+          "expected": "2027-10-04"
+        },
+        {
+          "id": "t3-harbor-regatta-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-harbor-regatta",
+          "question": "Do children under 12 attend the Harbor Regatta for free?",
+          "expected": "yes"
+        },
+        {
+          "id": "t3-harbor-regatta-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-harbor-regatta",
+          "question": "How much is an adult ticket for the Harbor Regatta, in dollars?",
+          "expected": "15"
+        },
+        {
+          "id": "t3-harbor-regatta-doors-answer",
+          "kind": "answer",
+          "passage": "t3-harbor-regatta",
+          "question": "What time do doors open for the Harbor Regatta?",
+          "accepted": [
+            "7 p.m.",
+            "7 pm",
+            "7:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-harbor-regatta-missing",
+          "kind": "not_stated",
+          "passage": "t3-harbor-regatta",
+          "question": "Is there a dress code for the Harbor Regatta? What is it?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p4",
+      "passages": {
+        "t3-winter-concert": "The Dunmore Choral Society will hold its Winter Concert on Monday, April 19, 2027, in Room 318 of the civic center. Adult tickets cost $12. Children under 12 pay half price, $6. Registration closes on April 1, 2027. Pets are not allowed, but service animals are welcome. Doors open at 7 p.m. Questions go to Bruno Eriksen, the event coordinator. A smaller overflow room, Room 257, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-winter-concert-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-winter-concert",
+          "question": "Who coordinates the Winter Concert?",
+          "options": [
+            "Bruno Eriksen",
+            "Bruno Gallo",
+            "Oona Castillo",
+            "Keiko Achebe"
+          ],
+          "expected": "A"
+        },
+        {
+          "id": "t3-winter-concert-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-winter-concert",
+          "question": "In which room is the Winter Concert held?",
+          "options": [
+            "Room 308",
+            "Room 257",
+            "Room 328",
+            "Room 318"
+          ],
+          "expected": "D"
+        },
+        {
+          "id": "t3-winter-concert-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-winter-concert",
+          "question": "On what date is the Winter Concert?",
+          "expected": "2027-04-19"
+        },
+        {
+          "id": "t3-winter-concert-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-winter-concert",
+          "question": "When does registration for the Winter Concert close?",
+          "expected": "2027-04-01"
+        },
+        {
+          "id": "t3-winter-concert-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-winter-concert",
+          "question": "Can I bring my pet dog (not a service animal) to the Winter Concert?",
+          "expected": "no"
+        },
+        {
+          "id": "t3-winter-concert-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-winter-concert",
+          "question": "How much is an adult ticket for the Winter Concert, in dollars?",
+          "expected": "12"
+        },
+        {
+          "id": "t3-winter-concert-doors-answer",
+          "kind": "answer",
+          "passage": "t3-winter-concert",
+          "question": "What time do doors open for the Winter Concert?",
+          "accepted": [
+            "7 p.m.",
+            "7 pm",
+            "7:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-winter-concert-missing",
+          "kind": "not_stated",
+          "passage": "t3-winter-concert",
+          "question": "How much does parking cost at the Winter Concert?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p5",
+      "passages": {
+        "t3-night-sky-viewing": "The Elmhurst Astronomy Club will hold its Night Sky Viewing on Thursday, January 21, 2027, in Room 155 of the civic center. Adult tickets cost $25. Children under 12 attend free. Registration closes on December 29, 2026. Pets are not allowed, but service animals are welcome. Doors open at 6 p.m. Questions go to Celine Quinn, the event coordinator. A smaller overflow room, Room 292, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-night-sky-viewing-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-night-sky-viewing",
+          "question": "Who coordinates the Night Sky Viewing?",
+          "options": [
+            "Amara Petrov",
+            "Pavel Haddad",
+            "Celine Quinn",
+            "Hiro Quinn"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-night-sky-viewing-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-night-sky-viewing",
+          "question": "In which room is the Night Sky Viewing held?",
+          "options": [
+            "Room 165",
+            "Room 145",
+            "Room 292",
+            "Room 155"
+          ],
+          "expected": "D"
+        },
+        {
+          "id": "t3-night-sky-viewing-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-night-sky-viewing",
+          "question": "On what date is the Night Sky Viewing?",
+          "expected": "2027-01-21"
+        },
+        {
+          "id": "t3-night-sky-viewing-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-night-sky-viewing",
+          "question": "When does registration for the Night Sky Viewing close?",
+          "expected": "2026-12-29"
+        },
+        {
+          "id": "t3-night-sky-viewing-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-night-sky-viewing",
+          "question": "Do children under 12 attend the Night Sky Viewing for free?",
+          "expected": "yes"
+        },
+        {
+          "id": "t3-night-sky-viewing-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-night-sky-viewing",
+          "question": "How much is an adult ticket for the Night Sky Viewing, in dollars?",
+          "expected": "25"
+        },
+        {
+          "id": "t3-night-sky-viewing-doors-answer",
+          "kind": "answer",
+          "passage": "t3-night-sky-viewing",
+          "question": "What time do doors open for the Night Sky Viewing?",
+          "accepted": [
+            "6 p.m.",
+            "6 pm",
+            "6:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-night-sky-viewing-missing",
+          "kind": "not_stated",
+          "passage": "t3-night-sky-viewing",
+          "question": "What time does the Night Sky Viewing end?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p6",
+      "passages": {
+        "t3-rapid-chess-open": "The Fairview Chess League will hold its Rapid Chess Open on Tuesday, April 13, 2027, in Room 235 of the civic center. Adult tickets cost $15. Children under 12 pay half price, $7.5. Registration closes on April 4, 2027. Pets are not allowed, but service animals are welcome. Doors open at 5 p.m. Questions go to Hiro Nakamura, the event coordinator. A smaller overflow room, Room 190, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-rapid-chess-open-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-rapid-chess-open",
+          "question": "Who coordinates the Rapid Chess Open?",
+          "options": [
+            "Amara Haddad",
+            "Rosa Okonkwo",
+            "Hiro Nakamura",
+            "Mirela Petrov"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-rapid-chess-open-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-rapid-chess-open",
+          "question": "In which room is the Rapid Chess Open held?",
+          "options": [
+            "Room 225",
+            "Room 235",
+            "Room 245",
+            "Room 190"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-rapid-chess-open-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-rapid-chess-open",
+          "question": "On what date is the Rapid Chess Open?",
+          "expected": "2027-04-13"
+        },
+        {
+          "id": "t3-rapid-chess-open-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-rapid-chess-open",
+          "question": "When does registration for the Rapid Chess Open close?",
+          "expected": "2027-04-04"
+        },
+        {
+          "id": "t3-rapid-chess-open-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-rapid-chess-open",
+          "question": "Can I bring my pet dog (not a service animal) to the Rapid Chess Open?",
+          "expected": "no"
+        },
+        {
+          "id": "t3-rapid-chess-open-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-rapid-chess-open",
+          "question": "How much is an adult ticket for the Rapid Chess Open, in dollars?",
+          "expected": "15"
+        },
+        {
+          "id": "t3-rapid-chess-open-doors-answer",
+          "kind": "answer",
+          "passage": "t3-rapid-chess-open",
+          "question": "What time do doors open for the Rapid Chess Open?",
+          "accepted": [
+            "5 p.m.",
+            "5 pm",
+            "5:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-rapid-chess-open-missing",
+          "kind": "not_stated",
+          "passage": "t3-rapid-chess-open",
+          "question": "Is there a dress code for the Rapid Chess Open? What is it?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p7",
+      "passages": {
+        "t3-heritage-walking-tour": "The Glenwood Historical Society will hold its Heritage Walking Tour on Saturday, November 27, 2027, in Room 141 of the civic center. Adult tickets cost $20. Children under 12 attend free. Registration closes on November 9, 2027. Pets are not allowed, but service animals are welcome. Doors open at 5 p.m. Questions go to Soren Haddad, the event coordinator. A smaller overflow room, Room 266, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-heritage-walking-tour-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-heritage-walking-tour",
+          "question": "Who coordinates the Heritage Walking Tour?",
+          "options": [
+            "Umar Achebe",
+            "Soren Lindgren",
+            "Soren Haddad",
+            "Hiro Petrov"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-heritage-walking-tour-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-heritage-walking-tour",
+          "question": "In which room is the Heritage Walking Tour held?",
+          "options": [
+            "Room 266",
+            "Room 131",
+            "Room 141",
+            "Room 151"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-heritage-walking-tour-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-heritage-walking-tour",
+          "question": "On what date is the Heritage Walking Tour?",
+          "expected": "2027-11-27"
+        },
+        {
+          "id": "t3-heritage-walking-tour-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-heritage-walking-tour",
+          "question": "When does registration for the Heritage Walking Tour close?",
+          "expected": "2027-11-09"
+        },
+        {
+          "id": "t3-heritage-walking-tour-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-heritage-walking-tour",
+          "question": "Do children under 12 attend the Heritage Walking Tour for free?",
+          "expected": "yes"
+        },
+        {
+          "id": "t3-heritage-walking-tour-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-heritage-walking-tour",
+          "question": "How much is an adult ticket for the Heritage Walking Tour, in dollars?",
+          "expected": "20"
+        },
+        {
+          "id": "t3-heritage-walking-tour-doors-answer",
+          "kind": "answer",
+          "passage": "t3-heritage-walking-tour",
+          "question": "What time do doors open for the Heritage Walking Tour?",
+          "accepted": [
+            "5 p.m.",
+            "5 pm",
+            "5:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-heritage-walking-tour-missing",
+          "kind": "not_stated",
+          "passage": "t3-heritage-walking-tour",
+          "question": "How much does parking cost at the Heritage Walking Tour?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p8",
+      "passages": {
+        "t3-riverside-10k": "The Hartley Running Club will hold its Riverside 10K on Friday, June 18, 2027, in Room 228 of the civic center. Adult tickets cost $15. Children under 12 pay half price, $7.5. Registration closes on June 2, 2027. Pets are not allowed, but service animals are welcome. Doors open at 7 p.m. Questions go to Mirela Sato, the event coordinator. A smaller overflow room, Room 178, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-riverside-10k-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-riverside-10k",
+          "question": "Who coordinates the Riverside 10K?",
+          "options": [
+            "Mirela Sato",
+            "Greta Nakamura",
+            "Luis Castillo",
+            "Soren Sato"
+          ],
+          "expected": "A"
+        },
+        {
+          "id": "t3-riverside-10k-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-riverside-10k",
+          "question": "In which room is the Riverside 10K held?",
+          "options": [
+            "Room 218",
+            "Room 178",
+            "Room 238",
+            "Room 228"
+          ],
+          "expected": "D"
+        },
+        {
+          "id": "t3-riverside-10k-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-riverside-10k",
+          "question": "On what date is the Riverside 10K?",
+          "expected": "2027-06-18"
+        },
+        {
+          "id": "t3-riverside-10k-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-riverside-10k",
+          "question": "When does registration for the Riverside 10K close?",
+          "expected": "2027-06-02"
+        },
+        {
+          "id": "t3-riverside-10k-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-riverside-10k",
+          "question": "Can I bring my pet dog (not a service animal) to the Riverside 10K?",
+          "expected": "no"
+        },
+        {
+          "id": "t3-riverside-10k-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-riverside-10k",
+          "question": "How much is an adult ticket for the Riverside 10K, in dollars?",
+          "expected": "15"
+        },
+        {
+          "id": "t3-riverside-10k-doors-answer",
+          "kind": "answer",
+          "passage": "t3-riverside-10k",
+          "question": "What time do doors open for the Riverside 10K?",
+          "accepted": [
+            "7 p.m.",
+            "7 pm",
+            "7:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-riverside-10k-missing",
+          "kind": "not_stated",
+          "passage": "t3-riverside-10k",
+          "question": "What time does the Riverside 10K end?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p9",
+      "passages": {
+        "t3-quilt-show": "The Ironbridge Quilters will hold its Quilt Show on Sunday, September 19, 2027, in Room 252 of the civic center. Adult tickets cost $12. Children under 12 attend free. Registration closes on August 27, 2027. Pets are not allowed, but service animals are welcome. Doors open at 7 p.m. Questions go to Vera Kowalski, the event coordinator. A smaller overflow room, Room 134, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-quilt-show-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-quilt-show",
+          "question": "Who coordinates the Quilt Show?",
+          "options": [
+            "Mirela Jansen",
+            "Umar Kowalski",
+            "Wendell Nakamura",
+            "Vera Kowalski"
+          ],
+          "expected": "D"
+        },
+        {
+          "id": "t3-quilt-show-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-quilt-show",
+          "question": "In which room is the Quilt Show held?",
+          "options": [
+            "Room 252",
+            "Room 242",
+            "Room 134",
+            "Room 262"
+          ],
+          "expected": "A"
+        },
+        {
+          "id": "t3-quilt-show-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-quilt-show",
+          "question": "On what date is the Quilt Show?",
+          "expected": "2027-09-19"
+        },
+        {
+          "id": "t3-quilt-show-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-quilt-show",
+          "question": "When does registration for the Quilt Show close?",
+          "expected": "2027-08-27"
+        },
+        {
+          "id": "t3-quilt-show-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-quilt-show",
+          "question": "Do children under 12 attend the Quilt Show for free?",
+          "expected": "yes"
+        },
+        {
+          "id": "t3-quilt-show-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-quilt-show",
+          "question": "How much is an adult ticket for the Quilt Show, in dollars?",
+          "expected": "12"
+        },
+        {
+          "id": "t3-quilt-show-doors-answer",
+          "kind": "answer",
+          "passage": "t3-quilt-show",
+          "question": "What time do doors open for the Quilt Show?",
+          "accepted": [
+            "7 p.m.",
+            "7 pm",
+            "7:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-quilt-show-missing",
+          "kind": "not_stated",
+          "passage": "t3-quilt-show",
+          "question": "Is there a dress code for the Quilt Show? What is it?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p10",
+      "passages": {
+        "t3-seed-swap": "The Juniper Hill Garden Trust will hold its Seed Swap on Saturday, March 20, 2027, in Room 256 of the civic center. Adult tickets cost $30. Children under 12 pay half price, $15. Registration closes on March 10, 2027. Pets are not allowed, but service animals are welcome. Doors open at 7 p.m. Questions go to Keiko Brandt, the event coordinator. A smaller overflow room, Room 110, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-seed-swap-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-seed-swap",
+          "question": "Who coordinates the Seed Swap?",
+          "options": [
+            "Soren Kowalski",
+            "Imani Kowalski",
+            "Keiko Brandt",
+            "Tamsin Moreau"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-seed-swap-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-seed-swap",
+          "question": "In which room is the Seed Swap held?",
+          "options": [
+            "Room 246",
+            "Room 256",
+            "Room 266",
+            "Room 110"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-seed-swap-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-seed-swap",
+          "question": "On what date is the Seed Swap?",
+          "expected": "2027-03-20"
+        },
+        {
+          "id": "t3-seed-swap-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-seed-swap",
+          "question": "When does registration for the Seed Swap close?",
+          "expected": "2027-03-10"
+        },
+        {
+          "id": "t3-seed-swap-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-seed-swap",
+          "question": "Can I bring my pet dog (not a service animal) to the Seed Swap?",
+          "expected": "no"
+        },
+        {
+          "id": "t3-seed-swap-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-seed-swap",
+          "question": "How much is an adult ticket for the Seed Swap, in dollars?",
+          "expected": "30"
+        },
+        {
+          "id": "t3-seed-swap-doors-answer",
+          "kind": "answer",
+          "passage": "t3-seed-swap",
+          "question": "What time do doors open for the Seed Swap?",
+          "accepted": [
+            "7 p.m.",
+            "7 pm",
+            "7:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-seed-swap-missing",
+          "kind": "not_stated",
+          "passage": "t3-seed-swap",
+          "question": "How much does parking cost at the Seed Swap?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p11",
+      "passages": {
+        "t3-dawn-chorus-walk": "The Kestrel Valley Birders will hold its Dawn Chorus Walk on Saturday, April 10, 2027, in Room 148 of the civic center. Adult tickets cost $25. Children under 12 attend free. Registration closes on March 28, 2027. Pets are not allowed, but service animals are welcome. Doors open at 5 p.m. Questions go to Hiro Eriksen, the event coordinator. A smaller overflow room, Room 261, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-dawn-chorus-walk-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-dawn-chorus-walk",
+          "question": "Who coordinates the Dawn Chorus Walk?",
+          "options": [
+            "Dmitri Ivanova",
+            "Hiro Eriksen",
+            "Vera Lindgren",
+            "Esther Eriksen"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-dawn-chorus-walk-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-dawn-chorus-walk",
+          "question": "In which room is the Dawn Chorus Walk held?",
+          "options": [
+            "Room 261",
+            "Room 148",
+            "Room 138",
+            "Room 158"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-dawn-chorus-walk-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-dawn-chorus-walk",
+          "question": "On what date is the Dawn Chorus Walk?",
+          "expected": "2027-04-10"
+        },
+        {
+          "id": "t3-dawn-chorus-walk-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-dawn-chorus-walk",
+          "question": "When does registration for the Dawn Chorus Walk close?",
+          "expected": "2027-03-28"
+        },
+        {
+          "id": "t3-dawn-chorus-walk-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-dawn-chorus-walk",
+          "question": "Do children under 12 attend the Dawn Chorus Walk for free?",
+          "expected": "yes"
+        },
+        {
+          "id": "t3-dawn-chorus-walk-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-dawn-chorus-walk",
+          "question": "How much is an adult ticket for the Dawn Chorus Walk, in dollars?",
+          "expected": "25"
+        },
+        {
+          "id": "t3-dawn-chorus-walk-doors-answer",
+          "kind": "answer",
+          "passage": "t3-dawn-chorus-walk",
+          "question": "What time do doors open for the Dawn Chorus Walk?",
+          "accepted": [
+            "5 p.m.",
+            "5 pm",
+            "5:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-dawn-chorus-walk-missing",
+          "kind": "not_stated",
+          "passage": "t3-dawn-chorus-walk",
+          "question": "What time does the Dawn Chorus Walk end?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p12",
+      "passages": {
+        "t3-silent-film-night": "The Larkspur Film Society will hold its Silent Film Night on Tuesday, November 2, 2027, in Room 127 of the civic center. Adult tickets cost $10. Children under 12 pay half price, $5. Registration closes on October 26, 2027. Pets are not allowed, but service animals are welcome. Doors open at 7 p.m. Questions go to Wendell Tremblay, the event coordinator. A smaller overflow room, Room 104, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-silent-film-night-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-silent-film-night",
+          "question": "Who coordinates the Silent Film Night?",
+          "options": [
+            "Mirela Gallo",
+            "Wendell Tremblay",
+            "Bruno Quinn",
+            "Jonas Castillo"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-silent-film-night-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-silent-film-night",
+          "question": "In which room is the Silent Film Night held?",
+          "options": [
+            "Room 117",
+            "Room 127",
+            "Room 137",
+            "Room 104"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-silent-film-night-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-silent-film-night",
+          "question": "On what date is the Silent Film Night?",
+          "expected": "2027-11-02"
+        },
+        {
+          "id": "t3-silent-film-night-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-silent-film-night",
+          "question": "When does registration for the Silent Film Night close?",
+          "expected": "2027-10-26"
+        },
+        {
+          "id": "t3-silent-film-night-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-silent-film-night",
+          "question": "Can I bring my pet dog (not a service animal) to the Silent Film Night?",
+          "expected": "no"
+        },
+        {
+          "id": "t3-silent-film-night-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-silent-film-night",
+          "question": "How much is an adult ticket for the Silent Film Night, in dollars?",
+          "expected": "10"
+        },
+        {
+          "id": "t3-silent-film-night-doors-answer",
+          "kind": "answer",
+          "passage": "t3-silent-film-night",
+          "question": "What time do doors open for the Silent Film Night?",
+          "accepted": [
+            "7 p.m.",
+            "7 pm",
+            "7:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-silent-film-night-missing",
+          "kind": "not_stated",
+          "passage": "t3-silent-film-night",
+          "question": "Is there a dress code for the Silent Film Night? What is it?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p13",
+      "passages": {
+        "t3-open-layout-day": "The Millbrook Model Railway Club will hold its Open Layout Day on Friday, November 19, 2027, in Room 198 of the civic center. Adult tickets cost $18. Children under 12 attend free. Registration closes on November 10, 2027. Pets are not allowed, but service animals are welcome. Doors open at 5 p.m. Questions go to Umar Eriksen, the event coordinator. A smaller overflow room, Room 251, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-open-layout-day-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-open-layout-day",
+          "question": "Who coordinates the Open Layout Day?",
+          "options": [
+            "Umar Eriksen",
+            "Vera Castillo",
+            "Vera Ivanova",
+            "Greta Sato"
+          ],
+          "expected": "A"
+        },
+        {
+          "id": "t3-open-layout-day-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-open-layout-day",
+          "question": "In which room is the Open Layout Day held?",
+          "options": [
+            "Room 188",
+            "Room 251",
+            "Room 208",
+            "Room 198"
+          ],
+          "expected": "D"
+        },
+        {
+          "id": "t3-open-layout-day-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-open-layout-day",
+          "question": "On what date is the Open Layout Day?",
+          "expected": "2027-11-19"
+        },
+        {
+          "id": "t3-open-layout-day-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-open-layout-day",
+          "question": "When does registration for the Open Layout Day close?",
+          "expected": "2027-11-10"
+        },
+        {
+          "id": "t3-open-layout-day-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-open-layout-day",
+          "question": "Do children under 12 attend the Open Layout Day for free?",
+          "expected": "yes"
+        },
+        {
+          "id": "t3-open-layout-day-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-open-layout-day",
+          "question": "How much is an adult ticket for the Open Layout Day, in dollars?",
+          "expected": "18"
+        },
+        {
+          "id": "t3-open-layout-day-doors-answer",
+          "kind": "answer",
+          "passage": "t3-open-layout-day",
+          "question": "What time do doors open for the Open Layout Day?",
+          "accepted": [
+            "5 p.m.",
+            "5 pm",
+            "5:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-open-layout-day-missing",
+          "kind": "not_stated",
+          "passage": "t3-open-layout-day",
+          "question": "How much does parking cost at the Open Layout Day?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p14",
+      "passages": {
+        "t3-portrait-workshop": "The Northgate Photography Circle will hold its Portrait Workshop on Monday, April 5, 2027, in Room 246 of the civic center. Adult tickets cost $25. Children under 12 pay half price, $12.5. Registration closes on March 14, 2027. Pets are not allowed, but service animals are welcome. Doors open at 6 p.m. Questions go to Keiko Castillo, the event coordinator. A smaller overflow room, Room 199, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-portrait-workshop-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-portrait-workshop",
+          "question": "Who coordinates the Portrait Workshop?",
+          "options": [
+            "Imani Achebe",
+            "Bruno Fontaine",
+            "Nikhil Ivanova",
+            "Keiko Castillo"
+          ],
+          "expected": "D"
+        },
+        {
+          "id": "t3-portrait-workshop-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-portrait-workshop",
+          "question": "In which room is the Portrait Workshop held?",
+          "options": [
+            "Room 199",
+            "Room 236",
+            "Room 246",
+            "Room 256"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-portrait-workshop-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-portrait-workshop",
+          "question": "On what date is the Portrait Workshop?",
+          "expected": "2027-04-05"
+        },
+        {
+          "id": "t3-portrait-workshop-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-portrait-workshop",
+          "question": "When does registration for the Portrait Workshop close?",
+          "expected": "2027-03-14"
+        },
+        {
+          "id": "t3-portrait-workshop-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-portrait-workshop",
+          "question": "Can I bring my pet dog (not a service animal) to the Portrait Workshop?",
+          "expected": "no"
+        },
+        {
+          "id": "t3-portrait-workshop-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-portrait-workshop",
+          "question": "How much is an adult ticket for the Portrait Workshop, in dollars?",
+          "expected": "25"
+        },
+        {
+          "id": "t3-portrait-workshop-doors-answer",
+          "kind": "answer",
+          "passage": "t3-portrait-workshop",
+          "question": "What time do doors open for the Portrait Workshop?",
+          "accepted": [
+            "6 p.m.",
+            "6 pm",
+            "6:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-portrait-workshop-missing",
+          "kind": "not_stated",
+          "passage": "t3-portrait-workshop",
+          "question": "What time does the Portrait Workshop end?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p15",
+      "passages": {
+        "t3-honey-harvest-fair": "The Oakridge Beekeepers will hold its Honey Harvest Fair on Sunday, March 14, 2027, in Room 118 of the civic center. Adult tickets cost $25. Children under 12 attend free. Registration closes on February 18, 2027. Pets are not allowed, but service animals are welcome. Doors open at 5 p.m. Questions go to Nikhil Fontaine, the event coordinator. A smaller overflow room, Room 135, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-honey-harvest-fair-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-honey-harvest-fair",
+          "question": "Who coordinates the Honey Harvest Fair?",
+          "options": [
+            "Tamsin Rahman",
+            "Luis Fontaine",
+            "Rosa Sato",
+            "Nikhil Fontaine"
+          ],
+          "expected": "D"
+        },
+        {
+          "id": "t3-honey-harvest-fair-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-honey-harvest-fair",
+          "question": "In which room is the Honey Harvest Fair held?",
+          "options": [
+            "Room 135",
+            "Room 118",
+            "Room 108",
+            "Room 128"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-honey-harvest-fair-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-honey-harvest-fair",
+          "question": "On what date is the Honey Harvest Fair?",
+          "expected": "2027-03-14"
+        },
+        {
+          "id": "t3-honey-harvest-fair-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-honey-harvest-fair",
+          "question": "When does registration for the Honey Harvest Fair close?",
+          "expected": "2027-02-18"
+        },
+        {
+          "id": "t3-honey-harvest-fair-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-honey-harvest-fair",
+          "question": "Do children under 12 attend the Honey Harvest Fair for free?",
+          "expected": "yes"
+        },
+        {
+          "id": "t3-honey-harvest-fair-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-honey-harvest-fair",
+          "question": "How much is an adult ticket for the Honey Harvest Fair, in dollars?",
+          "expected": "25"
+        },
+        {
+          "id": "t3-honey-harvest-fair-doors-answer",
+          "kind": "answer",
+          "passage": "t3-honey-harvest-fair",
+          "question": "What time do doors open for the Honey Harvest Fair?",
+          "accepted": [
+            "5 p.m.",
+            "5 pm",
+            "5:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-honey-harvest-fair-missing",
+          "kind": "not_stated",
+          "passage": "t3-honey-harvest-fair",
+          "question": "Is there a dress code for the Honey Harvest Fair? What is it?"
+        }
+      ]
+    },
+    {
+      "id": "t3-val-p16",
+      "passages": {
+        "t3-one-act-play-festival": "The Pinecrest Drama Guild will hold its One-Act Play Festival on Tuesday, October 19, 2027, in Room 145 of the civic center. Adult tickets cost $20. Children under 12 pay half price, $10. Registration closes on October 3, 2027. Pets are not allowed, but service animals are welcome. Doors open at 7 p.m. Questions go to Keiko Nakamura, the event coordinator. A smaller overflow room, Room 113, is reserved for coat storage."
+      },
+      "tasks": [
+        {
+          "id": "t3-one-act-play-festival-coordinator-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-one-act-play-festival",
+          "question": "Who coordinates the One-Act Play Festival?",
+          "options": [
+            "Luis Sato",
+            "Jonas Achebe",
+            "Keiko Nakamura",
+            "Nikhil Rahman"
+          ],
+          "expected": "C"
+        },
+        {
+          "id": "t3-one-act-play-festival-room-letter",
+          "kind": "format",
+          "format": "letter",
+          "passage": "t3-one-act-play-festival",
+          "question": "In which room is the One-Act Play Festival held?",
+          "options": [
+            "Room 155",
+            "Room 145",
+            "Room 113",
+            "Room 135"
+          ],
+          "expected": "B"
+        },
+        {
+          "id": "t3-one-act-play-festival-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-one-act-play-festival",
+          "question": "On what date is the One-Act Play Festival?",
+          "expected": "2027-10-19"
+        },
+        {
+          "id": "t3-one-act-play-festival-close-date",
+          "kind": "format",
+          "format": "date",
+          "passage": "t3-one-act-play-festival",
+          "question": "When does registration for the One-Act Play Festival close?",
+          "expected": "2027-10-03"
+        },
+        {
+          "id": "t3-one-act-play-festival-yesno",
+          "kind": "format",
+          "format": "yesno",
+          "passage": "t3-one-act-play-festival",
+          "question": "Can I bring my pet dog (not a service animal) to the One-Act Play Festival?",
+          "expected": "no"
+        },
+        {
+          "id": "t3-one-act-play-festival-price-number",
+          "kind": "format",
+          "format": "number",
+          "passage": "t3-one-act-play-festival",
+          "question": "How much is an adult ticket for the One-Act Play Festival, in dollars?",
+          "expected": "20"
+        },
+        {
+          "id": "t3-one-act-play-festival-doors-answer",
+          "kind": "answer",
+          "passage": "t3-one-act-play-festival",
+          "question": "What time do doors open for the One-Act Play Festival?",
+          "accepted": [
+            "7 p.m.",
+            "7 pm",
+            "7:00 p.m."
+          ]
+        },
+        {
+          "id": "t3-one-act-play-festival-missing",
+          "kind": "not_stated",
+          "passage": "t3-one-act-play-festival",
+          "question": "How much does parking cost at the One-Act Play Festival?"
+        }
+      ]
+    }
+  ]
+}

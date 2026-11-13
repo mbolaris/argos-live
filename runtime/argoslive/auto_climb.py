@@ -128,6 +128,8 @@ PRACTICE_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'g
 VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'held-out-validation.json'
 TIER2_PRACTICE_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'grounded-answers-tier2.json'
 TIER2_VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'held-out-validation-tier2.json'
+TIER3_PRACTICE_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'exact-formats-tier3.json'
+TIER3_VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'held-out-validation-tier3.json'
 FIRST_CURRICULUM = 'argos-foundation/1'
 # Ordered easiest first. A session moves up a tier only when the kept build already passes every
 # practice challenge of the current tier, because then no candidate can show a practice gain there.
@@ -135,6 +137,7 @@ FIRST_CURRICULUM = 'argos-foundation/1'
 CURRICULA = (
     (FIRST_CURRICULUM, PRACTICE_TASKS_PATH, VALIDATION_TASKS_PATH),
     ('argos-foundation/2', TIER2_PRACTICE_TASKS_PATH, TIER2_VALIDATION_TASKS_PATH),
+    ('argos-foundation/3', TIER3_PRACTICE_TASKS_PATH, TIER3_VALIDATION_TASKS_PATH),
 )
 
 DEFAULT_ENVELOPE = {
@@ -176,6 +179,16 @@ INSTRUCTION_CANDIDATES = [
         'cost': '0 MB download · ~2 min test',
         'verification': '8 practice challenges + 8 independent validation challenges',
         'change_id': 'honest-uncertainty',
+    },
+    {
+        'id': 'exact-format',
+        'kind': 'instruction',
+        'title': 'Follow the requested format',
+        'change': 'Add rule in AGENTS.md: Reply in exactly the answer format a request asks for.',
+        'rationale': 'Stops quotes and explanations from breaking one-letter, yes/no, number and date answers.',
+        'cost': '0 MB download · ~3 min test',
+        'verification': '8 practice challenges + 8 independent validation challenges',
+        'change_id': 'exact-format',
     },
 ]
 
@@ -1431,6 +1444,21 @@ class Controller:
                 if candidate['id'] == 'quote-evidence' and candidate['id'] not in completed:
                     return dict(candidate, rationale='The answers were correct, but supporting quotes were missing. '
                                 'Try the reviewed source-quote instruction before changing models.')
+
+        # The exact-format rule can only be measured by format challenges. Offer it first when
+        # at least two of them had the right value wrapped in extra text, and never on a tier without them.
+        has_format = any(t.get('kind') == 'format'
+                         for t in (getattr(self, 'practice_tasks', None) or {}).get('tasks', ()))
+        if not has_format:
+            completed.add('exact-format')
+        format_only = len(misses) >= 2 and all(
+            r.get('kind') == 'format' and r.get('checks', {}).get('correct_value') is True and
+            r.get('checks', {}).get('exact_format') is False for r in misses)
+        if format_only:
+            for candidate in self.candidate_pool:
+                if candidate['id'] == 'exact-format' and candidate['id'] not in completed:
+                    return dict(candidate, rationale='The values were right, but extra text broke the requested '
+                                'answer format. Try the reviewed exact-format instruction first.')
 
         # Model changes need a task-based reason. Hardware fit by itself does
         # not put a model into the autonomous campaign; callers must explicitly
