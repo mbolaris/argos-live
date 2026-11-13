@@ -76,21 +76,29 @@ class TierTwoDataTests(unittest.TestCase):
 
 
 class TierRunner:
-    """Perfect on the tasks of the tiers named in perfect_on, unhelpful on everything else."""
+    """Perfect on the tasks of the tiers named in perfect_on, unhelpful on everything else.
 
-    def __init__(self, tiers, perfect_on):
+    lucky maps a tier to how many of its prompts are answered perfectly before it starts missing,
+    which models a model that is perfect on one run and not on the next."""
+
+    def __init__(self, tiers, perfect_on, lucky=None):
         self.tasks = {}
         for name, data in tiers.items():
             for task in data['tasks']:
                 prompt = assistant_trial.message(task, data['passages'])
                 self.tasks[prompt] = (name, task, data['passages'])
         self.perfect_on = set(perfect_on)
+        self.lucky = dict(lucky or {})
         self.prompts = []
 
     def turn(self, prompt):
         self.prompts.append(prompt)
         name, task, passages = self.tasks.get(prompt, (None, None, None))
-        if task is None or name not in self.perfect_on:
+        if name in self.lucky:
+            if self.lucky[name] <= 0:
+                return 'I am not sure.'
+            self.lucky[name] -= 1
+        elif task is None or name not in self.perfect_on:
             return 'I am not sure.'
         if task['kind'] == 'answer':
             answer, sentence = quotable(task, passages)
@@ -124,8 +132,8 @@ class TierSwitchTests(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def run_to_end(self, perfect_on):
-        runner = TierRunner(self.tiers, perfect_on)
+    def run_to_end(self, perfect_on, lucky=None):
+        runner = TierRunner(self.tiers, perfect_on, lucky)
         controller = auto_climb.Controller(self.startup, home=self.home, runner=runner,
                                            clock=ControllableClock().monotonic, sleep_fn=lambda s: None,
                                            candidates=[])
@@ -171,7 +179,8 @@ class TierSwitchTests(unittest.TestCase):
         self.assertEqual(snap['curriculum_version'], 'argos-foundation/2')
         self.assertEqual([s['curriculum_version'] for s in session['saturated_curricula']], ['argos-foundation/1'])
         self.assertEqual(session['starting_level']['practice_passed'], 2)  # the two controls
-        self.assertEqual(len(runner.prompts), 16)
+        self.assertEqual(len(session['saturated_curricula'][0]['perfect_run_ids']), 3)
+        self.assertEqual(len(runner.prompts), 8 * 3 + 8)
         self.assertIn('Practice options exhausted', snap['stopping_reason'])
 
     def test_saturated_second_tier_moves_up_to_exact_formats(self):
@@ -179,8 +188,8 @@ class TierSwitchTests(unittest.TestCase):
         self.assertEqual(session['curriculum_version'], 'argos-foundation/3')
         self.assertEqual([s['curriculum_version'] for s in session['saturated_curricula']],
                          ['argos-foundation/1', 'argos-foundation/2'])
-        self.assertEqual(len(runner.prompts), 24)
-        self.assertTrue(any(p.endswith('Answer with one letter only.') for p in runner.prompts[16:]))
+        self.assertEqual(len(runner.prompts), 8 * 3 * 2 + 8)
+        self.assertTrue(any(p.endswith('Answer with one letter only.') for p in runner.prompts[48:]))
 
     def test_saturated_top_tier_stops_without_experiments(self):
         snap, session, runner = self.run_to_end(perfect_on=('one', 'two', 'three'))
@@ -189,8 +198,31 @@ class TierSwitchTests(unittest.TestCase):
         self.assertIn('Nothing was changed', snap['stopping_reason'])
         self.assertEqual(len(session['saturated_curricula']), 3)
         self.assertEqual(session['budgets_used']['completed_experiments'], 0)
-        self.assertEqual(len(runner.prompts), 24)
+        self.assertEqual(len(runner.prompts), 8 * 3 * 3)
+        self.assertIn('3 runs in a row', snap['stopping_reason'])
         self.assertEqual((self.home / '.openclaw/workspace/AGENTS.md').read_text(), '# Operating notes\nBe concise.\n')
+
+    def test_one_lucky_perfect_run_does_not_saturate_a_tier(self):
+        # Perfect on the first tier-3 run only (8 prompts), then missing: the session stays on tier 3
+        # and uses the imperfect repeat as its baseline instead of stopping.
+        snap, session, runner = self.run_to_end(perfect_on=('one', 'two'), lucky={'three': 8})
+        self.assertEqual(session['curriculum_version'], 'argos-foundation/3')
+        self.assertEqual([s['curriculum_version'] for s in session['saturated_curricula']],
+                         ['argos-foundation/1', 'argos-foundation/2'])
+        self.assertEqual(session['starting_level']['perfect_runs_before'], 1)
+        self.assertLess(session['starting_level']['practice_passed'], 8)
+        self.assertNotIn('Practice saturated', snap['stopping_reason'] or '')
+        self.assertEqual(len(runner.prompts), 8 * 3 * 2 + 8 * 2)
+
+    def test_two_perfect_runs_are_still_not_enough(self):
+        snap, session, runner = self.run_to_end(perfect_on=('one', 'two'), lucky={'three': 16})
+        self.assertEqual(session['starting_level']['perfect_runs_before'], 2)
+        self.assertNotIn('Practice saturated', snap['stopping_reason'] or '')
+        self.assertEqual(len(runner.prompts), 8 * 3 * 2 + 8 * 3)
+
+    def test_an_imperfect_first_run_needs_no_repeat(self):
+        snap, session, runner = self.run_to_end(perfect_on=())
+        self.assertNotIn('perfect_runs_before', session['starting_level'])
 
 
 if __name__ == '__main__':

@@ -74,7 +74,11 @@ so after any reboot you must re-apply the bundle. Making that refresher version-
    eight challenges, with one quoted answer and one unanswerable question to catch a change that breaks
    quoting or honesty. Its candidate, "Follow the requested format" (`exact-format`), generalizes the
    first Lessons line Argos wrote for itself and is tried first when the misses are right-value,
-   wrong-format. Next: deliver it, start a session, and read the verdict. The keep policy is unchanged.
+   wrong-format. Delivered November 13 as `main` 01892a9; session 17471eae scored tier 3 at 8/8 on one
+   run and stopped saturated, but three repeat runs with the same instructions and model scored 7, 6 and
+   5 of 8 (every miss a right value with a quote appended). A tier now counts as saturated only after
+   three perfect practice runs in a row (`SATURATION_RUNS`); otherwise the first imperfect run is the
+   baseline. Next: deliver that, start a session, and read the verdict. The keep policy is unchanged.
 2. Of the `AGENTS.md` edit Argos made on November 8, the one-letter Lessons line is now measured by
    tier 3 (as the broader `exact-format` rule). The JSON line (lowercase format names in tool
    arguments) needs a tool-call task family; the embedded trial runner is tool-free. Its rewrites of
