@@ -131,6 +131,10 @@ TIER2_VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-tria
 TIER3_PRACTICE_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'exact-formats-tier3.json'
 TIER3_VALIDATION_TASKS_PATH = Path(__file__).with_name('data') / 'assistant-trials' / 'held-out-validation-tier3.json'
 FIRST_CURRICULUM = 'argos-foundation/1'
+# A tier counts as saturated only after this many perfect practice runs in a row. One perfect run is
+# weak evidence: in November 2026 the production model passed tier 3 at 8/8 once, then scored 7, 6
+# and 5 of 8 on repeats with the same instructions and model.
+SATURATION_RUNS = 3
 # Ordered easiest first. A session moves up a tier only when the kept build already passes every
 # practice challenge of the current tier, because then no candidate can show a practice gain there.
 # Each tier has its own disjoint validation partitions; the exposure inventory spans all tiers.
@@ -1188,20 +1192,32 @@ class Controller:
                     'Your AI passed every foundation challenge. Assessing it on harder challenges…')
                 self._save_session()
 
-                practice_baseline = self._run_task_suite(
-                    'baseline', self.practice_tasks, 'practice', slice_start_time=slice_start_time,
-                    comparison_role='practice_baseline')
-                if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
-                    return
+                # Repeat a perfect run before believing it; the first imperfect run becomes the baseline.
+                perfect_run_ids = []
+                for attempt in range(SATURATION_RUNS):
+                    if attempt:
+                        self.session['message'] = (
+                            f'Your AI passed every practice challenge ({attempt} of {SATURATION_RUNS} runs). '
+                            f'Repeating the practice set to confirm it is not a lucky run…')
+                        self._save_session()
+                    practice_baseline = self._run_task_suite(
+                        'baseline', self.practice_tasks, 'practice', slice_start_time=slice_start_time,
+                        comparison_role='practice_baseline')
+                    if self._should_stop() or self.session.get('phase') == 'budget-exhausted':
+                        return
+                    passed_practice = sum(1 for r in practice_baseline if r['passed'])
+                    if not practice_baseline or passed_practice < len(practice_baseline):
+                        break
+                    perfect_run_ids.append(self.latest_suite_run_id)
 
-                passed_practice = sum(1 for r in practice_baseline if r['passed'])
-                if practice_baseline and passed_practice == len(practice_baseline):
+                if len(perfect_run_ids) == SATURATION_RUNS:
                     harder = self._next_curriculum()
                     self.session.setdefault('saturated_curricula', []).append({
                         'curriculum_version': self.curriculum_version,
                         'practice_passed': passed_practice,
                         'practice_total': len(practice_baseline),
                         'run_id': self.latest_suite_run_id,
+                        'perfect_run_ids': perfect_run_ids,
                     })
                     if harder is not None:
                         self._use_curriculum(harder)
@@ -1211,8 +1227,9 @@ class Controller:
                     # No candidate can beat a perfect score; experiments here would only spend time.
                     self.session['phase'] = 'options-exhausted'
                     self.session['stopping_reason'] = (
-                        f'Practice saturated: the kept build already passes every practice challenge '
-                        f'({passed_practice}/{len(practice_baseline)}) at the hardest level, so no change can '
+                        f'Practice saturated: the kept build passed every practice challenge '
+                        f'({passed_practice}/{len(practice_baseline)}) in {SATURATION_RUNS} runs in a row at the '
+                        f'hardest level, so no change can '
                         f'show a gain. Nothing was changed.')
                     self.session['message'] = self.session['stopping_reason']
                     self._save_session()
@@ -1225,6 +1242,9 @@ class Controller:
                     'validation_total': 0,
                     'label': f'{passed_practice}/{len(practice_baseline)} practice',
                 }
+                if perfect_run_ids:
+                    # Earlier perfect runs of this tier stay in the suite-run records as evidence.
+                    baseline_level['perfect_runs_before'] = len(perfect_run_ids)
                 self.session['starting_level'] = baseline_level
                 self.session['current_level'] = baseline_level
                 self.session['practice_baseline'] = practice_baseline
