@@ -163,7 +163,7 @@ try {
   await page.waitForFunction(()=>document.getElementById('command-center').dataset.watching==='false');
   assert.equal(await page.locator('#experiment-comparison .experiment-card').count(),0,'Comparison is not duplicated in records');
   const comparison=await page.locator('#improve-comparison').textContent();
-  assert.match(comparison,/Correct answers\s*23 of 24 → 24 of 24/);
+  assert.match(comparison,/Correct answers\s*31 of 32 → 32 of 32/);
   assert.match(comparison,/Wrong answer format\s*1 → 0/);
   assert.equal(await page.locator('#exp-action-primary').textContent(),'Keep for lab tests');
   assert.equal(await page.locator('#exp-action-secondary').textContent(),'Restore standard instructions');
