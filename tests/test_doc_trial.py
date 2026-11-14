@@ -48,6 +48,19 @@ class SuiteTests(unittest.TestCase):
         after = (ROOT / 'runtime/argoslive/data/documents/short.json').read_bytes()
         self.assertEqual(after, before, 'Regenerating the suite changed its checked-in data')
 
+    def test_archived_suite_keeps_historical_answer_rubric(self):
+        historical = dt.load(version='1.1.0')
+        current = dt.load(version='1.2.0')
+        old_quote = next(item for item in historical['items'] if item['id'] == 'quote-05')
+        new_quote = next(item for item in current['items'] if item['id'] == 'quote-05')
+        answer = 'to protect nesting birds'
+        quote = new_quote['scorer']['reference_quote']
+        response = dt.reply('answered', answer, quote)
+        self.assertEqual(dt.score(old_quote, response)['outcome'], 'wrong_answer')
+        self.assertEqual(dt.score(new_quote, response)['outcome'], 'pass')
+        with self.assertRaisesRegex(ValueError, 'Unknown short-document suite version'):
+            dt.load(version='9.9.9')
+
     def test_prompts_fit_the_tested_context_with_room_to_answer(self):
         # Four characters per token is a coarse upper bound for English; the suite uses far less.
         longest = max(len(i['prompt']) for i in dt.load()['items'])

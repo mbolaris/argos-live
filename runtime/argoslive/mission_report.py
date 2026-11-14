@@ -55,7 +55,11 @@ def resolve_suite_item(suite, suite_version, item_id):
             return next((it for it in suite_data.get('items', []) if it.get('id') == item_id), None)
         elif suite in ('documents-short', 'short'):
             from . import doc_trial as doc_mod
-            suite_data = doc_mod.load('short')
+            version = suite_version
+            prefix = 'documents/short/'
+            if isinstance(version, str) and version.startswith(prefix):
+                version = version[len(prefix):]
+            suite_data = doc_mod.load('short', version=version or None)
             expected_ver = suite_data.get('version', '')
             if suite_version and suite_version not in (expected_ver, f"documents/short/{expected_ver}"):
                 return None

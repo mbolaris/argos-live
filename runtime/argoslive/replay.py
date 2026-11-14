@@ -15,10 +15,13 @@ ORDER = {'answer': 0, 'quote': 1, 'not_stated': 2, 'summary': 3}
 def rules(run):
     """Scorer rules for the exact suite version the run used, or nothing if it differs."""
     try:
-        data = doc_trial.load()
+        suite_version = run.get('suite_version')
+        prefix = 'documents/short/'
+        version = suite_version[len(prefix):] if isinstance(suite_version, str) and suite_version.startswith(prefix) else suite_version
+        data = doc_trial.load(version=version)
     except (OSError, ValueError):
         return {}
-    if run.get('suite_version') != 'documents/short/' + data['version']:
+    if suite_version not in (data['version'], 'documents/short/' + data['version']):
         return {}
     return {item['id']: item['scorer'] for item in data['items']}
 
