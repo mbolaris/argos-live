@@ -145,6 +145,8 @@ def _ssh_status_observation(value):
 class Bridge:
     def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800,
                  exam_session=None, task_campaign=False, owner_task_suite=None,
+                 evaluation_limit=8,
+                 stop_event=None,
                  ssh_status_provider=None, ssh_status_verifier=None, on_progress=None):
         if not identity(session_key) or trigger not in {'user', 'heartbeat'}:
             raise ValueError('Host-selected controller identity required')
@@ -157,6 +159,11 @@ class Bridge:
                 (not isinstance(owner_task_suite, str) or owner_task_suite not in TASK_CAMPAIGN_SUITES)):
             raise ValueError('Unsupported owner-selected task evaluation suite')
         self.owner_task_suite = owner_task_suite
+        if type(evaluation_limit) is not int or not 1 <= evaluation_limit <= 8:
+            raise ValueError('Evaluation limit must be between 1 and 8')
+        self.evaluation_limit = evaluation_limit
+        self.campaign_evaluations_admitted = 0
+        self.stop_event = stop_event or threading.Event()
         self.ssh_status_provider = ssh_status_provider
         self.ssh_status_verifier = ssh_status_verifier
         self.on_progress = on_progress
@@ -536,6 +543,11 @@ class Bridge:
                 kind, params = request.get('kind'), request.get('params')
                 if not isinstance(params, dict):
                     raise ValueError('Bounded tool parameters required')
+                if self.task_campaign and self.stop_event.is_set():
+                    if kind in {'evaluation', 'edit', 'adopt'}:
+                        raise ValueError('Campaign stop requested; no new evaluation or instruction change may start')
+                    if kind == 'resolve' and params.get('action') != 'restore':
+                        raise ValueError('Campaign stop requested; only instruction restoration is allowed')
                 if (self.exam_session is not None and kind not in PROCTOR_TOOLS and
                         not (kind == 'evaluation_wait' and self.exam_session.tier == 'practice')):
                     raise ValueError('Only Proctor tools are available during an exam')
@@ -546,6 +558,13 @@ class Bridge:
                 if kind == 'evaluation':
                     if set(params) - {'suite'} or params.get('suite', 'quick') not in TASK_CAMPAIGN_SUITES:
                         raise ValueError('Unsupported evaluation request')
+                    if self.task_campaign:
+                        if self.campaign_evaluations_admitted >= self.evaluation_limit:
+                            raise ValueError('Owner-requested campaign evaluation limit reached')
+                        self.campaign_evaluations_admitted += 1
+                elif kind == 'edit' and self.task_campaign and \
+                        self.campaign_evaluations_admitted >= self.evaluation_limit:
+                    raise ValueError('Owner-requested campaign evaluation limit reached; no new experiment may start')
                 elif kind == 'evaluation_wait':
                     if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or
                             not re.fullmatch(r'[a-f0-9]{32}', params['job_id'])):
@@ -1692,8 +1711,8 @@ class Bridge:
 
 @contextmanager
 def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None,
-          task_campaign=False, owner_task_suite=None, ssh_status_provider=None,
-          ssh_status_verifier=None, on_progress=None):
+          task_campaign=False, owner_task_suite=None, evaluation_limit=8, ssh_status_provider=None,
+          stop_event=None, ssh_status_verifier=None, on_progress=None):
     if sys.platform != 'linux':
         raise ValueError('Native controller bridge requires Linux')
     if exam_session is not None and trigger != 'user':
@@ -1703,6 +1722,8 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
         bridge = Bridge(home, parent, session_key=session_key, trigger=trigger,
                         worker_timeout=worker_timeout, exam_session=exam_session,
                         task_campaign=task_campaign, owner_task_suite=owner_task_suite,
+                        evaluation_limit=evaluation_limit,
+                        stop_event=stop_event,
                         ssh_status_provider=ssh_status_provider,
                         ssh_status_verifier=ssh_status_verifier, on_progress=on_progress)
         class Handler(socketserver.StreamRequestHandler):

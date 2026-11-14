@@ -475,7 +475,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(409, {'error': 'SSH is not eligible for the requested safe start'})
             return
         if self.command == 'POST' and self.server.proctor_campaign and path in (
-                '/api/proctor-campaign/start', '/api/proctor-campaign/recover'):
+                '/api/proctor-campaign/start', '/api/proctor-campaign/recover',
+                '/api/proctor-campaign/stop'):
             try:
                 if path.endswith('/start'):
                     lengths = self.headers.get_all('Content-Length')
@@ -487,17 +488,23 @@ class Handler(BaseHTTPRequestHandler):
                         return
                     body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
                     if (not isinstance(body, dict) or
-                            set(body) - {'owner_task', 'success_criteria', 'measurement_suite'} or
+                            set(body) - {'owner_task', 'success_criteria', 'measurement_suite', 'evaluation_limit'} or
                             not {'owner_task', 'success_criteria'} <= set(body)):
                         self.reply(400, {'error': 'Provide owner_task, success_criteria, and optional measurement_suite'})
                         return
                     response = self.server.proctor_campaign.start(
-                        body['owner_task'], body['success_criteria'], body.get('measurement_suite'))
-                else:
+                        body['owner_task'], body['success_criteria'], body.get('measurement_suite'),
+                        body.get('evaluation_limit', 8))
+                elif path.endswith('/recover'):
                     if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
                         self.reply(400, {'error': 'An empty request is required'})
                         return
                     response = self.server.proctor_campaign.recover()
+                else:
+                    if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                        self.reply(400, {'error': 'An empty request is required'})
+                        return
+                    response = self.server.proctor_campaign.stop()
                 self.reply(200, response)
             except (ValueError, OSError) as exc:
                 from argoslive.proctor_campaign import Refused

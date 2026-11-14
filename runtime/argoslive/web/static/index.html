@@ -614,6 +614,8 @@
         <textarea id="proctor-owner-task" maxlength="1200" rows="3" placeholder="Describe the recurring outcome you want Argos to improve."></textarea>
         <label for="proctor-success-criteria">What counts as success?</label>
         <textarea id="proctor-success-criteria" maxlength="1200" rows="2" placeholder="State what observable result would count as success."></textarea>
+        <label for="proctor-evaluation-limit">Maximum evaluations for this campaign (1–8)</label>
+        <input id="proctor-evaluation-limit" type="number" min="1" max="8" step="1" value="4" inputmode="numeric">
           <label for="proctor-measurement-suite">Optional fixed suite (leave at None unless it directly measures this task)</label>
           <select id="proctor-measurement-suite">
             <option value="">None fits / not sure — do not use benchmark scores</option>
@@ -629,6 +631,7 @@
           <p>These fixed tasks are bundled with Argos. “Read this brief” covers only its short passages; it does not measure long-document or file-reading work. Leave the selector at None unless a suite’s exact tasks directly test the recurring goal above. With “None fits,” Argos will inspect and report what task-specific evaluation is missing without changing instructions or using quiz scores.</p>
         <div class="proctor-campaign-actions">
           <button id="proctor-campaign-start" type="button">Start task-focused campaign</button>
+          <button id="proctor-campaign-stop" type="button" hidden>Stop after current operation</button>
           <button id="proctor-campaign-recover" type="button" hidden>Retry Argos recovery</button>
           <span id="proctor-campaign-elapsed"></span>
         </div>

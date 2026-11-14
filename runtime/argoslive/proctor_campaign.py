@@ -61,6 +61,7 @@ MESSAGES = {
     'incomplete': 'The campaign stopped without all required evidence. Review the saved run IDs and missing checks.',
     'failed': 'The campaign did not finish, but Argos is back at its verified model.',
     'recovery-failed': 'Campaign work stopped, but Argos did not recover. Other workloads remain blocked.',
+    'stopping': 'Stopping after the current host operation and preserving saved evidence.',
 }
 
 
@@ -148,6 +149,8 @@ class Controller:
         self.owner_task = None
         self.success_criteria = None
         self.measurement_suite = None
+        self.evaluation_limit = 8
+        self.stop_requested = threading.Event()
         self.recovery_target_phase = None
         self.storage_checked_at = None
         self.storage_is_safe = False
@@ -201,6 +204,9 @@ class Controller:
         measurement_suite = value.get('measurement_suite')
         if measurement_suite not in MEASUREMENT_SUITES:
             measurement_suite = None
+        evaluation_limit = campaign.get('evaluation_limit')
+        if type(evaluation_limit) is not int or not 1 <= evaluation_limit <= 8:
+            evaluation_limit = None
         host_observation = _public_host_observation(campaign.get('host_observation'))
         public_campaign = {
             'status': campaign.get('status'),
@@ -211,6 +217,8 @@ class Controller:
             'saved_evaluation_ids': ids,
             'agent_report': agent_report,
         }
+        if evaluation_limit is not None:
+            public_campaign['evaluation_limit'] = evaluation_limit
         if host_observation is not None:
             public_campaign['host_observation'] = host_observation
         return {
@@ -231,6 +239,7 @@ class Controller:
                                                                    self.failure_stage)
             started, finished, model, closed = self.started, self.finished, self.model, self.closed
             measurement_suite = self.measurement_suite
+            evaluation_limit = self.evaluation_limit
             watch_id, started_at, last_event = self.watch_id, self.started_at, self.last_event
             owner_actions, record_saved = copy.deepcopy(self.owner_actions), self.record_saved
         try:
@@ -304,6 +313,7 @@ class Controller:
             'can_start': can_start, 'can_recover': can_recover,
             'elapsed_seconds': elapsed, 'model': model,
             'measurement_suite': measurement_suite,
+            'evaluation_limit': evaluation_limit,
             'failure_code': failure_code, 'failure_stage': failure_stage,
             'result': result, 'progress': progress,
             'assistant_phase': assistant.get('phase'), 'assistant_ready': assistant.get('phase') == 'ready',
@@ -345,6 +355,7 @@ class Controller:
                 'elapsed_seconds': value.get('elapsed_seconds'), 'phase': value.get('phase'),
                 'model': value.get('model'), 'failure_code': value.get('failure_code'),
                 'failure_stage': value.get('failure_stage'), 'result': value.get('result'),
+                'evaluation_limit': value.get('evaluation_limit'),
                 'rounds': rounds, 'campaign_steps': progress.get('campaign_steps', []),
                 'interrupted': interrupted,
                 'owner_actions': watch['owner_actions'], 'owner_action_count': watch['owner_action_count'],
@@ -410,9 +421,11 @@ class Controller:
             raise Refused('Saved campaign watch not found.')
         return self._load_record(path)
 
-    def start(self, owner_task=None, success_criteria=None, measurement_suite=None):
+    def start(self, owner_task=None, success_criteria=None, measurement_suite=None, evaluation_limit=8):
         owner_task, success_criteria = validate_owner_task(owner_task, success_criteria)
         measurement_suite = validate_measurement_suite(measurement_suite)
+        if type(evaluation_limit) is not int or not 1 <= evaluation_limit <= 8:
+            raise Refused('Choose an evaluation limit from 1 to 8.')
         with self.startup.lock, self.lock:
             if self.closed:
                 raise Refused('The Proctor campaign controller is closed.')
@@ -430,6 +443,8 @@ class Controller:
             self.owner_task = owner_task
             self.success_criteria = success_criteria
             self.measurement_suite = measurement_suite
+            self.evaluation_limit = evaluation_limit
+            self.stop_requested.clear()
             self.result = None
             self.progress = {'phase': 'campaign', 'stage': 'starting'}
             self.failure_code = None
@@ -448,6 +463,17 @@ class Controller:
             self.startup.stop()
             self.worker = threading.Thread(target=self._run, daemon=True, name='argos-proctor-campaign')
             self.worker.start()
+            return self.snapshot()
+
+    def stop(self):
+        """Request a graceful stop after the current admitted host operation finishes."""
+        with self.lock:
+            if self.worker is None or not self.worker.is_alive():
+                raise Refused('No active Proctor campaign can be stopped.')
+            self.stop_requested.set()
+            self.last_event = self.clock()
+            if self.phase in {'pausing', 'campaign'}:
+                self.phase = 'stopping'
             return self.snapshot()
 
     def _persistent_storage_ready(self, *, fresh=False):
@@ -523,7 +549,7 @@ class Controller:
         with self.lock:
             if self.worker is not None and self.worker.is_alive():
                 self.last_event = self.clock()
-                self.phase = phase
+                self.phase = 'stopping' if self.stop_requested.is_set() else phase
                 if self.progress is None or self.progress.get('phase') != phase:
                     self.progress = {'phase': phase, 'stage': 'starting'}
 
@@ -751,12 +777,14 @@ class Controller:
         try:
             self._wait_stopped()
             with self.lock:
-                self.phase = 'campaign'
+                self.phase = 'stopping' if self.stop_requested.is_set() else 'campaign'
             runner = self.runner
             if runner is None:
                 from .proctor_service import run_improvement
                 runner = run_improvement
             options = {'owner_task': self.owner_task, 'success_criteria': self.success_criteria,
+                       'evaluation_limit': self.evaluation_limit,
+                       'stop_event': self.stop_requested,
                        'on_phase': self._set_phase, 'on_progress': self._set_progress}
             if self.ssh_recovery is not None:
                 options['ssh_status_provider'] = self.ssh_recovery.proctor_status

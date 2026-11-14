@@ -4963,7 +4963,7 @@ async function refreshProctorCampaign() {
       const workbench = document.getElementById('workbench');
       if (workbench) workbench.open = true;
     }
-    const labels = {idle: 'Ready', pausing: 'Pausing chat', practice: 'Practice', campaign: 'Campaign',
+    const labels = {idle: 'Ready', pausing: 'Pausing chat', stopping: 'Stopping', practice: 'Practice', campaign: 'Campaign',
       restarting: 'Restarting Argos', completed: 'Complete', incomplete: 'Incomplete', failed: 'Failed',
       'recovery-failed': 'Recovery needed'};
     const taskNotMeasured = data.phase === 'incomplete' &&
@@ -4975,9 +4975,12 @@ async function refreshProctorCampaign() {
     const recoverButton = document.getElementById('proctor-campaign-recover');
     recoverButton.hidden = !data.can_recover;
     recoverButton.disabled = proctorCampaignStarting || !data.can_recover;
+    const stopButton = document.getElementById('proctor-campaign-stop');
+    stopButton.hidden = !data.active || data.phase === 'stopping' || data.phase === 'restarting';
+    stopButton.disabled = proctorCampaignStarting || !data.active || data.phase === 'stopping';
     const measurementNote = data.active
       ? (data.measurement_suite
-          ? ` Owner-approved evaluation suite: ${data.measurement_suite}.`
+          ? ` Owner-approved evaluation suite: ${data.measurement_suite}; limit ${data.evaluation_limit} evaluations.`
           : ' No evaluation suite selected; no quiz score can justify a change.')
       : '';
     document.getElementById('proctor-campaign-message').textContent =
@@ -5000,6 +5003,7 @@ document.getElementById('proctor-campaign-start')?.addEventListener('click', asy
   const ownerTask = document.getElementById('proctor-owner-task')?.value.trim() || '';
   const successCriteria = document.getElementById('proctor-success-criteria')?.value.trim() || '';
   const measurementSuite = document.getElementById('proctor-measurement-suite')?.value || null;
+  const evaluationLimit = Number(document.getElementById('proctor-evaluation-limit')?.value || 4);
   if (!ownerTask || !successCriteria) {
     const message = document.getElementById('proctor-campaign-message');
     message.textContent = 'Describe a recurring task and what success looks like before starting.';
@@ -5014,7 +5018,7 @@ document.getElementById('proctor-campaign-start')?.addEventListener('click', asy
     const response = await fetch('/api/proctor-campaign/start', {
       method: 'POST', headers: {'X-Argos-Token': token || '', 'Content-Type': 'application/json'},
       body: JSON.stringify({owner_task: ownerTask, success_criteria: successCriteria,
-        measurement_suite: measurementSuite}), cache: 'no-store'
+        measurement_suite: measurementSuite, evaluation_limit: evaluationLimit}), cache: 'no-store'
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body?.error || 'Proctor campaign unavailable.');
@@ -5023,6 +5027,23 @@ document.getElementById('proctor-campaign-start')?.addEventListener('click', asy
     message.textContent = error.message || 'Proctor campaign unavailable.';
   } finally {
     proctorCampaignStarting = false;
+    refreshProctorCampaign();
+  }
+});
+document.getElementById('proctor-campaign-stop')?.addEventListener('click', async event => {
+  event.currentTarget.disabled = true;
+  const message = document.getElementById('proctor-campaign-message');
+  message.textContent = 'Stopping after the current host operation and preserving saved evidence…';
+  try {
+    const response = await fetch('/api/proctor-campaign/stop', {
+      method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body?.error || 'Campaign stop unavailable.');
+    message.textContent = body.message || 'Stop requested; waiting for safe cleanup.';
+  } catch (error) {
+    message.textContent = error.message || 'Campaign stop unavailable.';
+  } finally {
     refreshProctorCampaign();
   }
 });

@@ -46,6 +46,29 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertFalse(bridge.events.exists())
             parent.complete()  # No SDK worker or inference was started in this fixture.
 
+    def test_campaign_evaluation_limit_is_enforced_before_second_host_run(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(
+                self.home, parent, session_key='agent:main:host-session',
+                task_campaign=True, owner_task_suite='quick', evaluation_limit=1)
+            _, turn = self.begin(bridge)
+            result = {'status': 'completed', 'value': {'result': {
+                'id': 'a' * 32, 'state': 'completed', 'suite': 'openclaw-quick',
+                'suite_version': 'argos-openclaw-ability/quick/test',
+                'coverage': {'complete': True, 'completed': 20, 'total': 20},
+                'summary': {'correct': 20, 'total': 20, 'format_errors': 0}}}}
+            with patch.object(bridge, 'start_evaluation', return_value=result) as start:
+                first = {**turn, 'call_id': 'evaluation-one', 'kind': 'evaluation',
+                         'params': {'suite': 'quick'}}
+                self.assertEqual(bridge.tool(first)['value']['value']['result']['id'], 'a' * 32)
+                second = {**turn, 'call_id': 'evaluation-two', 'kind': 'evaluation',
+                          'params': {'suite': 'quick'}}
+                with self.assertRaisesRegex(ValueError, 'evaluation limit reached'):
+                    bridge.tool(second)
+                start.assert_called_once()
+            self.assertEqual(bridge.campaign_evaluations_admitted, 1)
+            parent.complete()
+
     def test_campaign_may_rotate_ended_sdk_run_inside_its_live_worker(self):
         session_key = 'agent:main:argos_proctor_improvement_owner-task'
         with workload.reserve(self.home, 'controller') as parent:
