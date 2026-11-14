@@ -60,7 +60,7 @@ DOMAINS = [
 QUICK_SUITE_VERSIONS = {'1.0.0', 'ability/quick/1.0.0'}
 QUICK_REQUIRED_CONTEXT = 2048
 DOC_SUITE_NAMES = {'documents-short', 'short'}
-DOC_SUITE_VERSIONS = {'1.0.0', 'documents/short/1.0.0'}
+DOC_SUITE_VERSIONS = {'1.0.0', 'documents/short/1.0.0', '1.1.0', 'documents/short/1.1.0'}
 DOC_REQUIRED_CONTEXT = 4096
 
 QUICK_PROBE_CRITERIA = {

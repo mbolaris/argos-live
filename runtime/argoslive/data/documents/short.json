@@ -1,7 +1,7 @@
 {
  "schema": "argos-document-suite/1",
  "suite": "short",
- "version": "1.0.0",
+ "version": "1.1.0",
  "license": "MIT",
  "source": "original-argos-live",
  "context": 4096,
@@ -10,12 +10,13 @@
   "file-reading"
  ],
  "criteria": {
-  "version": 1,
-  "description": "Fixed before any model is scored. A baseline is for comparison only; it never moves these bars.",
+  "version": 2,
+  "description": "Fixed before any model is scored. A baseline never moves these bars. Summary requires exactly two sentences and at least two listed facts; this is a format-and-coverage proxy, not a full quality judgment.",
   "min_correct": {
    "answer": 7,
    "quote": 6,
-   "not_stated": 7
+   "not_stated": 7,
+   "summary": 6
   },
   "max_format_errors": 2
  },
@@ -460,89 +461,309 @@
    "id": "summary-01",
    "passage_id": "ferry",
    "category": "summary",
-   "scored": false,
+   "scored": true,
    "question": "Summarize this passage in two sentences.",
    "prompt": "Read the passage.\n\nPASSAGE:\nThe Larkspur Harbor ferry began service on 4 March 1987. Two vessels, the Marigold and the Heron, share the route. The Marigold carries up to 240 passengers and 18 cars, while the Heron carries 180 passengers and no cars. Crossings take 35 minutes. In winter the first departure leaves at 6:40 in the morning and the last at 8:15 in the evening. Fares are $6 for adults and $3 for children under twelve; bicycles ride free. The harbor authority reviews fares every three years, and the most recent review kept prices unchanged.\n\nSummarize this passage in two sentences. Use only the passage.",
    "scorer": {
-    "kind": "doc-summary"
-   }
+    "kind": "doc-summary",
+    "passage": "The Larkspur Harbor ferry began service on 4 March 1987. Two vessels, the Marigold and the Heron, share the route. The Marigold carries up to 240 passengers and 18 cars, while the Heron carries 180 passengers and no cars. Crossings take 35 minutes. In winter the first departure leaves at 6:40 in the morning and the last at 8:15 in the evening. Fares are $6 for adults and $3 for children under twelve; bicycles ride free. The harbor authority reviews fares every three years, and the most recent review kept prices unchanged.",
+    "required_facts": [
+     [
+      "1987"
+     ],
+     [
+      "Marigold",
+      "Heron"
+     ],
+     [
+      "35 minutes"
+     ],
+     [
+      "240 passengers"
+     ],
+     [
+      "bicycles ride free",
+      "bicycles",
+      "free"
+     ]
+    ],
+    "min_facts": 2
+   },
+   "malformed": "This is one sentence only.",
+   "reference": "The passage mentions 1987 and Marigold. It also gives other useful details.",
+   "wrong": "The passage discusses a subject. It also contains some information."
   },
   {
    "id": "summary-02",
    "passage_id": "library",
    "category": "summary",
-   "scored": false,
+   "scored": true,
    "question": "Summarize this notice in two sentences.",
    "prompt": "Read the passage.\n\nPASSAGE:\nThe Orchard Street Library will close for renovation on 1 June and reopen on 15 September. During the closure, borrowers may return books at the Millbrook branch, which will extend its weekend hours to six in the evening. Holds placed before the closure will transfer to Millbrook automatically. The renovation adds a quiet reading room on the second floor, replaces the heating system, and widens the main entrance for wheelchair access. The project is funded by a $1.2 million bond approved by voters last November. Fines will not be charged for items due during the closure.\n\nSummarize this notice in two sentences. Use only the passage.",
    "scorer": {
-    "kind": "doc-summary"
-   }
+    "kind": "doc-summary",
+    "passage": "The Orchard Street Library will close for renovation on 1 June and reopen on 15 September. During the closure, borrowers may return books at the Millbrook branch, which will extend its weekend hours to six in the evening. Holds placed before the closure will transfer to Millbrook automatically. The renovation adds a quiet reading room on the second floor, replaces the heating system, and widens the main entrance for wheelchair access. The project is funded by a $1.2 million bond approved by voters last November. Fines will not be charged for items due during the closure.",
+    "required_facts": [
+     [
+      "1 June",
+      "June 1"
+     ],
+     [
+      "15 September",
+      "September 15"
+     ],
+     [
+      "Millbrook"
+     ],
+     [
+      "quiet reading room",
+      "wheelchair access"
+     ],
+     [
+      "$1.2 million",
+      "1.2 million"
+     ],
+     [
+      "fines will not",
+      "fines are not"
+     ]
+    ],
+    "min_facts": 2
+   },
+   "malformed": "This is one sentence only.",
+   "reference": "The passage mentions 1 June and 15 September. It also gives other useful details.",
+   "wrong": "The passage discusses a subject. It also contains some information."
   },
   {
    "id": "summary-03",
    "passage_id": "returns",
    "category": "summary",
-   "scored": false,
+   "scored": true,
    "question": "Summarize this return policy in two sentences.",
    "prompt": "Read the passage.\n\nPASSAGE:\nKestrel Outdoor accepts returns within 45 days of purchase when the item is unused and in its original packaging. Refunds go back to the original payment method within seven business days after the item arrives at the warehouse. Return shipping is free for orders over $75; smaller orders pay a flat $8 shipping fee. Items marked Final Sale, including all tents and sleeping bags, cannot be returned. Exchanges for a different size are handled by phone, and the exchange window is 30 days.\n\nSummarize this return policy in two sentences. Use only the passage.",
    "scorer": {
-    "kind": "doc-summary"
-   }
+    "kind": "doc-summary",
+    "passage": "Kestrel Outdoor accepts returns within 45 days of purchase when the item is unused and in its original packaging. Refunds go back to the original payment method within seven business days after the item arrives at the warehouse. Return shipping is free for orders over $75; smaller orders pay a flat $8 shipping fee. Items marked Final Sale, including all tents and sleeping bags, cannot be returned. Exchanges for a different size are handled by phone, and the exchange window is 30 days.",
+    "required_facts": [
+     [
+      "45 days"
+     ],
+     [
+      "unused",
+      "original packaging"
+     ],
+     [
+      "seven business days"
+     ],
+     [
+      "$75",
+      "$8"
+     ],
+     [
+      "Final Sale"
+     ],
+     [
+      "30 days",
+      "exchanges"
+     ]
+    ],
+    "min_facts": 2
+   },
+   "malformed": "This is one sentence only.",
+   "reference": "The passage mentions 45 days and unused. It also gives other useful details.",
+   "wrong": "The passage discusses a subject. It also contains some information."
   },
   {
    "id": "summary-04",
    "passage_id": "minutes",
    "category": "summary",
-   "scored": false,
+   "scored": true,
    "question": "Summarize these meeting minutes in two sentences.",
    "prompt": "Read the passage.\n\nPASSAGE:\nThe garden committee met on Tuesday with five members present. Priya reported that the rainwater tanks are installed and holding 2,000 liters. The committee voted four to one to buy raised beds for the east lawn rather than repair the old shed. Marcus will collect quotes from three suppliers by the end of the month. The spring planting day was set for 12 April, and volunteers should bring their own gloves. Next month the committee will decide how to divide the plots among families.\n\nSummarize these meeting minutes in two sentences. Use only the passage.",
    "scorer": {
-    "kind": "doc-summary"
-   }
+    "kind": "doc-summary",
+    "passage": "The garden committee met on Tuesday with five members present. Priya reported that the rainwater tanks are installed and holding 2,000 liters. The committee voted four to one to buy raised beds for the east lawn rather than repair the old shed. Marcus will collect quotes from three suppliers by the end of the month. The spring planting day was set for 12 April, and volunteers should bring their own gloves. Next month the committee will decide how to divide the plots among families.",
+    "required_facts": [
+     [
+      "2,000 liters",
+      "2000 liters"
+     ],
+     [
+      "four to one",
+      "4 to 1"
+     ],
+     [
+      "raised beds",
+      "east lawn"
+     ],
+     [
+      "three suppliers"
+     ],
+     [
+      "12 April",
+      "April 12"
+     ]
+    ],
+    "min_facts": 2
+   },
+   "malformed": "This is one sentence only.",
+   "reference": "The passage mentions 2,000 liters and four to one. It also gives other useful details.",
+   "wrong": "The passage discusses a subject. It also contains some information."
   },
   {
    "id": "summary-05",
    "passage_id": "trail",
    "category": "summary",
-   "scored": false,
+   "scored": true,
    "question": "Summarize this trail description in two sentences.",
    "prompt": "Read the passage.\n\nPASSAGE:\nThe Cedar Ridge loop is a 7.5 kilometer trail with 320 meters of climbing. Most hikers finish it in about three hours. The trailhead parking lot holds 40 cars and fills early on weekends. Dogs are allowed on a leash, but the lookout at the halfway point is closed to dogs from March to June to protect nesting birds. There is no drinking water along the route, so hikers should carry at least two liters. The trail is closed after heavy snow, and the ranger station posts closures by 7 a.m.\n\nSummarize this trail description in two sentences. Use only the passage.",
    "scorer": {
-    "kind": "doc-summary"
-   }
+    "kind": "doc-summary",
+    "passage": "The Cedar Ridge loop is a 7.5 kilometer trail with 320 meters of climbing. Most hikers finish it in about three hours. The trailhead parking lot holds 40 cars and fills early on weekends. Dogs are allowed on a leash, but the lookout at the halfway point is closed to dogs from March to June to protect nesting birds. There is no drinking water along the route, so hikers should carry at least two liters. The trail is closed after heavy snow, and the ranger station posts closures by 7 a.m.",
+    "required_facts": [
+     [
+      "7.5 kilometer",
+      "7.5-kilometer"
+     ],
+     [
+      "320 meters"
+     ],
+     [
+      "three hours"
+     ],
+     [
+      "40 cars"
+     ],
+     [
+      "closed to dogs",
+      "nesting birds"
+     ],
+     [
+      "two liters",
+      "no drinking water"
+     ]
+    ],
+    "min_facts": 2
+   },
+   "malformed": "This is one sentence only.",
+   "reference": "The passage mentions 7.5 kilometer and 320 meters. It also gives other useful details.",
+   "wrong": "The passage discusses a subject. It also contains some information."
   },
   {
    "id": "summary-06",
    "passage_id": "museum",
    "category": "summary",
-   "scored": false,
+   "scored": true,
    "question": "Summarize this announcement in two sentences.",
    "prompt": "Read the passage.\n\nPASSAGE:\nThe Tidewater Museum opens its new exhibit, Salt and Sail, on 8 October. The exhibit follows how coastal towns traded salt across the bay in the nineteenth century. It includes a restored cargo boat, a working salt press, and more than 200 letters written by ship captains. Admission is $12 for adults and free for members and for children under six. Guided tours run at 11 a.m. and 2 p.m. on weekends and must be booked online. The exhibit closes on 31 January.\n\nSummarize this announcement in two sentences. Use only the passage.",
    "scorer": {
-    "kind": "doc-summary"
-   }
+    "kind": "doc-summary",
+    "passage": "The Tidewater Museum opens its new exhibit, Salt and Sail, on 8 October. The exhibit follows how coastal towns traded salt across the bay in the nineteenth century. It includes a restored cargo boat, a working salt press, and more than 200 letters written by ship captains. Admission is $12 for adults and free for members and for children under six. Guided tours run at 11 a.m. and 2 p.m. on weekends and must be booked online. The exhibit closes on 31 January.",
+    "required_facts": [
+     [
+      "8 October",
+      "October 8"
+     ],
+     [
+      "nineteenth century",
+      "19th century"
+     ],
+     [
+      "restored cargo boat",
+      "salt press"
+     ],
+     [
+      "200 letters"
+     ],
+     [
+      "$12 for adults",
+      "$12"
+     ],
+     [
+      "31 January",
+      "January 31"
+     ]
+    ],
+    "min_facts": 2
+   },
+   "malformed": "This is one sentence only.",
+   "reference": "The passage mentions 8 October and nineteenth century. It also gives other useful details.",
+   "wrong": "The passage discusses a subject. It also contains some information."
   },
   {
    "id": "summary-07",
    "passage_id": "release",
    "category": "summary",
-   "scored": false,
+   "scored": true,
    "question": "Summarize these release notes in two sentences.",
    "prompt": "Read the passage.\n\nPASSAGE:\nVersion 3.2 of the Quillnote app adds offline editing, so notes can be changed without a connection and sync when the device is back online. Search is now twice as fast on libraries above 10,000 notes. The release removes the old plain-text export; users should choose Markdown export instead. A bug that duplicated checklist items after a sync conflict is fixed. Version 3.2 requires Android 10 or newer. Support for Android 8 and 9 ended with version 3.1.\n\nSummarize these release notes in two sentences. Use only the passage.",
    "scorer": {
-    "kind": "doc-summary"
-   }
+    "kind": "doc-summary",
+    "passage": "Version 3.2 of the Quillnote app adds offline editing, so notes can be changed without a connection and sync when the device is back online. Search is now twice as fast on libraries above 10,000 notes. The release removes the old plain-text export; users should choose Markdown export instead. A bug that duplicated checklist items after a sync conflict is fixed. Version 3.2 requires Android 10 or newer. Support for Android 8 and 9 ended with version 3.1.",
+    "required_facts": [
+     [
+      "offline editing"
+     ],
+     [
+      "twice as fast",
+      "twice the speed"
+     ],
+     [
+      "Markdown export"
+     ],
+     [
+      "checklist items",
+      "sync conflict"
+     ],
+     [
+      "Android 10"
+     ],
+     [
+      "Android 8",
+      "Android 9"
+     ]
+    ],
+    "min_facts": 2
+   },
+   "malformed": "This is one sentence only.",
+   "reference": "The passage mentions offline editing and twice as fast. It also gives other useful details.",
+   "wrong": "The passage discusses a subject. It also contains some information."
   },
   {
    "id": "summary-08",
    "passage_id": "bakery",
    "category": "summary",
-   "scored": false,
+   "scored": true,
    "question": "Summarize this description of the bakery in two sentences.",
    "prompt": "Read the passage.\n\nPASSAGE:\nSunrise Bakery bakes its sourdough in batches of 24 loaves, starting at four in the morning. The starter is fed twice a day and has been kept alive since the bakery opened in 2009. Loaves sell for $7, or $6 each when a customer buys three or more. Unsold bread is donated to the Eastside Pantry every evening at closing. The bakery is closed on Mondays. Custom orders for more than ten loaves need two days of notice.\n\nSummarize this description of the bakery in two sentences. Use only the passage.",
    "scorer": {
-    "kind": "doc-summary"
-   }
+    "kind": "doc-summary",
+    "passage": "Sunrise Bakery bakes its sourdough in batches of 24 loaves, starting at four in the morning. The starter is fed twice a day and has been kept alive since the bakery opened in 2009. Loaves sell for $7, or $6 each when a customer buys three or more. Unsold bread is donated to the Eastside Pantry every evening at closing. The bakery is closed on Mondays. Custom orders for more than ten loaves need two days of notice.",
+    "required_facts": [
+     [
+      "24 loaves"
+     ],
+     [
+      "2009"
+     ],
+     [
+      "$7"
+     ],
+     [
+      "Eastside Pantry"
+     ],
+     [
+      "closed on Mondays"
+     ],
+     [
+      "two days of notice"
+     ]
+    ],
+    "min_facts": 2
+   },
+   "malformed": "This is one sentence only.",
+   "reference": "The passage mentions 24 loaves and 2009. It also gives other useful details.",
+   "wrong": "The passage discusses a subject. It also contains some information."
   }
  ]
 }

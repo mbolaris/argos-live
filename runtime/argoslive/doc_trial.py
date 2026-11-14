@@ -1,9 +1,11 @@
 """Short-document trials: original passages, closed-schema JSON scoring, fixed criteria.
 
-Each passage yields three scored questions (a plain answer, a supported
-quotation, and a question the passage cannot answer) plus an unscored summary
-the owner judges. Scoring is programmatic with no model judge. A format error is
-reported separately from a wrong answer. Qualification compares counts with the
+Each passage yields four scored questions: a plain answer, a supported
+quotation, a question the passage cannot answer, and a summary checked for two
+sentences plus coverage of at least two listed facts. Summary scoring is a
+narrow format-and-coverage proxy, not a complete judgment of summary quality.
+Scoring is programmatic with no model judge. A format error is reported
+separately from a wrong answer. Qualification compares counts with the
 criteria stored in the suite file; a baseline never moves those bars, and the
 result says nothing about longer documents, file reading or real tasks.
 """
@@ -19,9 +21,10 @@ from .ollama import Client, OllamaError
 DATA = Path(__file__).with_name('data') / 'documents'
 CONTEXT = 4096
 LIMIT = ability.LIMIT
-CATEGORIES = ('answer', 'quote', 'not_stated')
+CATEGORIES = ('answer', 'quote', 'not_stated', 'summary')
 KINDS = {'doc-answer', 'doc-quote', 'doc-not-stated', 'doc-summary'}
-SCOPE = ('Short documents only (passages of roughly 150 words) at the recorded context. This does not show '
+SCOPE = ('Short documents only (passages of roughly 150 words) at the recorded context. Summary scores check '
+         'exactly two sentences and at least two listed facts, not full summary accuracy. This does not show '
          'competence on longer documents, file reading, or your own tasks.')
 MAX_QUOTE = 300
 
@@ -52,10 +55,33 @@ def supported(rule, value):
 
 
 def score(item, response):
-    """Return a scored result, or None for an item the owner judges."""
+    """Score document answers and the suite's narrow summary proxy."""
     rule = item['scorer']
     if rule['kind'] == 'doc-summary':
-        return None
+        result = {'item_id': item['id'], 'score': 0, 'outcome': 'format_error',
+                  'format_valid': False, 'tool_execution_verified': False}
+        if not isinstance(response, str) or len(response) > ability.LIMIT:
+            return result
+        try:
+            if len(response.encode('utf-8')) > ability.LIMIT:
+                return result
+        except UnicodeError:
+            return result
+        text = collapse(response).strip()
+        # Count sentence punctuation only when the next sentence starts with a
+        # capital, digit, or quotation mark. This avoids splitting a.m./p.m.
+        # and decimal values while keeping the suite's prose convention clear.
+        ends = list(re.finditer(r'[.!?]["\'”’)]*(?=\s+[A-Z0-9“"\'(]|$)', text))
+        if len(ends) != 2 or ends[-1].end() != len(text):
+            return result
+        result['format_valid'] = True
+        normalized = text.casefold()
+        covered = sum(1 for alternatives in rule['required_facts']
+                      if any(collapse(fact).casefold() in normalized for fact in alternatives))
+        correct = covered >= rule['min_facts']
+        result.update(score=int(correct), outcome='pass' if correct else 'wrong_answer',
+                      required_facts=rule['min_facts'], covered_facts=covered)
+        return result
     result = {'item_id': item['id'], 'score': 0, 'outcome': 'format_error',
               'format_valid': False, 'tool_execution_verified': False}
     if not isinstance(response, str) or len(response) > ability.LIMIT:
@@ -88,6 +114,10 @@ def add_fixtures(item):
     rule = item['scorer']
     kind = rule['kind']
     if kind == 'doc-summary':
+        facts = rule['required_facts']
+        item['malformed'] = 'This is one sentence only.'
+        item['reference'] = f'The passage mentions {facts[0][0]} and {facts[1][0]}. It also gives other useful details.'
+        item['wrong'] = 'The passage discusses a subject. It also contains some information.'
         return
     item['malformed'] = 'I could not find it.'
     if kind == 'doc-answer':
@@ -121,7 +151,7 @@ def validate(data):
         if (not isinstance(item, dict) or not re.fullmatch(r'[a-z]+-\d{2}', item.get('id', ''))
                 or item['id'] in seen or not isinstance(item.get('prompt'), str)
                 or not 1 <= len(item['prompt']) <= 8192
-                or item.get('category') not in (*CATEGORIES, 'summary')
+                or item.get('category') not in CATEGORIES
                 or type(item.get('scored')) is not bool
                 or not isinstance(item.get('scorer'), dict) or item['scorer'].get('kind') not in KINDS
                 or not isinstance(item.get('passage_id'), str)
@@ -132,8 +162,21 @@ def validate(data):
         counts[item['category']] = counts.get(item['category'], 0) + 1
         per_passage.setdefault(item['passage_id'], []).append(item['category'])
         if rule['kind'] == 'doc-summary':
-            if item['scored'] or item['category'] != 'summary':
-                raise ValueError('Summary items are unscored')
+            facts = rule.get('required_facts')
+            if (not item['scored'] or item['category'] != 'summary'
+                    or type(rule.get('min_facts')) is not int or not isinstance(facts, list)
+                    or not 2 <= rule['min_facts'] <= len(facts)
+                    or any(not isinstance(variants, list) or not variants or
+                           any(not isinstance(value, str) or not normal(value) for value in variants)
+                           for variants in facts)
+                    or not isinstance(rule.get('passage'), str) or rule['passage'] not in item['prompt']):
+                raise ValueError('Invalid scored summary rubric')
+            source = collapse(rule['passage']).casefold()
+            if any(not any(collapse(value).casefold() in source for value in variants) for variants in facts):
+                raise ValueError('Each summary fact must be grounded in its passage')
+            for field, outcome in (('reference', 'pass'), ('wrong', 'wrong_answer'), ('malformed', 'format_error')):
+                if not isinstance(item.get(field), str) or score(item, item[field])['outcome'] != outcome:
+                    raise ValueError('Summary fixtures do not match scorer')
             continue
         if not item['scored'] or item['category'] == 'summary':
             raise ValueError('Scored items need a scored category')
@@ -151,12 +194,12 @@ def validate(data):
         for field, outcome in (('reference', 'pass'), ('wrong', 'wrong_answer'), ('malformed', 'format_error')):
             if not isinstance(item.get(field), str) or score(item, item[field])['outcome'] != outcome:
                 raise ValueError('Reference/wrong/format fixtures do not match scorer')
-    if set(counts) != {*CATEGORIES, 'summary'}:
+    if set(counts) != set(CATEGORIES):
         raise ValueError('Missing document category')
     for category in CATEGORIES:
         if criteria['min_correct'][category] > counts[category]:
             raise ValueError('Criteria exceed the available items')
-    if any(sorted(categories) != sorted((*CATEGORIES, 'summary')) for categories in per_passage.values()):
+    if any(sorted(categories) != sorted(CATEGORIES) for categories in per_passage.values()):
         raise ValueError('Each passage needs exactly one item per category')
     return data
 
@@ -176,7 +219,8 @@ def qualify(items, criteria, *, complete):
     correct = {c: sum(1 for i in items if i['category'] == c and i['score'] == 1) for c in CATEGORIES}
     format_errors = sum(1 for i in items if i['outcome'] == 'format_error')
     checks = [{'name': c, 'label': {'answer': 'Correct answers', 'quote': 'Supported quotations',
-                                    'not_stated': 'Correct "not stated" answers'}[c],
+                                    'not_stated': 'Correct "not stated" answers',
+                                    'summary': 'Summary format and key-fact coverage'}[c],
                'required': criteria['min_correct'][c], 'observed': correct[c],
                'met': correct[c] >= criteria['min_correct'][c]} for c in CATEGORIES]
     checks.append({'name': 'format_errors', 'label': 'Format errors (at most)',
@@ -263,7 +307,7 @@ def run(client, model, *, hardware=None, clock=None, cancel=None, progress=None,
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Run the short-document trial; summaries are for you to judge.')
+    parser = argparse.ArgumentParser(description='Run the short-document trial with a format-and-coverage summary proxy.')
     parser.add_argument('--model', required=True)
     parser.add_argument('--ollama', default='http://127.0.0.1:11434')
     parser.add_argument('--timeout', type=int, default=120, help='API read timeout, 1–600 seconds.')

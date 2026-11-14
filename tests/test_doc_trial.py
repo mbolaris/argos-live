@@ -24,8 +24,7 @@ class DocBackend(Backend):
         result = super().generate(model, prompt, **kwargs)
         if prompt in self.answers:
             item = self.answers[prompt]
-            result['text'] = ('A short summary.' if not item['scored'] else
-                              item[self.mode] if isinstance(self.mode, str) else self.mode(item))
+            result['text'] = item[self.mode] if isinstance(self.mode, str) else self.mode(item)
         return result
 
 
@@ -36,18 +35,18 @@ def run(backend, **kwargs):
 class SuiteTests(unittest.TestCase):
     def test_suite_loads_and_every_fixture_matches_its_scorer(self):
         data = dt.load()
-        self.assertEqual(data['version'], '1.0.0')
-        counts = {c: sum(1 for i in data['items'] if i['category'] == c) for c in (*dt.CATEGORIES, 'summary')}
+        self.assertEqual(data['version'], '1.1.0')
+        counts = {c: sum(1 for i in data['items'] if i['category'] == c) for c in dt.CATEGORIES}
         self.assertEqual(counts, {'answer': 8, 'quote': 8, 'not_stated': 8, 'summary': 8})
         self.assertEqual(data['omitted_categories'], ['long-documents', 'file-reading'])
 
     def test_checked_in_suite_matches_the_generator(self):
+        before = (ROOT / 'runtime/argoslive/data/documents/short.json').read_bytes()
         result = subprocess.run([sys.executable, str(ROOT / 'scripts/build-document-suite.py')],
                                 capture_output=True, text=True, cwd=ROOT)
         self.assertEqual(result.returncode, 0, result.stderr)
-        status = subprocess.run(['git', 'diff', '--quiet', '--', 'runtime/argoslive/data/documents/short.json'],
-                                cwd=ROOT)
-        self.assertEqual(status.returncode, 0, 'Regenerating the suite changed it; bump the suite version')
+        after = (ROOT / 'runtime/argoslive/data/documents/short.json').read_bytes()
+        self.assertEqual(after, before, 'Regenerating the suite changed its checked-in data')
 
     def test_prompts_fit_the_tested_context_with_room_to_answer(self):
         # Four characters per token is a coarse upper bound for English; the suite uses far less.
@@ -65,6 +64,7 @@ class SuiteTests(unittest.TestCase):
         mutated(lambda d: d['criteria']['min_correct'].pop('quote'))
         mutated(lambda d: d.update(context=2048))
         mutated(lambda d: d['items'][1]['scorer'].update(reference_quote='Not in the passage at all.'))
+        mutated(lambda d: d['items'][-1]['scorer']['required_facts'][0].__setitem__(0, 'a fact not in the passage'))
         mutated(lambda d: d['items'][0]['scorer'].update(accepted=['']))
         mutated(lambda d: d['items'][0].update(reference='{"status": "answered", "answer": "no", "quote": ""}'))
         mutated(lambda d: d['items'].pop())
@@ -108,13 +108,24 @@ class ScorerTests(unittest.TestCase):
         self.assertEqual(self.outcome('missing-01', dt.reply('answered', '$4')), 'wrong_answer')
         self.assertEqual(self.outcome('missing-01', dt.reply('not_stated', 'maybe $4')), 'wrong_answer')
 
+    def test_summary_requires_exactly_two_sentences_and_key_facts(self):
+        item = self.items['summary-01']
+        self.assertEqual(self.outcome('summary-01', item['reference']), 'pass')
+        self.assertEqual(self.outcome('summary-01', 'The ferry began in 1987. Crossings take 35 minutes.'), 'pass')
+        self.assertEqual(self.outcome('summary-01', 'The ferry began in 1987. It runs on a harbor route.'), 'wrong_answer')
+        timed = 'Weekend tours run at 11 a.m. and 2 p.m. The exhibit opens on 8 October with more than 200 letters.'
+        self.assertEqual(self.outcome('summary-06', timed), 'pass')
+        self.assertEqual(self.outcome('summary-01',
+                         'The ferry began in 1987. Crossings take 35 minutes. The ferry carries 240 passengers.'),
+                         'format_error')
+
     def test_format_errors_are_separate_from_wrong_answers(self):
         for text in ('plain prose', '{"status": "answered"}', '{"status": "maybe", "answer": "", "quote": ""}',
                      '{"status": "answered", "answer": 240, "quote": ""}',
                      '{"status": "answered", "answer": "240", "answer": "240", "quote": ""}',
                      '{"status": "answered", "answer": "240", "quote": "", "extra": 1}', '', '[]', 'x' * 70000):
             self.assertEqual(self.outcome('answer-01', text), 'format_error', text[:40])
-        self.assertIsNone(dt.score(self.items['summary-01'], 'anything'))
+        self.assertEqual(self.outcome('summary-01', self.items['summary-01']['reference']), 'pass')
         self.assertEqual(dt.score(self.items['answer-01'], None)['outcome'], 'format_error')
 
 
@@ -122,11 +133,11 @@ class RunTests(unittest.TestCase):
     def test_reference_answers_qualify_with_context_and_scope_recorded(self):
         backend = DocBackend()
         result = run(backend)
-        self.assertEqual(result['suite_version'], 'documents/short/1.0.0')
+        self.assertEqual(result['suite_version'], 'documents/short/1.1.0')
         self.assertEqual(result['settings']['context'], 4096)
-        self.assertEqual(result['coverage'], {'completed': 24, 'total': 24, 'complete': True})
-        self.assertEqual(result['summary']['correct'], 24)
-        self.assertEqual(len(result['unscored']), 8)
+        self.assertEqual(result['coverage'], {'completed': 32, 'total': 32, 'complete': True})
+        self.assertEqual(result['summary']['correct'], 32)
+        self.assertNotIn('unscored', result)
         self.assertTrue(result['qualification']['qualified'])
         self.assertIn('longer documents', result['qualification']['scope'])
         self.assertEqual(result['document_context']['context'], 4096)
@@ -144,7 +155,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual(wrong['summary']['format_errors'], 0)
         broken = run(DocBackend('malformed'))
         self.assertFalse(broken['qualification']['qualified'])
-        self.assertEqual(broken['summary']['format_errors'], 24)
+        self.assertEqual(broken['summary']['format_errors'], 32)
 
     def test_thresholds_are_exact_and_independent_of_any_baseline(self):
         data = dt.load()
@@ -159,13 +170,13 @@ class RunTests(unittest.TestCase):
         self.assertTrue(run_with({'quote': 2})['qualified'])
         near = run_with({'quote': 3})
         self.assertFalse(near['qualified'])
-        self.assertEqual([c['met'] for c in near['checks']], [True, False, True, True])
+        self.assertEqual([c['met'] for c in near['checks']], [True, False, True, True, True])
         self.assertFalse(run_with({'answer': 2})['qualified'])
         self.assertFalse(run_with({'not_stated': 2})['qualified'])
         # A weak baseline cannot lower the bar: criteria come only from the suite file.
         self.assertEqual(near['criteria_version'], criteria['version'])
         self.assertEqual({c['name']: c['required'] for c in near['checks']},
-                         {'answer': 7, 'quote': 6, 'not_stated': 7, 'format_errors': 2})
+                         {'answer': 7, 'quote': 6, 'not_stated': 7, 'summary': 6, 'format_errors': 2})
 
     def test_format_error_budget_and_incomplete_runs(self):
         two = [0]
