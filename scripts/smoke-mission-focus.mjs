@@ -103,17 +103,17 @@ try {
   await page.waitForFunction(()=>document.getElementById('arena-phase-badge').textContent==='COMPLETED',null,{timeout:60000});
   await page.waitForFunction(()=>document.getElementById('session-result').getAttribute('aria-disabled')==='false');
   await page.waitForFunction(()=>!document.getElementById('improve-next').hidden && !document.getElementById('cc-debrief').hidden,null,{timeout:20000});
-  assert.equal(await page.locator('#cc-receipt-title').textContent(),'23 of 24 correct');
-  assert.match(await page.locator('#cc-count-note').textContent(),/32 responses: 24 scored questions, plus 8 summaries/);
-  assert.match(await page.locator('#arena-summary-detail').textContent(),/23 of 24 scored questions correct/);
+  assert.equal(await page.locator('#cc-receipt-title').textContent(),'31 of 32 correct');
+  assert.match(await page.locator('#cc-count-note').textContent(),/32 scored responses, including summaries checked for format and key facts/);
+  assert.match(await page.locator('#arena-summary-detail').textContent(),/31 of 32 scored questions correct/);
   assert.equal(await page.locator('#improve-next').getAttribute('data-kind'),'format');
-  assert.match(await page.locator('#improve-why').textContent(),/1 of 24 scored answer was in the wrong answer format/);
+  assert.match(await page.locator('#improve-why').textContent(),/1 of 32 scored answer was in the wrong answer format/);
   assert.equal(await page.locator('#receipt-change').isHidden(),true,'Proposed experiment is not repeated');
   assert.match(await page.locator('#cc-debrief-note').textContent(),/^Written by fixture:latest after scoring\./);
   await page.locator('#session-result').click();
   await page.waitForFunction(()=>!document.getElementById('command-center').classList.contains('assistant-trial-offer-focus'));
   await both('result',()=>scrollTo('cc-receipt'));
-  assert.match(await page.locator('#cc-debrief-facts').textContent(),/^Measured for this run: 23 of 24 correct/);
+  assert.match(await page.locator('#cc-debrief-facts').textContent(),/^Measured for this run: 31 of 32 correct/);
 
   // ---- Replay: every answer of the finished run, starting with the miss.
   await page.waitForFunction(()=>!document.getElementById('replay').hidden && document.querySelectorAll('#replay-grid .replay-chip').length===32);
@@ -122,7 +122,7 @@ try {
   assert.match(await page.locator('#replay-verdict').textContent(),/^Not scorable/);
   assert.equal(await page.locator('#replay-breakdown').textContent(),'Why they missed (diagnostic, not a score): Not in the required answer format ×1');
   assert.equal(await page.locator('#replay-diagnosis').textContent(),'Diagnostic label (new, not a score): Not in the required answer format');
-  assert.match(await page.locator('#replay-summary').textContent(),/^23 of 24 correct · 1 miss · 8 summaries for you/);
+  assert.match(await page.locator('#replay-summary').textContent(),/^31 of 32 correct · 1 miss · 8 summaries scored with a format-and-facts proxy/);
   assert.ok((await page.locator('#replay-passage').textContent()).length>100,'Passage shown with the answer');
   await page.locator('#replay-next').click();
   assert.match(await page.locator('#replay-kind').textContent(),/^Answer with a supporting quote · 2 of 32$/);

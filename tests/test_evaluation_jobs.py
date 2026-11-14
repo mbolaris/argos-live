@@ -78,11 +78,11 @@ class EvaluationJobTests(unittest.TestCase):
     def test_documents_short_job_advertises_and_saves_its_own_workload(self):
         jobs = self.make_jobs()
         started = jobs.start('documents-short')
-        self.assertEqual(started['total'], 24)
+        self.assertEqual(started['total'], 32)
         self.gate.set()
         finished = jobs.wait(started['job_id'], seconds=10)
         self.assertEqual(finished['result']['suite'], 'openclaw-documents-short')
-        self.assertEqual(finished['result']['coverage']['total'], 24)
+        self.assertEqual(finished['result']['coverage']['total'], 32)
         self.assertTrue(finished['result']['qualification']['qualified'])
 
     def test_owner_recovery_job_is_bounded_and_saves_decision_only_measurements(self):

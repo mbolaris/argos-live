@@ -26,8 +26,8 @@ class ReplayTests(unittest.TestCase):
         saved = run()
         value = replay.build(saved)
         self.assertEqual(len(value['items']), 32)
-        self.assertEqual(value['run']['unscored'], 8)
-        self.assertEqual((value['run']['correct'], value['run']['total']), (24, 24))
+        self.assertEqual(value['run']['unscored'], 0)
+        self.assertEqual((value['run']['correct'], value['run']['total']), (32, 32))
         first = value['items'][:4]
         self.assertEqual([i['category'] for i in first], ['answer', 'quote', 'not_stated', 'summary'])
         self.assertEqual(len({i['passage_id'] for i in first}), 1)
@@ -35,7 +35,8 @@ class ReplayTests(unittest.TestCase):
         stored = json.loads(json.dumps(saved, sort_keys=True))
         self.assertEqual([i['item_id'] for i in replay.build(stored)['items'][:4]],
                          ['answer-01', 'quote-01', 'missing-01', 'summary-01'])
-        self.assertEqual(first[3]['outcome'], 'unscored')
+        self.assertEqual(first[3]['outcome'], 'pass')
+        self.assertIn('does not judge full summary quality', first[3]['reason'])
         self.assertTrue(all(i['passage_id'] in value['passages'] for i in value['items']))
         quote = first[1]
         self.assertTrue(quote['quote_in_passage'])
@@ -53,6 +54,8 @@ class ReplayTests(unittest.TestCase):
         self.assertIn('isn’t copied exactly from the passage', wrong['quote']['reason'])
         self.assertFalse(wrong['quote']['quote_in_passage'])
         self.assertIn('answered anyway', wrong['not_stated']['reason'])
+        self.assertEqual(wrong['summary']['outcome'], 'wrong_answer')
+        self.assertIn('fewer than 2 listed passage facts', wrong['summary']['reason'])
         broken = replay.build(run('malformed'))['items'][0]
         self.assertEqual(broken['outcome'], 'format_error')
         self.assertTrue(broken['reason'].startswith('Not scorable'))

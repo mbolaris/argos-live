@@ -2,7 +2,8 @@
 
 Nothing here scores. Verdicts are the outcomes saved when the run was scored;
 reasons only explain them, using the scorer's own parsing so an explanation
-never disagrees with the score. Summaries stay unscored.
+never disagrees with the score. Older suite summaries stay unscored; suite v1.1
+summaries show the saved format-and-coverage proxy verdict.
 """
 from . import doc_trial
 
@@ -48,7 +49,13 @@ def diagnose(item, rule, passage):
     """Explain a saved verdict with separate answer and quote checks. Never rescores."""
     category, outcome, output = item.get('category'), item.get('outcome'), item.get('output') or ''
     if category == 'summary':
-        return {'reason': 'A summary written for you to read. Summaries are not scored.'}
+        if not rule or rule.get('kind') != 'doc-summary' or 'score' not in item:
+            return {'reason': 'A summary written for you to read. This suite version did not score summaries.'}
+        if outcome == 'pass':
+            return {'reason': 'Passed the saved two-sentence and key-fact proxy; this does not judge full summary quality.'}
+        if outcome == 'format_error':
+            return labelled('format', 'Not scorable: the reply did not contain exactly two sentences.')
+        return {'reason': f"Wrong: fewer than {rule.get('min_facts')} listed passage facts appeared in the two-sentence summary."}
     if outcome == 'pass':
         return {'reason': {'answer': 'Correct: the answer matches the passage.',
                            'quote': 'Correct: an accepted answer, backed by a quote copied exactly from the passage.',
@@ -113,9 +120,12 @@ def miss_groups(run):
     passages = suite.get('passages') if isinstance(suite.get('passages'), dict) else {}
     scorer, groups = rules(run), {}
     for item in run.get('items') or []:
-        if not isinstance(item, dict) or item.get('outcome') in ('pass', 'unscored') or item.get('category') == 'summary':
+        if not isinstance(item, dict) or item.get('outcome') in ('pass', 'unscored'):
             continue
-        value = diagnose(item, scorer.get(item.get('item_id')), passages.get(item.get('passage_id')))
+        rule = scorer.get(item.get('item_id'))
+        if item.get('category') == 'summary' and (not rule or rule.get('kind') != 'doc-summary'):
+            continue
+        value = diagnose(item, rule, passages.get(item.get('passage_id')))
         group = (value.get('diagnosis') or {}).get('group', 'wrong')
         if (value.get('diagnosis') or {}).get('kind') == 'quote_not_exact':
             group = 'quote'
@@ -151,6 +161,7 @@ def build(run):
         rule = scorer.get(item['item_id'])
         passage = passages.get(item.get('passage_id'))
         category = item.get('category')
+        scored_summary = (category == 'summary' and rule and rule.get('kind') == 'doc-summary' and 'score' in item)
         quote = None
         if category in ('quote', 'answer'):
             try:
@@ -160,7 +171,7 @@ def build(run):
         items.append({
             'item_id': item['item_id'], 'category': category, 'passage_id': item.get('passage_id'),
             'question': item.get('question'),
-            'outcome': 'unscored' if category == 'summary' else item.get('outcome'),
+            'outcome': item.get('outcome') if category != 'summary' or scored_summary else 'unscored',
             'output': output[:OUTPUT_LIMIT],
             'output_truncated': bool(item.get('output_truncated')) or len(output) > OUTPUT_LIMIT,
             **diagnose_fields(item, rule, passage),

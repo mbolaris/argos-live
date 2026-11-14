@@ -98,7 +98,7 @@
                 <div class="arena-hud-item"><dt class="arena-hud-label">Step</dt><dd><span id="arena-phase-badge" class="arena-badge">Idle</span></dd></div>
                 <div class="arena-hud-item"><dt class="arena-hud-label">Elapsed</dt><dd id="arena-elapsed" class="arena-val">0 s</dd></div>
               </dl>
-              <p class="arena-count-note">Each passage gets three scored questions (find a fact, quote the supporting sentence, and notice when the passage doesn’t say) plus one summary written for you to read. Summaries are not scored.</p>
+              <p class="arena-count-note">Each passage gets three scored questions and one summary check. Summary scoring checks the requested format and key facts as a narrow proxy; it does not judge overall writing quality.</p>
             </details>
           </div>
           <div id="arena-live-card" class="arena-card live-card">
@@ -159,7 +159,7 @@
               <span class="rung-num-pill">01</span>
               <div class="rung-info">
                 <div class="rung-name">Short Document Comprehension</div>
-                <div class="rung-desc">8 passages · 24 scored challenges. Reading, exact quote attribution, and absence detection.</div>
+                <div class="rung-desc">8 passages · 32 scored tasks. Reading, exact quote attribution, absence detection, and summary format plus key facts.</div>
               </div>
             </div>
             <span id="rung-1-status" class="rung-status-badge current">Ready to test</span>
@@ -623,7 +623,7 @@
             <option value="tool-schema">Tool schema — 40 synthetic tool name and argument formatting items</option>
             <option value="tool-plan">Tool plan — 40 synthetic multi-constraint tool selection items</option>
             <option value="tool-sequence">Tool sequence — 40 synthetic ordered call-planning items; calls are not executed</option>
-            <option value="documents-short">Read this brief — 24 short passages (answers, quotes, “not stated”)</option>
+            <option value="documents-short">Read this brief — 32 short-document tasks (answers, quotes, “not stated,” summaries)</option>
             <option value="owner-recovery-decision">Owner recovery decisions — 8 simulated receipts; decision-only, uncalibrated, no real recovery</option>
           </select>
           <p>These fixed tasks are bundled with Argos. “Read this brief” covers only its short passages; it does not measure long-document or file-reading work. Leave the selector at None unless a suite’s exact tasks directly test the recurring goal above. With “None fits,” Argos will inspect and report what task-specific evaluation is missing without changing instructions or using quiz scores.</p>

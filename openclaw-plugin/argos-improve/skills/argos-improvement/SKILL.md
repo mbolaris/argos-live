@@ -26,9 +26,11 @@ measurement is missing and propose what repeatable examples and independent
 success checks would be needed. Fixed quick, standard, challenge, tool-schema,
 tool-plan, tool-sequence, and documents-short suites are Argos-authored diagnostics, not external
 benchmarks. The optional `documents-short` suite reuses the existing "Read this
-brief" mission's short passages and scores answers, supporting quotes, and "not
-stated" responses; owner-judged summaries and long-document/file-reading tasks
-are excluded. Use it only when that exact reading task matters to the owner. A
+brief" mission's short passages and scores answers, supporting quotes, "not
+stated" responses, and summaries. Summary scores check exactly two sentences
+and at least two listed facts as a narrow format-and-coverage proxy, not full
+summary quality. Long-document and file-reading tasks are excluded. Use it only
+when that exact reading task matters to the owner. A
 score describes only its suite and configuration; it does not
 establish owner-task improvement or general ability. The tool creates a
 tool-free embedded OpenClaw turn with temporary state and copied instructions
