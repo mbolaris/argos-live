@@ -102,7 +102,7 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
 
 
 def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None,
-        item_ids=None, slice_name=None, slice_version=None, lap_id=None):
+        item_ids=None, slice_name=None, slice_version=None, lap_id=None, model_tag=None, recipe=None):
     """Run fixed text tasks with copied instructions and no execution capabilities."""
     if home is not None:
         from .evaluation_control import Cancellation
@@ -136,7 +136,11 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                         if instruction_path is not None and instruction_path.parent.is_dir() else None)
     workspace = instruction_path.parent if workspace_before is not None else None
     protected = protected_files(workspace)
-    configuration = configuration_receipt(home)
+    if recipe is not None:
+        from . import recipe as recipe_mod
+        recipe = recipe_mod.validate(recipe)
+    configuration = configuration_receipt(home, model_tag=model_tag, recipe=recipe)
+    owner_configuration = configuration_receipt(home)
     workspace_context = workspace_context_receipt(workspace)
 
     def protect(item_id):
@@ -155,7 +159,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
             result['workspace_changed'] = {'item_id': item_id, 'files': changed}
             raise TrialTurnError('workspace-changed-during-run')
         try:
-            same = configuration_receipt(home)['sha256'] == configuration['sha256']
+            same = (configuration_receipt(home)['sha256'] == owner_configuration['sha256'] and
+                    configuration_receipt(home, model_tag=model_tag, recipe=recipe)['sha256'] == configuration['sha256'])
         except (OSError, ValueError, KeyError, TypeError):
             same = False
         if not same:
@@ -164,6 +169,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     if isinstance(runner, OpenClawRunner):
         runner.expected_model = configuration['model']['primary'].removeprefix('ollama/')
         runner.cancel_event = cancel
+        runner.model_tag = model_tag
+        runner.recipe = recipe
     started = clock()
     result = {
         'schema': 'argos-bench/1', 'id': secrets.token_hex(16),
@@ -173,7 +180,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         'model': 'identity pending first OpenClaw turn', 'manifest_digest': None,
         'settings': {'execution_path': EXECUTION_PATH,
                      'suite_sha256': suite_digest, 'model': configuration['model'],
-                     'configured_generation': configuration['configured_generation']},
+                     'configured_generation': configuration['configured_generation'],
+                     'recipe': recipe},
         'prompt_fingerprint': {'workspace_agents_sha256': instruction_digest,
                                'evaluation_config_sha256': configuration['sha256'],
                                'workspace_context_sha256': workspace_context},

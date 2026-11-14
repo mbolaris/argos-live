@@ -1,6 +1,6 @@
 # Shakedown: build backlog
 
-Status: SIM37/38/39/40 delivered in PR #177; SIM41 in progress on `codex/shakedown-result-screen`, November 14, 2026.
+Status: SIM37/38/39/40 delivered in PR #177; SIM41 delivered in PR #178; SIM42 in progress on `codex/shakedown-queue`, November 14, 2026.
 The design, data shapes and rules are in [DESIGN.md](DESIGN.md); read it once, then any ticket
 below stands on its own.
 
@@ -316,7 +316,7 @@ and is never used to keep or roll back an instruction change.
 
 **Depends.** None. **Verify.** Unit tests.
 
-### SIM41 — The result screen: what changed, where, and one next move — `in progress (branch codex/shakedown-result-screen)`
+### SIM41 — The result screen: what changed, where, and one next move — `done (PR #178)`
 
 **Goal.** After a lap, one screen that answers "did that help?" and "what now?".
 
@@ -338,7 +338,7 @@ recorded facts.
 
 **Depends.** SIM39, SIM40. **Verify.** Browser smoke.
 
-### SIM42 — Queue: several loadouts while you are away — `todo`
+### SIM42 — Queue: several loadouts while you are away — `in progress`
 
 **Goal.** Line up "Q4, Q5 and Q6 at two context sizes", walk away, come back to a scorecard.
 

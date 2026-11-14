@@ -108,6 +108,35 @@ class EvaluationIsolationTests(unittest.TestCase):
             self.assertEqual(copied['models']['providers']['ollama']['models'][0]['params'], {'num_ctx': 8192})
         self.assertEqual(receipt['configured_generation']['agent_model_params'], {'thinking': 'low'})
 
+    def test_queued_loadout_model_and_recipe_exist_only_in_temporary_lab_staging(self):
+        from argoslive import recipe as recipe_mod
+        self.value['models']['providers']['ollama']['models'].append({
+            'id': 'candidate', 'name': 'candidate', 'reasoning': False, 'input': ['text'],
+            'contextWindow': 4096, 'contextTokens': 4096, 'maxTokens': 128})
+        self.config.write_text(json.dumps(self.value))
+        original_config = self.config.read_bytes()
+        original_agents = (self.workspace / 'AGENTS.md').read_bytes()
+        candidate_recipe = recipe_mod.canonical('concise', context=2048)
+        runner = OpenClawRunner(self.home, executable='openclaw')
+        runner.model_tag = 'candidate'
+        runner.recipe = candidate_recipe
+        observed = []
+
+        def embedded(_runner, _text, _timeout, staged_home, staged_config, staged_workspace):
+            copied = json.loads(staged_config.read_bytes())
+            self.assertEqual(copied['agents']['defaults']['model']['primary'], 'ollama/candidate')
+            self.assertEqual(copied['tools'], {'deny': ['*'], 'toolSearch': False})
+            self.assertIn(candidate_recipe['instructions'], (staged_workspace / 'AGENTS.md').read_text())
+            observed.append((staged_home, staged_config, staged_workspace))
+            return {'text': 'C', 'elapsed_seconds': .1, 'session_id': 'fixture',
+                    'provider': 'ollama', 'model': 'candidate'}
+
+        with patch.object(OpenClawRunner, '_embedded_turn', embedded):
+            self.assertEqual(runner.turn('fixed task')['model'], 'candidate')
+        self.assertEqual(self.config.read_bytes(), original_config)
+        self.assertEqual((self.workspace / 'AGENTS.md').read_bytes(), original_agents)
+        self.assertFalse(observed[0][0].exists())
+
     def test_canonical_roster_is_used_for_model_and_workspace_selection(self):
         self.value['agents']['entries'] = {'main': {'workspace': str(self.workspace), 'model': 'ollama/fixture',
                                                    'params': {'temperature': 0.4}}}

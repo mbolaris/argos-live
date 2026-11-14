@@ -102,12 +102,13 @@ made.
 4. Done on Yugo (November 14): read-only watch mirror at `127.0.0.1:8765`. The version-aware boot
    refresher is in `main` via PR #177 but has not been deployed successfully; see the deployment
    check above. The immutable image's older module restored the base runtime during health.
-5. Shakedown Phase 1 is in progress after PR #177: SIM37/38/39/40 foundations, fixed lap slices,
-   host-owned job sequencing, a saved-run scorecard, and local lap controls are merged. SIM41 (the
-   result screen) is being implemented on `codex/shakedown-result-screen`. The dashboard starts a
-   lap only after an owner clicks Run. It has not been deployed; the owner-selected improvement
-   campaign remains idle until the owner chooses a task. Design rules: real-world sci-fi, the typical
-   user is an amateur LLM enthusiast tuning a local agent, and the bench comes first.
+5. Shakedown Phase 1 is in progress. SIM37/38/39/40 foundations and SIM41's result screen are merged
+   (PRs #177 and #178). SIM42's persistent lap queue is in progress on `codex/shakedown-queue`;
+   fixture checks cover sequential execution, missing-model preflight, cancellation, reboot recovery,
+   and unchanged deployed configuration. No model evaluation has run on Toronado. The dashboard
+   starts laps only after an owner clicks Run or Start queue. The owner-selected improvement campaign
+   remains idle until the owner chooses a task. Design rules: real-world sci-fi, the typical user is
+   an amateur LLM enthusiast tuning a local agent, and the bench comes first.
 
 ## Standards that must not slip
 

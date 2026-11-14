@@ -58,13 +58,13 @@ def parameters(value):
     return copy.deepcopy(value)
 
 
-def configuration(home):
+def configuration(home, *, model_tag=None, recipe=None):
     """Build the same bounded model configuration for copying and provenance."""
     original = json.loads(storage.safe_local(Path(home) / '.openclaw/openclaw.json').read_bytes())
-    return configuration_from(original)
+    return configuration_from(original, model_tag=model_tag, recipe=recipe)
 
 
-def configuration_from(original):
+def configuration_from(original, *, model_tag=None, recipe=None):
     """Pure projection, also used to verify a host's immutable config snapshot."""
     defaults = original['agents']['defaults']
     roster = original['agents']
@@ -74,7 +74,11 @@ def configuration_from(original):
     primary = selected if isinstance(selected, str) else selected['primary']
     if not isinstance(primary, str) or not primary.startswith('ollama/'):
         raise ValueError('Evaluation requires a configured local Ollama model')
-    tag = primary.removeprefix('ollama/')
+    tag = primary.removeprefix('ollama/') if model_tag is None else model_tag
+    if (not isinstance(tag, str) or not tag or len(tag) > 256 or
+            any(char.isspace() for char in tag) or '/' in tag or '\\' in tag):
+        raise ValueError('Choose an exact local model tag')
+    primary = 'ollama/' + tag
     provider = original['models']['providers']['ollama']
     origin = urlsplit(provider['baseUrl'])
     if (origin.scheme != 'http' or origin.hostname != '127.0.0.1' or
@@ -98,14 +102,24 @@ def configuration_from(original):
     local = {'baseUrl': 'http://127.0.0.1:11434', 'apiKey': 'ollama-local', 'api': 'ollama', 'models': [model]}
     if 'maxTokens' in provider:
         local['maxTokens'] = provider['maxTokens']
+    if recipe is not None:
+        from . import recipe as recipe_mod
+        resolved = recipe_mod.validate(copy.deepcopy(recipe))
+        model['params'].update(num_ctx=resolved['context'], num_predict=resolved['output_cap'],
+                               temperature=resolved['temperature'], seed=resolved['seed'],
+                               think=resolved['thinking'])
+        copied['params'].update(model['params'])
+        copied['models'][primary]['params'].update(model['params'])
+        agent['params'].update(model['params'])
+        agent['models'][primary]['params'].update(model['params'])
     return {'agents': {'defaults': copied, 'entries': {'main': agent}}, 'models': {'providers': {'ollama': local}},
             'tools': {'deny': ['*'], 'toolSearch': False},
             'plugins': {'allow': ['ollama'], 'entries': {'ollama': {'enabled': True}}, 'slots': {'memory': 'none'}},
             'skills': {'allowBundled': []}}
 
 
-def configuration_receipt(home):
-    return receipt_from(configuration(home))
+def configuration_receipt(home, *, model_tag=None, recipe=None):
+    return receipt_from(configuration(home, model_tag=model_tag, recipe=recipe))
 
 
 def receipt_from(config):
@@ -171,10 +185,10 @@ def require_no_legacy_trials(home):
 
 
 @contextmanager
-def isolated(home, workspace):
+def isolated(home, workspace, *, model_tag=None, recipe=None):
     """Copy bounded instruction/persona inputs, never credentials or session state."""
     home, workspace = Path(home), Path(workspace)
-    config = configuration(home)
+    config = configuration(home, model_tag=model_tag, recipe=recipe)
     with tempfile.TemporaryDirectory(prefix='argos-evaluation-') as temporary:
         root = Path(temporary)
         work = root / '.openclaw/workspace'
@@ -190,6 +204,10 @@ def isolated(home, workspace):
             if len(raw) > FILE_LIMIT:
                 raise ValueError('Evaluation workspace input exceeds the limit')
             (work / name).write_bytes(raw)
+        if recipe is not None and recipe.get('instructions'):
+            agents = work / 'AGENTS.md'
+            prior = agents.read_text(encoding='utf-8') if agents.exists() else ''
+            agents.write_text(prior.rstrip() + '\n\n' + recipe['instructions'] + '\n', encoding='utf-8')
         config['agents']['defaults']['workspace'] = str(work)
         path = root / '.openclaw/openclaw.json'
         path.write_text(json.dumps(config), encoding='utf-8')
