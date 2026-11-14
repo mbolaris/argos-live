@@ -11,7 +11,7 @@ from argoslive.shakedown.scorecard import View, wilson
 
 
 def ability_run(run_id, model, scores, *, suite_version='ability/quick/1.0.0', slice_name='full',
-                partition=None, day=1):
+                partition=None, day=1, suite_total=None):
     items = []
     for index, score in enumerate(scores):
         item = {'item_id': f'item-{index}', 'score': score,
@@ -21,13 +21,16 @@ def ability_run(run_id, model, scores, *, suite_version='ability/quick/1.0.0', s
             item['partition'] = partition
         items.append(item)
     stamp = (datetime(2026, 11, day, tzinfo=timezone.utc) + timedelta(seconds=1)).isoformat()
-    return {'schema': 'argos-bench/1', 'id': run_id, 'created': stamp, 'kind': 'ability',
+    run = {'schema': 'argos-bench/1', 'id': run_id, 'created': stamp, 'kind': 'ability',
             'suite': 'openclaw-quick', 'suite_version': suite_version, 'model': model,
             'manifest_digest': 'sha256:' + (('a' if model == 'q4' else 'b') * 64),
             'settings': {}, 'hardware': {}, 'state': 'completed', 'items': items,
             'coverage': {'completed': len(items), 'total': len(items), 'complete': True},
             'summary': summaries(items), 'restoration': {'succeeded': True},
             'omitted_categories': [], 'slice_name': slice_name, 'slice_version': 'argos-shakedown-slice/1'}
+    if suite_total is not None:
+        run['suite_total'] = suite_total
+    return run
 
 
 class ScorecardTests(unittest.TestCase):
@@ -65,6 +68,42 @@ class ScorecardTests(unittest.TestCase):
         row = next(row for row in self.view.scorecard()['rows'] if row['kind'] == 'ability')
         self.assertTrue(all(cell.get('incomparable') for cell in row['cells'].values()))
         self.assertFalse(any(cell['best'] for cell in row['cells'].values()))
+
+    def test_comparison_reports_loadout_diff_and_paired_row_verdict(self):
+        self.store.save(ability_run('1' * 32, 'q4', [0] * 8))
+        self.store.save(ability_run('2' * 32, 'q5', [1] * 8, day=2))
+        value = self.view.comparison()
+        self.assertTrue(value['has_comparison'])
+        self.assertEqual(value['counts'], {'better': 1, 'worse': 0, 'too-close': 0})
+        self.assertEqual(value['rows'][0]['verdict'], 'better')
+        self.assertIn('Model', value['loadout_diff'][0]['sentence'])
+        self.assertIn('1 row improved', value['headline'])
+
+    def test_comparison_without_prior_build_says_to_run_again_later(self):
+        self.store.save(ability_run('1' * 32, 'q4', [1] * 8))
+        value = self.view.comparison()
+        self.assertFalse(value['has_comparison'])
+        self.assertIsNone(value['previous'])
+        self.assertIn('Run this again later', value['headline'])
+
+    def test_comparison_rejects_current_or_unknown_previous_loadout(self):
+        self.store.save(ability_run('1' * 32, 'q4', [1] * 8))
+        current = self.view.scorecard()['current_loadout_id']
+        with self.assertRaisesRegex(ValueError, 'earlier saved build'):
+            self.view.comparison(current)
+        with self.assertRaisesRegex(ValueError, 'earlier saved build'):
+            self.view.comparison('0' * 24)
+
+    def test_too_close_subset_offers_only_the_next_fixed_slice(self):
+        self.store.save(ability_run('1' * 32, 'q4', [0] + [1] * 9,
+                                    slice_name='quick', day=1, suite_total=40))
+        self.store.save(ability_run('2' * 32, 'q5', [1] * 10,
+                                    slice_name='quick', day=2, suite_total=40))
+        value = self.view.comparison()
+        self.assertEqual(value['rows'][0]['verdict'], 'too-close')
+        self.assertEqual(value['next_move'], {
+            'label': 'Run more questions', 'suite': 'openclaw-quick', 'size': 'standard',
+            'description': 'Run the standard slice for openclaw-quick to add questions.'})
 
     def test_wilson_interval_contains_observed_rate(self):
         lower, upper = wilson(7, 10)

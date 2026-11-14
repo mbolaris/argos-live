@@ -47,6 +47,15 @@ On a later boot, the refresher preserves that runtime only when both still match
 or changed installed tree falls back to the image. This records exact image identity rather than
 guessing which source commit is newer. It has not been deployed to Toronado.
 
+**Deployment check, November 14.** Runtime bundle `b5f764e` passed its quick health campaign, but
+the marker step loaded the older `image_refresh` module from the immutable image. That module did
+not support `--record-override` and refreshed 104 files. Toronado's installed tree now matches the
+image digest (`e83a6da2…`, 107 files), and the override marker is absent. The pre-refresh snapshot
+remains at `/var/lib/argos-live/runtime-refresh/runtime-refresh-20261114T040421Z-a7b71ae6a55f/`.
+The version-aware behavior is not active on Toronado. Fixing the boot wrapper's import selection
+requires owner approval under the boot-area write rule; no reboot or further remote write has been
+made.
+
 ## State as of November 12, 2026
 
 - `main` is at the merge of #171. Toronado runs `main` commit 6900d75's runtime (tree digest
@@ -91,14 +100,14 @@ guessing which source commit is newer. It has not been deployed to Toronado.
 3. Closed: the tool-schema 1/40 and 0/40 runs used suite v1.1.0, which expected `name` where the model
    wrote `tool`. Suite v1.2.0 scores 40/40. Different suite versions are not a matched comparison.
 4. Done on Yugo (November 14): read-only watch mirror at `127.0.0.1:8765`. The version-aware boot
-   refresher is in progress on `codex/shakedown-phase1`; it needs CI and a runtime update before
-   it can be considered deployed.
-5. Shakedown Phase 1 is in progress on `codex/shakedown-phase1`: SIM37/38/39/40 foundations,
-   fixed lap slices, host-owned job sequencing, a saved-run scorecard, and the local lap controls are
-   implemented in the isolated worktree. The dashboard can start a lap only after an owner clicks
-   Run. It has not been deployed; the owner-selected improvement campaign remains idle until the
-   owner chooses a task. Design rules: real-world sci-fi, the typical user is an amateur LLM
-   enthusiast tuning a local agent, and the bench comes first.
+   refresher is in `main` via PR #177 but has not been deployed successfully; see the deployment
+   check above. The immutable image's older module restored the base runtime during health.
+5. Shakedown Phase 1 is in progress after PR #177: SIM37/38/39/40 foundations, fixed lap slices,
+   host-owned job sequencing, a saved-run scorecard, and local lap controls are merged. SIM41 (the
+   result screen) is being implemented on `codex/shakedown-result-screen`. The dashboard starts a
+   lap only after an owner clicks Run. It has not been deployed; the owner-selected improvement
+   campaign remains idle until the owner chooses a task. Design rules: real-world sci-fi, the typical
+   user is an amateur LLM enthusiast tuning a local agent, and the bench comes first.
 
 ## Standards that must not slip
 

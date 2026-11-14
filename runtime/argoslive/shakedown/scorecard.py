@@ -223,3 +223,139 @@ class View:
                 'available_loadouts': available_loadouts,
                 'selected_loadout_ids': selected, 'current_loadout_id': current, 'rows': rows,
                 'lap_estimates': estimates, 'empty': not bool(loadouts), 'available': True}
+
+    def comparison(self, previous=None):
+        """Compare the latest build with one earlier build using fixed, recorded evidence."""
+        records = self.store.list().get('runs', [])
+        runs = []
+        for record in records:
+            try:
+                runs.append(self.store.load(record['id']))
+            except (OSError, ValueError, TypeError, KeyError):
+                continue
+        runs.sort(key=_run_sort, reverse=True)
+        by_loadout = defaultdict(list)
+        identities = {}
+        for run in runs:
+            snapshot = loadout.snapshot(run)
+            identities.setdefault(snapshot['id'], snapshot)
+            by_loadout[snapshot['id']].append(run)
+        current = next(iter(by_loadout), None)
+        names = _owner_names(self.home)
+        options = []
+        for loadout_id in by_loadout:
+            if loadout_id == current:
+                continue
+            options.append({'id': loadout_id,
+                            'name': names.get(loadout_id) or
+                                    f'{identities[loadout_id]["model"]} · {identities[loadout_id]["recipe"].get("context")}',
+                            'created': by_loadout[loadout_id][0].get('created')})
+        current_info = None
+        if current is not None:
+            current_info = {'id': current,
+                            'name': names.get(current) or
+                                    f'{identities[current]["model"]} · {identities[current]["recipe"].get("context")}',
+                            'created': by_loadout[current][0].get('created')}
+        if previous is not None and (not isinstance(previous, str) or previous not in by_loadout or previous == current):
+            raise ValueError('Choose an earlier saved build')
+        previous = previous or (options[0]['id'] if options else None)
+        previous_info = None
+        differences = []
+        compared_rows = []
+        if current is not None and previous is not None:
+            previous_info = next(value for value in options if value['id'] == previous)
+            differences = loadout.diff(identities[previous], identities[current])
+
+            def entries(loadout_id):
+                found = {}
+                for run in by_loadout[loadout_id]:
+                    produced = _speed_rows(run, loadout_id) if run.get('kind') == 'speed' else _ability_rows(run, loadout_id)
+                    for row_id, row in produced:
+                        if row_id not in found:
+                            found[row_id] = row
+                return found
+
+            before_rows, after_rows = entries(previous), entries(current)
+            for row_id in sorted(before_rows.keys() | after_rows.keys()):
+                before = before_rows.get(row_id)
+                after = after_rows.get(row_id)
+                template = after or before
+                row = {'id': row_id, 'label': template['label'], 'kind': template['kind'],
+                       'verdict': 'not-available', 'reason': None,
+                       'previous_run_id': None, 'current_run_id': None,
+                       'previous_slice': None, 'current_slice': None}
+                if before:
+                    cell = before['cells'][previous]
+                    row.update(previous_run_id=cell.get('run_id'), previous_slice=cell.get('slice'))
+                if after:
+                    cell = after['cells'][current]
+                    row.update(current_run_id=cell.get('run_id'), current_slice=cell.get('slice'))
+                if not before or not after:
+                    row['reason'] = 'A saved result is missing for one build.'
+                elif before['kind'] != after['kind']:
+                    row.update(verdict='incomparable', reason='These rows measure different things.')
+                else:
+                    old_cell, new_cell = before['cells'][previous], after['cells'][current]
+                    if (old_cell.get('state') != 'completed' or new_cell.get('state') != 'completed' or
+                            old_cell.get('complete', True) is False or new_cell.get('complete', True) is False):
+                        row.update(verdict='incomplete', reason='Both results must be complete.')
+                    elif (old_cell.get('suite_version') != new_cell.get('suite_version') or
+                          old_cell.get('slice') != new_cell.get('slice') or
+                          (old_cell.get('slice') != 'full' and
+                           old_cell.get('slice_version') != new_cell.get('slice_version'))):
+                        row.update(verdict='incomparable', reason='The form version or lap slice differs.')
+                    else:
+                        try:
+                            if after['kind'] == 'ability':
+                                result = verdict.compare(before['cells'][previous]['_comparison_run'],
+                                                         after['cells'][current]['_comparison_run'])
+                            else:
+                                old_values = old_cell.get('values') or []
+                                new_values = new_cell.get('values') or []
+                                result = verdict.compare_speed(
+                                    {'measurements': [{'tokens_per_second': value} for value in old_values]},
+                                    {'measurements': [{'tokens_per_second': value} for value in new_values]})
+                                if not after['higher_is_better']:
+                                    result['verdict'] = {'better': 'worse', 'worse': 'better'}.get(
+                                        result['verdict'], result['verdict'])
+                            row['verdict'] = result['verdict']
+                            for key in ('shared_items', 'wins', 'losses', 'ties', 'p_value',
+                                        'additional_shared_questions', 'more_questions_note',
+                                        'relative_change', 'baseline_spread', 'candidate_spread'):
+                                if key in result:
+                                    row[key] = result[key]
+                        except (ValueError, KeyError) as exc:
+                            row.update(verdict='incomparable', reason=str(exc))
+                row['suite'] = template.get('suite')
+                row['slice_version'] = (after or before)['cells'][current if after else previous].get('slice_version')
+                compared_rows.append(row)
+
+        counts = {key: sum(row['verdict'] == key for row in compared_rows)
+                  for key in ('better', 'worse', 'too-close')}
+        if previous_info is None:
+            headline = 'Run this again later to compare two saved builds.'
+        elif not any(counts.values()):
+            headline = 'No rows could be compared between these builds.'
+        else:
+            def count_phrase(count, one, many):
+                return f'{count} {one if count == 1 else many}'
+            better = count_phrase(counts['better'], 'row improved', 'rows improved')
+            worse = count_phrase(counts['worse'], 'row worsened', 'rows worsened')
+            close = count_phrase(counts['too-close'], 'row too close to call',
+                                 'rows too close to call')
+            headline = f'Current build: {better}, {worse}, and {close}.'
+        next_move = None
+        next_size = {'quick': 'standard', 'standard': 'full'}
+        for row in compared_rows:
+            if row['verdict'] != 'too-close' or row['kind'] != 'ability' or not row.get('suite'):
+                continue
+            size = next_size.get(row.get('current_slice'))
+            if size:
+                next_move = {'label': 'Run more questions', 'suite': row['suite'], 'size': size,
+                             'description': f'Run the {size} slice for {row["suite"]} to add questions.'}
+                break
+        return {'schema': 'argos-shakedown-comparison/1', 'available': True,
+                'current': current_info, 'previous': previous_info, 'previous_options': options,
+                'loadout_diff': differences, 'rows': compared_rows, 'counts': counts,
+                'headline': headline, 'next_move': next_move,
+                'empty': current_info is None, 'has_comparison': previous_info is not None}

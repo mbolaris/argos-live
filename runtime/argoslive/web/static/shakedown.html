@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>Shakedown · Argos Live</title>
+  <link rel="icon" href="/favicon.svg?token=__SESSION_TOKEN__" type="image/svg+xml">
   <link rel="stylesheet" href="/shakedown.css?token=__SESSION_TOKEN__">
   <script src="/shakedown.js?token=__SESSION_TOKEN__" defer></script>
 </head>
@@ -41,6 +42,29 @@
         <button id="cancel-lap" type="button" class="secondary" hidden>Cancel lap</button>
         <span id="lap-estimate" class="muted"></span>
         <span id="lap-state" class="muted" role="status" aria-live="polite"></span>
+      </section>
+      <section id="lap-result" class="result card" hidden aria-labelledby="result-title">
+        <div class="result-heading">
+          <div><p class="eyebrow">LAP DEBRIEF</p><h2 id="result-title">Did that help?</h2></div>
+          <label for="compare-loadout">Compare with
+            <select id="compare-loadout"></select>
+          </label>
+        </div>
+        <p id="result-headline" class="result-headline" aria-live="polite"></p>
+        <p id="result-empty" class="muted" hidden>There is no earlier build to compare. Run this again later to see a change.</p>
+        <div id="loadout-changes">
+          <h3>Build changes</h3>
+          <p id="no-build-changes" class="muted" hidden>No recorded configuration changes.</p>
+          <ul id="loadout-diff"></ul>
+        </div>
+        <div id="row-results">
+          <h3>Row verdicts</h3>
+          <ul id="comparison-rows"></ul>
+        </div>
+        <div id="next-move" class="next-move" hidden>
+          <p id="next-move-description"></p>
+          <button id="run-more" type="button" class="secondary">Run more questions</button>
+        </div>
       </section>
       <details class="loadout-picker card">
         <summary>Choose up to four builds to pin</summary>
