@@ -45,7 +45,7 @@ version-aware refresher implementation is merged in `main` via PR #177: after a 
 passes health, the updater records the exact image runtime digest and installed runtime digest.
 On a later boot, the refresher preserves that runtime only when both still match; a changed image
 or changed installed tree falls back to the image. This records exact image identity rather than
-guessing which source commit is newer. It has not been deployed successfully to Toronado.
+guessing which source commit is newer. The successful deployment is recorded below.
 
 **Deployment check, November 14.** With owner approval, PR #183 (`161ea355`) fixed the boot
 wrapper's import selection and made the systemd unit call the persistent wrapper. A persistent
