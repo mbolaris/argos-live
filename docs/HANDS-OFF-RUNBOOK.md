@@ -69,17 +69,21 @@ established.
 
 A fair, isolated quote probe supplied accepted answer values and quote requirements; quote-05
 through quote-08 each passed three of three repetitions. The old quote misses therefore do not
-establish a quote-retrieval weakness. A separate summary-format probe found that summary-05 returned
-one sentence instead of two in three of three repetitions; summary-06 and summary-07 followed the
-two-sentence instruction in all six repetitions. Summaries have no scorer, so this is a candidate
-finding only. The owner has not selected a next task; do not start another measured campaign until
+establish a quote-retrieval weakness. A summary-format probe then used all eight original prompts
+unchanged for three repetitions each. Eighteen of 24 replies appended an unsolicited source quote
+after the requested two-sentence summary; only six ended after exactly two sentences. Per-item quote
+append counts for summary-01 through summary-08 were 1/3, 2/3, 2/3, 3/3, 2/3, 2/3, 3/3, and 3/3.
+Summaries have no scorer, so this is a candidate instruction-following weakness only, not a measured
+gain or loss. The owner has not selected a next task; do not start another measured campaign until
 they do.
 
-The Yugo mirror at `127.0.0.1:8765` was responding with no error at the latest check (snapshot age
-12 seconds); its snapshot showed the campaign inactive and Argos ready. Main native-chat run
+The Yugo mirror at `127.0.0.1:8765` was responding with no error at the latest check on November 14
+at 07:17 UTC (snapshot age 12 seconds); its snapshot showed the campaign inactive and Argos ready.
+Main native-chat run
 `43564638085` failed the CPU-placement check after reporting split placement (4.4 GB model,
 434,645,237 VRAM bytes). The Proctor practice step passed, and later model checks were skipped.
-The PR #180 checks and its post-merge tests and compatibility checks passed.
+The PR #180 checks and its post-merge tests and compatibility checks passed; PR #181 refreshed the
+runbook and backlog status, with its checks and post-merge tests passing.
 
 ## State as of November 12, 2026
 
