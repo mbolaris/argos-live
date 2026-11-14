@@ -35,7 +35,7 @@ def run(backend, **kwargs):
 class SuiteTests(unittest.TestCase):
     def test_suite_loads_and_every_fixture_matches_its_scorer(self):
         data = dt.load()
-        self.assertEqual(data['version'], '1.1.0')
+        self.assertEqual(data['version'], '1.2.0')
         counts = {c: sum(1 for i in data['items'] if i['category'] == c) for c in dt.CATEGORIES}
         self.assertEqual(counts, {'answer': 8, 'quote': 8, 'not_stated': 8, 'summary': 8})
         self.assertEqual(data['omitted_categories'], ['long-documents', 'file-reading'])
@@ -47,6 +47,19 @@ class SuiteTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         after = (ROOT / 'runtime/argoslive/data/documents/short.json').read_bytes()
         self.assertEqual(after, before, 'Regenerating the suite changed its checked-in data')
+
+    def test_archived_suite_keeps_historical_answer_rubric(self):
+        historical = dt.load(version='1.1.0')
+        current = dt.load(version='1.2.0')
+        old_quote = next(item for item in historical['items'] if item['id'] == 'quote-05')
+        new_quote = next(item for item in current['items'] if item['id'] == 'quote-05')
+        answer = 'to protect nesting birds'
+        quote = new_quote['scorer']['reference_quote']
+        response = dt.reply('answered', answer, quote)
+        self.assertEqual(dt.score(old_quote, response)['outcome'], 'wrong_answer')
+        self.assertEqual(dt.score(new_quote, response)['outcome'], 'pass')
+        with self.assertRaisesRegex(ValueError, 'Unknown short-document suite version'):
+            dt.load(version='9.9.9')
 
     def test_prompts_fit_the_tested_context_with_room_to_answer(self):
         # Four characters per token is a coarse upper bound for English; the suite uses far less.
@@ -103,6 +116,22 @@ class ScorerTests(unittest.TestCase):
         # A right quote with a wrong answer still fails.
         self.assertEqual(self.outcome('quote-01', dt.reply('answered', '45 minutes', good)), 'wrong_answer')
 
+    def test_saved_natural_quote_answers_pass_only_with_verbatim_support(self):
+        variants = {
+            'quote-05': 'to protect nesting birds',
+            'quote-06': 'how coastal towns traded salt across the bay',
+            'quote-07': 'Markdown export',
+            'quote-08': 'It is donated to the Eastside Pantry every evening at closing.',
+        }
+        for item_id, answer in variants.items():
+            with self.subTest(item_id=item_id):
+                reference_quote = self.items[item_id]['scorer']['reference_quote']
+                self.assertEqual(self.outcome(item_id, dt.reply('answered', answer, reference_quote)), 'pass')
+                self.assertEqual(self.outcome(item_id, dt.reply('answered', answer,
+                                 'This sentence is not in the passage.')), 'wrong_answer')
+        self.assertEqual(self.outcome('quote-05', dt.reply('answered', 'to protect the birds',
+                         self.items['quote-05']['scorer']['reference_quote'])), 'wrong_answer')
+
     def test_not_stated_requires_status_and_empty_fields(self):
         self.assertEqual(self.outcome('missing-01', dt.reply('not_stated')), 'pass')
         self.assertEqual(self.outcome('missing-01', dt.reply('answered', '$4')), 'wrong_answer')
@@ -133,7 +162,7 @@ class RunTests(unittest.TestCase):
     def test_reference_answers_qualify_with_context_and_scope_recorded(self):
         backend = DocBackend()
         result = run(backend)
-        self.assertEqual(result['suite_version'], 'documents/short/1.1.0')
+        self.assertEqual(result['suite_version'], 'documents/short/1.2.0')
         self.assertEqual(result['settings']['context'], 4096)
         self.assertEqual(result['coverage'], {'completed': 32, 'total': 32, 'complete': True})
         self.assertEqual(result['summary']['correct'], 32)

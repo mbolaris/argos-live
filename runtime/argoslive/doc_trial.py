@@ -204,14 +204,25 @@ def validate(data):
     return data
 
 
-def load(suite='short'):
+def load(suite='short', version=None):
     if suite != 'short':
         raise ValueError('Only the short-document suite exists')
-    with (DATA / 'short.json').open('rb') as stream:
+    if version is None:
+        path = DATA / 'short.json'
+    elif version == '1.2.0':
+        path = DATA / 'short.json'
+    elif version == '1.1.0':
+        path = DATA / 'archive' / 'short-1.1.0.json'
+    else:
+        raise ValueError('Unknown short-document suite version')
+    with path.open('rb') as stream:
         raw = stream.read(1024**2 + 1)
     if len(raw) > 1024**2:
         raise ValueError('Suite exceeds metadata limit')
-    return validate(ability.decode(raw))
+    data = validate(ability.decode(raw))
+    if version is not None and data['version'] != version:
+        raise ValueError('Document suite archive version mismatch')
+    return data
 
 
 def qualify(items, criteria, *, complete):

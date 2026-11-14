@@ -12,7 +12,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
 from argoslive import doc_trial  # noqa: E402
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 OUTPUT = Path(__file__).resolve().parents[1] / 'runtime/argoslive/data/documents/short.json'
 
 CRITERIA = {
@@ -81,7 +81,8 @@ PASSAGES = [
               'protect nesting birds. There is no drinking water along the route, so hikers should carry at least two '
               'liters. The trail is closed after heavy snow, and the ranger station posts closures by 7 a.m.'),
      'answer': ('How long is the Cedar Ridge loop in kilometers?', ['7.5', '7.5 kilometers', '7.5 km']),
-     'quote': ('Why is the lookout closed to dogs from March to June?', ['nesting birds', 'protect nesting birds'],
+     'quote': ('Why is the lookout closed to dogs from March to June?',
+               ['nesting birds', 'protect nesting birds', 'to protect nesting birds'],
                'Dogs are allowed on a leash, but the lookout at the halfway point is closed to dogs from March to '
                'June to protect nesting birds.'),
      'not_stated': 'Is camping allowed along the trail?',
@@ -94,7 +95,8 @@ PASSAGES = [
               'and free for members and for children under six. Guided tours run at 11 a.m. and 2 p.m. on weekends '
               'and must be booked online. The exhibit closes on 31 January.'),
      'answer': ('When does the Salt and Sail exhibit open?', ['8 october', 'october 8', '8 oct']),
-     'quote': ('What does the exhibit show about the nineteenth century?', ['trade', 'traded salt', 'salt across the bay'],
+     'quote': ('What does the exhibit show about the nineteenth century?',
+               ['trade', 'traded salt', 'salt across the bay', 'how coastal towns traded salt across the bay'],
                'The exhibit follows how coastal towns traded salt across the bay in the nineteenth century.'),
      'not_stated': 'Who restored the cargo boat?',
      'summary': 'Summarize this announcement in two sentences.',
@@ -106,7 +108,7 @@ PASSAGES = [
               'duplicated checklist items after a sync conflict is fixed. Version 3.2 requires Android 10 or newer. '
               'Support for Android 8 and 9 ended with version 3.1.'),
      'answer': ('Which Android version or newer does Quillnote 3.2 require?', ['android 10', '10']),
-     'quote': ('What replaced the old plain-text export?', ['markdown'],
+     'quote': ('What replaced the old plain-text export?', ['markdown', 'Markdown export'],
                'The release removes the old plain-text export; users should choose Markdown export instead.'),
      'not_stated': 'How much does Quillnote cost?',
      'summary': 'Summarize these release notes in two sentences.',
@@ -118,7 +120,9 @@ PASSAGES = [
               'at closing. The bakery is closed on Mondays. Custom orders for more than ten loaves need two days of '
               'notice.'),
      'answer': ('How many loaves are in each batch of sourdough?', ['24', '24 loaves']),
-     'quote': ('What happens to unsold bread?', ['donated', 'donated to the eastside pantry'],
+     'quote': ('What happens to unsold bread?',
+               ['donated', 'donated to the eastside pantry',
+                'It is donated to the Eastside Pantry every evening at closing.'],
                'Unsold bread is donated to the Eastside Pantry every evening at closing.'),
      'not_stated': 'Does the bakery sell gluten-free bread?',
      'summary': 'Summarize this description of the bakery in two sentences.',

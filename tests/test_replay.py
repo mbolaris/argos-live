@@ -133,16 +133,25 @@ class AuditTests(unittest.TestCase):
         return replay.diagnose(saved, suite_item['scorer'], suite_item['scorer'].get('passage'))
 
     def test_real_receipts_get_the_audited_diagnosis(self):
+        historical = {i['id']: i for i in doc_trial.load(version='1.1.0')['items']}
         for item_id, outcome, output, kind in RECEIPTS:
             with self.subTest(item_id=item_id, kind=kind):
-                # Diagnosis explains the saved score; the scorer still rejects every one of these.
-                suite_item = self.rules[item_id]
+                # These receipts were scored under v1.1; replay must use its archived rubric.
+                suite_item = historical[item_id]
                 self.assertEqual(doc_trial.score(suite_item, output)['outcome'], outcome)
-                self.assertEqual(self.diagnose(item_id, outcome, output)['diagnosis']['kind'], kind)
+                saved = {'item_id': item_id, 'category': suite_item['category'], 'outcome': outcome, 'output': output}
+                result = replay.diagnose(saved, suite_item['scorer'], suite_item['scorer'].get('passage'))
+                self.assertEqual(result['diagnosis']['kind'], kind)
+
+    def test_rules_resolve_archived_run_version(self):
+        old = replay.rules({'suite_version': 'documents/short/1.1.0'})
+        current = replay.rules({'suite_version': 'documents/short/1.2.0'})
+        self.assertNotEqual(old['quote-05']['accepted'], current['quote-05']['accepted'])
+        self.assertEqual(replay.rules({'suite_version': 'documents/short/9.9.9'}), {})
 
     def test_answer_and_quote_are_checked_separately(self):
         wording = self.diagnose(*RECEIPTS[0][:3])
-        self.assertEqual(wording['checks'], {'answer_accepted': False, 'answer_contains_accepted': True,
+        self.assertEqual(wording['checks'], {'answer_accepted': True, 'answer_contains_accepted': True,
                                              'answer_words': 4, 'quote_exact': True, 'quote_supports': True})
         unsupported = self.diagnose(*RECEIPTS[5][:3])
         self.assertTrue(unsupported['checks']['quote_exact'])

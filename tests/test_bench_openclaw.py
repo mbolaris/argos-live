@@ -125,7 +125,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         result = bench_openclaw.run(suite='documents-short', runner=FakeDocumentOpenClaw())
         source = doc_trial.DATA / 'short.json'
         self.assertEqual(result['suite'], 'openclaw-documents-short')
-        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/documents-short/1.1.0')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/documents-short/1.2.0')
         self.assertEqual(result['settings']['suite_sha256'], hashlib.sha256(source.read_bytes()).hexdigest())
         self.assertEqual(result['coverage'], {'completed': 32, 'total': 32, 'complete': True})
         self.assertEqual(result['summary']['correct'], 32)
@@ -138,7 +138,7 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         first = bench_openclaw.run(suite='documents-short', runner=FakeDocumentOpenClaw())
         second = bench_openclaw.run(suite='documents-short', runner=FakeDocumentOpenClaw())
         comparison = results.compare([first, second])
-        self.assertEqual(comparison['suite_version'], 'argos-openclaw-ability/documents-short/1.1.0')
+        self.assertEqual(comparison['suite_version'], 'argos-openclaw-ability/documents-short/1.2.0')
         self.assertEqual(len(comparison['rows']), 2)
         self.assertTrue(all(row['value'] == 1.0 for row in comparison['rows']))
 
