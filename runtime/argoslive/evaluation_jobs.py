@@ -10,7 +10,7 @@ import secrets
 import threading
 import time
 
-from . import bench_openclaw, workload, storage
+from . import bench_openclaw, bench_speed, workload, storage
 from .pull_jobs import read_json, write_json, worker_lock, WorkerBusy
 from .results import Store, identifier
 
@@ -34,13 +34,14 @@ class Cancellation:
 
 
 class Jobs:
-    def __init__(self, home, *, evaluate=None, admission=None):
+    def __init__(self, home, *, evaluate=None, speed_evaluate=None, admission=None):
         self.home = storage.safe_local(Path(home).absolute())
         self.root = storage.safe_local(self.home / '.local/state/argos-live/evaluation-jobs')
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.metadata_root = self.root / 'metadata-lock'
         self.metadata_root.mkdir(mode=0o700, exist_ok=True)
         self.evaluate = evaluate or bench_openclaw._run
+        self.speed_evaluate = speed_evaluate or self._run_speed
         self.admission = admission or (lambda: workload.reserve(self.home, 'evaluation'))
         self.store = Store(self.home / '.local/share/argos-live/results')
         self.threads = {}
@@ -78,9 +79,28 @@ class Jobs:
     def control(self, job_id):
         return storage.safe_local(self.root / (identifier(job_id) + '.control.json'))
 
-    def start(self, suite='quick'):
-        if suite not in bench_openclaw.SUITES:
+    def _run_speed(self, *, home, progress, cancel):
+        from .evaluation_context import configuration_receipt
+        from .ollama import Client
+        model = configuration_receipt(home)['model']['primary'].removeprefix('ollama/')
+        return bench_speed.run(Client(), model, progress=progress, cancel=cancel)
+
+    def start(self, suite='quick', *, slice_name=None, slice_version=None, lap_id=None):
+        if suite != 'speed' and suite not in bench_openclaw.SUITES:
             raise ValueError('Unsupported evaluation suite')
+        item_ids = None
+        if suite == 'speed' and (slice_name is not None or slice_version is not None):
+            raise ValueError('Speed jobs do not use ability-form slices')
+        if slice_name is not None or slice_version is not None:
+            from .shakedown.lap import SLICE_VERSION, slice_item_ids
+            if slice_name not in ('quick', 'standard', 'full') or slice_version != SLICE_VERSION:
+                raise ValueError('Unsupported fixed evaluation slice')
+            item_ids = slice_item_ids(suite, slice_name)
+        if lap_id is not None:
+            try:
+                identifier(lap_id)
+            except ValueError as exc:
+                raise ValueError('Invalid lap ID') from exc
         job_id = secrets.token_hex(16)
         ready = threading.Event()
         errors = []
@@ -96,13 +116,20 @@ class Jobs:
                     prior = self.read(prior_path) if prior_path.exists() else {}
                     if prior.get('state') in ('running', 'quarantined'):
                         raise workload.Busy(recovery=True)
+                    total = (12 if suite == 'speed' else len(item_ids) if item_ids is not None else
+                             len(bench_openclaw.suite_content(suite)[1]))
                     with self.admission() as slot:
                         record = {'schema': 'argos-evaluation-job/1', 'job_id': job_id,
                                   'suite': suite, 'state': 'running', 'settled': False,
-                                  'completed': 0, 'total': len(bench_openclaw.suite_content(suite)[1]),
+                                  'completed': 0, 'total': total,
                                   'inference_dispatched': False,
                                   'reservation_id': slot.record['id'],
                                   'reservation_generation': slot.record['generation']}
+                        if lap_id is not None:
+                            record['lap_id'] = lap_id
+                        if item_ids is not None:
+                            record.update(slice_name=slice_name, slice_version=slice_version,
+                                          lap_id=lap_id)
                         self.write(self.control(job_id), {'action': 'run'})
 
                         def publish():
@@ -114,14 +141,25 @@ class Jobs:
                         ready.set()
 
                         def progress(event):
-                            if event.get('phase') == 'asking':
+                            if event.get('phase') in ('asking', 'dispatching'):
                                 record['inference_dispatched'] = True
                             record.update(completed=event.get('completed', record['completed']),
                                           total=event.get('total', record['total']))
                             publish()
 
-                        result = self.evaluate(suite=suite, home=self.home, progress=progress,
-                                               cancel=Cancellation(self.control(job_id), self.read))
+                        options = {'home': self.home, 'progress': progress,
+                                   'cancel': Cancellation(self.control(job_id), self.read)}
+                        if suite == 'speed':
+                            result = self.speed_evaluate(**options)
+                        else:
+                            options['suite'] = suite
+                        if suite != 'speed' and item_ids is not None:
+                            options.update(item_ids=item_ids, slice_name=slice_name,
+                                           slice_version=slice_version, lap_id=lap_id)
+                        if suite != 'speed':
+                            result = self.evaluate(**options)
+                        if lap_id is not None:
+                            result['lap_id'] = lap_id
                         path = self.store.save(result)
                         slot.record_result(result['id'])
                         # Completed fixed native turns have the same release
@@ -130,10 +168,11 @@ class Jobs:
                         # CLI exit, a signal, or the result state alone.
                         releasable = result['state'] == 'completed' or (
                             result['state'] == 'cancelled' and not record['inference_dispatched'])
+                        coverage = result.get('coverage') if isinstance(result.get('coverage'), dict) else {}
                         record.update(state='completed' if releasable else 'quarantined',
                                       outcome=result['state'], result_id=result['id'], path=str(path),
-                                      completed=result['coverage']['completed'],
-                                      total=result['coverage']['total'])
+                                      completed=coverage.get('completed', record['completed']),
+                                      total=coverage.get('total', record['total']))
                         publish()
                         if releasable:
                             slot.complete(result['id'])

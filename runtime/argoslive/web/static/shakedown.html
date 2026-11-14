@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Shakedown · Argos Live</title>
+  <link rel="stylesheet" href="/shakedown.css?token=__SESSION_TOKEN__">
+  <script src="/shakedown.js?token=__SESSION_TOKEN__" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div><a class="brand" href="/?token=__SESSION_TOKEN__">Argos Live</a><span class="crumb">/ Shakedown</span></div>
+      <a class="back" href="/?token=__SESSION_TOKEN__">Back to Mission Control</a>
+    </header>
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow">LOCAL MODEL WORKBENCH</p>
+      <h1 id="title">Shakedown</h1>
+      <p>Change a build, run a lap, and compare the results on your machine.</p>
+    </section>
+    <p id="status" class="status" role="status" aria-live="polite">Loading saved runs…</p>
+    <section id="empty" class="empty card" hidden aria-labelledby="empty-title">
+      <h2 id="empty-title">Your bench is ready</h2>
+      <p>Run a quick lap to record your first speed and ability results.</p>
+      <button id="run-quick-empty" type="button" data-lap-size="quick">Run a quick lap</button>
+    </section>
+    <section id="bench" hidden aria-labelledby="scorecard-title">
+      <div class="controls card">
+        <div><h2 id="scorecard-title">Scorecard</h2><p>Rows are tests. Columns are the builds you have tried.</p></div>
+        <div class="actions">
+          <label class="mobile-picker" for="mobile-loadout">Show build</label>
+          <select id="mobile-loadout" class="mobile-picker"></select>
+          <button id="refresh" type="button" class="secondary">Refresh</button>
+        </div>
+      </div>
+      <section class="lap-controls card" aria-label="Run a Shakedown lap">
+        <label for="lap-size">Lap size</label>
+        <select id="lap-size"><option value="quick">Quick</option><option value="standard">Standard</option><option value="full">Full</option></select>
+        <button id="run-lap" type="button">Run lap</button>
+        <button id="cancel-lap" type="button" class="secondary" hidden>Cancel lap</button>
+        <span id="lap-estimate" class="muted"></span>
+        <span id="lap-state" class="muted" role="status" aria-live="polite"></span>
+      </section>
+      <details class="loadout-picker card">
+        <summary>Choose up to four builds to pin</summary>
+        <p class="muted">Your current build is always included.</p>
+        <div id="loadout-options" class="loadout-options"></div>
+      </details>
+      <div class="table-wrap">
+        <table id="scorecard">
+          <caption class="sr-only">Shakedown scorecard comparing saved local model builds</caption>
+          <thead id="head"></thead><tbody id="body"></tbody>
+        </table>
+      </div>
+      <p class="footnote">Uncertainty uses a 95% Wilson interval. A best mark appears only when paired results distinguish that build from every other comparable build in the row.</p>
+    </section>
+  </main>
+</body>
+</html>

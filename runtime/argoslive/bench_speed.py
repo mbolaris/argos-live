@@ -9,7 +9,7 @@ import statistics
 import time
 
 from . import __version__, hw
-from .ollama import Client, OllamaError
+from .ollama import Cancelled, Client, OllamaError
 
 SUITE = 'speed/1'
 LIMIT = 128
@@ -85,7 +85,17 @@ def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=Non
               'ollama_version': client.version(), 'argos_version': __version__, 'hardware': hardware(),
               'settings': {'prompt_sizes': list(sizes), 'seed': 1, 'temperature': 0, 'think': False if 'thinking' in
                            metadata.get('capabilities', []) else None, 'generation_limit': LIMIT},
-              'cold': None, 'prompts': [], 'restoration': {'previous_model': previous_model, 'succeeded': False}}
+              'state': 'running', 'cold': None, 'prompts': [],
+              'restoration': {'previous_model': previous_model, 'succeeded': False}}
+    supported = [name for name, _repeats, requested in PROMPTS
+                 if name in sizes and context is not None and context >= requested]
+    total_requests = 4 * len(supported)
+    completed_requests = 0
+
+    def report(phase, name, sample=None):
+        if progress:
+            progress({'phase': phase, 'size': name, 'sample': sample,
+                      'completed': completed_requests, 'total': total_requests})
     try:
         # Deliberately unload before the first request; filesystem caches are not cleared.
         if previous_model:
@@ -102,6 +112,10 @@ def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=Non
             prompt = ('alpha beta gamma delta ' * repeats +
                       '\nWrite a short paragraph about exploring a quiet coastline.')
             options = {'num_ctx': requested, 'num_predict': LIMIT, 'temperature': 0, 'seed': 1}
+            prompt_result = {'size': name, 'skipped': False, 'context_tokens': requested,
+                             'prompt_characters': len(prompt), 'prompt_version': SUITE,
+                             'warmup': None, 'runs': []}
+            result['prompts'].append(prompt_result)
             # Context changes require a fresh runner allocation. Explicit unload
             # avoids keeping a mismatched runner resident through that transition.
             client.unload(model)
@@ -111,23 +125,28 @@ def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=Non
                 if not response.get('text', '').strip():
                     raise ValueError('Benchmark produced an empty text reply')
                 return measurement(response, client.ps().get('models', []), model)
-            if progress:
-                progress({'size': name, 'phase': 'warmup'})
+            report('dispatching', name, 'warmup')
             warmup = generate()
+            completed_requests += 1
+            prompt_result['warmup'] = warmup
             if result['cold'] is None:
                 result['cold'] = {'prompt_size': name, 'measurement': warmup,
                                   'filesystem_caches_cleared': False}
+            report('sampled', name, 'warmup')
             runs = []
             for index in range(3):
-                if progress:
-                    progress({'size': name, 'phase': 'measured', 'run': index + 1})
+                report('dispatching', name, index + 1)
                 runs.append(generate())
-            result['prompts'].append({'size': name, 'skipped': False, 'context_tokens': requested,
-                                     'prompt_characters': len(prompt), 'prompt_version': SUITE,
-                                     'warmup': warmup, 'runs': runs,
-                                     'summary': {key: summary([r[key] for r in runs]) for key in
-                                     ('prompt_tokens_per_second', 'generation_tokens_per_second',
-                                      'time_to_first_token_seconds')}})
+                completed_requests += 1
+                prompt_result['runs'] = list(runs)
+                report('sampled', name, index + 1)
+            prompt_result['summary'] = {key: summary([r[key] for r in runs]) for key in
+                                        ('prompt_tokens_per_second', 'generation_tokens_per_second',
+                                         'time_to_first_token_seconds')}
+        result['state'] = 'completed'
+    except Cancelled:
+        result['state'] = 'cancelled'
+        result['failure_code'] = 'cancelled'
     finally:
         try:
             client.unload(model)
@@ -138,6 +157,8 @@ def run(client, model, *, hardware=hw.snapshot, clock=time.monotonic, cancel=Non
                 client.generate(previous_model, '', options=options, keep_alive='5m')
             result['restoration']['succeeded'] = True
     result['elapsed_seconds'] = clock() - started
+    result['coverage'] = {'completed': completed_requests, 'total': total_requests,
+                          'complete': result['state'] == 'completed' and completed_requests == total_requests}
     return result
 
 

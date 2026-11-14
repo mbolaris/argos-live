@@ -101,12 +101,30 @@ def run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mono
         return result
 
 
-def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None):
+def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.monotonic, cancel=None,
+        item_ids=None, slice_name=None, slice_version=None, lap_id=None):
     """Run fixed text tasks with copied instructions and no execution capabilities."""
     if home is not None:
         from .evaluation_control import Cancellation
         cancel = Cancellation(home, cancel)
     data, tasks, suite_path, omitted_categories = suite_content(suite)
+    suite_total = len(tasks)
+    if item_ids is not None:
+        if (not isinstance(item_ids, list) or not item_ids or
+                any(not isinstance(item_id, str) for item_id in item_ids) or
+                len(set(item_ids)) != len(item_ids) or
+                not isinstance(slice_name, str) or slice_name not in ('quick', 'standard', 'full') or
+                slice_version != 'argos-shakedown-slice/1'):
+            raise ValueError('Invalid fixed evaluation slice')
+        by_id = {task['id']: task for task in tasks}
+        if any(item_id not in by_id for item_id in item_ids):
+            raise ValueError('Evaluation slice contains an unknown item')
+        ordered_ids = [task['id'] for task in tasks if task['id'] in set(item_ids)]
+        if ordered_ids != item_ids:
+            raise ValueError('Evaluation slice must preserve the form item order')
+        tasks = [by_id[item_id] for item_id in item_ids]
+    elif slice_name is not None or slice_version is not None:
+        raise ValueError('Slice metadata requires a fixed item list')
     suite_digest = hashlib.sha256(suite_path.read_bytes()).hexdigest()
     instruction_digest = None
     instruction_path = None
@@ -163,6 +181,9 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
         'omitted_categories': omitted_categories,
         'restoration': {'succeeded': True, 'mutated': False},
     }
+    if item_ids is not None:
+        result.update(slice_name=slice_name, slice_version=slice_version,
+                      suite_total=suite_total, lap_id=lap_id)
     try:
         for index, task in enumerate(tasks, 1):
             item_id = task['id']

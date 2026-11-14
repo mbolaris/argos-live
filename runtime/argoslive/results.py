@@ -229,6 +229,9 @@ def validate(value):
     elif not isinstance(value.get('prompts'), list) or not value['prompts']:
         raise ValueError('Invalid speed result')
     else:
+        speed_state = value.get('state', 'completed')
+        if speed_state not in ('completed', 'cancelled'):
+            raise ValueError('Invalid speed run state')
         seen = set()
         for prompt in value['prompts']:
             if (not isinstance(prompt, dict) or prompt.get('size') not in ('short', 'medium', 'long')
@@ -236,10 +239,21 @@ def validate(value):
                     or not isinstance(prompt.get('runs'), list)):
                 raise ValueError('Invalid speed prompt result')
             seen.add(prompt['size'])
-            if not prompt['skipped'] and len(prompt['runs']) != 3:
+            if (not prompt['skipped'] and speed_state == 'completed' and len(prompt['runs']) != 3):
                 raise ValueError('Speed result requires three measured runs')
+            if not prompt['skipped'] and speed_state == 'cancelled' and len(prompt['runs']) > 3:
+                raise ValueError('Cancelled speed result has too many measured runs')
             if any(not isinstance(run, dict) for run in prompt['runs']):
                 raise ValueError('Invalid speed measurement')
+        coverage = value.get('coverage')
+        if coverage is not None:
+            if (not isinstance(coverage, dict) or type(coverage.get('completed')) is not int
+                    or type(coverage.get('total')) is not int or coverage['total'] < 0
+                    or not 0 <= coverage['completed'] <= coverage['total']
+                    or type(coverage.get('complete')) is not bool
+                    or coverage['complete'] != (speed_state == 'completed' and
+                                                 coverage['completed'] == coverage['total'])):
+                raise ValueError('Invalid speed coverage')
     return value
 
 
@@ -696,6 +710,15 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
     # Kind and suite version must match
     if (baseline['kind'], baseline['suite_version']) != (candidate['kind'], candidate['suite_version']):
         raise ValueError('Experiment comparison requires matching benchmark kind and suite version')
+
+    slice_b = baseline.get('slice_name', baseline.get('slice', 'full'))
+    slice_c = candidate.get('slice_name', candidate.get('slice', 'full'))
+    if slice_b != slice_c:
+        raise ValueError('Experiment comparison requires matching lap slices')
+    if slice_b != 'full':
+        version_b, version_c = baseline.get('slice_version'), candidate.get('slice_version')
+        if not isinstance(version_b, str) or not version_b or version_b != version_c:
+            raise ValueError('Experiment comparison requires matching lap slice versions')
 
     # Coverage must be complete and identical
     if baseline['kind'] == 'ability':

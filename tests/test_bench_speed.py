@@ -9,7 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import bench_speed as bench
-from argoslive.ollama import Interrupted
+from argoslive.ollama import Cancelled, Interrupted
 
 FIXTURE = json.loads((ROOT / 'tests/fixtures/ollama/responses.json').read_text())
 
@@ -142,6 +142,23 @@ class BenchTests(unittest.TestCase):
         for sizes in ([], ['short', 'short'], ['invalid']):
             with self.assertRaises(ValueError):
                 bench.run(Backend(), 'fixture:latest', sizes=sizes)
+
+    def test_cancelled_speed_run_saves_partial_measurements_and_is_not_complete(self):
+        backend = Backend(context=4096, previous=False)
+        original = backend.generate
+
+        def cancel_after_warmup(model, prompt, **kwargs):
+            if prompt and backend.responses == 1:
+                raise Cancelled('fixture cancellation')
+            return original(model, prompt, **kwargs)
+
+        backend.generate = cancel_after_warmup
+        result = bench.run(backend, 'fixture:latest', hardware=lambda: {})
+        self.assertEqual(result['state'], 'cancelled')
+        self.assertEqual(result['coverage'], {'completed': 1, 'total': 8, 'complete': False})
+        self.assertEqual(result['prompts'][0]['runs'], [])
+        from argoslive.results import validate
+        self.assertIs(validate(result), result)
 
     def test_timeout_bounds_and_cli_backend_failure_are_clear(self):
         for timeout in ('0', '601'):
