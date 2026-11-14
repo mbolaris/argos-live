@@ -1,7 +1,7 @@
 {
  "schema": "argos-document-suite/1",
  "suite": "short",
- "version": "1.1.0",
+ "version": "1.2.0",
  "license": "MIT",
  "source": "original-argos-live",
  "context": 4096,
@@ -270,7 +270,8 @@
     "kind": "doc-quote",
     "accepted": [
      "nesting birds",
-     "protect nesting birds"
+     "protect nesting birds",
+     "to protect nesting birds"
     ],
     "passage": "The Cedar Ridge loop is a 7.5 kilometer trail with 320 meters of climbing. Most hikers finish it in about three hours. The trailhead parking lot holds 40 cars and fills early on weekends. Dogs are allowed on a leash, but the lookout at the halfway point is closed to dogs from March to June to protect nesting birds. There is no drinking water along the route, so hikers should carry at least two liters. The trail is closed after heavy snow, and the ranger station posts closures by 7 a.m.",
     "reference_quote": "Dogs are allowed on a leash, but the lookout at the halfway point is closed to dogs from March to June to protect nesting birds."
@@ -326,7 +327,8 @@
     "accepted": [
      "trade",
      "traded salt",
-     "salt across the bay"
+     "salt across the bay",
+     "how coastal towns traded salt across the bay"
     ],
     "passage": "The Tidewater Museum opens its new exhibit, Salt and Sail, on 8 October. The exhibit follows how coastal towns traded salt across the bay in the nineteenth century. It includes a restored cargo boat, a working salt press, and more than 200 letters written by ship captains. Admission is $12 for adults and free for members and for children under six. Guided tours run at 11 a.m. and 2 p.m. on weekends and must be booked online. The exhibit closes on 31 January.",
     "reference_quote": "The exhibit follows how coastal towns traded salt across the bay in the nineteenth century."
@@ -379,7 +381,8 @@
    "scorer": {
     "kind": "doc-quote",
     "accepted": [
-     "markdown"
+     "markdown",
+     "Markdown export"
     ],
     "passage": "Version 3.2 of the Quillnote app adds offline editing, so notes can be changed without a connection and sync when the device is back online. Search is now twice as fast on libraries above 10,000 notes. The release removes the old plain-text export; users should choose Markdown export instead. A bug that duplicated checklist items after a sync conflict is fixed. Version 3.2 requires Android 10 or newer. Support for Android 8 and 9 ended with version 3.1.",
     "reference_quote": "The release removes the old plain-text export; users should choose Markdown export instead."
@@ -433,7 +436,8 @@
     "kind": "doc-quote",
     "accepted": [
      "donated",
-     "donated to the eastside pantry"
+     "donated to the eastside pantry",
+     "It is donated to the Eastside Pantry every evening at closing."
     ],
     "passage": "Sunrise Bakery bakes its sourdough in batches of 24 loaves, starting at four in the morning. The starter is fed twice a day and has been kept alive since the bakery opened in 2009. Loaves sell for $7, or $6 each when a customer buys three or more. Unsold bread is donated to the Eastside Pantry every evening at closing. The bakery is closed on Mondays. Custom orders for more than ten loaves need two days of notice.",
     "reference_quote": "Unsold bread is donated to the Eastside Pantry every evening at closing."
