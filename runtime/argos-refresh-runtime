@@ -1,10 +1,54 @@
 #!/usr/bin/python3
 """Refresh Argos-owned runtime files masked by live persistence."""
 import sys
+import hashlib
+import os
+import stat
+from pathlib import Path
 
-# Prefer this boot's immutable package. /usr/local/lib may be an older copy in
-# the persistence upper layer that this service is responsible for refreshing.
-sys.path.insert(0, '/run/live/rootfs/filesystem.squashfs/usr/local/lib/argos-live')
-from argoslive.image_refresh import main
+# During boot, the image package is the trusted recovery source unless a
+# version-aware override marker exists. Marker operations must use the
+# installed package so they can record or validate that exact runtime.
+IMAGE_RUNTIME = Path('/run/live/rootfs/filesystem.squashfs/usr/local/lib/argos-live')
+INSTALLED_RUNTIME = Path('/usr/local/lib/argos-live')
+OVERRIDE_MARKER = Path('/var/lib/argos-live/runtime-refresh/active-runtime.json')
+USE_INSTALLED = ('--record-override' in sys.argv or '--clear-override' in sys.argv or
+                 OVERRIDE_MARKER.exists() or OVERRIDE_MARKER.is_symlink())
+runtime = INSTALLED_RUNTIME if USE_INSTALLED else IMAGE_RUNTIME
+if not runtime.is_dir():
+    raise SystemExit('Argos runtime refresh source is unavailable.')
+sys.path.insert(0, str(runtime))
+from argoslive import image_refresh
 
-raise SystemExit(main())
+# A failed update can roll back to the image's older package before it has
+# learned --record-override. In that case the marker is unnecessary only when
+# both runtime trees are byte-for-byte and mode-for-mode identical.
+if '--record-override' in sys.argv and not hasattr(image_refresh, 'record_override'):
+    def manifest(base):
+        base = Path(base)
+        if base.is_symlink() or not base.is_dir() or any(p.is_symlink() for p in base.parents):
+            raise SystemExit('Argos runtime tree is unavailable or unsafe.')
+        entries = {}
+        for current, dirs, files in os.walk(base, followlinks=False):
+            current = Path(current)
+            for name in dirs:
+                path = current / name
+                if path.is_symlink() or not path.is_dir():
+                    raise SystemExit('Argos runtime tree contains an unsafe directory.')
+            for name in files:
+                path = current / name
+                if path.is_symlink() or not path.is_file():
+                    raise SystemExit('Argos runtime tree contains an unsafe file.')
+                relative = path.relative_to(base).as_posix()
+                if '__pycache__' in Path(relative).parts or relative.endswith('.pyc'):
+                    continue
+                entries[relative] = (hashlib.sha256(path.read_bytes()).hexdigest(),
+                                     stat.S_IMODE(path.stat().st_mode))
+        return entries
+
+    if manifest(INSTALLED_RUNTIME / 'argoslive') == manifest(IMAGE_RUNTIME / 'argoslive'):
+        print('Installed runtime matches the image; no override marker is needed.')
+        raise SystemExit(0)
+    raise SystemExit('Installed runtime differs from the image but cannot record an override.')
+
+raise SystemExit(image_refresh.main())
