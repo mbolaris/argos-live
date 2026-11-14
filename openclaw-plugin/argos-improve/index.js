@@ -88,7 +88,7 @@ function runArgos(command, args, signal, onUpdate) {
           const event = JSON.parse(line);
           if (!event || !["asking", "scored"].includes(event.phase) ||
               !Number.isInteger(event.completed) || !Number.isInteger(event.total) ||
-              ![20, 24, 40, 70].includes(event.total) || event.completed < 0 ||
+              ![20, 32, 40, 70].includes(event.total) || event.completed < 0 ||
               event.completed > event.total ||
               (event.phase === "asking" && event.completed === event.total)) continue;
           const text = event.phase === "scored"
