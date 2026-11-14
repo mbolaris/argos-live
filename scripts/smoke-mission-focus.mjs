@@ -130,7 +130,7 @@ try {
   assert.equal(await page.locator('#replay-checks').isHidden(),true,'Checks are shown for misses only');
   await page.locator('#replay-grid .replay-chip.selected').focus();
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
-  assert.match(await page.locator('#replay-verdict').textContent(),/^A summary written for you/);
+  assert.match(await page.locator('#replay-verdict').textContent(),/^Passed the saved two-sentence and key-fact proxy/);
   await page.locator('#replay-next-miss').click();
   assert.match(await page.locator('#replay-kind').textContent(),/· 1 of 32$/);
   await both('replay',()=>scrollTo('replay'));
