@@ -45,16 +45,28 @@ version-aware refresher implementation is merged in `main` via PR #177: after a 
 passes health, the updater records the exact image runtime digest and installed runtime digest.
 On a later boot, the refresher preserves that runtime only when both still match; a changed image
 or changed installed tree falls back to the image. This records exact image identity rather than
-guessing which source commit is newer. It has not been deployed successfully to Toronado.
+guessing which source commit is newer. The successful deployment is recorded below.
 
-**Deployment check, November 14.** Runtime bundle `b5f764e` passed its quick health campaign, but
-the marker step loaded the older `image_refresh` module from the immutable image. That module did
-not support `--record-override` and refreshed 104 files. Toronado's installed tree now matches the
-image digest (`e83a6da2…`, 107 files), and the override marker is absent. The pre-refresh snapshot
-remains at `/var/lib/argos-live/runtime-refresh/runtime-refresh-20261114T040421Z-a7b71ae6a55f/`.
-The version-aware behavior is not active on Toronado. Fixing the boot wrapper's import selection
-requires owner approval under the boot-area write rule; no reboot or further remote write has been
-made.
+**Deployment check, November 14.** With owner approval, PR #183 (`161ea355`) fixed the boot
+wrapper's import selection and made the systemd unit call the persistent wrapper. A persistent
+systemd drop-in now selects `/usr/local/sbin/argos-refresh-runtime`; no reboot or service restart
+was needed. The wrapper chooses the immutable package for ordinary refreshes and the installed
+package when a valid version-aware override is present or being recorded. Its legacy rollback path
+accepts `--record-override` only if the installed and image package trees match exactly.
+
+Runtime bundle `161ea355` was built against base `6c89bcb` (expected pre-update tree
+`e83a6da2…`, 107 files), rehearsed, and applied. Installed tree digest is `4c9e4645…` (126 files).
+The updater's quick health campaign completed two matched `quick/1.0.0` runs at 20/20, saved runs
+`4c5b0406256ba55ce31d75e1d09717fb` and `1341565283371ba95a29aece18bbc236`, and passed both audits.
+This is an operational health check, not evidence of an owner-task improvement. The version marker
+was independently checked read-only against both runtime trees and is valid:
+image `420b2024513cb795dc72b38bb37dbbe57fd97f8e982410a053a5c9c64ed0bb14`, installed
+`2f4cb87df430e7873f0176b1249d7f26f14d1aee758299fb924100ca176c09f2`. The wrapper hash is
+`59a0bb2679c5f00804d716b594b897842388393863d1d9befb576fcd6da68f87`; systemd's effective
+`ExecStart` selects it. The records backup at
+`work/ssd-boot-20261023/postboot/records-20261114T140016Z.encrypted.json` passed authenticated
+decryption and all 440 manifest hashes. The earlier pre-refresh snapshot remains available at
+`/var/lib/argos-live/runtime-refresh/runtime-refresh-20261114T040421Z-a7b71ae6a55f/`.
 
 ## Latest owner-task evidence (November 14)
 
