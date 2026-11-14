@@ -70,6 +70,27 @@ decryption and all 440 manifest hashes. The earlier pre-refresh snapshot remains
 
 ## Latest owner-task evidence (November 14)
 
+**Follow-up summary-format campaign.** The `documents-short/1.1.0` campaign restored the original
+instructions after testing the request to produce exactly two sentences
+without an unsolicited quote. Baselines `42191eaf64824f0f800fc4a348d3075d` and
+`13c91208447544d8aabeef7d15f6cf81` scored 24/32 and 25/32 overall; their summary scores were 4/8
+and 5/8, with 4 and 3 format errors. Candidates `09e3f3f6c06c2f48fe22db29fd322f65` and
+`8f463554860b47b02ba5d9736ba9bf2a` each scored 28/32, summary 8/8, and zero format errors. All
+four runs scored answer 8/8, quote 4/8, and not-stated 8/8. The restore audit passed and
+`AGENTS.md` returned to SHA-256
+`6f4b3de42f66df478783af4e72c154f3b193d770f85ed27a733d30a4d35d1453`.
+
+The host keep policy then in use, `argos-practice-keep/4`, had no `documents-short` rule, so this
+suite could not pass the host keep gate. After owner approval on November 14, a new versioned,
+suite-specific policy is being prepared. It requires the repeated summary gain and no regression
+in answer, quote, not-stated, or format errors; policy v4 remains unchanged. The summary score is
+a narrow format-and-key-fact proxy, not a complete measure of summary quality.
+
+After restore, the remaining quote cases (`quote-01` through `quote-04`) passed three of three
+read-only repetitions each when the accepted answer values and quote requirements were supplied.
+Together with the earlier `quote-05` through `quote-08` probe, this does not establish a
+quote-retrieval weakness under those fair, supported conditions.
+
 The `documents-short` Improve campaign `c32cfc348c25f196b07c80b876736c3e` completed with a
 restore verdict. Baselines `1760e3f922fa3cb2d4452545be6187e4` and
 `fcc87fd5e16c01a45f31a815c43dbc20`, and candidates `bbe01d009bed13980c27b1b733db35e6` and
@@ -86,8 +107,8 @@ unchanged for three repetitions each. Eighteen of 24 replies appended an unsolic
 after the requested two-sentence summary; only six ended after exactly two sentences. Per-item quote
 append counts for summary-01 through summary-08 were 1/3, 2/3, 2/3, 3/3, 2/3, 2/3, 3/3, and 3/3.
 Summaries have no scorer, so this is a candidate instruction-following weakness only, not a measured
-gain or loss. The owner has not selected a next task; do not start another measured campaign until
-they do.
+gain or loss. At this 07:17 UTC snapshot, the owner had not selected the next task; the later
+delegation and follow-up campaign are recorded above.
 
 The Yugo mirror at `127.0.0.1:8765` was responding with no error at the latest check on November 14
 at 07:17 UTC (snapshot age 12 seconds); its snapshot showed the campaign inactive and Argos ready.
@@ -156,7 +177,10 @@ runbook and backlog status, with its checks and post-merge tests passing.
 
 - One evaluation at a time. Snapshot before changing Toronado, and take a records backup before any
   power-off.
-- Keep or roll back by the preset keep policy only (`instruction_changes`, policy argos-practice-keep/4).
+- Keep or roll back by the preset keep policy only (`instruction_changes`, policy argos-practice-keep/5).
+  Policy v5 preserves every v4 rule and adds a category-level gate for `documents-short/1.1.0`:
+  both candidates must beat the best baseline summary score, answer/quote/not-stated scores must
+  not regress, and candidate format errors must not exceed the best baseline's.
   The last generic instruction trial went from 37/40 to 39/40 twice but missed its preset threshold and
   was rolled back. Keep that standard of evidence. Argos owns its model and instruction experiments.
 - Ask first, every time, for: boot-area or SSD writes, new images, reboots or power-off, model

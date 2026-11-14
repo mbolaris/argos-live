@@ -67,7 +67,22 @@ POLICY['id'] = 'argos-practice-keep/4'
 POLICY['category_exclusions']['argos-openclaw-ability/challenge/1.3.0'] = ['choice', 'json', 'tool-call']
 POLICY['category_contracts']['argos-openclaw-ability/challenge/1.3.0'] = {
     'choice': 8, 'instruction': 8, 'json': 8, 'numeric': 8, 'tool-call': 8}
-KEEP_POLICIES = {policy['id']: policy for policy in (_POLICY_V1, _POLICY_V2, _POLICY_V3, POLICY)}
+_POLICY_V4 = copy.deepcopy(POLICY)
+_POLICY_V5 = copy.deepcopy(_POLICY_V4)
+_POLICY_V5['id'] = 'argos-practice-keep/5'
+# The summary proxy is scored per category, so a suite-specific gate compares
+# the repeated summary gains directly and preserves every other category.
+_POLICY_V5['category_contracts']['argos-openclaw-ability/documents-short/1.1.0'] = {
+    'answer': 8, 'quote': 8, 'not_stated': 8, 'summary': 8}
+_POLICY_V5['category_keep_rules'] = {
+    'argos-openclaw-ability/documents-short/1.1.0': {
+        'primary_category': 'summary',
+        'minimum_correct_delta': 1,
+        'nonregression_categories': ['answer', 'quote', 'not_stated'],
+    }}
+POLICY = _POLICY_V5
+KEEP_POLICIES = {policy['id']: policy for policy in
+                 (_POLICY_V1, _POLICY_V2, _POLICY_V3, _POLICY_V4, POLICY)}
 
 
 class Refused(ValueError):
@@ -147,6 +162,24 @@ def qualification_metrics(run, policy):
             'format_errors': sum(stats['format_errors'] for stats in selected),
             'basis': {'suite_version': suite_version,
                       'included_categories': included, 'excluded_categories': sorted(excluded)}}
+
+
+def category_metrics(run, expected):
+    summary = run.get('summary')
+    if not isinstance(summary, dict):
+        raise Refused('qualification-category-evidence-invalid')
+    categories = summary.get('categories')
+    fields = ('correct', 'total', 'format_errors')
+    if (not isinstance(categories, dict) or set(categories) != set(expected) or
+            any(not isinstance(stats, dict) or
+                any(type(stats.get(field)) is not int or stats[field] < 0 for field in fields) or
+                stats['total'] != expected[name] or stats['correct'] > stats['total'] or
+                stats['format_errors'] > stats['total']
+                for name, stats in categories.items()) or
+            any(type(summary.get(field)) is not int or summary[field] < 0 for field in fields) or
+            any(sum(stats[field] for stats in categories.values()) != summary[field] for field in fields)):
+        raise Refused('qualification-category-evidence-invalid')
+    return categories
 
 
 def validate_request(operation, params):
@@ -534,14 +567,72 @@ def evidence(home, intent, directory, params, policy=None):
               'qualified_experiment': bool(candidate_ids), 'independent_gain_verified': False}
     if params['action'] == 'keep':
         bases, candidates = [[pair[0] for pair in group] for group in groups]
+        suite_version = bases[0]['suite_version']
+        category_rule = policy.get('category_keep_rules', {}).get(suite_version)
         minimum = policy['minimum_correct_delta'].get(bases[0]['suite'])
-        if minimum is None:
+        if minimum is None and category_rule is None:
             raise Refused('unsupported-keep-suite')
         base_metrics = [qualification_metrics(run, policy) for run in bases]
         candidate_metrics = [qualification_metrics(run, policy) for run in candidates]
         basis = base_metrics[0]['basis']
         if any(value['basis'] != basis for value in base_metrics + candidate_metrics):
             raise Refused('qualification-metric-changed-within-evidence')
+        if category_rule is not None:
+            expected = policy.get('category_contracts', {}).get(suite_version)
+            if not isinstance(expected, dict):
+                raise Refused('qualification-category-evidence-missing')
+            base_categories = [category_metrics(run, expected) for run in bases]
+            candidate_categories = [category_metrics(run, expected) for run in candidates]
+            primary = category_rule.get('primary_category')
+            nonregression = category_rule.get('nonregression_categories')
+            category_minimum = category_rule.get('minimum_correct_delta')
+            if (primary not in expected or not isinstance(nonregression, list) or
+                    any(name not in expected or name == primary for name in nonregression) or
+                    type(category_minimum) is not int or category_minimum < 1):
+                raise Refused('qualification-category-policy-invalid')
+            reference_index = max(
+                range(len(bases)),
+                key=lambda index: (base_categories[index][primary]['correct'],
+                                   -bases[index]['summary']['format_errors'],
+                                   bases[index]['summary']['correct']))
+            reference_categories = base_categories[reference_index]
+            baseline_primary = reference_categories[primary]['correct']
+            candidate_primary = min(stats[primary]['correct'] for stats in candidate_categories)
+            category_delta = candidate_primary - baseline_primary
+            if category_delta < category_minimum:
+                raise Refused('repeated-category-practice-gain-rule-not-met')
+            regressions = {
+                name: {'baseline_reference': reference_categories[name]['correct'],
+                       'candidate_minimum': min(stats[name]['correct'] for stats in candidate_categories)}
+                for name in nonregression}
+            if any(value['candidate_minimum'] < value['baseline_reference']
+                   for value in regressions.values()):
+                raise Refused('repeated-category-nonregression-rule-not-met')
+            # The reference is the baseline with the best primary score; ties
+            # prefer fewer format errors, then more total correct answers.
+            baseline_format_errors = bases[reference_index]['summary']['format_errors']
+            candidate_format_errors = max(run['summary']['format_errors'] for run in candidates)
+            if candidate_format_errors > baseline_format_errors:
+                raise Refused('repeated-format-nonregression-rule-not-met')
+            result.update(policy=copy.deepcopy(policy), minimum_correct_gain=category_delta,
+                          maximum_candidate_format_errors=candidate_format_errors,
+                          gain_kind='category_accuracy',
+                          category_keep_validation={
+                              'suite_version': suite_version, 'primary_category': primary,
+                              'reference_baseline_id': bases[reference_index]['id'],
+                              'baseline_best_correct': baseline_primary,
+                              'candidate_minimum_correct': candidate_primary,
+                              'minimum_correct_delta': category_minimum,
+                              'observed_correct_delta': category_delta,
+                              'nonregression_categories': regressions,
+                              'baseline_best_format_errors': baseline_format_errors,
+                              'candidate_maximum_format_errors': candidate_format_errors,
+                          },
+                          qualification_basis=basis,
+                          full_suite_minimum_correct_gain=(
+                              min(run['summary']['correct'] for run in candidates) -
+                              max(run['summary']['correct'] for run in bases)))
+            return result, groups
         base_score = max(value['correct'] for value in base_metrics)
         candidate_score = min(value['correct'] for value in candidate_metrics)
         base_errors = min(value['format_errors'] for value in base_metrics)
@@ -836,6 +927,7 @@ def audit(home):
                 'gain_kind': resolved.get('gain_kind'),
                 'minimum_correct_gain': resolved.get('minimum_correct_gain'),
                 'maximum_candidate_format_errors': resolved.get('maximum_candidate_format_errors'),
+                'category_keep_validation': resolved.get('category_keep_validation'),
                 'policy': resolved.get('policy')}
             if resolved.get('qualification_basis'):
                 policy = keep_policy(resolved['policy'])
