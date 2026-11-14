@@ -4,6 +4,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import secrets
+import threading
 from urllib.parse import parse_qs, quote, urlsplit
 
 from argoslive import addons
@@ -13,6 +14,7 @@ from argoslive.web import improve, models
 from argoslive.web.benchmarks import View as BenchmarkView
 from argoslive.shakedown.scorecard import View as ShakedownView
 from argoslive.shakedown.controller import LapController
+from argoslive.shakedown.queue import QueueController
 
 ASSETS = Path(__file__).with_name('static')
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
@@ -35,7 +37,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None, ssh_recovery=None, shakedown=None, lap_controller=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None, ssh_recovery=None, shakedown=None, lap_controller=None, queue_controller=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -55,9 +57,12 @@ class DashboardServer(ThreadingHTTPServer):
         self.status_provider = status_provider
         self.models_provider = models_provider
         self.benchmarks = benchmarks or BenchmarkView()
-        owner_home = proctor_campaign.home if proctor_campaign and hasattr(proctor_campaign, 'home') else Path.home()
+        owner_home = (proctor_campaign.home if proctor_campaign and hasattr(proctor_campaign, 'home') else
+                      shakedown.home if shakedown and hasattr(shakedown, 'home') else Path.home())
         self.shakedown = shakedown or ShakedownView(self.benchmarks.store, home=owner_home)
         self.lap_controller = lap_controller or LapController(owner_home)
+        self.queue_controller = queue_controller or QueueController(owner_home, self.shakedown.store)
+        self.shakedown_lock = threading.RLock()
         self.chat_provider = chat_provider or (lambda: live_status.chat_url(Path.home() / '.openclaw/openclaw.json'))
         super().__init__((host, port), Handler)
 
@@ -213,6 +218,15 @@ class Handler(BaseHTTPRequestHandler):
             except (OSError, ValueError, TypeError, KeyError, AttributeError):
                 self.reply(503, {'error': 'Shakedown lap status unavailable'}, head=head)
             return
+        if path == '/api/shakedown/queue':
+            self.reply(200, self.server.queue_controller.snapshot(), head=head)
+            return
+        if path == '/api/shakedown/queue/choices':
+            try:
+                self.reply(200, {'available': True, 'entries': self.server.queue_controller.choices()}, head=head)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Saved build choices unavailable'}, head=head)
+            return
         if path == '/api/models/selection':
             self.reply(200, self.server.selection.snapshot() if self.server.selection else {'available': False}, head=head)
         elif path == '/api/models/control':
@@ -346,6 +360,37 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized(mutation=True):
             return
         path = urlsplit(self.path).path
+        if path in ('/api/shakedown/queue/start', '/api/shakedown/queue/cancel'):
+            try:
+                if path.endswith('/start'):
+                    lengths = self.headers.get_all('Content-Length')
+                    if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                            or len(lengths[0]) > 4 or not lengths[0].isdigit()
+                            or not 1 <= int(lengths[0]) <= 4096
+                            or self.headers.get('Content-Type') != 'application/json'):
+                        self.reply(400, {'error': 'A bounded Shakedown queue is required'})
+                        return
+                    self.connection.settimeout(3)
+                    body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    if (not isinstance(body, dict) or set(body) != {'entries'} or
+                            not isinstance(body['entries'], list) or len(body['entries']) > 12):
+                        self.reply(400, {'error': 'Provide between one and twelve queue entries'})
+                        return
+                    with self.server.shakedown_lock:
+                        lap_worker = self.server.lap_controller.worker
+                        if lap_worker is not None and lap_worker.is_alive():
+                            raise ValueError('A Shakedown lap is already running')
+                        response = self.server.queue_controller.start(body['entries'])
+                else:
+                    if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                        self.reply(400, {'error': 'An empty request is required'})
+                        return
+                    response = self.server.queue_controller.cancel()
+                self.reply(202, response)
+            except (ValueError, OSError, UnicodeError, TypeError, KeyError, AttributeError) as exc:
+                message = str(exc) if isinstance(exc, ValueError) else 'Shakedown queue unavailable'
+                self.reply(409, {'error': message})
+            return
         if path in ('/api/shakedown/lap/start', '/api/shakedown/lap/cancel'):
             try:
                 if path.endswith('/start'):
@@ -363,8 +408,13 @@ class Handler(BaseHTTPRequestHandler):
                             ('suites' in body and (not isinstance(body['suites'], list) or len(body['suites']) > 6))):
                         self.reply(400, {'error': 'Choose a supported lap size and ability forms'})
                         return
-                    self.reply(202, self.server.lap_controller.start(
-                        body.get('size', 'quick'), body.get('suites')))
+                    with self.server.shakedown_lock:
+                        queue_worker = self.server.queue_controller.worker
+                        if queue_worker is not None and queue_worker.is_alive():
+                            raise ValueError('A Shakedown queue is already running')
+                        response = self.server.lap_controller.start(
+                            body.get('size', 'quick'), body.get('suites'))
+                    self.reply(202, response)
                 else:
                     if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
                         self.reply(400, {'error': 'An empty request is required'})

@@ -43,6 +43,21 @@
         <span id="lap-estimate" class="muted"></span>
         <span id="lap-state" class="muted" role="status" aria-live="polite"></span>
       </section>
+      <details class="queue-controls card" id="queue-controls">
+        <summary>Queue laps for later</summary>
+        <p class="muted">Choose saved builds and lap sizes. Argos checks every model before it starts, then runs one lap at a time.</p>
+        <div class="queue-add-row">
+          <label for="queue-loadout">Build<select id="queue-loadout"></select></label>
+          <label for="queue-size">Lap size<select id="queue-size"><option value="quick">Quick</option><option value="standard">Standard</option><option value="full">Full</option></select></label>
+          <button id="queue-add" type="button" class="secondary">Add lap</button>
+        </div>
+        <ol id="queue-entries" class="queue-entries"></ol>
+        <div class="queue-actions">
+          <button id="queue-start" type="button">Start queue</button>
+          <button id="queue-cancel" type="button" class="secondary" hidden>Cancel queue</button>
+          <span id="queue-summary" class="muted" role="status" aria-live="polite">Queue is empty.</span>
+        </div>
+      </details>
       <section id="lap-result" class="result card" hidden aria-labelledby="result-title">
         <div class="result-heading">
           <div><p class="eyebrow">LAP DEBRIEF</p><h2 id="result-title">Did that help?</h2></div>

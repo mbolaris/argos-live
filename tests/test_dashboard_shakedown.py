@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive.results import Store
 from argoslive.web.benchmarks import View as BenchmarkView
 from argoslive.web.server import DashboardServer
+from argoslive.shakedown.scorecard import View as ShakedownView
 
 
 class ShakedownApiTests(unittest.TestCase):
@@ -19,7 +20,7 @@ class ShakedownApiTests(unittest.TestCase):
         self.home = Path(self.temp.name)
         store = Store(self.home / '.local/share/argos-live/results')
         self.server = DashboardServer(port=0, benchmarks=BenchmarkView(store),
-                                      shakedown=None)
+                                      shakedown=ShakedownView(store, home=self.home))
         self.server.shakedown.home = self.home
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -31,12 +32,16 @@ class ShakedownApiTests(unittest.TestCase):
         self.thread.join(timeout=5)
         self.temp.cleanup()
 
-    def request(self, path, *, token=None, header=True):
+    def request(self, path, *, token=None, header=True, method='GET', body=None):
         connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
         headers = {}
         if token is not None and header:
             headers['X-Argos-Token'] = token
-        connection.request('GET', path, headers=headers)
+        if body is not None:
+            import json
+            body = json.dumps(body)
+            headers['Content-Type'] = 'application/json'
+        connection.request(method, path, body=body, headers=headers)
         response = connection.getresponse()
         body = response.read()
         connection.close()
@@ -71,6 +76,20 @@ class ShakedownApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b'/shakedown.js?token=' + quote(self.server.token).encode(), body)
         self.assertNotIn(b'__SESSION_TOKEN__', body)
+
+    def test_queue_snapshot_and_choices_require_session_token(self):
+        self.assertEqual(self.request('/api/shakedown/queue')[0], 403)
+        status, body = self.request('/api/shakedown/queue', token=self.server.token)
+        self.assertEqual(status, 200)
+        self.assertEqual(__import__('json').loads(body)['state'], 'idle')
+        status, body = self.request('/api/shakedown/queue/choices', token=self.server.token)
+        self.assertEqual(status, 200)
+        self.assertEqual(__import__('json').loads(body)['entries'], [])
+
+    def test_queue_start_requires_owner_token_before_reading_body(self):
+        status, _ = self.request('/api/shakedown/queue/start', method='POST',
+                                 body={'entries': []})
+        self.assertEqual(status, 403)
 
 
 if __name__ == '__main__':

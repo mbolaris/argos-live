@@ -79,15 +79,19 @@ class Jobs:
     def control(self, job_id):
         return storage.safe_local(self.root / (identifier(job_id) + '.control.json'))
 
-    def _run_speed(self, *, home, progress, cancel):
+    def _run_speed(self, *, home, progress, cancel, model_tag=None, **_options):
         from .evaluation_context import configuration_receipt
         from .ollama import Client
-        model = configuration_receipt(home)['model']['primary'].removeprefix('ollama/')
+        model = configuration_receipt(home, model_tag=model_tag)['model']['primary'].removeprefix('ollama/')
         return bench_speed.run(Client(), model, progress=progress, cancel=cancel)
 
-    def start(self, suite='quick', *, slice_name=None, slice_version=None, lap_id=None):
+    def start(self, suite='quick', *, slice_name=None, slice_version=None, lap_id=None,
+              model_tag=None, recipe=None):
         if suite != 'speed' and suite not in bench_openclaw.SUITES:
             raise ValueError('Unsupported evaluation suite')
+        if model_tag is not None or recipe is not None:
+            from .evaluation_context import configuration_receipt
+            configuration_receipt(self.home, model_tag=model_tag, recipe=recipe)
         item_ids = None
         if suite == 'speed' and (slice_name is not None or slice_version is not None):
             raise ValueError('Speed jobs do not use ability-form slices')
@@ -148,11 +152,12 @@ class Jobs:
                             publish()
 
                         options = {'home': self.home, 'progress': progress,
-                                   'cancel': Cancellation(self.control(job_id), self.read)}
+                                   'cancel': Cancellation(self.control(job_id), self.read),
+                                   'model_tag': model_tag}
                         if suite == 'speed':
                             result = self.speed_evaluate(**options)
                         else:
-                            options['suite'] = suite
+                            options.update(suite=suite, recipe=recipe)
                         if suite != 'speed' and item_ids is not None:
                             options.update(item_ids=item_ids, slice_name=slice_name,
                                            slice_version=slice_version, lap_id=lap_id)

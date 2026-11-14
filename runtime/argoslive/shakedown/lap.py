@@ -28,7 +28,7 @@ def slice_item_ids(suite, size):
     return ids if limit is None else ids[:min(limit, len(ids))]
 
 
-def build(size='quick', suites=DEFAULT_FORMS):
+def build(size='quick', suites=DEFAULT_FORMS, *, model_tag=None, recipe=None):
     """Build an ordered speed-first lap plan for the selected ability forms."""
     if size not in ITEM_LIMITS:
         raise ValueError('Choose quick, standard or full')
@@ -38,13 +38,25 @@ def build(size='quick', suites=DEFAULT_FORMS):
         raise ValueError('Choose only supported ability forms')
     if len(set(suites)) != len(suites):
         raise ValueError('Ability forms must be unique')
-    steps = [{'kind': 'speed', 'suite_version': bench_speed.SUITE}]
+    if model_tag is not None and (not isinstance(model_tag, str) or not model_tag or
+                                  len(model_tag) > 256 or any(char.isspace() for char in model_tag) or
+                                  '/' in model_tag or '\\' in model_tag):
+        raise ValueError('Choose an exact local model tag')
+    if recipe is not None:
+        from .. import recipe as recipe_mod
+        recipe_mod.validate(recipe)
+    options = {}
+    if model_tag is not None:
+        options['model_tag'] = model_tag
+    if recipe is not None:
+        options['recipe'] = recipe
+    steps = [{'kind': 'speed', 'suite_version': bench_speed.SUITE, **options}]
     for suite in suites:
         data = ability.load(suite)
         steps.append({'kind': 'ability', 'suite': suite,
                       'suite_version': 'ability/' + suite + '/' + data['version'],
                       'slice_name': size, 'slice_version': SLICE_VERSION,
-                      'item_ids': slice_item_ids(suite, size)})
+                      'item_ids': slice_item_ids(suite, size), **options})
     plan = {'schema': SCHEMA, 'size': size, 'steps': steps}
     validate(plan)
     return plan
@@ -54,8 +66,9 @@ def validate(plan):
     if not isinstance(plan, dict) or plan.get('schema') != SCHEMA or plan.get('size') not in SIZES:
         raise ValueError('Invalid Shakedown lap plan')
     steps = plan.get('steps')
-    if not isinstance(steps, list) or not steps or steps[0] != {
-            'kind': 'speed', 'suite_version': bench_speed.SUITE}:
+    if not isinstance(steps, list) or not steps or not isinstance(steps[0], dict) or \
+            steps[0].get('kind') != 'speed' or \
+            steps[0].get('suite_version') != bench_speed.SUITE:
         raise ValueError('Lap must start with the fixed speed job')
     seen = set()
     for step in steps[1:]:
@@ -73,6 +86,18 @@ def validate(plan):
         expected = slice_item_ids(suite, plan['size'])
         if step.get('item_ids') != expected:
             raise ValueError('Lap slice item list does not match the fixed form slice')
+    for step in steps:
+        if set(step) - {'kind', 'suite_version', 'suite', 'slice_name', 'slice_version',
+                        'item_ids', 'model_tag', 'recipe'}:
+            raise ValueError('Lap contains unsupported execution settings')
+        model_tag = step.get('model_tag')
+        if model_tag is not None and (not isinstance(model_tag, str) or not model_tag or
+                                      len(model_tag) > 256 or any(char.isspace() for char in model_tag) or
+                                      '/' in model_tag or '\\' in model_tag):
+            raise ValueError('Lap contains an invalid local model tag')
+        if step.get('recipe') is not None:
+            from .. import recipe as recipe_mod
+            recipe_mod.validate(step['recipe'])
     if len(steps) < 2:
         raise ValueError('Lap must include at least one ability form')
     return True
@@ -135,6 +160,10 @@ def execute(plan, jobs, *, lap_id=None, cancel=None, on_update=None, poll_second
             break
         suite = 'speed' if step['kind'] == 'speed' else step['suite']
         options = {'lap_id': lap_id}
+        if step.get('model_tag') is not None:
+            options['model_tag'] = step['model_tag']
+        if step.get('recipe') is not None:
+            options['recipe'] = step['recipe']
         if step['kind'] == 'ability':
             options.update(slice_name=step['slice_name'], slice_version=step['slice_version'])
         started = jobs.start(suite, **options)

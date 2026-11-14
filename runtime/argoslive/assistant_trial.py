@@ -609,6 +609,8 @@ class OpenClawRunner:
         self.home, self.executable = Path(home), executable
         self.cancel_event = None
         self.expected_model = None
+        self.model_tag = None
+        self.recipe = None
 
     def bootstrap_templates(self):
         """Load the pinned OpenClaw workspace defaults without copying user data."""
@@ -660,7 +662,8 @@ class OpenClawRunner:
 
     def turn(self, text, timeout=180):
         from .evaluation_context import isolated
-        with isolated(self.home, agents_path(self.home).parent) as (home, config, workspace):
+        with isolated(self.home, agents_path(self.home).parent,
+                      model_tag=self.model_tag, recipe=self.recipe) as (home, config, workspace):
             return self._embedded_turn(text, timeout, home, config, workspace)
 
     def _embedded_turn(self, text, timeout, home, config, workspace):

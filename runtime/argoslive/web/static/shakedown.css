@@ -30,6 +30,15 @@ a { color:var(--accent); }
 .lap-controls { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:16px 0; }
 .lap-controls label { font-weight:700; }
 .lap-controls #lap-state { flex-basis:100%; }
+.queue-controls { margin:12px 0; }
+.queue-controls > summary { cursor:pointer; font-weight:700; }
+.queue-add-row,.queue-actions { display:flex; align-items:end; gap:10px; flex-wrap:wrap; margin-top:10px; }
+.queue-add-row label { display:grid; gap:5px; color:var(--muted); font-size:12px; }
+.queue-add-row select { min-width:170px; }
+.queue-entries { display:grid; gap:8px; padding-left:24px; }
+.queue-entries li { padding-left:4px; }
+.queue-entries button { margin-left:10px; }
+.queue-actions #queue-summary { flex:1 1 280px; }
 .result { margin:18px 0; display:grid; gap:14px; }
 .result[hidden] { display:none; }
 .result-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; }

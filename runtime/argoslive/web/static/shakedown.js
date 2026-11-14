@@ -3,7 +3,8 @@
   const token = new URLSearchParams(window.location.search).get('token');
   const byId = id => document.getElementById(id);
   const state = {data: null, mobileId: null, loading: false, polling: false,
-    lastLap: null, comparison: null, comparisonLoadout: null, loadingComparison: false};
+    lastLap: null, comparison: null, comparisonLoadout: null, loadingComparison: false,
+    queueChoices: [], queueEntries: [], queueRecord: null, queuePolling: false, lapRecord: null};
   const status = byId('status');
   const escDate = value => {
     if (!value) return 'Date not recorded';
@@ -27,13 +28,135 @@
     if (!response.ok) throw new Error(value.error || 'Lap action unavailable');
     return value;
   }
+  function renderQueueChoices() {
+    const select = byId('queue-loadout');
+    select.replaceChildren(...state.queueChoices.map(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name;
+      return option;
+    }));
+    const active = ['running', 'cancelling'].includes(state.queueRecord?.state);
+    const lapActive = state.lapRecord?.state === 'running';
+    byId('queue-add').disabled = active || lapActive || !state.queueChoices.length || state.queueEntries.length >= 12;
+    byId('queue-start').disabled = active || lapActive || state.queueEntries.length === 0;
+  }
+  function renderQueueEntries() {
+    const list = byId('queue-entries');
+    if (['running', 'cancelling'].includes(state.queueRecord?.state)) {
+      list.replaceChildren(...(state.queueRecord.entries || []).map((item, index) => {
+        const row = document.createElement('li');
+        const choice = state.queueChoices.find(value => value.id === item.loadout_id);
+        const active = state.queueRecord.active_entry === index;
+        row.textContent = `${choice?.name || 'Saved build'} · ${item.size} · ${active ? 'running' : item.state}`;
+        return row;
+      }));
+      renderQueueChoices();
+      return;
+    }
+    list.replaceChildren(...state.queueEntries.map((item, index) => {
+      const row = document.createElement('li');
+      const choice = state.queueChoices.find(value => value.id === item.loadout_id);
+      const label = document.createElement('span');
+      label.textContent = `${choice?.name || 'Saved build'} · ${item.size}`;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'secondary';
+      remove.textContent = 'Remove';
+      remove.disabled = state.queueRecord?.state === 'running' || state.queueRecord?.state === 'cancelling';
+      remove.addEventListener('click', () => {
+        state.queueEntries.splice(index, 1);
+        renderQueueEntries();
+        renderQueueChoices();
+      });
+      row.append(label, remove);
+      return row;
+    }));
+    renderQueueChoices();
+  }
+  function showQueue(record) {
+    state.queueRecord = record;
+    const active = record && ['running', 'cancelling'].includes(record.state);
+    const entries = record?.entries || [];
+    const total = entries.length;
+    const position = Math.min(record?.position || 0, total);
+    const current = record?.active_entry;
+    byId('queue-cancel').hidden = !active;
+    byId('run-lap').disabled = active || state.lapRecord?.state === 'running';
+    byId('run-quick-empty').disabled = active || state.lapRecord?.state === 'running';
+    byId('queue-add').disabled = active || !state.queueChoices.length || state.queueEntries.length >= 12;
+    byId('queue-start').disabled = active || state.queueEntries.length === 0;
+    if (active) {
+      const item = entries[current];
+      const progress = record.active_progress;
+      byId('queue-summary').textContent = `Lap ${Math.max(1, position)} of ${total}${item ? ` · ${item.size}` : ''}` +
+        `${progress?.stage ? ` · ${progress.stage}` : ''}` +
+        `${progress?.total ? ` · ${progress.completed || 0}/${progress.total}` : ''} · ${record.estimate?.label || 'estimate unknown'}`;
+      renderQueueEntries();
+    } else if (record?.notice) {
+      byId('queue-summary').textContent = record.notice;
+      if (record.state !== 'idle') {
+        byId('queue-entries').replaceChildren(...entries.map(item => {
+          const row = document.createElement('li');
+          const choice = state.queueChoices.find(value => value.id === item.loadout_id);
+          row.textContent = `${choice?.name || 'Saved build'} · ${item.size} · ${item.state}`;
+          return row;
+        }));
+      }
+    } else {
+      byId('queue-summary').textContent = `${state.queueEntries.length} laps queued. Add up to 12; estimate appears when earlier measurements exist.`;
+      renderQueueEntries();
+    }
+    if (active && !state.queuePolling) pollQueue();
+  }
+  async function loadQueue() {
+    try {
+      const [choices, record] = await Promise.all([
+        get('/api/shakedown/queue/choices'), get('/api/shakedown/queue')
+      ]);
+      state.queueChoices = choices.entries || [];
+      showQueue(record);
+      renderQueueEntries();
+    } catch (error) {
+      byId('queue-summary').textContent = error.message;
+    }
+  }
+  async function pollQueue() {
+    state.queuePolling = true;
+    try {
+      while (true) {
+        const record = await get('/api/shakedown/queue');
+        showQueue(record);
+        if (!['running', 'cancelling'].includes(record.state)) break;
+        await new Promise(resolve => window.setTimeout(resolve, 1500));
+      }
+      await load();
+    } catch (error) {
+      byId('queue-summary').textContent = error.message;
+    } finally {
+      state.queuePolling = false;
+    }
+  }
+  async function startQueue() {
+    try {
+      const record = await post('/api/shakedown/queue/start', {entries: state.queueEntries});
+      state.queueEntries = [];
+      showQueue(record);
+    } catch (error) {
+      byId('queue-summary').textContent = error.message;
+    }
+  }
   function showLap(record) {
     const label = byId('lap-state');
+    state.lapRecord = record;
     const active = record && record.state === 'running';
     if (record && record.state === 'completed' && record.complete) state.lastLap = record;
     byId('run-lap').disabled = !!active;
     byId('run-quick-empty').disabled = !!active;
     byId('cancel-lap').hidden = !active;
+    byId('run-lap').disabled = active || ['running', 'cancelling'].includes(state.queueRecord?.state);
+    byId('run-quick-empty').disabled = active || ['running', 'cancelling'].includes(state.queueRecord?.state);
+    renderQueueChoices();
     if (!record || record.state === 'idle') label.textContent = 'Ready when you are.';
     else if (active) {
       const progress = record.progress;
@@ -351,6 +474,20 @@
     catch (error) { byId('lap-state').textContent = error.message; }
     finally { byId('cancel-lap').disabled = false; }
   });
+  byId('queue-add').addEventListener('click', () => {
+    const loadoutId = byId('queue-loadout').value;
+    if (!loadoutId || state.queueEntries.length >= 12) return;
+    state.queueEntries.push({loadout_id: loadoutId, size: byId('queue-size').value});
+    renderQueueEntries();
+  });
+  byId('queue-start').addEventListener('click', startQueue);
+  byId('queue-cancel').addEventListener('click', async () => {
+    byId('queue-cancel').disabled = true;
+    try { showQueue(await post('/api/shakedown/queue/cancel')); }
+    catch (error) { byId('queue-summary').textContent = error.message; }
+    finally { byId('queue-cancel').disabled = false; }
+  });
   get('/api/shakedown/lap').then(showLap).catch(error => { byId('lap-state').textContent = error.message; });
+  loadQueue();
   load();
 })();
