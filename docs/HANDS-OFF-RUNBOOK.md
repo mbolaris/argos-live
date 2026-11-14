@@ -81,10 +81,21 @@ four runs scored answer 8/8, quote 4/8, and not-stated 8/8. The restore audit pa
 `6f4b3de42f66df478783af4e72c154f3b193d770f85ed27a733d30a4d35d1453`.
 
 The host keep policy then in use, `argos-practice-keep/4`, had no `documents-short` rule, so this
-suite could not pass the host keep gate. After owner approval on November 14, a new versioned,
-suite-specific policy is being prepared. It requires the repeated summary gain and no regression
-in answer, quote, not-stated, or format errors; policy v4 remains unchanged. The summary score is
-a narrow format-and-key-fact proxy, not a complete measure of summary quality.
+suite could not pass the host keep gate. With owner approval on November 14, PR #186 added
+`argos-practice-keep/5`, preserving v4 and adding a v1.1.0 category-level rule: both candidate
+summary scores must beat the best baseline summary score, answer/quote/not-stated scores must not
+regress from the best-summary baseline, and candidate format errors must not exceed that baseline.
+The summary score is a narrow format-and-key-fact proxy, not a complete measure of summary quality.
+
+Policy v5 was deployed to Toronado from PR head `953209990d1c45624192d7f34bb267a61cd034d8`
+(merge commit `45945f19688ab80de00f536dfc0ab7c61877717b`). The encrypted records backup
+`work/ssd-boot-20261023/postboot/records-20261114T173540Z.encrypted.json` passed authenticated
+decryption and all 487 manifest hashes; its SHA-256 is
+`b060fb910ed540b769ca37c74f44407aaabb87d20c724686ff521b528e99510e`. Health runs
+`51e2c249dcf9923cd6354785386b92ec` and `10e7173d4e47e95d3112bb323341979b` both completed quick
+at 20/20 and both audits passed. The installed runtime matches bundle digest
+`29d7d4ef8f90b2b69a5e2b8c476190212f85b6a10ce3393473e1501792dba949` (126 files). No reboot or
+model change was made.
 
 After restore, the remaining quote cases (`quote-01` through `quote-04`) passed three of three
 read-only repetitions each when the accepted answer values and quote requirements were supplied.
