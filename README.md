@@ -1,21 +1,44 @@
 # Argos Live
 
-A generic Debian live distribution with a complete OpenClaw environment, local inference through Ollama, and optional portable personal profiles. Goal: boot it, chat with local models, try new ones and get speed and ability benchmarks within minutes, and bring your own agent personalities along. See the [project goals](docs/PROJECT-GOALS.md) and the agent-ready [implementation backlog](docs/BACKLOG.md).
+Boot a USB stick or SSD into a private, local AI assistant that measures itself and gets better at
+your work while you watch.
 
-**Development status:** Development candidate physically verified on Toronado on October 3, 2026: desktop, encrypted persistence, DATA automount, SSH/logging and GPU-backed OpenClaw conversation pass. Dependency remediation and broader release acceptance remain open. Personal three-agent migration is the next milestone; no host installation is included.
+Argos Live is a Debian live system with OpenClaw as the
+assistant and Ollama for local models. Everything runs on your hardware. It is
+built for people who tune local models and agents: change one thing, run a fair test, get a verdict.
 
-## Build on Toronado
+## What you can do
 
-Use the local Ubuntu-26.04 WSL2 environment. Build filesystems stay on WSL ext4, while source and final artifacts live in this checkout. No internal disk partition or Windows boot files are modified.
+- **Chat locally.** A small starter model is in the image and works offline. Bigger curated models
+  download with an exact size, license and GPU-fit estimate before you confirm.
+- **Measure.** Speed (time to first token, tokens per second) and fixed ability suites: quick (20),
+  standard (70), challenge (40), three tool-call suites (40 each) and a short-document reading suite.
+  Results are saved privately and compared only when the suite version, model and hardware match.
+- **Let it improve itself.** Describe a recurring task and what success looks like. Argos saves
+  baselines, tries one reversible instruction change, measures again and keeps the change only if it
+  clears a fixed bar. **Auto Climb** runs built-in practice tiers to find weaknesses cheaply. See
+  [How Argos improves itself](docs/HOW-IMPROVEMENT-WORKS.md).
+- **Keep your state private.** Settings, conversations, results and models live on LUKS-encrypted
+  persistence. Nothing is exposed to the network by default, and SSH stays off until you pair a key.
 
-```powershell
-wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/bootstrap-builder.sh
-wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/lock-runtime.sh
-wsl -d Ubuntu-26.04 -u root -- python3 /mnt/c/Projects/Argos-Live/scripts/fetch-seed-model.py /var/lib/argos-live/seed-model
-wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/build.sh
-```
+## Where to start
 
-The builder needs debootstrap, Debian archive keys, and Linux mount access. The live root includes XFCE, networking, diagnostics, cryptsetup, OpenClaw, Node, Ollama, and NVIDIA DKMS. Output: `artifacts/argos-live-amd64.iso`, `SHA256SUMS`, package manifest. Preserve build logs locally; never log credentials.
+| You want to | Read |
+|---|---|
+| Understand how improvement and verdicts work | [docs/HOW-IMPROVEMENT-WORKS.md](docs/HOW-IMPROVEMENT-WORKS.md) |
+| Boot and set up | [First run](#first-run) below and [docs/FIRST-BOOT.md](docs/FIRST-BOOT.md) |
+| Benchmark models | [Speed measurements](#speed-measurements) below and [docs/ABILITY-BENCHMARK.md](docs/ABILITY-BENCHMARK.md) |
+| Find any other document | [docs/README.md](docs/README.md) |
+| Build the image | [Build the image](#build-the-image) below |
+
+## Status
+
+Development software, not a release. As of November 2026, the reference machine (Toronado) runs Argos
+from an encrypted USB SSD. That setup includes a 27B model on the GPU, Auto Climb practice tiers 1–3,
+task-focused campaigns and the hands-off improvement loop. Exact software pins are in
+[versions.env](versions.env); release gates are in [docs/RELEASE-PROCESS.md](docs/RELEASE-PROCESS.md).
+The October 3 physical acceptance record is in [docs/STATUS.md](docs/STATUS.md). No host
+installation is included.
 
 ## First run
 
@@ -65,3 +88,16 @@ The [release process](docs/RELEASE-PROCESS.md) tracks stable upstream releases d
 ## Acceptance and future milestones
 
 See [docs/STATUS.md](docs/STATUS.md), [docs/SOFTWARE.md](docs/SOFTWARE.md), and [docs/WINDOWS-VM.md](docs/WINDOWS-VM.md). Private GitHub customization and host installation are later milestones. Import configuration only after explicit repo selection; never execute imported setup scripts by default. No personalization credentials or previous private workspace files are copied into this image.
+
+## Build the image
+
+Use the local Ubuntu-26.04 WSL2 environment. Build filesystems stay on WSL ext4, while source and final artifacts live in this checkout. No internal disk partition or Windows boot files are modified.
+
+```powershell
+wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/bootstrap-builder.sh
+wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/lock-runtime.sh
+wsl -d Ubuntu-26.04 -u root -- python3 /mnt/c/Projects/Argos-Live/scripts/fetch-seed-model.py /var/lib/argos-live/seed-model
+wsl -d Ubuntu-26.04 -u root -- bash /mnt/c/Projects/Argos-Live/scripts/build.sh
+```
+
+The builder needs debootstrap, Debian archive keys, and Linux mount access. The live root includes XFCE, networking, diagnostics, cryptsetup, OpenClaw, Node, Ollama, and NVIDIA DKMS. Output: `artifacts/argos-live-amd64.iso`, `SHA256SUMS`, package manifest. Preserve build logs locally; never log credentials.
