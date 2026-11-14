@@ -2,7 +2,8 @@
 (() => {
   const token = new URLSearchParams(window.location.search).get('token');
   const byId = id => document.getElementById(id);
-  const state = {data: null, mobileId: null, loading: false, polling: false};
+  const state = {data: null, mobileId: null, loading: false, polling: false,
+    lastLap: null, comparison: null, comparisonLoadout: null, loadingComparison: false};
   const status = byId('status');
   const escDate = value => {
     if (!value) return 'Date not recorded';
@@ -29,6 +30,7 @@
   function showLap(record) {
     const label = byId('lap-state');
     const active = record && record.state === 'running';
+    if (record && record.state === 'completed' && record.complete) state.lastLap = record;
     byId('run-lap').disabled = !!active;
     byId('run-quick-empty').disabled = !!active;
     byId('cancel-lap').hidden = !active;
@@ -39,6 +41,7 @@
     } else if (record.state === 'completed' && record.complete) label.textContent = `${record.size} lap complete.`;
     else label.textContent = `${record.size || 'Last'} lap ${record.outcome || record.state}.`;
     renderEstimate();
+    renderResult();
     if (active && !state.polling) pollLap();
   }
   function renderEstimate() {
@@ -62,13 +65,19 @@
       state.polling = false;
     }
   }
-  async function startLap(size) {
+  async function startLap(size, suites) {
+    state.lastLap = null;
+    state.comparison = null;
+    renderResult();
     byId('run-lap').disabled = true;
     byId('run-quick-empty').disabled = true;
     byId('lap-state').textContent = 'Starting lap…';
     try {
-      const record = await post('/api/shakedown/lap/start', {size});
+      const selection = {size};
+      if (Array.isArray(suites) && suites.length) selection.suites = suites;
+      const record = await post('/api/shakedown/lap/start', selection);
       showLap(record);
+      if (record.state !== 'running') load();
     } catch (error) {
       byId('run-lap').disabled = false;
       byId('run-quick-empty').disabled = false;
@@ -81,6 +90,85 @@
   function scorecardUrl() {
     const pinned = selectedQuery();
     return '/api/shakedown/scorecard' + (pinned ? '?loadouts=' + encodeURIComponent(pinned) : '');
+  }
+  function comparisonUrl(previous) {
+    return '/api/shakedown/comparison' + (previous ? '?previous=' + encodeURIComponent(previous) : '');
+  }
+  function renderResult() {
+    const panel = byId('lap-result');
+    const visible = !!(state.lastLap && state.lastLap.state === 'completed' && state.lastLap.complete);
+    panel.hidden = !visible;
+    if (!visible) return;
+    const result = state.comparison;
+    if (!result) {
+      byId('result-headline').textContent = 'Comparing saved builds…';
+      return;
+    }
+    byId('result-headline').textContent = result.headline || 'Comparison unavailable.';
+    byId('result-empty').hidden = !!result.has_comparison;
+    byId('loadout-changes').hidden = !result.has_comparison;
+    byId('row-results').hidden = !result.has_comparison;
+    const select = byId('compare-loadout');
+    const prior = state.comparisonLoadout || result.previous?.id || '';
+    select.replaceChildren(...result.previous_options.map(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name;
+      return option;
+    }));
+    select.disabled = result.previous_options.length < 2;
+    if (prior) select.value = prior;
+    select.closest('label').hidden = result.previous_options.length === 0;
+
+    const diff = byId('loadout-diff');
+    diff.replaceChildren(...result.loadout_diff.map(item => {
+      const line = document.createElement('li');
+      line.textContent = item.sentence;
+      return line;
+    }));
+    byId('no-build-changes').hidden = result.loadout_diff.length > 0;
+
+    const rows = byId('comparison-rows');
+    rows.replaceChildren(...result.rows.map(item => {
+      const line = document.createElement('li');
+      const label = document.createElement('strong');
+      label.textContent = item.label;
+      const verdict = document.createElement('span');
+      verdict.className = `verdict verdict-${item.verdict}`;
+      verdict.textContent = item.verdict.replace('-', ' ');
+      line.append(label, verdict);
+      if (item.shared_items !== undefined) {
+        const detail = document.createElement('span');
+        detail.className = 'muted';
+        detail.textContent = `${item.wins} wins · ${item.losses} losses · ${item.ties} ties · ${item.shared_items} shared questions`;
+        line.append(detail);
+      } else if (item.reason) {
+        const detail = document.createElement('span');
+        detail.className = 'muted';
+        detail.textContent = item.reason;
+        line.append(detail);
+      }
+      return line;
+    }));
+    const move = result.next_move;
+    byId('next-move').hidden = !move;
+    if (move) byId('next-move-description').textContent = move.description;
+  }
+  async function loadComparison(previous) {
+    if (state.loadingComparison) return;
+    state.loadingComparison = true;
+    state.comparisonLoadout = previous || null;
+    state.comparison = null;
+    renderResult();
+    try {
+      state.comparison = await get(comparisonUrl(previous));
+      state.comparisonLoadout = state.comparison.previous?.id || null;
+      renderResult();
+    } catch (error) {
+      byId('result-headline').textContent = error.message;
+    } finally {
+      state.loadingComparison = false;
+    }
   }
   function formatCell(row, cell) {
     const box = document.createElement('div');
@@ -235,6 +323,8 @@
         renderTable();
       }
       renderEstimate();
+      if (state.lastLap && state.lastLap.state === 'completed' && state.lastLap.complete &&
+          !state.comparison && !state.loadingComparison) loadComparison(state.comparisonLoadout);
     } catch (error) {
       status.textContent = error.message;
     } finally {
@@ -250,6 +340,11 @@
   window.addEventListener('resize', () => { if (state.data) renderTable(); });
   byId('run-quick-empty').addEventListener('click', () => startLap('quick'));
   byId('run-lap').addEventListener('click', () => startLap(byId('lap-size').value));
+  byId('compare-loadout').addEventListener('change', event => loadComparison(event.target.value));
+  byId('run-more').addEventListener('click', () => {
+    const move = state.comparison?.next_move;
+    if (move) startLap(move.size, [move.suite]);
+  });
   byId('cancel-lap').addEventListener('click', async () => {
     byId('cancel-lap').disabled = true;
     try { showLap(await post('/api/shakedown/lap/cancel')); }

@@ -54,6 +54,18 @@ class ShakedownApiTests(unittest.TestCase):
         status, _ = self.request('/api/shakedown/scorecard?loadouts=bad', token=self.server.token)
         self.assertEqual(status, 400)
 
+    def test_comparison_requires_session_token_and_returns_first_build_message(self):
+        self.assertEqual(self.request('/api/shakedown/comparison')[0], 403)
+        status, body = self.request('/api/shakedown/comparison', token=self.server.token)
+        self.assertEqual(status, 200)
+        value = __import__('json').loads(body)
+        self.assertFalse(value['has_comparison'])
+        self.assertIn('Run this again later', value['headline'])
+
+    def test_comparison_rejects_invalid_previous_loadout(self):
+        status, _ = self.request('/api/shakedown/comparison?previous=bad', token=self.server.token)
+        self.assertEqual(status, 400)
+
     def test_shakedown_page_embeds_session_token_only_in_asset_urls(self):
         status, body = self.request('/shakedown?token=' + quote(self.server.token), header=False)
         self.assertEqual(status, 200)

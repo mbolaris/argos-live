@@ -192,6 +192,21 @@ class Handler(BaseHTTPRequestHandler):
             except (OSError, TypeError, KeyError, AttributeError):
                 self.reply(503, {'error': 'Scorecard unavailable'}, head=head)
             return
+        if path == '/api/shakedown/comparison':
+            try:
+                query = parse_qs(urlsplit(self.path).query, max_num_fields=3)
+                if set(query) - {'token', 'previous'} or len(query.get('previous', [])) > 1:
+                    raise ValueError('Unknown comparison parameter')
+                previous = query.get('previous', [None])[0]
+                if previous is not None and (len(previous) != 24 or
+                        any(char not in '0123456789abcdef' for char in previous)):
+                    raise ValueError('Choose a valid earlier loadout ID')
+                self.reply(200, self.server.shakedown.comparison(previous), head=head)
+            except ValueError as exc:
+                self.reply(400, {'error': str(exc)}, head=head)
+            except (OSError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Build comparison unavailable'}, head=head)
+            return
         if path == '/api/shakedown/lap':
             try:
                 self.reply(200, self.server.lap_controller.snapshot(), head=head)
