@@ -1,6 +1,6 @@
 # Shakedown: build backlog
 
-Status: SIM37/38/39/40 delivered in PR #177; SIM41 delivered in PR #178; SIM42 in progress on `codex/shakedown-queue`, November 14, 2026.
+Status: SIM37/38/39/40 delivered in PR #177; SIM41 delivered in PR #178; SIM42 delivered in PR #179; SIM43 in progress on `codex/shakedown-export`, November 14, 2026.
 The design, data shapes and rules are in [DESIGN.md](DESIGN.md); read it once, then any ticket
 below stands on its own.
 
@@ -338,7 +338,7 @@ recorded facts.
 
 **Depends.** SIM39, SIM40. **Verify.** Browser smoke.
 
-### SIM42 — Queue: several loadouts while you are away — `in progress`
+### SIM42 — Queue: several loadouts while you are away — `delivered (PR #179)`
 
 **Goal.** Line up "Q4, Q5 and Q6 at two context sizes", walk away, come back to a scorecard.
 
@@ -357,7 +357,7 @@ reboot (nothing resumes on its own).
 
 **Depends.** SIM38. **Verify.** Unit tests; fixture server run of a three-entry queue.
 
-### SIM43 — Share card and personal bests — `todo`
+### SIM43 — Share card and personal bests — `in progress (branch codex/shakedown-export)`
 
 **Goal.** Something to show, and a record of the best this hardware has done.
 

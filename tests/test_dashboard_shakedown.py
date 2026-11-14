@@ -91,6 +91,19 @@ class ShakedownApiTests(unittest.TestCase):
                                  body={'entries': []})
         self.assertEqual(status, 403)
 
+    def test_export_saves_local_files_and_requires_session_authorization(self):
+        self.assertEqual(self.request('/api/shakedown/export', method='POST', body={})[0], 403)
+        status, body = self.request('/api/shakedown/export', token=self.server.token,
+                                    method='POST', body={})
+        self.assertEqual(status, 201)
+        result = __import__('json').loads(body)
+        self.assertIn('json', result['files'])
+        self.assertIn('svg', result['files'])
+        status, svg = self.request('/api/shakedown/exports/' + result['export_id'] + '.svg',
+                                   token=self.server.token)
+        self.assertEqual(status, 200)
+        self.assertIn(b'Argos Shakedown scorecard', svg)
+
 
 if __name__ == '__main__':
     unittest.main()
