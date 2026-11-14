@@ -41,11 +41,11 @@ assistant is ready, and a `quick` evaluation completes with saved evaluations. I
 `/var/lib/argos-live/runtime-updates/snapshots`).
 
 At boot, `argos-refresh-runtime.service` re-syncs image-owned files from the Live image. The
-version-aware refresher work is in progress on `codex/shakedown-phase1`: after a runtime update
+version-aware refresher implementation is merged in `main` via PR #177: after a runtime update
 passes health, the updater records the exact image runtime digest and installed runtime digest.
 On a later boot, the refresher preserves that runtime only when both still match; a changed image
 or changed installed tree falls back to the image. This records exact image identity rather than
-guessing which source commit is newer. It has not been deployed to Toronado.
+guessing which source commit is newer. It has not been deployed successfully to Toronado.
 
 **Deployment check, November 14.** Runtime bundle `b5f764e` passed its quick health campaign, but
 the marker step loaded the older `image_refresh` module from the immutable image. That module did
@@ -55,6 +55,31 @@ remains at `/var/lib/argos-live/runtime-refresh/runtime-refresh-20261114T040421Z
 The version-aware behavior is not active on Toronado. Fixing the boot wrapper's import selection
 requires owner approval under the boot-area write rule; no reboot or further remote write has been
 made.
+
+## Latest owner-task evidence (November 14)
+
+The `documents-short` Improve campaign `c32cfc348c25f196b07c80b876736c3e` completed with a
+restore verdict. Baselines `1760e3f922fa3cb2d4452545be6187e4` and
+`fcc87fd5e16c01a45f31a815c43dbc20`, and candidates `bbe01d009bed13980c27b1b733db35e6` and
+`f74b9eb520ce61290134f94009010bd1`, all scored 20/24 on the same suite and model: answer 8/8,
+quote 4/8, and not-stated 8/8. The eight summary entries are unscored. The audit passed and the
+Toronado `AGENTS.md` SHA-256 remained
+`6f4b3de42f66df478783af4e72c154f3b193d770f85ed27a733d30a4d35d1453`. No improvement was
+established.
+
+A fair, isolated quote probe supplied accepted answer values and quote requirements; quote-05
+through quote-08 each passed three of three repetitions. The old quote misses therefore do not
+establish a quote-retrieval weakness. A separate summary-format probe found that summary-05 returned
+one sentence instead of two in three of three repetitions; summary-06 and summary-07 followed the
+two-sentence instruction in all six repetitions. Summaries have no scorer, so this is a candidate
+finding only. The owner has not selected a next task; do not start another measured campaign until
+they do.
+
+The Yugo mirror at `127.0.0.1:8765` was responding with no error at the latest check (snapshot age
+12 seconds); its snapshot showed the campaign inactive and Argos ready. Main native-chat run
+`43564638085` failed the CPU-placement check after reporting split placement (4.4 GB model,
+434,645,237 VRAM bytes). The Proctor practice step passed, and later model checks were skipped.
+The PR #180 checks and its post-merge tests and compatibility checks passed.
 
 ## State as of November 12, 2026
 
@@ -102,11 +127,11 @@ made.
 4. Done on Yugo (November 14): read-only watch mirror at `127.0.0.1:8765`. The version-aware boot
    refresher is in `main` via PR #177 but has not been deployed successfully; see the deployment
    check above. The immutable image's older module restored the base runtime during health.
-5. Shakedown Phase 1 is in progress. SIM37/38/39/40 foundations and SIM41's result screen are merged
+5. Shakedown Phase 1 is delivered. SIM37/38/39/40 foundations and SIM41's result screen are merged
    (PRs #177, #178 and #179). SIM42's persistent lap queue is merged; fixture checks cover sequential
    execution, missing-model preflight, cancellation, reboot recovery, and unchanged deployed
-   configuration. SIM43's local export and complete-lap personal bests are in progress on
-   `codex/shakedown-export`. No model evaluation has run on Toronado. The dashboard starts laps only
+   configuration. SIM43's local export and complete-lap personal bests were merged in PR #180.
+   No model evaluation has run on Toronado. The dashboard starts laps only
    after an owner clicks Run or Start queue. The owner-selected improvement campaign remains idle
    until the owner chooses a task. Design rules: real-world sci-fi, the typical user is an amateur LLM
    enthusiast tuning a local agent, and the bench comes first.
