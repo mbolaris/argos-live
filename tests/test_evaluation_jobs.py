@@ -1,5 +1,7 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+import secrets
 import sys
 import tempfile
 import threading
@@ -9,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import bench_openclaw, workload
 from argoslive.evaluation_jobs import Jobs, WaitAborted
+from argoslive.shakedown.lap import SLICE_VERSION
 from test_bench_openclaw import (FakeDocumentOpenClaw, FakeOpenClaw,
                                  FakeOwnerRecoveryOpenClaw, configure_fake)
 
@@ -101,6 +104,35 @@ class EvaluationJobTests(unittest.TestCase):
         finished = jobs.wait(started['job_id'], seconds=10)
         self.assertEqual(finished['result']['suite'], 'openclaw-tool-schema')
         self.assertEqual(finished['result']['summary']['partitions']['heldout']['correct'], 20)
+
+    def test_fixed_slice_is_saved_with_its_name_version_and_lap_identity(self):
+        jobs = self.make_jobs()
+        lap_id = 'a' * 32
+        started = jobs.start('quick', slice_name='quick', slice_version=SLICE_VERSION, lap_id=lap_id)
+        self.assertEqual(started['total'], 10)
+        self.gate.set()
+        finished = jobs.wait(started['job_id'], seconds=10)
+        run = finished['result']
+        self.assertEqual((run['slice_name'], run['slice_version'], run['lap_id']),
+                         ('quick', SLICE_VERSION, lap_id))
+        self.assertEqual(run['suite_total'], 20)
+        self.assertEqual(run['coverage'], {'completed': 10, 'total': 10, 'complete': True})
+        self.assertEqual(len(run['items']), 10)
+
+    def test_speed_jobs_share_the_host_owned_saved_job_lifecycle(self):
+        jobs = self.make_jobs()
+        jobs.speed_evaluate = lambda **_options: {
+            'schema': 'argos-bench/1', 'id': secrets.token_hex(16),
+            'created': datetime.now(timezone.utc).isoformat(), 'kind': 'speed',
+            'suite_version': 'speed/1', 'model': 'fixture:model', 'settings': {},
+            'hardware': {}, 'restoration': {'succeeded': True}, 'state': 'completed',
+            'prompts': [{'size': 'short', 'skipped': True, 'runs': []}],
+            'coverage': {'completed': 0, 'total': 0, 'complete': True}}
+        started = jobs.start('speed', lap_id='b' * 32)
+        finished = jobs.wait(started['job_id'], seconds=10)
+        self.assertEqual(finished['result']['kind'], 'speed')
+        self.assertEqual(finished['result']['lap_id'], 'b' * 32)
+        self.assertFalse(finished['recovery_required'])
 
     def test_tool_plan_job_runs_through_host_owned_evaluation(self):
         jobs = self.make_jobs()

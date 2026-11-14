@@ -40,8 +40,12 @@ assistant is ready, and a `quick` evaluation completes with saved evaluations. I
 (deletes the kept previous tree; the snapshot archive stays under
 `/var/lib/argos-live/runtime-updates/snapshots`).
 
-Reboots reset the runtime. `argos-refresh-runtime.service` re-syncs the tree from the image at boot,
-so after any reboot you must re-apply the bundle. Making that refresher version-aware is open work.
+At boot, `argos-refresh-runtime.service` re-syncs image-owned files from the Live image. The
+version-aware refresher work is in progress on `codex/shakedown-phase1`: after a runtime update
+passes health, the updater records the exact image runtime digest and installed runtime digest.
+On a later boot, the refresher preserves that runtime only when both still match; a changed image
+or changed installed tree falls back to the image. This records exact image identity rather than
+guessing which source commit is newer. It has not been deployed to Toronado.
 
 ## State as of November 12, 2026
 
@@ -86,10 +90,15 @@ so after any reboot you must re-apply the bundle. Making that refresher version-
    decision, not an experiment.
 3. Closed: the tool-schema 1/40 and 0/40 runs used suite v1.1.0, which expected `name` where the model
    wrote `tool`. Suite v1.2.0 scores 40/40. Different suite versions are not a matched comparison.
-4. Build the read-only watch mirror on Yugo, and make the boot refresher version-aware.
-5. Shakedown (docs/shakedown/DESIGN.md and BACKLOG.md): Phase 1, the bench, is the next feature work.
-   Design rules: real-world sci-fi, not fantasy; the typical user is an amateur LLM enthusiast tuning a
-   local agent; bench first, spectacle second.
+4. Done on Yugo (November 14): read-only watch mirror at `127.0.0.1:8765`. The version-aware boot
+   refresher is in progress on `codex/shakedown-phase1`; it needs CI and a runtime update before
+   it can be considered deployed.
+5. Shakedown Phase 1 is in progress on `codex/shakedown-phase1`: SIM37/38/39/40 foundations,
+   fixed lap slices, host-owned job sequencing, a saved-run scorecard, and the local lap controls are
+   implemented in the isolated worktree. The dashboard can start a lap only after an owner clicks
+   Run. It has not been deployed; the owner-selected improvement campaign remains idle until the
+   owner chooses a task. Design rules: real-world sci-fi, the typical user is an amateur LLM
+   enthusiast tuning a local agent, and the bench comes first.
 
 ## Standards that must not slip
 

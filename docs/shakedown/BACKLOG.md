@@ -1,7 +1,8 @@
 # Shakedown: build backlog
 
-Status: proposed, November 11, 2026. Nothing here is built. The concept, the data shapes and the
-rules are in [DESIGN.md](DESIGN.md); read it once, then any ticket below stands on its own.
+Status: Phase 1 implementation in progress on `codex/shakedown-phase1`, November 13, 2026.
+The design, data shapes and rules are in [DESIGN.md](DESIGN.md); read it once, then any ticket
+below stands on its own.
 
 This is a feature backlog. The repository-wide backlog and its rules stay in
 [../BACKLOG.md](../BACKLOG.md).
@@ -222,7 +223,7 @@ The enthusiast's loop: change something, run a lap, read the verdict. This phase
 sidecars, no sim and no new test content; it works with the suites that ship today. Read
 DESIGN §1 and §2 first.
 
-### SIM37 — Loadout snapshot and plain-words diff — `todo`
+### SIM37 — Loadout snapshot and plain-words diff — `in progress (branch codex/shakedown-phase1)`
 
 **Goal.** Every run knows exactly what build produced it, and any two builds can be compared in
 a sentence.
@@ -248,7 +249,7 @@ temperature at 0; the loadout records whatever the recipe allows).
 
 **Depends.** None. **Verify.** Unit tests on saved-run fixtures.
 
-### SIM38 — Laps: three sizes with time estimates — `todo`
+### SIM38 — Laps: three sizes with time estimates — `in progress (branch codex/shakedown-phase1)`
 
 **Goal.** One button, a size, and an honest estimate before it starts.
 
@@ -269,7 +270,7 @@ minutes" with a stated range. Dashboard: a Run control with the three sizes and 
 
 **Depends.** SIM37. **Verify.** Unit tests; fixture server run of each size.
 
-### SIM39 — The scorecard — `todo`
+### SIM39 — The scorecard — `in progress (branch codex/shakedown-phase1)`
 
 **Goal.** The home screen: tests down the side, the user's loadouts across the top.
 
@@ -292,7 +293,7 @@ subset, public and uncalibrated rows.
 
 **Depends.** SIM37, SIM38. **Verify.** Browser smoke on the fixture server; screenshots.
 
-### SIM40 — Verdicts: better, worse, or too close to call — `todo`
+### SIM40 — Verdicts: better, worse, or too close to call — `in progress (branch codex/shakedown-phase1)`
 
 **Goal.** Stop the user chasing noise, in words they can act on.
 

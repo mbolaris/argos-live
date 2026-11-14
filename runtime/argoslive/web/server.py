@@ -11,6 +11,8 @@ from argoslive.ability import object_pairs
 from argoslive.web import status as live_status
 from argoslive.web import improve, models
 from argoslive.web.benchmarks import View as BenchmarkView
+from argoslive.shakedown.scorecard import View as ShakedownView
+from argoslive.shakedown.controller import LapController
 
 ASSETS = Path(__file__).with_name('static')
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
@@ -19,6 +21,9 @@ FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
          '/style.css': ('style.css', 'text/css; charset=utf-8'),
          '/match.js': ('match.js', 'text/javascript; charset=utf-8'),
          '/match.css': ('match.css', 'text/css; charset=utf-8'),
+         '/shakedown': ('shakedown.html', 'text/html; charset=utf-8'),
+         '/shakedown.js': ('shakedown.js', 'text/javascript; charset=utf-8'),
+         '/shakedown.css': ('shakedown.css', 'text/css; charset=utf-8'),
          '/prototype': ('prototype.html', 'text/html; charset=utf-8'),
          '/prototype.html': ('prototype.html', 'text/html; charset=utf-8'),
          '/prototype.js': ('prototype.js', 'text/javascript; charset=utf-8'),
@@ -30,7 +35,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None, ssh_recovery=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None, ssh_recovery=None, shakedown=None, lap_controller=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -50,6 +55,9 @@ class DashboardServer(ThreadingHTTPServer):
         self.status_provider = status_provider
         self.models_provider = models_provider
         self.benchmarks = benchmarks or BenchmarkView()
+        owner_home = proctor_campaign.home if proctor_campaign and hasattr(proctor_campaign, 'home') else Path.home()
+        self.shakedown = shakedown or ShakedownView(self.benchmarks.store, home=owner_home)
+        self.lap_controller = lap_controller or LapController(owner_home)
         self.chat_provider = chat_provider or (lambda: live_status.chat_url(Path.home() / '.openclaw/openclaw.json'))
         super().__init__((host, port), Handler)
 
@@ -166,6 +174,29 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == '/api/assistant-trial':
             self.reply(200, self.server.assistant_trial.snapshot() if self.server.assistant_trial else {'available': False}, head=head)
+            return
+        if path == '/api/shakedown/scorecard':
+            try:
+                query = parse_qs(urlsplit(self.path).query, max_num_fields=5)
+                if set(query) - {'token', 'loadouts'}:
+                    raise ValueError('Unknown scorecard parameter')
+                pinned = []
+                for group in query.get('loadouts', []):
+                    pinned.extend(value for value in group.split(',') if value)
+                if len(pinned) > 4 or any(len(value) != 24 or
+                        any(char not in '0123456789abcdef' for char in value) for value in pinned):
+                    raise ValueError('Choose up to four valid loadout IDs')
+                self.reply(200, self.server.shakedown.scorecard(pinned), head=head)
+            except ValueError as exc:
+                self.reply(400, {'error': str(exc)}, head=head)
+            except (OSError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Scorecard unavailable'}, head=head)
+            return
+        if path == '/api/shakedown/lap':
+            try:
+                self.reply(200, self.server.lap_controller.snapshot(), head=head)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Shakedown lap status unavailable'}, head=head)
             return
         if path == '/api/models/selection':
             self.reply(200, self.server.selection.snapshot() if self.server.selection else {'available': False}, head=head)
@@ -284,7 +315,7 @@ class Handler(BaseHTTPRequestHandler):
             filename, mime = FILES[path]
             try:
                 body = (ASSETS / filename).read_bytes()
-                if path in ('/', '/prototype', '/prototype.html'):
+                if path in ('/', '/prototype', '/prototype.html', '/shakedown'):
                     body = body.replace(b'__SESSION_TOKEN__', quote(self.server.token).encode('ascii'))
             except OSError:
                 self.reply(503, {'error': 'Dashboard asset unavailable'}, head=head)
@@ -300,6 +331,33 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized(mutation=True):
             return
         path = urlsplit(self.path).path
+        if path in ('/api/shakedown/lap/start', '/api/shakedown/lap/cancel'):
+            try:
+                if path.endswith('/start'):
+                    lengths = self.headers.get_all('Content-Length')
+                    if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                            or len(lengths[0]) > 4 or not lengths[0].isdigit()
+                            or not 1 <= int(lengths[0]) <= 1024
+                            or self.headers.get('Content-Type') != 'application/json'):
+                        self.reply(400, {'error': 'A bounded lap selection is required'})
+                        return
+                    self.connection.settimeout(3)
+                    body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    if (not isinstance(body, dict) or set(body) - {'size', 'suites'} or
+                            body.get('size', 'quick') not in ('quick', 'standard', 'full') or
+                            ('suites' in body and (not isinstance(body['suites'], list) or len(body['suites']) > 6))):
+                        self.reply(400, {'error': 'Choose a supported lap size and ability forms'})
+                        return
+                    self.reply(202, self.server.lap_controller.start(
+                        body.get('size', 'quick'), body.get('suites')))
+                else:
+                    if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                        self.reply(400, {'error': 'An empty request is required'})
+                        return
+                    self.reply(202, self.server.lap_controller.cancel())
+            except (ValueError, OSError, UnicodeError, TypeError, KeyError):
+                self.reply(409, {'error': 'Shakedown lap could not be started or cancelled'})
+            return
         if path == '/api/ssh-recovery/start' and self.server.ssh_recovery:
             lengths = self.headers.get_all('Content-Length')
             if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
