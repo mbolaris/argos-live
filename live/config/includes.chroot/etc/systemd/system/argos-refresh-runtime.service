@@ -6,7 +6,7 @@ ConditionPathExists=/run/live/rootfs/filesystem.squashfs/usr/local/bin/argos
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/python3 /run/live/rootfs/filesystem.squashfs/usr/local/sbin/argos-refresh-runtime
+ExecStart=/usr/bin/python3 /usr/local/sbin/argos-refresh-runtime
 RemainAfterExit=yes
 
 [Install]
