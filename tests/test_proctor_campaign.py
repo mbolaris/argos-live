@@ -43,6 +43,7 @@ def result():
     return {'status': 'completed',
             'campaign': {'status': 'completed', 'outcome': 'no_change_audited',
                          'audit_status': 'empty', 'controller_turns': 2,
+                         'evaluation_limit': 2,
                          'saved_evaluation_ids': ['run-a', 'run-b'], 'missing': [],
                          'tool_outcomes': ['private tool payload is excluded']}}
 
@@ -63,9 +64,11 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.selected_criteria = None
         self.storage_status = self.persistent_storage
 
-        def runner(home, *, owner_task, success_criteria, on_phase, on_progress):
+        def runner(home, *, owner_task, success_criteria, evaluation_limit, stop_event, on_phase, on_progress):
             self.selected_task = owner_task
             self.selected_criteria = success_criteria
+            self.selected_evaluation_limit = evaluation_limit
+            self.selected_stop_event = stop_event
             on_phase('campaign')
             on_progress({'phase': 'campaign', 'stage': 'turn-start', 'turn': 1, 'total': 4,
                          'saved_evaluation_count': 2, 'audit_status': 'pending',
@@ -104,8 +107,24 @@ class ProctorCampaignControllerTests(unittest.TestCase):
                          'owner-recovery-decision')
         with self.assertRaises(proctor_campaign.Refused):
             proctor_campaign.validate_measurement_suite('documents-long')
+        with self.assertRaisesRegex(proctor_campaign.Refused, 'limit from 1 to 8'):
+            self.controller.start('recover Argos after reboot', 'ready', evaluation_limit=9)
         self.assertFalse(self.startup.lab_active)
         self.assertIsNone(self.controller.worker)
+
+    def test_owner_limit_and_stop_event_reach_runner(self):
+        self.controller.start('recover Argos after reboot', 'ready', evaluation_limit=2)
+        self.assertTrue(self.entered.wait(1))
+        self.assertEqual(self.controller.snapshot()['evaluation_limit'], 2)
+        stopped = self.controller.stop()
+        self.assertEqual(stopped['phase'], 'stopping')
+        self.assertTrue(self.selected_stop_event.is_set())
+        self.release.set()
+        self.wait_finished()
+        final = self.controller.snapshot()
+        self.assertEqual(final['phase'], 'completed')
+        self.assertTrue(final['assistant_ready'])
+        self.assertFalse(self.startup.lab_active)
 
     def test_live_evaluation_watch_shows_question_answer_score_and_elapsed_time(self):
         now = [10.0]
@@ -163,12 +182,19 @@ class ProctorCampaignControllerTests(unittest.TestCase):
                      'runtime/argoslive/web/static/index.html').read_text(encoding='utf-8')
         self.assertIn('value="documents-short"', dashboard)
         self.assertIn('value="owner-recovery-decision"', dashboard)
+        self.assertIn('id="proctor-evaluation-limit" type="number" min="1" max="8"', dashboard)
+        self.assertIn('id="proctor-campaign-stop"', dashboard)
         self.assertIn('Read this brief” covers only its short passages', dashboard)
         self.assertIn('does not measure long-document or file-reading work', dashboard)
+        app = (Path(__file__).resolve().parents[1] /
+               'runtime/argoslive/web/static/app.js').read_text(encoding='utf-8')
+        self.assertIn("fetch('/api/proctor-campaign/stop'", app)
+        self.assertIn('evaluation_limit: evaluationLimit', app)
 
     def test_owner_start_reserves_resources_runs_and_restores_verified_assistant(self):
         started = self.controller.start('recover Argos after reboot',
-                                        'ready after unlock with no terminal command')
+                                        'ready after unlock with no terminal command',
+                                        evaluation_limit=2)
         self.assertTrue(self.startup.lab_active)
         self.assertEqual(started['phase'], 'pausing')
         self.assertTrue(self.entered.wait(1))
@@ -179,10 +205,15 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertEqual(status['phase'], 'completed')
         self.assertEqual(self.selected_task, 'recover Argos after reboot')
         self.assertEqual(self.selected_criteria, 'ready after unlock with no terminal command')
+        self.assertEqual(self.selected_evaluation_limit, 2)
         self.assertEqual(status['progress'], {'phase': 'campaign', 'stage': 'turn-start',
                                               'turn': 1, 'total': 4, 'saved_evaluation_count': 2,
                                               'audit_status': 'pending'})
         self.assertEqual(status['result']['campaign']['saved_evaluation_ids'], ['run-a', 'run-b'])
+        self.assertEqual(status['result']['campaign']['evaluation_limit'], 2)
+        saved = self.controller.record(status['watch']['id'])
+        self.assertEqual(saved['evaluation_limit'], 2)
+        self.assertEqual(saved['result']['campaign']['evaluation_limit'], 2)
         self.assertNotIn('owner_task', status)
         self.assertTrue(status['assistant_ready'])
         self.assertFalse(self.startup.lab_active)
@@ -354,6 +385,10 @@ class ProctorCampaignControllerTests(unittest.TestCase):
             self.assertEqual(request('/api/proctor-campaign', token=False)[0], 403)
             self.assertEqual(request('/api/proctor-campaign/start', 'POST', token=False, body=b'{}')[0], 403)
             self.assertEqual(request('/api/proctor-campaign/start', 'POST', body=b'{}', token=True)[0], 400)
+            invalid_limit = json.dumps({'owner_task': 'recover Argos after reboot',
+                                        'success_criteria': 'ready after unlock with no terminal command',
+                                        'evaluation_limit': 9})
+            self.assertEqual(request('/api/proctor-campaign/start', 'POST', body=invalid_limit)[0], 409)
             code, state = request('/api/proctor-campaign', token=True)
             self.assertEqual(code, 200)
             self.assertTrue(state['available'])
@@ -364,6 +399,10 @@ class ProctorCampaignControllerTests(unittest.TestCase):
             self.assertEqual(started['phase'], 'pausing')
             self.assertTrue(self.entered.wait(1))
             self.assertEqual(request('/api/proctor-campaign/start', 'POST', body=payload)[0], 409)
+            code, stopped = request('/api/proctor-campaign/stop', 'POST')
+            self.assertEqual(code, 200)
+            self.assertEqual(stopped['phase'], 'stopping')
+            self.assertTrue(self.controller.stop_requested.is_set())
             self.release.set()
             self.wait_finished()
         finally:

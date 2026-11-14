@@ -18,7 +18,7 @@ import socket
 import sys
 import time
 
-from . import auto_setup, controller_bridge, model_verify, owned_gateway, owned_ollama, proctor, session_mode, startup
+from . import auto_setup, controller_bridge, instruction_changes, model_verify, owned_gateway, owned_ollama, proctor, session_mode, startup
 from .proctor.engine import Caller
 from .proctor.engine import digest
 from .proctor.signing import Ed25519Signer, generate_key
@@ -766,7 +766,44 @@ def _campaign_ledger(outcomes):
             for item in outcomes if isinstance(item, dict)]
 
 
+def _restore_active_change_after_stop(home, bridge):
+    """Use the host maintenance worker to roll back an active experiment on Stop."""
+    _path, current_bytes, _config, _receipt = instruction_changes.inputs(home)
+    journal = instruction_changes.state(instruction_changes.root_path(home))
+    active = journal.get('active')
+    if not isinstance(active, dict):
+        return None
+    params = {'change_id': active['id'], 'action': 'restore',
+              'expected_sha256': instruction_changes.digest(current_bytes)}
+    result = bridge.run_child('resolve', params)
+    value = result.get('value') if isinstance(result, dict) else None
+    if result.get('status') != 'completed' or not isinstance(value, dict):
+        raise RuntimeError('Host-managed instruction restoration did not complete')
+    outcome = {'kind': 'resolve', 'status': value.get('status'),
+               'change_id': value.get('change_id'),
+               'configuration_preserved': value.get('configuration_preserved') is True}
+    bridge.outcomes.append(outcome)
+    bridge.publish()
+    return outcome
+
+
+def _record_host_final_audit(home, bridge, outcomes, on_progress):
+    audit = instruction_changes.audit(home)
+    outcome = {'kind': 'audit', 'status': audit.get('status'),
+               'passed': audit.get('passed') is True, 'host_final': True}
+    outcomes.append(outcome)
+    if isinstance(getattr(bridge, 'outcomes', None), list):
+        bridge.outcomes.append(outcome)
+        bridge.publish()
+    _report_progress(on_progress, phase='campaign', stage='campaign-step',
+                      step_id='host-final-audit', tool='audit', status='completed',
+                      step_status='verified' if audit.get('passed') is True else 'failed',
+                      passed=audit.get('passed') is True, audit_status=audit.get('status'))
+    return audit
+
+
 def _campaign_followup(turn, outcomes, assessment, *, owner_task='', success_criteria='', measurement_suite=None,
+                       evaluation_limit=8,
                        recovery_mode=False):
     if recovery_mode:
         return ('Continue the owner-requested read-only SSH recovery decision. Make exactly one call to '
@@ -786,6 +823,16 @@ def _campaign_followup(turn, outcomes, assessment, *, owner_task='', success_cri
                 '`argos_ssh_status`), then call `argos_audit_instructions`. Use signed status only; '
                 'never request terminal work or claim recovery without a fresh signed completion receipt. '
                 'Report task-not-measured and the evidence gap.')
+    completed_evaluations = sum(1 for item in outcomes if isinstance(item, dict) and
+                                item.get('kind') == 'evaluation')
+    if completed_evaluations >= evaluation_limit:
+        ledger = json.dumps(_campaign_ledger(outcomes), ensure_ascii=False, sort_keys=True)
+        missing = json.dumps(assessment['missing'], ensure_ascii=False)
+        return ('Continue the same owner-authorized campaign, with the host evaluation limit exhausted. '
+                'Do not start another evaluation or instruction experiment. Finish any pending comparison, '
+                'host-managed keep/restore decision, and run logging for evidence already collected. '
+                'Then call argos_audit_instructions as the final mutating evidence step, after all '
+                f'comparisons and log entries. Host evidence: {ledger}. Still required: {missing}.')
     ledger = json.dumps(_campaign_ledger(outcomes), ensure_ascii=False, sort_keys=True)
     missing = json.dumps(assessment['missing'], ensure_ascii=False)
     return ('Continue the same owner-authorized Argos improvement campaign in this fresh controller turn. '
@@ -825,8 +872,12 @@ def _campaign_prompt(owner_task, success_criteria, measurement_suite, *, recover
 
 
 def run_campaign(home, model, target, *, owner_task, success_criteria, executable, measurement_suite=None,
+                 evaluation_limit=8,
+                 stop_event=None,
                  ssh_status_provider=None, ssh_status_verifier=None, openssl='openssl', on_progress=None):
     """Run bounded host-admitted turns until an audited campaign outcome exists."""
+    if type(evaluation_limit) is not int or not 1 <= evaluation_limit <= 8:
+        raise ValueError('Evaluation limit must be between 1 and 8')
     recovery_mode = _is_ssh_recovery_task(owner_task, success_criteria, measurement_suite,
                                           ssh_status_provider, ssh_status_verifier)
     campaign_tools = (RECOVERY_CAMPAIGN_TOOL_NAMES if recovery_mode else
@@ -843,7 +894,9 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
     with ExitStack() as stack:
         bridge, controller_env = stack.enter_context(controller_bridge.owned(
             home, session_key=campaign_session_key, trigger='user', task_campaign=True,
-            owner_task_suite=measurement_suite, ssh_status_provider=ssh_status_provider,
+            owner_task_suite=measurement_suite, evaluation_limit=evaluation_limit,
+            stop_event=stop_event,
+            ssh_status_provider=ssh_status_provider,
             ssh_status_verifier=ssh_status_verifier, on_progress=on_progress))
         stack.enter_context(owned_ollama.owned(target, port=11434, context_tokens=32768,
             lease_store=Path(home) / '.local/state/argos-live'))
@@ -852,7 +905,15 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
         # LIFO: drain admitted tools before tearing down their dependencies.
         stack.callback(bridge.drain_before_backends_stop)
         outcomes, result, assessment = [], {}, None
+        turn = 0
+        assessment = _campaign_assessment(outcomes, recovery_mode=recovery_mode)
+        if stop_event is not None and stop_event.is_set():
+            assessment = {**assessment, 'ready': False, 'status': 'incomplete',
+                          'outcome': 'campaign-stopped',
+                          'missing': ['Campaign stopped by owner; saved evidence is preserved.']}
         for turn in range(1, CAMPAIGN_MAX_TURNS + 1):
+            if stop_event is not None and stop_event.is_set():
+                break
             previous = _campaign_assessment(outcomes, recovery_mode=recovery_mode)
             _report_progress(on_progress, phase='campaign', stage='turn-start', turn=turn,
                              total=CAMPAIGN_MAX_TURNS,
@@ -865,6 +926,48 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             bridge.drain_campaign_evaluation()
             outcomes = list(bridge.outcomes)
             assessment = _campaign_assessment(outcomes, recovery_mode=recovery_mode)
+            if not recovery_mode and not (stop_event is not None and stop_event.is_set()):
+                latest_audit = max((index for index, item in enumerate(outcomes)
+                                    if isinstance(item, dict) and item.get('kind') == 'audit'), default=-1)
+                latest_evidence = max((index for index, item in enumerate(outcomes)
+                                       if isinstance(item, dict) and item.get('kind') in
+                                       {'evaluation', 'compare', 'log', 'edit', 'resolve', 'adopt'}), default=-1)
+                if latest_evidence > latest_audit:
+                    _record_host_final_audit(home, bridge, outcomes, on_progress)
+                    outcomes = list(bridge.outcomes)
+                    assessment = _campaign_assessment(outcomes, recovery_mode=recovery_mode)
+            if stop_event is not None and stop_event.is_set():
+                try:
+                    _restore_active_change_after_stop(home, bridge)
+                except Exception:
+                    # Failed or conflicting restoration keeps the workload
+                    # quarantined, but the audit still records that condition.
+                    pass
+                outcomes = list(bridge.outcomes)
+                try:
+                    _record_host_final_audit(home, bridge, outcomes, on_progress)
+                except Exception:
+                    # Keep the controller lease quarantined without a host audit.
+                    pass
+                outcomes = list(bridge.outcomes)
+                assessment = _campaign_assessment(outcomes, recovery_mode=recovery_mode)
+                assessment = {**assessment, 'ready': False, 'status': 'incomplete',
+                    'outcome': 'campaign-stopped',
+                    'missing': list(dict.fromkeys([*assessment.get('missing', []),
+                        'Campaign stopped by owner; saved evidence is preserved.']))}
+                if assessment.get('safe_to_release') or turn == CAMPAIGN_MAX_TURNS:
+                    break
+                # Finish only the safety work for an active instruction change.
+                # The bridge permits restoration and audit, while rejecting new
+                # evaluations, edits, adoption, and keep decisions.
+                bridge.next_campaign_turn(f'{campaign_session_key}_stop_cleanup_{turn + 1}')
+                outcomes = list(bridge.outcomes)
+                prompt = ('The owner requested Stop. Do only required cleanup for any active instruction '
+                          'change: restore it, save any already completed evaluation evidence, then audit '
+                          'after the final log/comparison. Do not start evaluations or make/keep changes. '
+                          f'Host evidence: {json.dumps(_campaign_ledger(outcomes), sort_keys=True)}. '
+                          f'Remaining requirements: {json.dumps(assessment.get("missing", []))}.')
+                continue
             admission_blocked = getattr(bridge, 'worker_outcome', None) == 'admission-blocked'
             incomplete_turn = getattr(bridge, 'worker_outcome', None) == 'incomplete-turn'
             if admission_blocked:
@@ -896,7 +999,20 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             prompt = _campaign_followup(turn + 1, outcomes, assessment,
                                         owner_task=owner_task, success_criteria=success_criteria,
                                         measurement_suite=measurement_suite,
+                                        evaluation_limit=evaluation_limit,
                                         recovery_mode=recovery_mode)
+        # A model-requested audit can precede the final comparison or log.
+        # Re-run the read-only host audit after the worker has finished so the
+        # final verdict is based on the last evidence write in this campaign.
+        if not recovery_mode and assessment is not None:
+            latest_audit = max((index for index, item in enumerate(outcomes)
+                                if isinstance(item, dict) and item.get('kind') == 'audit'), default=-1)
+            latest_evidence = max((index for index, item in enumerate(outcomes)
+                                   if isinstance(item, dict) and item.get('kind') in
+                                   {'evaluation', 'compare', 'log', 'edit', 'resolve', 'adopt'}), default=-1)
+            if latest_evidence > latest_audit:
+                _record_host_final_audit(home, bridge, outcomes, on_progress)
+                assessment = _campaign_assessment(outcomes, recovery_mode=recovery_mode)
         if assessment and assessment.get('safe_to_release'):
             if (measurement_suite is None and
                     getattr(bridge, 'worker_outcome', None) == 'incomplete-turn'):
@@ -911,12 +1027,15 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
                       'audit_status': None, 'safe_to_release': False}
     return {'status': assessment['status'], 'outcome': assessment['outcome'],
             'missing': assessment['missing'], 'audit_status': assessment['audit_status'],
+            'evaluation_limit': evaluation_limit,
             'controller_turns': turn, 'agent_summary': result.get('result', result).get('payloads', []),
             'tool_outcomes': outcomes, 'saved_evaluation_ids': assessment['saved_evaluation_ids'],
             'host_observation': assessment.get('host_observation')}
 
 
 def run_improvement(home, *, owner_task, success_criteria, measurement_suite=None,
+                    evaluation_limit=8,
+                    stop_event=None,
                     ssh_status_provider=None, ssh_status_verifier=None,
                     executable=None, openssl='openssl',
                     on_phase=None, on_progress=None):
@@ -924,6 +1043,8 @@ def run_improvement(home, *, owner_task, success_criteria, measurement_suite=Non
     from .proctor_campaign import validate_measurement_suite, validate_owner_task
     owner_task, success_criteria = validate_owner_task(owner_task, success_criteria)
     measurement_suite = validate_measurement_suite(measurement_suite)
+    if type(evaluation_limit) is not int or not 1 <= evaluation_limit <= 8:
+        raise ValueError('Evaluation limit must be between 1 and 8')
     home = Path(home).resolve(strict=True)
     state = json.loads((home / '.config/argos-live/state.json').read_text(encoding='utf-8'))
     target, model = startup.source(home)
@@ -936,6 +1057,8 @@ def run_improvement(home, *, owner_task, success_criteria, measurement_suite=Non
         campaign = run_campaign(home, model, target, owner_task=owner_task,
                                 success_criteria=success_criteria,
                                 measurement_suite=measurement_suite,
+                                evaluation_limit=evaluation_limit,
+                                stop_event=stop_event,
                                 ssh_status_provider=ssh_status_provider,
                                 ssh_status_verifier=ssh_status_verifier,
                                 executable=executable or shutil.which('openclaw'), openssl=openssl,
@@ -949,6 +1072,7 @@ def run_improvement(home, *, owner_task, success_criteria, measurement_suite=Non
                 'measurement_suite': measurement_suite,
                 'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
                              'audit_status': None, 'controller_turns': 0,
+                             'evaluation_limit': evaluation_limit,
                              'missing': ['campaign evidence ledger was not returned'],
                              'saved_evaluation_ids': []},
                 'failure_code': safe_failure_code(error, 'campaign'),

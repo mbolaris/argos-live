@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import unittest
 from contextlib import contextmanager, ExitStack, redirect_stdout
 from types import SimpleNamespace
@@ -503,7 +504,7 @@ class ProctorServiceTests(unittest.TestCase):
     def test_campaign_continues_clean_turns_until_host_evidence_is_complete(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
         bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement', outcomes=[],
-                                 launches=[], continuations=[], completed=False)
+                                 launches=[], continuations=[], completed=False, publish=Mock())
 
         def launch(_executable, _prompt, **_kwargs):
             bridge.launches.append(True)
@@ -520,9 +521,10 @@ class ProctorServiceTests(unittest.TestCase):
             else:
                 bridge.outcomes.extend([
                     evaluation_outcome('standard-one', 'standard', correct=69, total=70),
-                    log_outcome('standard-one'),
                     {'kind': 'compare', 'baseline_id': 'base-one', 'candidate_id': 'base-two'},
                     {'kind': 'audit', 'status': 'empty', 'passed': True},
+                    # Simulate a late log receipt written after the agent's audit.
+                    log_outcome('standard-one'),
                 ])
             return {'result': {'payloads': []}}, ''
 
@@ -560,16 +562,85 @@ class ProctorServiceTests(unittest.TestCase):
                 executable='openclaw', on_progress=progress.append)
 
         self.assertEqual(result['status'], 'completed')
-        self.assertEqual(result['controller_turns'], 2)
+        self.assertEqual(result['controller_turns'], 2, result)
         self.assertEqual(result['saved_evaluation_ids'], ['base-one', 'base-two', 'standard-one'])
         self.assertEqual(len(bridge.continuations), 1)
         self.assertTrue(bridge.completed)
+        self.assertEqual(bridge.outcomes[-1], {'kind': 'audit', 'status': 'empty',
+                                               'passed': True, 'host_final': True})
         self.assertEqual([event['stage'] for event in progress],
-                         ['turn-start', 'turn-finished', 'turn-start', 'turn-finished'])
-        self.assertEqual(progress[1]['saved_evaluation_count'], 2)
+                         ['turn-start', 'campaign-step', 'turn-finished', 'turn-start',
+                          'campaign-step', 'turn-finished'])
         self.assertEqual(progress[2]['saved_evaluation_count'], 2)
+        self.assertEqual(progress[3]['saved_evaluation_count'], 2)
         self.assertEqual(progress[-1]['saved_evaluation_count'], 3)
         self.assertEqual(progress[-1]['audit_status'], 'empty')
+
+    def test_stop_restores_active_change_audits_and_preserves_saved_evidence(self):
+        stop_event = threading.Event()
+        bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement', outcomes=[
+            {'kind': 'inspect'}, evaluation_outcome('saved-run'), log_outcome('saved-run'),
+            {'kind': 'edit', 'status': 'changed', 'change_id': 'active-change'}],
+            launches=0, completed=False, worker_outcome=None, publish=Mock())
+
+        def launch(_executable, _prompt, **_kwargs):
+            bridge.launches += 1
+
+        def finish(**_kwargs):
+            stop_event.set()
+            return {'result': {'payloads': []}}, ''
+
+        def run_child(kind, params):
+            self.assertEqual(kind, 'resolve')
+            self.assertEqual(params, {'change_id': 'active-change', 'action': 'restore',
+                                      'expected_sha256': hashlib.sha256(b'candidate').hexdigest()})
+            return {'status': 'completed', 'value': {'status': 'restored',
+                    'change_id': 'active-change', 'configuration_preserved': True}}
+
+        bridge.launch = launch
+        bridge.finish = finish
+        bridge.drain_campaign_evaluation = Mock()
+        bridge.drain_before_backends_stop = Mock()
+        bridge.run_child = run_child
+        bridge.complete_campaign = lambda: setattr(bridge, 'completed', True)
+
+        @contextmanager
+        def owned_bridge(*_args, **_kwargs):
+            yield bridge, {}
+
+        @contextmanager
+        def owned_resource(*_args, **_kwargs):
+            yield object()
+
+        active = {'id': 'active-change', 'phase': 'applied'}
+        with patch.object(proctor_service, 'private_profile', return_value=(
+                 self.home, self.home, self.owner_config, 'a' * 64)), \
+             patch.object(proctor_service, 'refuse_live_gateway'), \
+             patch.object(proctor_service, 'refuse_live_backend'), \
+             patch.object(proctor_service.controller_bridge, 'owned', owned_bridge), \
+             patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
+             patch.object(proctor_service.owned_gateway, 'owned', owned_resource), \
+             patch.object(proctor_service.instruction_changes, 'inputs',
+                          return_value=(self.home / 'AGENTS.md', b'candidate', {}, {})), \
+             patch.object(proctor_service.instruction_changes, 'state', return_value={'active': active}), \
+             patch.object(proctor_service.instruction_changes, 'root_path', return_value=self.home), \
+             patch.object(proctor_service.instruction_changes, 'audit',
+                          return_value={'status': 'verified', 'passed': True}):
+            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
+                owner_task='answer owner documents accurately',
+                success_criteria='accepted answers include a supported fact',
+                measurement_suite='quick', evaluation_limit=2, stop_event=stop_event,
+                executable='openclaw')
+
+        self.assertEqual(result['status'], 'incomplete')
+        self.assertEqual(result['outcome'], 'campaign-stopped')
+        self.assertEqual(result['saved_evaluation_ids'], ['saved-run'])
+        self.assertTrue(bridge.completed)
+        self.assertEqual(bridge.launches, 1)
+        self.assertEqual([item['kind'] for item in result['tool_outcomes']],
+                         ['inspect', 'evaluation', 'log', 'edit', 'resolve', 'audit'])
+        self.assertEqual(result['tool_outcomes'][-2]['status'], 'restored')
+        self.assertTrue(result['tool_outcomes'][-1]['passed'])
 
     def test_unmeasured_campaign_retries_incomplete_turn_then_releases_without_claim(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
