@@ -103,12 +103,13 @@ made.
    refresher is in `main` via PR #177 but has not been deployed successfully; see the deployment
    check above. The immutable image's older module restored the base runtime during health.
 5. Shakedown Phase 1 is in progress. SIM37/38/39/40 foundations and SIM41's result screen are merged
-   (PRs #177 and #178). SIM42's persistent lap queue is in progress on `codex/shakedown-queue`;
-   fixture checks cover sequential execution, missing-model preflight, cancellation, reboot recovery,
-   and unchanged deployed configuration. No model evaluation has run on Toronado. The dashboard
-   starts laps only after an owner clicks Run or Start queue. The owner-selected improvement campaign
-   remains idle until the owner chooses a task. Design rules: real-world sci-fi, the typical user is
-   an amateur LLM enthusiast tuning a local agent, and the bench comes first.
+   (PRs #177, #178 and #179). SIM42's persistent lap queue is merged; fixture checks cover sequential
+   execution, missing-model preflight, cancellation, reboot recovery, and unchanged deployed
+   configuration. SIM43's local export and complete-lap personal bests are in progress on
+   `codex/shakedown-export`. No model evaluation has run on Toronado. The dashboard starts laps only
+   after an owner clicks Run or Start queue. The owner-selected improvement campaign remains idle
+   until the owner chooses a task. Design rules: real-world sci-fi, the typical user is an amateur LLM
+   enthusiast tuning a local agent, and the bench comes first.
 
 ## Standards that must not slip
 

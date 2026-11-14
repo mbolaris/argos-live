@@ -146,6 +146,29 @@
       byId('queue-summary').textContent = error.message;
     }
   }
+  async function saveExport() {
+    const button = byId('export-scorecard');
+    const label = byId('export-status');
+    button.disabled = true;
+    label.textContent = 'Saving a privacy-filtered scorecard to this machine…';
+    byId('export-links').replaceChildren();
+    try {
+      const result = await post('/api/shakedown/export', {});
+      const links = byId('export-links');
+      for (const kind of result.files || []) {
+        const link = document.createElement('a');
+        link.href = `/api/shakedown/exports/${encodeURIComponent(result.export_id)}.${encodeURIComponent(kind)}?token=${encodeURIComponent(token || '')}`;
+        link.download = `argos-shakedown.${kind}`;
+        link.textContent = `Download ${kind.toUpperCase()}`;
+        links.append(link);
+      }
+      label.textContent = `Saved in Argos storage. ${result.png_available ? 'PNG is available.' : 'PNG rendering is unavailable on this machine.'}`;
+    } catch (error) {
+      label.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
   function showLap(record) {
     const label = byId('lap-state');
     state.lapRecord = record;
@@ -335,6 +358,12 @@
       note.textContent = 'Different version or slice · not compared';
       box.append(note);
     }
+    if (cell.personal_best) {
+      const personalBest = document.createElement('span');
+      personalBest.className = 'personal-best';
+      personalBest.textContent = 'Personal best';
+      box.append(personalBest);
+    }
     for (const noteText of cell.footnotes || []) {
       const note = document.createElement('span');
       note.className = 'footnote-marker';
@@ -455,6 +484,7 @@
     }
   }
   byId('refresh').addEventListener('click', load);
+  byId('export-scorecard').addEventListener('click', saveExport);
   byId('lap-size').addEventListener('change', renderEstimate);
   byId('mobile-loadout').addEventListener('change', event => {
     state.mobileId = event.target.value;

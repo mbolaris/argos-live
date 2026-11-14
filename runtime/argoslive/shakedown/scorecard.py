@@ -174,10 +174,16 @@ class View:
                         if '_comparison_run' in cell:
                             run_lookup[(row_id, loadout_id)] = cell.pop('_comparison_run')
         rows = []
+        try:
+            from .personal_best import best_run_ids
+            personal_best_ids = best_run_ids(self.home)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            personal_best_ids = set()
         for row in collected.values():
             cells = row['cells']
             for loadout_id, cell in cells.items():
                 cell.setdefault('best', False)
+                cell['personal_best'] = cell.get('run_id') in personal_best_ids
                 others = [(other_id, other) for other_id, other in cells.items() if other_id != loadout_id]
                 if not others or cell.get('state') != 'completed' or not cell.get('complete', True):
                     continue

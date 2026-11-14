@@ -220,10 +220,21 @@ class QueueController:
             except Exception as error:
                 result = {'outcome': 'failed', 'complete': False, 'steps': [],
                           'error_category': type(error).__name__}
+            best_updates = None
+            if result.get('complete'):
+                try:
+                    from .personal_best import record_complete_lap
+                    from ..results import Store
+                    store = getattr(jobs, 'store', None) or Store(self.home / '.local/share/argos-live/results')
+                    best_updates = record_complete_lap(
+                        self.home, store, [step['run_id'] for step in result['steps']])
+                except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                    best_updates = {'recorded': 0}
             with self.lock:
                 row = self.record['entries'][index]
                 row.update(state='completed' if result.get('complete') else result.get('outcome', 'failed'),
-                           steps=result.get('steps', []), failure=result.get('error_category'))
+                           steps=result.get('steps', []), failure=result.get('error_category'),
+                           personal_best_updates=best_updates)
                 self.record['active_progress'] = None
                 self._persist()
                 if self.cancel_event.is_set():

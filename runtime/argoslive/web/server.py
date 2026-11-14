@@ -3,6 +3,7 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import re
 import secrets
 import threading
 from urllib.parse import parse_qs, quote, urlsplit
@@ -15,6 +16,7 @@ from argoslive.web.benchmarks import View as BenchmarkView
 from argoslive.shakedown.scorecard import View as ShakedownView
 from argoslive.shakedown.controller import LapController
 from argoslive.shakedown.queue import QueueController
+from argoslive.shakedown.export import Exporter as ShakedownExporter
 
 ASSETS = Path(__file__).with_name('static')
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
@@ -62,6 +64,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.shakedown = shakedown or ShakedownView(self.benchmarks.store, home=owner_home)
         self.lap_controller = lap_controller or LapController(owner_home)
         self.queue_controller = queue_controller or QueueController(owner_home, self.shakedown.store)
+        self.shakedown_exporter = ShakedownExporter(self.shakedown.store, self.shakedown, home=owner_home)
         self.shakedown_lock = threading.RLock()
         self.chat_provider = chat_provider or (lambda: live_status.chat_url(Path.home() / '.openclaw/openclaw.json'))
         super().__init__((host, port), Handler)
@@ -134,6 +137,16 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             return
         path = urlsplit(self.path).path
+        export_match = re.fullmatch(r'/api/shakedown/exports/([0-9a-f]{32})\.(json|svg|png)', path)
+        if export_match:
+            try:
+                file_path = self.server.shakedown_exporter.file(*export_match.groups())
+                mime = {'json': 'application/json; charset=utf-8',
+                        'svg': 'image/svg+xml; charset=utf-8', 'png': 'image/png'}[export_match.group(2)]
+                self.reply(200, file_path.read_bytes(), mime, head=head, download=file_path.name)
+            except (OSError, ValueError):
+                self.reply(404, {'error': 'Shakedown export not found'}, head=head)
+            return
         if path == '/api/proctor-campaign':
             self.reply(200, self.server.proctor_campaign.snapshot() if self.server.proctor_campaign else {'available': False}, head=head)
             return
@@ -390,6 +403,23 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, OSError, UnicodeError, TypeError, KeyError, AttributeError) as exc:
                 message = str(exc) if isinstance(exc, ValueError) else 'Shakedown queue unavailable'
                 self.reply(409, {'error': message})
+            return
+        if path == '/api/shakedown/export':
+            try:
+                lengths = self.headers.get_all('Content-Length')
+                if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                        or lengths[0] != '2' or self.headers.get('Content-Type') != 'application/json'):
+                    self.reply(400, {'error': 'A bounded export request is required'})
+                    return
+                self.connection.settimeout(3)
+                body = json.loads(self.rfile.read(2), object_pairs_hook=object_pairs)
+                if body != {}:
+                    self.reply(400, {'error': 'Export requests do not accept content'})
+                    return
+                response = self.server.shakedown_exporter.create()
+                self.reply(201, response)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Shakedown export could not be saved'})
             return
         if path in ('/api/shakedown/lap/start', '/api/shakedown/lap/cancel'):
             try:

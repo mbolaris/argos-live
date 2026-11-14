@@ -79,11 +79,22 @@ class LapController:
 
             result = lap.execute(plan, jobs, lap_id=self.record['lap_id'], cancel=self.cancel_event,
                                  on_update=progress)
+            best_updates = None
+            if result['complete']:
+                try:
+                    from .personal_best import record_complete_lap
+                    from ..results import Store
+                    store = getattr(jobs, 'store', None) or Store(self.home / '.local/share/argos-live/results')
+                    best_updates = record_complete_lap(
+                        self.home, store, [step['run_id'] for step in result['steps']])
+                except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                    best_updates = {'recorded': 0}
             with self.lock:
                 self.record.update(state='completed' if result['complete'] else result['outcome'],
                                    outcome=result['outcome'], complete=result['complete'],
                                    steps=result['steps'], stage='finished', progress=None,
-                                   recovery_required=any(step['recovery_required'] for step in result['steps']))
+                                   recovery_required=any(step['recovery_required'] for step in result['steps']),
+                                   personal_best_updates=best_updates)
                 self._persist()
         except Exception as error:
             with self.lock:

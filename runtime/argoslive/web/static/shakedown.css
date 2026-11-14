@@ -27,6 +27,7 @@ a { color:var(--accent); }
 .controls h2,.empty h2 { margin:0; font-size:21px; }
 .controls p,.empty p { color:var(--muted); margin:4px 0 0; }
 .actions { display:flex; align-items:center; gap:10px; }
+.export-links { display:flex; gap:12px; flex-wrap:wrap; margin:0 0 10px; }
 .lap-controls { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:16px 0; }
 .lap-controls label { font-weight:700; }
 .lap-controls #lap-state { flex-basis:100%; }
@@ -80,6 +81,7 @@ tbody th { min-width:190px; }
 .cell-meta { font-size:11px; }
 .best,.incomparable,.footnote-marker { font-size:11px; font-weight:700; }
 .best { color:var(--accent); }
+.personal-best { color:var(--accent); font-size:11px; font-weight:700; }
 .incomparable,.footnote-marker { color:var(--warn); }
 .run-link { font-size:12px; width:max-content; }
 .footnote { color:var(--muted); font-size:12px; }
