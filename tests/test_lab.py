@@ -89,7 +89,7 @@ class LabTests(unittest.TestCase):
         loaded = [self.store.load(run) for run in value['runs']]
         self.assertEqual([run['kind'] for run in loaded], ['speed', 'ability'])
         self.assertEqual(loaded[0]['settings']['prompt_sizes'], ['short', 'medium'])
-        self.assertEqual(loaded[1]['suite_version'], 'documents/short/1.0.0')
+        self.assertEqual(loaded[1]['suite_version'], 'documents/short/1.1.0')
         self.assertTrue(loaded[1]['qualification']['qualified'])
         self.assertEqual(self.assistant.calls[-2:], ['backend-stop', 'resume'])
     def test_unknown_plan_is_rejected_before_pausing_chat(self):

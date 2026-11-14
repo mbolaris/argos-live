@@ -12,13 +12,15 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
 from argoslive import doc_trial  # noqa: E402
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 OUTPUT = Path(__file__).resolve().parents[1] / 'runtime/argoslive/data/documents/short.json'
 
 CRITERIA = {
-    'version': 1,
-    'description': 'Fixed before any model is scored. A baseline is for comparison only; it never moves these bars.',
-    'min_correct': {'answer': 7, 'quote': 6, 'not_stated': 7},
+    'version': 2,
+    'description': ('Fixed before any model is scored. A baseline never moves these bars. Summary requires exactly '
+                    'two sentences and at least two listed facts; this is a format-and-coverage proxy, not a full '
+                    'quality judgment.'),
+    'min_correct': {'answer': 7, 'quote': 6, 'not_stated': 7, 'summary': 6},
     'max_format_errors': 2,
 }
 
@@ -33,7 +35,8 @@ PASSAGES = [
      'answer': ('How many passengers can the Marigold carry?', ['240', '240 passengers']),
      'quote': ('How long does a crossing take?', ['35 minutes', '35'], 'Crossings take 35 minutes.'),
      'not_stated': 'What is the fare for a senior citizen?',
-     'summary': 'Summarize this passage in two sentences.'},
+     'summary': 'Summarize this passage in two sentences.',
+     'summary_facts': [['1987'], ['Marigold', 'Heron'], ['35 minutes'], ['240 passengers'], ['bicycles ride free', 'bicycles', 'free']]},
     {'id': 'library',
      'text': ('The Orchard Street Library will close for renovation on 1 June and reopen on 15 September. During the '
               'closure, borrowers may return books at the Millbrook branch, which will extend its weekend hours to '
@@ -45,7 +48,8 @@ PASSAGES = [
      'quote': ('How much is the bond that funds the project?', ['$1.2 million', '1.2 million'],
                'The project is funded by a $1.2 million bond approved by voters last November.'),
      'not_stated': 'Who is the architect of the renovation?',
-     'summary': 'Summarize this notice in two sentences.'},
+     'summary': 'Summarize this notice in two sentences.',
+     'summary_facts': [['1 June', 'June 1'], ['15 September', 'September 15'], ['Millbrook'], ['quiet reading room', 'wheelchair access'], ['$1.2 million', '1.2 million'], ['fines will not', 'fines are not']]},
     {'id': 'returns',
      'text': ('Kestrel Outdoor accepts returns within 45 days of purchase when the item is unused and in its original '
               'packaging. Refunds go back to the original payment method within seven business days after the item '
@@ -56,7 +60,8 @@ PASSAGES = [
      'quote': ('What is the flat shipping fee for returns on smaller orders?', ['$8', '8 dollars'],
                'Return shipping is free for orders over $75; smaller orders pay a flat $8 shipping fee.'),
      'not_stated': 'Does Kestrel Outdoor offer gift wrapping?',
-     'summary': 'Summarize this return policy in two sentences.'},
+     'summary': 'Summarize this return policy in two sentences.',
+     'summary_facts': [['45 days'], ['unused', 'original packaging'], ['seven business days'], ['$75', '$8'], ['Final Sale'], ['30 days', 'exchanges']]},
     {'id': 'minutes',
      'text': ('The garden committee met on Tuesday with five members present. Priya reported that the rainwater tanks '
               'are installed and holding 2,000 liters. The committee voted four to one to buy raised beds for the '
@@ -67,7 +72,8 @@ PASSAGES = [
      'quote': ('Who will collect quotes from suppliers?', ['marcus'],
                'Marcus will collect quotes from three suppliers by the end of the month.'),
      'not_stated': 'How much money does the committee have in its budget?',
-     'summary': 'Summarize these meeting minutes in two sentences.'},
+     'summary': 'Summarize these meeting minutes in two sentences.',
+     'summary_facts': [['2,000 liters', '2000 liters'], ['four to one', '4 to 1'], ['raised beds', 'east lawn'], ['three suppliers'], ['12 April', 'April 12']]},
     {'id': 'trail',
      'text': ('The Cedar Ridge loop is a 7.5 kilometer trail with 320 meters of climbing. Most hikers finish it in '
               'about three hours. The trailhead parking lot holds 40 cars and fills early on weekends. Dogs are '
@@ -79,7 +85,8 @@ PASSAGES = [
                'Dogs are allowed on a leash, but the lookout at the halfway point is closed to dogs from March to '
                'June to protect nesting birds.'),
      'not_stated': 'Is camping allowed along the trail?',
-     'summary': 'Summarize this trail description in two sentences.'},
+     'summary': 'Summarize this trail description in two sentences.',
+     'summary_facts': [['7.5 kilometer', '7.5-kilometer'], ['320 meters'], ['three hours'], ['40 cars'], ['closed to dogs', 'nesting birds'], ['two liters', 'no drinking water']]},
     {'id': 'museum',
      'text': ('The Tidewater Museum opens its new exhibit, Salt and Sail, on 8 October. The exhibit follows how coastal '
               'towns traded salt across the bay in the nineteenth century. It includes a restored cargo boat, a '
@@ -90,7 +97,8 @@ PASSAGES = [
      'quote': ('What does the exhibit show about the nineteenth century?', ['trade', 'traded salt', 'salt across the bay'],
                'The exhibit follows how coastal towns traded salt across the bay in the nineteenth century.'),
      'not_stated': 'Who restored the cargo boat?',
-     'summary': 'Summarize this announcement in two sentences.'},
+     'summary': 'Summarize this announcement in two sentences.',
+     'summary_facts': [['8 October', 'October 8'], ['nineteenth century', '19th century'], ['restored cargo boat', 'salt press'], ['200 letters'], ['$12 for adults', '$12'], ['31 January', 'January 31']]},
     {'id': 'release',
      'text': ('Version 3.2 of the Quillnote app adds offline editing, so notes can be changed without a connection and '
               'sync when the device is back online. Search is now twice as fast on libraries above 10,000 notes. The '
@@ -101,7 +109,8 @@ PASSAGES = [
      'quote': ('What replaced the old plain-text export?', ['markdown'],
                'The release removes the old plain-text export; users should choose Markdown export instead.'),
      'not_stated': 'How much does Quillnote cost?',
-     'summary': 'Summarize these release notes in two sentences.'},
+     'summary': 'Summarize these release notes in two sentences.',
+     'summary_facts': [['offline editing'], ['twice as fast', 'twice the speed'], ['Markdown export'], ['checklist items', 'sync conflict'], ['Android 10'], ['Android 8', 'Android 9']]},
     {'id': 'bakery',
      'text': ('Sunrise Bakery bakes its sourdough in batches of 24 loaves, starting at four in the morning. The starter '
               'is fed twice a day and has been kept alive since the bakery opened in 2009. Loaves sell for $7, or $6 '
@@ -112,7 +121,8 @@ PASSAGES = [
      'quote': ('What happens to unsold bread?', ['donated', 'donated to the eastside pantry'],
                'Unsold bread is donated to the Eastside Pantry every evening at closing.'),
      'not_stated': 'Does the bakery sell gluten-free bread?',
-     'summary': 'Summarize this description of the bakery in two sentences.'},
+     'summary': 'Summarize this description of the bakery in two sentences.',
+     'summary_facts': [['24 loaves'], ['2009'], ['$7'], ['Eastside Pantry'], ['closed on Mondays'], ['two days of notice']]},
 ]
 
 INSTRUCTION = ('Read the passage and answer using only the passage. Do not use outside knowledge.\n\n'
@@ -147,9 +157,10 @@ def build():
                       'scorer': {'kind': 'doc-not-stated', 'passage': text}})
     for number, passage in enumerate(PASSAGES, 1):
         items.append({'id': f'summary-{number:02d}', 'passage_id': passage['id'], 'category': 'summary',
-                      'scored': False, 'question': passage['summary'],
+                      'scored': True, 'question': passage['summary'],
                       'prompt': SUMMARY_PROMPT.format(passage=passage['text'], question=passage['summary']),
-                      'scorer': {'kind': 'doc-summary'}})
+                      'scorer': {'kind': 'doc-summary', 'passage': passage['text'],
+                                 'required_facts': passage['summary_facts'], 'min_facts': 2}})
     for item in items:
         doc_trial.add_fixtures(item)
     return {'schema': 'argos-document-suite/1', 'suite': 'short', 'version': VERSION, 'license': 'MIT',

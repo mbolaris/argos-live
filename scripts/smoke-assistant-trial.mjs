@@ -450,7 +450,7 @@ try {
     null, {timeout: 20000, polling: 300});
 
   // ---- Diagnostic-only misses recommend reviewing them, not a larger model.
-  const proposal = await page.evaluate(() => nextExperiment({suite: 'documents-short', recipe: {preset: 'standard'}, total: 24, correct: 20,
+  const proposal = await page.evaluate(() => nextExperiment({suite: 'documents-short', recipe: {preset: 'standard'}, total: 32, correct: 28,
     format_errors: 0, wrong_answers: 4, diagnoses: {wording: 2, requirement: 2}}));
   assert.equal(proposal.kind, 'review');
   assert.match(proposal.why, /^Diagnostic, not a score: every miss kept an accepted answer/);
@@ -461,7 +461,7 @@ try {
   const mixed = await page.evaluate(() => assistantTrialDecision({rows: Array(8).fill({}), gains: ['one'], regressions: ['two'], suggestion: 'restore'}, 'on-trial'));
   assert.equal(mixed.title, 'Practice questions only');
   assert.match(mixed.next, /actual tasks/);
-  const wrongFacts = await page.evaluate(() => nextExperiment({suite: 'documents-short', recipe: {preset: 'standard'}, total: 24, correct: 20,
+  const wrongFacts = await page.evaluate(() => nextExperiment({suite: 'documents-short', recipe: {preset: 'standard'}, total: 32, correct: 28,
     format_errors: 0, wrong_answers: 4, diagnoses: {wrong: 3, wording: 1}}));
   assert.equal(wrongFacts.kind, 'model');
 

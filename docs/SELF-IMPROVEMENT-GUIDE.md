@@ -122,11 +122,12 @@ not change model settings or grant new tools.
    literal references to earlier results. The benchmark does
    not execute calls. Its bundled held-out workflows are an internal transfer
    check only; keep scores separate and do not claim real tool use.
-   `documents-short` reuses the existing "Read this brief" mission. It scores
-   24 short-document answers, supporting quotations, and "not stated" responses
-   under fixed category criteria. Owner-judged summaries are excluded; this
-   suite does not establish long-document or file-reading ability. Choose it
-   only when the owner selects that reading task.
+   `documents-short` v1.1 reuses the existing "Read this brief" mission. Its
+   32 scored items cover short-document answers, supporting quotations,
+   "not stated" responses, and summaries. Summary scores check exactly two
+   sentences and at least two listed facts as a narrow format-and-coverage
+   proxy, not full summary quality. The suite does not establish long-document
+   or file-reading ability. Choose it only when the owner selects that reading task.
 3. Choose one modest instruction experiment supported by the misses. For
    `AGENTS.md`, use `argos_inspect`, then `argos_edit_instructions` with a saved
    baseline from the current controller and its inspected hash. The tool

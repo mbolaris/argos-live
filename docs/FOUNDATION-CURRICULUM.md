@@ -40,9 +40,11 @@ number of grades or curriculum pass thresholds is established by this document.
 
 These are curriculum domains, not six implemented levels or mandatory model-size
 upgrades. Existing coverage remains available. The first focused experience is
-**Read this brief**, using the existing eight passages, 24 scored questions and
-eight unscored owner-judged summaries. Following directions is also exercised
-there; it is not a new prerequisite blocking this first mission.
+**Read this brief**, using the existing eight passages and 32 scored questions.
+Documents-short v1.1.0 adds a narrow summary proxy: exactly two sentences and at
+least two listed passage facts, not a full summary-quality judgment. Following
+directions is also exercised there; it is not a new prerequisite blocking this
+first mission.
 
 Add later rungs only with versioned original tasks, explicit criteria, suitable
 budgets and truthful evidence. No tool rung becomes runnable before its sandbox

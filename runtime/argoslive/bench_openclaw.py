@@ -30,7 +30,7 @@ def suite_content(suite):
         data = doc_trial.load()
         path = doc_trial.DATA / 'short.json'
         items = [item for item in data['items'] if item.get('scored') is True]
-        omitted = list(data['omitted_categories']) + ['owner-judged-summaries']
+        omitted = list(data['omitted_categories'])
         return data, items, path, omitted
     if suite == owner_recovery_eval.SUITE:
         data = owner_recovery_eval.load()

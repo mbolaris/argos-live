@@ -88,7 +88,7 @@ function runArgos(command, args, signal, onUpdate) {
           const event = JSON.parse(line);
           if (!event || !["asking", "scored"].includes(event.phase) ||
               !Number.isInteger(event.completed) || !Number.isInteger(event.total) ||
-              ![20, 24, 40, 70].includes(event.total) || event.completed < 0 ||
+              ![20, 32, 40, 70].includes(event.total) || event.completed < 0 ||
               event.completed > event.total ||
               (event.phase === "asking" && event.completed === event.total)) continue;
           const text = event.phase === "scored"
@@ -194,7 +194,7 @@ async function waitForDirectEvaluation(job, signal, onUpdate) {
 function startDirectEvaluation(suite, signal, onUpdate) {
   if (signal?.aborted) throw new Error("Argos request was cancelled before dispatch; no command started.");
   const id = randomBytes(16).toString("hex");
-  const job = {id, suite, progress:{completed:0,total:suite === "owner-recovery-decision" ? 8 : suite === "documents-short" ? 24 : suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" || suite === "tool-sequence" ? 40 : suite === "standard" ? 70 : 20}};
+  const job = {id, suite, progress:{completed:0,total:suite === "owner-recovery-decision" ? 8 : suite === "documents-short" ? 32 : suite === "challenge" || suite === "tool-schema" || suite === "tool-plan" || suite === "tool-sequence" ? 40 : suite === "standard" ? 70 : 20}};
   job.ownerCancellation = new AbortController();
   job.cancel = () => job.ownerCancellation.abort();
   job.completion = runArgos("openclaw", ["--suite", suite, "--json"], job.ownerCancellation.signal,
@@ -344,7 +344,7 @@ export default function register(api) {
     description: "Run one Argos-authored fixed suite with copies of your instructions in isolated, tool-free OpenClaw state. Use a suite only when its exact tasks measure behavior relevant to the owner's goal; otherwise do not run it. Its score is diagnostic, not proof of owner-task improvement or general ability. No suite progression is required when a score is saturated. Save the run. Does not change owner configuration.",
     parameters: Type.Object({
       suite: Type.Optional(Type.Union([Type.Literal("quick"), Type.Literal("standard"), Type.Literal("challenge"), Type.Literal("tool-schema"), Type.Literal("tool-plan"), Type.Literal("tool-sequence"), Type.Literal("documents-short"), Type.Literal("owner-recovery-decision")],
-        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), tool-sequence (40 ordered two- and three-call plans), documents-short (24 short-passage questions), or owner-recovery-decision (8 simulated receipt decisions with explicit minimum owner actions; uncalibrated, no real tools or recovery, diagnostic only and ineligible for instruction keeps). Choose only a suite whose exact tasks match the owner-selected task. Tool-suite held-out items are internal transfer checks, not independent validation or real tool execution." }))
+        { description: "Quick (20), standard (70), challenge (40), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), tool-sequence (40 ordered two- and three-call plans), documents-short (32 short-document tasks, including summary format and key-fact coverage), or owner-recovery-decision (8 simulated receipt decisions with explicit minimum owner actions; uncalibrated, no real tools or recovery, diagnostic only and ineligible for instruction keeps). Choose only a suite whose exact tasks match the owner-selected task. Tool-suite held-out items are internal transfer checks, not independent validation or real tool execution." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
       const suite = params.suite ?? 'quick';

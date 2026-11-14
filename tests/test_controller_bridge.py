@@ -1080,9 +1080,9 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(value['status'], 'completed')
             result = value['value']['result']
             self.assertEqual(result['suite'], 'openclaw-documents-short')
-            self.assertEqual(result['coverage'], {'completed': 24, 'total': 24, 'complete': True})
+            self.assertEqual(result['coverage'], {'completed': 32, 'total': 32, 'complete': True})
             self.assertEqual(result['qualification']['complete'], True)
-            self.assertEqual(len(result['qualification']['checks']), 4)
+            self.assertEqual(len(result['qualification']['checks']), 5)
             parent.complete()
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux cross-process delegated worker')

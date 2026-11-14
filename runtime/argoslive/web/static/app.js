@@ -424,8 +424,8 @@ const outcomeMeta = {
     plain: 'wrong. The answer didn’t match what the passage supports.'},
   format_error: {label: 'Format Error', cls: 'outcome-format', reason: 'Did not follow required format or closed JSON schema',
     plain: 'not scorable. It didn’t use the required answer format, so it counts as a miss.'},
-  unscored: {label: 'Summary', cls: 'outcome-unscored', reason: 'Summary generated for owner judgment',
-    plain: 'a summary written for you to read. Summaries aren’t scored.'}
+  unscored: {label: 'Not scored', cls: 'outcome-unscored', reason: 'Summary saved for owner review',
+    plain: 'a summary saved for you to read. This older suite version did not score summaries.'}
 };
 
 function renderReceiptItem(receipt) {
@@ -529,10 +529,10 @@ function setArenaProgress(completed, total) {
 }
 
 function updateArenaTally(receipts) {
-  // Summaries are written for the owner to read; only the other answers are scored.
   const count = outcome => receipts.filter(r => r.outcome === outcome).length;
   const correct = receipts.filter(r => r.score === 1).length;
-  const wrong = count('wrong_answer'), format = count('format_error'), summaries = count('unscored');
+  const wrong = count('wrong_answer'), format = count('format_error');
+  const summaries = receipts.filter(r => r.category === 'summary').length;
   const set = (id, value, text, alwaysShown) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -541,11 +541,11 @@ function updateArenaTally(receipts) {
   };
   set('arena-tally-passed', correct, `${correct} correct` + (wrong ? ` · ${wrong} wrong` : ''), true);
   set('arena-tally-format-errors', format, `${format} wrong format`);
-  set('arena-tally-summaries', summaries, `${summaries} ${summaries === 1 ? 'summary' : 'summaries'} (not scored)`);
+  set('arena-tally-summaries', summaries, `${summaries} ${summaries === 1 ? 'summary' : 'summaries'} scored`);
 }
 
 const challengeKinds = {answer: 'Find the fact', quote: 'Answer with a supporting quote', not_stated: 'Notice what’s missing',
-  summary: 'Summary · for you, not scored'};
+  summary: 'Summary format & key facts'};
 
 function extractPassage(promptText) {
   const match = (promptText || '').match(/PASSAGE:\s*([\s\S]+?)(?=\n\s*(?:QUESTION:|Respond|Summarize)|$)/i);
@@ -1988,7 +1988,7 @@ function renderMatched(output, result) {
       output.append(box);
     }
     if ((result.summaries || []).length) {
-      const h = document.createElement('h3'); h.textContent = 'Summaries for you to judge (not scored)'; output.append(h);
+      const h = document.createElement('h3'); h.textContent = 'Older unscored summaries saved for owner review'; output.append(h);
       for (const s of result.summaries) { const box = document.createElement('details'); const sm = document.createElement('summary');
         sm.textContent = s.question || s.item_id; box.append(sm);
         runs.forEach((r, i) => { const p = document.createElement('p'); p.textContent = `${names[i]}: ${s.runs[r.id] ?? 'no output kept'}`; box.append(p); });
@@ -3376,9 +3376,11 @@ function renderMissionReceipt(report) {
     takeawayEl.textContent = [standing, misses ? `Missed: ${misses}.` : 'Nothing missed in this suite.'].filter(Boolean).join(' ');
   }
   const countNote = document.getElementById('cc-count-note');
-  countNote.hidden = !ability?.unscored;
-  if (ability?.unscored) {
-    countNote.textContent = `Your AI wrote ${ability.total + ability.unscored} responses: ${ability.total} scored questions, plus ${ability.unscored} summaries for you to read that are not scored.`;
+  countNote.hidden = ability?.suite !== 'documents-short';
+  if (ability?.suite === 'documents-short') {
+    countNote.textContent = ability.unscored
+      ? `${ability.total + ability.unscored} responses: ${ability.total} scored questions and ${ability.unscored} summaries saved for owner review (older suite version).`
+      : `${ability.total} scored responses, including summaries checked for format and key facts. Summary scoring is a narrow proxy, not a full quality judgment.`;
   }
   for (const category of ability?.categories || []) {
     const row = document.createElement('div'); row.className = 'skill-row';
@@ -3633,8 +3635,12 @@ function renderReplay() {
   if (!data) return;
   const run = data.run, changes = replayChanges();
   const misses = replayMisses().length;
+  const summaryCount = (data.items || []).filter(item => item.category === 'summary').length;
+  const summaryNote = run.unscored
+    ? `${run.unscored} summaries saved for you`
+    : `${summaryCount} summaries scored with a format-and-facts proxy`;
   document.getElementById('replay-summary').textContent =
-    `${run.correct} of ${run.total} correct · ${misses} ${misses === 1 ? 'miss' : 'misses'} · ${run.unscored} summaries for you` +
+    `${run.correct} of ${run.total} correct · ${misses} ${misses === 1 ? 'miss' : 'misses'} · ${summaryNote}` +
     (changes ? ` · ${changes.size} changed in the experiment` : '') + (misses ? '. Start with a miss, or pick any answer.' : '. Pick any answer.');
   // Group misses by diagnostic label so wording misses are not mistaken for wrong facts.
   const reasons = {};
