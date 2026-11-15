@@ -1,5 +1,7 @@
 # Implementation backlog
 
+Current priority is stated only in [NOW.md](NOW.md). The dated checkpoints below are history.
+
 ## Newer candidate checkpoint — October 20, 2026
 
 PR #116 now adds verified OpenClaw progress tracking, bounded process-group
