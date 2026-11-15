@@ -6,6 +6,7 @@ never disagrees with the score. Older suite summaries stay unscored; suite v1.1
 summaries show the saved format-and-coverage proxy verdict.
 """
 from . import doc_trial
+from .shakedown import diagnose as miss_diagnosis
 
 SCHEMA = 'argos-replay/1'
 OUTPUT_LIMIT = 1200
@@ -26,84 +27,18 @@ def rules(run):
     return {item['id']: item['scorer'] for item in data['items']}
 
 
-# Diagnostic labels (added 2026-10-10). They describe a saved miss; they never change a score,
-# accepted answers, suite version or qualification threshold.
-DIAGNOSES = {
-    'wording': ('Right meaning, rejected for wording', 'wording'),
-    'unsupported_quote': ('Quote copied exactly, but it doesn’t support the answer', 'quote'),
-    'quote_not_exact': ('Quote not copied exactly from the passage', 'requirement'),
-    'long_answer': ('Not a short answer', 'requirement'),
-    'instruction_echo': ('Copied the instructions instead of answering', 'wrong'),
-    'answered_missing': ('Answered something the passage doesn’t say', 'wrong'),
-    'wrong': ('Wrong answer', 'wrong'),
-    'format': ('Not in the required answer format', 'format'),
-}
-SHORT_WORDS = 6
-NEGATIONS = {'not', 'no', 'never', 'none', 'nothing'}
-
-
-def contains_phrase(text, phrase):
-    """Whole-word containment after the scorer's own normalization."""
-    words, target = doc_trial.normal(text).split(), doc_trial.normal(phrase).split()
-    return bool(target) and any(words[i:i + len(target)] == target for i in range(len(words) - len(target) + 1))
+# The diagnosis itself lives with the other miss diagnosis in shakedown/diagnose.py (SIM3).
+# These names stay here for existing callers; the output is unchanged.
+DIAGNOSES = miss_diagnosis.DIAGNOSES
+SHORT_WORDS = miss_diagnosis.SHORT_WORDS
+NEGATIONS = miss_diagnosis.NEGATIONS
+contains_phrase = miss_diagnosis.contains_phrase
+labelled = miss_diagnosis.labelled
 
 
 def diagnose(item, rule, passage):
     """Explain a saved verdict with separate answer and quote checks. Never rescores."""
-    category, outcome, output = item.get('category'), item.get('outcome'), item.get('output') or ''
-    if category == 'summary':
-        if not rule or rule.get('kind') != 'doc-summary' or 'score' not in item:
-            return {'reason': 'A summary written for you to read. This suite version did not score summaries.'}
-        if outcome == 'pass':
-            return {'reason': 'Passed the saved two-sentence and key-fact proxy; this does not judge full summary quality.'}
-        if outcome == 'format_error':
-            return labelled('format', 'Not scorable: the reply did not contain exactly two sentences.')
-        return {'reason': f"Wrong: fewer than {rule.get('min_facts')} listed passage facts appeared in the two-sentence summary."}
-    if outcome == 'pass':
-        return {'reason': {'answer': 'Correct: the answer matches the passage.',
-                           'quote': 'Correct: an accepted answer, backed by a quote copied exactly from the passage.',
-                           'not_stated': 'Correct: it said the passage doesn’t give this.'}.get(category, 'Correct.')}
-    if outcome == 'format_error':
-        return labelled('format', 'Not scorable: the reply wasn’t the required answer format, so it counts as a miss.')
-    if category == 'not_stated':
-        return labelled('answered_missing', 'Wrong: the passage doesn’t give this, but it answered anyway.')
-    accepted = (rule or {}).get('accepted') or []
-    expected = ' or '.join(f'“{a}”' for a in accepted[:3])
-    try:
-        value = doc_trial.parse(output)
-    except (ValueError, TypeError, UnicodeError, RecursionError):
-        value = None
-    if value is None or not rule:
-        return {'reason': f'Wrong: expected {expected}.' if expected else 'Wrong: the answer doesn’t match the passage.'}
-    answer, quote = value['answer'], value['quote']
-    words = doc_trial.normal(answer).split()
-    checks = {'answer_accepted': value['status'] == 'answered' and doc_trial.normal(answer) in {doc_trial.normal(a) for a in accepted},
-              'answer_contains_accepted': any(contains_phrase(answer, a) for a in accepted),
-              'answer_words': len(words)}
-    if category == 'quote':
-        exact = bool(doc_trial.collapse(quote)) and doc_trial.collapse(quote) in doc_trial.collapse(passage or '')
-        checks.update(quote_exact=exact, quote_supports=doc_trial.supported(rule, value))
-    shown = answer[:80]
-    if 'a short answer' in doc_trial.normal(answer) or 'or an empty string' in doc_trial.normal(answer):
-        return labelled('instruction_echo', f'Wrong: the answer copies the instruction text (“{shown}”) instead of answering.', checks)
-    if category == 'quote' and not checks['quote_supports']:
-        if not checks['quote_exact']:
-            return labelled('quote_not_exact', 'Wrong: the quote isn’t copied exactly from the passage.', checks)
-        return labelled('unsupported_quote', 'Wrong: the quote is copied exactly, but it doesn’t contain an accepted answer, '
-                        'so it doesn’t support the answer.', checks)
-    if not checks['answer_accepted'] and checks['answer_contains_accepted'] and not NEGATIONS & set(words):
-        same_as_quote = category == 'quote' and doc_trial.collapse(answer) == doc_trial.collapse(quote)
-        if len(words) > SHORT_WORDS or same_as_quote:
-            return labelled('long_answer', f'Wrong: the task asks for a short answer, but this answer is a full sentence '
-                            f'({len(words)} words). It includes an accepted answer ({expected}), which must be given on its own.', checks)
-        return labelled('wording', f'Wrong as scored: “{shown}” includes the accepted answer ({expected}) but isn’t exactly it. '
-                        'Answers must match word for word, ignoring case and surrounding punctuation.', checks)
-    return labelled('wrong', f'Wrong: expected {expected}.' if expected else 'Wrong: the answer doesn’t match the passage.', checks)
-
-
-def labelled(kind, reason, checks=None):
-    label, group = DIAGNOSES[kind]
-    return {'reason': reason, 'diagnosis': {'kind': kind, 'label': label, 'group': group}, 'checks': checks}
+    return miss_diagnosis.document(item, rule, passage)
 
 
 def explain(item, rule, passage):
