@@ -107,7 +107,7 @@ SIM44. Phase 8 needs only Phase 0 and SIM17.
 
 ## Phase 0. Contracts
 
-### SIM1 — Console taxonomy and failure-code registry — `todo`
+### SIM1 — Console taxonomy and failure-code registry — `done (PR #191)`
 
 **Goal.** One versioned source of truth for consoles, domains, fault families and failure codes.
 
