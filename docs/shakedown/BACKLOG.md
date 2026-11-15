@@ -128,7 +128,7 @@ with `guard`, `tempo`, `stewardship`.
 
 **Depends.** None. **Verify.** Unit tests (`tests/test_shakedown_taxonomy.py`).
 
-### SIM2 — Fault-card sidecar format, loader and validator — `todo`
+### SIM2 — Fault-card sidecar format, loader and validator — `done (PR #193)`
 
 **Goal.** Attach meaning to form items without changing the suite schema or the runner.
 
