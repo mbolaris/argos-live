@@ -18,6 +18,21 @@ spec.loader.exec_module(module)
 
 
 class DiagnosticFlagsTests(unittest.TestCase):
+    def test_proctor_command_diagnostics_are_bounded_and_do_not_copy_output(self):
+        completed = type('Completed', (), {})()
+        completed.returncode = 2
+        completed.stdout = json.dumps({'status': 'incomplete', 'transcript_id': 'private-id',
+            'agent_summary': 'private answer', 'host_turns': 3, 'start_retries': 0,
+            'result': {'state': 'ABANDONED', 'correct': 1, 'total': 6, 'unanswered': 5,
+                       'answer': 'private answer'}}).encode()
+        value = module.safe_proctor_command_result(completed)
+        self.assertEqual(value, {'returncode': 2, 'status': 'incomplete', 'state': 'ABANDONED',
+                                 'correct': 1, 'total': 6, 'unanswered': 5,
+                                 'host_turns': 3, 'start_retries': 0})
+        self.assertNotIn('private', json.dumps(value))
+        completed.stdout = b'invalid private output'
+        self.assertEqual(module.safe_proctor_command_result(completed), {'returncode': 2})
+
 
     def test_model_lab_failure_kind_only_exposes_fixed_categories(self):
         self.assertEqual(module.safe_model_lab_failure_kind('model-service-unreachable'),

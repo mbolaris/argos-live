@@ -646,6 +646,32 @@ def proctor_failure_diagnostics(home):
     return receipt
 
 
+def safe_proctor_command_result(completed):
+    """Report terminal categories only; do not export model text or transcript IDs."""
+    code = completed.returncode
+    result = {'returncode': code if type(code) is int and -255 <= code <= 255 else None}
+    try:
+        value = json.loads(completed.stdout) if len(completed.stdout) <= 1024 * 1024 else None
+    except (ValueError, TypeError, UnicodeDecodeError):
+        value = None
+    if isinstance(value, dict):
+        if value.get('status') in ('completed', 'incomplete'):
+            result['status'] = value['status']
+        feedback = value.get('result')
+        if isinstance(feedback, dict):
+            if feedback.get('state') in ('COMPLETED', 'ABANDONED', 'TIMED_OUT', 'INVALIDATED'):
+                result['state'] = feedback['state']
+            for key in ('correct', 'total', 'unanswered'):
+                number = feedback.get(key)
+                if type(number) is int and 0 <= number <= 10000:
+                    result[key] = number
+        for key in ('host_turns', 'start_retries'):
+            number = value.get(key)
+            if type(number) is int and 0 <= number <= 10000:
+                result[key] = number
+    return result
+
+
 def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag):
     """Verify one real bundled-model Proctor practice, then return to ready state."""
     import sqlite3
@@ -686,6 +712,8 @@ def real_proctor_practice(home, opener, origin, token, dashboard_json, model_tag
             failure_code = 'practice-output-oversized'
             raise ValueError('Bundled-model Proctor practice command failed')
         if completed.returncode != 0:
+            print('ARGOS_PROCTOR_COMMAND ' + json.dumps(safe_proctor_command_result(completed),
+                                                        sort_keys=True), flush=True)
             proctor_failure_diagnostics(home)
             failure_code = 'practice-command-nonzero'
             stderr = completed.stderr.lower()
