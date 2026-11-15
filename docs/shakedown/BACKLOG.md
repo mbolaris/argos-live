@@ -149,7 +149,7 @@ suite now and a Proctor cartridge form in SIM31.
 
 **Depends.** SIM1. **Verify.** Unit tests with fixtures under `tests/fixtures/shakedown/`.
 
-### SIM3 — Deterministic matcher engine — `todo`
+### SIM3 — Deterministic matcher engine — `in progress`
 
 **Goal.** Turn the shape of a wrong answer into failure codes, by code only.
 

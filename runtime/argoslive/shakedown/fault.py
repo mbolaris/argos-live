@@ -15,7 +15,7 @@ from pathlib import Path
 import re
 
 from .. import ability
-from . import taxonomy
+from . import diagnose, taxonomy
 
 SCHEMA = 'argos-sim-fault/1'
 SIDECARS = Path(__file__).resolve().parents[1] / 'data' / 'shakedown' / 'sidecars'
@@ -24,7 +24,7 @@ PARTITIONS = ('practice', 'sealed')
 # Item ID prefixes that fix the partition, where a form uses them.
 PREFIX_PARTITION = {'practice-': 'practice', 'heldout-': 'sealed'}
 TIERS = (1, 2, 3)
-# The closed matcher set of DESIGN 7.1. The engine that evaluates them is diagnose.py (SIM3).
+# The closed matcher set of DESIGN 7.1. diagnose.py evaluates them and checks their arguments.
 MATCHERS = ('equals', 'choice-is', 'contains-token', 'numeric-delta', 'numeric-equals',
             'json-path-mismatch', 'tool-name-is', 'tool-arg-mismatch', 'sequence-violation',
             'reply-seconds-over')
@@ -102,6 +102,10 @@ def _validate_card(card, item, prefixed):
         name = next(iter(when))
         if name not in MATCHERS:
             raise ValueError(f'Fault card for item {item} names unknown matcher: {name!r}')
+        try:
+            diagnose.check_matcher(when)
+        except ValueError as exc:
+            raise ValueError(f'Fault card for item {item}: {exc}') from None
     if 'generator' in card:
         generator = card['generator']
         if (not isinstance(generator, dict) or set(generator) != {'name', 'version', 'seed'}
