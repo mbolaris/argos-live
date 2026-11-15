@@ -5,7 +5,7 @@ import path from 'node:path';
 const packageRoot = path.resolve(process.argv[2] ?? '');
 if (!process.argv[2]) throw new Error('Usage: node patch-openclaw-liveness.mjs OPENCLAW_PACKAGE_ROOT');
 const metadata = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8'));
-if (metadata.name !== 'openclaw' || !/^2026\.10\./.test(metadata.version ?? ''))
+if (metadata.name !== 'openclaw' || !(/^2026\.10\./.test(metadata.version ?? '') || metadata.version === '2026.11.3'))
   throw new Error('Unsupported OpenClaw package. Review the pinned source before extending this patch.');
 
 const dist = path.join(packageRoot, 'dist');
