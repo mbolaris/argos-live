@@ -6,6 +6,8 @@ and they are not descriptions of current behavior.
 
 ## Start here
 
+- [Now](NOW.md): the current goal, the three work lanes, what is frozen and the worker queue.
+  This page alone states priority.
 - [How Argos improves itself](HOW-IMPROVEMENT-WORKS.md): Auto Climb, task-focused campaigns, verdicts
   and what you decide.
 - [First-boot setup](FIRST-BOOT.md): what `argos setup --auto` configures and what it never touches.

@@ -69,8 +69,8 @@ of those:
     them say "subset" and "not the official score".
 12. Nothing is uploaded. No ticket adds a network call except an owner-started pack download.
 13. The bench verdict is descriptive help for the owner and is never used by the keep policy.
-14. No improvement campaign runs on Toronado from this work while the AGENTS.md mismatch
-    decision of November 8, 2026 is open.
+14. Closed November 13, 2026: the November 8 AGENTS.md edit was adopted into the journal.
+    Ticket order and worker assignment are in [../NOW.md](../NOW.md).
 
 **How to work without hardware.** `scripts/serve-match-fixture.py` (from PR #169) serves the real
 dashboard, controller, scorers and store over a scripted model. Every UI ticket is built and
