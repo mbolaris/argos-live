@@ -7,6 +7,7 @@ Domains:
 - Tool use (Tool-call formatting, sandboxed execution [future])
 - Memory (Storage retention, episodic memory [future])
 - Perception (Multimodal vision [future], audio speech [future])
+- Guard, Tempo, Stewardship (Shakedown consoles; untested until sim responses are recorded)
 
 Evidence states:
 - 'untested': outline (no completed test for selected model files)
@@ -55,7 +56,27 @@ DOMAINS = [
         'icon': 'eye',
         'summary': 'Multimodal vision and audio perception pipelines.',
     },
+    {
+        'id': 'guard',
+        'label': 'Guard',
+        'icon': 'shield',
+        'summary': 'Instruction hierarchy, grounding in the right source, and trust in recent data.',
+    },
+    {
+        'id': 'tempo',
+        'label': 'Tempo',
+        'icon': 'clock',
+        'summary': 'Responding within the time the situation allows.',
+    },
+    {
+        'id': 'stewardship',
+        'label': 'Stewardship',
+        'icon': 'wrench',
+        'summary': "The owner's own maintenance chores.",
+    },
 ]
+# Domains whose nodes are the Shakedown consoles of that domain (shakedown/taxonomy.json).
+CONSOLE_DOMAINS = ('guard', 'tempo', 'stewardship')
 
 QUICK_SUITE_VERSIONS = {'1.0.0', 'ability/quick/1.0.0'}
 QUICK_REQUIRED_CONTEXT = 2048
@@ -437,6 +458,24 @@ def build_skill_map(facts: Dict[str, Any], selected: Optional[Dict[str, Any]],
             },
         ],
     }
+
+    # Shakedown consoles in the console-only domains. No sim response is recorded for any of
+    # them yet, so each is untested and offers no action.
+    from .shakedown import taxonomy
+    for entry in taxonomy.load()['consoles']:
+        if entry['domain'] in CONSOLE_DOMAINS:
+            domain_nodes.setdefault(entry['domain'], []).append({
+                'id': 'console-' + entry['id'],
+                'title': entry['label'],
+                'state': 'untested',
+                'available': False,
+                'suite': None,
+                'action': None,
+                'action_label': 'No sim has tested this console yet',
+                'criteria': entry['summary'],
+                'scope': 'Shakedown console. Untested until a sim records scored responses for it.',
+                'evidence': None,
+            })
 
     domains_output = []
     tally = {'total_nodes': 0, 'active_nodes': 0, 'qualified': 0, 'measured': 0, 'attention': 0, 'untested': 0, 'unavailable': 0}
