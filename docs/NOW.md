@@ -43,7 +43,7 @@ with a practice half and a sealed half.
 
 | Order | Ticket | What it adds | Needs |
 | --- | --- | --- | --- |
-| A1 | **EV1** (new) Headroom report | `argos headroom`: per form, the deployed build's last three scores, flagged saturated, has room, or never run. Tells Lane A what to write next and tells Argos where to aim. | nothing |
+| A1 | **EV1** (new) Headroom report. Status: built, in review (PR "EV1: headroom report"). | `argos headroom`: per form, the deployed build's last three scores, flagged saturated, has room, too few runs, or never run. Tells Lane A what to write next and tells Argos where to aim. | nothing |
 | A2 | **EV2** (new) Hard forms in the shipped format | `challenge-hard` and `documents-long`: about 120 items aimed at a 40 to 70 percent pass rate for the deployed model, calibrated on the hosted real-model workflow before merge. Immediate headroom while generators are built. | nothing |
 | A3 | SIM44, SIM45 | Benchmark pack format and the first packs (MMLU and GSM8K subsets): numbers people recognise. | nothing |
 | A4 | SIM11, SIM12, SIM13 | Seeded generators for eight fault families. This is what makes the test set effectively unlimited and keeps a sealed half fresh. | SIM3 |

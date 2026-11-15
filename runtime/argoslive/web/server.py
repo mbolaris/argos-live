@@ -61,6 +61,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.benchmarks = benchmarks or BenchmarkView()
         owner_home = (proctor_campaign.home if proctor_campaign and hasattr(proctor_campaign, 'home') else
                       shakedown.home if shakedown and hasattr(shakedown, 'home') else Path.home())
+        self.owner_home = owner_home
         self.shakedown = shakedown or ShakedownView(self.benchmarks.store, home=owner_home)
         self.lap_controller = lap_controller or LapController(owner_home)
         self.queue_controller = queue_controller or QueueController(owner_home, self.shakedown.store)
@@ -192,6 +193,20 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == '/api/assistant-trial':
             self.reply(200, self.server.assistant_trial.snapshot() if self.server.assistant_trial else {'available': False}, head=head)
+            return
+        if path == '/api/headroom':
+            # Read-only: built from saved runs, runs no model and changes nothing.
+            try:
+                if set(parse_qs(urlsplit(self.path).query, max_num_fields=2)) - {'token'}:
+                    raise ValueError('Unknown headroom parameter')
+                from argoslive import headroom
+                self.reply(200, headroom.report(self.server.benchmarks.store, home=self.server.owner_home),
+                           head=head)
+            except ValueError as exc:
+                self.reply(400, {'error': str(exc) if str(exc) == 'Unknown headroom parameter'
+                                 else 'Headroom report unavailable'}, head=head)
+            except (OSError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Headroom report unavailable'}, head=head)
             return
         if path == '/api/shakedown/scorecard':
             try:
