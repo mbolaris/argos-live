@@ -4,18 +4,21 @@
     "local-transcription",
     "local-image-generation"
   ],
-  "host_integrity": "sha512-fWOIOOyddIBqeuPz82DBCdY5kNl1yD51qebAHnxlTN7SmVoH5/WSIudR/N1zDhcIIksgJXe6ZgGy5ngSRxZOrQ==",
-  "host_version": "2026.10.8",
+  "host_integrity": "sha512-FBq/q0TCaoA2b7qfdV0q81fHhI6RBB1zAQfJQREc1u2TlK5khVgCUsAlXskLWthyVqRz5PWEj+oOmfYgK58dHg==",
+  "host_version": "2026.11.3",
   "note": "Metadata only. Contracts/default enablement are not effective agent tool grants or readiness.",
   "plugins": [
     {
-      "compatible_host": "2026.10.8",
+      "compatible_host": "2026.11.3",
       "declared_contracts": {
         "embeddingProviders": [
           "ollama"
         ],
         "tools": [
           "node_inference"
+        ],
+        "usageProviders": [
+          "ollama"
         ],
         "webSearchProviders": [
           "ollama"
@@ -27,22 +30,22 @@
       ],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-fWOIOOyddIBqeuPz82DBCdY5kNl1yD51qebAHnxlTN7SmVoH5/WSIudR/N1zDhcIIksgJXe6ZgGy5ngSRxZOrQ==",
+      "host_integrity": "sha512-FBq/q0TCaoA2b7qfdV0q81fHhI6RBB1zAQfJQREc1u2TlK5khVgCUsAlXskLWthyVqRz5PWEj+oOmfYgK58dHg==",
       "id": "ollama",
       "invocation_verified": false,
       "license": "MIT",
       "license_scope": "host-package",
-      "manifest_sha256": "0e693a5263bdb23530127dba9af6b481f4d928425959bd15c4925d7e44c30f1a",
+      "manifest_sha256": "cf76f1d04457fd8ea0e3377af5abf92f8a700ce807f6a326b7ce9df8356b2756",
       "npm_dependencies": {
-        "typebox": "1.3.34"
+        "typebox": "1.3.35"
       },
       "package": "@openclaw/ollama-provider",
       "package_presence_verified": true,
-      "package_sha256": "d64bd68891f29de71ec00cebb8062c797945afc3a96c509f8fbdd98136522bff",
-      "version": "2026.10.8"
+      "package_sha256": "88297e1a137d3740cbe4ad162a7481fbebcdd39c2d7a11253b43442572e3acd0",
+      "version": "2026.11.3"
     },
     {
-      "compatible_host": "2026.10.8",
+      "compatible_host": "2026.11.3",
       "declared_contracts": {
         "tools": [
           "intent",
@@ -53,25 +56,25 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": null,
-      "host_integrity": "sha512-fWOIOOyddIBqeuPz82DBCdY5kNl1yD51qebAHnxlTN7SmVoH5/WSIudR/N1zDhcIIksgJXe6ZgGy5ngSRxZOrQ==",
+      "host_integrity": "sha512-FBq/q0TCaoA2b7qfdV0q81fHhI6RBB1zAQfJQREc1u2TlK5khVgCUsAlXskLWthyVqRz5PWEj+oOmfYgK58dHg==",
       "id": "memory-core",
       "invocation_verified": false,
       "license": "MIT",
       "license_scope": "host-package",
       "manifest_sha256": "d8a557f1cc4ba394a874ff07b08fc6e8fcf4099fa45adaa4bd714ed1b48fa896",
       "npm_dependencies": {
-        "@openclaw/fs-safe": "0.26.0",
+        "@openclaw/fs-safe": "0.26.5",
         "json5": "2.2.3",
         "p-limit": "7.3.3",
-        "typebox": "1.3.34"
+        "typebox": "1.3.35"
       },
       "package": "@openclaw/memory-core",
       "package_presence_verified": true,
-      "package_sha256": "330c0bff3b4ec3829f390c478050e305837228b75465fd6db1b53f3113417e73",
-      "version": "2026.10.8"
+      "package_sha256": "4569bb4695a94d1d8b0a7ee3c59f97c5833a7b2e697137d397ef197ffa15baad",
+      "version": "2026.11.3"
     },
     {
-      "compatible_host": "2026.10.8",
+      "compatible_host": "2026.11.3",
       "declared_contracts": {
         "tools": [
           "browser"
@@ -80,28 +83,28 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-fWOIOOyddIBqeuPz82DBCdY5kNl1yD51qebAHnxlTN7SmVoH5/WSIudR/N1zDhcIIksgJXe6ZgGy5ngSRxZOrQ==",
+      "host_integrity": "sha512-FBq/q0TCaoA2b7qfdV0q81fHhI6RBB1zAQfJQREc1u2TlK5khVgCUsAlXskLWthyVqRz5PWEj+oOmfYgK58dHg==",
       "id": "browser",
       "invocation_verified": false,
       "license": "MIT",
       "license_scope": "host-package",
       "manifest_sha256": "6fb7a9c4c9992ca80802ada708b2575043b72caa2cbbce84c934572b2a37dfb3",
       "npm_dependencies": {
-        "@modelcontextprotocol/sdk": "1.32.0",
+        "@modelcontextprotocol/sdk": "1.32.1",
         "chrome-devtools-mcp": "1.10.1",
         "express": "5.2.1",
         "playwright-core": "1.63.0",
-        "typebox": "1.3.34",
+        "typebox": "1.3.35",
         "yargs-parser": "22.0.0",
         "zod": "4.6.5"
       },
       "package": "@openclaw/browser-plugin",
       "package_presence_verified": true,
-      "package_sha256": "bc31b3f459b8ff6e192427eb9867a13e3ae6224d11238ec1bb2d9935c5bfde82",
-      "version": "2026.10.8"
+      "package_sha256": "917f6e715e4162755f5701cce0f28c44d193ee0ed5071de23a98016435e39c4f",
+      "version": "2026.11.3"
     },
     {
-      "compatible_host": "2026.10.8",
+      "compatible_host": "2026.11.3",
       "declared_contracts": {
         "documentExtractors": [
           "pdf"
@@ -110,7 +113,7 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-fWOIOOyddIBqeuPz82DBCdY5kNl1yD51qebAHnxlTN7SmVoH5/WSIudR/N1zDhcIIksgJXe6ZgGy5ngSRxZOrQ==",
+      "host_integrity": "sha512-FBq/q0TCaoA2b7qfdV0q81fHhI6RBB1zAQfJQREc1u2TlK5khVgCUsAlXskLWthyVqRz5PWEj+oOmfYgK58dHg==",
       "id": "document-extract",
       "invocation_verified": false,
       "license": "MIT",
@@ -121,11 +124,11 @@
       },
       "package": "@openclaw/document-extract-plugin",
       "package_presence_verified": true,
-      "package_sha256": "ebe730da1d5fefd708a0d27b4b58ee4b174c5f34001fd878b841e5797580a822",
-      "version": "2026.10.8"
+      "package_sha256": "52b3b574e157d9d257dc86c47c7d5deb4b62564116376057e1acfc9b51ce7c76",
+      "version": "2026.11.3"
     },
     {
-      "compatible_host": "2026.10.8",
+      "compatible_host": "2026.11.3",
       "declared_contracts": {
         "speechProviders": [
           "tts-local-cli",
@@ -135,7 +138,7 @@
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": true,
-      "host_integrity": "sha512-fWOIOOyddIBqeuPz82DBCdY5kNl1yD51qebAHnxlTN7SmVoH5/WSIudR/N1zDhcIIksgJXe6ZgGy5ngSRxZOrQ==",
+      "host_integrity": "sha512-FBq/q0TCaoA2b7qfdV0q81fHhI6RBB1zAQfJQREc1u2TlK5khVgCUsAlXskLWthyVqRz5PWEj+oOmfYgK58dHg==",
       "id": "tts-local-cli",
       "invocation_verified": false,
       "license": "MIT",
@@ -144,33 +147,33 @@
       "npm_dependencies": {},
       "package": "@openclaw/tts-local-cli",
       "package_presence_verified": true,
-      "package_sha256": "3dc9295688d94570188ba6da11a85240c8431e6bf4b3ae7420e21cd159cc3039",
-      "version": "2026.10.8"
+      "package_sha256": "8475a7d9c92c8005296025940724045822b6936f721daec9abb807ea86c70f81",
+      "version": "2026.11.3"
     },
     {
-      "compatible_host": "2026.10.8",
+      "compatible_host": "2026.11.3",
       "declared_contracts": {},
       "declared_providers": [],
       "distribution": "host-bundled",
       "enabled_by_upstream_default": null,
-      "host_integrity": "sha512-fWOIOOyddIBqeuPz82DBCdY5kNl1yD51qebAHnxlTN7SmVoH5/WSIudR/N1zDhcIIksgJXe6ZgGy5ngSRxZOrQ==",
+      "host_integrity": "sha512-FBq/q0TCaoA2b7qfdV0q81fHhI6RBB1zAQfJQREc1u2TlK5khVgCUsAlXskLWthyVqRz5PWEj+oOmfYgK58dHg==",
       "id": "telegram",
       "invocation_verified": false,
       "license": "MIT",
       "license_scope": "host-package",
-      "manifest_sha256": "c6905f728b0158f748c53f3079830ab4b816620bda412aef5b2cb7abe1bdefd2",
+      "manifest_sha256": "b7e58c72725beaa4f8a8a66a8521fc71da4f98597e45f9d5332e06b649ba2bfc",
       "npm_dependencies": {
         "@grammyjs/transformer-throttler": "1.2.1",
         "abort-controller": "3.0.0",
         "grammy": "1.46.0",
-        "typebox": "1.3.34",
-        "undici": "8.11.2",
+        "typebox": "1.3.35",
+        "undici": "8.12.2",
         "zod": "4.6.5"
       },
       "package": "@openclaw/telegram",
       "package_presence_verified": true,
-      "package_sha256": "f348587b300fdd11857e82f683284efb6b2cf614c910dba9104ea7a960f10667",
-      "version": "2026.10.8"
+      "package_sha256": "8cae5153e9267cd6d3f40fa0a144efcfbc37e25951dba3f1e48bfdd4a2fba2c0",
+      "version": "2026.11.3"
     }
   ],
   "schema": "argos-addons/1",
@@ -193,7 +196,7 @@
     },
     {
       "path": "dist/extensions/browser/skills/browser-automation/SKILL.md",
-      "sha256": "f8fb55099d7ffef0362a1ed934cb0b3de191687689c42f44402ae592c614cf39"
+      "sha256": "aa503a1e90f8acb15185d5b58697eee99620b6a8ec64b3d6c434d8a233309e23"
     },
     {
       "path": "dist/extensions/canvas/skills/canvas/SKILL.md",
@@ -205,11 +208,11 @@
     },
     {
       "path": "dist/extensions/memory-wiki/skills/obsidian-vault-maintainer/SKILL.md",
-      "sha256": "a41878affafa661d25916efa072202ad40127fa5911f47b4424f3b20560987e1"
+      "sha256": "3a7624db0d05dfcd624c3d95ced5dc0f916cc6d9147448d0186d5fffe11f74b2"
     },
     {
       "path": "dist/extensions/memory-wiki/skills/wiki-maintainer/SKILL.md",
-      "sha256": "69f6c4e63c5f67af7de01036150ea89eed7eaa6ab49418942b6fc51b46699d04"
+      "sha256": "3463fc683e92572560e4381337a49affeed226d1858bb7ccbc274f95e7ea619c"
     },
     {
       "path": "node_modules/chrome-devtools-mcp/skills/a11y-debugging/SKILL.md",
@@ -277,7 +280,7 @@
     },
     {
       "path": "skills/control-ui/SKILL.md",
-      "sha256": "116b9ad9bef7a9ecceae3a39800880e017f302a3620fb8d8ab43f9d554fc77e6"
+      "sha256": "aa54d5df5f8097fd3d2afeb0901502772919b226075d78b7fd9e5b12c25e0aea"
     },
     {
       "path": "skills/diagram-maker/SKILL.md",
@@ -361,7 +364,7 @@
     },
     {
       "path": "skills/openhue/SKILL.md",
-      "sha256": "db350ab41088193693c991dbe601a3b39b619feedfccec1784e77c3161c11c89"
+      "sha256": "2ab6c80280e9d7f19fa0fdadf8f37f096e30f52012edaaceb2175f513249494c"
     },
     {
       "path": "skills/oracle/SKILL.md",
@@ -389,7 +392,7 @@
     },
     {
       "path": "skills/skill-creator/SKILL.md",
-      "sha256": "3b7b93823a496cedc957fc91bbc8f8be132f2edd095dcaa46cee5394c742f0e4"
+      "sha256": "7da0631cb21fbd87630b5dbeb48010f66776c28e396c276235f5d245903fa6ed"
     },
     {
       "path": "skills/songsee/SKILL.md",
