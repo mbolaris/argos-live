@@ -1,1 +1,1 @@
-"""Owner-facing Shakedown bench helpers."""
+"""Shakedown: the owner-facing bench, and the console taxonomy behind sim diagnosis."""

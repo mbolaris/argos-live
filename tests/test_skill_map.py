@@ -32,7 +32,7 @@ class SkillMapTests(unittest.TestCase):
         self.assertEqual(result['manifest_digest'], 'a' * 64)
 
         domains = {d['id']: d for d in result['domains']}
-        self.assertEqual(len(domains), 6)
+        self.assertEqual(len(domains), 9)
         self.assertIn('understanding', domains)
         self.assertIn('reasoning', domains)
         self.assertIn('planning', domains)
@@ -51,10 +51,25 @@ class SkillMapTests(unittest.TestCase):
         self.assertFalse(long_doc['available'])
         self.assertIsNone(long_doc['action'])
 
-        self.assertEqual(result['tally']['total_nodes'], 14)
+        # The three Shakedown domains (SIM1) add five console nodes, all untested and inactive.
+        self.assertEqual(result['tally']['total_nodes'], 19)
         self.assertEqual(result['tally']['active_nodes'], 7)
-        self.assertEqual(result['tally']['untested'], 7)
+        self.assertEqual(result['tally']['untested'], 12)
         self.assertEqual(result['tally']['unavailable'], 7)
+
+    def test_shakedown_domains_render_as_untested(self):
+        facts = {'runs': [], 'doc_models': [], 'baseline': [], 'accepted_tasks': [], 'storage': None}
+        domains = {d['id']: d for d in skill_map.build_skill_map(facts, self.selected)['domains']}
+        expected = {'guard': ['COMM-SEC', 'EVIDENCE', 'TELEMETRY'], 'tempo': ['TIMING'],
+                    'stewardship': ['GROUND-OPS']}
+        for domain, titles in expected.items():
+            nodes = domains[domain]['nodes']
+            self.assertEqual([n['title'] for n in nodes], titles)
+            for node in nodes:
+                self.assertEqual(node['state'], 'untested')
+                self.assertFalse(node['available'])
+                self.assertIsNone(node['action'])
+                self.assertIsNone(node['evidence'])
 
     def test_document_qualification_qualifies_only_doc_short_node(self):
         doc_run = {
@@ -241,7 +256,7 @@ class SkillMapTests(unittest.TestCase):
                 data = json.loads(res.read().decode('utf-8'))
                 self.assertEqual(data['schema'], 'argos-skill-map/1')
                 self.assertEqual(data['model'], 'qwen3:0.6b')
-                self.assertEqual(len(data['domains']), 6)
+                self.assertEqual(len(data['domains']), 9)
                 conn.close()
             finally:
                 server.shutdown()
