@@ -288,6 +288,7 @@ def command_parser():
     benchmarks.add_parser('speed', help='Measure Ollama speed', add_help=False).set_defaults(delegate='argoslive.bench_speed')
     benchmarks.add_parser('ability', help='Measure original ability probes', add_help=False).set_defaults(delegate='argoslive.bench_ability')
     benchmarks.add_parser('openclaw', help='Measure the configured OpenClaw assistant on the fixed ability suite', add_help=False).set_defaults(delegate='argoslive.bench_openclaw')
+    benchmarks.add_parser('packs', help='Review and download public benchmark packs', add_help=False).set_defaults(delegate='argoslive.shakedown.packs')
     benchmarks.add_parser('documents', help='Run the short-document trial', add_help=False).set_defaults(delegate='argoslive.doc_trial')
     benchmarks.add_parser('results', help='Inspect and compare saved runs', add_help=False).set_defaults(delegate='argoslive.results')
     benchmarks.add_parser('log', help='Append one timestamped campaign note', add_help=False).set_defaults(delegate='argoslive.campaign_log')

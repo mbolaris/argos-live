@@ -47,8 +47,15 @@ def model_manifest_digest(identity):
     return digest if isinstance(digest, str) and MODEL_DIGEST.fullmatch(digest) else None
 
 
-def suite_content(suite):
+def suite_content(suite, home=None):
     """Load an unchanged built-in task suite and return only machine-scored items."""
+    from .shakedown import packs
+    if packs.is_pack_suite(suite):
+        # Benchmark questions are never in the repository: the form is built in
+        # memory from the owner's downloaded files, verified by hash first.
+        pack = packs.pack_of(suite)
+        data = packs.load_form(pack, Path.home() if home is None else home)
+        return data, data['items'], packs.manifest_path(pack), data['omitted_categories']
     if suite == 'documents-short':
         data = doc_trial.load()
         path = doc_trial.DATA / 'short.json'
@@ -130,7 +137,7 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     if home is not None:
         from .evaluation_control import Cancellation
         cancel = Cancellation(home, cancel)
-    data, tasks, suite_path, omitted_categories = suite_content(suite)
+    data, tasks, suite_path, omitted_categories = suite_content(suite, home=home)
     suite_total = len(tasks)
     if item_ids is not None:
         if (not isinstance(item_ids, list) or not item_ids or
@@ -215,6 +222,9 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     if item_ids is not None:
         result.update(slice_name=slice_name, slice_version=slice_version,
                       suite_total=suite_total, lap_id=lap_id)
+    if isinstance(data.get('benchmark_pack'), dict):
+        # Marks the run as a public subset wherever it is shown.
+        result['benchmark_pack'] = data['benchmark_pack']
     try:
         for index, task in enumerate(tasks, 1):
             item_id = task['id']

@@ -4,6 +4,7 @@ import secrets
 import time
 
 from .. import ability, bench_speed
+from . import packs
 
 
 SCHEMA = 'argos-shakedown-lap/1'
@@ -15,10 +16,25 @@ ESTIMATE_LOW_FACTOR = 0.75
 ESTIMATE_HIGH_FACTOR = 1.35
 
 
+def supported_forms():
+    """Built-in forms plus every shipped benchmark pack (downloaded or not)."""
+    return DEFAULT_FORMS + tuple(packs.suite_name(manifest['pack']) for manifest in packs.available())
+
+
+def form_version(suite):
+    """Version label of a form; a pack's comes from its manifest, not its files."""
+    if packs.is_pack_suite(suite):
+        return 'ability/' + suite + '/' + packs.load_manifest(packs.pack_of(suite))['version']
+    return 'ability/' + suite + '/' + ability.load(suite)['version']
+
+
 def slice_item_ids(suite, size):
     """Return a fixed ordered subset for one built-in ability-suite version."""
     if size not in ITEM_LIMITS:
         raise ValueError('Choose quick, standard or full')
+    if packs.is_pack_suite(suite):
+        # A pack declares its own nested slices; they need no downloaded file.
+        return list(packs.load_manifest(packs.pack_of(suite))['slices'][size])
     try:
         data = ability.load(suite)
     except ValueError as exc:
@@ -34,7 +50,8 @@ def build(size='quick', suites=DEFAULT_FORMS, *, model_tag=None, recipe=None):
         raise ValueError('Choose quick, standard or full')
     if not isinstance(suites, (list, tuple)) or not suites:
         raise ValueError('Select at least one ability form')
-    if any(not isinstance(suite, str) or suite not in DEFAULT_FORMS for suite in suites):
+    supported = supported_forms()
+    if any(not isinstance(suite, str) or suite not in supported for suite in suites):
         raise ValueError('Choose only supported ability forms')
     if len(set(suites)) != len(suites):
         raise ValueError('Ability forms must be unique')
@@ -52,9 +69,8 @@ def build(size='quick', suites=DEFAULT_FORMS, *, model_tag=None, recipe=None):
         options['recipe'] = recipe
     steps = [{'kind': 'speed', 'suite_version': bench_speed.SUITE, **options}]
     for suite in suites:
-        data = ability.load(suite)
         steps.append({'kind': 'ability', 'suite': suite,
-                      'suite_version': 'ability/' + suite + '/' + data['version'],
+                      'suite_version': form_version(suite),
                       'slice_name': size, 'slice_version': SLICE_VERSION,
                       'item_ids': slice_item_ids(suite, size), **options})
     plan = {'schema': SCHEMA, 'size': size, 'steps': steps}
@@ -71,15 +87,15 @@ def validate(plan):
             steps[0].get('suite_version') != bench_speed.SUITE:
         raise ValueError('Lap must start with the fixed speed job')
     seen = set()
+    supported = supported_forms()
     for step in steps[1:]:
         if not isinstance(step, dict) or step.get('kind') != 'ability':
             raise ValueError('Lap contains an unsupported job')
         suite = step.get('suite')
-        if suite in seen or suite not in DEFAULT_FORMS:
+        if suite in seen or suite not in supported:
             raise ValueError('Lap ability forms must be supported and unique')
         seen.add(suite)
-        data = ability.load(suite)
-        if step.get('suite_version') != 'ability/' + suite + '/' + data['version']:
+        if step.get('suite_version') != form_version(suite):
             raise ValueError('Lap form version changed; rebuild the plan')
         if step.get('slice_name') != plan['size'] or step.get('slice_version') != SLICE_VERSION:
             raise ValueError('Lap slice metadata does not match the plan')

@@ -4,7 +4,8 @@
   const byId = id => document.getElementById(id);
   const state = {data: null, mobileId: null, loading: false, polling: false,
     lastLap: null, comparison: null, comparisonLoadout: null, loadingComparison: false,
-    queueChoices: [], queueEntries: [], queueRecord: null, queuePolling: false, lapRecord: null};
+    queueChoices: [], queueEntries: [], queueRecord: null, queuePolling: false, lapRecord: null,
+    packsPolling: false, packRecord: null};
   const status = byId('status');
   const escDate = value => {
     if (!value) return 'Date not recorded';
@@ -483,6 +484,118 @@
       state.loading = false;
     }
   }
+  function link(label, href) {
+    const a = document.createElement('a');
+    a.textContent = label;
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    return a;
+  }
+  function renderPacks(data) {
+    state.packRecord = data.download;
+    const active = ['queued', 'downloading', 'verifying'].includes(data.download?.state);
+    byId('cancel-pack-download').hidden = !active;
+    const list = byId('pack-list');
+    list.replaceChildren();
+    if (!data.packs.length) {
+      byId('packs-status').textContent = 'No reviewed benchmark packs are included in this build.';
+      return;
+    }
+    byId('packs-status').textContent = active
+      ? `${data.download.label}: ${data.download.state} · ${data.download.progress?.bytes_done || 0} / ${data.download.progress?.bytes_total || 0} bytes`
+      : 'Pack state is checked locally. No source is contacted until you confirm a download.';
+    for (const pack of data.packs) {
+      const review = data.reviews[pack.pack];
+      const item = document.createElement('li');
+      item.className = 'pack-card';
+      const title = document.createElement('h3');
+      title.textContent = pack.label;
+      const summary = document.createElement('p');
+      summary.textContent = `${pack.questions} questions · ${pack.state}${pack.reason ? ` · ${pack.reason}` : ''}`;
+      const runPack = document.createElement('button');
+      runPack.type = 'button';
+      runPack.className = 'secondary';
+      runPack.textContent = 'Run pack lap';
+      runPack.disabled = active || pack.state !== 'downloaded' || state.lapRecord?.state === 'running';
+      runPack.addEventListener('click', () => startLap(byId('lap-size').value, [pack.suite]));
+      const details = document.createElement('details');
+      details.className = 'pack-review';
+      const reveal = document.createElement('summary');
+      reveal.textContent = 'Review source and licence';
+      const content = document.createElement('div');
+      const source = document.createElement('p');
+      source.append('Pinned source: ', link(review.upstream.url, review.upstream.url), ` · ${review.upstream.revision}`);
+      content.append(source);
+      for (const licence of review.licences) {
+        const p = document.createElement('p');
+        p.append(`Licence (${licence.applies_to}): ${licence.id} · `, link('upstream licence', licence.url));
+        content.append(p);
+      }
+      if (review.gated && review.terms_url) {
+        const p = document.createElement('p');
+        p.append('Gated source terms: ', link(review.terms_url, review.terms_url));
+        content.append(p);
+      }
+      const files = document.createElement('p');
+      files.textContent = `Download: ${(review.download_bytes / 1024 / 1024).toFixed(1)} MiB · ` +
+        review.files.map(file => `${file.name} SHA-256 ${file.sha256}`).join('; ');
+      content.append(files);
+      const notice = document.createElement('p');
+      notice.textContent = review.notice;
+      content.append(notice);
+      const confirmation = document.createElement('div');
+      confirmation.className = 'pack-confirm';
+      const licenceLabel = document.createElement('label');
+      const licenceCheck = document.createElement('input');
+      licenceCheck.type = 'checkbox';
+      const licenceText = document.createElement('span');
+      licenceText.textContent = 'I have read and accept the listed dataset and selection licences.';
+      licenceLabel.append(licenceCheck, licenceText);
+      confirmation.append(licenceLabel);
+      let termsCheck = null;
+      if (review.gated) {
+        const termsLabel = document.createElement('label');
+        termsCheck = document.createElement('input');
+        termsCheck.type = 'checkbox';
+        const termsText = document.createElement('span');
+        termsText.textContent = 'I have read and accept the upstream terms.';
+        termsLabel.append(termsCheck, termsText);
+        confirmation.append(termsLabel);
+      }
+      const download = document.createElement('button');
+      download.type = 'button';
+      download.textContent = 'Download pack';
+      download.disabled = active || pack.state === 'downloaded';
+      download.addEventListener('click', async () => {
+        if (!licenceCheck.checked || (termsCheck && !termsCheck.checked)) return;
+        download.disabled = true;
+        try {
+          await post('/api/shakedown/packs/download', {pack: pack.pack, confirmation: review.confirmation_required});
+          await loadPacks();
+        } catch (error) {
+          byId('packs-status').textContent = error.message;
+          download.disabled = false;
+        }
+      });
+      confirmation.append(download);
+      content.append(confirmation);
+      details.append(reveal, content);
+      item.append(title, summary, runPack, details);
+      list.append(item);
+    }
+    if (active && !state.packsPolling) {
+      state.packsPolling = true;
+      window.setTimeout(async () => {
+        state.packsPolling = false;
+        await loadPacks();
+      }, 1500);
+    }
+  }
+  async function loadPacks() {
+    try { renderPacks(await get('/api/shakedown/packs')); }
+    catch (error) { byId('packs-status').textContent = error.message; }
+  }
   byId('refresh').addEventListener('click', load);
   byId('export-scorecard').addEventListener('click', saveExport);
   byId('lap-size').addEventListener('change', renderEstimate);
@@ -517,7 +630,20 @@
     catch (error) { byId('queue-summary').textContent = error.message; }
     finally { byId('queue-cancel').disabled = false; }
   });
+  byId('cancel-pack-download').addEventListener('click', async () => {
+    byId('cancel-pack-download').disabled = true;
+    try {
+      const response = await fetch('/api/shakedown/packs/cancel', {
+        method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'
+      });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.error || 'Download cancellation unavailable');
+      await loadPacks();
+    } catch (error) { byId('packs-status').textContent = error.message; }
+    finally { byId('cancel-pack-download').disabled = false; }
+  });
   get('/api/shakedown/lap').then(showLap).catch(error => { byId('lap-state').textContent = error.message; });
   loadQueue();
+  loadPacks();
   load();
 })();

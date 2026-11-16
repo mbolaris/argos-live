@@ -7,7 +7,7 @@ from copy import deepcopy
 
 from .. import storage
 from ..pull_jobs import read_json, write_json
-from . import lap
+from . import lap, packs
 
 
 class LapController:
@@ -43,6 +43,10 @@ class LapController:
     def start(self, size='quick', suites=None):
         suites = tuple(suites) if suites is not None else lap.DEFAULT_FORMS
         plan = lap.build(size, suites)
+        for suite in suites:
+            if packs.is_pack_suite(suite):
+                # Say a pack is missing before the lap starts, not midway.
+                packs.require_downloaded(suite, self.home)
         with self.lock:
             if self.worker is not None and self.worker.is_alive():
                 raise ValueError('A Shakedown lap is already running')
