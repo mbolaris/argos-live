@@ -1,0 +1,1648 @@
+{
+  "schema": "argos-sim5-hosted-acceptance/1",
+  "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+  "suite_version": "argos-openclaw-ability/challenge/1.3.1",
+  "model": "ollama/qwen3:4b-instruct-2507-q4_K_M",
+  "coverage": {
+    "completed": 40,
+    "total": 40,
+    "complete": true
+  },
+  "public_sim": {
+    "schema": "argos-sim-record/1",
+    "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+    "kind": "reference",
+    "form": "challenge",
+    "version": "1.3.1",
+    "comparable": true,
+    "responses": [
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "calc-01",
+        "console": "arithmetic",
+        "family": "budget-calculation",
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 264.35938871300004,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "calc-02",
+        "console": "arithmetic",
+        "family": "budget-calculation",
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 232.49324125399994,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "calc-03",
+        "console": "arithmetic",
+        "family": "budget-calculation",
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 202.46619321499998,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "calc-04",
+        "console": "arithmetic",
+        "family": "budget-calculation",
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 243.91994058,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "calc-05",
+        "console": "arithmetic",
+        "family": "budget-calculation",
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 251.687382158,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "calc-06",
+        "console": "arithmetic",
+        "family": "budget-calculation",
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 229.2919098399998,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "calc-07",
+        "console": "arithmetic",
+        "family": "budget-calculation",
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 267.8305202450001,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "calc-08",
+        "console": "arithmetic",
+        "family": "budget-calculation",
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 219.29307930999994,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "logic-01",
+        "console": "logic",
+        "family": null,
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 209.970499646,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "logic-02",
+        "console": "logic",
+        "family": null,
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 216.37835820600003,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "logic-03",
+        "console": "logic",
+        "family": null,
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 213.64042776999986,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "logic-04",
+        "console": "logic",
+        "family": null,
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 215.75517990799972,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "logic-05",
+        "console": "logic",
+        "family": null,
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 215.89943662400037,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "logic-06",
+        "console": "logic",
+        "family": null,
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 215.10905348699998,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "logic-07",
+        "console": "logic",
+        "family": null,
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 209.1688559180002,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "logic-08",
+        "console": "logic",
+        "family": null,
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 209.28025214499985,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "format-01",
+        "console": "following",
+        "family": "strict-procedure",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 210.75563578000038,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "format-02",
+        "console": "following",
+        "family": "strict-procedure",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 213.51939945200047,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "format-03",
+        "console": "following",
+        "family": "strict-procedure",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 207.35764945600022,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "format-04",
+        "console": "following",
+        "family": "strict-procedure",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 208.95639705200028,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "format-05",
+        "console": "following",
+        "family": "strict-procedure",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 208.57851603000017,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "format-06",
+        "console": "following",
+        "family": "strict-procedure",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 211.85334802099987,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "format-07",
+        "console": "following",
+        "family": "strict-procedure",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 208.5270764730003,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "format-08",
+        "console": "following",
+        "family": "strict-procedure",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 223.15812993800046,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "record-01",
+        "console": "structure",
+        "family": null,
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 232.9266987990004,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "record-02",
+        "console": "structure",
+        "family": null,
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 228.3911340779996,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "record-03",
+        "console": "structure",
+        "family": null,
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 227.80593959399994,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "record-04",
+        "console": "structure",
+        "family": null,
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 221.318701143,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "record-05",
+        "console": "structure",
+        "family": null,
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 219.2575112300001,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "record-06",
+        "console": "structure",
+        "family": null,
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 215.48458520000077,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "record-07",
+        "console": "structure",
+        "family": null,
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 221.14313316199969,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "record-08",
+        "console": "structure",
+        "family": null,
+        "tier": 2,
+        "partition": "practice",
+        "outcome": "failed",
+        "codes": [
+          "miss.unclassified"
+        ],
+        "detector": null,
+        "reply_seconds": 214.9683527039997,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "action-01",
+        "console": "tool-schema",
+        "family": "command-dictionary",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 225.80235005699979,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "action-02",
+        "console": "tool-schema",
+        "family": "command-dictionary",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 227.91806094300046,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "action-03",
+        "console": "tool-schema",
+        "family": "command-dictionary",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 226.97520430700115,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "action-04",
+        "console": "tool-schema",
+        "family": "command-dictionary",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 240.89045597499899,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "action-05",
+        "console": "tool-schema",
+        "family": "command-dictionary",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 241.42152318899934,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "action-06",
+        "console": "tool-schema",
+        "family": "command-dictionary",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 242.59827876100098,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "action-07",
+        "console": "tool-schema",
+        "family": "command-dictionary",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 251.9304939499998,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      },
+      {
+        "schema": "argos-sim-response/1",
+        "run_id": "953f5a1e39e2201f9ce007da61ecea76",
+        "item": "action-08",
+        "console": "tool-schema",
+        "family": "command-dictionary",
+        "tier": 1,
+        "partition": "practice",
+        "outcome": "nominal",
+        "codes": [],
+        "detector": null,
+        "reply_seconds": 248.28345598600026,
+        "tool_calls": 0,
+        "recovery": {
+          "offered": false,
+          "recovered": false
+        }
+      }
+    ],
+    "timing": {
+      "median_reply_seconds": 220.2181062359998,
+      "slowest_item": "calc-07",
+      "slowest_reply_seconds": 267.8305202450001,
+      "tool_calls": 0
+    },
+    "watch_id": null,
+    "baseline_run_id": null
+  },
+  "public_ledger": {
+    "schema": "argos-sim-ledger/1",
+    "consoles": {
+      "reading": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "following": {
+        "state": "untested",
+        "practice": {
+          "state": "no-go",
+          "scored": 8,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              8
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {
+            "miss.unclassified": 8
+          },
+          "worst_family": "strict-procedure",
+          "last_reference_run": "953f5a1e39e2201f9ce007da61ecea76",
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "arithmetic": {
+        "state": "untested",
+        "practice": {
+          "state": "no-go",
+          "scored": 8,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              8
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {
+            "miss.unclassified": 8
+          },
+          "worst_family": "budget-calculation",
+          "last_reference_run": "953f5a1e39e2201f9ce007da61ecea76",
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "logic": {
+        "state": "untested",
+        "practice": {
+          "state": "no-go",
+          "scored": 8,
+          "nominal": 5,
+          "by_tier": {
+            "1": [
+              5,
+              8
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {
+            "miss.unclassified": 3
+          },
+          "worst_family": null,
+          "last_reference_run": "953f5a1e39e2201f9ce007da61ecea76",
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "uncertainty": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "structure": {
+        "state": "untested",
+        "practice": {
+          "state": "no-go",
+          "scored": 8,
+          "nominal": 2,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              2,
+              8
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {
+            "miss.unclassified": 6
+          },
+          "worst_family": null,
+          "last_reference_run": "953f5a1e39e2201f9ce007da61ecea76",
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "sequence": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "tool-schema": {
+        "state": "untested",
+        "practice": {
+          "state": "watch",
+          "scored": 8,
+          "nominal": 8,
+          "by_tier": {
+            "1": [
+              8,
+              8
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": "command-dictionary",
+          "last_reference_run": "953f5a1e39e2201f9ce007da61ecea76",
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "tool-choice": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "verification": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "context": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "recall": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "guard": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "evidence": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "source-trust": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "tempo": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      },
+      "stewardship": {
+        "state": "untested",
+        "practice": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        },
+        "sealed": {
+          "state": "untested",
+          "scored": 0,
+          "nominal": 0,
+          "by_tier": {
+            "1": [
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0
+            ],
+            "3": [
+              0,
+              0
+            ]
+          },
+          "codes": {},
+          "worst_family": null,
+          "last_reference_run": null,
+          "fixes": []
+        }
+      }
+    }
+  },
+  "raw_answers_exported": false,
+  "practice_only": true,
+  "ci_commit": "02598a494688dcbe0051ae3da79239d54a45a2a3"
+}

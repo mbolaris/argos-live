@@ -6,12 +6,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import signal
 import threading
 import time
 
-from . import ability, doc_trial, hw, owner_recovery_eval
+from . import ability, doc_trial, hw, ollama, owner_recovery_eval
 from .assistant_trial import OpenClawRunner, TrialTurnError, agents_path
 from .bench_ability import summaries
 from .results import Store
@@ -22,6 +23,28 @@ from .workload import Busy, reserve
 PROTECTED_LIMIT = 1024 ** 2
 SUITES = ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
           'documents-short', owner_recovery_eval.SUITE)
+MODEL_DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
+
+
+def model_manifest_digest(identity):
+    """Read the exact active Ollama tag digest; absent/unreachable identity stays unknown."""
+    if not isinstance(identity, str) or not identity.startswith('ollama/'):
+        return None
+    tag = identity.removeprefix('ollama/')
+    try:
+        models = ollama.Client(timeout=2).list().get('models', [])
+    except (OSError, ValueError, TypeError, ollama.OllamaError):
+        return None
+    if not isinstance(models, list):
+        return None
+    row = next((entry for entry in models if isinstance(entry, dict)
+                and tag in (entry.get('name'), entry.get('model'))), None)
+    digest = row.get('digest') if isinstance(row, dict) else None
+    # Ollama's /api/tags JSON uses a bare hexadecimal digest, while Argos
+    # stores canonical OCI digests with the algorithm prefix.
+    if isinstance(digest, str) and re.fullmatch(r'[0-9a-f]{64}', digest):
+        digest = 'sha256:' + digest
+    return digest if isinstance(digest, str) and MODEL_DIGEST.fullmatch(digest) else None
 
 
 def suite_content(suite):
@@ -235,6 +258,8 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
             identity = '/'.join(str(answer.get(key) or 'unknown') for key in ('provider', 'model'))
             if result['model'] == 'identity pending first OpenClaw turn':
                 result['model'] = identity
+                if isinstance(runner, OpenClawRunner):
+                    result['manifest_digest'] = model_manifest_digest(identity)
                 result['settings']['assistant_model'] = identity
             elif result['model'] != identity:
                 raise TrialTurnError('model-mismatch')

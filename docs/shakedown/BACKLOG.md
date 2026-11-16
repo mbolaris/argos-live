@@ -190,7 +190,7 @@ wrong answer has a recognisable cause; leave the rest to `miss.unclassified`.
 
 **Depends.** SIM3. **Verify.** Unit tests plus the script against a fixture run.
 
-### SIM5 — Responses, sim record and readiness ledger — `todo`
+### SIM5 — Responses, sim record and readiness ledger — `done (PR #196)`
 
 **Goal.** The longitudinal blind-spot record, rebuildable from saved runs at any time.
 
@@ -212,8 +212,11 @@ call.
   any fingerprint (asserted on quoted JSON keys).
 - Rebuilding the ledger twice from the same store gives identical output.
 
-**Depends.** SIM4. **Verify.** Unit tests; run once against a real saved round from the hosted
-native-chat workflow and attach the public ledger to the PR.
+**Depends.** SIM4. **Verify.** Unit tests pass; the hosted native-chat workflow completed a real
+40/40 challenge round on 2026-11-16. Its answer-free public sim and readiness ledger are attached
+at [sim5-hosted-public-ledger.json](evidence/sim5-hosted-public-ledger.json) from
+[workflow run 43825783176](https://github.com/mbolaris/argos-live/actions/runs/43825783176). Raw
+answers remained in ephemeral hosted scratch and were not exported.
 
 ---
 
