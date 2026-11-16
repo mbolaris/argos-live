@@ -65,7 +65,7 @@ jobs:
   native-chat:
     runs-on: ubuntu-latest
     # The 40-item CPU transfer check needs about 3 hours; keep routine CI bounded.
-    timeout-minutes: ${{ (inputs.tool_sequence_only || (inputs.match_watch_rounds && inputs.match_watch_rounds != '0')) && 270 || 70 }}
+    timeout-minutes: ${{ (inputs.tool_sequence_only || inputs.shakedown_ledger || (inputs.match_watch_rounds && inputs.match_watch_rounds != '0')) && 270 || 70 }}
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin

@@ -16,6 +16,14 @@ from argoslive.shakedown import ledger as shakedown_ledger
 
 SUITE = 'challenge'
 MODEL_TAG = 'qwen3:4b-instruct-2507-q4_K_M'
+TURN_TIMEOUT_SECONDS = 360
+
+
+class ShakedownLedgerRunner(OpenClawRunner):
+    """Allow a slower hosted CPU turn the same bound used by the sequence smoke."""
+
+    def turn(self, text, timeout=TURN_TIMEOUT_SECONDS):
+        return super().turn(text, timeout=timeout)
 
 
 def run(cli, ollama, model_store, report):
@@ -40,7 +48,7 @@ def run(cli, ollama, model_store, report):
         config_path.chmod(0o600)
         lease_store = home / '.local/state/argos-live'
         lease_store.mkdir(mode=0o700, parents=True, exist_ok=True)
-        runner = OpenClawRunner(home, executable=str(cli.resolve(strict=True)))
+        runner = ShakedownLedgerRunner(home, executable=str(cli.resolve(strict=True)))
         runner.seed_workspace_defaults(('AGENTS.md', 'SOUL.md', 'IDENTITY.md', 'USER.md', 'BOOTSTRAP.md'),
                                        runner.bootstrap_templates())
 
@@ -59,12 +67,27 @@ def run(cli, ollama, model_store, report):
         if not saved_path.is_file() or store.load(result['id']) != result:
             raise ValueError('The real sidecar result was not saved and verified in scratch')
         expected_version = 'argos-openclaw-ability/' + SUITE + '/' + ability.load(SUITE)['version']
-        if (result.get('state') != 'completed' or result.get('coverage') !=
-                {'completed': 40, 'total': 40, 'complete': True} or
-                result.get('suite_version') != expected_version or
-                result.get('model') != 'ollama/' + MODEL_TAG or
-                result.get('manifest_digest') != identity.get('catalog_manifest_digest')):
-            raise ValueError('The real sidecar result failed run, coverage, suite, or model identity checks')
+        acceptance = {
+            'completed': result.get('state') == 'completed',
+            'coverage': result.get('coverage') == {'completed': 40, 'total': 40, 'complete': True},
+            'suite_version': result.get('suite_version') == expected_version,
+            'model': result.get('model') == 'ollama/' + MODEL_TAG,
+            'model_digest_matches_catalog': result.get('manifest_digest') == identity.get('catalog_manifest_digest'),
+        }
+        if not all(acceptance.values()):
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(json.dumps({
+                'schema': 'argos-sim5-hosted-acceptance-failure/1',
+                'run_id': result.get('id'),
+                'run_state': result.get('state'),
+                'coverage': result.get('coverage'),
+                'acceptance_checks': acceptance,
+                'raw_answers_exported': False,
+                'practice_only': True,
+                'ci_commit': os.environ.get('GITHUB_SHA'),
+            }, indent=2) + '\n', encoding='utf-8')
+            raise ValueError('The real sidecar result failed acceptance: ' +
+                             ', '.join(key for key, passed in acceptance.items() if not passed))
 
         fingerprint = shakedown_ledger.fingerprint_for(result)
         if fingerprint is None:
