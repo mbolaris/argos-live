@@ -26,7 +26,9 @@ Each `runtime/argoslive/data/shakedown/packs/<pack>.json` file uses
 revision, one or more source files with exact sizes and SHA-256 hashes, licence records for the
 dataset and (when distinct) the selection, whether upstream terms gate access, a versioned list
 of item IDs, and nested quick, standard and full slices. Source URLs must use HTTPS and a reviewed
-host. The manifest contains no question or answer text.
+host. The upstream revision identifies the reviewed source revision; each file's exact bytes are
+pinned by its size and SHA-256, including when an upstream project serves an archive at a stable
+URL. The manifest contains no question or answer text.
 
 An adapter named by the manifest parses those source files into the existing
 `argos-ability-suite/1` shape. The pack loader checks that the adapter produces the exact pinned
@@ -40,3 +42,22 @@ the exact revision and licence record. Offline status checks use only local mani
 
 No pack ships until its upstream dataset and selection licences have been reviewed and recorded.
 The absence of a pack from the list means there is no reviewed manifest for it in this build.
+
+## Initial packs
+
+The first two packs use MIT-licensed source material. MMLU selects 100 test questions across its
+57 subjects: `floor(row_count / 2)` for each subject, then `floor(row_count / 3)` for the first
+43 subjects ordered by SHA-256 of `argos-mmlu-100-v1/<subject>`. Its quick and standard slices
+take the first 25 and 50 items from that fixed list. The source archive is the official MMLU test
+download linked by the [upstream repository](https://github.com/hendrycks/test); the adapter reads only `data/test`
+entries from the tar archive. The archive is 166 MB and is fetched only after owner confirmation.
+
+GSM8K selects rows `floor(i * 1318 / 99)` for `i = 0..99` from the official 1,319-row test split
+in the [upstream repository](https://github.com/openai/grade-school-math). Its quick and standard slices
+take the first 25 and 50 items. The scorer accepts one readable final number; an answer in any
+other format is a miss. The adapter removes GSM8K's worked solution and retains only the final
+number as its scoring reference in memory. Format misses are shown as “No readable answer.”
+
+The tinyBenchmarks selections are not used for these packs because their dataset cards do not
+declare a licence for the selected artifacts. The MMLU and GSM8K source licences and the fixed
+selection records are recorded in their manifests.
