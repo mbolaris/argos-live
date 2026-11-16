@@ -40,6 +40,10 @@ def model_manifest_digest(identity):
     row = next((entry for entry in models if isinstance(entry, dict)
                 and tag in (entry.get('name'), entry.get('model'))), None)
     digest = row.get('digest') if isinstance(row, dict) else None
+    # Ollama's /api/tags JSON uses a bare hexadecimal digest, while Argos
+    # stores canonical OCI digests with the algorithm prefix.
+    if isinstance(digest, str) and re.fullmatch(r'[0-9a-f]{64}', digest):
+        digest = 'sha256:' + digest
     return digest if isinstance(digest, str) and MODEL_DIGEST.fullmatch(digest) else None
 
 
