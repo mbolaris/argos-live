@@ -602,7 +602,7 @@ CI job.
 
 ## Phase 4. Reference Sim A
 
-### SIM11 — Seeded generator framework — `todo`
+### SIM11 — Seeded generator framework — `in progress (PR #199)`
 
 **Goal.** Fresh, reproducible faults, so practice and sealed sets cannot be memorised.
 
