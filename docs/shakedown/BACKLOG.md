@@ -169,7 +169,7 @@ without changing its output.
 
 **Depends.** SIM2. **Verify.** Unit tests.
 
-### SIM4 — Retrofit sidecars for the shipped suites — `in progress`
+### SIM4 — Retrofit sidecars for the shipped suites — `delivered (PR #195)`
 
 **Goal.** Make existing saved runs produce responses, so the first consoles light from data on
 disk.
