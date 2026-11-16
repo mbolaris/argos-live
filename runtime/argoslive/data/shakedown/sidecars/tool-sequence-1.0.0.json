@@ -1,0 +1,768 @@
+{
+  "schema": "argos-sim-fault/1",
+  "form": "tool-sequence",
+  "form_version": "1.0.0",
+  "card_version": "1.0.0",
+  "cards": [
+    {
+      "item": "practice-01",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-02",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-03",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-04",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-05",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-06",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-07",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-08",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-09",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-10",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-11",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-12",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-13",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-14",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-15",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-16",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-17",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-18",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-19",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-20",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-21",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-22",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-23",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-24",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-25",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-26",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-27",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-28",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-29",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-30",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-31",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-32",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-33",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-34",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-35",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-36",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-37",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-38",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-39",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-40",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "A sequence step names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "contains-token": "wrong_tool"
+          }
+        }
+      ]
+    }
+  ]
+}

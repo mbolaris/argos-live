@@ -1,0 +1,729 @@
+{
+  "schema": "argos-bench/1",
+  "id": "50960a68d919f82385e4b2e0733f222c",
+  "created": "2026-11-15T12:00:00+00:00",
+  "kind": "ability",
+  "suite_version": "argos-openclaw-ability/tool-plan/1.1.0",
+  "model": "fixture:synthetic",
+  "settings": {},
+  "hardware": {},
+  "restoration": {
+    "succeeded": true
+  },
+  "state": "completed",
+  "items": [
+    {
+      "item_id": "practice-01",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-01\", \"date_utc\": \"2026-11-03\", \"start_hour_utc\": 7, \"duration_hours\": 2, \"units\": 9, \"notify_owner\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-02",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-02\", \"date_utc\": \"2026-11-04\", \"start_hour_utc\": 8, \"duration_hours\": 3, \"units\": 16, \"notify_owner\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-03",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-03\", \"date_utc\": \"2026-11-05\", \"start_hour_utc\": 9, \"duration_hours\": 1, \"units\": 10, \"notify_owner\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-04",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-04\", \"date_utc\": \"2026-11-06\", \"start_hour_utc\": 10, \"duration_hours\": 2, \"units\": 18, \"notify_owner\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-05",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"resource\": \"Room-05\", \"date_utc\": \"2026-11-07\", \"start_hour_utc\": 11, \"duration_hours\": 3, \"units\": 28, \"notify_owner\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-06",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-01\", \"from_utc\": \"2026-11-02T00:00Z\", \"to_utc\": \"2026-11-04T23:59Z\", \"status_code\": \"held\", \"sort_order\": \"newest_first\", \"max_rows\": 9, \"include_metadata\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-07",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-02\", \"from_utc\": \"2026-11-03T00:00Z\", \"to_utc\": \"2026-11-05T23:59Z\", \"status_code\": \"closed\", \"sort_order\": \"oldest_first\", \"max_rows\": 16, \"include_metadata\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-08",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-03\", \"from_utc\": \"2026-11-04T00:00Z\", \"to_utc\": \"2026-11-06T23:59Z\", \"status_code\": \"ready\", \"sort_order\": \"newest_first\", \"max_rows\": 10, \"include_metadata\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-09",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-04\", \"from_utc\": \"2026-11-05T00:00Z\", \"to_utc\": \"2026-11-07T23:59Z\", \"status_code\": \"held\", \"sort_order\": \"oldest_first\", \"max_rows\": 6, \"include_metadata\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-10",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"owner_key\": \"owner-05\", \"from_utc\": \"2026-11-06T00:00Z\", \"to_utc\": \"2026-11-08T23:59Z\", \"status_code\": \"closed\", \"sort_order\": \"newest_first\", \"max_rows\": 12, \"include_metadata\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-11",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-21\", \"later_build\": \"build-5\", \"include_prerelease\": false, \"compare_dependencies\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-12",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-22\", \"later_build\": \"build-6\", \"include_prerelease\": true, \"compare_dependencies\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-13",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-23\", \"later_build\": \"build-7\", \"include_prerelease\": false, \"compare_dependencies\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-14",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-24\", \"later_build\": \"build-8\", \"include_prerelease\": true, \"compare_dependencies\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-15",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"earlier_build\": \"build-25\", \"later_build\": \"build-9\", \"include_prerelease\": false, \"compare_dependencies\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-16",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-01\", \"reviewer_role\": \"security\", \"due_day\": 13, \"priority_level\": 2, \"require_backup\": false, \"notify_reviewer\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-17",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-02\", \"reviewer_role\": \"release\", \"due_day\": 15, \"priority_level\": 3, \"require_backup\": true, \"notify_reviewer\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-18",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-03\", \"reviewer_role\": \"owner\", \"due_day\": 17, \"priority_level\": 4, \"require_backup\": false, \"notify_reviewer\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-19",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-04\", \"reviewer_role\": \"security\", \"due_day\": 15, \"priority_level\": 1, \"require_backup\": true, \"notify_reviewer\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-20",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"change_key\": \"change-05\", \"reviewer_role\": \"release\", \"due_day\": 17, \"priority_level\": 2, \"require_backup\": false, \"notify_reviewer\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "heldout-01",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-01\", \"day_utc\": \"2026-12-03\", \"hour_utc\": 8, \"span_hours\": 2, \"quantity\": 12, \"send_alert\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-02",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-02\", \"day_utc\": \"2026-12-04\", \"hour_utc\": 9, \"span_hours\": 3, \"quantity\": 20, \"send_alert\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-03",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-03\", \"day_utc\": \"2026-12-05\", \"hour_utc\": 10, \"span_hours\": 1, \"quantity\": 12, \"send_alert\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-04",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-04\", \"day_utc\": \"2026-12-06\", \"hour_utc\": 11, \"span_hours\": 2, \"quantity\": 21, \"send_alert\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-05",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"asset_code\": \"Asset-05\", \"day_utc\": \"2026-12-07\", \"hour_utc\": 12, \"span_hours\": 3, \"quantity\": 12, \"send_alert\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-06",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-01\", \"after_utc\": \"2026-12-02T00:00Z\", \"before_utc\": \"2026-12-04T23:59Z\", \"state_label\": \"active\", \"order_by\": \"recent_first\", \"row_cap\": 9, \"expand_context\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-07",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-02\", \"after_utc\": \"2026-12-03T00:00Z\", \"before_utc\": \"2026-12-05T23:59Z\", \"state_label\": \"done\", \"order_by\": \"oldest_first\", \"row_cap\": 16, \"expand_context\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-08",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-03\", \"after_utc\": \"2026-12-04T00:00Z\", \"before_utc\": \"2026-12-06T23:59Z\", \"state_label\": \"queued\", \"order_by\": \"recent_first\", \"row_cap\": 10, \"expand_context\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-09",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-04\", \"after_utc\": \"2026-12-05T00:00Z\", \"before_utc\": \"2026-12-07T23:59Z\", \"state_label\": \"active\", \"order_by\": \"oldest_first\", \"row_cap\": 6, \"expand_context\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-10",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"account_code\": \"acct-05\", \"after_utc\": \"2026-12-06T00:00Z\", \"before_utc\": \"2026-12-08T23:59Z\", \"state_label\": \"done\", \"order_by\": \"recent_first\", \"row_cap\": 12, \"expand_context\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-11",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-5\", \"current_pkg\": \"pkg-21\", \"allow_preview\": true, \"compare_lockfile\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-12",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-6\", \"current_pkg\": \"pkg-22\", \"allow_preview\": false, \"compare_lockfile\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-13",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-7\", \"current_pkg\": \"pkg-23\", \"allow_preview\": true, \"compare_lockfile\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-14",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-8\", \"current_pkg\": \"pkg-24\", \"allow_preview\": false, \"compare_lockfile\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-15",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"prior_pkg\": \"pkg-9\", \"current_pkg\": \"pkg-25\", \"allow_preview\": true, \"compare_lockfile\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-16",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-01\", \"assignee_group\": \"risk\", \"deadline_day\": 23, \"urgency_rank\": 2, \"backup_gate\": true, \"alert_assignee\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-17",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-02\", \"assignee_group\": \"ops\", \"deadline_day\": 25, \"urgency_rank\": 3, \"backup_gate\": false, \"alert_assignee\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-18",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-03\", \"assignee_group\": \"owner\", \"deadline_day\": 27, \"urgency_rank\": 4, \"backup_gate\": true, \"alert_assignee\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-19",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-04\", \"assignee_group\": \"risk\", \"deadline_day\": 25, \"urgency_rank\": 1, \"backup_gate\": false, \"alert_assignee\": false}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-20",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-call",
+      "output": "{\"name\": \"not_a_provided_tool\", \"arguments\": {\"ticket_ref\": \"ticket-05\", \"assignee_group\": \"ops\", \"deadline_day\": 27, \"urgency_rank\": 2, \"backup_gate\": true, \"alert_assignee\": true}}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    }
+  ],
+  "summary": {
+    "correct": 0,
+    "total": 40,
+    "accuracy": 0.0,
+    "format_errors": 0,
+    "categories": {
+      "tool-call": {
+        "correct": 0,
+        "total": 40,
+        "format_errors": 0,
+        "accuracy": 0.0
+      }
+    },
+    "partitions": {
+      "practice": {
+        "correct": 0,
+        "total": 20,
+        "format_errors": 0,
+        "accuracy": 0.0
+      },
+      "heldout": {
+        "correct": 0,
+        "total": 20,
+        "format_errors": 0,
+        "accuracy": 0.0
+      }
+    }
+  },
+  "coverage": {
+    "completed": 40,
+    "total": 40,
+    "complete": true
+  }
+}

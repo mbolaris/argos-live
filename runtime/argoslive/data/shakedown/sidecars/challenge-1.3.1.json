@@ -1,0 +1,672 @@
+{
+  "schema": "argos-sim-fault/1",
+  "form": "challenge",
+  "form_version": "1.3.1",
+  "card_version": "1.0.0",
+  "cards": [
+    {
+      "item": "calc-01",
+      "family": "budget-calculation",
+      "console": "arithmetic",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Calc",
+        "brief": "A small arithmetic deviation from the exact result."
+      },
+      "diagnostics": [
+        {
+          "code": "calc.rounding",
+          "when": {
+            "numeric-delta": {
+              "by": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "item": "calc-02",
+      "family": "budget-calculation",
+      "console": "arithmetic",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Calc",
+        "brief": "A small arithmetic deviation from the exact result."
+      },
+      "diagnostics": [
+        {
+          "code": "calc.rounding",
+          "when": {
+            "numeric-delta": {
+              "by": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "item": "calc-03",
+      "family": "budget-calculation",
+      "console": "arithmetic",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Calc",
+        "brief": "A small arithmetic deviation from the exact result."
+      },
+      "diagnostics": [
+        {
+          "code": "calc.rounding",
+          "when": {
+            "numeric-delta": {
+              "by": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "item": "calc-04",
+      "family": "budget-calculation",
+      "console": "arithmetic",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Calc",
+        "brief": "A small arithmetic deviation from the exact result."
+      },
+      "diagnostics": [
+        {
+          "code": "calc.rounding",
+          "when": {
+            "numeric-delta": {
+              "by": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "item": "calc-05",
+      "family": "budget-calculation",
+      "console": "arithmetic",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Calc",
+        "brief": "A small arithmetic deviation from the exact result."
+      },
+      "diagnostics": [
+        {
+          "code": "calc.rounding",
+          "when": {
+            "numeric-delta": {
+              "by": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "item": "calc-06",
+      "family": "budget-calculation",
+      "console": "arithmetic",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Calc",
+        "brief": "A small arithmetic deviation from the exact result."
+      },
+      "diagnostics": [
+        {
+          "code": "calc.rounding",
+          "when": {
+            "numeric-delta": {
+              "by": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "item": "calc-07",
+      "family": "budget-calculation",
+      "console": "arithmetic",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Calc",
+        "brief": "A small arithmetic deviation from the exact result."
+      },
+      "diagnostics": [
+        {
+          "code": "calc.rounding",
+          "when": {
+            "numeric-delta": {
+              "by": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "item": "calc-08",
+      "family": "budget-calculation",
+      "console": "arithmetic",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Calc",
+        "brief": "A small arithmetic deviation from the exact result."
+      },
+      "diagnostics": [
+        {
+          "code": "calc.rounding",
+          "when": {
+            "numeric-delta": {
+              "by": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "item": "logic-01",
+      "family": null,
+      "console": "logic",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Logic",
+        "brief": "A choice item with no existing specific diagnosis."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "logic-02",
+      "family": null,
+      "console": "logic",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Logic",
+        "brief": "A choice item with no existing specific diagnosis."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "logic-03",
+      "family": null,
+      "console": "logic",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Logic",
+        "brief": "A choice item with no existing specific diagnosis."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "logic-04",
+      "family": null,
+      "console": "logic",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Logic",
+        "brief": "A choice item with no existing specific diagnosis."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "logic-05",
+      "family": null,
+      "console": "logic",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Logic",
+        "brief": "A choice item with no existing specific diagnosis."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "logic-06",
+      "family": null,
+      "console": "logic",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Logic",
+        "brief": "A choice item with no existing specific diagnosis."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "logic-07",
+      "family": null,
+      "console": "logic",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Logic",
+        "brief": "A choice item with no existing specific diagnosis."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "logic-08",
+      "family": null,
+      "console": "logic",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Logic",
+        "brief": "A choice item with no existing specific diagnosis."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "format-01",
+      "family": "strict-procedure",
+      "console": "following",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Format",
+        "brief": "A required instruction constraint was not followed."
+      },
+      "diagnostics": [
+        {
+          "code": "format.constraint",
+          "when": {
+            "equals": "wrong answer"
+          }
+        }
+      ]
+    },
+    {
+      "item": "format-02",
+      "family": "strict-procedure",
+      "console": "following",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Format",
+        "brief": "A required instruction constraint was not followed."
+      },
+      "diagnostics": [
+        {
+          "code": "format.constraint",
+          "when": {
+            "equals": "WRONG ANSWER"
+          }
+        }
+      ]
+    },
+    {
+      "item": "format-03",
+      "family": "strict-procedure",
+      "console": "following",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Format",
+        "brief": "A required instruction constraint was not followed."
+      },
+      "diagnostics": [
+        {
+          "code": "format.constraint",
+          "when": {
+            "equals": "wrong answer"
+          }
+        }
+      ]
+    },
+    {
+      "item": "format-04",
+      "family": "strict-procedure",
+      "console": "following",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Format",
+        "brief": "A required instruction constraint was not followed."
+      },
+      "diagnostics": [
+        {
+          "code": "format.constraint",
+          "when": {
+            "equals": "WRONG ANSWER"
+          }
+        }
+      ]
+    },
+    {
+      "item": "format-05",
+      "family": "strict-procedure",
+      "console": "following",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Format",
+        "brief": "A required instruction constraint was not followed."
+      },
+      "diagnostics": [
+        {
+          "code": "format.constraint",
+          "when": {
+            "equals": "wrong answer"
+          }
+        }
+      ]
+    },
+    {
+      "item": "format-06",
+      "family": "strict-procedure",
+      "console": "following",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Format",
+        "brief": "A required instruction constraint was not followed."
+      },
+      "diagnostics": [
+        {
+          "code": "format.constraint",
+          "when": {
+            "equals": "WRONG ANSWER"
+          }
+        }
+      ]
+    },
+    {
+      "item": "format-07",
+      "family": "strict-procedure",
+      "console": "following",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Format",
+        "brief": "A required instruction constraint was not followed."
+      },
+      "diagnostics": [
+        {
+          "code": "format.constraint",
+          "when": {
+            "equals": "wrong answer"
+          }
+        }
+      ]
+    },
+    {
+      "item": "format-08",
+      "family": "strict-procedure",
+      "console": "following",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Format",
+        "brief": "A required instruction constraint was not followed."
+      },
+      "diagnostics": [
+        {
+          "code": "format.constraint",
+          "when": {
+            "equals": "WRONG ANSWER"
+          }
+        }
+      ]
+    },
+    {
+      "item": "record-01",
+      "family": null,
+      "console": "structure",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Record",
+        "brief": "A structured record differs, with no existing DATA code."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "record-02",
+      "family": null,
+      "console": "structure",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Record",
+        "brief": "A structured record differs, with no existing DATA code."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "record-03",
+      "family": null,
+      "console": "structure",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Record",
+        "brief": "A structured record differs, with no existing DATA code."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "record-04",
+      "family": null,
+      "console": "structure",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Record",
+        "brief": "A structured record differs, with no existing DATA code."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "record-05",
+      "family": null,
+      "console": "structure",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Record",
+        "brief": "A structured record differs, with no existing DATA code."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "record-06",
+      "family": null,
+      "console": "structure",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Record",
+        "brief": "A structured record differs, with no existing DATA code."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "record-07",
+      "family": null,
+      "console": "structure",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Record",
+        "brief": "A structured record differs, with no existing DATA code."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "record-08",
+      "family": null,
+      "console": "structure",
+      "tier": 2,
+      "partition": "practice",
+      "display": {
+        "family": "Record",
+        "brief": "A structured record differs, with no existing DATA code."
+      },
+      "diagnostics": []
+    },
+    {
+      "item": "action-01",
+      "family": "command-dictionary",
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Action",
+        "brief": "A tool call names a command outside the expected command."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "action-02",
+      "family": "command-dictionary",
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Action",
+        "brief": "A tool call names a command outside the expected command."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "action-03",
+      "family": "command-dictionary",
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Action",
+        "brief": "A tool call names a command outside the expected command."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "action-04",
+      "family": "command-dictionary",
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Action",
+        "brief": "A tool call names a command outside the expected command."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "action-05",
+      "family": "command-dictionary",
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Action",
+        "brief": "A tool call names a command outside the expected command."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "action-06",
+      "family": "command-dictionary",
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Action",
+        "brief": "A tool call names a command outside the expected command."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "action-07",
+      "family": "command-dictionary",
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Action",
+        "brief": "A tool call names a command outside the expected command."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "wrong_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "action-08",
+      "family": "command-dictionary",
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Action",
+        "brief": "A tool call names a command outside the expected command."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "wrong_tool"
+          }
+        }
+      ]
+    }
+  ]
+}

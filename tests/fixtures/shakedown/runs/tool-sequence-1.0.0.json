@@ -1,0 +1,729 @@
+{
+  "schema": "argos-bench/1",
+  "id": "2cb692aadec0cf827b2aca4c1375f96b",
+  "created": "2026-11-15T12:00:00+00:00",
+  "kind": "ability",
+  "suite_version": "argos-openclaw-ability/tool-sequence/1.0.0",
+  "model": "fixture:synthetic",
+  "settings": {},
+  "hardware": {},
+  "restoration": {
+    "succeeded": true
+  },
+  "state": "completed",
+  "items": [
+    {
+      "item_id": "practice-01",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-01\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-02",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.1\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-03",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-01\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-04",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-01\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-05",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-02\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-06",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.2\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-07",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-02\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-08",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-02\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-09",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-03\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-10",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.3\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-11",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-03\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-12",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-03\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-13",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-04\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-14",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.4\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-15",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-04\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-16",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-04\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-17",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"label\": \"weekly-05\"}}, {\"name\": \"verify_backup\", \"arguments\": {\"backup_id\": \"$step1.backup_id\", \"verify_sha256\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-18",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"product_name\": \"Atlas\", \"release_version\": \"4.5\"}}, {\"name\": \"inspect_release\", \"arguments\": {\"release_id\": \"$step1.release_id\"}}, {\"name\": \"check_manifest\", \"arguments\": {\"manifest_id\": \"$step2.manifest_id\", \"include_lockfile\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-19",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"user_key\": \"user-05\", \"state_label\": \"active\"}}, {\"name\": \"read_session\", \"arguments\": {\"session_id\": \"$step1.session_id\", \"include_tool_events\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "practice-20",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"document_title\": \"change-05\"}}, {\"name\": \"extract_record\", \"arguments\": {\"document_id\": \"$step1.document_id\", \"fields_csv\": \"commit,reviewer\"}}, {\"name\": \"validate_record\", \"arguments\": {\"record_ref\": \"$step2.record_ref\", \"schema_version\": \"change-v2\"}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "practice"
+    },
+    {
+      "item_id": "heldout-21",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-001\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-22",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-001\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-23",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-001\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-24",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-001\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-25",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-002\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-26",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-002\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-27",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-002\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-28",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-002\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-29",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-003\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-30",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-003\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-31",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-003\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-32",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-003\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-33",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-004\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-34",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-004\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-35",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-004\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-36",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-004\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-37",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"reference_code\": \"RCPT-005\"}}, {\"name\": \"verify_receipt\", \"arguments\": {\"receipt_key\": \"$step1.receipt_key\", \"check_signature\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-38",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"asset_tag\": \"ASSET-005\"}}, {\"name\": \"inspect_revision\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"revision_label\": \"current\"}}, {\"name\": \"compare_snapshots\", \"arguments\": {\"asset_ref\": \"$step1.asset_ref\", \"snapshot_ref\": \"$step2.snapshot_ref\", \"include_metadata\": true}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-39",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"queue_code\": \"Q-005\", \"state_code\": \"open\"}}, {\"name\": \"read_case_history\", \"arguments\": {\"case_ref\": \"$step1.case_ref\", \"include_notes\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    },
+    {
+      "item_id": "heldout-40",
+      "score": 0,
+      "outcome": "wrong_answer",
+      "format_valid": true,
+      "tool_execution_verified": false,
+      "category": "tool-sequence",
+      "output": "{\"steps\": [{\"name\": \"wrong_tool\", \"arguments\": {\"package_name\": \"package-005\", \"release_channel\": \"stable\"}}, {\"name\": \"read_manifest\", \"arguments\": {\"package_ref\": \"$step1.package_ref\"}}, {\"name\": \"check_dependencies\", \"arguments\": {\"manifest_ref\": \"$step2.manifest_ref\", \"include_development\": false}}]}",
+      "output_truncated": false,
+      "latency_seconds": 0.1,
+      "measurement": {
+        "source": "fixture",
+        "elapsed_seconds": null
+      },
+      "session_id": null,
+      "partition": "heldout"
+    }
+  ],
+  "summary": {
+    "correct": 0,
+    "total": 40,
+    "accuracy": 0.0,
+    "format_errors": 0,
+    "categories": {
+      "tool-sequence": {
+        "correct": 0,
+        "total": 40,
+        "format_errors": 0,
+        "accuracy": 0.0
+      }
+    },
+    "partitions": {
+      "practice": {
+        "correct": 0,
+        "total": 20,
+        "format_errors": 0,
+        "accuracy": 0.0
+      },
+      "heldout": {
+        "correct": 0,
+        "total": 20,
+        "format_errors": 0,
+        "accuracy": 0.0
+      }
+    }
+  },
+  "coverage": {
+    "completed": 40,
+    "total": 40,
+    "complete": true
+  }
+}

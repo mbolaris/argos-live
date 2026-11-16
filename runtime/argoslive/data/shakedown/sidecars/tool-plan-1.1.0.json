@@ -1,0 +1,768 @@
+{
+  "schema": "argos-sim-fault/1",
+  "form": "tool-plan",
+  "form_version": "1.1.0",
+  "card_version": "1.0.0",
+  "cards": [
+    {
+      "item": "practice-01",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-02",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-03",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-04",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-05",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-06",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-07",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-08",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-09",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-10",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-11",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-12",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-13",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-14",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-15",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-16",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-17",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-18",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-19",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "practice-20",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "practice",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-01",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-02",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-03",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-04",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-05",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-06",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-07",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-08",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-09",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-10",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-11",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-12",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-13",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-14",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-15",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-16",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-17",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-18",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-19",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    },
+    {
+      "item": "heldout-20",
+      "family": null,
+      "console": "tool-schema",
+      "tier": 1,
+      "partition": "sealed",
+      "display": {
+        "family": "Tool",
+        "brief": "The call names a command outside the supplied schema."
+      },
+      "diagnostics": [
+        {
+          "code": "tool.wrong-name",
+          "when": {
+            "tool-name-is": "not_a_provided_tool"
+          }
+        }
+      ]
+    }
+  ]
+}
