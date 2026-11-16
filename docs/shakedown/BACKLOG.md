@@ -190,7 +190,7 @@ wrong answer has a recognisable cause; leave the rest to `miss.unclassified`.
 
 **Depends.** SIM3. **Verify.** Unit tests plus the script against a fixture run.
 
-### SIM5 — Responses, sim record and readiness ledger — `todo`
+### SIM5 — Responses, sim record and readiness ledger — `in progress`
 
 **Goal.** The longitudinal blind-spot record, rebuildable from saved runs at any time.
 
