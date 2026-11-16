@@ -3,8 +3,9 @@ import json
 from pathlib import Path
 import unittest
 import tempfile
+from unittest.mock import patch
 
-from argoslive import ability, results
+from argoslive import ability, bench_openclaw, results
 from argoslive.bench_ability import summaries
 from argoslive.shakedown import ledger as readiness
 
@@ -92,6 +93,18 @@ class ReadinessLedgerTest(unittest.TestCase):
         missing_instructions = copy.deepcopy(run)
         missing_instructions['prompt_fingerprint']['workspace_agents_sha256'] = None
         self.assertIsNone(readiness.fingerprint_for(missing_instructions))
+
+    def test_openclaw_model_digest_is_bound_to_the_exact_active_tag(self):
+        class Client:
+            def list(self):
+                return {'models': [
+                    {'name': 'model:latest', 'digest': MODEL_DIGEST},
+                    {'name': 'model:other', 'digest': 'sha256:' + 'c' * 64},
+                ]}
+        with patch.object(bench_openclaw.ollama, 'Client', return_value=Client()):
+            self.assertEqual(bench_openclaw.model_manifest_digest('ollama/model:latest'), MODEL_DIGEST)
+            self.assertIsNone(bench_openclaw.model_manifest_digest('ollama/model:missing'))
+            self.assertIsNone(bench_openclaw.model_manifest_digest('openai/model:latest'))
 
 
 if __name__ == '__main__':
