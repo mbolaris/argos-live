@@ -72,7 +72,11 @@ def run(cli, ollama, model_store, report):
             'coverage': result.get('coverage') == {'completed': 40, 'total': 40, 'complete': True},
             'suite_version': result.get('suite_version') == expected_version,
             'model': result.get('model') == 'ollama/' + MODEL_TAG,
-            'model_digest_matches_catalog': result.get('manifest_digest') == identity.get('catalog_manifest_digest'),
+            # Ollama reports the digest of its stored local manifest. The
+            # verifier separately binds that manifest's artifacts to the
+            # reviewed catalog revision, even when Ollama re-serializes it.
+            'model_digest_matches_verified_manifest': (
+                result.get('manifest_digest') == 'sha256:' + identity.get('local_manifest_sha256', '')),
         }
         if not all(acceptance.values()):
             report.parent.mkdir(parents=True, exist_ok=True)
@@ -120,11 +124,12 @@ if __name__ == '__main__':
     try:
         run(args.openclaw, args.ollama, args.model_store, args.report)
     except BaseException as error:
-        args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(json.dumps({
-            'schema': 'argos-sim5-hosted-acceptance-failure/1',
-            'failure_class': type(error).__name__,
-            'raw_answers_exported': False,
-            'practice_only': True,
-        }, indent=2) + '\n', encoding='utf-8')
+        if not args.report.is_file():
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            args.report.write_text(json.dumps({
+                'schema': 'argos-sim5-hosted-acceptance-failure/1',
+                'failure_class': type(error).__name__,
+                'raw_answers_exported': False,
+                'practice_only': True,
+            }, indent=2) + '\n', encoding='utf-8')
         raise
