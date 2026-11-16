@@ -17,6 +17,7 @@ from argoslive.shakedown.scorecard import View as ShakedownView
 from argoslive.shakedown.controller import LapController
 from argoslive.shakedown.queue import QueueController
 from argoslive.shakedown.export import Exporter as ShakedownExporter
+from argoslive.shakedown import packs as benchmark_packs
 
 ASSETS = Path(__file__).with_name('static')
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
@@ -39,7 +40,7 @@ class DashboardServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, host='127.0.0.1', port=8765, *, status_provider=live_status.snapshot,
-                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None, ssh_recovery=None, shakedown=None, lap_controller=None, queue_controller=None):
+                 chat_provider=None, models_provider=models.snapshot, benchmarks=None, startup=None, lab=None, downloads=None, selection=None, storage=None, command=None, assistant_trial=None, auto_climb=None, proctor_campaign=None, ssh_recovery=None, shakedown=None, lap_controller=None, queue_controller=None, pack_downloads=None):
         # Explicit IPv4 loopback prevents wildcard, DNS and LAN binding surprises.
         if host != '127.0.0.1':
             raise ValueError('Dashboard bind must be 127.0.0.1')
@@ -67,6 +68,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.queue_controller = queue_controller or QueueController(owner_home, self.shakedown.store)
         self.shakedown_exporter = ShakedownExporter(self.shakedown.store, self.shakedown, home=owner_home)
         self.shakedown_lock = threading.RLock()
+        self.pack_downloads = pack_downloads or benchmark_packs.Downloads(owner_home)
         self.chat_provider = chat_provider or (lambda: live_status.chat_url(Path.home() / '.openclaw/openclaw.json'))
         super().__init__((host, port), Handler)
 
@@ -249,6 +251,17 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/shakedown/queue':
             self.reply(200, self.server.queue_controller.snapshot(), head=head)
             return
+        if path == '/api/shakedown/packs':
+            # Reads only local manifests and files; it works offline.
+            try:
+                downloads = self.server.pack_downloads
+                self.reply(200, {'available': True, 'packs': downloads.overview(),
+                                 'reviews': {value['pack']: downloads.review(value['pack'])
+                                             for value in downloads.overview()},
+                                 'download': downloads.snapshot()}, head=head)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Benchmark packs unavailable'}, head=head)
+            return
         if path == '/api/shakedown/queue/choices':
             try:
                 self.reply(200, {'available': True, 'entries': self.server.queue_controller.choices()}, head=head)
@@ -418,6 +431,35 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, OSError, UnicodeError, TypeError, KeyError, AttributeError) as exc:
                 message = str(exc) if isinstance(exc, ValueError) else 'Shakedown queue unavailable'
                 self.reply(409, {'error': message})
+            return
+        if path in ('/api/shakedown/packs/download', '/api/shakedown/packs/cancel'):
+            try:
+                if path.endswith('/download'):
+                    lengths = self.headers.get_all('Content-Length')
+                    if (self.headers.get('Transfer-Encoding') is not None or lengths is None or len(lengths) != 1
+                            or len(lengths[0]) > 4 or not lengths[0].isdigit()
+                            or not 1 <= int(lengths[0]) <= 4096
+                            or self.headers.get('Content-Type') != 'application/json'):
+                        self.reply(400, {'error': 'A bounded pack confirmation is required'})
+                        return
+                    self.connection.settimeout(3)
+                    body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    if (not isinstance(body, dict) or set(body) != {'pack', 'confirmation'} or
+                            not isinstance(body['pack'], str) or not isinstance(body['confirmation'], dict)):
+                        self.reply(400, {'error': 'Name the pack and confirm its licence record'})
+                        return
+                    # Only the owner's explicit, matching confirmation starts the one network call.
+                    response = self.server.pack_downloads.start(body['pack'], body['confirmation'])
+                else:
+                    if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                        self.reply(400, {'error': 'An empty request is required'})
+                        return
+                    response = self.server.pack_downloads.cancel()
+                self.reply(202, response)
+            except benchmark_packs.PackError as exc:
+                self.reply(409, {'error': str(exc)})
+            except (ValueError, OSError, UnicodeError, TypeError, KeyError, AttributeError):
+                self.reply(409, {'error': 'Benchmark pack download could not be started or cancelled'})
             return
         if path == '/api/shakedown/export':
             try:

@@ -88,7 +88,11 @@ class Jobs:
     def start(self, suite='quick', *, slice_name=None, slice_version=None, lap_id=None,
               model_tag=None, recipe=None):
         if suite != 'speed' and suite not in bench_openclaw.SUITES:
-            raise ValueError('Unsupported evaluation suite')
+            from .shakedown import packs
+            if not packs.is_pack_suite(suite):
+                raise ValueError('Unsupported evaluation suite')
+            # A benchmark pack must be downloaded and intact before admission.
+            packs.require_downloaded(suite, self.home)
         if model_tag is not None or recipe is not None:
             from .evaluation_context import configuration_receipt
             configuration_receipt(self.home, model_tag=model_tag, recipe=recipe)
@@ -121,7 +125,7 @@ class Jobs:
                     if prior.get('state') in ('running', 'quarantined'):
                         raise workload.Busy(recovery=True)
                     total = (12 if suite == 'speed' else len(item_ids) if item_ids is not None else
-                             len(bench_openclaw.suite_content(suite)[1]))
+                             len(bench_openclaw.suite_content(suite, home=self.home)[1]))
                     with self.admission() as slot:
                         record = {'schema': 'argos-evaluation-job/1', 'job_id': job_id,
                                   'suite': suite, 'state': 'running', 'settled': False,

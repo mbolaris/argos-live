@@ -26,6 +26,13 @@
       <p>Run a quick lap to record your first speed and ability results.</p>
       <button id="run-quick-empty" type="button" data-lap-size="quick">Run a quick lap</button>
     </section>
+    <section class="packs card" aria-labelledby="packs-title">
+      <h2 id="packs-title">Public benchmark packs</h2>
+      <p class="muted">Review the upstream licence and source before downloading a fixed subset. Pack files stay on this machine.</p>
+      <p id="packs-status" class="muted" role="status" aria-live="polite">Checking available packs…</p>
+      <ul id="pack-list" class="pack-list"></ul>
+      <button id="cancel-pack-download" type="button" class="secondary" hidden>Cancel download</button>
+    </section>
     <section id="bench" hidden aria-labelledby="scorecard-title">
       <div class="controls card">
         <div><h2 id="scorecard-title">Scorecard</h2><p>Rows are tests. Columns are the builds you have tried.</p></div>

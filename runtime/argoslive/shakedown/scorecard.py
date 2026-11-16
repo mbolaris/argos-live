@@ -3,7 +3,7 @@ from collections import defaultdict
 import json
 from pathlib import Path
 
-from . import lap, loadout, verdict
+from . import lap, loadout, packs, verdict
 
 
 WILSON_Z = 1.96
@@ -93,9 +93,12 @@ def _ability_rows(run, loadout_id):
         projection = {'state': run.get('state'), 'suite_version': run.get('suite_version'),
                       'slice_name': slice_name, 'slice_version': run.get('slice_version'),
                       'items': items, 'suite_total': run.get('suite_total', len(items))}
+        pack = run.get('benchmark_pack')
+        label = (pack['label'] if isinstance(pack, dict) and isinstance(pack.get('label'), str) else
+                 f'{run.get("suite", "Ability")} · {category} · '
+                 f'{"sealed" if partition == "heldout" else partition}')
         rows.append((row_id, {'id': row_id, 'kind': 'ability',
-                              'label': f'{run.get("suite", "Ability")} · {category} · '
-                                       f'{"sealed" if partition == "heldout" else partition}',
+                              'label': label,
                               'suite': run.get('suite'), 'category': category,
                               'partition': partition, 'cells': {loadout_id: {
                                   'run_id': run.get('id'), 'correct': correct, 'total': total,
@@ -214,6 +217,20 @@ class View:
                     cell['best'] = True
                 cell.pop('values', None)
             rows.append(row)
+        try:
+            benchmark_packs = packs.overview(self.home)
+        except (OSError, ValueError, TypeError, KeyError):
+            benchmark_packs = []
+        shown = {row.get('suite') for row in rows}
+        for pack in benchmark_packs:
+            if 'openclaw-' + pack['suite'] not in shown:
+                # A pack with no saved run still has a row, so its state is visible offline.
+                state = 'no run yet' if pack['state'] == 'downloaded' else pack['state']
+                rows.append({'id': 'pack|' + pack['pack'], 'kind': 'ability',
+                             'label': pack['label'] + ' · ' + state,
+                             'suite': 'openclaw-' + pack['suite'], 'category': 'all',
+                             'partition': 'all', 'cells': {}, 'pack_state': pack['state'],
+                             'footnotes': list(pack['footnotes'])})
         rows.sort(key=lambda item: (item['kind'] != 'speed', item.get('label', '')))
         estimates = {}
         if current is not None:
@@ -228,7 +245,8 @@ class View:
         return {'schema': 'argos-shakedown-scorecard/1', 'loadouts': loadouts,
                 'available_loadouts': available_loadouts,
                 'selected_loadout_ids': selected, 'current_loadout_id': current, 'rows': rows,
-                'lap_estimates': estimates, 'empty': not bool(loadouts), 'available': True}
+                'lap_estimates': estimates, 'empty': not bool(loadouts), 'available': True,
+                'benchmark_packs': benchmark_packs}
 
     def comparison(self, previous=None):
         """Compare the latest build with one earlier build using fixed, recorded evidence."""
