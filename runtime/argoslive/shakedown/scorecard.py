@@ -223,9 +223,13 @@ class View:
             benchmark_packs = []
         shown = {row.get('suite') for row in rows}
         for pack in benchmark_packs:
+            # The pack list reports not-downloaded state. Keep the scorecard focused
+            # on forms that have local data and can actually be run.
+            if pack['state'] != 'downloaded':
+                continue
             if 'openclaw-' + pack['suite'] not in shown:
-                # A pack with no saved run still has a row, so its state is visible offline.
-                state = 'no run yet' if pack['state'] == 'downloaded' else pack['state']
+                # A downloaded pack with no saved run still has a scorecard row.
+                state = 'no run yet'
                 rows.append({'id': 'pack|' + pack['pack'], 'kind': 'ability',
                              'label': pack['label'] + ' · ' + state,
                              'suite': 'openclaw-' + pack['suite'], 'category': 'all',
