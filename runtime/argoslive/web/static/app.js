@@ -457,7 +457,7 @@ function renderReceiptItem(receipt) {
   if (receipt.outcome === 'wrong_answer') {
     reason.textContent = 'Miss: answer did not match expected criteria.';
   } else if (receipt.outcome === 'format_error') {
-    reason.textContent = 'Miss: response failed format contract or closed JSON schema.';
+    reason.textContent = receipt.display_reason || 'Miss: response failed format contract or closed JSON schema.';
   } else {
     reason.textContent = meta.reason;
   }

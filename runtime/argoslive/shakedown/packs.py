@@ -11,7 +11,9 @@ The only network call in this module is the owner-started download in
 `Downloads`. Nothing is uploaded.
 """
 import argparse
+import csv
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -19,7 +21,9 @@ import re
 import secrets
 import shutil
 import sys
+import tarfile
 import threading
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
 from .. import ability, storage
@@ -33,7 +37,8 @@ SUITE_PREFIX = 'pack-'
 SIZES = ('quick', 'standard', 'full')
 # Sources a shipped manifest may point at. A redirect may leave these hosts
 # (large files are served from a CDN); the pinned SHA-256 is what is trusted.
-ALLOWED_HOSTS = ('huggingface.co', 'raw.githubusercontent.com', 'github.com')
+ALLOWED_HOSTS = ('huggingface.co', 'raw.githubusercontent.com', 'github.com',
+                 'people.eecs.berkeley.edu')
 MANIFEST_LIMIT = 1024 ** 2
 MAX_FILES = 16
 MAX_FILE_BYTES = 2 * 1024 ** 3
@@ -143,8 +148,10 @@ def validate(manifest):
             raise PackError('Each benchmark pack file needs a SHA-256 hash')
         if type(entry['size']) is not int or not 1 <= entry['size'] <= MAX_FILE_BYTES:
             raise PackError('Each benchmark pack file needs its exact size')
-        if not _https(entry['url'], hosts=ALLOWED_HOSTS) or revision not in urlsplit(entry['url']).path:
-            raise PackError('Each benchmark pack file URL must be HTTPS at the pinned revision')
+        if not _https(entry['url'], hosts=ALLOWED_HOSTS):
+            raise PackError('Each benchmark pack file URL must be HTTPS on a reviewed host')
+        # The upstream revision pins provenance; size and SHA-256 pin the exact bytes even
+        # when an authoritative source exposes its archive at a stable, non-versioned URL.
 
     licences = manifest.get('licences')
     if not isinstance(licences, list) or not 1 <= len(licences) <= 4:
@@ -381,6 +388,93 @@ def adapter(name):
         ADAPTERS[name] = function
         return function
     return register
+
+
+def _choice_item(ident, question, choices, expected):
+    prompt = ('Choose the correct option. Reply with only A, B, C or D.\n\n' +
+              question + '\n' + '\n'.join(f'{letter}. {choice}'
+                                           for letter, choice in zip('ABCD', choices)))
+    wrong = next(letter for letter in 'ABCD' if letter != expected)
+    return {'id': ident, 'prompt': prompt, 'scorer': {'kind': 'choice', 'expected': expected},
+            'reference': expected, 'wrong': wrong,
+            'malformed': 'I cannot identify one of the four letters.'}
+
+
+@adapter('mmlu-tar')
+def _mmlu_tar(manifest, files):
+    """Read only selected test rows from the official MMLU data archive."""
+    wanted = {}
+    for ident in manifest['items']['ids']:
+        parts = ident.split('/')
+        if len(parts) != 4 or parts[:2] != ['mmlu', 'test'] or not parts[3].isdigit():
+            raise PackRefused('MMLU item list contains an invalid subject row ID')
+        wanted.setdefault(parts[2], set()).add(int(parts[3]))
+    rows = {}
+    try:
+        with tarfile.open(files['mmlu-data.tar'], mode='r:') as archive:
+            for member in archive:
+                prefix = 'data/test/'
+                if (not member.isfile() or not member.name.startswith(prefix) or
+                        not member.name.endswith('_test.csv')):
+                    continue
+                subject = member.name[len(prefix):-len('_test.csv')]
+                indices = wanted.get(subject)
+                if not indices:
+                    continue
+                stream = archive.extractfile(member)
+                if stream is None:
+                    continue
+                with io.TextIOWrapper(stream, encoding='utf-8', newline='') as text:
+                    for index, row in enumerate(csv.reader(text)):
+                        if index not in indices:
+                            continue
+                        if (len(row) != 6 or not row[0].strip() or
+                                any(not value.strip() for value in row[1:5]) or
+                                row[5].strip() not in 'ABCD' or len(row[5].strip()) != 1):
+                            raise PackRefused(f'MMLU subject {subject} row {index} is malformed')
+                        ident = f'mmlu/test/{subject}/{index:04d}'
+                        rows[ident] = _choice_item(ident, row[0].strip(),
+                                                   [value.strip() for value in row[1:5]],
+                                                   row[5].strip())
+    except (tarfile.TarError, OSError, UnicodeError, csv.Error) as error:
+        raise PackRefused(f'MMLU archive is not readable ({type(error).__name__})') from None
+    return [rows[ident] for ident in manifest['items']['ids'] if ident in rows]
+
+
+@adapter('gsm8k-jsonl')
+def _gsm8k_jsonl(manifest, files):
+    """Read the fixed GSM8K test rows, reducing each reference to its final number."""
+    wanted = {}
+    for ident in manifest['items']['ids']:
+        prefix = 'gsm8k/test/'
+        suffix = ident[len(prefix):] if ident.startswith(prefix) else ''
+        if not suffix.isdigit() or len(suffix) != 4:
+            raise PackRefused('GSM8K item list contains an invalid test row ID')
+        wanted[int(suffix)] = ident
+    rows = {}
+    with files['gsm8k-test.jsonl'].open('rb') as stream:
+        for index, line in enumerate(stream):
+            if index not in wanted:
+                continue
+            value = _decode(line)
+            question, answer = value.get('question'), value.get('answer')
+            if not isinstance(question, str) or not isinstance(answer, str) or '####' not in answer:
+                raise PackRefused(f'GSM8K test row {index} has no question or final answer')
+            expected_text = answer.rsplit('####', 1)[1].strip()
+            try:
+                expected = Decimal(str(ability.numeric(expected_text)))
+            except (ValueError, InvalidOperation):
+                raise PackRefused(f'GSM8K test row {index} has no readable final number') from None
+            expected_text = format(expected, 'f')
+            wrong_text = format(expected + Decimal(1), 'f')
+            ident = wanted[index]
+            prompt = ('Solve the problem. Reply with only the final number, without units or explanation.\n\n' +
+                      question)
+            rows[ident] = {'id': ident, 'prompt': prompt,
+                           'scorer': {'kind': 'numeric', 'expected': expected_text},
+                           'reference': expected_text, 'wrong': wrong_text,
+                           'malformed': 'No readable numeric answer.'}
+    return [rows[ident] for ident in manifest['items']['ids'] if ident in rows]
 
 
 def public_record(manifest):

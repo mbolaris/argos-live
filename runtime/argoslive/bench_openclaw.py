@@ -26,6 +26,12 @@ SUITES = ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-se
 MODEL_DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
 
 
+def suite_choices():
+    """Built-in suites plus the pack suites whose manifests ship in this build."""
+    from .shakedown import packs
+    return SUITES + tuple(packs.suite_name(manifest['pack']) for manifest in packs.available())
+
+
 def model_manifest_digest(identity):
     """Read the exact active Ollama tag digest; absent/unreachable identity stays unknown."""
     if not isinstance(identity, str) or not identity.startswith('ollama/'):
@@ -285,6 +291,9 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                 measurement={'source': 'OpenClaw CLI elapsed time',
                              'elapsed_seconds': answer['elapsed_seconds']},
                 session_id=answer['session_id'])
+            if (isinstance(data.get('benchmark_pack'), dict) and
+                    task['scorer'].get('kind') == 'numeric' and scored['outcome'] == 'format_error'):
+                scored['display_reason'] = 'No readable answer.'
             if suite != 'documents-short' and task['scorer'].get('partition') in ('practice', 'heldout'):
                 scored['partition'] = task['scorer']['partition']
             result['items'].append(scored)
@@ -364,6 +373,7 @@ class LiveBoard:
             self.state['items'].append({
                 'item_id': event.get('item_id'), 'category': receipt.get('category'),
                 'correct': bool(receipt.get('score')), 'outcome': receipt.get('outcome'),
+                'display_reason': receipt.get('display_reason'),
                 'no_reply': bool(receipt.get('no_reply')), 'answer': (receipt.get('output') or '')[:240],
                 'seconds': round(receipt.get('latency_seconds') or 0, 1)})
             self.state['correct'] = sum(item['correct'] for item in self.state['items'])
@@ -379,7 +389,7 @@ class LiveBoard:
 
 def main(argv=None, *, delegation=None):
     parser = argparse.ArgumentParser(description='Evaluate the configured OpenClaw assistant with fixed Argos tasks.')
-    parser.add_argument('--suite', choices=SUITES, default='quick')
+    parser.add_argument('--suite', choices=suite_choices(), default='quick')
     parser.add_argument('--home', type=Path, default=Path.home())
     parser.add_argument('--results-dir', type=Path, default=Store().root)
     parser.add_argument('--json', action='store_true')
