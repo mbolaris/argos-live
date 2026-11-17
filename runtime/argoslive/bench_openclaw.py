@@ -22,8 +22,16 @@ from .workload import Busy, reserve
 
 PROTECTED_LIMIT = 1024 ** 2
 SUITES = ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
-          'documents-short', owner_recovery_eval.SUITE)
+          'challenge-hard', 'documents-short', 'documents-long', owner_recovery_eval.SUITE)
+DOCUMENT_SUITES = frozenset({'documents-short', 'documents-long'})
 MODEL_DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
+
+
+def _prompt_fields(task):
+    """Keep held-out prompt text out of live progress events."""
+    if task.get('scorer', {}).get('partition') == 'heldout':
+        return {'question_redacted': True}
+    return {'question': task['prompt'], 'question_redacted': False}
 
 
 def suite_choices():
@@ -62,9 +70,10 @@ def suite_content(suite, home=None):
         pack = packs.pack_of(suite)
         data = packs.load_form(pack, Path.home() if home is None else home)
         return data, data['items'], packs.manifest_path(pack), data['omitted_categories']
-    if suite == 'documents-short':
-        data = doc_trial.load()
-        path = doc_trial.DATA / 'short.json'
+    if suite in DOCUMENT_SUITES:
+        document_name = 'long' if suite == 'documents-long' else 'short'
+        data = doc_trial.load(document_name)
+        path = doc_trial.DATA / (document_name + '.json')
         items = [item for item in data['items'] if item.get('scored') is True]
         omitted = list(data['omitted_categories'])
         return data, items, path, omitted
@@ -234,14 +243,14 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
     try:
         for index, task in enumerate(tasks, 1):
             item_id = task['id']
-            item_category = (task['category'] if suite in ('documents-short', owner_recovery_eval.SUITE)
+            item_category = (task['category'] if suite in DOCUMENT_SUITES | {owner_recovery_eval.SUITE}
                              else task['scorer']['kind'])
             protect(item_id)
             item_started = clock()
             if progress:
                 progress({'phase': 'asking', 'completed': index - 1, 'run_id': result['id'],
                           'total': len(tasks), 'item_id': item_id, 'category': item_category,
-                          'question': task['prompt'], 'suite': suite,
+                          **_prompt_fields(task), 'suite': suite,
                           'suite_version': result['suite_version'], 'model': result['model']})
             try:
                 answer = runner.turn(task['prompt'])
@@ -250,23 +259,25 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                     raise
                 # The assistant ran but produced no usable answer: score it as a
                 # wrong answer and keep going instead of voiding the whole run.
-                scored = (doc_trial.score(task, '') if suite == 'documents-short' else
+                scored = (doc_trial.score(task, '') if suite in DOCUMENT_SUITES else
                           owner_recovery_eval.score(task, '') if suite == owner_recovery_eval.SUITE else
                           ability.score(task, ''))
                 scored.update(category=task['scorer']['kind'], output='', output_truncated=False,
                               no_reply=True, latency_seconds=max(0, clock() - item_started),
                               measurement={'source': 'OpenClaw CLI elapsed time', 'elapsed_seconds': None},
                               session_id=None)
-                if suite in ('documents-short', owner_recovery_eval.SUITE):
+                if suite in DOCUMENT_SUITES | {owner_recovery_eval.SUITE}:
                     scored['category'] = item_category
                 elif task['scorer'].get('partition') in ('practice', 'heldout'):
+                    scored['partition'] = task['scorer']['partition']
+                if suite == 'documents-long':
                     scored['partition'] = task['scorer']['partition']
                 protect(item_id)
                 result['items'].append(scored)
                 if progress:
                     progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
                               'total': len(tasks), 'item_id': item_id, 'category': item_category,
-                              'question': task['prompt'],
+                              **_prompt_fields(task),
                               'suite': suite, 'suite_version': result['suite_version'],
                               'model': result['model'], 'receipt': scored})
                 continue
@@ -279,11 +290,11 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                 result['settings']['assistant_model'] = identity
             elif result['model'] != identity:
                 raise TrialTurnError('model-mismatch')
-            scored = (doc_trial.score(task, answer['text']) if suite == 'documents-short' else
+            scored = (doc_trial.score(task, answer['text']) if suite in DOCUMENT_SUITES else
                       owner_recovery_eval.score(task, answer['text']) if suite == owner_recovery_eval.SUITE else
                       ability.score(task, answer['text']))
             scored.update(
-                category=item_category if suite in ('documents-short', owner_recovery_eval.SUITE)
+                category=item_category if suite in DOCUMENT_SUITES | {owner_recovery_eval.SUITE}
                 else task['scorer']['kind'],
                 output=answer['text'][:8192],
                 output_truncated=len(answer['text'].encode('utf-8')) > 8192,
@@ -294,13 +305,15 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
             if (isinstance(data.get('benchmark_pack'), dict) and
                     task['scorer'].get('kind') == 'numeric' and scored['outcome'] == 'format_error'):
                 scored['display_reason'] = 'No readable answer.'
-            if suite != 'documents-short' and task['scorer'].get('partition') in ('practice', 'heldout'):
+            if suite not in DOCUMENT_SUITES and task['scorer'].get('partition') in ('practice', 'heldout'):
+                scored['partition'] = task['scorer']['partition']
+            elif suite == 'documents-long':
                 scored['partition'] = task['scorer']['partition']
             result['items'].append(scored)
             if progress:
                 progress({'phase': 'scored', 'completed': index, 'run_id': result['id'],
                           'total': len(tasks), 'item_id': item_id, 'category': item_category,
-                          'question': task['prompt'],
+                          **_prompt_fields(task),
                           'suite': suite, 'suite_version': result['suite_version'],
                           'model': result['model'], 'receipt': scored})
         protect('final')
@@ -333,9 +346,10 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                           'total': len(tasks),
                           'complete': result['state'] == 'completed' and
                                       len(result['items']) == len(tasks)}
-    if suite == 'documents-short':
+    if suite in DOCUMENT_SUITES:
+        document_scope = doc_trial.LONG_SCOPE if suite == 'documents-long' else doc_trial.SCOPE
         result['qualification'] = doc_trial.qualify(
-            result['items'], data['criteria'], complete=result['coverage']['complete'])
+            result['items'], data['criteria'], complete=result['coverage']['complete'], scope=document_scope)
     elif suite == owner_recovery_eval.SUITE:
         result['measurement_boundary'] = owner_recovery_eval.BOUNDARY
         result['calibration_status'] = data['calibration_status']

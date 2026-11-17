@@ -1,7 +1,7 @@
 # Original ability suites and deterministic scoring
 
 B4a ships original MIT-licensed `quick` (20 items), `standard` (70 items),
-`challenge` (40 items), `tool-schema` (40 items), `tool-plan` (40 items) and
+`challenge` (40 items), `challenge-hard` (80 items), `tool-schema` (40 items), `tool-plan` (40 items) and
 `tool-sequence` (40 items)
 fixtures at `argoslive/data/ability/`. Quick and standard are version 1.0.0;
 challenge is version 1.3.1; tool-schema is version 1.2.0; tool-plan is version
@@ -47,6 +47,17 @@ Its held-out vocabulary is an internal transfer check, not independent
 validation. These remain Argos probes,
 not GSM8K, MMLU, a comprehensive intelligence evaluation or real tool
 acceptance.
+
+`challenge-hard` 1.0.0 is a separate 80-item internal probe with 40 practice and 40 held-out
+items, balanced across the same five deterministic scorer types. Held-out prompt text is omitted
+from live progress events. `documents-long` 1.0.0 adds 40 original long-document tasks over ten
+invented passages, five for each partition. It uses the same answer, quote, not-stated, and
+two-sentence summary proxy as `documents-short`; it does not judge full summary quality or test
+file reading. Both forms are calibrated against the pinned hosted CPU model. Those scores are
+specific to that model and runtime, not evidence about every deployed model.
+Keep policy v6 requires two matched candidate runs to gain at least 4 practice items on
+`challenge-hard` or 3 on `documents-long`, no increase in format errors, and no regression on the
+held-out half compared with the best baseline half.
 
 Tool-schema 1.2.0 states the exact JSON call shape (`name` and `arguments`),
 rejects the common `tool` alias, and forbids Markdown fences. Its scores are a

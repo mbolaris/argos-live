@@ -53,7 +53,7 @@ if (fs.existsSync(process.env.ARGOS_CAPTURE+'.busy')) {
     pair_checks:{same_suite_version:true,same_recipe:false,same_coverage:true}}));
 } else if (args[1] === 'openclaw') {
   const suite = args[3] || 'quick';
-  const total = suite === 'owner-recovery-decision' ? 8 : suite === 'documents-short' ? 32 : suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
+  const total = suite === 'owner-recovery-decision' ? 8 : suite === 'documents-short' ? 32 : suite === 'documents-long' ? 40 : suite === 'challenge-hard' ? 80 : suite === 'challenge' || suite === 'tool-schema' || suite === 'tool-plan' || suite === 'tool-sequence' ? 40 : suite === 'standard' ? 70 : 20;
   const correct = total - 2;
   process.stderr.write('x'.repeat(200000) + '\\n');
   console.error(JSON.stringify({phase:'unrelated',completed:0,total}));

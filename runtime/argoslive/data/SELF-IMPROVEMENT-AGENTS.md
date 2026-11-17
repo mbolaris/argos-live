@@ -35,14 +35,19 @@ Continue authorized reversible steps without asking at each step.
 ## 2. Measure one change at a time
 
 First state the owner task, its success measure, and what evidence would be
-relevant. Use a fixed evaluation suite (`quick`, `standard`, `challenge`,
-`tool-schema`, `tool-plan`, `tool-sequence`, or `documents-short`) only when its
+relevant. Use a fixed evaluation suite (`quick`, `standard`, `challenge`, `challenge-hard`,
+`tool-schema`, `tool-plan`, `tool-sequence`, `documents-short`, or `documents-long`) only when its
 exact tasks directly measure behavior needed for the owner task. The optional
 `documents-short` v1.1 suite reuses the existing "Read this brief" passages in
 32 scored items: short-document answers, supporting quotes, "not stated"
 responses, and summaries. Summary scoring checks exactly two sentences and at
 least two listed passage facts as a narrow format-and-coverage proxy, not full
 summary quality. It does not measure long-document or file reading ability.
+`documents-long` v1.0 contains 40 tasks over longer invented passages; its
+summary score is the same narrow format-and-coverage proxy and does not measure
+file reading. `challenge-hard` v1.0 contains 80 original tasks split into
+practice and held-out halves. Neither is an external benchmark, and held-out
+prompts are omitted from live progress events.
 Use only the owner-selected suite; the host rejects other suites. If no suite fits, do not steer the owner toward a
 generic score, and do not evaluate, compare, adopt, edit, or keep instructions
 from unrelated scores. Inspect and audit, then report `task-not-measured` with

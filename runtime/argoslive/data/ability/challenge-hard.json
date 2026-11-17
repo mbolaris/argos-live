@@ -1,0 +1,1929 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "challenge-hard",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "calc-01",
+      "prompt": "A depot starts with 840 sealed units. It issues 7 kits of 17 units, reserves 9 for inspection, then sorts the remainder into groups of 2. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "356"
+      },
+      "reference": "356",
+      "wrong": "357",
+      "malformed": "About 356"
+    },
+    {
+      "id": "calc-02",
+      "prompt": "A depot starts with 1250 sealed units. It issues 5 kits of 12 units, reserves 18 for inspection, then sorts the remainder into groups of 3. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "390"
+      },
+      "reference": "390",
+      "wrong": "391",
+      "malformed": "About 390"
+    },
+    {
+      "id": "calc-03",
+      "prompt": "A depot starts with 960 sealed units. It issues 8 kits of 15 units, reserves 24 for inspection, then sorts the remainder into groups of 4. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "204"
+      },
+      "reference": "204",
+      "wrong": "205",
+      "malformed": "About 204"
+    },
+    {
+      "id": "calc-04",
+      "prompt": "A depot starts with 735 sealed units. It issues 5 kits of 22 units, reserves 15 for inspection, then sorts the remainder into groups of 2. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "305"
+      },
+      "reference": "305",
+      "wrong": "306",
+      "malformed": "About 305"
+    },
+    {
+      "id": "calc-05",
+      "prompt": "A depot starts with 1440 sealed units. It issues 9 kits of 11 units, reserves 27 for inspection, then sorts the remainder into groups of 3. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "438"
+      },
+      "reference": "438",
+      "wrong": "439",
+      "malformed": "About 438"
+    },
+    {
+      "id": "calc-06",
+      "prompt": "A depot starts with 1080 sealed units. It issues 7 kits of 14 units, reserves 16 for inspection, then sorts the remainder into groups of 4. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "241"
+      },
+      "reference": "241",
+      "wrong": "242",
+      "malformed": "About 241"
+    },
+    {
+      "id": "calc-07",
+      "prompt": "A depot starts with 1680 sealed units. It issues 8 kits of 13 units, reserves 20 for inspection, then sorts the remainder into groups of 5. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "311"
+      },
+      "reference": "311",
+      "wrong": "312",
+      "malformed": "About 311"
+    },
+    {
+      "id": "calc-08",
+      "prompt": "A depot starts with 910 sealed units. It issues 6 kits of 19 units, reserves 21 for inspection, then sorts the remainder into groups of 3. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "258"
+      },
+      "reference": "258",
+      "wrong": "259",
+      "malformed": "About 258"
+    },
+    {
+      "id": "calc-09",
+      "prompt": "A depot starts with 1320 sealed units. It issues 7 kits of 16 units, reserves 28 for inspection, then sorts the remainder into groups of 4. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "295"
+      },
+      "reference": "295",
+      "wrong": "296",
+      "malformed": "About 295"
+    },
+    {
+      "id": "calc-10",
+      "prompt": "A depot starts with 1560 sealed units. It issues 9 kits of 18 units, reserves 30 for inspection, then sorts the remainder into groups of 5. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "273"
+      },
+      "reference": "273",
+      "wrong": "274",
+      "malformed": "About 273"
+    },
+    {
+      "id": "calc-11",
+      "prompt": "A depot starts with 1170 sealed units. It issues 8 kits of 23 units, reserves 24 for inspection, then sorts the remainder into groups of 3. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "320"
+      },
+      "reference": "320",
+      "wrong": "321",
+      "malformed": "About 320"
+    },
+    {
+      "id": "calc-12",
+      "prompt": "A depot starts with 1890 sealed units. It issues 10 kits of 12 units, reserves 35 for inspection, then sorts the remainder into groups of 4. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "433"
+      },
+      "reference": "433",
+      "wrong": "434",
+      "malformed": "About 433"
+    },
+    {
+      "id": "calc-13",
+      "prompt": "A depot starts with 1020 sealed units. It issues 6 kits of 21 units, reserves 18 for inspection, then sorts the remainder into groups of 2. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "438"
+      },
+      "reference": "438",
+      "wrong": "439",
+      "malformed": "About 438"
+    },
+    {
+      "id": "calc-14",
+      "prompt": "A depot starts with 1750 sealed units. It issues 7 kits of 17 units, reserves 32 for inspection, then sorts the remainder into groups of 5. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "319"
+      },
+      "reference": "319",
+      "wrong": "320",
+      "malformed": "About 319"
+    },
+    {
+      "id": "calc-15",
+      "prompt": "A depot starts with 1260 sealed units. It issues 9 kits of 25 units, reserves 27 for inspection, then sorts the remainder into groups of 4. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "252"
+      },
+      "reference": "252",
+      "wrong": "253",
+      "malformed": "About 252"
+    },
+    {
+      "id": "calc-16",
+      "prompt": "A depot starts with 2040 sealed units. It issues 11 kits of 14 units, reserves 33 for inspection, then sorts the remainder into groups of 3. How many complete groups are there? Give one number only.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "617"
+      },
+      "reference": "617",
+      "wrong": "618",
+      "malformed": "About 617"
+    },
+    {
+      "id": "logic-01",
+      "prompt": "A release needs two approvals and a checksum. Which record is ready? A: 2 approvals, checksum missing. B: 3 approvals, checksum valid. C: 1 approval, checksum valid. D: 2 approvals, checksum invalid.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-02",
+      "prompt": "Rules: review before publish; backup before delete. Which schedule is valid? A: publish, review, backup, delete. B: review, backup, publish, delete. C: backup, delete, review, publish. D: review, publish, delete, backup.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-03",
+      "prompt": "A lot passes only if defects are below 2% and sample size is at least 500. Which passes? A: 1.9%, 480. B: 2.0%, 900. C: 1.8%, 520. D: 0.5%, 300.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-04",
+      "prompt": "Only the newest signed policy overrides an older one. R is signed Monday; S is unsigned Tuesday; T is signed Wednesday. Which controls? A: R. B: S. C: T. D: whichever is stricter.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-05",
+      "prompt": "A route must take under 50 minutes and have no transfer. A: 42 min, 1 transfer. B: 50 min, none. C: 48 min, none. D: 55 min, none.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-06",
+      "prompt": "A job runs only if its lock is held and input verified. Lock held; input verification failed. A: run. B: wait for verification. C: cancel lock. D: run read-only.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-07",
+      "prompt": "All archived items have digests; some digested items are not archived. Which must be true? A: no digest means archived. B: archived items have digests. C: all digested items are archived. D: no archived items have digests.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-08",
+      "prompt": "A shipment qualifies when sealed, labeled, and below 20 kg. Which qualifies? A: sealed, labeled, 20 kg. B: unsealed, labeled, 12 kg. C: sealed, unlabeled, 10 kg. D: sealed, labeled, 19.8 kg.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-09",
+      "prompt": "If the primary sensor is stale, use the secondary only when calibrated. Primary is stale; secondary calibration is unknown. A: use primary. B: use secondary. C: report no verified reading. D: average both.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-10",
+      "prompt": "A report may be shared internally after review, externally only after owner approval. Review passed; approval pending. A: share externally. B: share internally only. C: share nowhere. D: publish publicly.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-11",
+      "prompt": "A batch is valid when exactly one of X or Y is present and Z is present. Which is valid? A: X and Z. B: X, Y and Z. C: Y only. D: X only.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "D",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-12",
+      "prompt": "The spare is in cabinets A\u2013D. It is not in A or C. B is sealed; D is open. Which location is supported? A: A. B: B. C: C. D: D.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-13",
+      "prompt": "Priority is urgent over normal, then earlier deadline. Which ranks first? A: normal, 09:00. B: urgent, 11:00. C: urgent, 10:00. D: normal, 08:00.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-14",
+      "prompt": "A checksum mismatch blocks restore unless a second independent copy matches. Primary mismatches; second copy matches. A: restore primary. B: restore second copy. C: refuse all restore. D: ignore checksums.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-15",
+      "prompt": "A log is complete only if every page has a timestamp and the final page is signed. All timestamps exist; final page unsigned. A: complete. B: incomplete. C: complete if page one signed. D: timestamps are irrelevant.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "logic-16",
+      "prompt": "A test is independent only if it shares neither seed nor prompt with training. It shares the prompt but has a new seed. A: independent. B: not independent. C: independent if score is low. D: cannot tell without the answer.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Option B"
+    },
+    {
+      "id": "format-01",
+      "prompt": "Write exactly 7 words on one line. Include every whole word: \"verify\", \"source\", \"before\", \"release\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 7,
+        "max_words": 7,
+        "keywords": [
+          "verify",
+          "source",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "verify source before release carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-02",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"private\", \"records\", \"stay\", \"local\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "private",
+          "records",
+          "stay",
+          "local"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "PRIVATE RECORDS STAY LOCAL CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-03",
+      "prompt": "Write exactly 7 words on one line. Include every whole word: \"uncertain\", \"values\", \"remain\", \"unknown\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 7,
+        "max_words": 7,
+        "keywords": [
+          "uncertain",
+          "values",
+          "remain",
+          "unknown"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "uncertain values remain unknown carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-04",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"compare\", \"matching\", \"versions\", \"only\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "compare",
+          "matching",
+          "versions",
+          "only"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "COMPARE MATCHING VERSIONS ONLY CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-05",
+      "prompt": "Write exactly 7 words on one line. Include every whole word: \"backup\", \"restore\", \"after\", \"review\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 7,
+        "max_words": 7,
+        "keywords": [
+          "backup",
+          "restore",
+          "after",
+          "review"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "backup restore after review carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-06",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"reject\", \"unsigned\", \"policy\", \"changes\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "reject",
+          "unsigned",
+          "policy",
+          "changes"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "REJECT UNSIGNED POLICY CHANGES CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-07",
+      "prompt": "Write exactly 9 words on one line. Include every whole word: \"measure\", \"latency\", \"separately\", \"from\", \"accuracy\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 9,
+        "max_words": 9,
+        "keywords": [
+          "measure",
+          "latency",
+          "separately",
+          "from",
+          "accuracy"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "measure latency separately from accuracy carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-08",
+      "prompt": "Write exactly 9 words on one line. Include every whole word: \"sealed\", \"prompts\", \"never\", \"enter\", \"reports\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 9,
+        "max_words": 9,
+        "keywords": [
+          "sealed",
+          "prompts",
+          "never",
+          "enter",
+          "reports"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "SEALED PROMPTS NEVER ENTER REPORTS CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-09",
+      "prompt": "Write exactly 7 words on one line. Include every whole word: \"confirm\", \"identity\", \"before\", \"restarting\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 7,
+        "max_words": 7,
+        "keywords": [
+          "confirm",
+          "identity",
+          "before",
+          "restarting"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "confirm identity before restarting carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-10",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"report\", \"partial\", \"coverage\", \"plainly\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "report",
+          "partial",
+          "coverage",
+          "plainly"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "REPORT PARTIAL COVERAGE PLAINLY CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-11",
+      "prompt": "Write exactly 9 words on one line. Include every whole word: \"preserve\", \"owner\", \"changes\", \"during\", \"evaluation\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 9,
+        "max_words": 9,
+        "keywords": [
+          "preserve",
+          "owner",
+          "changes",
+          "during",
+          "evaluation"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "preserve owner changes during evaluation carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-12",
+      "prompt": "Write exactly 10 words on one line. Include every whole word: \"cancelled\", \"runs\", \"cannot\", \"rank\", \"beside\", \"complete\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 10,
+        "max_words": 10,
+        "keywords": [
+          "cancelled",
+          "runs",
+          "cannot",
+          "rank",
+          "beside",
+          "complete"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "CANCELLED RUNS CANNOT RANK BESIDE COMPLETE CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-13",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"state\", \"what\", \"the\", \"evidence\", \"supports\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "state",
+          "what",
+          "the",
+          "evidence",
+          "supports"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "state what the evidence supports carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-14",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"restore\", \"the\", \"same\", \"verified\", \"profile\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "restore",
+          "the",
+          "same",
+          "verified",
+          "profile"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "RESTORE THE SAME VERIFIED PROFILE CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-15",
+      "prompt": "Write exactly 11 words on one line. Include every whole word: \"tools\", \"remain\", \"plans\", \"unless\", \"execution\", \"is\", \"verified\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 11,
+        "max_words": 11,
+        "keywords": [
+          "tools",
+          "remain",
+          "plans",
+          "unless",
+          "execution",
+          "is",
+          "verified"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "tools remain plans unless execution is verified carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-16",
+      "prompt": "Write exactly 11 words on one line. Include every whole word: \"different\", \"suite\", \"versions\", \"must\", \"not\", \"be\", \"compared\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 11,
+        "max_words": 11,
+        "keywords": [
+          "different",
+          "suite",
+          "versions",
+          "must",
+          "not",
+          "be",
+          "compared"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "DIFFERENT SUITE VERSIONS MUST NOT BE COMPARED CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "record-01",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-01\". Set usable to (8 times 14) minus 3. Set reviewed to false. Set owners to the ordered array [\"ops-01\", \"audit-01\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "record": "R-01",
+          "usable": 109,
+          "reviewed": false,
+          "owners": [
+            "ops-01",
+            "audit-01"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-01\", \"usable\": 109, \"reviewed\": false, \"owners\": [\"ops-01\", \"audit-01\"]}",
+      "wrong": "{\"record\": \"R-01\", \"usable\": 110, \"reviewed\": false, \"owners\": [\"ops-01\", \"audit-01\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-02",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-02\". Set usable to (9 times 17) minus 4. Set reviewed to true. Set owners to the ordered array [\"ops-02\", \"audit-02\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "record": "R-02",
+          "usable": 149,
+          "reviewed": true,
+          "owners": [
+            "ops-02",
+            "audit-02"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-02\", \"usable\": 149, \"reviewed\": true, \"owners\": [\"ops-02\", \"audit-02\"]}",
+      "wrong": "{\"record\": \"R-02\", \"usable\": 150, \"reviewed\": true, \"owners\": [\"ops-02\", \"audit-02\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-03",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-03\". Set usable to (10 times 20) minus 5. Set reviewed to false. Set owners to the ordered array [\"ops-03\", \"audit-03\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "record": "R-03",
+          "usable": 195,
+          "reviewed": false,
+          "owners": [
+            "ops-03",
+            "audit-03"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-03\", \"usable\": 195, \"reviewed\": false, \"owners\": [\"ops-03\", \"audit-03\"]}",
+      "wrong": "{\"record\": \"R-03\", \"usable\": 196, \"reviewed\": false, \"owners\": [\"ops-03\", \"audit-03\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-04",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-04\". Set usable to (11 times 23) minus 6. Set reviewed to true. Set owners to the ordered array [\"ops-04\", \"audit-04\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "record": "R-04",
+          "usable": 247,
+          "reviewed": true,
+          "owners": [
+            "ops-04",
+            "audit-04"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-04\", \"usable\": 247, \"reviewed\": true, \"owners\": [\"ops-04\", \"audit-04\"]}",
+      "wrong": "{\"record\": \"R-04\", \"usable\": 248, \"reviewed\": true, \"owners\": [\"ops-04\", \"audit-04\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-05",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-05\". Set usable to (12 times 26) minus 7. Set reviewed to false. Set owners to the ordered array [\"ops-05\", \"audit-05\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "record": "R-05",
+          "usable": 305,
+          "reviewed": false,
+          "owners": [
+            "ops-05",
+            "audit-05"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-05\", \"usable\": 305, \"reviewed\": false, \"owners\": [\"ops-05\", \"audit-05\"]}",
+      "wrong": "{\"record\": \"R-05\", \"usable\": 306, \"reviewed\": false, \"owners\": [\"ops-05\", \"audit-05\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-06",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-06\". Set usable to (13 times 29) minus 8. Set reviewed to true. Set owners to the ordered array [\"ops-06\", \"audit-06\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "record": "R-06",
+          "usable": 369,
+          "reviewed": true,
+          "owners": [
+            "ops-06",
+            "audit-06"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-06\", \"usable\": 369, \"reviewed\": true, \"owners\": [\"ops-06\", \"audit-06\"]}",
+      "wrong": "{\"record\": \"R-06\", \"usable\": 370, \"reviewed\": true, \"owners\": [\"ops-06\", \"audit-06\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-07",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-07\". Set usable to (14 times 32) minus 9. Set reviewed to false. Set owners to the ordered array [\"ops-07\", \"audit-07\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "record": "R-07",
+          "usable": 439,
+          "reviewed": false,
+          "owners": [
+            "ops-07",
+            "audit-07"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-07\", \"usable\": 439, \"reviewed\": false, \"owners\": [\"ops-07\", \"audit-07\"]}",
+      "wrong": "{\"record\": \"R-07\", \"usable\": 440, \"reviewed\": false, \"owners\": [\"ops-07\", \"audit-07\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-08",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-08\". Set usable to (15 times 35) minus 10. Set reviewed to true. Set owners to the ordered array [\"ops-08\", \"audit-08\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "record": "R-08",
+          "usable": 515,
+          "reviewed": true,
+          "owners": [
+            "ops-08",
+            "audit-08"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-08\", \"usable\": 515, \"reviewed\": true, \"owners\": [\"ops-08\", \"audit-08\"]}",
+      "wrong": "{\"record\": \"R-08\", \"usable\": 516, \"reviewed\": true, \"owners\": [\"ops-08\", \"audit-08\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-09",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-09\". Set usable to (16 times 38) minus 11. Set reviewed to false. Set owners to the ordered array [\"ops-09\", \"audit-09\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "record": "R-09",
+          "usable": 597,
+          "reviewed": false,
+          "owners": [
+            "ops-09",
+            "audit-09"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-09\", \"usable\": 597, \"reviewed\": false, \"owners\": [\"ops-09\", \"audit-09\"]}",
+      "wrong": "{\"record\": \"R-09\", \"usable\": 598, \"reviewed\": false, \"owners\": [\"ops-09\", \"audit-09\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-10",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-10\". Set usable to (17 times 41) minus 12. Set reviewed to true. Set owners to the ordered array [\"ops-10\", \"audit-10\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "record": "R-10",
+          "usable": 685,
+          "reviewed": true,
+          "owners": [
+            "ops-10",
+            "audit-10"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-10\", \"usable\": 685, \"reviewed\": true, \"owners\": [\"ops-10\", \"audit-10\"]}",
+      "wrong": "{\"record\": \"R-10\", \"usable\": 686, \"reviewed\": true, \"owners\": [\"ops-10\", \"audit-10\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-11",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-11\". Set usable to (18 times 44) minus 13. Set reviewed to false. Set owners to the ordered array [\"ops-11\", \"audit-11\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "record": "R-11",
+          "usable": 779,
+          "reviewed": false,
+          "owners": [
+            "ops-11",
+            "audit-11"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-11\", \"usable\": 779, \"reviewed\": false, \"owners\": [\"ops-11\", \"audit-11\"]}",
+      "wrong": "{\"record\": \"R-11\", \"usable\": 780, \"reviewed\": false, \"owners\": [\"ops-11\", \"audit-11\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-12",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-12\". Set usable to (19 times 47) minus 14. Set reviewed to true. Set owners to the ordered array [\"ops-12\", \"audit-12\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "record": "R-12",
+          "usable": 879,
+          "reviewed": true,
+          "owners": [
+            "ops-12",
+            "audit-12"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-12\", \"usable\": 879, \"reviewed\": true, \"owners\": [\"ops-12\", \"audit-12\"]}",
+      "wrong": "{\"record\": \"R-12\", \"usable\": 880, \"reviewed\": true, \"owners\": [\"ops-12\", \"audit-12\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-13",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-13\". Set usable to (20 times 50) minus 15. Set reviewed to false. Set owners to the ordered array [\"ops-13\", \"audit-13\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "record": "R-13",
+          "usable": 985,
+          "reviewed": false,
+          "owners": [
+            "ops-13",
+            "audit-13"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-13\", \"usable\": 985, \"reviewed\": false, \"owners\": [\"ops-13\", \"audit-13\"]}",
+      "wrong": "{\"record\": \"R-13\", \"usable\": 986, \"reviewed\": false, \"owners\": [\"ops-13\", \"audit-13\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-14",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-14\". Set usable to (21 times 53) minus 16. Set reviewed to true. Set owners to the ordered array [\"ops-14\", \"audit-14\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "record": "R-14",
+          "usable": 1097,
+          "reviewed": true,
+          "owners": [
+            "ops-14",
+            "audit-14"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-14\", \"usable\": 1097, \"reviewed\": true, \"owners\": [\"ops-14\", \"audit-14\"]}",
+      "wrong": "{\"record\": \"R-14\", \"usable\": 1098, \"reviewed\": true, \"owners\": [\"ops-14\", \"audit-14\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-15",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-15\". Set usable to (22 times 56) minus 17. Set reviewed to false. Set owners to the ordered array [\"ops-15\", \"audit-15\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "record": "R-15",
+          "usable": 1215,
+          "reviewed": false,
+          "owners": [
+            "ops-15",
+            "audit-15"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-15\", \"usable\": 1215, \"reviewed\": false, \"owners\": [\"ops-15\", \"audit-15\"]}",
+      "wrong": "{\"record\": \"R-15\", \"usable\": 1216, \"reviewed\": false, \"owners\": [\"ops-15\", \"audit-15\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "record-16",
+      "prompt": "Return JSON only with exactly keys record, usable, reviewed, owners. For record use \"R-16\". Set usable to (23 times 59) minus 18. Set reviewed to true. Set owners to the ordered array [\"ops-16\", \"audit-16\"]. Preserve string, integer, boolean and array types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "record": "R-16",
+          "usable": 1339,
+          "reviewed": true,
+          "owners": [
+            "ops-16",
+            "audit-16"
+          ]
+        }
+      },
+      "reference": "{\"record\": \"R-16\", \"usable\": 1339, \"reviewed\": true, \"owners\": [\"ops-16\", \"audit-16\"]}",
+      "wrong": "{\"record\": \"R-16\", \"usable\": 1340, \"reviewed\": true, \"owners\": [\"ops-16\", \"audit-16\"]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "action-01",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_practice_01\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_practice_01\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_practice_01\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_practice_01\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-01 privately in the archive, retain the newest 27 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "archive_practice_01",
+          "arguments": {
+            "batch": "B-01",
+            "limit": 27,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_practice_01",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_practice_01",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_practice_01",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_practice_01",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_practice_01\", \"arguments\": {\"batch\": \"B-01\", \"limit\": 27, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_practice_01\", \"arguments\": {\"batch\": \"B-01\", \"limit\": 27, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-02",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_practice_02\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_practice_02\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_practice_02\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_practice_02\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-02 privately in the archive, retain the newest 34 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "archive_practice_02",
+          "arguments": {
+            "batch": "B-02",
+            "limit": 34,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_practice_02",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_practice_02",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_practice_02",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_practice_02",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_practice_02\", \"arguments\": {\"batch\": \"B-02\", \"limit\": 34, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_practice_02\", \"arguments\": {\"batch\": \"B-02\", \"limit\": 34, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-03",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_practice_03\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_practice_03\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_practice_03\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_practice_03\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-03 privately in the archive, retain the newest 41 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "archive_practice_03",
+          "arguments": {
+            "batch": "B-03",
+            "limit": 41,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_practice_03",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_practice_03",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_practice_03",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_practice_03",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_practice_03\", \"arguments\": {\"batch\": \"B-03\", \"limit\": 41, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_practice_03\", \"arguments\": {\"batch\": \"B-03\", \"limit\": 41, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-04",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_practice_04\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_practice_04\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_practice_04\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_practice_04\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-04 privately in the archive, retain the newest 48 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "archive_practice_04",
+          "arguments": {
+            "batch": "B-04",
+            "limit": 48,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_practice_04",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_practice_04",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_practice_04",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_practice_04",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_practice_04\", \"arguments\": {\"batch\": \"B-04\", \"limit\": 48, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_practice_04\", \"arguments\": {\"batch\": \"B-04\", \"limit\": 48, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-05",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_practice_05\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_practice_05\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_practice_05\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_practice_05\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-05 privately in the archive, retain the newest 55 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "archive_practice_05",
+          "arguments": {
+            "batch": "B-05",
+            "limit": 55,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_practice_05",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_practice_05",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_practice_05",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_practice_05",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_practice_05\", \"arguments\": {\"batch\": \"B-05\", \"limit\": 55, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_practice_05\", \"arguments\": {\"batch\": \"B-05\", \"limit\": 55, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-06",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_practice_06\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_practice_06\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_practice_06\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_practice_06\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-06 privately in the archive, retain the newest 62 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "archive_practice_06",
+          "arguments": {
+            "batch": "B-06",
+            "limit": 62,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_practice_06",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_practice_06",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_practice_06",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_practice_06",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_practice_06\", \"arguments\": {\"batch\": \"B-06\", \"limit\": 62, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_practice_06\", \"arguments\": {\"batch\": \"B-06\", \"limit\": 62, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-07",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_practice_07\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_practice_07\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_practice_07\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_practice_07\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-07 privately in the archive, retain the newest 69 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "archive_practice_07",
+          "arguments": {
+            "batch": "B-07",
+            "limit": 69,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_practice_07",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_practice_07",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_practice_07",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_practice_07",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_practice_07\", \"arguments\": {\"batch\": \"B-07\", \"limit\": 69, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_practice_07\", \"arguments\": {\"batch\": \"B-07\", \"limit\": 69, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-08",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_practice_08\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_practice_08\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_practice_08\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_practice_08\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-08 privately in the archive, retain the newest 76 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "archive_practice_08",
+          "arguments": {
+            "batch": "B-08",
+            "limit": 76,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_practice_08",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_practice_08",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_practice_08",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_practice_08",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_practice_08\", \"arguments\": {\"batch\": \"B-08\", \"limit\": 76, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_practice_08\", \"arguments\": {\"batch\": \"B-08\", \"limit\": 76, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-09",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_heldout_09\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_heldout_09\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_heldout_09\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_heldout_09\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-09 privately in the archive, retain the newest 83 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "archive_heldout_09",
+          "arguments": {
+            "batch": "B-09",
+            "limit": 83,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_heldout_09",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_heldout_09",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_heldout_09",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_heldout_09",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_heldout_09\", \"arguments\": {\"batch\": \"B-09\", \"limit\": 83, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_heldout_09\", \"arguments\": {\"batch\": \"B-09\", \"limit\": 83, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-10",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_heldout_10\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_heldout_10\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_heldout_10\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_heldout_10\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-10 privately in the archive, retain the newest 90 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "archive_heldout_10",
+          "arguments": {
+            "batch": "B-10",
+            "limit": 90,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_heldout_10",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_heldout_10",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_heldout_10",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_heldout_10",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_heldout_10\", \"arguments\": {\"batch\": \"B-10\", \"limit\": 90, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_heldout_10\", \"arguments\": {\"batch\": \"B-10\", \"limit\": 90, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-11",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_heldout_11\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_heldout_11\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_heldout_11\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_heldout_11\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-11 privately in the archive, retain the newest 97 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "archive_heldout_11",
+          "arguments": {
+            "batch": "B-11",
+            "limit": 97,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_heldout_11",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_heldout_11",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_heldout_11",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_heldout_11",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_heldout_11\", \"arguments\": {\"batch\": \"B-11\", \"limit\": 97, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_heldout_11\", \"arguments\": {\"batch\": \"B-11\", \"limit\": 97, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-12",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_heldout_12\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_heldout_12\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_heldout_12\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_heldout_12\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-12 privately in the archive, retain the newest 104 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "archive_heldout_12",
+          "arguments": {
+            "batch": "B-12",
+            "limit": 104,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_heldout_12",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_heldout_12",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_heldout_12",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_heldout_12",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_heldout_12\", \"arguments\": {\"batch\": \"B-12\", \"limit\": 104, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_heldout_12\", \"arguments\": {\"batch\": \"B-12\", \"limit\": 104, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-13",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_heldout_13\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_heldout_13\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_heldout_13\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_heldout_13\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-13 privately in the archive, retain the newest 111 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "archive_heldout_13",
+          "arguments": {
+            "batch": "B-13",
+            "limit": 111,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_heldout_13",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_heldout_13",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_heldout_13",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_heldout_13",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_heldout_13\", \"arguments\": {\"batch\": \"B-13\", \"limit\": 111, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_heldout_13\", \"arguments\": {\"batch\": \"B-13\", \"limit\": 111, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-14",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_heldout_14\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_heldout_14\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_heldout_14\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_heldout_14\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-14 privately in the archive, retain the newest 118 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "archive_heldout_14",
+          "arguments": {
+            "batch": "B-14",
+            "limit": 118,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_heldout_14",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_heldout_14",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_heldout_14",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_heldout_14",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_heldout_14\", \"arguments\": {\"batch\": \"B-14\", \"limit\": 118, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_heldout_14\", \"arguments\": {\"batch\": \"B-14\", \"limit\": 118, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-15",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_heldout_15\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_heldout_15\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_heldout_15\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_heldout_15\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-15 privately in the archive, retain the newest 125 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "archive_heldout_15",
+          "arguments": {
+            "batch": "B-15",
+            "limit": 125,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_heldout_15",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_heldout_15",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_heldout_15",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_heldout_15",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_heldout_15\", \"arguments\": {\"batch\": \"B-15\", \"limit\": 125, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_heldout_15\", \"arguments\": {\"batch\": \"B-15\", \"limit\": 125, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    },
+    {
+      "id": "action-16",
+      "prompt": "Available tool schemas:\n{\"tools\":[{\"name\":\"export_heldout_16\",\"description\":\"Exports the batch to a public destination.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"archive_heldout_16\",\"description\":\"Stages the batch privately without executing it.\",\"arguments\":{\"batch\":\"string\",\"limit\":\"integer\",\"dry_run\":\"boolean\"}},{\"name\":\"inspect_heldout_16\",\"description\":\"Reads archive metadata only.\",\"arguments\":{\"batch\":\"string\"}},{\"name\":\"delete_heldout_16\",\"description\":\"Deletes the selected batch.\",\"arguments\":{\"batch\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage batch B-16 privately in the archive, retain the newest 132 records, and do not execute the change. Return JSON only with exactly name and arguments.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "archive_heldout_16",
+          "arguments": {
+            "batch": "B-16",
+            "limit": 132,
+            "dry_run": true
+          }
+        },
+        "available_tools": [
+          {
+            "name": "export_heldout_16",
+            "description": "Exports the batch to a public destination.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "archive_heldout_16",
+            "description": "Stages the batch privately without executing it.",
+            "arguments": {
+              "batch": "string",
+              "limit": "integer",
+              "dry_run": "boolean"
+            }
+          },
+          {
+            "name": "inspect_heldout_16",
+            "description": "Reads archive metadata only.",
+            "arguments": {
+              "batch": "string"
+            }
+          },
+          {
+            "name": "delete_heldout_16",
+            "description": "Deletes the selected batch.",
+            "arguments": {
+              "batch": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\": \"archive_heldout_16\", \"arguments\": {\"batch\": \"B-16\", \"limit\": 132, \"dry_run\": true}}",
+      "wrong": "{\"name\": \"export_heldout_16\", \"arguments\": {\"batch\": \"B-16\", \"limit\": 132, \"dry_run\": true}}",
+      "malformed": "Run the tool now."
+    }
+  ]
+}

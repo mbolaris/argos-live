@@ -381,6 +381,110 @@ def challenge_items(version='1.3.1'):
     return groups
 
 
+def challenge_hard_items():
+    """Build 80 original higher-composition tasks with a fixed 40/40 partition split."""
+    groups = {kind: [] for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
+    prefixes = {'numeric': 'calc', 'choice': 'logic', 'instruction': 'format',
+                'json': 'record', 'tool-call': 'action'}
+
+    def add(kind, index, prompt, expected, reference, wrong, malformed, **fields):
+        partition = 'practice' if index <= 8 else 'heldout'
+        scorer = {'kind': kind, 'partition': partition}
+        scorer.update(expected if kind == 'instruction' else {'expected': expected})
+        scorer.update(fields)
+        groups[kind].append({'id': f'{prefixes[kind]}-{index:02}', 'prompt': prompt,
+            'scorer': scorer,
+            'reference': reference, 'wrong': wrong, 'malformed': malformed})
+
+    equations = [(840,17,9,7,2), (1250,12,18,5,3), (960,15,24,8,4), (735,22,15,5,2),
+        (1440,11,27,9,3), (1080,14,16,7,4), (1680,13,20,8,5), (910,19,21,6,3),
+        (1320,16,28,7,4), (1560,18,30,9,5), (1170,23,24,8,3), (1890,12,35,10,4),
+        (1020,21,18,6,2), (1750,17,32,7,5), (1260,25,27,9,4), (2040,14,33,11,3)]
+    for index, (stock, used, reserved, kits, group_size) in enumerate(equations, 1):
+        answer = (stock - used * kits - reserved) // group_size
+        prompt = (f'A depot starts with {stock} sealed units. It issues {kits} kits of {used} units, '
+                  f'reserves {reserved} for inspection, then sorts the remainder into groups of '
+                  f'{group_size}. How many complete groups are there? Give one number only.')
+        add('numeric', index, prompt, str(answer), str(answer), str(answer + 1), 'About ' + str(answer))
+
+    logic = [
+        ('A release needs two approvals and a checksum. Which record is ready? A: 2 approvals, checksum missing. B: 3 approvals, checksum valid. C: 1 approval, checksum valid. D: 2 approvals, checksum invalid.', 'B'),
+        ('Rules: review before publish; backup before delete. Which schedule is valid? A: publish, review, backup, delete. B: review, backup, publish, delete. C: backup, delete, review, publish. D: review, publish, delete, backup.', 'B'),
+        ('A lot passes only if defects are below 2% and sample size is at least 500. Which passes? A: 1.9%, 480. B: 2.0%, 900. C: 1.8%, 520. D: 0.5%, 300.', 'C'),
+        ('Only the newest signed policy overrides an older one. R is signed Monday; S is unsigned Tuesday; T is signed Wednesday. Which controls? A: R. B: S. C: T. D: whichever is stricter.', 'C'),
+        ('A route must take under 50 minutes and have no transfer. A: 42 min, 1 transfer. B: 50 min, none. C: 48 min, none. D: 55 min, none.', 'C'),
+        ('A job runs only if its lock is held and input verified. Lock held; input verification failed. A: run. B: wait for verification. C: cancel lock. D: run read-only.', 'B'),
+        ('All archived items have digests; some digested items are not archived. Which must be true? A: no digest means archived. B: archived items have digests. C: all digested items are archived. D: no archived items have digests.', 'B'),
+        ('A shipment qualifies when sealed, labeled, and below 20 kg. Which qualifies? A: sealed, labeled, 20 kg. B: unsealed, labeled, 12 kg. C: sealed, unlabeled, 10 kg. D: sealed, labeled, 19.8 kg.', 'D'),
+        ('If the primary sensor is stale, use the secondary only when calibrated. Primary is stale; secondary calibration is unknown. A: use primary. B: use secondary. C: report no verified reading. D: average both.', 'C'),
+        ('A report may be shared internally after review, externally only after owner approval. Review passed; approval pending. A: share externally. B: share internally only. C: share nowhere. D: publish publicly.', 'B'),
+        ('A batch is valid when exactly one of X or Y is present and Z is present. Which is valid? A: X and Z. B: X, Y and Z. C: Y only. D: X only.', 'A'),
+        ('The spare is in cabinets A–D. It is not in A or C. B is sealed; D is open. Which location is supported? A: A. B: B. C: C. D: D.', 'D'),
+        ('Priority is urgent over normal, then earlier deadline. Which ranks first? A: normal, 09:00. B: urgent, 11:00. C: urgent, 10:00. D: normal, 08:00.', 'C'),
+        ('A checksum mismatch blocks restore unless a second independent copy matches. Primary mismatches; second copy matches. A: restore primary. B: restore second copy. C: refuse all restore. D: ignore checksums.', 'B'),
+        ('A log is complete only if every page has a timestamp and the final page is signed. All timestamps exist; final page unsigned. A: complete. B: incomplete. C: complete if page one signed. D: timestamps are irrelevant.', 'B'),
+        ('A test is independent only if it shares neither seed nor prompt with training. It shares the prompt but has a new seed. A: independent. B: not independent. C: independent if score is low. D: cannot tell without the answer.', 'B')]
+    for index, (prompt, expected) in enumerate(logic, 1):
+        add('choice', index, prompt + '\nAnswer with one letter only.', expected, expected,
+            'A' if expected != 'A' else 'D', 'Option B')
+
+    constraints = [
+        (['verify','source','before','release'],7,False), (['private','records','stay','local'],8,True),
+        (['uncertain','values','remain','unknown'],7,False), (['compare','matching','versions','only'],8,True),
+        (['backup','restore','after','review'],7,False), (['reject','unsigned','policy','changes'],8,True),
+        (['measure','latency','separately','from','accuracy'],9,False), (['sealed','prompts','never','enter','reports'],9,True),
+        (['confirm','identity','before','restarting'],7,False), (['report','partial','coverage','plainly'],8,True),
+        (['preserve','owner','changes','during','evaluation'],9,False), (['cancelled','runs','cannot','rank','beside','complete'],10,True),
+        (['state','what','the','evidence','supports'],8,False), (['restore','the','same','verified','profile'],8,True),
+        (['tools','remain','plans','unless','execution','is','verified'],11,False),
+        (['different','suite','versions','must','not','be','compared'],11,True)]
+    for index, (keywords, exact, uppercase) in enumerate(constraints, 1):
+        reference = ' '.join(keywords + ['carefully'] * (exact - len(keywords)))
+        if uppercase:
+            reference = reference.upper()
+        prompt = (f'Write exactly {exact} words on one line. Include every whole word: '
+                  + ', '.join(f'"{word}"' for word in keywords) + '.')
+        prompt += ' Use uppercase letters only.' if uppercase else ''
+        add('instruction', index, prompt,
+            {'min_words': exact, 'max_words': exact, 'keywords': keywords,
+             'one_line': True, 'uppercase': uppercase}, reference,
+            'UNRELATED WORDS ONLY' if uppercase else 'unrelated words only', '')
+
+    for index in range(1, 17):
+        a, b, c = index + 7, index * 3 + 11, index + 2
+        expected = {'record': f'R-{index:02}', 'usable': a * b - c,
+                    'reviewed': index % 2 == 0, 'owners': [f'ops-{index:02}', f'audit-{index:02}']}
+        prompt = (f'Return JSON only with exactly keys record, usable, reviewed, owners. For record use '
+                  f'"R-{index:02}". Set usable to ({a} times {b}) minus {c}. Set reviewed to '
+                  f'{str(expected["reviewed"]).lower()}. Set owners to the ordered array '
+                  f'["ops-{index:02}", "audit-{index:02}"]. Preserve string, integer, boolean and array types.')
+        add('json', index, prompt, expected, json.dumps(expected),
+            json.dumps(dict(expected, usable=expected['usable'] + 1)), '{not json}')
+
+    for index in range(1, 17):
+        partition = 'practice' if index <= 8 else 'heldout'
+        target, distractor = f'archive_{partition}_{index:02}', f'export_{partition}_{index:02}'
+        arguments = {'batch': f'B-{index:02}', 'limit': index * 7 + 20, 'dry_run': True}
+        schemas = [
+            {'name': distractor, 'description': 'Exports the batch to a public destination.',
+             'arguments': {'batch': 'string', 'limit': 'integer', 'dry_run': 'boolean'}},
+            {'name': target, 'description': 'Stages the batch privately without executing it.',
+             'arguments': {'batch': 'string', 'limit': 'integer', 'dry_run': 'boolean'}},
+            {'name': f'inspect_{partition}_{index:02}', 'description': 'Reads archive metadata only.',
+             'arguments': {'batch': 'string'}},
+            {'name': f'delete_{partition}_{index:02}', 'description': 'Deletes the selected batch.',
+             'arguments': {'batch': 'string', 'confirm': 'boolean'}}]
+        expected = {'name': target, 'arguments': arguments}
+        prompt = ('Available tool schemas:\n' + json.dumps({'tools': schemas}, separators=(',', ':'))
+                  + f'\nRequest: Stage batch B-{index:02} privately in the archive, retain the newest '
+                    f'{arguments["limit"]} records, and do not execute the change. Return JSON only '
+                    'with exactly name and arguments.')
+        add('tool-call', index, prompt, expected, json.dumps(expected),
+            json.dumps({'name': distractor, 'arguments': arguments}), 'Run the tool now.',
+            available_tools=schemas)
+    return groups
+
+
 def tool_schema_items():
     """Schema-grounded tool calls with fully disjoint practice and held-out vocabularies."""
     descriptions = {
@@ -786,6 +890,10 @@ def build(suite, version=None):
     if suite == 'challenge':
         version = version or '1.3.1'
         selected = [item for group in challenge_items(version).values() for item in group]
+    elif suite == 'challenge-hard':
+        if version is not None:
+            raise ValueError('No alternate version requested')
+        selected = [item for group in challenge_hard_items().values() for item in group]
     elif suite == 'tool-schema':
         if version is not None:
             raise ValueError('No alternate version requested')
@@ -821,5 +929,5 @@ if __name__ == '__main__':
     for version in ('1.2.0', '1.3.0'):
         path = archive / f'challenge-{version}.json'
         path.write_text(json.dumps(build('challenge', version=version), indent=2) + '\n', encoding='utf-8')
-    for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
+    for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence'):
         (destination / (suite + '.json')).write_text(json.dumps(build(suite), indent=2) + '\n', encoding='utf-8')

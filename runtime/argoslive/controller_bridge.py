@@ -31,8 +31,8 @@ PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
 EVALUATION_WAIT_SECONDS = 480
 TOOL_QUEUE_WAIT_SECONDS = 20
 TASK_CAMPAIGN_SUITES = frozenset({
-    'quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
-    'documents-short', 'owner-recovery-decision'})
+    'quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence',
+    'documents-short', 'documents-long', 'owner-recovery-decision'})
 MAX_WORKER_TURN_RECORDS = 32
 MAX_SDK_RUNS_PER_WORKER = 4
 # A standard run can emit 70 question and answer events. Keep enough bounded
@@ -743,7 +743,8 @@ class Bridge:
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
                    'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40,
                                               'tool-schema': 40, 'tool-plan': 40,
-                                              'tool-sequence': 40, 'documents-short': 32,
+                                              'tool-sequence': 40, 'challenge-hard': 80,
+                                              'documents-short': 32, 'documents-long': 40,
                                               'owner-recovery-decision': 8}[
                        params.get('suite', 'quick')], 'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
