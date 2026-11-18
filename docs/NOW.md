@@ -16,7 +16,10 @@ packs (#198), owner-recovery diagnostics (#201) and the OpenClaw 2026.11.3 pin (
 `main`, so the second wave (SIM11 to SIM13, SIM16, SIM31, WATCH2) is unblocked. EV2 (#200) and
 SIM11 (#199) are open drafts.
 
-**Device and release state.** Nothing below has been changed on Toronado since November 18.
+**Device and release state.** On November 18 an owner-approved update to `main` (`93d3974`) passed
+preflight and installed, but failed health (`campaign-invalid-state`, no saved evaluation) and was
+rolled back. Toronado is again on the tree below. `main`'s runtime is therefore **not deployable**
+until that failure is diagnosed; see the [runbook](HANDS-OFF-RUNBOOK.md).
 
 | Item | State | Source |
 | --- | --- | --- |

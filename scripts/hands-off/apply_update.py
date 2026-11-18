@@ -176,7 +176,9 @@ while time.time() < deadline:
 else:
     raise SystemExit('evaluation still active after 40 minutes')
 result = c.get('result') or {}
-say(stage='evaluation-finished', phase=c.get('phase'), failure_code=c.get('failure_code'), result_keys=sorted(result)[:12])
+say(stage='evaluation-finished', phase=c.get('phase'), failure_code=c.get('failure_code'),
+    failure_stage=result.get('failure_stage'), status=result.get('status'), message=c.get('message'),
+    result_keys=sorted(result)[:12])
 ids = (result.get('campaign') or {}).get('saved_evaluation_ids') or []
 ok = bool(result) and not c.get('failure_code') and c.get('phase') != 'incomplete' and result.get('status') != 'incomplete' and bool(ids)
 say(stage='health', ok=bool(ok), saved_evaluations=len(ids), status=result.get('status'))

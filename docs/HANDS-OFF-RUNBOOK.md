@@ -83,12 +83,29 @@ the next runtime update, so that `main` describes what the device runs.
 from the unmerged branch `codex/image-openclaw-2026-11-3` (head `edd5893`): OpenClaw 2026.11.3 and
 the runtime tree of `c6886130e` (`927f6ee8…`, pin 2026.11.3). `main` still pinned 2026.10.8. The
 operator built bundle `28456f6` against base `c4ccf50`, replaced its `expect_before` with the
-observed digest, and applied it. That swapped a 2026.11.3-pinned runtime for a 2026.10.8-pinned one,
-so the owned gateway refused to start after the desktop restart. Health failed, the operator
-confirmed the versions with read-only probes and rolled back to `927f6ee8…`, and device evaluation
-stopped under the standing orders. Gate 3 now refuses this before step 5, and `locate` replaces the
-hand-edited base. A read-only preflight on November 18 (with owner approval) confirmed the
-rolled-back state: idle, OpenClaw 2026.11.3, installed tree `927f6ee8…`.
+observed digest, and applied it. That swapped a 2026.11.3-pinned runtime for a 2026.10.8-pinned one.
+Health failed, the operator confirmed the versions with read-only probes and rolled back to
+`927f6ee8…`, and device evaluation stopped under the standing orders. Gate 3 now refuses a pin
+mismatch before step 5, and `locate` replaces the hand-edited base.
+
+**Second attempt, November 18 (owner-approved).** The steps ran in this order:
+
+1. Records backup `records-20261118T171557Z.encrypted.json`: 3,633 files, authenticated decryption
+   and every manifest hash verified.
+2. Preflight passed: idle, OpenClaw 2026.11.3 matches the pin, installed tree `927f6ee8…`.
+3. `apply` of bundle `93d3974` (base `c6886130e`, stamp `u20261118a`): tree `66e148ac…` (141 files)
+   installed, desktop restarted idle.
+4. `health`: tree and routes passed, but the `quick` evaluation ended `incomplete` with
+   `campaign-invalid-state` and no saved evaluations. The ready step reported `model: null`.
+5. `rollback` restored `927f6ee8…` and the desktop restarted idle. No further device work.
+
+The failure code means a `ValueError`, `KeyError` or `TypeError` (`proctor_campaign.safe_failure_code`).
+The OpenClaw version refusal is one of those, so the pin mismatch may not have been the only cause
+the first time either. Something in the 20 files between `c6886130e` and `main` fails on Toronado
+but not in CI. Those files are the #195 to #198 shakedown, ledger and pack work and #201's
+diagnostics. `health` now prints `failure_stage`, `status` and `message`. The cause is not known
+yet: finding it needs read-only reads of the campaign result and the private trial and gateway
+logs on Toronado, with owner approval.
 
 At boot, `argos-refresh-runtime.service` re-syncs image-owned files from the Live image. The
 version-aware refresher implementation is merged in `main` via PR #177: after a runtime update
