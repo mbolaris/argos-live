@@ -99,13 +99,37 @@ mismatch before step 5, and `locate` replaces the hand-edited base.
    `campaign-invalid-state` and no saved evaluations. The ready step reported `model: null`.
 5. `rollback` restored `927f6ee8…` and the desktop restarted idle. No further device work.
 
-The failure code means a `ValueError`, `KeyError` or `TypeError` (`proctor_campaign.safe_failure_code`).
-The OpenClaw version refusal is one of those, so the pin mismatch may not have been the only cause
-the first time either. Something in the 20 files between `c6886130e` and `main` fails on Toronado
-but not in CI. Those files are the #195 to #198 shakedown, ledger and pack work and #201's
-diagnostics. `health` now prints `failure_stage`, `status` and `message`. The cause is not known
-yet: finding it needs read-only reads of the campaign result and the private trial and gateway
-logs on Toronado, with owner approval.
+**Root cause (read-only diagnosis, owner-approved, November 18).** The cause is device state, not
+`main`'s code.
+
+- The campaign's owned gateway exited 78 (`gateway-supervisor.log`). `gateway.log` gives the reason:
+  the campaign profile's agent database
+  (`~/.local/state/argos-live/proctor/profiles/campaign/4ccd47155a2ce93ffe8b948e/agents/main/agent/openclaw-agent.sqlite`)
+  "uses schema version 25; stop active agents and run openclaw doctor --fix to migrate session
+  identities". `run_improvement` turns this into `campaign-invalid-state` and logs nothing more.
+- That profile was created November 15 at 02:51 UTC and last written at 03:08 UTC, by OpenClaw
+  2026.10.x, before the 2026.11.3 image was built at 16:17 UTC.
+- The profile directory is named by a hash of model, generation settings and tool grants
+  (`proctor_service.private_profile`), not by OpenClaw version. It persists across runtime updates,
+  and `proctor_service.py` is identical in `c6886130e` and `main`.
+
+So every campaign has been blocked since the OpenClaw upgrade, whichever runtime is installed, and
+so is the health check of any runtime update (it runs a `quick` campaign). The first November 18
+failure very likely had the same cause in addition to its pin mismatch. That is an inference from
+the file timestamps; the installed runtime was not re-tested. The practice profile `88f04476…` was
+created under 2026.11.3 on November 17 and is current.
+
+**Gaps this exposed:**
+
+- Upgrading OpenClaw does not migrate or retire the persistent Proctor profiles.
+- Neither preflight nor any CI job checks that a service profile can start under the installed
+  OpenClaw. CI always starts from fresh profiles.
+- `run_improvement` hides the exception behind a generic code without a private log line.
+
+`health` now prints `failure_stage`, `status` and `message`. Fixing the profile (migrate it with
+`openclaw doctor --fix`, or make profile identity include the OpenClaw version so that a fresh
+profile is created) is an owner decision. Migrating changes owner state outside the runtime trees,
+and changing the identity is a runtime change.
 
 At boot, `argos-refresh-runtime.service` re-syncs image-owned files from the Live image. The
 version-aware refresher implementation is merged in `main` via PR #177: after a runtime update

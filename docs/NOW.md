@@ -18,8 +18,11 @@ SIM11 (#199) are open drafts.
 
 **Device and release state.** On November 18 an owner-approved update to `main` (`93d3974`) passed
 preflight and installed, but failed health (`campaign-invalid-state`, no saved evaluation) and was
-rolled back. Toronado is again on the tree below. `main`'s runtime is therefore **not deployable**
-until that failure is diagnosed; see the [runbook](HANDS-OFF-RUNBOOK.md).
+rolled back. Toronado is again on the tree below. The cause is not `main`'s code: the persistent
+campaign profile's OpenClaw agent database is still at the 2026.10.x schema, and OpenClaw 2026.11.3
+refuses to start a gateway on it. Until that profile is migrated or replaced, **no campaign and no
+update health check can pass on Toronado**, whichever runtime is installed. See the
+[runbook](HANDS-OFF-RUNBOOK.md).
 
 | Item | State | Source |
 | --- | --- | --- |
