@@ -121,3 +121,10 @@ test('patch accepts the checksum-reviewed 2026.10.5 source layout', async (t) =>
   assert.match(await readFile(path.join(sample.directory, 'argos-liveness-patch.json'), 'utf8'),
     /"upstream_version": "2026\.10\.5"/);
 });
+
+test('patch accepts the reviewed Toronado 2026.11.3 source layout', async (t) => {
+  const sample = await fixture(t, '2026.11.3');
+  execFileSync(process.execPath, [patcher, sample.directory], {stdio:'pipe'});
+  assert.match(await readFile(path.join(sample.directory, 'argos-liveness-patch.json'), 'utf8'),
+    /"upstream_version": "2026\.11\.3"/);
+});
