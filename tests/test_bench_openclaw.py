@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import ability, auto_setup, bench_openclaw, doc_trial, owner_recovery_eval, results
-from argoslive.assistant_trial import TrialTurnError
+from argoslive.assistant_trial import OpenClawRunner, TrialTurnError
 
 
 class FakeOpenClaw:
@@ -155,6 +155,26 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         self.assertEqual(result['task_measurement']['terminal_commands_requested'], 0)
         self.assertFalse(result['task_measurement']['recovery_completed'])
         self.assertFalse(result['task_measurement']['automatic_promotion_eligible'])
+
+    def test_real_runner_failure_context_tracks_suite_run_and_current_case(self):
+        class RecordingRunner(OpenClawRunner):
+            def __init__(self, home):
+                super().__init__(home)
+                self.delegate = FakeOwnerRecoveryOpenClaw()
+                self.contexts = []
+
+            def turn(self, prompt):
+                self.contexts.append(dict(self.failure_context))
+                return self.delegate.turn(prompt)
+
+        runner = RecordingRunner(Path.home())
+        result = bench_openclaw.run(suite='owner-recovery-decision', runner=runner)
+        self.assertEqual(len(runner.contexts), 8)
+        self.assertEqual([context['item_id'] for context in runner.contexts],
+                         [item['id'] for item in owner_recovery_eval.load()['items']])
+        self.assertTrue(all(context['suite'] == 'owner-recovery-decision' for context in runner.contexts))
+        self.assertTrue(all(context['suite_version'].endswith('/0.5.0') for context in runner.contexts))
+        self.assertTrue(all(context['run_id'] == result['id'] for context in runner.contexts))
 
     def test_copied_context_presence_and_changes_invalidate_runs(self):
         with tempfile.TemporaryDirectory() as temp:

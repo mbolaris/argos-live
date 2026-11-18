@@ -8,8 +8,10 @@ it. Restores are byte-exact and refused when the owner has edited the file since
 """
 import copy
 import hashlib
+import ipaddress
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import re
 import shutil
@@ -602,6 +604,42 @@ def drain_embedded_group(process):
         time.sleep(.05)
 
 
+def _safe_transport_details(stdout, stderr):
+    """Extract transport codes and redacted endpoint classes from private CLI output."""
+    text = (stdout[-65536:] + b'\n' + stderr[-65536:]).decode('utf-8', errors='replace')
+    codes = sorted(set(re.findall(
+        r'\b(?:ECONNREFUSED|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENOTFOUND|EAI_AGAIN|'
+        r'UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT)\b', text)))
+    windows = []
+    for match in re.finditer(r'ECONNREFUSED|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENOTFOUND|'
+                             r'EAI_AGAIN|fetch failed|connection error|connect timeout', text, re.I):
+        windows.append(text[max(0, match.start() - 120):min(len(text), match.end() + 240)])
+    def endpoint_class(host, port):
+        host = host.strip('[]').lower()
+        try:
+            address = ipaddress.ip_address(host)
+            address_class = ('loopback' if address.is_loopback else
+                             'unspecified' if address.is_unspecified else
+                             'private' if address.is_private else 'public')
+        except ValueError:
+            address_class = 'loopback' if host == 'localhost' else 'hostname'
+        endpoints.add((address_class, int(port) if port else None))
+
+    endpoint_re = re.compile(
+        r'(?P<host>\[[0-9a-fA-F:.]+\]|(?:\d{1,3}\.){3}\d{1,3}|localhost|::1)'
+        r'(?::(?P<port>\d{1,5}))?', re.I)
+    endpoints = set()
+    for window in windows:
+        for match in endpoint_re.finditer(window):
+            endpoint_class(match.group('host'), match.group('port'))
+        for match in re.finditer(r'https?://(?:[^/@\s]+@)?(?P<host>\[[^\]]+\]|[^:/\s?#]+)'
+                                 r'(?::(?P<port>\d{1,5}))?', window, re.I):
+            endpoint_class(match.group('host'), match.group('port'))
+    return {'error_codes': codes,
+            'endpoints': [{'address_class': address_class, 'port': port}
+                          for address_class, port in sorted(endpoints, key=lambda row: (row[0], row[1] or 0))]}
+
+
 class OpenClawRunner:
     """One tool-free embedded evaluation turn, outside the owner's gateway/state."""
 
@@ -611,6 +649,16 @@ class OpenClawRunner:
         self.expected_model = None
         self.model_tag = None
         self.recipe = None
+        self.failure_context = {}
+
+    def set_failure_context(self, *, suite, suite_version, run_id, item_id, category):
+        """Attach bounded public identifiers to the private diagnostic for the next turn."""
+        fields = {'suite': suite, 'suite_version': suite_version, 'run_id': run_id,
+                  'item_id': item_id, 'category': category}
+        if any(not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9_.:/-]{1,160}', value)
+               for value in fields.values()):
+            raise ValueError('Evaluation failure context is invalid')
+        self.failure_context = fields
 
     def bootstrap_templates(self):
         """Load the pinned OpenClaw workspace defaults without copying user data."""
@@ -706,14 +754,26 @@ class OpenClawRunner:
                     continue
         if process.returncode or len(stdout) > 1024**2:
             # Keep CLI evidence private rather than discarding the cause behind
-            # assistant-error. Never return stderr/configuration to the browser.
+            # assistant-error. Never return CLI output/configuration to the browser.
             from .owned_gateway import private_log
             root = storage.safe_local(self.home / '.local/state/argos-live')
             root.mkdir(mode=0o700, parents=True, exist_ok=True)
+            limit = 65536
+            details = {'created_utc': datetime.now(timezone.utc).isoformat(),
+                       'context': self.failure_context, 'session_id': session,
+                       'returncode': process.returncode, 'stdout_bytes': len(stdout),
+                       'stderr_bytes': len(stderr), 'stdout_truncated': len(stdout) > limit,
+                       'stderr_truncated': len(stderr) > limit,
+                       'transport': _safe_transport_details(stdout, stderr)}
             try:
                 with private_log(root / 'trial-turn-failure.log') as log:
-                    log.write(('CLI exit: ' + str(process.returncode) + '\n').encode())
-                    log.write(stderr[-65536:])
+                    log.write(('Failure metadata: ' + json.dumps(details, sort_keys=True,
+                              separators=(',', ':')) + '\n').encode())
+                    for name, output in (('stdout', stdout), ('stderr', stderr)):
+                        log.write((f'--- CLI {name} (tail, {min(len(output), limit)}/{len(output)} bytes) ---\n').encode())
+                        log.write(output[-limit:])
+                        if output and not output.endswith(b'\n'):
+                            log.write(b'\n')
             except (OSError, ValueError):
                 pass  # Diagnostic availability must not change failure handling.
             if model_gave_no_answer(stdout, stderr):

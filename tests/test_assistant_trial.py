@@ -718,18 +718,59 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 'empty-reply')
 
     def test_failed_cli_evidence_is_retained_only_in_private_log(self):
+        with patch.object(at.uuid, 'uuid4', return_value='unique-turn'), patch.object(at.subprocess, 'Popen') as spawn, patch(
+                'argoslive.owned_gateway.private_log', side_effect=lambda path: path.open('wb')):
+            process = spawn.return_value.__enter__.return_value
+            process.returncode = 7
+            process.communicate.return_value = (b'Private stdout details', b'Private stderr details')
+            runner = at.OpenClawRunner(self.home, executable='openclaw')
+            runner.set_failure_context(suite='owner-recovery-decision', suite_version='0.5.0',
+                                       run_id='a' * 32, item_id='disabled-05', category='policy-stop')
+            with self.assertRaises(at.TrialTurnError) as raised:
+                runner.turn('A task')
+        self.assertEqual(raised.exception.code, 'assistant-error')
+        self.assertNotIn('Private stdout details', str(raised.exception))
+        self.assertNotIn('Private stderr details', str(raised.exception))
+        log = self.home / '.local/state/argos-live/trial-turn-failure.log'
+        evidence = log.read_bytes()
+        self.assertIn(b'"suite":"owner-recovery-decision"', evidence)
+        self.assertIn(b'"item_id":"disabled-05"', evidence)
+        self.assertIn(b'"session_id":"unique-turn"', evidence)
+        metadata = json.loads(evidence.splitlines()[0].removeprefix(b'Failure metadata: '))
+        self.assertTrue(metadata['created_utc'].endswith('+00:00'))
+        self.assertIn(b'--- CLI stdout (tail, 22/22 bytes) ---\nPrivate stdout details', evidence)
+        self.assertIn(b'--- CLI stderr (tail, 22/22 bytes) ---\nPrivate stderr details', evidence)
+
+    def test_failure_context_rejects_prompt_or_path_content(self):
+        runner = at.OpenClawRunner(self.home, executable='openclaw')
+        with self.assertRaisesRegex(ValueError, 'context is invalid'):
+            runner.set_failure_context(suite='owner-recovery-decision', suite_version='0.5.0',
+                                       run_id='a' * 32, item_id='disabled-05', category='prompt text\n')
+
+    def test_failure_transport_metadata_redacts_addresses_and_paths(self):
+        output = at._safe_transport_details(
+            b'', b'connect ECONNREFUSED 127.0.0.1:11434; request https://private.example:8443/secret/path')
+        self.assertEqual(output['error_codes'], ['ECONNREFUSED'])
+        self.assertIn({'address_class': 'loopback', 'port': 11434}, output['endpoints'])
+        self.assertIn({'address_class': 'hostname', 'port': 8443}, output['endpoints'])
+        serialized = json.dumps(output)
+        self.assertNotIn('127.0.0.1', serialized)
+        self.assertNotIn('private.example', serialized)
+        self.assertNotIn('/secret/path', serialized)
+
+    def test_failure_streams_are_bounded_independently(self):
         with patch.object(at.subprocess, 'Popen') as spawn, patch(
                 'argoslive.owned_gateway.private_log', side_effect=lambda path: path.open('wb')):
             process = spawn.return_value.__enter__.return_value
             process.returncode = 7
-            process.communicate.return_value = (b'', b'Private failure details')
-            with self.assertRaises(at.TrialTurnError) as raised:
+            process.communicate.return_value = (b'O' * 70000, b'E' * 71000)
+            with self.assertRaises(at.TrialTurnError):
                 at.OpenClawRunner(self.home, executable='openclaw').turn('A task')
-        self.assertEqual(raised.exception.code, 'assistant-error')
-        self.assertNotIn('Private failure details', str(raised.exception))
-        log = self.home / '.local/state/argos-live/trial-turn-failure.log'
-        self.assertIn(b'CLI exit: 7', log.read_bytes())
-        self.assertIn(b'Private failure details', log.read_bytes())
+        evidence = (self.home / '.local/state/argos-live/trial-turn-failure.log').read_bytes()
+        self.assertIn(b'"stdout_truncated":true', evidence)
+        self.assertIn(b'"stderr_truncated":true', evidence)
+        self.assertEqual(evidence.count(b'O'), 65536)
+        self.assertEqual(evidence.count(b'E'), 65536)
 
     def test_reviewed_profile_refuses_agent_behavior_overrides(self):
         config = self.home / '.openclaw/openclaw.json'
