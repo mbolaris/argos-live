@@ -69,13 +69,26 @@ bring the host to the pinned version, which is an image or package change and is
 standing orders. A changed pin also means the image and the runtime should be rebuilt together, so
 note in the PR whether a new image is planned.
 
-**November 18 incident.** Bundle `28456f6` (pin 2026.10.8) passed gates 1 and 2 and was applied
-over base `c4ccf50`. Toronado's installed OpenClaw was 2026.11.3, so the runtime's owned gateway
-refused to start after the desktop restart. Health failed, the operator confirmed the version with
-read-only probes and rolled back, and device evaluation stopped under the standing orders. Gate 3 is
-designed to catch this case before step 5. The rolled-back runtime still pins 2026.10.8, so until a
-matching bundle is applied, any restart of the desktop or a reboot may refuse the gateway in the
-same way. Check that with a read-only preflight before relying on the assistant.
+**Choosing the base.** The base commit must be the one whose runtime tree is what Toronado has
+installed. Take the `current` digest from a preflight and run `runtime_update.py locate <digest>`;
+it names every commit (any branch) with that exact tree. Build the receipt against that commit.
+Never edit `expect_before` by hand: a receipt whose base does not describe the installed tree also
+makes the `changed` list wrong.
+
+**Images for Toronado come from `main`.** An image written to the Live drive should be built from a
+commit on `main`. If an image from a branch is used, merge the branch (or an equivalent PR) before
+the next runtime update, so that `main` describes what the device runs.
+
+**November 18 incident.** Toronado was running an image built on November 15 by CI run 43734658440
+from the unmerged branch `codex/image-openclaw-2026-11-3` (head `edd5893`): OpenClaw 2026.11.3 and
+the runtime tree of `c6886130e` (`927f6ee8…`, pin 2026.11.3). `main` still pinned 2026.10.8. The
+operator built bundle `28456f6` against base `c4ccf50`, replaced its `expect_before` with the
+observed digest, and applied it. That swapped a 2026.11.3-pinned runtime for a 2026.10.8-pinned one,
+so the owned gateway refused to start after the desktop restart. Health failed, the operator
+confirmed the versions with read-only probes and rolled back to `927f6ee8…`, and device evaluation
+stopped under the standing orders. Gate 3 now refuses this before step 5, and `locate` replaces the
+hand-edited base. A read-only preflight on November 18 (with owner approval) confirmed the
+rolled-back state: idle, OpenClaw 2026.11.3, installed tree `927f6ee8…`.
 
 At boot, `argos-refresh-runtime.service` re-syncs image-owned files from the Live image. The
 version-aware refresher implementation is merged in `main` via PR #177: after a runtime update

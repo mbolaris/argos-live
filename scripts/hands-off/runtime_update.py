@@ -10,6 +10,7 @@ Commands
   build <commit> <base_commit>  make bundle-<sha>.tar and its receipt (-unverified unless checks passed
                             and the runtime's OpenClaw host pin equals versions.env OPENCLAW_VERSION)
   rehearse <bundle.json>    apply, verify, roll back and re-apply against a local copy of the image tree
+  locate <tree_digest>      name the commits whose runtime tree has this digest (use as build's base)
   install-script            print the remote installer (it is what runs under sudo on Toronado)
 
 The Toronado apply/rollback orchestration lives in apply_update.py and imports this module.
@@ -207,6 +208,27 @@ def pins_at(commit):
     return host, image
 
 
+def locate(tree_digest, per_ref=400):
+    """Commits on any local or remote-tracking branch whose runtime tree has this digest.
+
+    Use the `current` digest a preflight reports to pick the base commit; never hand-edit
+    expect_before. Only commits that touched the runtime tree are hashed: any other commit has the
+    same tree as its nearest such ancestor.
+    """
+    refs = git('for-each-ref', '--format=%(refname:short)', 'refs/heads', 'refs/remotes').split()
+    seen, found = set(), []
+    for ref in refs:
+        for sha in git('rev-list', f'--max-count={per_ref}', ref, '--', PREFIX.rstrip('/')).split():
+            if sha in seen:
+                continue
+            seen.add(sha)
+            if digest(manifest_of(tree_tar(sha))) == tree_digest:
+                on_main = subprocess.run(['git', '-C', str(REPO), 'merge-base', '--is-ancestor', sha, 'origin/main']).returncode == 0
+                found.append({'commit': sha, 'on_main': on_main, 'subject': git('log', '-1', '--format=%cs %s', sha),
+                              'branches': git('branch', '-a', '--format=%(refname:short)', '--contains', sha).split()})
+    return found, len(seen)
+
+
 def checks_passed(sha):
     """True only if every check run on the commit completed and none failed, and a 'test' run succeeded."""
     p = subprocess.run(['gh', 'api', f'repos/{GH_REPO}/commits/{sha}/check-runs', '--paginate',
@@ -326,5 +348,9 @@ if __name__ == '__main__':
             print(('PASS' if ok else 'SKIP' if ok is None else 'FAIL'), name, '' if ok else '| ' + err)
             failed |= ok is False
         raise SystemExit(1 if failed else 0)
+    elif sys.argv[1] == 'locate':
+        found, scanned = locate(sys.argv[2])
+        print(json.dumps({'tree_digest': sys.argv[2], 'commits_scanned': scanned, 'matches': found}, indent=1))
+        raise SystemExit(0 if found else 1)
     elif sys.argv[1] == 'install-script':
         print(INSTALLER)

@@ -22,8 +22,8 @@ SIM11 (#199) are open drafts.
 | --- | --- | --- |
 | OpenClaw pinned on `main` | 2026.11.3 (`versions.env` and `addons.json` agree). Upstream's latest stable was 2026.11.5 when #202 merged; 2026.11.3 was chosen to match Toronado, not because it is the newest | #202 |
 | OpenClaw installed on Toronado | 2026.11.3 | read-only probe, November 18 |
-| Argos runtime on Toronado | the pre-`28456f6` tree, which still pins 2026.10.8. The update to `28456f6` failed health and was rolled back | [runbook](HANDS-OFF-RUNBOOK.md), November 18 incident |
-| Live image | no image has been built with the 2026.11.3 pin | — |
+| Argos runtime on Toronado | tree `927f6ee8…` (132 files), byte-identical to `runtime/argoslive` at `c6886130e` on the **unmerged** branch `codex/image-openclaw-2026-11-3`. It pins 2026.11.3, so it agrees with the installed OpenClaw. The November 18 update to `28456f6` (pin 2026.10.8) failed health and was rolled back to this tree | read-only preflight and `runtime_update.py locate`, November 18 |
+| Live image | the runtime and OpenClaw match the ISO built by CI run 43734658440 from that branch's head `edd5893` on November 15. No image has been built from `main` with the 2026.11.3 pin. `main` at `93d3974` differs from the installed runtime in 20 files (SIM4, SIM5, SIM44/45, recovery diagnostics); the OpenClaw pin is the same | `gh run view`, `git diff` |
 | Device evaluation | stopped under the standing orders after the failed health check. Restarting it, deploying a 2026.11.3 runtime, building an image, writing to USB or rebooting each needs the owner's explicit approval for that action | owner instruction, November 18 |
 
 **What the capability evidence does and does not show.** A standard OpenClaw evaluation of

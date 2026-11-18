@@ -68,7 +68,8 @@ def preflight_checks():
         return refusal
     code, out, err = installer('state')
     ok = bool(out and out.get('current') == ARGS['expect_before'])
-    say(stage='preflight-tree', matches_expected_before=ok, files=out and out.get('files'))
+    say(stage='preflight-tree', matches_expected_before=ok, files=out and out.get('files'),
+        current=out and out.get('current'), expected=ARGS['expect_before'], error=None if out else err)
     if not ok:
         return 'installed runtime is not the receipt\'s expected pre-update version'
     return None

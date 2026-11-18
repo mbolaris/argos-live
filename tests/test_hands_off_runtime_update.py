@@ -74,6 +74,13 @@ class HostPinTests(unittest.TestCase):
         self.assertIn('no OpenClaw host pin', ru.host_pin_refusal(None, 0, 'OpenClaw 2026.11.3'))
         self.assertIn('no version', ru.host_pin_refusal('2026.11.3', 0, 'garbled'))
 
+    def test_locate_finds_the_commit_for_an_installed_tree(self):
+        head = ru.git('rev-list', '-1', 'HEAD', '--', 'runtime/argoslive')
+        found, scanned = ru.locate(ru.digest(ru.manifest_of(ru.tree_tar(head))), per_ref=2)
+        self.assertGreater(scanned, 0)
+        self.assertIn(head, [f['commit'] for f in found])
+        self.assertEqual(ru.locate('0' * 64, per_ref=2)[0], [])
+
     def test_head_runtime_pin_matches_image_pin(self):
         host, image = ru.pins_at('HEAD')
         self.assertTrue(host)
