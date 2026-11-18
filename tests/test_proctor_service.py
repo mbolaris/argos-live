@@ -242,6 +242,31 @@ class ProctorServiceTests(unittest.TestCase):
                 self.assertEqual(receipt_from(configuration_from(json.loads(path.read_text())))['configured_generation'],
                                  receipt_from(configuration_from(owner))['configured_generation'])
 
+    def test_openclaw_upgrade_gets_a_fresh_profile_and_keeps_the_old_one(self):
+        # November 18, 2026: a profile written by OpenClaw 2026.10.x blocked every campaign
+        # after the 2026.11.3 upgrade (agent database schema needed `openclaw doctor --fix`).
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        pinned = proctor_service.addons.load()
+        for purpose in ('practice', 'campaign'):
+            with self.subTest(purpose=purpose):
+                with patch.object(proctor_service.addons, 'load', return_value={**pinned, 'host_version': '2026.10.8'}):
+                    old = proctor_service.private_profile(self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+                                                          owner_config_path=self.owner_config, purpose=purpose)
+                old_bytes = old[2].read_bytes()
+                (old[2].parent / 'agents').mkdir()
+                (old[2].parent / 'agents/old-schema.sqlite').write_bytes(b'schema 25')
+                new = proctor_service.private_profile(self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+                                                      owner_config_path=self.owner_config, purpose=purpose)
+                self.assertNotEqual(old[2].parent, new[2].parent)
+                self.assertEqual(old[2].parent.parent, new[2].parent.parent)
+                self.assertFalse((new[2].parent / 'agents').exists())
+                self.assertEqual(old[2].read_bytes(), old_bytes)
+                self.assertEqual((old[2].parent / 'agents/old-schema.sqlite').read_bytes(), b'schema 25')
+                # Same version again reuses the same profile.
+                again = proctor_service.private_profile(self.home, 'qwen3.8:27b', plugin_root='/opt/argos/plugins',
+                                                        owner_config_path=self.owner_config, purpose=purpose)
+                self.assertEqual(again[2], new[2])
+
     def test_changed_owner_generation_settings_get_a_new_profile_without_overwriting(self):
         owner = json.loads(self.owner_config.read_text())
         owner['agents']['defaults']['models'] = {

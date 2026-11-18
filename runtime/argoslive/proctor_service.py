@@ -18,7 +18,8 @@ import socket
 import sys
 import time
 
-from . import auto_setup, controller_bridge, instruction_changes, model_verify, owned_gateway, owned_ollama, proctor, session_mode, startup
+from . import addons, auto_setup, controller_bridge, instruction_changes, model_verify, owned_gateway, owned_ollama, proctor, session_mode, startup
+from .private_files import private_log
 from .proctor.engine import Caller
 from .proctor.engine import digest
 from .proctor.signing import Ed25519Signer, generate_key
@@ -265,8 +266,15 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
                 len(set(allowed_tools)) != len(allowed_tools) or
                 set(allowed_tools) - set(CAMPAIGN_TOOL_NAMES)):
             raise ValueError('Campaign tool grants must be a nonempty subset of host-approved tools')
+    # The profile holds OpenClaw's own agent and state databases. A newer OpenClaw refuses to
+    # start a gateway on a database an older one wrote (exit 78, "run openclaw doctor --fix").
+    # On November 18, 2026 a campaign profile written by 2026.10.x blocked every campaign after
+    # the 2026.11.3 upgrade. Keying the profile by the pinned host version (which the owned
+    # gateway requires the installed OpenClaw to match) gives each upgrade a fresh profile and
+    # leaves the earlier one untouched for review.
     profile_identity = json.dumps(
-        {'model': model, 'generation': generation, 'tools': allowed_tools},
+        {'model': model, 'generation': generation, 'tools': allowed_tools,
+         'openclaw': addons.load()['host_version']},
         sort_keys=True, separators=(',', ':'))
     profile = _private_directory(root / 'profiles' / purpose /
                                  hashlib.sha256(profile_identity.encode()).hexdigest()[:24])
@@ -1033,6 +1041,28 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             'host_observation': assessment.get('host_observation')}
 
 
+def record_campaign_failure(home, error):
+    """Append the cause behind a bounded campaign failure code to an owner-only log.
+
+    Without this, a campaign that fails before its ledger exists leaves only
+    `campaign-invalid-state` and similar codes, and the cause has to be dug out of
+    other logs. Diagnostic availability never changes the failure result.
+    """
+    import traceback
+    from datetime import datetime, timezone
+    entry = {'created_utc': datetime.now(timezone.utc).isoformat(), 'type': type(error).__name__,
+             'message': str(error)[:2000],
+             'traceback': ''.join(traceback.format_exception(type(error), error, error.__traceback__))[-8000:]}
+    try:
+        root = Path(home) / '.local/state/argos-live'
+        if root.is_dir():
+            with private_log(root / 'campaign-failure.log') as log:
+                log.write((json.dumps(entry, sort_keys=True) + '\n').encode())
+    except (OSError, ValueError):
+        pass
+    return entry
+
+
 def run_improvement(home, *, owner_task, success_criteria, measurement_suite=None,
                     evaluation_limit=8,
                     stop_event=None,
@@ -1065,8 +1095,10 @@ def run_improvement(home, *, owner_task, success_criteria, measurement_suite=Non
                                 on_progress=on_progress)
     except Exception as error:
         # Report only a bounded error code. Exception text can contain paths,
-        # subprocess output, or other private details.
+        # subprocess output, or other private details, so it goes to an
+        # owner-only log on this machine and never to the browser.
         from .proctor_campaign import safe_failure_code
+        record_campaign_failure(home, error)
         return {'status': 'incomplete', 'owner_task': owner_task,
                 'success_criteria': success_criteria,
                 'measurement_suite': measurement_suite,
