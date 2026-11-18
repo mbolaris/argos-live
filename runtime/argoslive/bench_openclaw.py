@@ -243,6 +243,10 @@ def _run(*, suite='quick', home=None, runner=None, progress=None, clock=time.mon
                           'total': len(tasks), 'item_id': item_id, 'category': item_category,
                           'question': task['prompt'], 'suite': suite,
                           'suite_version': result['suite_version'], 'model': result['model']})
+            if isinstance(runner, OpenClawRunner):
+                runner.set_failure_context(suite=suite, suite_version=result['suite_version'],
+                                           run_id=result['id'], item_id=item_id,
+                                           category=item_category)
             try:
                 answer = runner.turn(task['prompt'])
             except TrialTurnError as exc:
