@@ -1,0 +1,26 @@
+{
+  "schema": "argos-iso-build/1",
+  "commit": "86e6cd3659f2b4946301e41b9c5ba2da06c22024",
+  "pins": {
+    "DEBIAN_SUITE": "trixie",
+    "DEBIAN_SNAPSHOT": "20261118T000000Z",
+    "DEBIAN_SECURITY_SNAPSHOT": "20261118T000000Z",
+    "DEBIAN_LIVE_BUILD_VERSION": "1:20250505+deb13u1",
+    "NODE_VERSION": "26.12.1",
+    "NODE_SHA256": "6170b2d474e1c626f43cff3adc118df9fe3b573258a4fc3d850c8dbc6b079bbd",
+    "OPENCLAW_VERSION": "2026.11.3",
+    "OPENCLAW_INTEGRITY": "sha512-FBq/q0TCaoA2b7qfdV0q81fHhI6RBB1zAQfJQREc1u2TlK5khVgCUsAlXskLWthyVqRz5PWEj+oOmfYgK58dHg==",
+    "OPENCLAW_COMPAT_VERSION": "2026.10.5",
+    "OPENCLAW_COMPAT_INTEGRITY": "sha512-9rCuXMweqVKZIK3KBtGcLzesz9G6+FmQ30lvwomRhmcNWDcOtlBoqdLbPditoJMuTP55jPqXpt1AA0L8tSzFHg==",
+    "OLLAMA_VERSION": "0.40.12",
+    "OLLAMA_SHA256": "f8adcb7e08d272283a4bd3abc18cf581afe37e64b2aee04fda4f407f215485ba",
+    "NVIDIA_VERSION": "550.163.01-2"
+  },
+  "iso_sha256": "5794b02a1369d1bf7d308c8da28c5f181f5b0f7126395b4130ec1107f92a7a9e",
+  "iso_bytes": 4177526784,
+  "packages_sha256": "4d162945e78f47e908691dca4d6f61a99a2a992e91d766e04a714230bad8e897",
+  "runtime_lock_sha256": "9fa03dc5b79d6d6fbc422179ca35e58a2173f88d5ee03128801f78f8d457eeba",
+  "credential_pattern_scan_passed": true,
+  "boot_acceptance": false,
+  "physical_acceptance": false
+}
