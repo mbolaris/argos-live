@@ -1,0 +1,44 @@
+{
+  "schema": "argos-encrypted-shutdown/1",
+  "commit": "86e6cd3659f2b4946301e41b9c5ba2da06c22024",
+  "iso_sha256": "5794b02a1369d1bf7d308c8da28c5f181f5b0f7126395b4130ec1107f92a7a9e",
+  "passed": true,
+  "cycles": [
+    {
+      "cycle": 1,
+      "superblock": {
+        "Filesystem UUID": "50a7f92a-cd03-4a95-b096-a29239551604",
+        "Filesystem state": "clean",
+        "Filesystem features": "has_journal ext_attr resize_inode dir_index filetype extent 64bit flex_bg sparse_super large_file huge_file dir_nlink extra_isize metadata_csum"
+      },
+      "read_only_fsck_exit": 0,
+      "backup_files_verified": 2,
+      "journal_replay_or_repair": false
+    },
+    {
+      "cycle": 2,
+      "superblock": {
+        "Filesystem UUID": "50a7f92a-cd03-4a95-b096-a29239551604",
+        "Filesystem state": "clean",
+        "Filesystem features": "has_journal ext_attr resize_inode dir_index filetype extent 64bit flex_bg sparse_super large_file huge_file dir_nlink extra_isize metadata_csum"
+      },
+      "read_only_fsck_exit": 0,
+      "backup_files_verified": 4,
+      "journal_replay_or_repair": false
+    },
+    {
+      "cycle": 3,
+      "superblock": {
+        "Filesystem UUID": "50a7f92a-cd03-4a95-b096-a29239551604",
+        "Filesystem state": "clean",
+        "Filesystem features": "has_journal ext_attr resize_inode dir_index filetype extent 64bit flex_bg sparse_super large_file huge_file dir_nlink extra_isize metadata_csum"
+      },
+      "read_only_fsck_exit": 0,
+      "backup_files_verified": 6,
+      "journal_replay_or_repair": false
+    }
+  ],
+  "firmware_boot_verified": false,
+  "usb_media": "fixed (removable=0)",
+  "scope": "exact-ISO direct-kernel encrypted virtual USB; synthetic records; not physical-card acceptance"
+}

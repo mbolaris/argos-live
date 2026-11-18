@@ -1,0 +1,6 @@
+#!/bin/sh
+# Toronado's SSD enclosure reports removable=0; stock live-boot then skips its encrypted
+# persistence. Patch live-boot before 010-argos.hook.chroot regenerates the initramfs.
+# See docs/USB-SSD-PERSISTENCE.md.
+set -eu
+python3 /usr/local/share/argos-live/patch-live-boot-usb.py

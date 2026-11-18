@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Three cold shutdowns of an exact ISO on a disposable encrypted virtual USB.
 
+--fixed-usb attaches that disk as non-removable (removable=0), like Toronado's RTL9201 SSD
+enclosure. A stock live-boot skips persistence on such a disk; the image's fixed-USB edit
+(docs/USB-SSD-PERSISTENCE.md) must find it, or cycle 1 never asks for the passphrase.
+
 Root execution is allowed only in a disposable GitHub-hosted runner. No physical
 device is an input. Never repair or replay the test filesystem before checking it.
 """
@@ -113,14 +117,14 @@ def write_json(path, value):
         os.fsync(stream.fileno())
 
 
-def cold_cycle(work, output, append, key, cycle, previous):
+def cold_cycle(work, output, append, key, cycle, previous, removable='on'):
     nonce = secrets.token_hex(16)
     args = ['qemu-system-x86_64', '-accel', 'tcg', '-cpu', 'max', '-smp', '2', '-m', '4096',
             '-display', 'none', '-nic', 'none', '-no-reboot', '-monitor', 'none', '-serial', 'stdio',
             '-kernel', str(work / 'kernel'), '-initrd', str(work / 'initrd'),
             '-append', append + ' systemd.unit=multi-user.target argos.shutdown_test=' + nonce,
             '-drive', f'file={work / "TEST-DO-NOT-WRITE.raw"},format=raw,if=none,id=media',
-            '-device', 'qemu-xhci', '-device', 'usb-storage,drive=media,removable=on']
+            '-device', 'qemu-xhci', '-device', 'usb-storage,drive=media,removable=' + removable]
     process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     serial = bytearray()
     unlocked = logged_in = password = payload = powering_off = False
@@ -141,6 +145,11 @@ def cold_cycle(work, output, append, key, cycle, previous):
                     process.stdin.write(value.encode()); process.stdin.flush()
                 if not unlocked and re.search(r'Please unlock disk|Enter passphrase for|Please enter passphrase', tail, re.I):
                     send(key + '\n'); unlocked = True
+                elif not unlocked and re.search(r'login:\s*$', tail):
+                    # The initramfs unlocks persistence before userspace; a login prompt first
+                    # means live-boot never found the encrypted disk.
+                    raise ValueError('Guest reached login without asking to unlock persistence; '
+                                     'the encrypted USB disk was not found')
                 elif unlocked and not logged_in and re.search(r'login:\s*$', tail):
                     send('argos\n'); logged_in = True
                 elif logged_in and not password and re.search(r'Password:\s*$', tail):
@@ -236,7 +245,7 @@ def offline_check(work, output, key_file, receipt, cycle):
             'backup_files_verified': len(files), 'journal_replay_or_repair': False}
 
 
-def run(iso, output):
+def run(iso, output, fixed_usb=False):
     if (os.name != 'posix' or os.geteuid() != 0 or os.environ.get('GITHUB_ACTIONS') != 'true' or
             os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'):
         raise ValueError('This test requires an explicitly approved disposable GitHub-hosted root runner')
@@ -257,6 +266,7 @@ def run(iso, output):
     output.mkdir(mode=0o755, parents=True)
     result = {'schema': 'argos-encrypted-shutdown/1', 'commit': commit, 'iso_sha256': actual,
               'passed': False, 'cycles': [], 'firmware_boot_verified': False,
+              'usb_media': 'fixed (removable=0)' if fixed_usb else 'removable (removable=1)',
               'scope': 'exact-ISO direct-kernel encrypted virtual USB; synthetic records; not physical-card acceptance'}
     try:
         with tempfile.TemporaryDirectory(prefix='argos-shutdown-private-') as temporary:
@@ -274,7 +284,8 @@ def run(iso, output):
             previous = {}
             for cycle in range(1, 4):
                 print(f'Encrypted shutdown cycle {cycle}/3 started.', flush=True)
-                receipt = cold_cycle(work, output, append, key, cycle, previous)
+                receipt = cold_cycle(work, output, append, key, cycle, previous,
+                                     removable='off' if fixed_usb else 'on')
                 result['cycles'].append(offline_check(work, output, key_file, receipt, cycle))
                 previous = checked_files(receipt, cycle)
                 write_json(output / 'result.json', result)
@@ -295,5 +306,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('iso', type=Path)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--fixed-usb', action='store_true',
+                        help='attach the encrypted disk as non-removable USB, like a USB SSD enclosure')
     args = parser.parse_args()
-    run(args.iso.absolute(), args.output.absolute())
+    run(args.iso.absolute(), args.output.absolute(), fixed_usb=args.fixed_usb)

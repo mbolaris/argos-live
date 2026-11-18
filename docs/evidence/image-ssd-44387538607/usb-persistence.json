@@ -1,0 +1,19 @@
+{
+  "schema": "argos-iso-usb-persistence/1",
+  "passed": true,
+  "initrd": "/live/initrd.img-6.12.117+deb13-amd64",
+  "initrd_sha256": "e599b8a3e84b3e0bb3044e17f725dc98d02d664465744777029bda5569ca81e0",
+  "helper_sha256": "bbb73b4d0d7ac446e02daeb6cd4d55fe768354121de579fe8c295fabb4ca62ae",
+  "reviewed_edit_present": true,
+  "fixture": {
+    "usb_mode": [
+      "/dev/fixed_usb",
+      "/dev/removable_usb"
+    ],
+    "ordinary_mode": [
+      "/dev/internal_removable",
+      "/dev/removable_usb"
+    ]
+  },
+  "scope": "shell function from the exact ISO initrd on mock sysfs; not a boot test"
+}
