@@ -22,23 +22,114 @@ writes are now reserved for operating-system and boot changes.
 ## Tools (scripts/hands-off/)
 
 - `runtime_update.py build <commit> <base_commit>` makes a bundle of `runtime/argoslive` for a commit on
-  `origin/main` plus a receipt with before and after digests. The receipt is `verified` only when every
-  GitHub check on the commit passed; otherwise the files are named `-unverified` and
-  `apply_update.py` refuses them. `rehearse <receipt>` runs apply, rollback and the refusals on a
-  local copy.
-- `apply_update.py apply|health|rollback <receipt.json> <stamp>` pushes the bundle to Toronado, swaps
-  the tree atomically with a snapshot, restarts only the desktop process (graceful SIGTERM, no
-  reboot), runs the health check, and rolls back on failure.
+  `origin/main` plus a receipt with before and after digests and the OpenClaw versions the commit
+  expects (`openclaw_host_version` from the runtime's `data/addons.json`, `image_openclaw_version`
+  from `versions.env`, and `base_openclaw_host_version` for the base). The receipt is `verified` only
+  when every GitHub check on the commit passed (including the slow native-chat and compatibility
+  workflows) and the two pins agree; otherwise the files are named `-unverified` and
+  `apply_update.py` refuses to change anything with them. `rehearse <receipt>` runs apply, rollback
+  and the refusals on a local copy.
+- `apply_update.py preflight <receipt.json> <stamp>` is read-only. It checks that no evaluation is
+  active, that Toronado's `openclaw --version` reports the receipt's `openclaw_host_version`, and
+  that the installed tree is the receipt's `expect_before`. It may run on an unverified receipt, for
+  example while the commit's checks are still running.
+- `apply_update.py apply|health|rollback <receipt.json> <stamp>`: `apply` repeats the preflight and
+  refuses before staging anything if it fails, then pushes the bundle, swaps the tree atomically
+  with a snapshot and restarts only the desktop process (graceful SIGTERM, no reboot). `health`
+  runs the health check and exits non-zero on failure. **It does not roll back by itself**: run
+  `rollback` with the same receipt and stamp.
 - Output goes to `work/hands-off/` (git-ignored), or to `ARGOS_HANDS_OFF_DIR`. Set
   `ARGOS_REMOTE_HELPER` to the pinned helper (on Yugo:
   `work/proctor-level2-20261019/remote.py`). Run both scripts with a Python that has no extra
   dependencies; the records backup tool needs one with `cryptography`.
 
-Order for an update: take an encrypted records backup, build and rehearse, `apply`, `health`. The
-health check passes only if the installed tree matches the bundle, the new routes answer, the
-assistant is ready, and a `quick` evaluation completes with saved evaluations. It then finalizes
-(deletes the kept previous tree; the snapshot archive stays under
-`/var/lib/argos-live/runtime-updates/snapshots`).
+### Gates for a runtime update
+
+Run them in this order and stop at the first one that fails. Each gate says what it proves; none of
+them proves an improvement in capability.
+
+| # | Gate | Where | Changes Toronado? | Proves |
+| --- | --- | --- | --- | --- |
+| 1 | `build` gives a `verified` receipt | Yugo | no | merged to `main`, every check passed, runtime pin equals image pin |
+| 2 | `rehearse` all PASS | Yugo | no | apply, rollback and every refusal work on a local copy |
+| 3 | `preflight` ok | Toronado, read-only | no | idle, installed OpenClaw equals the bundle pin, installed tree is `expect_before` |
+| 4 | encrypted records backup verified | Toronado, read-only | no | owner records can be restored |
+| 5 | `apply` | Toronado | yes: tree swap, desktop restart | the bundle is installed byte for byte |
+| 6 | `health` | Toronado | runs one `quick` evaluation | routes answer, assistant ready, a signed practice result saved |
+| 6b | `rollback` if 6 failed | Toronado | yes: tree swap back, desktop restart | the previous tree is back byte for byte |
+
+The health check then finalizes (deletes the kept previous tree; the snapshot archive stays under
+`/var/lib/argos-live/runtime-updates/snapshots`). Record the receipt, stamp, gate results and saved
+evaluation IDs below.
+
+**When the pins disagree.** If gate 3 reports that Toronado runs a different OpenClaw than the
+bundle pins, do not apply. Two paths exist, and both need the owner's call: change the pin on
+`main` to the installed version after reviewing its patch sites (as PR #202 did for 2026.11.3), or
+bring the host to the pinned version, which is an image or package change and is outside the
+standing orders. A changed pin also means the image and the runtime should be rebuilt together, so
+note in the PR whether a new image is planned.
+
+**Choosing the base.** The base commit must be the one whose runtime tree is what Toronado has
+installed. Take the `current` digest from a preflight and run `runtime_update.py locate <digest>`;
+it names every commit (any branch) with that exact tree. Build the receipt against that commit.
+Never edit `expect_before` by hand: a receipt whose base does not describe the installed tree also
+makes the `changed` list wrong.
+
+**Images for Toronado come from `main`.** An image written to the Live drive should be built from a
+commit on `main`. If an image from a branch is used, merge the branch (or an equivalent PR) before
+the next runtime update, so that `main` describes what the device runs.
+
+**November 18 incident.** Toronado was running an image built on November 15 by CI run 43734658440
+from the unmerged branch `codex/image-openclaw-2026-11-3` (head `edd5893`): OpenClaw 2026.11.3 and
+the runtime tree of `c6886130e` (`927f6ee8…`, pin 2026.11.3). `main` still pinned 2026.10.8. The
+operator built bundle `28456f6` against base `c4ccf50`, replaced its `expect_before` with the
+observed digest, and applied it. That swapped a 2026.11.3-pinned runtime for a 2026.10.8-pinned one.
+Health failed, the operator confirmed the versions with read-only probes and rolled back to
+`927f6ee8…`, and device evaluation stopped under the standing orders. Gate 3 now refuses a pin
+mismatch before step 5, and `locate` replaces the hand-edited base.
+
+**Second attempt, November 18 (owner-approved).** The steps ran in this order:
+
+1. Records backup `records-20261118T171557Z.encrypted.json`: 3,633 files, authenticated decryption
+   and every manifest hash verified.
+2. Preflight passed: idle, OpenClaw 2026.11.3 matches the pin, installed tree `927f6ee8…`.
+3. `apply` of bundle `93d3974` (base `c6886130e`, stamp `u20261118a`): tree `66e148ac…` (141 files)
+   installed, desktop restarted idle.
+4. `health`: tree and routes passed, but the `quick` evaluation ended `incomplete` with
+   `campaign-invalid-state` and no saved evaluations. The ready step reported `model: null`.
+5. `rollback` restored `927f6ee8…` and the desktop restarted idle. No further device work.
+
+**Root cause (read-only diagnosis, owner-approved, November 18).** The cause is device state, not
+`main`'s code.
+
+- The campaign's owned gateway exited 78 (`gateway-supervisor.log`). `gateway.log` gives the reason:
+  the campaign profile's agent database
+  (`~/.local/state/argos-live/proctor/profiles/campaign/4ccd47155a2ce93ffe8b948e/agents/main/agent/openclaw-agent.sqlite`)
+  "uses schema version 25; stop active agents and run openclaw doctor --fix to migrate session
+  identities". `run_improvement` turns this into `campaign-invalid-state` and logs nothing more.
+- That profile was created November 15 at 02:51 UTC and last written at 03:08 UTC, by OpenClaw
+  2026.10.x, before the 2026.11.3 image was built at 16:17 UTC.
+- The profile directory is named by a hash of model, generation settings and tool grants
+  (`proctor_service.private_profile`), not by OpenClaw version. It persists across runtime updates,
+  and `proctor_service.py` is identical in `c6886130e` and `main`.
+
+So every campaign has been blocked since the OpenClaw upgrade, whichever runtime is installed, and
+so is the health check of any runtime update (it runs a `quick` campaign). The first November 18
+failure very likely had the same cause in addition to its pin mismatch. That is an inference from
+the file timestamps; the installed runtime was not re-tested. The practice profile `88f04476…` was
+created under 2026.11.3 on November 17 and is current.
+
+**Gaps this exposed:**
+
+- Upgrading OpenClaw does not migrate or retire the persistent Proctor profiles.
+- Neither preflight nor any CI job checks that a service profile can start under the installed
+  OpenClaw. CI always starts from fresh profiles.
+- `run_improvement` hides the exception behind a generic code without a private log line.
+
+`health` now prints `failure_stage`, `status` and `message`. Fixing the profile (migrate it with
+`openclaw doctor --fix`, or make profile identity include the OpenClaw version so that a fresh
+profile is created) is an owner decision. Migrating changes owner state outside the runtime trees,
+and changing the identity is a runtime change.
 
 At boot, `argos-refresh-runtime.service` re-syncs image-owned files from the Live image. The
 version-aware refresher implementation is merged in `main` via PR #177: after a runtime update

@@ -1,17 +1,24 @@
 """Apply, health-check or roll back a runtime bundle on Toronado over the pinned SSH helper.
 
-Standing orders order 3. Usage:  apply_update.py apply|health|rollback <receipt.json> <stamp>
+Standing orders order 3. Usage:  apply_update.py preflight|apply|health|rollback <receipt.json> <stamp>
 Each step builds a stdlib-only script and runs it through the helper named by ARGOS_REMOTE_HELPER
 (strict host-key pin; no passphrase involved). Nothing here reboots or touches the boot area.
+
+preflight is read-only: no evaluation active, Toronado's `openclaw --version` reports the bundle's
+pinned host version, and the installed tree is the receipt's expected pre-update version. apply runs
+the same checks before it stages, snapshots or restarts anything. health exits non-zero on failure;
+it does not roll back by itself, so run rollback with the same receipt and stamp.
 """
 import base64, json, os, pathlib, subprocess, sys
 import runtime_update as ru
 
 ROOT = ru.ROOT
-REMOTE = pathlib.Path(os.environ['ARGOS_REMOTE_HELPER'])  # the strict-pinned SSH helper; never a plain ssh call
+def remote_helper():
+    """The strict-pinned SSH helper; never a plain ssh call. Read only when a step contacts Toronado."""
+    return pathlib.Path(os.environ['ARGOS_REMOTE_HELPER'])
 
 COMMON = r'''
-import json, os, pathlib, signal, subprocess, sys, time
+import json, os, pathlib, re, shutil, signal, subprocess, sys, time
 from urllib.parse import parse_qs, urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
 HOME = pathlib.Path.home()
@@ -40,6 +47,32 @@ def installer(action, **extra):
     p = subprocess.run(['sudo', '-n', 'python3', '-c', INSTALLER, json.dumps(payload)], capture_output=True, text=True)
     rows = [json.loads(l.split(' ', 1)[1]) for l in p.stdout.splitlines() if l.startswith('ARGOS_RUNTIME_UPDATE ')]
     return p.returncode, (rows[-1] if rows else None), p.stderr.strip()[-400:]
+
+def openclaw_version():
+    exe = shutil.which('openclaw')
+    if not exe:
+        return 127, ''
+    p = subprocess.run([exe, '--version'], capture_output=True, text=True, timeout=30)
+    return p.returncode, p.stdout
+
+def preflight_checks():
+    """Read-only. None when it is safe to apply this bundle, else the first reason to refuse."""
+    c = campaign()
+    say(stage='preflight-idle', active=bool(c.get('active')), phase=c.get('phase'))
+    if c.get('active'):
+        return 'an evaluation is active'
+    code, out = openclaw_version()
+    refusal = host_pin_refusal(ARGS['openclaw_host_version'], code, out)
+    say(stage='preflight-openclaw', pin=ARGS['openclaw_host_version'], reported=re.findall(r'\d{4}\.\d+\.\d+', out or ''), ok=refusal is None)
+    if refusal:
+        return refusal
+    code, out, err = installer('state')
+    ok = bool(out and out.get('current') == ARGS['expect_before'])
+    say(stage='preflight-tree', matches_expected_before=ok, files=out and out.get('files'),
+        current=out and out.get('current'), expected=ARGS['expect_before'], error=None if out else err)
+    if not ok:
+        return 'installed runtime is not the receipt\'s expected pre-update version'
+    return None
 
 def desktop_pids():
     p = subprocess.run(['pgrep', '-f', '^python3 /usr/local/bin/argos desktop$'], capture_output=True, text=True)
@@ -72,12 +105,19 @@ def restart_desktop():
     raise SystemExit('desktop did not come back within 240 s')
 '''
 
+PREFLIGHT = r'''
+refusal = preflight_checks()
+say(stage='preflight', ok=refusal is None, reason=refusal)
+if refusal:
+    raise SystemExit('preflight refused: ' + refusal)
+'''
+
 APPLY = r'''
 import base64
-c = campaign()
-if c.get('active'):
-    raise SystemExit('refused: an evaluation is active')
-say(stage='idle', phase=c.get('phase'))
+refusal = preflight_checks()
+if refusal:
+    raise SystemExit('refused before any change: ' + refusal)
+say(stage='preflight', ok=True)
 staging = pathlib.Path(ARGS['state']) / 'staging'
 data = base64.b64decode(ARGS['bundle_b64'])
 tmp = pathlib.Path('/tmp/argos-bundle-' + ARGS['stamp'])
@@ -136,7 +176,9 @@ while time.time() < deadline:
 else:
     raise SystemExit('evaluation still active after 40 minutes')
 result = c.get('result') or {}
-say(stage='evaluation-finished', phase=c.get('phase'), failure_code=c.get('failure_code'), result_keys=sorted(result)[:12])
+say(stage='evaluation-finished', phase=c.get('phase'), failure_code=c.get('failure_code'),
+    failure_stage=result.get('failure_stage'), status=result.get('status'), message=c.get('message'),
+    result_keys=sorted(result)[:12])
 ids = (result.get('campaign') or {}).get('saved_evaluation_ids') or []
 ok = bool(result) and not c.get('failure_code') and c.get('phase') != 'incomplete' and result.get('status') != 'incomplete' and bool(ids)
 say(stage='health', ok=bool(ok), saved_evaluations=len(ids), status=result.get('status'))
@@ -147,20 +189,33 @@ say(stage='finalized', code=code, out=out)
 '''
 
 
+STEPS = {'preflight': PREFLIGHT, 'apply': APPLY, 'health': HEALTH, 'rollback': ROLLBACK}
+
+
+def script_for(step, receipt, stamp):
+    """The remote script for one step. Refuses locally, before contacting Toronado, when it can."""
+    body = STEPS[step]
+    # preflight is read-only, so it may check an unverified receipt; every change needs a verified one.
+    if step != 'preflight' and receipt.get('verified') is not True:
+        raise SystemExit('receipt is not verified; refusing')
+    pin = receipt.get('openclaw_host_version')
+    if step in ('preflight', 'apply') and not pin:
+        raise SystemExit('receipt has no openclaw_host_version (built before the host-pin check); rebuild it')
+    args = dict(installer=ru.INSTALLER, tree=ru.TREE, state=ru.STATE, prefix=ru.PREFIX, stamp=stamp,
+                bundle_sha256=receipt['bundle_sha256'], expect_before=receipt['expect_before'],
+                expect_after=receipt['expect_after'], openclaw_host_version=pin)
+    if step == 'apply':
+        args['bundle_b64'] = base64.b64encode((ROOT / receipt['file']).read_bytes()).decode()
+    return 'ARGS = ' + json.dumps(args) + '\n' + ru.PIN_CHECK + COMMON + body
+
+
 def run(step, receipt_path, stamp):
     receipt = json.loads(pathlib.Path(receipt_path).read_text())
-    assert receipt.get('verified') is True, 'receipt is not verified; refusing'
-    data = (ROOT / receipt['file']).read_bytes()
-    args = dict(installer=ru.INSTALLER, tree=ru.TREE, state=ru.STATE, prefix=ru.PREFIX, stamp=stamp,
-                bundle_sha256=receipt['bundle_sha256'], expect_before=receipt['expect_before'], expect_after=receipt['expect_after'])
-    if step == 'apply':
-        args['bundle_b64'] = base64.b64encode(data).decode()
-    body = {'apply': APPLY, 'health': HEALTH, 'rollback': ROLLBACK}[step]
-    script = 'ARGS = ' + json.dumps(args) + '\n' + COMMON + body
+    script = script_for(step, receipt, stamp)
     (ROOT / 'probes').mkdir(exist_ok=True)
     path = ROOT / 'probes' / f'{step}-{stamp}.py'
     path.write_text(script)
-    p = subprocess.run([sys.executable, '-I', str(REMOTE), str(path)], capture_output=True, text=True)
+    p = subprocess.run([sys.executable, '-I', str(remote_helper()), str(path)], capture_output=True, text=True)
     sys.stdout.write(p.stdout)
     if p.returncode:
         sys.stdout.write(p.stderr[-1500:])

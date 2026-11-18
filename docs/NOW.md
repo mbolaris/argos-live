@@ -6,6 +6,39 @@ with the priority or "next" sections of [BACKLOG.md](BACKLOG.md), [PROJECT-GOALS
 [shakedown/BACKLOG.md](shakedown/BACKLOG.md); this page only says which tickets get worker time and
 in what order.
 
+## Status update, November 18
+
+Priorities below are unchanged. These facts replace the older status lines on this page.
+
+**Merged since November 14:** SIM1 (#191), EV1 headroom report (#192), SIM2 (#193), SIM3 (#194),
+SIM4 sidecars (#195), SIM5 readiness ledger (#196), SIM44 pack format (#197), SIM45 MMLU and GSM8K
+packs (#198), owner-recovery diagnostics (#201) and the OpenClaw 2026.11.3 pin (#202). SIM3 is on
+`main`, so the second wave (SIM11 to SIM13, SIM16, SIM31, WATCH2) is unblocked. EV2 (#200) and
+SIM11 (#199) are open drafts.
+
+**Device and release state.** On November 18 an owner-approved update to `main` (`93d3974`) passed
+preflight and installed, but failed health (`campaign-invalid-state`, no saved evaluation) and was
+rolled back. Toronado is again on the tree below. The cause is not `main`'s code: the persistent
+campaign profile's OpenClaw agent database is still at the 2026.10.x schema, and OpenClaw 2026.11.3
+refuses to start a gateway on it. Until that profile is migrated or replaced, **no campaign and no
+update health check can pass on Toronado**, whichever runtime is installed. See the
+[runbook](HANDS-OFF-RUNBOOK.md).
+
+| Item | State | Source |
+| --- | --- | --- |
+| OpenClaw pinned on `main` | 2026.11.3 (`versions.env` and `addons.json` agree). Upstream's latest stable was 2026.11.5 when #202 merged; 2026.11.3 was chosen to match Toronado, not because it is the newest | #202 |
+| OpenClaw installed on Toronado | 2026.11.3 | read-only probe, November 18 |
+| Argos runtime on Toronado | tree `927f6ee8…` (132 files), byte-identical to `runtime/argoslive` at `c6886130e` on the **unmerged** branch `codex/image-openclaw-2026-11-3`. It pins 2026.11.3, so it agrees with the installed OpenClaw. The November 18 update to `28456f6` (pin 2026.10.8) failed health and was rolled back to this tree | read-only preflight and `runtime_update.py locate`, November 18 |
+| Live image | the runtime and OpenClaw match the ISO built by CI run 43734658440 from that branch's head `edd5893` on November 15. No image has been built from `main` with the 2026.11.3 pin. `main` at `93d3974` differs from the installed runtime in 20 files (SIM4, SIM5, SIM44/45, recovery diagnostics); the OpenClaw pin is the same | `gh run view`, `git diff` |
+| Device evaluation | stopped under the standing orders after the failed health check. Restarting it, deploying a 2026.11.3 runtime, building an image, writing to USB or rebooting each needs the owner's explicit approval for that action | owner instruction, November 18 |
+
+**What the capability evidence does and does not show.** A standard OpenClaw evaluation of
+`ollama/qwen3.8:27b` on Toronado passed 70/70 in about 19 minutes (operator handoff; the run record
+is not in the repository). That run recorded `tool_execution_verified=false` and left out code
+execution, so it shows the model answers the tool-shaped questions correctly. It does not show that
+tools actually ran. The Proctor practice exam, the stricter check, has not passed on Toronado. Do
+not cite the 70/70 result as evidence of agent capability or of an improvement.
+
 ## The one goal
 
 **Argos gets measurably better at real tasks, by its own experiments, while the owner watches.**
