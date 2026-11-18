@@ -2,6 +2,7 @@ import json
 from contextlib import closing
 import http.client
 from pathlib import Path
+import sys
 import tempfile
 import threading
 from types import SimpleNamespace
@@ -452,6 +453,39 @@ class ProctorServiceProgressTests(unittest.TestCase):
             self.assertEqual(value['failure_code'], 'campaign-permission-denied')
             self.assertNotIn('private path', json.dumps(value))
             practice.assert_not_called()
+
+    def test_campaign_exception_cause_goes_to_an_owner_only_log(self):
+        # November 18, 2026: the cause behind campaign-invalid-state was recorded nowhere.
+        with tempfile.TemporaryDirectory() as root:
+            home = Path(root)
+            config = home / '.config/argos-live'
+            config.mkdir(parents=True)
+            (config / 'state.json').write_text('{"model":"qwen-test"}')
+            (home / '.local/state/argos-live').mkdir(parents=True)
+            error = ValueError('Owned gateway failed to start; inspect private gateway.log')
+            with patch.object(proctor_service.startup, 'source', return_value=('target', 'qwen-test')), \
+                    patch.object(proctor_service, 'run_campaign', side_effect=error):
+                value = proctor_service.run_improvement(home, owner_task='recover Argos after reboot',
+                    success_criteria='ready after unlock with no terminal command')
+            self.assertEqual(value['failure_code'], 'campaign-invalid-state')
+            self.assertNotIn('gateway.log', json.dumps(value))
+            entry = proctor_service.record_campaign_failure(home, error)
+            self.assertEqual(entry['type'], 'ValueError')
+            self.assertIn('Owned gateway failed to start', entry['message'])
+            log = home / '.local/state/argos-live/campaign-failure.log'
+            if sys.platform == 'linux':  # private_log is Linux-only by design
+                rows = [json.loads(line) for line in log.read_text().splitlines()]
+                self.assertEqual(rows[0]['type'], 'ValueError')
+                self.assertIn('Owned gateway failed to start', rows[0]['message'])
+                self.assertEqual(log.stat().st_mode & 0o777, 0o600)
+            else:
+                self.assertFalse(log.exists())
+
+    def test_failure_log_problems_never_change_the_result(self):
+        with tempfile.TemporaryDirectory() as root:
+            with patch.object(proctor_service, 'private_log', side_effect=OSError('read-only')):
+                entry = proctor_service.record_campaign_failure(Path(root), KeyError('x'))
+            self.assertEqual(entry['type'], 'KeyError')
 
 
 if __name__ == '__main__':
