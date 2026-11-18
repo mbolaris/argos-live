@@ -88,9 +88,20 @@ def members(blob):
             pos += consumed
             continue
         if segment[:4] == bytes.fromhex('28b52ffd'):
-            if not shutil.which('zstd'):
-                raise ValueError('zstd is required to read this initramfs')
-            payload = subprocess.run(['zstd', '-dc'], input=segment, capture_output=True, check=True).stdout
+            try:
+                from compression import zstd  # Python 3.14+
+            except ImportError:
+                zstd = None
+            if zstd is not None:
+                decompressor = zstd.ZstdDecompressor()
+                payload = decompressor.decompress(segment)
+                # The kernel accepts zero padding after the last archive (hand-patched images use it).
+                if not decompressor.eof or decompressor.unused_data.strip(b'\0'):
+                    raise ValueError('initramfs zstd segment is truncated or followed by data')
+            elif shutil.which('zstd'):
+                payload = subprocess.run(['zstd', '-dc'], input=segment, capture_output=True, check=True).stdout
+            else:
+                raise ValueError('zstd (tool or Python 3.14) is required to read this initramfs')
         elif segment[:2] == b'\x1f\x8b':
             payload = gzip.decompress(segment)
         elif segment[:6] == bytes.fromhex('fd377a585a00'):

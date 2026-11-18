@@ -52,6 +52,12 @@ initrd (`work/ssd-boot-20261023`, `work/toronado-fixed-43734658440`). Every imag
 Toronado was therefore a local variant whose bytes were not the CI artifact. Images built with this
 change need no initrd edit.
 
+Control on the real November 15 artifacts (on Yugo, November 18): the checker read
+`9990-misc-helpers.sh` from both ISOs' `/live/initrd.img`. The stock CI ISO (run 43734658440)
+lacks the edit, and its function skips a fixed USB disk in USB mode. The hand-patched variant that
+runs on Toronado carries it and accepts that disk. In ordinary mode the two behave the same. Applied
+to the stock helper file, the build patch gives a file byte-identical to the hand-patched helper.
+
 The MBR entry for the persistence partition is still added when the write to a specific disk is prepared,
 because its offsets depend on the target disk. The fix for the separate UAS stall on this enclosure
 is in [USB-SSD-UAS.md](USB-SSD-UAS.md).

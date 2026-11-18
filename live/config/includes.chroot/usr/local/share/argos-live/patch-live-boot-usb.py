@@ -16,6 +16,7 @@ Until November 2026 the same edit was applied by hand to each image's initrd aft
 010-argos.hook.chroot regenerates the initramfs, so CI produces the bootable image directly.
 """
 import os
+import re
 from pathlib import Path
 import sys
 
@@ -28,10 +29,14 @@ NOT_USB_MODE = 'if [ -z "${want_usb}" ]'
 
 
 def function_span(text):
-    """Start and end offsets of the removable_dev shell function; refuse anything unexpected."""
-    begin = text.find('removable_dev ()\n{\n')
-    if begin < 0 or text.count('removable_dev ()\n{\n') != 1:
+    """Start and end offsets of the removable_dev shell function; refuse anything unexpected.
+
+    Anchored at a line start: the same file also defines non_removable_dev ().
+    """
+    starts = [m.start() for m in re.finditer(r'^removable_dev \(\)\n\{\n', text, re.M)]
+    if len(starts) != 1:
         raise ValueError('live-boot removable_dev() not found exactly once')
+    begin = starts[0]
     end = text.find('\n}\n', begin)
     if end < 0:
         raise ValueError('live-boot removable_dev() has no end')

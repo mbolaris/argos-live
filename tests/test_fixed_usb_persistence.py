@@ -17,7 +17,11 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 PATCHER = ROOT / 'live/config/includes.chroot/usr/local/share/argos-live/patch-live-boot-usb.py'
 HOOKS = ROOT / 'live/config/hooks/live'
-STOCK_FUNCTION = (ROOT / 'tests/fixtures/live-boot-removable-dev.sh').read_text(encoding='utf-8')
+# Verbatim excerpt of Debian trixie live-boot's 9990-misc-helpers.sh from the November 15, 2026 CI
+# image initrd: removable_dev, removable_usb_dev and non_removable_dev. The last contains the text
+# 'removable_dev ()', so the patcher must anchor at a line start.
+HELPERS_EXCERPT = (ROOT / 'tests/fixtures/live-boot-removable-helpers.sh').read_text(encoding='utf-8')
+STOCK_FUNCTION = HELPERS_EXCERPT[:HELPERS_EXCERPT.index('\n}\n') + 3]
 
 
 def load(name, path):
@@ -29,7 +33,7 @@ def load(name, path):
 
 usb = load('patch_live_boot_usb', PATCHER)
 checker = load('check_iso_usb_persistence', ROOT / 'scripts/check-iso-usb-persistence.py')
-STOCK_FILE = '#!/bin/sh\n\nsys2dev ()\n{\n\techo x\n}\n\n' + STOCK_FUNCTION + '\nother ()\n{\n\t:\n}\n'
+STOCK_FILE = '#!/bin/sh\n\nsys2dev ()\n{\n\techo x\n}\n\n' + HELPERS_EXCERPT + '\nother ()\n{\n\t:\n}\n'
 ON_LINUX_BASH = sys.platform.startswith('linux') and shutil.which('bash')
 
 
@@ -49,6 +53,15 @@ class PatchTests(unittest.TestCase):
     def test_stock_function_is_the_reviewed_shape(self):
         self.assertFalse(usb.is_patched(STOCK_FUNCTION))
         self.assertEqual(STOCK_FUNCTION.count(usb.STOCK), 1)
+
+    def test_finds_removable_dev_and_not_non_removable_dev(self):
+        self.assertIn('\nnon_removable_dev ()\n{\n', STOCK_FILE)
+        begin, end = usb.function_span(STOCK_FILE)
+        self.assertEqual(STOCK_FILE[begin:end], STOCK_FUNCTION)
+        patched = usb.patch(STOCK_FILE)
+        self.assertEqual(patched.count(usb.PATCHED), 1)
+        marker = '\nremovable_usb_dev ()'
+        self.assertEqual(patched[patched.index(marker):], STOCK_FILE[STOCK_FILE.index(marker):])
 
     def test_patch_changes_exactly_one_condition_and_keeps_the_usb_check(self):
         patched = usb.patch(STOCK_FILE)

@@ -41,3 +41,37 @@ removable_dev ()
 	echo "${ret}"
 }
 
+removable_usb_dev ()
+{
+	output_format="${1}"
+
+	removable_dev "${output_format}" "want_usb"
+}
+
+non_removable_dev ()
+{
+	output_format="${1}"
+	ret=
+
+	for sysblock in $(echo /sys/block/* | tr ' ' '\n' | grep -vE "/(loop|ram|dm-|fd)")
+	do
+		if [ ! -d "${sysblock}" ]; then
+			continue
+		fi
+
+		if [ "$(cat ${sysblock}/removable)" = "0" ]
+		then
+			case "${output_format}" in
+				sys)
+					ret="${ret} ${sysblock}"
+					;;
+				*)
+					devname=$(sys2dev "${sysblock}")
+					ret="${ret} ${devname}"
+					;;
+			esac
+		fi
+	done
+
+	echo "${ret}"
+}
