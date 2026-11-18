@@ -2,11 +2,13 @@
 
 Standing orders (docs/HANDS-OFF-STANDING-ORDERS.md), order 3. A bundle is the
 `runtime/argoslive` tree of a commit that is on origin/main and whose checks passed. It replaces
-only /usr/local/lib/argos-live/argoslive, after a snapshot, with a health check and automatic
-rollback. No reboot, no boot-area write, no change to SSH, models, the workspace or the plugin.
+only /usr/local/lib/argos-live/argoslive, after a read-only preflight (including the OpenClaw host
+pin) and a snapshot, followed by a health check; on failure `apply_update.py rollback` restores the
+snapshot. No reboot, no boot-area write, no change to SSH, models, the workspace or the plugin.
 
 Commands
-  build <commit> <base_commit>  make bundle-<sha>.tar and its receipt (-unverified unless checks passed)
+  build <commit> <base_commit>  make bundle-<sha>.tar and its receipt (-unverified unless checks passed
+                            and the runtime's OpenClaw host pin equals versions.env OPENCLAW_VERSION)
   rehearse <bundle.json>    apply, verify, roll back and re-apply against a local copy of the image tree
   install-script            print the remote installer (it is what runs under sudo on Toronado)
 
@@ -24,6 +26,28 @@ TREE = 'usr/local/lib/argos-live/argoslive'
 STATE = 'var/lib/argos-live/runtime-updates'
 PREFIX = 'runtime/argoslive/'
 GH_REPO = 'mbolaris/argos-live'
+ADDONS = PREFIX + 'data/addons.json'
+
+# The runtime refuses to start its owned gateway unless `openclaw --version` names the runtime's
+# pinned host version (runtime/argoslive/owned_gateway.py). The same rule runs locally (tests) and
+# inside the remote preflight, so it lives in one source string. On November 18, 2026 a bundle
+# pinned to 2026.10.8 was applied to a Toronado running 2026.11.3; the mismatch surfaced only after
+# the swap and desktop restart, as a failed health check and a rollback. Checking first avoids that.
+PIN_CHECK = r'''
+import re as _re
+
+def host_pin_refusal(pin, returncode, stdout):
+    """None when the installed OpenClaw reports the bundle's pin; otherwise a one-line reason."""
+    if not pin:
+        return 'receipt has no OpenClaw host pin; rebuild it with runtime_update.py build'
+    if returncode != 0:
+        return 'openclaw --version failed (exit %s); cannot confirm the host version' % returncode
+    found = _re.findall(r'\d{4}\.\d+\.\d+', stdout or '')
+    if pin not in found:
+        return 'bundle pins OpenClaw %s but Toronado reports %s; refusing before any change' % (pin, ', '.join(found) or 'no version')
+    return None
+'''
+exec(PIN_CHECK)
 
 INSTALLER = r'''
 import hashlib, json, os, pathlib, shutil, subprocess, sys, tarfile
@@ -173,6 +197,16 @@ def digest(m):
     return hashlib.sha256(json.dumps(m, sort_keys=True).encode()).hexdigest()
 
 
+def pins_at(commit):
+    """The OpenClaw versions a commit expects: the runtime's host pin and the image build pin."""
+    host = json.loads(git('show', f'{commit}:{ADDONS}')).get('host_version')
+    image = None
+    for line in git('show', f'{commit}:versions.env').splitlines():
+        if line.startswith('OPENCLAW_VERSION='):
+            image = line.split('=', 1)[1].strip()
+    return host, image
+
+
 def checks_passed(sha):
     """True only if every check run on the commit completed and none failed, and a 'test' run succeeded."""
     p = subprocess.run(['gh', 'api', f'repos/{GH_REPO}/commits/{sha}/check-runs', '--paginate',
@@ -192,12 +226,18 @@ def build(commit, base_commit):
     data = tree_tar(sha)
     after = manifest_of(data)
     before = manifest_of(tree_tar(base_commit))
+    host_pin, image_pin = pins_at(sha)
+    base_pin, _ = pins_at(base_commit)
     receipt = {'schema': 'argos-runtime-bundle/1', 'commit': sha, 'base_commit': git('rev-parse', base_commit),
                'bundle_sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data), 'files': len(after),
                'expect_before': digest(before), 'expect_after': digest(after),
                'changed': sorted(k for k in after if before.get(k) != after[k]), 'removed': sorted(set(before) - set(after)),
-               'checks': rows}
-    receipt['verified'] = passed
+               # Toronado's installed OpenClaw must report openclaw_host_version (checked by preflight).
+               'openclaw_host_version': host_pin, 'image_openclaw_version': image_pin,
+               'base_openclaw_host_version': base_pin, 'checks': rows}
+    # A commit whose runtime pin and image pin disagree cannot match any one installed OpenClaw.
+    receipt['verified'] = passed and bool(host_pin) and host_pin == image_pin
+    passed = receipt['verified']
     stem = f'bundle-{sha[:7]}' + ('' if passed else '-unverified')
     receipt['file'] = stem + '.tar'
     (ROOT / (stem + '.tar')).write_bytes(data)
