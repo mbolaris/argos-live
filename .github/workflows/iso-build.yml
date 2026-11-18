@@ -104,6 +104,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Install QEMU tools for same-runner acceptance
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso
+      - name: Check the initrd finds persistence on fixed USB disks
+        run: python3 scripts/check-iso-usb-persistence.py artifacts/argos-live-amd64.iso --output artifacts/usb-persistence.json
       - name: Enable KVM for same-runner acceptance
         shell: bash
         run: |
@@ -134,6 +136,7 @@ jobs:
             artifacts/SHA256SUMS
             artifacts/packages.txt
             artifacts/build-report.json
+            artifacts/usb-persistence.json
           compression-level: 0
           retention-days: 3
           if-no-files-found: error

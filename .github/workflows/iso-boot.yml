@@ -39,6 +39,11 @@ on:
         required: false
         default: false
         type: boolean
+      fixed_usb:
+        description: Attach the encrypted virtual USB as non-removable, like the Toronado SSD enclosure (shutdown test)
+        required: false
+        default: false
+        type: boolean
       guest_reset_only:
         description: Verify RAM-only guest markers disappear after a requested reboot
         required: false
@@ -156,7 +161,12 @@ jobs:
       - name: Install disposable VM/storage tools
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso cryptsetup e2fsprogs util-linux
       - name: Three cold shutdowns and read-only checks before replay
-        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT python3 scripts/smoke-encrypted-shutdown.py work/shutdown-iso/argos-live-amd64.iso --output work/shutdown-evidence
+        env:
+          FIXED_USB: ${{ inputs.fixed_usb || false }}
+        run: |
+          args=()
+          if [[ "$FIXED_USB" == true ]]; then args+=(--fixed-usb); fi
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT python3 scripts/smoke-encrypted-shutdown.py work/shutdown-iso/argos-live-amd64.iso --output work/shutdown-evidence "${args[@]}"
       - name: Record result
         if: always()
         run: |

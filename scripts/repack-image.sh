@@ -28,6 +28,12 @@ shutdown_root="$work/chroot/usr/local/share/argos-live/shutdown-root"
 [[ "$(cat "$shutdown_root/PREPARER_SHA256")" == "$(sha256sum "$src/live/config/includes.chroot/usr/local/share/argos-live/prepare-shutdown-root.sh" | cut -d ' ' -f1)" ]] || {
   echo 'Shutdown template differs from source; do a fresh image build.' >&2; exit 1;
 }
+# Repacking reuses the configured rootfs's initramfs; it must already carry the fixed-USB
+# persistence edit (005-fixed-usb-persistence.hook.chroot), or USB SSDs boot without persistence.
+grep -qF 'if [ "$(cat ${sysblock}/removable)" = "1" ] || [ -n "${want_usb}" ]' \
+  "$work/chroot/usr/lib/live/boot/9990-misc-helpers.sh" || {
+  echo 'Configured rootfs lacks the fixed-USB persistence edit; do a fresh image build.' >&2; exit 1;
+}
 install -m 755 "$src/live/config/hooks/live/050-argos-menu.hook.binary" "$work/config/hooks/live/050-argos-menu.hook.binary"
 python3 - "$work/config/binary" <<'PY'
 import pathlib, sys, re

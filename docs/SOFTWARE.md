@@ -6,7 +6,7 @@ in STATUS.md.
 
 | Component | Pin | License / status | Primary source |
 |---|---|---|---|
-| Debian | trixie, snapshot 20261011T000000Z (development candidate) | Per-package licenses, image copyright archive | https://www.debian.org/releases/ |
+| Debian | trixie, snapshot 20261118T000000Z (development candidate) | Per-package licenses, image copyright archive | https://www.debian.org/releases/ |
 | live-build | Builder version recorded by dpkg; target packages snapshot-pinned | GPL-2+ | https://packages.debian.org/trixie/live-build |
 | OpenClaw | 2026.10.1 (candidate), npm sha512 integrity + transitive lock | MIT; dependencies have separate licenses | https://github.com/openclaw/openclaw/tree/v2026.10.1 |
 | Node | 26.10.0, upstream SHA256 | MIT with bundled third-party notices | https://nodejs.org/dist/v26.10.0/ |
