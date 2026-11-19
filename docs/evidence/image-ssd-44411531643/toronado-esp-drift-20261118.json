@@ -1,0 +1,37 @@
+{
+  "schema": "argos-boot-area-diagnosis/1",
+  "read_only": true,
+  "compared_bytes": 4187160576,
+  "differing_sectors": 7,
+  "ranges_in_partition1_esp": [
+    [
+      545,
+      546
+    ],
+    [
+      550,
+      552
+    ],
+    [
+      587,
+      588
+    ],
+    [
+      7175,
+      7176
+    ],
+    [
+      7179,
+      7180
+    ],
+    [
+      7183,
+      7184
+    ]
+  ],
+  "ranges_outside_partition1": [],
+  "header_matches_preserved_copy": true,
+  "current_boot_area_sha256": "cd0ac0dbae5cb2849ee5713bf03f42a1b051934be19c28c0f64f59db50b57e95",
+  "explanation": "Windows System Volume Information (WPSettings.dat, IndexerVolumeGuid) created 2026-11-15 21:43 on the vfat ESP, its FAT chain entries, and FAT last-access dates on BOOTX64.EFI and GRUBX64.EFI",
+  "completed_utc": "2026-11-19T01:07:05.702593+00:00"
+}

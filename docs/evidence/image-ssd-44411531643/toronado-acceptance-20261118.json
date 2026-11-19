@@ -1,0 +1,48 @@
+{
+  "schema": "argos-toronado-acceptance/1",
+  "boot_id": "3997a2e3-8c0d-40ae-8186-cc171314eb58",
+  "kernel": "6.12.117+deb13-amd64",
+  "cmdline": "BOOT_IMAGE=/live/vmlinuz-6.12.117+deb13-amd64 boot=live components persistence persistence-encryption=luks persistence-media=removable-usb username=argos hostname=argos-live console=tty0 usb-storage.quirks=0bda:9201:u module_blacklist=nouveau",
+  "uas_quirk_in_cmdline": true,
+  "ssd_driver": "usb-storage (dmesg: UAS is ignored for this device)",
+  "root": "overlay / overlay rw,noatime,lowerdir=/run/live/rootfs/filesystem.squashfs/,upperdir=/run/live/persistence/sda3/rw,workdir=/run/live/persistence/sda3/work,redirect_dir=on 0 0",
+  "persistence_mount": "/dev/mapper/sda3 /run/live/persistence/sda3 ext4 rw,noatime",
+  "ssd_removable_flag": 0,
+  "ssh_host_key": "strict pin held (StrictHostKeyChecking=yes)",
+  "runtime_tree": [
+    "258db6c472510b4cf6918ed9fc17bab49c8ebe02ee688fa55f701e124fd71b16",
+    141
+  ],
+  "runtime_tree_expected": "258db6c472510b4cf6918ed9fc17bab49c8ebe02ee688fa55f701e124fd71b16",
+  "openclaw_version": "OpenClaw 2026.11.3 (847611d)",
+  "nvidia_module": true,
+  "nvidia_smi": "NVIDIA GeForce RTX 3090, 550.163.01, 650 MiB, 24576 MiB",
+  "records_files": 4769,
+  "model_27b": "qwen3.8:27b",
+  "reply_27b": "ARGOS-ACCEPTANCE-OK",
+  "reply_seconds_incl_load": 6.1,
+  "loaded_after": [
+    [
+      "qwen3.8:27b",
+      17445871942
+    ]
+  ],
+  "ssd_kernel_log": [
+    "[    3.026768] usb 6-4: New USB device found, idVendor=0bda, idProduct=9201, bcdDevice=22.82",
+    "[    3.026982] usb 6-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3",
+    "[    3.027191] usb 6-4: Product: RTL9201",
+    "[    3.027395] usb 6-4: Manufacturer: Realtek",
+    "[    3.027597] usb 6-4: SerialNumber: (redacted)",
+    "[    3.698224] usb 6-4: UAS is ignored for this device, using usb-storage instead",
+    "[    4.910165] sd 2:0:0:0: [sda] 1465149168 512-byte logical blocks: (750 GB/699 GiB)",
+    "[    4.911840] sd 2:0:0:0: [sda] Write Protect is off",
+    "[    4.912128] sd 2:0:0:0: [sda] Mode Sense: 37 00 00 08",
+    "[    4.913335] sd 2:0:0:0: [sda] Write cache: disabled, read cache: enabled, doesn't support DPO or FUA",
+    "[    4.967986]  sda: sda1 sda2 sda3",
+    "[    4.968722] sd 2:0:0:0: [sda] Attached SCSI disk",
+    "[   23.828522] EXT4-fs (dm-0): recovery complete",
+    "[   23.828940] EXT4-fs (dm-0): mounted filesystem 1a08217a-4574-4690-a178-e882409d6149 r/w with ordered data mode. Quota mode: none."
+  ],
+  "other_usb_reset": "usb 7-1.3 at 36 s = Logitech C922 webcam (046d:085c), not the SSD",
+  "ext4_note": "journal recovery at mount was left by the previous (November 15) image shutdown"
+}

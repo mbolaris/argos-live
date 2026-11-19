@@ -22,24 +22,30 @@ rolled back. Toronado is again on the tree below. The cause is not `main`'s code
 campaign profile's OpenClaw agent database is still at the 2026.10.x schema, and OpenClaw 2026.11.3
 refuses to start a gateway on it. Until that profile is migrated or replaced, **no campaign and no
 update health check can pass on Toronado**, whichever runtime is installed. See the
-[runbook](HANDS-OFF-RUNBOOK.md).
+[runbook](HANDS-OFF-RUNBOOK.md). Later on November 18 the image built from `main` was installed;
+its runtime gives each OpenClaw version its own Proctor profile. An owner-approved `quick`
+campaign health check on it **completed** (2 saved evaluations, both 20/20, audits verified), so
+the stale-profile block is gone and campaigns can run on Toronado again.
 
 | Item | State | Source |
 | --- | --- | --- |
 | OpenClaw pinned on `main` | 2026.11.3 (`versions.env` and `addons.json` agree). Upstream's latest stable was 2026.11.5 when #202 merged; 2026.11.3 was chosen to match Toronado, not because it is the newest | #202 |
 | OpenClaw installed on Toronado | 2026.11.3 | read-only probe, November 18 |
-| Argos runtime on Toronado | tree `927f6ee8…` (132 files), byte-identical to `runtime/argoslive` at `c6886130e` on the **unmerged** branch `codex/image-openclaw-2026-11-3`. It pins 2026.11.3, so it agrees with the installed OpenClaw. The November 18 update to `28456f6` (pin 2026.10.8) failed health and was rolled back to this tree | read-only preflight and `runtime_update.py locate`, November 18 |
-| Live image | the runtime and OpenClaw match the ISO built by CI run 43734658440 from that branch's head `edd5893` on November 15. No image has been built from `main` with the 2026.11.3 pin. `main` at `93d3974` differs from the installed runtime in 20 files (SIM4, SIM5, SIM44/45, recovery diagnostics); the OpenClaw pin is the same. That image is a hand-patched local variant: the CI ISO's initrd was edited so live-boot finds persistence on the SSD | `gh run view`, `git diff` |
-| Image from `main` | CI run 44411531643 from `5ff3ee6` (#205 merged), ISO `702c8bd6…`, copy on Yugo. First CI image that boots the USB SSD with persistence without a hand edit. It passed the initrd check and the fixed-USB encrypted three-boot test. The 0.6B Proctor smoke passed 1 of 2 (2 of 5 across November 18 builds; the November 15 image passed 2 of 4). Not written or booted on Toronado: writing and rebooting each need owner approval. See [evidence](evidence/image-ssd-44411531643/README.md) | CI, November 18 |
-| Runtime update ready | verified bundle `6404f00` from base `c6886130e` (`927f6ee8` to `258db6c4`), rehearsed on Yugo. It installs the profile fix without a new image; each Toronado step needs approval | `runtime_update.py`, November 18 |
+| Argos runtime on Toronado | tree `258db6c4…` (141 files), the runtime from `main` in image 44411531643. It includes the per-version Proctor profile fix | read-only acceptance, November 18 evening |
+| Live image | **CI run 44411531643 from `main` at `5ff3ee6`**, written boot-area-only to the SSD (persistence untouched) and booted on November 18 with owner approval. It is the first image Toronado has run with no hand edit: its own initrd finds encrypted persistence on the `removable=0` USB SSD. Acceptance passed: overlay root on the LUKS SSD, UAS quirk active, host key pin held, OpenClaw 2026.11.3, NVIDIA, a 27B reply. See [Toronado acceptance](evidence/image-ssd-44411531643/TORONADO-ACCEPTANCE.md) | pinned SSH, November 18 |
+| Image from `main` | CI run 44411531643 from `5ff3ee6`, ISO `702c8bd6…`. It passed the initrd check and the fixed-USB encrypted three-boot test in CI. The 0.6B Proctor smoke passed 1 of 2 on CI (2 of 5 across November 18 builds). A reboot check on Toronado is still open and needs owner approval. See [evidence](evidence/image-ssd-44411531643/README.md) | CI, November 18 |
+| Runtime update | no longer needed: the new image already carries `258db6c4` | November 18 |
 | Device evaluation | stopped under the standing orders after the failed health check. Restarting it, deploying a 2026.11.3 runtime, building an image, writing to USB or rebooting each needs the owner's explicit approval for that action | owner instruction, November 18 |
 
 **What the capability evidence does and does not show.** A standard OpenClaw evaluation of
 `ollama/qwen3.8:27b` on Toronado passed 70/70 in about 19 minutes (operator handoff; the run record
 is not in the repository). That run recorded `tool_execution_verified=false` and left out code
 execution, so it shows the model answers the tool-shaped questions correctly. It does not show that
-tools actually ran. The Proctor practice exam, the stricter check, has not passed on Toronado. Do
-not cite the 70/70 result as evidence of agent capability or of an improvement.
+tools actually ran. Do not cite the 70/70 result as evidence of agent capability or of an
+improvement. The Proctor practice exam, the stricter check, completed **6/6** on Toronado on
+November 18, on the new image with `qwen3.8:27b`: one host turn, signed transcript, bound to the
+model digest. That is one run of an uncalibrated six-item practice form. It shows the agent loop
+works end to end on the device; it is not a capability measurement.
 
 ## The one goal
 
