@@ -1,0 +1,33 @@
+{
+  "schema": "argos-boot-area-only-write/3",
+  "mode": "physical",
+  "ssd_iso_sha256": "99c7b18d44efb097ed939850d607397603f7e98aa9fbc6628b6840127144dd68",
+  "source_ci_iso_sha256": "702c8bd6781388ab4e4127d48df18af24098e5806d2a936861408491a4724ae0",
+  "iso_bytes": 4177526784,
+  "partition_table": [
+    [
+      540,
+      6656,
+      239
+    ],
+    [
+      8178048,
+      1456971120,
+      131
+    ]
+  ],
+  "prior_state_verified": "measured 2026-11-18 (November 15 write + 7 Windows ESP sectors)",
+  "prior_boot_area_sha256": "cd0ac0dbae5cb2849ee5713bf03f42a1b051934be19c28c0f64f59db50b57e95",
+  "overwritten_sha256": "accce224749cec03b301d98be165bb99e0ca8b400c0d2669ad9b47582345d8d2",
+  "remaining_gap_bytes": 9633792,
+  "remaining_gap_preserved": true,
+  "header_preserved": true,
+  "encrypted_data_sample_unchanged": true,
+  "full_readback_verified": true,
+  "mbr_written_last": true,
+  "physical_bytes_written": 4177526784,
+  "completed_utc": "2026-11-19T01:19:32.408677+00:00",
+  "disk_identity": "Toronado SSD, identity-pinned by serial, unique id and size; USB, offline, not boot or system (redacted)",
+  "previous_boot_backup": "kept on Yugo (4,177,526,784 bytes, sha256 = overwritten_sha256)",
+  "records_backup": "encrypted records backup taken first and hash-checked by the writer (kept on Yugo)"
+}

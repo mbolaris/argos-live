@@ -1,0 +1,129 @@
+{
+  "stages": [
+    [
+      "stop-assistant",
+      1795052059
+    ],
+    [
+      "practice",
+      1795052061
+    ],
+    [
+      "restart-assistant",
+      1795052124
+    ]
+  ],
+  "selected_model": "qwen3.8:27b",
+  "model_digest": "8601b280d4523ba6c43a5f86f80d0c328c4d1a1b466553bc13d0b517952f24ee",
+  "campaign_active_before": false,
+  "stop_phase": "stopped",
+  "ollama_stopped": true,
+  "practice_seconds": 63.1,
+  "practice_returncode": 0,
+  "practice_stderr_tail": "",
+  "practice": {
+    "status": "completed",
+    "practice_only": true,
+    "calibration_status": "uncalibrated",
+    "cartridge_sha256": "d761ccc1bac0f749893a17e1f11f4d96a499e50cf9412ef3e5ef1810fe044f52",
+    "form_id": "pilot-a",
+    "transcript_id": "014eaf6c776177e92ccbe4aceb8046ba",
+    "signing_key_id": "8dfa68ca0914ce456254eb316a49288367ca513e851906141971f3c13646c830",
+    "result": {
+      "state": "COMPLETED",
+      "correct": 6,
+      "total": 6,
+      "unanswered": 0,
+      "domains": {
+        "evidence_interpretation": {
+          "answered": 1,
+          "correct": 1,
+          "total": 1
+        },
+        "math": {
+          "answered": 2,
+          "correct": 2,
+          "total": 2
+        },
+        "reasoning": {
+          "answered": 2,
+          "correct": 2,
+          "total": 2
+        },
+        "tool_call_format": {
+          "answered": 1,
+          "correct": 1,
+          "total": 1
+        }
+      },
+      "items": [
+        {
+          "item_id": "q1",
+          "domain": "reasoning",
+          "submitted_answer": "B",
+          "is_correct": true,
+          "expected_answer": "B"
+        },
+        {
+          "item_id": "q2",
+          "domain": "math",
+          "submitted_answer": "4",
+          "is_correct": true,
+          "expected_answer": "4"
+        },
+        {
+          "item_id": "q5",
+          "domain": "tool_call_format",
+          "submitted_answer": "{\"arguments\":{\"job_id\":\"0123456789abcdef0123456789abcdef\"},\"name\":\"argos_evaluate_wait\"}",
+          "is_correct": true,
+          "expected_answer": "{\"name\":\"argos_evaluate_wait\",\"arguments\":{\"job_id\":\"0123456789abcdef0123456789abcdef\"}}"
+        },
+        {
+          "item_id": "q3",
+          "domain": "reasoning",
+          "submitted_answer": "A",
+          "is_correct": true,
+          "expected_answer": "A"
+        },
+        {
+          "item_id": "q4",
+          "domain": "math",
+          "submitted_answer": "-1.25",
+          "is_correct": true,
+          "expected_answer": "-1.25"
+        },
+        {
+          "item_id": "q6",
+          "domain": "evidence_interpretation",
+          "submitted_answer": "C",
+          "is_correct": true,
+          "expected_answer": "C"
+        }
+      ]
+    },
+    "host_turns": 1,
+    "start_retries": 0,
+    "agent_summary": [
+      {
+        "text": "Practice exam complete \u2014 **6/6 correct** across all four domains (evidence_interpretation 1/1, math 2/2, reasoning 2/2, tool_call_format 1/1).\n\n**Domains to practice next:** Since every item was correct, no domain needs remediation. If prioritizing for depth, I'd focus on **evidence_interpretation** and **tool_call_format** \u2014 both had only one item this session, so they're the least-exposed and most nuanced (evidence interpretation requires careful scoping of what a score does and doesn't prove; tool-call format demands exact argument/JSON fidelity). Reasoning and math are well-covered and solid.\n\nStopping here \u2014 no files or instructions changed.",
+        "mediaUrl": null
+      }
+    ]
+  },
+  "outcome": "COMPLETED",
+  "turn_receipt_valid": true,
+  "transcript_saved": true,
+  "signature_verified": true,
+  "model_bound": true,
+  "transcript": {
+    "outcome": "COMPLETED",
+    "accepted_correct": 6,
+    "total_items": 6,
+    "answered": 6,
+    "modules": [
+      "SUBMITTED",
+      "SUBMITTED"
+    ]
+  },
+  "restart_phase": "ready"
+}

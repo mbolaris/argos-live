@@ -6,8 +6,9 @@ ISO `argos-live-amd64.iso`, 4,177,526,784 bytes, SHA-256
 `5ff3ee6` (PR #205 merged). The artifact expires after three days; a checksum-verified copy is on
 Yugo in `work/toronado-iso-44411531643/`.
 
-This is the image to write to Toronado. **It is not accepted yet:** it has not booted on Toronado,
-and writing it and rebooting need the owner's approval for each action.
+This image now runs on Toronado. It was written and booted on November 18 with the owner's
+approval. Physical acceptance passed, and the Proctor practice exam on the 27B completed 6/6; see
+[TORONADO-ACCEPTANCE.md](TORONADO-ACCEPTANCE.md). A reboot check on hardware is still open.
 
 ## What is new compared with what Toronado runs
 
@@ -42,8 +43,9 @@ The SSD currently runs a hand-patched local variant of the November 15 branch im
 Across the November 18 images this smoke passed 2 of 5 runs, and the November 15 image passed 2 of
 4. The failures are the small model either submitting a malformed first answer or making no tool
 call. The Proctor engine did not change between the images. The smoke is an intermittent gate on
-the 0.6B model and says nothing about the 27B model on Toronado. The Proctor practice exam has still
-**not** passed on Toronado.
+the 0.6B model and says nothing about the 27B model on Toronado. On Toronado, the 27B model
+completed the practice exam 6/6 in one run on November 18
+([TORONADO-ACCEPTANCE.md](TORONADO-ACCEPTANCE.md)).
 
 ## Before writing it to Toronado
 
