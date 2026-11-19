@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import runpy
 from pathlib import Path
 import sys
 import tempfile
@@ -17,6 +18,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
+native_chat = runpy.run_path(str(ROOT / 'scripts/smoke-native-chat.py'))
 from argoslive import auto_setup, catalog, model_verify, proctor_service, ssh_recovery
 from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 from argoslive.web.server import DashboardServer
@@ -469,6 +471,9 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
     identity = model_verify.verify(model_store, entry, sync=False, include_identity=True)
     with tempfile.TemporaryDirectory(prefix='argos-proctor-real-', dir=scratch) as temporary:
         home = Path(temporary)
+        practice_wire_log = home / 'proctor-wire.jsonl'
+        practice_wire_log.write_text('', encoding='utf-8')
+        practice_wire_log.chmod(0o600)
         workspace = home / '.openclaw/workspace'
         workspace.mkdir(mode=0o700, parents=True)
         # Match the owner workspace created by first-run setup. The recovery
@@ -497,7 +502,7 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         def observed_environment(home, config_path):
             env = original_environment(home, config_path)
             env.update(NODE_OPTIONS='--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri(),
-                ARGOS_NATIVE_REQUEST_REPORT=str(home / 'proctor-wire.json'),
+                ARGOS_NATIVE_REQUEST_LOG=str(practice_wire_log),
                 ARGOS_NATIVE_OPENCLAW_ENTRY=str(cli.resolve()))
             return env
         try:
@@ -525,9 +530,8 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         practice_turn_path = home / '.local/state/argos-live/workload/controller-turn.json'
         practice_turn = json.loads(practice_turn_path.read_text(encoding='utf-8')) \
             if practice_turn_path.is_file() else {}
-        practice_wire_path = home / 'proctor-wire.json'
-        practice_wire_request = json.loads(practice_wire_path.read_text(encoding='utf-8')) \
-            if practice_wire_path.is_file() else {}
+        practice_wire_request = native_chat['request_metrics'](
+            {'ARGOS_NATIVE_REQUEST_LOG': str(practice_wire_log)})
         recovery_receipt = None
         if owner_recovery:
             try:
