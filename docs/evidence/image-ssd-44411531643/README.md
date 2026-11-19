@@ -7,7 +7,8 @@ ISO `argos-live-amd64.iso`, 4,177,526,784 bytes, SHA-256
 Yugo in `work/toronado-iso-44411531643/`.
 
 This image now runs on Toronado. It was written and booted on November 18 with the owner's
-approval. Physical acceptance passed, and the Proctor practice exam on the 27B completed 6/6; see
+approval. Physical acceptance passed, the Proctor practice exam on the 27B completed 6/6, and a
+quick campaign health check completed (2 × 20/20); see
 [TORONADO-ACCEPTANCE.md](TORONADO-ACCEPTANCE.md). A reboot check on hardware is still open.
 
 ## What is new compared with what Toronado runs

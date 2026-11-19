@@ -70,8 +70,21 @@ This is a six-item practice form, not a calibrated measurement, and it is one ru
 time the Proctor practice exam has completed on Toronado. On CI, the bundled 0.6B model completed
 it in 2 of 5 November 18 runs.
 
+## Campaign health check (owner-approved)
+
+Results are in [toronado-health-quick-20261118.json](toronado-health-quick-20261118.json). One
+measured `quick` campaign on `qwen3.8:27b` **completed**:
+- no failure code, and 2 saved evaluations, both **20/20** with zero format errors (runs
+  `6553c0ce…`, `08a78b91…`);
+- Argos inspected, logged and compared on its own, and every audit was verified;
+- no gain was claimed (`independent_gain_verified=false`);
+- 19.5 minutes, ending with Argos restarted and the model replying.
+
+The November 18 runtime update failed this same check with `campaign-invalid-state`, because the
+stale 2026.10.x campaign profile blocked it. The per-version Proctor profile in this image removes
+that block, so campaigns can run on Toronado again.
+
 ## Still open
 
-Each of these needs its own owner approval:
-- a quick campaign health check on the per-version Proctor profile;
-- a reboot to prove clean shutdown and persistence on hardware.
+A reboot to prove clean shutdown and persistence on hardware. It needs the owner's approval; the
+owner said "not now" on November 18.

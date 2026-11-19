@@ -23,8 +23,9 @@ campaign profile's OpenClaw agent database is still at the 2026.10.x schema, and
 refuses to start a gateway on it. Until that profile is migrated or replaced, **no campaign and no
 update health check can pass on Toronado**, whichever runtime is installed. See the
 [runbook](HANDS-OFF-RUNBOOK.md). Later on November 18 the image built from `main` was installed;
-its runtime gives each OpenClaw version its own Proctor profile. A campaign health check on it has
-not run yet: it needs the owner's approval.
+its runtime gives each OpenClaw version its own Proctor profile. An owner-approved `quick`
+campaign health check on it **completed** (2 saved evaluations, both 20/20, audits verified), so
+the stale-profile block is gone and campaigns can run on Toronado again.
 
 | Item | State | Source |
 | --- | --- | --- |
