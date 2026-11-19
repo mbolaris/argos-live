@@ -525,6 +525,9 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         practice_turn_path = home / '.local/state/argos-live/workload/controller-turn.json'
         practice_turn = json.loads(practice_turn_path.read_text(encoding='utf-8')) \
             if practice_turn_path.is_file() else {}
+        practice_wire_path = home / 'proctor-wire.json'
+        practice_wire_request = json.loads(practice_wire_path.read_text(encoding='utf-8')) \
+            if practice_wire_path.is_file() else {}
         recovery_receipt = None
         if owner_recovery:
             try:
@@ -580,8 +583,10 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             evidence_interpretation_answer.get('answer') if evidence_interpretation_answer else None)
         expected_tool_call = {'name': 'argos_evaluate_wait',
                               'arguments': {'job_id': job_id}}
-        wire = home / 'proctor-wire.json'
-        receipt['wire_request'] = json.loads(wire.read_text()) if wire.is_file() else {}
+        # The recovery campaign starts a second OpenClaw process using the same
+        # report path. Keep the Proctor request metrics captured before that
+        # process can replace them.
+        receipt['wire_request'] = practice_wire_request
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps(receipt, indent=2) + '\n')
         # Only this public-pilot scratch fixture exports model reply text. There
@@ -617,9 +622,19 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         if (len(worker_turns) != result['host_turns'] or
                 any(not row['process_group_drained'] or not row['session_bound'] for row in worker_turns)):
             raise ValueError('Real-model Proctor receipt did not verify every drained, session-bound worker turn')
-        if (receipt['requested_temperature'] is not None and
-                receipt['wire_request'].get('temperature') != receipt['requested_temperature']):
-            raise ValueError('Deterministic fixture request temperature was not observed on the wire')
+        if receipt['requested_temperature'] is not None:
+            wire = receipt['wire_request']
+            requests = wire.get('requests') if isinstance(wire, dict) else None
+            if (not isinstance(requests, list) or not requests or
+                    wire.get('probe_loaded') is not True or
+                    wire.get('runtime_fetch_hooked') is not True or
+                    wire.get('requests_truncated') is True or
+                    wire.get('request_count') != len(requests) or
+                    any(not isinstance(request, dict) or
+                        request.get('body_inspected') is not True or
+                        request.get('temperature') != receipt['requested_temperature']
+                        for request in requests)):
+                raise ValueError('Deterministic fixture request temperature was not observed on the Proctor wire')
 
 
 if __name__ == '__main__':
