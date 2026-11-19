@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import runpy
 from pathlib import Path
 import sys
 import tempfile
@@ -17,6 +18,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
+native_chat = runpy.run_path(str(ROOT / 'scripts/smoke-native-chat.py'))
 from argoslive import auto_setup, catalog, model_verify, proctor_service, ssh_recovery
 from argoslive.proctor.signing import Ed25519Signer, verify_envelope
 from argoslive.web.server import DashboardServer
@@ -469,6 +471,9 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
     identity = model_verify.verify(model_store, entry, sync=False, include_identity=True)
     with tempfile.TemporaryDirectory(prefix='argos-proctor-real-', dir=scratch) as temporary:
         home = Path(temporary)
+        practice_wire_log = home / 'proctor-wire.jsonl'
+        practice_wire_log.write_text('', encoding='utf-8')
+        practice_wire_log.chmod(0o600)
         workspace = home / '.openclaw/workspace'
         workspace.mkdir(mode=0o700, parents=True)
         # Match the owner workspace created by first-run setup. The recovery
@@ -497,7 +502,7 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         def observed_environment(home, config_path):
             env = original_environment(home, config_path)
             env.update(NODE_OPTIONS='--import=' + (ROOT / 'scripts/native-chat-request-probe.mjs').as_uri(),
-                ARGOS_NATIVE_REQUEST_REPORT=str(home / 'proctor-wire.json'),
+                ARGOS_NATIVE_REQUEST_LOG=str(practice_wire_log),
                 ARGOS_NATIVE_OPENCLAW_ENTRY=str(cli.resolve()))
             return env
         try:
@@ -525,6 +530,8 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         practice_turn_path = home / '.local/state/argos-live/workload/controller-turn.json'
         practice_turn = json.loads(practice_turn_path.read_text(encoding='utf-8')) \
             if practice_turn_path.is_file() else {}
+        practice_wire_request = native_chat['request_metrics'](
+            {'ARGOS_NATIVE_REQUEST_LOG': str(practice_wire_log)})
         recovery_receipt = None
         if owner_recovery:
             try:
@@ -580,8 +587,10 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
             evidence_interpretation_answer.get('answer') if evidence_interpretation_answer else None)
         expected_tool_call = {'name': 'argos_evaluate_wait',
                               'arguments': {'job_id': job_id}}
-        wire = home / 'proctor-wire.json'
-        receipt['wire_request'] = json.loads(wire.read_text()) if wire.is_file() else {}
+        # The recovery campaign starts a second OpenClaw process using the same
+        # report path. Keep the Proctor request metrics captured before that
+        # process can replace them.
+        receipt['wire_request'] = practice_wire_request
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps(receipt, indent=2) + '\n')
         # Only this public-pilot scratch fixture exports model reply text. There
@@ -617,9 +626,19 @@ def run(cli, ollama, model_store, model_tag, report, *, deterministic_profile=Fa
         if (len(worker_turns) != result['host_turns'] or
                 any(not row['process_group_drained'] or not row['session_bound'] for row in worker_turns)):
             raise ValueError('Real-model Proctor receipt did not verify every drained, session-bound worker turn')
-        if (receipt['requested_temperature'] is not None and
-                receipt['wire_request'].get('temperature') != receipt['requested_temperature']):
-            raise ValueError('Deterministic fixture request temperature was not observed on the wire')
+        if receipt['requested_temperature'] is not None:
+            wire = receipt['wire_request']
+            requests = wire.get('requests') if isinstance(wire, dict) else None
+            if (not isinstance(requests, list) or not requests or
+                    wire.get('probe_loaded') is not True or
+                    wire.get('runtime_fetch_hooked') is not True or
+                    wire.get('requests_truncated') is True or
+                    wire.get('request_count') != len(requests) or
+                    any(not isinstance(request, dict) or
+                        request.get('body_inspected') is not True or
+                        request.get('temperature') != receipt['requested_temperature']
+                        for request in requests)):
+                raise ValueError('Deterministic fixture request temperature was not observed on the Proctor wire')
 
 
 if __name__ == '__main__':

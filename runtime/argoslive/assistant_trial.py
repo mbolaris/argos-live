@@ -335,10 +335,11 @@ def model_gave_no_answer(stdout, stderr=b''):
         value = {}
     if not isinstance(value, dict):
         value = {}
+    top_meta = value.get('meta') if isinstance(value.get('meta'), dict) else {}
     body = value.get('result') if isinstance(value.get('result'), dict) else {}
-    meta = body.get('meta') if isinstance(body.get('meta'), dict) else {}
+    result_meta = body.get('meta') if isinstance(body.get('meta'), dict) else {}
     if any(isinstance(error, dict) and error.get('kind') == 'incomplete_turn'
-           for error in (value.get('error'), meta.get('error'))):
+           for error in (value.get('error'), top_meta.get('error'), result_meta.get('error'))):
         return True
     # The pinned embedded CLI can instead exit 1 with only a structured host
     # fallback decision on stderr. Observed on Toronado at task 58. Require the
