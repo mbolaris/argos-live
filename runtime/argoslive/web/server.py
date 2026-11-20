@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from argoslive import addons
 from argoslive.ability import object_pairs
 from argoslive.web import status as live_status
+from argoslive.web import telemetry as live_telemetry
 from argoslive.web import improve, models
 from argoslive.web.benchmarks import View as BenchmarkView
 from argoslive.shakedown.scorecard import View as ShakedownView
@@ -26,6 +27,9 @@ FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
          '/style.css': ('style.css', 'text/css; charset=utf-8'),
          '/match.js': ('match.js', 'text/javascript; charset=utf-8'),
          '/match.css': ('match.css', 'text/css; charset=utf-8'),
+         '/monitor': ('monitor.html', 'text/html; charset=utf-8'),
+         '/monitor.js': ('monitor.js', 'text/javascript; charset=utf-8'),
+         '/monitor.css': ('monitor.css', 'text/css; charset=utf-8'),
          '/shakedown': ('shakedown.html', 'text/html; charset=utf-8'),
          '/shakedown.js': ('shakedown.js', 'text/javascript; charset=utf-8'),
          '/shakedown.css': ('shakedown.css', 'text/css; charset=utf-8'),
@@ -362,6 +366,47 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, self.server.status_provider(), head=head)
             except (OSError, ValueError, TypeError, KeyError, AttributeError):
                 self.reply(503, {'error': 'Live status unavailable'}, head=head)
+        elif path == '/api/telemetry':
+            try:
+                self.reply(200, live_telemetry.snapshot(), head=head)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Live telemetry unavailable'}, head=head)
+        elif path == '/api/monitor/campaign':
+            try:
+                state = self.server.proctor_campaign.snapshot() if self.server.proctor_campaign else {}
+                progress = state.get('progress') if isinstance(state.get('progress'), dict) else {}
+                current = progress.get('current') if isinstance(progress.get('current'), dict) else {}
+                result = state.get('result') if isinstance(state.get('result'), dict) else {}
+                result_campaign = result.get('campaign') if isinstance(result.get('campaign'), dict) else {}
+                evaluations = progress.get('evaluation_runs') if isinstance(progress.get('evaluation_runs'), list) else []
+                fields = ('run_id', 'suite', 'suite_version', 'model', 'completed', 'total', 'correct',
+                          'format_errors', 'run_state')
+                payload = {'schema': 'argos-monitor-campaign/1', 'available': bool(self.server.proctor_campaign),
+                           'active': state.get('active'), 'phase': state.get('phase'),
+                           'elapsed_seconds': state.get('elapsed_seconds'), 'model': state.get('model'),
+                           'measurement_suite': state.get('measurement_suite'),
+                           'assistant_ready': state.get('assistant_ready'),
+                           'failure_code': state.get('failure_code'), 'failure_stage': state.get('failure_stage'),
+                           'progress': {key: progress.get(key) for key in ('stage', 'turn', 'total',
+                               'saved_evaluation_count', 'audit_status')},
+                           'current': {key: current.get(key) for key in ('run_id', 'item_id', 'category', 'state')},
+                           'evaluation_runs': [{key: row.get(key) for key in fields if key in row}
+                                               for row in evaluations if isinstance(row, dict)],
+                           'result': {key: result.get(key) for key in ('status', 'failure_code')},
+                           'result_campaign': {key: result_campaign.get(key) for key in
+                                               ('outcome', 'audit_status', 'saved_evaluation_ids', 'missing')}}
+                self.reply(200, payload, head=head)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Campaign status unavailable'}, head=head)
+        elif path == '/api/monitor/results':
+            try:
+                from argoslive import proctor_match
+                fields = ('run_id', 'created', 'suite', 'suite_version', 'state', 'complete', 'correct', 'scored_total')
+                rounds = [{key: row.get(key) for key in fields}
+                          for row in proctor_match.recent(self.server.benchmarks.store, limit=6)]
+                self.reply(200, {'schema': 'argos-monitor-results/1', 'rounds': rounds}, head=head)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                self.reply(503, {'error': 'Saved results unavailable'}, head=head)
         elif path == '/api/models':
             try:
                 self.reply(200, self.server.models_provider(), head=head)
@@ -385,7 +430,7 @@ class Handler(BaseHTTPRequestHandler):
             filename, mime = FILES[path]
             try:
                 body = (ASSETS / filename).read_bytes()
-                if path in ('/', '/prototype', '/prototype.html', '/shakedown'):
+                if path in ('/', '/prototype', '/prototype.html', '/shakedown', '/monitor'):
                     body = body.replace(b'__SESSION_TOKEN__', quote(self.server.token).encode('ascii'))
             except OSError:
                 self.reply(503, {'error': 'Dashboard asset unavailable'}, head=head)

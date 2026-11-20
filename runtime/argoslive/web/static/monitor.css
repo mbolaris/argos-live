@@ -1,0 +1,48 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #09131e; color: #ecf5fa; --panel: #111e2b; --line: #2c4050; --muted: #a8bdcb; --mint: #82e4de; --blue: #8cc5ff; --orange: #f0c681; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(ellipse at 85% 0%, #17394a66, transparent 45%), #09131e; }
+main { width: min(960px, 100%); margin: auto; padding: max(16px, env(safe-area-inset-top)) 18px max(30px, env(safe-area-inset-bottom)); }
+header, .section-heading, .progress-row, footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+header { min-height: 48px; }
+a { color: var(--blue); text-decoration: none; }
+.brand { color: #ecf5fa; font-size: 16px; font-weight: 750; }
+.live { color: var(--mint); font-size: 12px; white-space: nowrap; }
+.live i { display: inline-block; width: 8px; height: 8px; background: var(--mint); border-radius: 100%; margin-right: 6px; box-shadow: 0 0 10px #82e4de77; }
+h1 { font-size: clamp(28px, 8vw, 40px); line-height: 1.06; letter-spacing: -.04em; margin: 28px 0 8px; }
+h2 { font-size: 18px; margin: 0; }
+.subhead, .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
+#updated { margin: 4px 0 22px; }
+section { margin-top: 28px; }
+.section-heading { margin-bottom: 10px; }
+.section-heading .muted { margin: 0; text-align: right; }
+.card { min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: #111e2b; padding: 16px; overflow: hidden; }
+.hero { padding: 18px; }
+.run-name { font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.pill { color: var(--muted); border: 1px solid var(--line); border-radius: 40px; padding: 5px 10px; font-size: 11px; white-space: nowrap; }
+.pill.active { color: var(--mint); border-color: #327a79; }
+.progress-row { gap: 16px; margin: 18px 0 20px; }
+progress { width: 100%; height: 11px; accent-color: var(--mint); }
+.progress-row strong { font: 700 14px ui-monospace, monospace; white-space: nowrap; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
+.facts div { min-width: 0; }
+.facts span, .metric > span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 6px; }
+.facts strong { display: block; overflow-wrap: anywhere; font-size: 13px; }
+.note, .footnote { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 14px 0 0; }
+.metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.metric { padding: 13px; }
+.metric strong { display: block; font: 650 clamp(22px, 7vw, 31px)/1.1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: -.045em; overflow-wrap: anywhere; }
+.metric small { display: block; min-height: 16px; color: var(--muted); font-size: 10px; margin-top: 6px; overflow-wrap: anywhere; }
+.chart { width: 100%; height: auto; margin-top: 10px; padding: 5px; }
+.chart text { fill: var(--muted); font: 10px ui-sans-serif, system-ui, sans-serif; }
+.chart path { fill: none; stroke: var(--orange); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+#util-line { stroke: var(--blue); }
+.table-wrap { padding: 0; overflow-x: auto; }
+table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 12px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 10px; border-bottom: 1px solid var(--line); }
+th { position: sticky; top: 0; color: var(--muted); font-weight: 550; background: #111e2b; }
+td:nth-child(2), td:nth-child(3) { white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.ok { color: var(--mint); }.bad { color: var(--orange); }
+footer { flex-wrap: wrap; margin-top: 30px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (min-width: 680px) { main { padding-left: 28px; padding-right: 28px; } .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } .hero { padding: 22px; } }
+@media (max-width: 370px) { main { padding-left: 12px; padding-right: 12px; } .metric { padding: 11px; } .section-heading { align-items: flex-start; } }

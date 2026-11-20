@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#09131e">
+  <title>Argos Live · Toronado monitor</title>
+  <link rel="stylesheet" href="/monitor.css?token=__SESSION_TOKEN__">
+  <script src="/monitor.js?token=__SESSION_TOKEN__" defer></script>
+</head>
+<body>
+  <main>
+    <header><a href="/?token=__SESSION_TOKEN__" class="brand">Argos Live</a><span class="live"><i></i> Live read only</span></header>
+    <h1>Toronado monitor</h1>
+    <p class="subhead">Testing progress and machine health. Refreshes every 10 seconds.</p>
+    <p id="updated" class="muted" role="status">Connecting…</p>
+
+    <section aria-labelledby="run-title">
+      <div class="section-heading"><h2 id="run-title">Current test</h2><span id="run-state" class="pill">Loading</span></div>
+      <div class="hero card">
+        <div id="run-name" class="run-name">Checking campaign…</div>
+        <div class="progress-row"><progress id="run-progress" max="1" value="0"></progress><strong id="run-count">—</strong></div>
+        <div class="facts">
+          <div><span>Phase</span><strong id="phase">—</strong></div>
+          <div><span>Elapsed</span><strong id="elapsed">—</strong></div>
+          <div><span>Current / last item</span><strong id="item">—</strong></div>
+          <div><span>Saved evaluations</span><strong id="saved">—</strong></div>
+        </div>
+        <p id="run-note" class="note">Only a completed, audited run counts as a result. A practice score is not a capability gain.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="gpu-title">
+      <div class="section-heading"><h2 id="gpu-title">GPU</h2><span id="gpu-name" class="muted">—</span></div>
+      <div class="metric-grid">
+        <article class="card metric"><span>Temperature</span><strong id="gpu-temp">—</strong><small>°C</small></article>
+        <article class="card metric"><span>Utilization</span><strong id="gpu-util">—</strong><small>%</small></article>
+        <article class="card metric"><span>VRAM</span><strong id="gpu-vram">—</strong><small id="gpu-vram-total">used / total</small></article>
+        <article class="card metric"><span>Board power</span><strong id="gpu-power">—</strong><small id="gpu-power-limit">watts</small></article>
+      </div>
+      <svg class="chart card" viewBox="0 0 600 120" role="img" aria-label="Recent GPU temperature and utilization trend">
+        <text x="12" y="21">GPU °C</text><path id="temp-line" d="" />
+        <text x="12" y="111">Utilization %</text><path id="util-line" d="" />
+      </svg>
+    </section>
+
+    <section aria-labelledby="system-title">
+      <h2 id="system-title">System health</h2>
+      <div class="metric-grid system-grid">
+        <article class="card metric"><span>RAM available</span><strong id="ram">—</strong><small id="ram-total">of —</small></article>
+        <article class="card metric"><span>Root disk free</span><strong id="disk">—</strong><small id="disk-total">of —</small></article>
+        <article class="card metric"><span>CPU temperature</span><strong id="cpu-temp">—</strong><small id="cpu-sensor">Unavailable until a CPU sensor is reported</small></article>
+        <article class="card metric"><span>System uptime</span><strong id="uptime">—</strong><small>since boot</small></article>
+      </div>
+      <p id="health-note" class="muted">Unavailable measurements are shown as —.</p>
+    </section>
+
+    <section aria-labelledby="results-title">
+      <div class="section-heading"><h2 id="results-title">Recent saved results</h2><span class="muted">Newest first</span></div>
+      <div class="table-wrap card"><table><thead><tr><th>Test</th><th>Result</th><th>State</th><th>Time</th></tr></thead><tbody id="results"><tr><td colspan="4">Loading saved results…</td></tr></tbody></table></div>
+      <p class="muted footnote">Unfinished runs are marked incomplete and are not used as evidence. No prompts, answers, or answer keys are shown here.</p>
+    </section>
+    <footer><span>Argos Live · authenticated session</span><span id="connection">Connecting</span></footer>
+  </main>
+</body>
+</html>
