@@ -25,7 +25,23 @@ def tailscale_login():
             return None
         profile = (value.get('Self') or {}).get('UserProfile') or {}
         login = profile.get('LoginName')
-        return login if isinstance(login, str) and login and len(login) <= 254 else None
+        if isinstance(login, str) and login and len(login) <= 254:
+            return login
+        # Newer Tailscale status JSON can omit Self.UserProfile even while the
+        # node is authenticated. Resolve the local node through whois instead
+        # of failing closed with a permanent None identity.
+        addresses = (value.get('Self') or {}).get('TailscaleIPs') or value.get('TailscaleIPs') or []
+        for address in addresses:
+            if not isinstance(address, str) or not address:
+                continue
+            whois = subprocess.run([executable, 'whois', '--json', address],
+                                   capture_output=True, text=True, timeout=4, check=True)
+            identity = json.loads(whois.stdout)
+            profile = identity.get('UserProfile') or {}
+            login = profile.get('LoginName')
+            if isinstance(login, str) and login and len(login) <= 254:
+                return login
+        return None
     except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError):
         return None
 
