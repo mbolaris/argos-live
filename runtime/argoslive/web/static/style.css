@@ -9,6 +9,8 @@
 body { margin: 0; background: radial-gradient(ellipse at 85% 0%, #142d3b66, transparent 45%); }
 main { max-width: 1160px; margin: auto; padding: 32px 32px 80px; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.header-actions { display: flex; align-items: center; gap: 14px; }
+.monitor-link { color: var(--accent); font-size: 13px; font-weight: 650; text-decoration: none; }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 750; letter-spacing: -.025em; }
 .brand::before { content: ''; width: 23px; height: 23px; border: 2px solid var(--accent); border-radius: 50%; box-shadow: inset 0 0 0 5px var(--canvas), inset 0 0 0 7px var(--accent); }
 .badge { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); border: 1px solid var(--line); padding: 8px 12px; border-radius: 30px; }

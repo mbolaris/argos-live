@@ -22,6 +22,7 @@ from .model_controls import Controller as ModelController
 from .results import Store
 from . import auto_climb, command_center, proctor_campaign
 from .web.server import DashboardServer
+from .web.remote_monitor import RemoteMonitorServer
 from .web.benchmarks import View as BenchmarkView
 from .web import models as model_view, status as status_view
 from .web.status import read_json
@@ -135,6 +136,15 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
         controller, home=home, ssh_recovery=ssh_recovery_controller)
     storage_controller = storage_view.Controller(controller, home=home)
     command = command_center.Controller(home, results, lab=lab, storage=storage_controller)
+    # A separate loopback listener provides only safe monitor projections. It
+    # checks the identity headers added by Tailscale Serve and never shares the
+    # operator dashboard's session token or mutation routes.
+    try:
+        remote_monitor = RemoteMonitorServer(proctor_campaign=proctor_campaign_controller,
+                                             store=results)
+    except OSError:
+        # A monitor port conflict must not prevent the local assistant from starting.
+        remote_monitor = None
     with DashboardServer(port=port, startup=controller, lab=lab, downloads=downloads, selection=selection,
             storage=storage_controller, command=command, assistant_trial=trial, auto_climb=auto_climb_controller,
             proctor_campaign=proctor_campaign_controller,
@@ -142,6 +152,9 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
             benchmarks=BenchmarkView(results), models_provider=lambda: model_view.snapshot(home),
             status_provider=lambda: status_view.snapshot(home)) as server:
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)
+        monitor_worker = (threading.Thread(target=remote_monitor.serve_forever,
+                           kwargs={'poll_interval': .2}, daemon=True, name='argos-remote-monitor')
+                          if remote_monitor is not None else None)
         raw = (json.dumps({'schema': 'argos-desktop-session/1', 'pid': os.getpid(),
             'process_start': process_identity(os.getpid()), 'url': server.url}) + '\n').encode()
         temporary = safe_local(root / '.desktop-session-new')
@@ -154,6 +167,8 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
             os.replace(temporary, path)
             inode = path.stat().st_ino
             worker.start()
+            if monitor_worker is not None:
+                monitor_worker.start()
             if not no_browser:
                 browser(dashboard_url(server.url, view))
             controller.start()
@@ -173,6 +188,11 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
             if worker.is_alive():
                 server.shutdown()
                 worker.join(timeout=5)
+            if monitor_worker is not None and monitor_worker.is_alive():
+                remote_monitor.shutdown()
+                monitor_worker.join(timeout=5)
+            if remote_monitor is not None:
+                remote_monitor.server_close()
             if path.exists() and path.stat().st_ino == locals().get('inode') and path.read_bytes() == raw:
                 path.unlink()
 
