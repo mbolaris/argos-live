@@ -150,23 +150,33 @@ class OwnedTests(unittest.TestCase):
             self.assertEqual(env['OLLAMA_CONTEXT_LENGTH'], '32768')
         self.assertTrue(self.stopped(pid))
 
-    def test_allowlisted_llm_library_is_explicit_and_inherited_override_is_stripped(self):
+    def test_cpu_backend_is_explicit_and_inherited_ollama_overrides_are_stripped(self):
         import json
-        with patch.dict(os.environ, {'OLLAMA_LLM_LIBRARY': 'cuda'}):
-            with owned(self.root, executable=self.binary, timeout=3, llm_library='cpu_avx2') as client:
+        with patch.dict(os.environ, {'OLLAMA_LLM_LIBRARY': 'cuda', 'OLLAMA_VULKAN': '1'}):
+            with owned(self.root, executable=self.binary, timeout=3, llm_library='cpu_avx2',
+                       disable_vulkan=True) as client:
                 self.assertEqual(client.version(), PIN)
                 env = json.loads((self.root / 'env.json').read_text())
                 self.assertEqual(env['OLLAMA_LLM_LIBRARY'], 'cpu_avx2')
+                self.assertEqual(env['OLLAMA_VULKAN'], '0')
+        with patch.dict(os.environ, {'OLLAMA_VULKAN': '1'}):
+            with owned(self.root, executable=self.binary, timeout=3) as client:
+                self.assertEqual(client.version(), PIN)
+                env = json.loads((self.root / 'env.json').read_text())
+                self.assertNotIn('OLLAMA_VULKAN', env)
         with self.assertRaisesRegex(ValueError, 'allowlist'):
             with owned(self.root, executable=self.binary, timeout=3, llm_library='cuda'):
                 self.fail('An unapproved LLM library reached the owned backend')
+        with self.assertRaisesRegex(ValueError, 'boolean'):
+            with owned(self.root, executable=self.binary, timeout=3, disable_vulkan=1):
+                self.fail('A non-boolean Vulkan setting reached the owned backend')
         self.assertTrue(self.stopped(int((self.root / 'pid').read_text())))
 
     def test_invalid_fixed_port_or_context_starts_no_process(self):
         for options in ({'port': True}, {'port': -1}, {'port': 65536}, {'port': '11434'},
                         {'context_tokens': True}, {'context_tokens': 0}, {'context_tokens': 1048577},
                         {'timeout': True}, {'timeout': 0}, {'timeout': float('inf')}, {'timeout': 601},
-                        {'llm_library': 'cuda'}):
+                        {'llm_library': 'cuda'}, {'disable_vulkan': 1}):
             with self.assertRaises(ValueError):
                 with owned(self.root, executable=self.binary, **options):
                     self.fail('Invalid options started a service')
