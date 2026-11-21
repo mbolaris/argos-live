@@ -984,15 +984,15 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
                     'outcome': 'campaign-admission-blocked',
                     'missing': ['the host admission hook blocked before any host tool ran'],
                     'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
-            elif (incomplete_turn and turn == CAMPAIGN_MAX_TURNS and measurement_suite is None and
+            elif (incomplete_turn and turn == CAMPAIGN_MAX_TURNS and
                   not assessment.get('ready')):
-                # No task-specific suite means this campaign can only perform
-                # host-selected reads. After bounded incomplete turns, release
-                # only through the bridge's stricter no-mutation gate and make
-                # the missing evidence explicit; never treat this as a gain.
+                # If bounded turns never produced auditable evidence, release
+                # only when the bridge proves every completed host call was
+                # read-only. An evaluation, edit, log, or uncertain child keeps
+                # the controller quarantined; no call is replayed.
                 assessment = {'ready': False, 'status': 'incomplete',
                     'outcome': 'agent-turn-incomplete',
-                    'missing': ['the agent exhausted bounded turns before completing the required read-only evidence'],
+                    'missing': ['the agent exhausted bounded turns before completing the required campaign evidence'],
                     'saved_evaluation_ids': [], 'audit_status': None, 'safe_to_release': False}
                 bridge.release_unmeasured_incomplete_campaign()
             _report_progress(on_progress, phase='campaign', stage='turn-finished', turn=turn,
