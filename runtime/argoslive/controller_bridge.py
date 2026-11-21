@@ -1359,6 +1359,11 @@ class Bridge:
         if practice_turn:
             return (active.get('host_tool_requests', 0) == 0 and
                     not active.get('host_tool_failures'))
+        # Approval-sensitive SSH recovery has its own decision gate. A retry
+        # after a successful status read could turn an incomplete answer into
+        # an unsupported claim that recovery already happened.
+        if self.ssh_status_provider is not None and active.get('host_tool_requests', 0):
+            return False
         # A campaign may retry only after its terminal turn is drained and
         # every host call in that turn is proven read-only. Include earlier SDK
         # runs too: a later incomplete response must not hide earlier tool work.
