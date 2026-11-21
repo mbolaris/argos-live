@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Calibrate one EV2 form on the pinned disposable hosted OpenClaw model."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ from argoslive.results import Store
 
 MODEL_TAG = 'qwen3:4b-instruct-2507-q4_K_M'
 SUITES = {'challenge-hard': 80, 'documents-long': 40}
+SAMPLE_PER_CATEGORY = 3
 LOWER_PERCENT, UPPER_PERCENT = 40, 70
 
 
@@ -25,15 +27,16 @@ class HostedRunner(OpenClawRunner):
 
 
 def public_receipt(result, expected_total):
-    """Keep only aggregate counts; never export answer text, prompt text or sealed item IDs."""
+    """Keep only practice-sample aggregates; never export prompts, answers or item IDs."""
     if not isinstance(result, dict):
         raise ValueError('The hosted evaluation returned an invalid result')
     coverage = result.get('coverage')
     summary = result.get('summary')
-    if (result.get('state') != 'completed' or coverage != {'completed': expected_total,
-            'total': expected_total, 'complete': True} or not isinstance(summary, dict)
+    if (result.get('state') != 'completed' or not isinstance(coverage, dict)
+            or coverage.get('completed') != expected_total or coverage.get('total') != expected_total
+            or coverage.get('complete') is not True or not isinstance(summary, dict)
             or summary.get('total') != expected_total):
-        raise ValueError('The hosted evaluation did not complete the full form')
+        raise ValueError('The hosted evaluation did not complete the full calibration sample')
     correct = summary.get('correct')
     format_errors = summary.get('format_errors')
     if (type(correct) is not int or not 0 <= correct <= expected_total
@@ -62,29 +65,57 @@ def public_receipt(result, expected_total):
     expected_categories = ({'numeric', 'choice', 'instruction', 'json', 'tool-call'}
                            if suite == 'challenge-hard'
                            else {'answer', 'quote', 'not_stated', 'summary'})
-    half = expected_total // 2
     if (suite not in SUITES or set(category_counts) != expected_categories
-            or set(partition_counts) != {'practice', 'heldout'}
+            or set(partition_counts) != {'practice'}
+            or any(group['total'] != SAMPLE_PER_CATEGORY for group in category_counts.values())
             or sum(group['total'] for group in category_counts.values()) != expected_total
             or sum(group['correct'] for group in category_counts.values()) != correct
-            or any(group['total'] != half for group in partition_counts.values())
+            or any(group['total'] != expected_total for group in partition_counts.values())
             or sum(group['correct'] for group in partition_counts.values()) != correct):
-        raise ValueError('The hosted evaluation has unexpected category or partition coverage')
+        raise ValueError('The hosted evaluation has unexpected practice-sample category or partition coverage')
     return {
-        'schema': 'argos-ev2-calibration/1',
+        'schema': 'argos-ev2-calibration-sample/1',
         'suite': suite,
         'suite_version': result.get('suite_version'),
         'model': result.get('model'),
-        'coverage': coverage,
+        'evidence_kind': 'practice-only calibration sample; not a full-suite score',
+        'coverage': {'sample_completed': expected_total, 'sample_total': expected_total,
+                     'complete': True, 'full_suite_items': SUITES[suite],
+                     'heldout_items_sampled': 0},
         'score': {'correct': correct, 'total': expected_total, 'percent': percent,
                   'format_errors': format_errors},
         'categories': category_counts,
         'partitions': partition_counts,
+        'items_per_category': SAMPLE_PER_CATEGORY,
         'target_percent': [LOWER_PERCENT, UPPER_PERCENT],
         'in_target_band': LOWER_PERCENT <= percent <= UPPER_PERCENT,
         'raw_answers_exported': False,
         'prompts_exported': False,
     }
+
+
+def practice_sample(suite, tasks):
+    """Choose a stable, hash-ranked practice sample balanced across all categories."""
+    if suite == 'challenge-hard':
+        categories = {'numeric', 'choice', 'instruction', 'json', 'tool-call'}
+    elif suite == 'documents-long':
+        categories = {'answer', 'quote', 'not_stated', 'summary'}
+    else:
+        raise ValueError('Choose challenge-hard or documents-long')
+    grouped = {category: [] for category in categories}
+    for item in tasks:
+        scorer = item.get('scorer', {})
+        category = item.get('category') if suite == 'documents-long' else scorer.get('kind')
+        if scorer.get('partition') == 'practice' and category in grouped:
+            grouped[category].append(item)
+    selected = set()
+    for category, items in grouped.items():
+        if len(items) < SAMPLE_PER_CATEGORY:
+            raise ValueError(f'{suite} has too few practice items in category {category}')
+        ranked = sorted(items, key=lambda item: hashlib.sha256(
+            f'{suite}/1.0.0/{item["id"]}'.encode('utf-8')).digest())
+        selected.update(item['id'] for item in ranked[:SAMPLE_PER_CATEGORY])
+    return [item for item in tasks if item['id'] in selected]
 
 
 def run(cli, ollama, model_store, suite, report):
@@ -100,7 +131,10 @@ def run(cli, ollama, model_store, suite, report):
     if entry is None:
         raise ValueError('EV2 requires the exact catalog-pinned hosted model')
     identity = model_verify.verify(model_store, entry, sync=False, include_identity=True)
-    total = SUITES[suite]
+    _data, full_tasks, _suite_path, _omitted = bench_openclaw.suite_content(suite)
+    sample = practice_sample(suite, full_tasks)
+    total = len(sample)
+    sample_ids = [item['id'] for item in sample]
 
     with tempfile.TemporaryDirectory(prefix='argos-ev2-', dir=scratch) as temporary:
         home = Path(temporary)
@@ -118,7 +152,11 @@ def run(cli, ollama, model_store, suite, report):
         store = Store(home / '.local/share/argos-live/results')
         with owned_ollama.owned(model_store, executable=str(ollama.resolve(strict=True)),
                                 port=11434, context_tokens=32768, lease_store=lease_store):
-            result = bench_openclaw.run(suite=suite, home=home, runner=runner)
+            result = bench_openclaw._run(suite=suite, home=home, runner=runner,
+                                         item_ids=sample_ids, slice_name='quick',
+                                         slice_version='argos-shakedown-slice/1',
+                                         model_tag=MODEL_TAG)
+            store.save(result)
         saved = store.load(result['id'])
         if saved != result:
             raise ValueError('The complete hosted evaluation did not round-trip through the private result store')
