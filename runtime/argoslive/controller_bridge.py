@@ -1359,9 +1359,9 @@ class Bridge:
         if practice_turn:
             return (active.get('host_tool_requests', 0) == 0 and
                     not active.get('host_tool_failures'))
-        # A campaign may retry only a terminal, drained turn that did no host
-        # work at all. Include earlier SDK runs in this worker: a later
-        # incomplete response must not hide an earlier tool call or failure.
+        # A campaign may retry only after its terminal turn is drained and
+        # every host call in that turn is proven read-only. Include earlier SDK
+        # runs too: a later incomplete response must not hide earlier tool work.
         history_requests = sum(row.get('host_tool_requests', 0) for row in self.sdk_run_history)
         history_failures = sum(row.get('host_tool_failures', 0) for row in self.sdk_run_history)
         job = self.evaluation_job
