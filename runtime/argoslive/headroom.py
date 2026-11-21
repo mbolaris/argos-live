@@ -119,6 +119,18 @@ def _score(run, partition):
             'format_errors': sum(item['outcome'] == 'format_error' for item in items)}
 
 
+def _model_matches(run_model, model, path):
+    """Match the configured local model tag to OpenClaw's provider-qualified identity.
+
+    Argos configuration stores ``qwen3.8:27b`` while assistant benchmark
+    records store ``ollama/qwen3.8:27b``. Model-only benchmark records keep the
+    unqualified tag, so only the assistant path accepts this provider alias.
+    """
+    if run_model == model:
+        return True
+    return path == 'assistant' and isinstance(model, str) and '/' not in model and run_model == 'ollama/' + model
+
+
 def _suite_rows(form, path, prefix, runs, model):
     current = prefix + form['version']
     left_out = _empty_left_out()
@@ -126,7 +138,7 @@ def _suite_rows(form, path, prefix, runs, model):
     for run in runs:
         if not run['suite_version'].startswith(prefix):
             continue
-        if run['model'] != model:
+        if not _model_matches(run['model'], model, path):
             left_out['other_models'] += 1
         elif run['suite_version'] != current:
             left_out['other_suite_versions'] += 1
