@@ -667,7 +667,7 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertEqual(result['tool_outcomes'][-2]['status'], 'restored')
         self.assertTrue(result['tool_outcomes'][-1]['passed'])
 
-    def test_unmeasured_campaign_retries_incomplete_turn_then_releases_without_claim(self):
+    def test_suite_campaign_retries_incomplete_readonly_turns_then_releases_without_claim(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
         bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement_owner-task', outcomes=[],
                                  launches=0, continuations=0, completed=False, released=False,
@@ -710,8 +710,9 @@ class ProctorServiceTests(unittest.TestCase):
              patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
              patch.object(proctor_service.owned_gateway, 'owned', owned_resource):
             result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
-                owner_task='resume Argos after boot',
-                success_criteria='ready without terminal commands', executable='openclaw')
+                owner_task='measure challenge-hard with no instruction changes',
+                success_criteria='save complete baseline evidence without claiming improvement',
+                measurement_suite='challenge-hard', executable='openclaw')
 
         self.assertEqual(result['status'], 'incomplete')
         self.assertEqual(result['outcome'], 'agent-turn-incomplete')

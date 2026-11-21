@@ -1365,9 +1365,32 @@ class Bridge:
         history_requests = sum(row.get('host_tool_requests', 0) for row in self.sdk_run_history)
         history_failures = sum(row.get('host_tool_failures', 0) for row in self.sdk_run_history)
         job = self.evaluation_job
-        return (active.get('ended') is True and active.get('host_tool_requests', 0) == 0 and
-                not active.get('host_tool_failures') and history_requests == 0 and history_failures == 0 and
+        return (active.get('ended') is True and
+                self._campaign_turn_has_only_completed_readonly_calls(active) and
+                history_requests == 0 and history_failures == 0 and
                 (job is None or job.get('consumed')))
+
+    def _campaign_turn_has_only_completed_readonly_calls(self, active):
+        """Allow a drained incomplete campaign turn to continue after proven reads only.
+
+        A failed model turn must never cause an evaluation, edit, or other
+        side-effecting host call to be repeated. Successful read-only calls are
+        safe because their outcomes are already recorded with the active turn's
+        call IDs; missing or failed outcomes remain quarantined.
+        """
+        safe_kinds = {'inspect', 'audit', 'ssh_status', 'compare', 'compare_rejected'}
+        requests = active.get('host_tool_requests', 0)
+        calls = active.get('calls')
+        if (type(requests) is not int or requests < 0 or not isinstance(calls, set) or
+                len(calls) != requests or active.get('host_tool_successes', 0) != requests or
+                active.get('host_tool_failures')):
+            return False
+        if requests == 0:
+            return True
+        recorded = [item for item in self.outcomes if isinstance(item, dict) and item.get('call_id') in calls]
+        return (len(recorded) == requests and
+                {item.get('call_id') for item in recorded} == calls and
+                all(item.get('kind') in safe_kinds for item in recorded))
 
     def _is_blocked_practice_turn(self, value):
         """Accept only an admitted, ended, side-effect-free practice hook block for retry."""
@@ -1535,7 +1558,7 @@ class Bridge:
             self.last_admission_block_reason = None
 
     def _accepted_campaign_worker_exit(self):
-        """Accept success or a fully drained no-tool incomplete campaign turn."""
+        """Accept success or a fully drained incomplete campaign turn with reads only."""
         if not self.worker or self.worker.poll() is None:
             return False
         if self.worker.poll() == 0:
@@ -1547,18 +1570,20 @@ class Bridge:
                 not self.worker_turns):
             return False
         turn = self.worker_turns[-1]
+        active = self.active
         return (turn.get('outcome') == 'incomplete-turn' and
-                turn.get('host_tool_requests') == 0 and turn.get('host_tool_failures') == 0 and
-                self.active is not None and self.active.get('ended') is True and
-                self.active.get('session_id') == self.session_id and
+                turn.get('host_tool_failures') == 0 and
+                active is not None and
+                self._campaign_turn_has_only_completed_readonly_calls(active) and
+                active.get('ended') is True and active.get('session_id') == self.session_id and
                 self.pending is None and not self.tool_lock.locked() and not self.uncertain)
 
     def release_unmeasured_incomplete_campaign(self):
-        """Release only a no-suite campaign that exhausted turns without mutating state."""
-        safe_read_kinds = {'inspect', 'audit', 'ssh_status'}
+        """Release an incomplete campaign only when it performed completed reads and no measurements."""
+        safe_read_kinds = {'inspect', 'audit', 'ssh_status', 'compare', 'compare_rejected'}
         with self.lock:
             job = self.evaluation_job
-            if (not self.task_campaign or self.owner_task_suite is not None or
+            if (not self.task_campaign or self.campaign_evaluations_admitted != 0 or
                     self.parent.record.get('kind') != 'controller' or
                     self.parent.record.get('phase') == 'delegated' or
                     not self.verified or not self._accepted_campaign_worker_exit() or
