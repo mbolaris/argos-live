@@ -113,6 +113,19 @@ survive; recovery first writes a per-generation receipt retaining the prior
 state and saved result ID. Missing, malformed or same-boot identities still
 leave admission quarantined.
 
+There is one narrower same-boot exception for an evidence-complete Proctor
+controller whose older runtime failed after the campaign had already finished.
+Recovery requires a completed worker receipt with a drained process group and
+observed SDK end, every recorded turn session-bound and drained with no failed
+host tools, no live worker or unreleased child lease, at least two complete
+saved ability runs that validate through the result store, their recorded
+comparison, and a passed host-final audit after the last evidence write. Only
+read-only inspection, audit, evaluation and comparison outcomes are accepted;
+instruction edits, unresolved changes, uncertain turns, partial evidence and
+all evaluation/proctor/child quarantines remain closed. The runtime publishes
+an immutable per-generation recovery receipt before opening admission. Any
+missing, malformed or inconsistent evidence leaves the quarantine untouched.
+
 The latest native SDK gate exposed a cross-thread SQLite failure: Proctor state
 was opened on setup but first accessed by the SDK socket-handler thread. The
 engine now serializes its shared connection and permits that host thread handoff.
