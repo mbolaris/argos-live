@@ -26,6 +26,9 @@ KINDS = {'doc-answer', 'doc-quote', 'doc-not-stated', 'doc-summary'}
 SCOPE = ('Short documents only (passages of roughly 150 words) at the recorded context. Summary scores check '
          'exactly two sentences and at least two listed facts, not full summary accuracy. This does not show '
          'competence on longer documents, file reading, or your own tasks.')
+LONG_SCOPE = ('Long documents of roughly 450 words at the recorded context. Summary scores check exactly two '
+              'sentences and at least two listed facts, not full summary accuracy. This does not show competence '
+              'on file reading or your own tasks.')
 MAX_QUOTE = 300
 
 
@@ -132,11 +135,13 @@ def add_fixtures(item):
 
 
 def validate(data):
+    suite = data.get('suite') if isinstance(data, dict) else None
+    expected_omitted = ['long-documents', 'file-reading'] if suite == 'short' else ['file-reading']
     if (not isinstance(data, dict) or data.get('schema') != 'argos-document-suite/1'
-            or data.get('suite') != 'short' or not re.fullmatch(r'\d+\.\d+\.\d+', data.get('version', ''))
+            or suite not in ('short', 'long') or not re.fullmatch(r'\d+\.\d+\.\d+', data.get('version', ''))
             or data.get('license') != 'MIT' or data.get('source') != 'original-argos-live'
             or data.get('context') != CONTEXT
-            or data.get('omitted_categories') != ['long-documents', 'file-reading']
+            or data.get('omitted_categories') != expected_omitted
             or not isinstance(data.get('items'), list) or not data['items']):
         raise ValueError('Invalid document suite')
     criteria = data.get('criteria')
@@ -159,6 +164,10 @@ def validate(data):
             raise ValueError('Invalid document item')
         seen.add(item['id'])
         rule = item['scorer']
+        if suite == 'long' and rule.get('partition') not in ('practice', 'heldout'):
+            raise ValueError('Long-document items need a practice or held-out partition')
+        if suite == 'short' and 'partition' in rule:
+            raise ValueError('Short-document items do not declare partitions')
         counts[item['category']] = counts.get(item['category'], 0) + 1
         per_passage.setdefault(item['passage_id'], []).append(item['category'])
         if rule['kind'] == 'doc-summary':
@@ -201,15 +210,30 @@ def validate(data):
             raise ValueError('Criteria exceed the available items')
     if any(sorted(categories) != sorted(CATEGORIES) for categories in per_passage.values()):
         raise ValueError('Each passage needs exactly one item per category')
+    if suite == 'long':
+        for passage_id, categories in per_passage.items():
+            passage = next(item['scorer']['passage'] for item in data['items']
+                           if item['passage_id'] == passage_id)
+            words = re.findall(r"\b[\w'-]+\b", passage)
+            if not 250 <= len(words) <= 650:
+                raise ValueError('Long-document passages must contain 250 to 650 words')
+        partitions = {}
+        for item in data['items']:
+            partition = item['scorer']['partition']
+            partitions.setdefault(item['passage_id'], set()).add(partition)
+        if any(len(values) != 1 for values in partitions.values()):
+            raise ValueError('All questions from one long passage must share its partition')
     return data
 
 
 def load(suite='short', version=None):
-    if suite != 'short':
-        raise ValueError('Only the short-document suite exists')
-    if version is None:
-        path = DATA / 'short.json'
-    elif version == '1.2.0':
+    if suite == 'long':
+        if version not in (None, '1.0.0'):
+            raise ValueError('Unknown long-document suite version')
+        path = DATA / 'long.json'
+    elif suite != 'short':
+        raise ValueError('Choose the short- or long-document suite')
+    elif version is None or version == '1.2.0':
         path = DATA / 'short.json'
     elif version == '1.1.0':
         path = DATA / 'archive' / 'short-1.1.0.json'
@@ -225,7 +249,7 @@ def load(suite='short', version=None):
     return data
 
 
-def qualify(items, criteria, *, complete):
+def qualify(items, criteria, *, complete, scope=None):
     """Compare scored counts with the suite's fixed criteria."""
     correct = {c: sum(1 for i in items if i['category'] == c and i['score'] == 1) for c in CATEGORIES}
     format_errors = sum(1 for i in items if i['outcome'] == 'format_error')
@@ -238,7 +262,8 @@ def qualify(items, criteria, *, complete):
                    'required': criteria['max_format_errors'], 'observed': format_errors,
                    'met': format_errors <= criteria['max_format_errors']})
     return {'criteria_version': criteria['version'], 'complete': complete,
-            'qualified': bool(complete and all(c['met'] for c in checks)), 'checks': checks, 'scope': SCOPE}
+            'qualified': bool(complete and all(c['met'] for c in checks)), 'checks': checks,
+            'scope': SCOPE if scope is None else scope}
 
 
 def passages(data):

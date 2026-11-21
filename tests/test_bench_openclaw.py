@@ -42,6 +42,19 @@ class FakeDocumentOpenClaw:
                 'model': 'ollama/qwen3.8:27b'}
 
 
+class FakeLongDocumentOpenClaw:
+    def __init__(self):
+        self.tasks = {item['prompt']: item for item in doc_trial.load('long')['items']}
+        self.calls = 0
+
+    def turn(self, prompt):
+        self.calls += 1
+        item = self.tasks[prompt]
+        return {'text': item['reference'], 'elapsed_seconds': 0.1,
+                'session_id': f'long-document-session-{self.calls}', 'provider': 'ollama',
+                'model': 'qwen3:4b-instruct-2507-q4_K_M'}
+
+
 class FakeOwnerRecoveryOpenClaw:
     def __init__(self):
         self.tasks = {item['prompt']: item for item in owner_recovery_eval.load()['items']}
@@ -133,6 +146,44 @@ class OpenClawBenchmarkTests(unittest.TestCase):
         self.assertEqual(result['qualification']['qualified'], True)
         self.assertNotIn('owner-judged-summaries', result['omitted_categories'])
         self.assertIn('long-documents', result['omitted_categories'])
+
+    def test_documents_long_is_scored_with_balanced_separate_partitions(self):
+        events = []
+        result = bench_openclaw.run(suite='documents-long', runner=FakeLongDocumentOpenClaw(),
+                                    progress=events.append)
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/documents-long/1.0.0')
+        self.assertEqual(result['coverage'], {'completed': 40, 'total': 40, 'complete': True})
+        self.assertEqual(result['summary']['correct'], 40)
+        self.assertEqual(sum(item['partition'] == 'practice' for item in result['items']), 20)
+        self.assertEqual(sum(item['partition'] == 'heldout' for item in result['items']), 20)
+        self.assertIn('Long documents', result['qualification']['scope'])
+        suite_items = {item['id']: item for item in doc_trial.load('long')['items']}
+        for event in events:
+            if event['phase'] not in ('asking', 'scored'):
+                continue
+            task = suite_items[event['item_id']]
+            if task['scorer']['partition'] == 'heldout':
+                self.assertNotIn('question', event)
+                self.assertTrue(event['question_redacted'])
+            else:
+                self.assertEqual(event['question'], task['prompt'])
+
+    def test_challenge_hard_saves_both_halves_and_redacts_heldout_progress(self):
+        events = []
+        result = bench_openclaw.run(suite='challenge-hard',
+                                    runner=FakeOpenClaw(suite='challenge-hard'), progress=events.append)
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/challenge-hard/1.0.0')
+        self.assertEqual(result['coverage'], {'completed': 80, 'total': 80, 'complete': True})
+        self.assertEqual(result['summary']['correct'], 80)
+        self.assertEqual(sum(item['partition'] == 'practice' for item in result['items']), 40)
+        self.assertEqual(sum(item['partition'] == 'heldout' for item in result['items']), 40)
+        suite_items = {item['id']: item for item in ability.load('challenge-hard')['items']}
+        for event in events:
+            if event['phase'] not in ('asking', 'scored'):
+                continue
+            if suite_items[event['item_id']]['scorer']['partition'] == 'heldout':
+                self.assertNotIn('question', event)
+                self.assertTrue(event['question_redacted'])
 
     def test_documents_short_runs_compare_only_with_the_same_suite_version(self):
         first = bench_openclaw.run(suite='documents-short', runner=FakeDocumentOpenClaw())
