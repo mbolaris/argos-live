@@ -81,8 +81,19 @@ _POLICY_V5['category_keep_rules'] = {
         'nonregression_categories': ['answer', 'quote', 'not_stated'],
     }}
 POLICY = _POLICY_V5
+_POLICY_V6 = copy.deepcopy(_POLICY_V5)
+_POLICY_V6['id'] = 'argos-practice-keep/6'
+_POLICY_V6['minimum_correct_delta'].update({'openclaw-challenge-hard': 4,
+                                            'openclaw-documents-long': 3})
+_POLICY_V6['partition_keep_rules'] = {
+    'argos-openclaw-ability/challenge-hard/1.0.0': {'practice_minimum_delta': 4,
+                                                     'heldout_nonregression': True},
+    'argos-openclaw-ability/documents-long/1.0.0': {'practice_minimum_delta': 3,
+                                                     'heldout_nonregression': True},
+}
+POLICY = _POLICY_V6
 KEEP_POLICIES = {policy['id']: policy for policy in
-                 (_POLICY_V1, _POLICY_V2, _POLICY_V3, _POLICY_V4, POLICY)}
+                 (_POLICY_V1, _POLICY_V2, _POLICY_V3, _POLICY_V4, _POLICY_V5, POLICY)}
 
 
 class Refused(ValueError):
@@ -162,6 +173,27 @@ def qualification_metrics(run, policy):
             'format_errors': sum(stats['format_errors'] for stats in selected),
             'basis': {'suite_version': suite_version,
                       'included_categories': included, 'excluded_categories': sorted(excluded)}}
+
+
+def partition_metrics(run, expected_total):
+    """Validate a complete two-half score summary for an EV2 keep decision."""
+    summary = run.get('summary')
+    partitions = summary.get('partitions') if isinstance(summary, dict) else None
+    if not isinstance(partitions, dict) or set(partitions) != {'practice', 'heldout'}:
+        raise Refused('qualification-partition-evidence-missing')
+    half = expected_total // 2
+    values = {}
+    for name, row in partitions.items():
+        if (not isinstance(row, dict) or type(row.get('correct')) is not int
+                or type(row.get('total')) is not int or row['total'] != half
+                or not 0 <= row['correct'] <= half):
+            raise Refused('qualification-partition-evidence-invalid')
+        values[name] = row['correct']
+    if (type(summary.get('format_errors')) is not int
+            or not 0 <= summary['format_errors'] <= expected_total):
+        raise Refused('qualification-partition-evidence-invalid')
+    return {'practice': values['practice'], 'heldout': values['heldout'],
+            'format_errors': summary['format_errors']}
 
 
 def category_metrics(run, expected):
@@ -569,14 +601,47 @@ def evidence(home, intent, directory, params, policy=None):
         bases, candidates = [[pair[0] for pair in group] for group in groups]
         suite_version = bases[0]['suite_version']
         category_rule = policy.get('category_keep_rules', {}).get(suite_version)
+        partition_rule = policy.get('partition_keep_rules', {}).get(suite_version)
         minimum = policy['minimum_correct_delta'].get(bases[0]['suite'])
-        if minimum is None and category_rule is None:
+        if minimum is None and category_rule is None and partition_rule is None:
             raise Refused('unsupported-keep-suite')
         base_metrics = [qualification_metrics(run, policy) for run in bases]
         candidate_metrics = [qualification_metrics(run, policy) for run in candidates]
         basis = base_metrics[0]['basis']
         if any(value['basis'] != basis for value in base_metrics + candidate_metrics):
             raise Refused('qualification-metric-changed-within-evidence')
+        if partition_rule is not None:
+            if (not isinstance(partition_rule, dict)
+                    or type(partition_rule.get('practice_minimum_delta')) is not int
+                    or partition_rule['practice_minimum_delta'] < 1
+                    or partition_rule.get('heldout_nonregression') is not True):
+                raise Refused('qualification-partition-policy-invalid')
+            expected_total = bases[0].get('coverage', {}).get('total')
+            if type(expected_total) is not int or expected_total < 2 or expected_total % 2:
+                raise Refused('qualification-partition-evidence-invalid')
+            base_parts = [partition_metrics(run, expected_total) for run in bases]
+            candidate_parts = [partition_metrics(run, expected_total) for run in candidates]
+            baseline_practice = max(value['practice'] for value in base_parts)
+            candidate_practice = min(value['practice'] for value in candidate_parts)
+            practice_delta = candidate_practice - baseline_practice
+            if practice_delta < partition_rule['practice_minimum_delta']:
+                raise Refused('repeated-practice-gain-rule-not-met')
+            baseline_heldout = max(value['heldout'] for value in base_parts)
+            candidate_heldout = min(value['heldout'] for value in candidate_parts)
+            if candidate_heldout < baseline_heldout:
+                raise Refused('heldout-partition-regression')
+            baseline_format_errors = min(value['format_errors'] for value in base_parts)
+            candidate_format_errors = max(value['format_errors'] for value in candidate_parts)
+            if candidate_format_errors > baseline_format_errors:
+                raise Refused('repeated-format-nonregression-rule-not-met')
+            result.update(policy=copy.deepcopy(policy), minimum_correct_gain=practice_delta,
+                          maximum_candidate_format_errors=candidate_format_errors,
+                          gain_kind='practice_accuracy_with_heldout_guard',
+                          heldout_validation={'baseline_best_correct': baseline_heldout,
+                                              'candidate_minimum_correct': candidate_heldout,
+                                              'nonregression_met': True},
+                          qualification_basis=basis)
+            return result, groups
         if category_rule is not None:
             expected = policy.get('category_contracts', {}).get(suite_version)
             if not isinstance(expected, dict):

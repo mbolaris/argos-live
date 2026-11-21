@@ -1,6 +1,7 @@
 Argos Live original ability fixtures (each suite records its own version in JSON)
 
-The quick (20 items), standard (70 items), challenge (40 items), tool-schema
+The quick (20 items), standard (70 items), challenge (40 items), challenge-hard
+(80 items), tool-schema
 (40 items), tool-plan (40 items), and tool-sequence (40 items) suites are
 original Argos Live fixtures, not extracts from GSM8K, MMLU or another third-party dataset. Quick, standard and challenge
 cover five deterministic formatting and answer categories, not a comprehensive

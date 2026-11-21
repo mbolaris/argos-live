@@ -112,13 +112,18 @@ class HeadroomTests(unittest.TestCase):
         self.assertEqual({row['status'] for row in result['rows']}, {'never run'})
         self.assertEqual(result['counts']['never run'], len(result['rows']))
         forms = {row['form'] for row in result['rows']}
-        self.assertLessEqual({'quick', 'standard', 'challenge', 'documents-short', 'argos-foundation/1',
+        self.assertLessEqual({'quick', 'standard', 'challenge', 'challenge-hard', 'documents-short',
+                              'documents-long', 'argos-foundation/1',
                               'argos-foundation/2', 'argos-foundation/3'}, forms)
         self.assertEqual(self.row(result, 'quick')['version'], '1.0.0')
         self.assertEqual(self.row(result, 'quick')['scores'], [])
         # Tool forms always have one row per half, never a combined one.
         self.assertEqual(self.row(result, 'tool-schema', 'practice')['items'], 20)
         self.assertEqual(self.row(result, 'tool-schema', 'heldout')['items'], 20)
+        self.assertEqual(self.row(result, 'challenge-hard', 'practice')['items'], 40)
+        self.assertEqual(self.row(result, 'challenge-hard', 'heldout')['items'], 40)
+        self.assertEqual(self.row(result, 'documents-long', 'practice')['items'], 20)
+        self.assertEqual(self.row(result, 'documents-long', 'heldout')['items'], 20)
         self.assertFalse([row for row in result['rows'] if row['form'] == 'tool-schema' and row['partition'] is None])
         self.assertFalse([row for row in result['rows'] if row['path'] == 'model-only'])
 

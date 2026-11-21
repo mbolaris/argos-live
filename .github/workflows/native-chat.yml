@@ -28,6 +28,11 @@ on:
         description: Run one real sidecar ability suite and export its answer-free public SIM5 ledger
         type: boolean
         default: false
+      hard_form_suite:
+        description: Run one EV2 hard form for hosted real-model calibration; reports contain aggregate counts only
+        type: choice
+        options: [none, challenge-hard, documents-long]
+        default: none
   push:
     paths:
       - '.github/workflows/native-chat.yml'
@@ -35,6 +40,13 @@ on:
       - 'scripts/smoke-proctor-real.py'
       - 'scripts/smoke-tool-sequence-real.py'
       - 'runtime/argoslive/ability.py'
+      - 'runtime/argoslive/doc_trial.py'
+      - 'runtime/argoslive/bench_openclaw.py'
+      - 'runtime/argoslive/data/ability/*.json'
+      - 'runtime/argoslive/data/documents/long.json'
+      - 'scripts/build-original-ability-suites.py'
+      - 'scripts/build-long-document-suite.py'
+      - 'scripts/smoke-hard-form-real.py'
       - 'runtime/argoslive/assistant_trial.py'
       - 'runtime/argoslive/bench_openclaw.py'
       - 'runtime/argoslive/data/ability/tool-sequence.json'
@@ -65,7 +77,7 @@ jobs:
   native-chat:
     runs-on: ubuntu-latest
     # The 40-item CPU transfer check needs about 3 hours; keep routine CI bounded.
-    timeout-minutes: ${{ (inputs.tool_sequence_only || inputs.shakedown_ledger || (inputs.match_watch_rounds && inputs.match_watch_rounds != '0')) && 270 || 70 }}
+    timeout-minutes: ${{ (inputs.hard_form_suite && inputs.hard_form_suite != 'none') && 130 || (inputs.tool_sequence_only || inputs.shakedown_ledger || (inputs.match_watch_rounds && inputs.match_watch_rounds != '0')) && 270 || 70 }}
     steps:
       - uses: actions/checkout@v4
       - name: Read exact Node pin
@@ -74,6 +86,10 @@ jobs:
         run: |
           if [[ '${{ inputs.shakedown_ledger }}' == true && ( '${{ inputs.proctor_only }}' == true || '${{ inputs.tool_sequence_only }}' == true || '${{ inputs.match_watch_rounds }}' != '0' ) ]]; then
             echo 'Choose the SIM5 ledger, Proctor smoke, tool-sequence check, or match watch separately.' >&2
+            exit 1
+          fi
+          if [[ '${{ inputs.hard_form_suite }}' != '' && '${{ inputs.hard_form_suite }}' != 'none' && ( '${{ inputs.proctor_only }}' == true || '${{ inputs.tool_sequence_only }}' == true || '${{ inputs.shakedown_ledger }}' == true || '${{ inputs.match_watch_rounds }}' != '0' ) ]]; then
+            echo 'Choose the EV2 hard form, Proctor smoke, tool-sequence check, SIM5 ledger, or match watch separately.' >&2
             exit 1
           fi
           if [[ '${{ inputs.proctor_only }}' == true && '${{ inputs.tool_sequence_only }}' == true ]]; then
@@ -110,7 +126,7 @@ jobs:
           python3 scripts/fetch-catalog-model.py qwen3:4b-instruct-2507-q4_K_M "$RUNNER_TEMP/argos-proctor-model"
           chmod -R a-w "$RUNNER_TEMP/argos-proctor-model"
       - name: Native conversation-only CPU reply without seed copies
-        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only && !inputs.shakedown_ledger && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
+        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only && !inputs.shakedown_ledger && (!inputs.hard_form_suite || inputs.hard_form_suite == 'none') && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
         # Hide hosted-runner accelerators; the fixture also sends num_gpu: 0
         # and checks it on every wire request so CPU placement is explicit.
         env:
@@ -123,18 +139,18 @@ jobs:
         run: |
           python3 scripts/smoke-native-chat.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/native-chat.json
       - name: Native managed desktop startup and authenticated controls
-        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only && !inputs.shakedown_ledger && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
+        if: ${{ !inputs.proctor_only && !inputs.tool_sequence_only && !inputs.shakedown_ledger && (!inputs.hard_form_suite || inputs.hard_form_suite == 'none') && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
         run: |
           python3 scripts/smoke-desktop-startup.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --seed "$RUNNER_TEMP/argos-native-seed" > work/desktop-startup.json
       - name: Real model Proctor practice and owner-approved recovery smoke
-        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && !inputs.tool_sequence_only && !inputs.shakedown_ledger && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && !inputs.tool_sequence_only && !inputs.shakedown_ledger && (!inputs.hard_form_suite || inputs.hard_form_suite == 'none') && (!inputs.match_watch_rounds || inputs.match_watch_rounds == '0') }}
         run: |
           args=()
           if [[ '${{ inputs.deterministic_profile }}' == true ]]; then args+=(--deterministic-profile); fi
           if [[ '${{ inputs.proctor_form }}' == composed-a ]]; then args+=(--form composed-a); fi
           python3 scripts/smoke-proctor-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/proctor-real.json --owner-recovery "${args[@]}"
       - name: Real model round watched through the Proctor match routes
-        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.match_watch_rounds && inputs.match_watch_rounds != '0' }}
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.match_watch_rounds && inputs.match_watch_rounds != '0' && (!inputs.hard_form_suite || inputs.hard_form_suite == 'none') }}
         run: |
           python3 scripts/smoke-match-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --rounds '${{ inputs.match_watch_rounds }}' --report work/match-real-watch.json
       - name: Real model tool-sequence transfer check with execution denied
@@ -142,9 +158,13 @@ jobs:
         run: |
           python3 scripts/smoke-tool-sequence-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --model-tag qwen3:4b-instruct-2507-q4_K_M --report work/tool-sequence-real.json
       - name: Real sidecar round and answer-free SIM5 public ledger
-        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.shakedown_ledger }}
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.shakedown_ledger && (!inputs.hard_form_suite || inputs.hard_form_suite == 'none') }}
         run: |
           python3 scripts/smoke-shakedown-ledger-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --report work/shakedown-ledger-public.json
+      - name: EV2 hard form hosted model calibration
+        if: ${{ !cancelled() && steps.runtimes.outcome == 'success' && inputs.hard_form_suite && inputs.hard_form_suite != 'none' }}
+        run: |
+          python3 scripts/smoke-hard-form-real.py --openclaw work/native-runtime/node_modules/.bin/openclaw --ollama "$RUNNER_TEMP/argos-ollama/bin/ollama" --model-store "$RUNNER_TEMP/argos-proctor-model" --suite '${{ inputs.hard_form_suite }}' --report "work/ev2-${{ inputs.hard_form_suite }}-calibration.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -158,5 +178,6 @@ jobs:
             work/tool-sequence-real-run.json
             work/match-real-watch.json
             work/shakedown-ledger-public.json
+            work/ev2-*-calibration.json
           if-no-files-found: error
           retention-days: 14

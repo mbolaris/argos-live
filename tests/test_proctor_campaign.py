@@ -106,8 +106,7 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertEqual(proctor_campaign.validate_measurement_suite('documents-short'), 'documents-short')
         self.assertEqual(proctor_campaign.validate_measurement_suite('owner-recovery-decision'),
                          'owner-recovery-decision')
-        with self.assertRaises(proctor_campaign.Refused):
-            proctor_campaign.validate_measurement_suite('documents-long')
+        self.assertEqual(proctor_campaign.validate_measurement_suite('documents-long'), 'documents-long')
         with self.assertRaisesRegex(proctor_campaign.Refused, 'limit from 1 to 8'):
             self.controller.start('recover Argos after reboot', 'ready', evaluation_limit=9)
         self.assertFalse(self.startup.lab_active)
