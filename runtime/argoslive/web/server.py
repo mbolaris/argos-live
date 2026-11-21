@@ -598,10 +598,23 @@ class Handler(BaseHTTPRequestHandler):
                         body['owner_task'], body['success_criteria'], body.get('measurement_suite'),
                         body.get('evaluation_limit', 8))
                 elif path.endswith('/recover'):
-                    if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
+                    if self.headers.get('Transfer-Encoding') is not None:
                         self.reply(400, {'error': 'An empty request is required'})
                         return
-                    response = self.server.proctor_campaign.recover()
+                    lengths = self.headers.get_all('Content-Length')
+                    if lengths in (None, ['0']):
+                        body = {}
+                    elif (len(lengths) != 1 or len(lengths[0]) > 4 or not lengths[0].isdigit() or
+                          not 1 <= int(lengths[0]) <= 128 or
+                          self.headers.get('Content-Type') != 'application/json'):
+                        self.reply(400, {'error': 'A bounded saved watch ID is required'})
+                        return
+                    else:
+                        body = json.loads(self.rfile.read(int(lengths[0])), object_pairs_hook=object_pairs)
+                    if not isinstance(body, dict) or set(body) - {'watch_id'}:
+                        self.reply(400, {'error': 'Provide only an optional saved watch_id'})
+                        return
+                    response = self.server.proctor_campaign.recover(body.get('watch_id'))
                 else:
                     if self.headers.get('Transfer-Encoding') is not None or self.headers.get_all('Content-Length') not in (None, ['0']):
                         self.reply(400, {'error': 'An empty request is required'})

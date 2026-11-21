@@ -366,6 +366,41 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertEqual(self.controller.snapshot()['phase'], 'completed')
         self.assertFalse(self.startup.lab_active)
 
+    def test_owner_recovery_button_releases_only_the_saved_readonly_incomplete_attempt(self):
+        watch_id = 'a' * 32
+        self.controller.phase = 'idle'
+        self.controller.failure_code = None
+        self.controller.failure_stage = None
+        self.controller.watch_id = None
+        self.controller.record_saved = None
+        self.controller.progress = None
+        self.controller.result = None
+        self.controller.records_root.mkdir(parents=True)
+        result_value = {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+            'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                         'saved_evaluation_ids': []}}
+        steps = [{'step_id': 'call-inspect', 'tool': 'inspect', 'status': 'completed',
+                  'step_status': 'completed'}]
+        record = {'schema': 'argos-proctor-watch/1', 'id': watch_id, 'phase': 'incomplete',
+                  'failure_code': 'campaign-invalid-state', 'result': result_value,
+                  'campaign_steps': steps}
+        (self.controller.records_root / f'{watch_id}.json').write_text(json.dumps(record))
+        reservation = self.home / '.local/state/argos-live/workload/reservation.json'
+        reservation.parent.mkdir(parents=True)
+        reservation.write_text(json.dumps({'state': 'quarantined'}))
+        with patch.object(proctor_campaign.workload,
+                          'recover_owner_approved_readonly_incomplete_controller',
+                          return_value={'status': 'recovered'}) as as_recovered:
+            state = self.controller.snapshot()
+            self.assertTrue(state['can_recover'])
+            self.assertEqual(state['recovery_kind'], 'read-only-incomplete-turn')
+            self.assertEqual(state['recovery_watch_id'], watch_id)
+            self.assertFalse(state['can_start'])
+            recovered = self.controller.recover(watch_id)
+        self.assertEqual(recovered['recovery_status'], 'read-only-attempt-recovered')
+        self.assertIn('no evaluation or score', recovered['message'])
+        as_recovered.assert_called_once_with(self.home, record)
+
     def test_dashboard_route_is_token_protected_and_requires_task_json_for_start(self):
         server = DashboardServer(port=0, proctor_campaign=self.controller)
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': 0.05}, daemon=True)
@@ -373,7 +408,7 @@ class ProctorCampaignControllerTests(unittest.TestCase):
 
         def request(path, method='GET', *, token=True, body=None):
             headers = {'X-Argos-Token': server.token} if token else {}
-            if method == 'POST' and body is not None and path.endswith('/start'):
+            if method == 'POST' and body is not None:
                 headers['Content-Type'] = 'application/json'
             with closing(http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=3)) as connection:
                 connection.request(method, path, body=body, headers=headers)
@@ -385,6 +420,8 @@ class ProctorCampaignControllerTests(unittest.TestCase):
             self.assertEqual(request('/api/proctor-campaign', token=False)[0], 403)
             self.assertEqual(request('/api/proctor-campaign/start', 'POST', token=False, body=b'{}')[0], 403)
             self.assertEqual(request('/api/proctor-campaign/start', 'POST', body=b'{}', token=True)[0], 400)
+            self.assertEqual(request('/api/proctor-campaign/recover', 'POST',
+                                     body=json.dumps({'watch_id': 'a' * 32}))[0], 409)
             invalid_limit = json.dumps({'owner_task': 'recover Argos after reboot',
                                         'success_criteria': 'ready after unlock with no terminal command',
                                         'evaluation_limit': 9})

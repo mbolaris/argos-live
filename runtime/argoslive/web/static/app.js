@@ -4670,6 +4670,7 @@ setInterval(refreshImprove, 2000);
 refreshImprove();
 
 let proctorCampaignStarting = false;
+let proctorCampaignRecoveryWatchId = null;
 function renderProctorCampaignResult(result) {
   const node = document.getElementById('proctor-campaign-result');
   if (!result) { node.hidden = true; node.textContent = ''; return; }
@@ -4973,8 +4974,11 @@ async function refreshProctorCampaign() {
     const button = document.getElementById('proctor-campaign-start');
     button.disabled = proctorCampaignStarting || !data.can_start;
     const recoverButton = document.getElementById('proctor-campaign-recover');
+    proctorCampaignRecoveryWatchId = data.recovery_watch_id || null;
     recoverButton.hidden = !data.can_recover;
     recoverButton.disabled = proctorCampaignStarting || !data.can_recover;
+    recoverButton.textContent = data.recovery_kind === 'read-only-incomplete-turn' && data.can_recover
+      ? 'Recover drained read-only attempt' : 'Retry Argos recovery';
     const stopButton = document.getElementById('proctor-campaign-stop');
     stopButton.hidden = !data.active || data.phase === 'stopping' || data.phase === 'restarting';
     stopButton.disabled = proctorCampaignStarting || !data.active || data.phase === 'stopping';
@@ -5052,10 +5056,14 @@ document.getElementById('proctor-campaign-recover')?.addEventListener('click', a
   proctorCampaignStarting = true;
   event.currentTarget.disabled = true;
   const message = document.getElementById('proctor-campaign-message');
-  message.textContent = 'Retrying Argos startup and reply verification…';
+  message.textContent = 'Checking the saved recovery evidence…';
   try {
+    const recoveryBody = proctorCampaignRecoveryWatchId
+      ? JSON.stringify({watch_id: proctorCampaignRecoveryWatchId}) : undefined;
+    const headers = {'X-Argos-Token': token || ''};
+    if (recoveryBody) headers['Content-Type'] = 'application/json';
     const response = await fetch('/api/proctor-campaign/recover', {
-      method: 'POST', headers: {'X-Argos-Token': token || ''}, cache: 'no-store'
+      method: 'POST', headers, body: recoveryBody, cache: 'no-store'
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body?.error || 'Argos recovery retry unavailable.');

@@ -45,6 +45,29 @@ def worker_identity(pid):
         return {'process_nonce': PROCESS_NONCE}
     raise ValueError('Cross-process delegation requires Linux worker identity')
 
+
+def _process_group_drained(pid):
+    """Confirm the worker and every live member of its process group are absent."""
+    proc = Path('/proc')
+    if not proc.is_dir() or Path(f'/proc/{pid}').exists():
+        return False
+    try:
+        entries = list(proc.iterdir())
+    except OSError:
+        return False
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        try:
+            fields = (entry / 'stat').read_text().rsplit(') ', 1)[1].split()
+            if int(fields[2]) == pid and fields[0] not in {'Z', 'X'}:
+                return False
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+        except (OSError, ValueError, IndexError):
+            return False
+    return True
+
 class Busy(ValueError):
     def __init__(self, recovery=False):
         self.recovery = recovery
@@ -200,6 +223,139 @@ def _recover_evidence_complete_controller(root, prior, boot_id):
                      recovered=receipt['recovered'], recovery_reason=receipt['reason'])
         write_json(root / 'reservation.json', prior)
         return True
+
+
+def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *, owner_pid=None):
+    """Release one quarantined controller after its owner requests safe recovery.
+
+    This narrow path is for a saved campaign that completed only a single
+    read-only inspection, then exited with a session-bound incomplete turn.
+    It never treats scores or capability evidence as complete. An explicit
+    dashboard recovery request, exact same-boot process identities, a drained
+    worker process group, and matching durable controller/watch records are all
+    required before a recovery receipt is written and admission is reopened.
+    """
+    from datetime import datetime, timezone
+
+    if not sys.platform == 'linux' or not isinstance(watch_record, dict):
+        raise Busy(recovery=True)
+    watch_id = watch_record.get('id')
+    result = watch_record.get('result') if isinstance(watch_record.get('result'), dict) else {}
+    campaign = result.get('campaign') if isinstance(result.get('campaign'), dict) else {}
+    steps = watch_record.get('campaign_steps')
+    if (not isinstance(watch_id, str) or not re.fullmatch(r'[a-f0-9]{32}', watch_id) or
+            watch_record.get('phase') != 'incomplete' or
+            watch_record.get('failure_code') != 'campaign-invalid-state' or
+            result.get('status') != 'incomplete' or result.get('failure_code') != 'campaign-invalid-state' or
+            campaign.get('status') != 'failed' or campaign.get('outcome') != 'campaign-runtime-failed' or
+            campaign.get('saved_evaluation_ids') != [] or
+            not isinstance(steps, list) or len(steps) != 1 or not isinstance(steps[0], dict) or
+            steps[0].get('tool') != 'inspect' or steps[0].get('status') != 'completed' or
+            steps[0].get('step_status') != 'completed' or
+            not isinstance(steps[0].get('step_id'), str)):
+        raise Busy(recovery=True)
+
+    root = storage.safe_local(Path(home).resolve(strict=True) / '.local/state/argos-live/workload')
+    lock = worker_lock(root)
+    try:
+        lock.__enter__()
+    except ValueError:
+        raise Busy() from None
+    try:
+        prior = read_json(storage.safe_local(root / 'reservation.json'))
+        current_boot = current_boot_id()
+        owner_pid = os.getpid() if owner_pid is None else owner_pid
+        prior_pid = prior.get('pid')
+        if (not isinstance(current_boot, str) or
+                prior.get('state') != 'quarantined' or prior.get('kind') != 'controller' or
+                prior.get('phase') != 'running' or prior.get('child_id') is not None or
+                prior.get('result_id') is not None or
+                (prior.get('worker_identity') or {}).get('boot_id') != current_boot or
+                type(prior_pid) is not int or prior_pid <= 0 or
+                type(owner_pid) is not int or owner_pid <= 0 or
+                type(prior.get('generation')) is not int or prior['generation'] < 1):
+            raise Busy(recovery=True)
+        try:
+            prior_owner_identity = worker_identity(prior_pid)
+        except (OSError, ValueError):
+            prior_owner_identity = None
+        if (prior_pid == owner_pid and prior_owner_identity != prior.get('worker_identity') or
+                prior_pid != owner_pid and prior_owner_identity == prior.get('worker_identity')):
+            raise Busy(recovery=True)
+
+        parent_id, generation = prior['id'], prior['generation']
+        worker = read_json(storage.safe_local(root / 'controller-worker.json'))
+        failure = read_json(storage.safe_local(root / 'controller-failure.json'))
+        turn = read_json(storage.safe_local(root / 'controller-turn.json'))
+        worker_pid = worker.get('pid')
+        session_id = worker.get('session_id')
+        session_key = worker.get('session_key')
+        response = failure.get('failure') if isinstance(failure.get('failure'), dict) else {}
+        summary = response.get('worker_response') if isinstance(response.get('worker_response'), dict) else {}
+        if (worker.get('parent_id'), worker.get('generation'), worker.get('state')) != (
+                parent_id, generation, 'starting'):
+            raise Busy(recovery=True)
+        if (failure.get('parent_id'), failure.get('generation'),
+                failure.get('worker_pid'), failure.get('session_id'), response.get('code'),
+                response.get('returncode')) != (
+                parent_id, generation, worker_pid, session_id, 'worker-exit', 1):
+            raise Busy(recovery=True)
+        if (summary.get('status'), summary.get('session_bound'), summary.get('error_kind')) != \
+                ('error', True, 'incomplete_turn') or \
+                not isinstance(session_id, str) or not session_id or \
+                not isinstance(session_key, str) or \
+                not session_key.startswith('agent:main:argos_proctor_improvement_'):
+            raise Busy(recovery=True)
+        if type(worker_pid) is not int or worker_pid <= 0:
+            raise Busy(recovery=True)
+        # The CLI process and every process in its session must be absent. This
+        # is deliberately checked under the host workload lock before release.
+        if not _process_group_drained(worker_pid):
+            raise Busy(recovery=True)
+        if (turn.get('parent_id'), turn.get('generation'), turn.get('ended'), turn.get('uncertain'),
+                turn.get('session_id'), turn.get('session_key'), turn.get('host_tool_failures'),
+                turn.get('host_tool_requests'), turn.get('worker_turns')) != (
+                parent_id, generation, True, False, session_id, session_key, [], 1, []):
+            raise Busy(recovery=True)
+        tools = turn.get('tools')
+        if (not isinstance(tools, list) or len(tools) != 1 or not isinstance(tools[0], dict) or
+                tools[0].get('kind') != 'inspect' or tools[0].get('call_id') != steps[0].get('step_id')):
+            raise Busy(recovery=True)
+
+        # No child reservation from this generation may still be active or
+        # quarantined. Keep the parent-then-child lock order used by reserve().
+        with child_lock(root):
+            children = child_root(root)
+            for path in children.glob('*.json'):
+                child = read_json(storage.safe_local(path))
+                if (child.get('parent_id'), child.get('generation')) == (parent_id, generation):
+                    if child.get('state') != 'released':
+                        raise Busy(recovery=True)
+            receipt = {'schema': 'argos-workload-recovery/3', 'reservation_id': parent_id,
+                       'generation': generation, 'previous_state': 'quarantined',
+                       'previous_kind': 'controller', 'previous_phase': 'running',
+                       'previous_boot_id': current_boot, 'current_boot_id': current_boot,
+                       'watch_id': watch_id, 'reason': 'owner-approved-drained-readonly-incomplete-turn',
+                       'recovered': datetime.now(timezone.utc).isoformat()}
+            recovered = storage.safe_local(root / 'recovered')
+            recovered.mkdir(mode=0o700, parents=True, exist_ok=True)
+            recovery_path = storage.safe_local(
+                recovered / f"{generation}-{parent_id}.json")
+            if recovery_path.exists():
+                saved = read_json(recovery_path)
+                if any(saved.get(key) != value for key, value in receipt.items()
+                       if key != 'recovered') or not isinstance(saved.get('recovered'), str):
+                    raise Busy(recovery=True)
+                receipt = saved
+            else:
+                write_json(recovery_path, receipt)
+            prior.update(state='released', phase='recovered-owner-approved-readonly-incomplete',
+                         recovered=receipt['recovered'], recovery_reason=receipt['reason'])
+            write_json(storage.safe_local(root / 'reservation.json'), prior)
+        return {'status': 'recovered', 'reason': 'drained-readonly-incomplete-turn',
+                'watch_id': watch_id}
+    finally:
+        lock.__exit__(None, None, None)
 
 
 @dataclass(frozen=True)

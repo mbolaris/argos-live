@@ -8,7 +8,7 @@ import secrets
 import threading
 import time
 
-from . import storage_view
+from . import storage_view, workload
 from .pack_export import private_directory
 from .pull_jobs import write_json
 from .storage import safe_local
@@ -49,6 +49,23 @@ def validate_measurement_suite(measurement_suite):
     if not isinstance(measurement_suite, str) or measurement_suite not in MEASUREMENT_SUITES:
         raise Refused('Choose a listed measurement suite or select that none matches this task.')
     return measurement_suite
+
+
+def _readonly_incomplete_recovery_watch(value):
+    """Static watch-record filter; the workload verifier still checks every lease and process."""
+    if not isinstance(value, dict):
+        return False
+    result = value.get('result') if isinstance(value.get('result'), dict) else {}
+    campaign = result.get('campaign') if isinstance(result.get('campaign'), dict) else {}
+    steps = value.get('campaign_steps')
+    return (isinstance(value.get('id'), str) and WATCH_ID.fullmatch(value['id']) is not None and
+            value.get('phase') == 'incomplete' and value.get('failure_code') == 'campaign-invalid-state' and
+            result.get('status') == 'incomplete' and result.get('failure_code') == 'campaign-invalid-state' and
+            campaign.get('status') == 'failed' and campaign.get('outcome') == 'campaign-runtime-failed' and
+            campaign.get('saved_evaluation_ids') == [] and isinstance(steps, list) and len(steps) == 1 and
+            isinstance(steps[0], dict) and steps[0].get('tool') == 'inspect' and
+            steps[0].get('status') == 'completed' and steps[0].get('step_status') == 'completed' and
+            isinstance(steps[0].get('step_id'), str))
 
 
 MESSAGES = {
@@ -160,6 +177,7 @@ class Controller:
         self.owner_actions = []
         self.last_event = None
         self.record_saved = None
+        self.recovery_status = None
         self.records_root = Path(self.home) / '.local/state/argos-live/proctor-watch'
 
     @staticmethod
@@ -242,18 +260,46 @@ class Controller:
             evaluation_limit = self.evaluation_limit
             watch_id, started_at, last_event = self.watch_id, self.started_at, self.last_event
             owner_actions, record_saved = copy.deepcopy(self.owner_actions), self.record_saved
+            recovery_status = self.recovery_status
         try:
             assistant = self.startup.snapshot()
         except Exception:
             assistant = {}
+        workload_state = 'unknown'
+        try:
+            reservation_path = workload.storage.safe_local(
+                Path(self.home) / '.local/state/argos-live/workload/reservation.json')
+            reservation = workload.read_json(reservation_path) if reservation_path.is_file() else {}
+            workload_state = reservation.get('state', 'released')
+        except (OSError, ValueError, TypeError, KeyError):
+            workload_state = 'unverified'
         can_start = (not closed and not active and phase not in {'recovery-failed'} and
                      not getattr(self.startup, 'lab_active', False) and
                      assistant.get('active') is True and assistant.get('phase') == 'ready' and
                      assistant.get('model_reply_verified') is True)
-        can_recover = (not closed and not active and phase == 'recovery-failed' and
-                       getattr(self.startup, 'lab_active', False))
+        campaign_result = result.get('campaign') if isinstance(result, dict) else None
+        campaign_steps = progress.get('campaign_steps') if isinstance(progress, dict) else None
+        in_memory_watch = {'id': watch_id, 'phase': phase, 'failure_code': failure_code,
+                           'result': result, 'campaign_steps': campaign_steps}
+        readonly_recovery_watch_id = (watch_id if record_saved is True and
+                                      _readonly_incomplete_recovery_watch(in_memory_watch) else None)
+        if readonly_recovery_watch_id is None and workload_state == 'quarantined':
+            try:
+                paths = sorted(self.records_root.glob('*.json'), key=lambda item: item.stat().st_mtime,
+                               reverse=True)[:64]
+                for path in paths:
+                    value = self._load_record(safe_local(path))
+                    if _readonly_incomplete_recovery_watch(value):
+                        readonly_recovery_watch_id = value['id']
+                        break
+            except (OSError, ValueError, TypeError):
+                readonly_recovery_watch_id = None
+        readonly_recovery_candidate = readonly_recovery_watch_id is not None and workload_state == 'quarantined'
+        can_recover = (not closed and not active and (
+            phase == 'recovery-failed' and getattr(self.startup, 'lab_active', False) or
+            readonly_recovery_candidate and not getattr(self.startup, 'lab_active', False)))
         storage_confirmed = self._persistent_storage_ready()
-        can_start = can_start and storage_confirmed
+        can_start = can_start and storage_confirmed and workload_state in {'released', None}
         elapsed = None
         if started is not None:
             end = finished if finished is not None else self.clock()
@@ -287,6 +333,10 @@ class Controller:
         if phase == 'idle' and not can_start:
             if not storage_confirmed:
                 message = 'Confirm encrypted persistent storage for Argos models, profile, results, and settings.'
+            elif workload_state == 'quarantined':
+                message = 'A prior host workload needs safe recovery before another campaign can start.'
+            elif workload_state == 'unverified':
+                message = 'Host workload state could not be verified; campaigns are paused.'
             elif assistant.get('phase') != 'ready' or assistant.get('model_reply_verified') is not True:
                 message = 'Wait for Argos to reach ready with a verified model reply.'
             elif getattr(self.startup, 'lab_active', False):
@@ -308,9 +358,16 @@ class Controller:
         if phase == 'failed' and failure_code:
             stage = failure_stage or 'campaign'
             message = f'Proctor {stage} stopped ({failure_code}); Argos is back at its verified model.'
+        if recovery_status == 'read-only-attempt-recovered':
+            message = ('The drained read-only attempt was recovered in this boot. It produced no '
+                       'evaluation or score; a new campaign may now be started.')
         return {
             'available': True, 'active': active, 'phase': phase, 'message': message,
             'can_start': can_start, 'can_recover': can_recover,
+            'recovery_watch_id': readonly_recovery_watch_id if can_recover else None,
+            'recovery_kind': ('read-only-incomplete-turn' if readonly_recovery_candidate else
+                             'assistant-startup' if can_recover else None),
+            'recovery_status': recovery_status,
             'elapsed_seconds': elapsed, 'model': model,
             'measurement_suite': measurement_suite,
             'evaluation_limit': evaluation_limit,
@@ -499,13 +556,41 @@ class Controller:
             self.storage_is_safe = safe
         return safe
 
-    def recover(self):
-        """Retry assistant startup while retaining the reservation after a failed recovery."""
+    def recover(self, watch_id=None):
+        """Recover a safe drained turn or retry assistant startup after recovery failure."""
         with self.startup.lock, self.lock:
             if self.closed:
                 raise Refused('The Proctor campaign controller is closed.')
             if self.worker is not None and self.worker.is_alive():
                 raise Refused('The current Proctor or assistant recovery is still running.')
+            if watch_id is not None:
+                if (not isinstance(watch_id, str) or not WATCH_ID.fullmatch(watch_id) or
+                        getattr(self.startup, 'lab_active', False)):
+                    raise Refused('Choose a saved read-only incomplete attempt while Argos is idle.')
+                assistant = self.startup.snapshot()
+                if (assistant.get('phase') != 'ready' or assistant.get('active') is not True or
+                        assistant.get('model_reply_verified') is not True):
+                    raise Refused('Wait for Argos to reach ready before recovering the saved attempt.')
+                try:
+                    watch_record = self.record(watch_id)
+                    workload.recover_owner_approved_readonly_incomplete_controller(
+                        self.home, watch_record)
+                except (OSError, ValueError, TypeError, KeyError):
+                    raise Refused('The same-boot controller cannot be safely recovered from its saved records.') from None
+                self.recovery_status = 'read-only-attempt-recovered'
+                self.last_event = self.clock()
+                return self.snapshot()
+            if (self.phase == 'incomplete' and self.failure_code == 'campaign-invalid-state' and
+                    self.record_saved is True and not getattr(self.startup, 'lab_active', False)):
+                try:
+                    watch_record = self.record(self.watch_id)
+                    workload.recover_owner_approved_readonly_incomplete_controller(
+                        self.home, watch_record)
+                except (OSError, ValueError, TypeError, KeyError):
+                    raise Refused('The same-boot controller cannot be safely recovered from its saved records.') from None
+                self.recovery_status = 'read-only-attempt-recovered'
+                self.last_event = self.clock()
+                return self.snapshot()
             if self.phase != 'recovery-failed' or not getattr(self.startup, 'lab_active', False):
                 raise Refused('No supported assistant recovery retry is pending.')
             self.phase = 'restarting'
