@@ -1025,6 +1025,8 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             if (measurement_suite is None and
                     getattr(bridge, 'worker_outcome', None) == 'incomplete-turn'):
                 bridge.release_unmeasured_incomplete_campaign()
+            elif getattr(bridge, 'worker_outcome', None) == 'incomplete-turn':
+                bridge.complete_campaign(evidence_allows_release=assessment.get('safe_to_release') is True)
             else:
                 bridge.complete_campaign()
         elif getattr(bridge, 'worker_outcome', None) == 'admission-blocked':

@@ -1570,7 +1570,7 @@ class Bridge:
             self.parent.complete()
             self.closed = True
 
-    def complete_campaign(self):
+    def complete_campaign(self, *, evidence_allows_release=False):
         """Release a drained Proctor campaign after the host checks its evidence."""
         prefix = 'agent:main:argos_proctor_improvement_'
         if (self.exam_session is not None or self.parent.record.get('kind') != 'controller' or
@@ -1578,11 +1578,34 @@ class Bridge:
             raise ValueError('Only the host-owned Proctor campaign may complete this controller')
         self._settle_campaign_evaluation()
         with self.lock:
-            if (not self.verified or not self.worker or self.worker.poll() != 0 or
+            clean_exit = bool(self.worker and self.worker.poll() == 0)
+            evidence_complete_exit = bool(
+                evidence_allows_release and self._accepted_evidence_complete_campaign_exit())
+            if (not self.verified or not (clean_exit or evidence_complete_exit) or
                     self.closed or self.uncertain or self.pending or self.tool_lock.locked() or
                     not self.active):
                 raise workload.Busy(recovery=True)
         self._complete()
+
+    def _accepted_evidence_complete_campaign_exit(self):
+        """Accept a drained incomplete model turn only when host evidence permits release.
+
+        A missing natural-language turn summary must not quarantine a campaign whose host-recorded
+        evidence is already safe to release. The caller supplies that host assessment; this method
+        independently requires a verified, ended, session-bound worker turn and no failed host
+        tools, pending IPC, or live lock.
+        """
+        if (self.worker_outcome != 'incomplete-turn' or not self.worker or self.worker.poll() is None or
+                not self.worker_turns or self.parent.record.get('kind') != 'controller' or
+                self.parent.record.get('phase') == 'delegated' or self.session_id is None):
+            return False
+        turn = self.worker_turns[-1]
+        active = self.active
+        return (turn.get('outcome') == 'incomplete-turn' and turn.get('process_group_drained') is True and
+                turn.get('session_bound') is True and turn.get('returncode') == self.worker.returncode and
+                turn.get('host_tool_failures') == 0 and isinstance(active, dict) and
+                active.get('ended') is True and active.get('session_id') == self.session_id and
+                self.pending is None and not self.tool_lock.locked() and not self.uncertain)
 
     def release_unadmitted_campaign(self):
         """Release only a drained campaign worker blocked before host admission."""
