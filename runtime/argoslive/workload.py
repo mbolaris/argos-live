@@ -51,6 +51,157 @@ class Busy(ValueError):
         super().__init__('Previous workload needs recovery' if recovery else 'Another host workload is active')
 
 
+def _evidence_complete_controller(root, prior, boot_id):
+    """Fail-closed check for a drained, evidence-complete Proctor controller.
+
+    A same-boot quarantine is normally permanent. This narrow exception exists
+    for a controller whose terminal host evidence was written before an older
+    runtime failed to release its reservation. It is deliberately stricter
+    than a worker exit marker: saved evaluations, the comparison, final audit,
+    session-bound drained turn, and child leases must all agree.
+    """
+    try:
+        if (prior.get('state') != 'quarantined' or prior.get('kind') != 'controller' or
+                prior.get('phase') != 'running' or prior.get('child_id') is not None or
+                not isinstance(prior.get('id'), str) or
+                not re.fullmatch(r'[a-f0-9]{32}', prior['id']) or
+                type(prior.get('generation')) is not int or prior['generation'] < 1 or
+                (prior.get('worker_identity') or {}).get('boot_id') != boot_id):
+            return False
+
+        worker = read_json(root / 'controller-worker.json')
+        turn = read_json(root / 'controller-turn.json')
+        parent_id, generation = prior['id'], prior['generation']
+        if (worker.get('parent_id'), worker.get('generation'), worker.get('state'),
+                worker.get('process_group_drained'), worker.get('sdk_end_observed'),
+                worker.get('turn_outcome')) != (
+                parent_id, generation, 'completed', True, True, 'incomplete-turn'):
+            return False
+        if (type(worker.get('returncode')) is not int or worker['returncode'] == 0 or
+                type(worker.get('pid')) is not int or worker['pid'] <= 0 or
+                Path(f'/proc/{worker["pid"]}').exists()):
+            return False
+        session_id, session_key = worker.get('session_id'), worker.get('session_key')
+        if (not isinstance(session_id, str) or not session_id or
+                not isinstance(session_key, str) or
+                not session_key.startswith('agent:main:argos_proctor_improvement_')):
+            return False
+        if (turn.get('parent_id'), turn.get('generation'), turn.get('uncertain')) != (
+                parent_id, generation, False):
+            return False
+        worker_turns = turn.get('worker_turns')
+        if (not isinstance(worker_turns, list) or not worker_turns or
+                any(not isinstance(item, dict) or item.get('turn') != index or
+                    item.get('process_group_drained') is not True or
+                    item.get('session_bound') is not True or
+                    item.get('host_tool_failures') != 0
+                    for index, item in enumerate(worker_turns, 1)) or
+                worker_turns[-1].get('outcome') != 'incomplete-turn' or
+                worker_turns[-1].get('returncode') != worker.get('returncode') or
+                worker_turns[-1].get('turn') != worker.get('turn_number') or
+                worker_turns[-1].get('turn') != len(worker_turns)):
+            return False
+        if (turn.get('run_id') != worker.get('run_id') or
+                turn.get('session_id') != session_id or turn.get('ended') is not True or
+                turn.get('session_key') != session_key or
+                turn.get('host_tool_failures') not in ([], None, 0)):
+            return False
+
+        # No current-generation child may still be authorized, active, or
+        # quarantined. The child lock is held by the caller during this check.
+        children = root / 'child'
+        if children.exists():
+            for path in children.glob('*.json'):
+                child = read_json(path)
+                if (child.get('parent_id'), child.get('generation')) == (parent_id, generation):
+                    if child.get('state') != 'released':
+                        return False
+
+        tools = turn.get('tools')
+        if not isinstance(tools, list) or not tools:
+            return False
+        allowed = {'inspect', 'audit', 'evaluation', 'compare'}
+        if any(not isinstance(item, dict) or item.get('kind') not in allowed for item in tools):
+            return False
+        evaluations = [item for item in tools if item.get('kind') == 'evaluation']
+        ids = [item.get('result_id') for item in evaluations]
+        if (len(evaluations) < 2 or len(set(ids)) != len(ids) or
+                any(not isinstance(item.get('result_id'), str) or
+                    not re.fullmatch(r'[a-f0-9]{32}', item['result_id']) or
+                    item.get('state') != 'completed' or item.get('coverage_complete') is not True or
+                    type(item.get('correct')) is not int or type(item.get('total')) is not int or
+                    type(item.get('format_errors')) is not int or item['total'] < 1 or
+                    not 0 <= item['correct'] <= item['total'] or
+                    not 0 <= item['format_errors'] <= item['total'] for item in evaluations)):
+            return False
+        comparisons = [item for item in tools if item.get('kind') == 'compare']
+        if not any(item.get('baseline_id') in ids and item.get('candidate_id') in ids and
+                   item.get('baseline_id') != item.get('candidate_id') for item in comparisons):
+            return False
+        last_audit = max((index for index, item in enumerate(tools)
+                          if item.get('kind') == 'audit'), default=-1)
+        last_evidence = max((index for index, item in enumerate(tools)
+                             if item.get('kind') in {'evaluation', 'compare'}), default=-1)
+        if (last_audit <= last_evidence or tools[last_audit].get('host_final') is not True or
+                tools[last_audit].get('status') != 'verified' or tools[last_audit].get('passed') is not True):
+            return False
+
+        # Re-open the saved outcomes through the normal result validator; the
+        # compact controller ledger alone is not sufficient to release a lease.
+        from .results import Store
+        home = root.parents[3]
+        store = Store(home / '.local/share/argos-live/results')
+        for item in evaluations:
+            result = store.load(item['result_id'])
+            coverage = result.get('coverage', {})
+            summary = result.get('summary', {})
+            if (result.get('state') != 'completed' or result.get('kind') != 'ability' or
+                    coverage.get('complete') is not True or coverage.get('total') != item['total'] or
+                    coverage.get('completed') != item['total'] or
+                    result.get('suite_version') != item.get('suite_version') or
+                    summary.get('correct') != item['correct'] or
+                    summary.get('format_errors') != item['format_errors']):
+                return False
+        return True
+    except (OSError, ValueError, TypeError, KeyError, IndexError, AttributeError):
+        return False
+
+
+def _recover_evidence_complete_controller(root, prior, boot_id):
+    """Publish a recovery receipt before releasing a provably finished controller."""
+    if (prior.get('state') != 'quarantined' or prior.get('kind') != 'controller' or
+            prior.get('phase') != 'running' or prior.get('child_id') is not None or
+            (prior.get('worker_identity') or {}).get('boot_id') != boot_id):
+        return False
+    # Match the established lock order: parent workload lock, then child lock.
+    with child_lock(root):
+        if not _evidence_complete_controller(root, prior, boot_id):
+            return False
+        receipt = {'schema': 'argos-workload-recovery/2', 'reservation_id': prior['id'],
+                   'generation': prior['generation'], 'previous_state': prior['state'],
+                   'previous_kind': prior['kind'], 'previous_phase': prior['phase'],
+                   'result_id': prior.get('result_id'), 'previous_boot_id': boot_id,
+                   'current_boot_id': boot_id,
+                   'reason': 'evidence-complete-drained-controller',
+                   'recovered': datetime.now(timezone.utc).isoformat()}
+        recovered = storage.safe_local(root / 'recovered')
+        recovered.mkdir(mode=0o700, parents=True, exist_ok=True)
+        recovery_path = storage.safe_local(
+            recovered / f"{receipt['generation']}-{receipt['reservation_id']}.json")
+        if recovery_path.exists():
+            saved_receipt = read_json(recovery_path)
+            if any(saved_receipt.get(key) != value for key, value in receipt.items()
+                   if key != 'recovered') or not isinstance(saved_receipt.get('recovered'), str):
+                return False
+            receipt = saved_receipt
+        else:
+            write_json(recovery_path, receipt)
+        prior.update(state='released', phase='recovered-evidence-complete-controller',
+                     recovered=receipt['recovered'], recovery_reason=receipt['reason'])
+        write_json(root / 'reservation.json', prior)
+        return True
+
+
 @dataclass(frozen=True)
 class Delegation:
     """Host-created bearer capability; never put its secret in model tool arguments."""
@@ -278,44 +429,49 @@ def reserve(home, kind, *, delegation=None):
             identity = prior.get('worker_identity')
             prior_boot = identity.get('boot_id') if isinstance(identity, dict) else None
             this_boot = current_boot_id()
-            if not (isinstance(prior_boot, str) and BOOT_ID_PATTERN.fullmatch(prior_boot) and
+            recovered_controller = bool(
+                isinstance(this_boot, str) and BOOT_ID_PATTERN.fullmatch(this_boot) and
+                prior_boot == this_boot and
+                _recover_evidence_complete_controller(root, prior, this_boot))
+            if not recovered_controller and not (isinstance(prior_boot, str) and BOOT_ID_PATTERN.fullmatch(prior_boot) and
                     isinstance(this_boot, str) and BOOT_ID_PATTERN.fullmatch(this_boot) and
                     prior_boot != this_boot):
                 raise Busy(recovery=True)
-            # A different kernel boot is a hard drainage boundary: no process
-            # or in-flight local inference from the old boot can still exist.
-            # Publish an immutable recovery receipt before releasing the old
-            # generation; if either write fails, admission remains closed.
-            receipt = {'schema': 'argos-workload-recovery/1',
-                       'reservation_id': prior.get('id'),
-                       'generation': prior.get('generation'),
-                       'previous_state': prior.get('state'),
-                       'previous_kind': prior.get('kind'),
-                       'previous_phase': prior.get('phase'),
-                       'result_id': prior.get('result_id'),
-                       'previous_boot_id': prior_boot,
-                       'current_boot_id': this_boot,
-                       'reason': 'verified-kernel-reboot-boundary',
-                       'recovered': datetime.now(timezone.utc).isoformat()}
-            if not (isinstance(receipt['reservation_id'], str) and
-                    re.fullmatch('[a-f0-9]{32}', receipt['reservation_id']) and
-                    type(receipt['generation']) is int and receipt['generation'] > 0):
-                raise Busy(recovery=True)
-            recovered = storage.safe_local(root / 'recovered')
-            recovered.mkdir(mode=0o700, parents=True, exist_ok=True)
-            recovery_path = storage.safe_local(
-                recovered / f"{receipt['generation']}-{receipt['reservation_id']}.json")
-            if recovery_path.exists():
-                saved_receipt = read_json(recovery_path)
-                if any(saved_receipt.get(key) != value for key, value in receipt.items()
-                       if key != 'recovered') or not isinstance(saved_receipt.get('recovered'), str):
+            if not recovered_controller:
+                # A different kernel boot is a hard drainage boundary: no process
+                # or in-flight local inference from the old boot can still exist.
+                # Publish an immutable recovery receipt before releasing the old
+                # generation; if either write fails, admission remains closed.
+                receipt = {'schema': 'argos-workload-recovery/1',
+                           'reservation_id': prior.get('id'),
+                           'generation': prior.get('generation'),
+                           'previous_state': prior.get('state'),
+                           'previous_kind': prior.get('kind'),
+                           'previous_phase': prior.get('phase'),
+                           'result_id': prior.get('result_id'),
+                           'previous_boot_id': prior_boot,
+                           'current_boot_id': this_boot,
+                           'reason': 'verified-kernel-reboot-boundary',
+                           'recovered': datetime.now(timezone.utc).isoformat()}
+                if not (isinstance(receipt['reservation_id'], str) and
+                        re.fullmatch('[a-f0-9]{32}', receipt['reservation_id']) and
+                        type(receipt['generation']) is int and receipt['generation'] > 0):
                     raise Busy(recovery=True)
-                receipt = saved_receipt
-            else:
-                write_json(recovery_path, receipt)
-            prior.update(state='released', phase='recovered-after-reboot',
-                         recovered=receipt['recovered'], recovery_reason=receipt['reason'])
-            write_json(path, prior)
+                recovered = storage.safe_local(root / 'recovered')
+                recovered.mkdir(mode=0o700, parents=True, exist_ok=True)
+                recovery_path = storage.safe_local(
+                    recovered / f"{receipt['generation']}-{receipt['reservation_id']}.json")
+                if recovery_path.exists():
+                    saved_receipt = read_json(recovery_path)
+                    if any(saved_receipt.get(key) != value for key, value in receipt.items()
+                           if key != 'recovered') or not isinstance(saved_receipt.get('recovered'), str):
+                        raise Busy(recovery=True)
+                    receipt = saved_receipt
+                else:
+                    write_json(recovery_path, receipt)
+                prior.update(state='released', phase='recovered-after-reboot',
+                             recovered=receipt['recovered'], recovery_reason=receipt['reason'])
+                write_json(path, prior)
         record = {'schema': 'argos-workload/1', 'id': secrets.token_hex(16),
                   'generation': prior.get('generation', 0) + 1, 'kind': kind,
                   'pid': os.getpid(), 'worker_identity': worker_identity(os.getpid()),

@@ -19,6 +19,86 @@ from test_bench_openclaw import FakeOpenClaw, configure_fake
 
 
 class WorkloadTests(unittest.TestCase):
+    def _write_completed_controller_quarantine(self, home, *, final_audit=True, child_state='released'):
+        boot_id = '11111111-1111-4111-8111-111111111111'
+        parent_id = 'a' * 32
+        root = home / '.local/state/argos-live/workload'
+        (root / 'child').mkdir(parents=True)
+        reservation = {'schema': 'argos-workload/1', 'id': parent_id, 'generation': 8,
+                       'kind': 'controller', 'pid': 12345,
+                       'worker_identity': {'boot_id': boot_id, 'start_ticks': '10'},
+                       'state': 'quarantined', 'phase': 'running', 'last_child_id': 'c' * 32}
+        worker = {'parent_id': parent_id, 'generation': 8, 'state': 'completed',
+                  'process_group_drained': True, 'sdk_end_observed': True,
+                  'turn_outcome': 'incomplete-turn', 'returncode': 1, 'pid': 2_000_000_000,
+                  'session_id': 'session-4', 'session_key': 'agent:main:argos_proctor_improvement_x',
+                  'run_id': 'run-4', 'turn_number': 4}
+        tools = [
+            {'kind': 'inspect'},
+            {'kind': 'audit', 'status': 'verified', 'passed': True},
+            {'kind': 'evaluation', 'state': 'completed', 'result_id': '1' * 32,
+             'suite_version': 'argos-openclaw-ability/owner-recovery-decision/0.5.0',
+             'coverage_complete': True, 'correct': 3, 'total': 8, 'format_errors': 0},
+            {'kind': 'evaluation', 'state': 'completed', 'result_id': '2' * 32,
+             'suite_version': 'argos-openclaw-ability/owner-recovery-decision/0.5.0',
+             'coverage_complete': True, 'correct': 3, 'total': 8, 'format_errors': 2},
+            {'kind': 'compare', 'baseline_id': '1' * 32, 'candidate_id': '2' * 32},
+            {'kind': 'audit', 'status': 'verified', 'passed': True, 'host_final': final_audit},
+        ]
+        turns = [{'turn': number, 'outcome': 'incomplete-turn', 'process_group_drained': True,
+                  'session_bound': True, 'host_tool_failures': 0, 'returncode': 1}
+                 for number in range(1, 5)]
+        turn = {'parent_id': parent_id, 'generation': 8, 'uncertain': False,
+                'worker_turns': turns, 'run_id': 'run-4', 'session_id': 'session-4',
+                'session_key': 'agent:main:argos_proctor_improvement_x',
+                'ended': True, 'host_tool_failures': [], 'tools': tools}
+        child = {'parent_id': parent_id, 'generation': 8, 'state': child_state}
+        for name, value in (('reservation.json', reservation), ('controller-worker.json', worker),
+                            ('controller-turn.json', turn), ('child/' + 'c' * 32 + '.json', child)):
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(value))
+        result_rows = {run_id: {'state': 'completed', 'kind': 'ability',
+                        'coverage': {'complete': True, 'completed': 8, 'total': 8},
+                        'suite_version': 'argos-openclaw-ability/owner-recovery-decision/0.5.0',
+                        'summary': {'correct': correct, 'format_errors': errors}}
+                       for run_id, correct, errors in (('1' * 32, 3, 0), ('2' * 32, 3, 2))}
+        return boot_id, root, result_rows
+
+    def test_evidence_complete_drained_controller_quarantine_recovers_same_boot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            boot_id, root, result_rows = self._write_completed_controller_quarantine(home)
+            with patch.object(workload, 'current_boot_id', return_value=boot_id), \
+                    patch('argoslive.results.Store.load', side_effect=result_rows.__getitem__):
+                with workload.reserve(home, 'controller') as slot:
+                    self.assertEqual(slot.record['generation'], 9)
+                    self.assertEqual(slot.record['kind'], 'controller')
+                    slot.complete()
+            receipts = list((root / 'recovered').glob('*.json'))
+            self.assertEqual(len(receipts), 1)
+            receipt = json.loads(receipts[0].read_text())
+            self.assertEqual(receipt['schema'], 'argos-workload-recovery/2')
+            self.assertEqual(receipt['reason'], 'evidence-complete-drained-controller')
+            self.assertEqual(receipt['reservation_id'], 'a' * 32)
+
+    def test_evidence_recovery_fails_closed_without_final_audit_or_drained_child(self):
+        for final_audit, child_state in ((False, 'released'), (True, 'active')):
+            with self.subTest(final_audit=final_audit, child_state=child_state), \
+                    tempfile.TemporaryDirectory() as temporary:
+                home = Path(temporary)
+                boot_id, root, result_rows = self._write_completed_controller_quarantine(
+                    home, final_audit=final_audit, child_state=child_state)
+                with patch.object(workload, 'current_boot_id', return_value=boot_id), \
+                        patch('argoslive.results.Store.load', side_effect=result_rows.__getitem__):
+                    with self.assertRaises(workload.Busy) as failure:
+                        with workload.reserve(home, 'controller'):
+                            self.fail('Incomplete same-boot evidence reopened admission')
+                self.assertTrue(failure.exception.recovery)
+                reservation = json.loads((root / 'reservation.json').read_text())
+                self.assertEqual(reservation['state'], 'quarantined')
+                self.assertFalse((root / 'recovered').exists())
+
     @unittest.skipUnless(sys.platform == 'linux', 'POSIX signal and executable fixture')
     def test_sigterm_drains_real_child_and_saves_cancelled_result(self):
         with tempfile.TemporaryDirectory() as temporary:
