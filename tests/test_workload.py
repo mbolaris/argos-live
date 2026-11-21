@@ -19,6 +19,113 @@ from test_bench_openclaw import FakeOpenClaw, configure_fake
 
 
 class WorkloadTests(unittest.TestCase):
+    def test_owner_approved_drained_readonly_incomplete_controller_recovers_same_boot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            boot_id, parent_id, generation = '11111111-1111-4111-8111-111111111111', 'a' * 32, 9
+            owner_pid, worker_pid, watch_id = 12345, 2_000_000_000, 'b' * 32
+            root = home / '.local/state/argos-live/workload'
+            (root / 'child').mkdir(parents=True)
+            identity = {'boot_id': boot_id, 'start_ticks': '10'}
+            reservation = {'schema': 'argos-workload/1', 'id': parent_id, 'generation': generation,
+                           'kind': 'controller', 'pid': owner_pid, 'worker_identity': identity,
+                           'state': 'quarantined', 'phase': 'running'}
+            session_id, session_key = 'session-9', 'agent:main:argos_proctor_improvement_x'
+            worker = {'parent_id': parent_id, 'generation': generation, 'state': 'starting', 'pid': worker_pid,
+                      'session_id': session_id, 'session_key': session_key}
+            failure = {'parent_id': parent_id, 'generation': generation, 'worker_pid': worker_pid,
+                       'session_id': session_id,
+                       'failure': {'code': 'worker-exit', 'returncode': 1,
+                                   'worker_response': {'status': 'error', 'session_bound': True,
+                                                       'error_kind': 'incomplete_turn'}}}
+            turn = {'parent_id': parent_id, 'generation': generation, 'ended': True, 'uncertain': False,
+                    'session_id': session_id, 'session_key': session_key,
+                    'worker_turns': [], 'host_tool_failures': [], 'host_tool_requests': 1,
+                    'tools': [{'call_id': 'call-inspect', 'kind': 'inspect'}]}
+            child = {'parent_id': parent_id, 'generation': generation, 'state': 'released'}
+            for name, value in (('reservation.json', reservation), ('controller-worker.json', worker),
+                                ('controller-failure.json', failure), ('controller-turn.json', turn),
+                                ('child/' + 'c' * 32 + '.json', child)):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(value))
+            watch = {'id': watch_id, 'phase': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                     'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                                'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                             'saved_evaluation_ids': []}},
+                     'campaign_steps': [{'step_id': 'call-inspect', 'tool': 'inspect',
+                                         'status': 'completed', 'step_status': 'completed'}]}
+            with patch.object(workload.sys, 'platform', 'linux'), \
+                    patch.object(workload, 'current_boot_id', return_value=boot_id), \
+                    patch.object(workload, 'worker_identity', return_value=identity), \
+                    patch.object(workload, '_process_group_drained', return_value=True):
+                outcome = workload.recover_owner_approved_readonly_incomplete_controller(
+                    home, watch, owner_pid=owner_pid)
+            self.assertEqual(outcome, {'status': 'recovered', 'reason': 'drained-readonly-incomplete-turn',
+                                       'watch_id': watch_id})
+            current = json.loads((root / 'reservation.json').read_text())
+            self.assertEqual(current['state'], 'released')
+            self.assertEqual(current['phase'], 'recovered-owner-approved-readonly-incomplete')
+            receipts = list((root / 'recovered').glob('*.json'))
+            self.assertEqual(len(receipts), 1)
+            receipt = json.loads(receipts[0].read_text())
+            self.assertEqual(receipt['schema'], 'argos-workload-recovery/3')
+            self.assertEqual(receipt['reason'], 'owner-approved-drained-readonly-incomplete-turn')
+
+    def test_owner_approved_incomplete_controller_recovery_fails_closed_on_mutation_or_bad_exit(self):
+        base_watch = {'id': 'b' * 32, 'phase': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                      'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                                 'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                              'saved_evaluation_ids': []}},
+                      'campaign_steps': [{'step_id': 'call-inspect', 'tool': 'inspect',
+                                          'status': 'completed', 'step_status': 'completed'}]}
+        for mutation in ('evaluation', 'edit', 'bad-status'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temporary:
+                home = Path(temporary)
+                boot_id, parent_id, generation = '11111111-1111-4111-8111-111111111111', 'a' * 32, 9
+                owner_pid, worker_pid = 12345, 2_000_000_000
+                root = home / '.local/state/argos-live/workload'
+                (root / 'child').mkdir(parents=True)
+                identity = {'boot_id': boot_id, 'start_ticks': '10'}
+                files = {
+                    'reservation.json': {'id': parent_id, 'generation': generation, 'kind': 'controller',
+                                         'pid': owner_pid, 'worker_identity': identity,
+                                         'state': 'quarantined', 'phase': 'running'},
+                    'controller-worker.json': {'parent_id': parent_id, 'generation': generation,
+                        'state': 'starting', 'pid': worker_pid, 'session_id': 'session-9',
+                        'session_key': 'agent:main:argos_proctor_improvement_x'},
+                    'controller-failure.json': {'parent_id': parent_id, 'generation': generation,
+                        'worker_pid': worker_pid, 'session_id': 'session-9',
+                        'failure': {'code': 'worker-exit',
+                        'returncode': 0 if mutation == 'bad-status' else 1,
+                        'worker_response': {'status': 'error', 'session_bound': True,
+                                            'error_kind': 'incomplete_turn'}}},
+                    'controller-turn.json': {'parent_id': parent_id, 'generation': generation,
+                        'ended': True, 'uncertain': False, 'session_id': 'session-9',
+                        'session_key': 'agent:main:argos_proctor_improvement_x',
+                        'host_tool_requests': 1, 'worker_turns': [], 'host_tool_failures': [],
+                        'tools': [{'call_id': 'call-inspect', 'kind': 'inspect'}]},
+                }
+                if mutation in {'evaluation', 'edit'}:
+                    base_watch['campaign_steps'] = [{'step_id': 'call-inspect', 'tool': mutation,
+                                                     'status': 'completed', 'step_status': 'completed'}]
+                for name, value in files.items():
+                    path = root / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(json.dumps(value))
+                with patch.object(workload.sys, 'platform', 'linux'), \
+                        patch.object(workload, 'current_boot_id', return_value=boot_id), \
+                        patch.object(workload, 'worker_identity', return_value=identity), \
+                        patch.object(workload, '_process_group_drained', return_value=True):
+                    with self.assertRaises(workload.Busy):
+                        workload.recover_owner_approved_readonly_incomplete_controller(
+                            home, base_watch, owner_pid=owner_pid)
+                self.assertEqual(json.loads((root / 'reservation.json').read_text())['state'], 'quarantined')
+                self.assertFalse((root / 'recovered').exists())
+                if mutation in {'evaluation', 'edit'}:
+                    base_watch['campaign_steps'] = [{'step_id': 'call-inspect', 'tool': 'inspect',
+                                                     'status': 'completed', 'step_status': 'completed'}]
+
     def _write_completed_controller_quarantine(self, home, *, final_audit=True, child_state='released'):
         boot_id = '11111111-1111-4111-8111-111111111111'
         parent_id = 'a' * 32
