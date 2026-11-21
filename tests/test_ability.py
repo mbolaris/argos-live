@@ -14,7 +14,7 @@ from argoslive import ability
 
 class AbilityTests(unittest.TestCase):
     def test_every_reference_wrong_and_malformed_answer(self):
-        for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40),
+        for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40), ('challenge-hard', 80),
                              ('tool-schema', 40), ('tool-plan', 40), ('tool-sequence', 40)]:
             data = ability.load(suite)
             self.assertEqual(len(data['items']), count)
@@ -32,7 +32,7 @@ class AbilityTests(unittest.TestCase):
         generator = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generator)
         standard = {item['id']: item for item in ability.load('standard')['items']}
-        for suite in ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence'):
+        for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence'):
             self.assertEqual(ability.load(suite), generator.build(suite))
         self.assertEqual(ability.load('challenge', version='1.0.0'),
                          generator.build('challenge', version='1.0.0'))
@@ -47,6 +47,21 @@ class AbilityTests(unittest.TestCase):
         self.assertFalse({item['id'] for item in ability.load('challenge')['items']} & set(standard))
         categories = Counter(item['scorer']['kind'] for item in ability.load('challenge')['items'])
         self.assertEqual(categories, {'numeric': 8, 'choice': 8, 'instruction': 8, 'json': 8, 'tool-call': 8})
+
+    def test_challenge_hard_has_balanced_practice_and_heldout_halves(self):
+        data = ability.load('challenge-hard')
+        self.assertEqual(data['version'], '1.0.0')
+        partitions = Counter(item['scorer']['partition'] for item in data['items'])
+        self.assertEqual(partitions, {'practice': 40, 'heldout': 40})
+        by_kind = {kind: Counter(item['scorer']['partition'] for item in data['items']
+                                  if item['scorer']['kind'] == kind)
+                   for kind in ('numeric', 'choice', 'instruction', 'json', 'tool-call')}
+        self.assertTrue(all(counts == {'practice': 8, 'heldout': 8} for counts in by_kind.values()))
+        actions = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
+        self.assertTrue(all(item['scorer'].get('available_tools') for item in actions))
+        for item in actions:
+            request = item['prompt'].split('\nRequest: ', 1)[1]
+            self.assertNotIn(item['scorer']['expected']['name'], request)
 
     def test_challenge_v12_tool_calls_include_grounded_schemas(self):
         data = ability.load('challenge', version='1.2.0')

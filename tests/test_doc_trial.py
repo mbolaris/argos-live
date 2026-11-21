@@ -48,6 +48,35 @@ class SuiteTests(unittest.TestCase):
         after = (ROOT / 'runtime/argoslive/data/documents/short.json').read_bytes()
         self.assertEqual(after, before, 'Regenerating the suite changed its checked-in data')
 
+    def test_long_suite_has_valid_fixtures_and_balanced_passage_partitions(self):
+        spec = __import__('importlib.util', fromlist=['spec_from_file_location'])
+        builder_spec = spec.spec_from_file_location('build_long_document_suite',
+                                                    ROOT / 'scripts/build-long-document-suite.py')
+        builder = spec.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        data = builder.build()
+        dt.validate(data)
+        self.assertEqual(data['suite'], 'long')
+        self.assertEqual(len(data['items']), 40)
+        by_passage = {}
+        for item in data['items']:
+            self.assertIn(item['scorer']['partition'], ('practice', 'heldout'))
+            for field, outcome in (('reference', 'pass'), ('wrong', 'wrong_answer'),
+                                   ('malformed', 'format_error')):
+                self.assertEqual(dt.score(item, item[field])['outcome'], outcome)
+            by_passage.setdefault(item['passage_id'], set()).add(item['scorer']['partition'])
+        self.assertEqual(sum(1 for values in by_passage.values() if values == {'practice'}), 5)
+        self.assertEqual(sum(1 for values in by_passage.values() if values == {'heldout'}), 5)
+        self.assertEqual(data['omitted_categories'], ['file-reading'])
+
+    def test_checked_in_long_suite_matches_its_generator(self):
+        before = (ROOT / 'runtime/argoslive/data/documents/long.json').read_bytes()
+        result = subprocess.run([sys.executable, str(ROOT / 'scripts/build-long-document-suite.py')],
+                                capture_output=True, text=True, cwd=ROOT)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        after = (ROOT / 'runtime/argoslive/data/documents/long.json').read_bytes()
+        self.assertEqual(after, before, 'Regenerating the long suite changed its checked-in data')
+
     def test_archived_suite_keeps_historical_answer_rubric(self):
         historical = dt.load(version='1.1.0')
         current = dt.load(version='1.2.0')

@@ -7,7 +7,7 @@ import re
 DATA = Path(__file__).with_name('data') / 'ability'
 KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call', 'tool-sequence'}
 DEFAULT_KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call'}
-SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40,
+SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80, 'tool-schema': 40,
                 'tool-plan': 40, 'tool-sequence': 40}
 SUITE_KINDS = {'tool-schema': {'tool-call'}, 'tool-plan': {'tool-call'},
                'tool-sequence': {'tool-sequence'}}
@@ -121,7 +121,7 @@ def validate(data):
             or data.get('omitted_categories') != ['code-execution']
             or not isinstance(data.get('items'), list)
             or len(data['items']) != SUITE_COUNTS[data['suite']]):
-        raise ValueError('Invalid ability suite')
+        raise ValueError('Invalid ability suite (expected quick, standard, challenge, challenge-hard, tool-schema, tool-plan, or tool-sequence)')
     seen, kinds = set(), set()
     for item in data['items']:
         if (not isinstance(item, dict) or not re.fullmatch(r'[a-z]+-\d{2}', item.get('id', ''))
@@ -173,7 +173,7 @@ def validate(data):
             if ((kind == 'tool-call' and data['suite'] == 'challenge' and
                  ((data['version'] == '1.0.0' and has_schemas) or
                   (data['version'] != '1.0.0' and not has_schemas))) or
-                    has_schemas and data['suite'] not in ('challenge', 'tool-schema', 'tool-plan', 'tool-sequence')):
+                    has_schemas and data['suite'] not in ('challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence')):
                 raise ValueError('Challenge tool-schema version mismatch')
             if has_schemas:
                 partition = rule.get('partition')
@@ -181,7 +181,7 @@ def validate(data):
                 schema_count = {'tool-schema': 3, 'tool-plan': 4,
                                 'tool-sequence': 4}.get(data['suite'], 4)
                 partition_valid = (partition in ('practice', 'heldout')
-                                   if data['suite'] in ('tool-schema', 'tool-plan', 'tool-sequence')
+                                   if data['suite'] in ('challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence')
                                    else partition is None)
                 if (not partition_valid or not isinstance(schemas, list)
                         or len(schemas) != schema_count):

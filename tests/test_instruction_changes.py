@@ -8,7 +8,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
 from argoslive import bench_openclaw, instruction_changes as changes, workload
-from test_bench_openclaw import FakeOpenClaw, configure_fake
+from test_bench_openclaw import FakeLongDocumentOpenClaw, FakeOpenClaw, configure_fake
 
 
 class InstructionChangeTests(unittest.TestCase):
@@ -16,6 +16,10 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-challenge'], 3)
         self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-tool-plan'], 3)
         self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-tool-sequence'], 3)
+        self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-challenge-hard'], 4)
+        self.assertEqual(changes.POLICY['minimum_correct_delta']['openclaw-documents-long'], 3)
+        self.assertTrue(changes.POLICY['partition_keep_rules'][
+            'argos-openclaw-ability/challenge-hard/1.0.0']['heldout_nonregression'])
 
     def test_tool_schema_keep_gate_requires_repeated_heldout_nonregression(self):
         def run(score):
@@ -56,18 +60,22 @@ class InstructionChangeTests(unittest.TestCase):
         self.parent.resume(cap, worker_drained=True)
         return result
 
-    def evaluate(self, misses=0, suite='quick', wrong_categories=()):
-        class Answers(FakeOpenClaw):
+    def evaluate(self, misses=0, suite='quick', wrong_categories=(), wrong_partitions=()):
+        base = FakeLongDocumentOpenClaw() if suite == 'documents-long' else FakeOpenClaw(suite=suite)
+        class Answers(type(base)):
             def turn(self, prompt):
                 value = super().turn(prompt)
                 item = self.tasks[prompt]
                 if self.calls <= misses:
                     value['text'] = '__wrong_fixture_answer__'
+                elif item.get('scorer', {}).get('partition') in wrong_partitions:
+                    value['text'] = item['wrong']
                 elif item['scorer']['kind'] in wrong_categories:
                     value['text'] = item['wrong']
                 return value
         cap = self.parent.delegate('evaluation')
-        result = bench_openclaw.run(home=self.home, suite=suite, runner=Answers(suite=suite), delegation=cap)
+        runner = Answers() if suite == 'documents-long' else Answers(suite=suite)
+        result = bench_openclaw.run(home=self.home, suite=suite, runner=runner, delegation=cap)
         self.parent.resume(cap, worker_drained=True)
         return result
 
@@ -266,6 +274,30 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(kept['status'], 'kept', kept)
         self.assertEqual(kept['minimum_correct_gain'], 3)
         self.assertTrue(kept['heldout_validation']['nonregression_met'])
+
+    def test_ev2_keep_rules_require_repeated_practice_gain_and_no_heldout_regression(self):
+        for suite, baseline_misses, expected_delta in (
+                ('challenge-hard', 4, 4), ('documents-long', 3, 3)):
+            with self.subTest(suite=suite):
+                baselines = [self.evaluate(misses=baseline_misses, suite=suite) for _ in range(2)]
+                edited = self.edit(baselines[0])
+                candidates = [self.evaluate(suite=suite), self.evaluate(suite=suite)]
+                kept = self.resolve(edited, 'keep', baseline_ids=[run['id'] for run in baselines],
+                                    candidate_ids=[run['id'] for run in candidates])
+                self.assertEqual(kept['status'], 'kept', kept)
+                self.assertEqual(kept['minimum_correct_gain'], expected_delta)
+                self.assertTrue(kept['heldout_validation']['nonregression_met'])
+                self.assertEqual(kept['policy']['id'], 'argos-practice-keep/6')
+
+    def test_ev2_practice_gain_cannot_keep_a_heldout_regression(self):
+        baselines = [self.evaluate(misses=4, suite='challenge-hard') for _ in range(2)]
+        edited = self.edit(baselines[0])
+        candidates = [self.evaluate(suite='challenge-hard', wrong_partitions=('heldout',))
+                      for _ in range(2)]
+        rejected = self.resolve(edited, 'keep', baseline_ids=[run['id'] for run in baselines],
+                                candidate_ids=[run['id'] for run in candidates])
+        self.assertEqual(rejected['status'], 'rejected')
+        self.assertEqual(rejected['code'], 'heldout-partition-regression')
 
     def test_challenge_v10_tool_call_gain_is_excluded_from_qualification(self):
         baseline = self.evaluate(suite='challenge', wrong_categories=('tool-call',))
