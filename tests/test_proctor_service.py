@@ -307,6 +307,21 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('argos_ssh_status', config['tools']['alsoAllow'])
         self.assertEqual(config['agents']['defaults']['model']['temperature'], 0)
 
+    def test_campaign_response_budget_is_isolated_from_owner_and_practice(self):
+        (self.home / '.openclaw/workspace').mkdir(parents=True)
+        owner_before = self.owner_config.read_bytes()
+        practice = proctor_service.private_profile(self.home, 'qwen3.8:27b',
+            plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config)
+        campaign = proctor_service.private_profile(self.home, 'qwen3.8:27b',
+            plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config, purpose='campaign')
+        campaign_row = json.loads(campaign[2].read_text())['models']['providers']['ollama']['models'][0]
+        practice_row = json.loads(practice[2].read_text())['models']['providers']['ollama']['models'][0]
+        self.assertEqual(campaign_row['maxTokens'], 8192)
+        self.assertEqual(self.owner_config.read_bytes(), owner_before)
+        self.assertNotEqual(practice_row.get('maxTokens'), 8192)
+        self.assertEqual(campaign[2], proctor_service.private_profile(self.home, 'qwen3.8:27b',
+            plugin_root='/opt/argos/plugins', owner_config_path=self.owner_config, purpose='campaign')[2])
+
     def test_unmeasured_campaign_profile_grants_only_read_and_audit_tools(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
         _root, _workspace, config_path, _digest = proctor_service.private_profile(
