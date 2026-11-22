@@ -120,17 +120,20 @@ function showResults(data) {
   }
 }
 async function refresh() {
-  try {
-    const [campaign, telemetry, recent] = await Promise.all([
-      api('/api/monitor/campaign'), api('/api/telemetry'), api('/api/monitor/results')
-    ]);
-    showCampaign(campaign); showTelemetry(telemetry); showResults(recent);
-    put('updated', `Updated ${new Date(telemetry.captured_utc).toLocaleTimeString()} · samples are point-in-time readings`);
-    put('connection', 'Connected'); document.getElementById('connection').className = 'ok';
-  } catch (error) {
-    put('connection', 'Connection lost'); document.getElementById('connection').className = 'bad';
-    put('updated', 'Live data unavailable; last good sample is retained.');
-  }
+  const [campaign, telemetry, recent] = await Promise.allSettled([
+    api('/api/monitor/campaign'), api('/api/telemetry'), api('/api/monitor/results')
+  ]);
+  if (campaign.status === 'fulfilled') showCampaign(campaign.value);
+  else put('run-state', 'Unavailable');
+  if (telemetry.status === 'fulfilled') {
+    showTelemetry(telemetry.value);
+    put('updated', `Updated ${new Date(telemetry.value.captured_utc).toLocaleTimeString()} · samples are point-in-time readings`);
+  } else put('updated', 'Health data unavailable; previous readings may be stale.');
+  if (recent.status === 'fulfilled') showResults(recent.value);
+  else put('ability-latest', 'Saved results unavailable.');
+  const failed = [campaign, telemetry, recent].filter(value => value.status === 'rejected').length;
+  put('connection', failed === 0 ? 'Connected' : failed === 3 ? 'Connection lost' : 'Partial connection');
+  document.getElementById('connection').className = failed ? 'bad' : 'ok';
 }
 refresh();
 setInterval(refresh, 10000);
