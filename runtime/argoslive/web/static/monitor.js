@@ -124,7 +124,10 @@ async function refresh() {
     api('/api/monitor/campaign'), api('/api/telemetry'), api('/api/monitor/results')
   ]);
   if (campaign.status === 'fulfilled') showCampaign(campaign.value);
-  else put('run-state', 'Unavailable');
+  else {
+    put('run-state', 'Unavailable');
+    put('current-action', 'Campaign data unavailable; previous details may be stale.');
+  }
   if (telemetry.status === 'fulfilled') {
     showTelemetry(telemetry.value);
     put('updated', `Updated ${new Date(telemetry.value.captured_utc).toLocaleTimeString()} · samples are point-in-time readings`);
