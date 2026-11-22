@@ -141,7 +141,7 @@ def serve(home, root, *, port=0, browser=open_browser, no_browser=False, control
     # operator dashboard's session token or mutation routes.
     try:
         remote_monitor = RemoteMonitorServer(proctor_campaign=proctor_campaign_controller,
-                                             store=results)
+                                             store=results, startup=controller)
     except OSError:
         # A monitor port conflict must not prevent the local assistant from starting.
         remote_monitor = None

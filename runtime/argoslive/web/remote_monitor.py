@@ -51,11 +51,12 @@ class RemoteMonitorServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False
 
-    def __init__(self, *, proctor_campaign, store, host='127.0.0.1', port=PORT,
+    def __init__(self, *, proctor_campaign, store, startup=None, host='127.0.0.1', port=PORT,
                  allowed_login=None):
         if host != '127.0.0.1' or type(port) is not int or not 0 <= port <= 65535:
             raise ValueError('Remote monitor must bind to loopback')
         self.proctor_campaign = proctor_campaign
+        self.startup = startup
         self.store = store
         # Fail closed until Tailscale is installed, authenticated, and the account
         # identity can be established. The listener remains loopback-only.
@@ -128,7 +129,16 @@ class RemoteMonitorHandler(BaseHTTPRequestHandler):
             self.reply(400, {'error': 'Unexpected monitor query'})
             return
         if path == '/api/telemetry':
-            self.reply(200, telemetry.snapshot())
+            sample = telemetry.snapshot()
+            try:
+                state = self.server.startup.snapshot() if self.server.startup else {}
+                metrics = state.get('metrics') or {}
+                sample['assistant'] = {'phase': state.get('phase'), 'model': state.get('model'),
+                    'generation_tokens_per_second': metrics.get('generation_tokens_per_second'),
+                    'time_to_first_token_seconds': metrics.get('time_to_first_token_seconds')}
+            except (OSError, ValueError, TypeError, AttributeError):
+                sample['assistant'] = None
+            self.reply(200, sample)
             return
         if path == '/api/monitor/campaign':
             try:
@@ -148,7 +158,9 @@ class RemoteMonitorHandler(BaseHTTPRequestHandler):
                     'assistant_ready': state.get('assistant_ready'),
                     'failure_code': state.get('failure_code'), 'failure_stage': state.get('failure_stage'),
                     'progress': {key: progress.get(key) for key in
-                                 ('stage', 'turn', 'total', 'saved_evaluation_count', 'audit_status')},
+                                 ('stage', 'turn', 'total', 'saved_evaluation_count', 'audit_status', 'current_elapsed_seconds')},
+                    'steps': [{key: step.get(key) for key in ('tool', 'status', 'step_status', 'resolution', 'passed')}
+                              for step in progress.get('campaign_steps', [])[-12:] if isinstance(step, dict)],
                     'current': {key: current.get(key) for key in ('run_id', 'item_id', 'category', 'state')},
                     'evaluation_runs': [{key: row.get(key) for key in fields if key in row}
                                         for row in progress.get('evaluation_runs', [])
@@ -165,7 +177,7 @@ class RemoteMonitorHandler(BaseHTTPRequestHandler):
             try:
                 from argoslive import proctor_match
                 fields = ('run_id', 'created', 'suite', 'suite_version', 'state',
-                          'complete', 'correct', 'scored_total')
+                          'complete', 'correct', 'scored_total', 'partitions', 'model', 'median_latency_seconds')
                 rounds = [{key: row.get(key) for key in fields}
                           for row in proctor_match.recent(self.server.store, limit=6)]
                 self.reply(200, {'schema': 'argos-monitor-results/1', 'rounds': rounds})
