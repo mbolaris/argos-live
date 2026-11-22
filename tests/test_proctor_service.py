@@ -407,6 +407,31 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('a passed host instruction audit after the final comparison, evaluation, and log entry',
                       assessment['missing'])
 
+    def test_campaign_accepts_host_verified_comparison_of_preexisting_baselines(self):
+        baseline_ids = ['a' * 32, 'b' * 32]
+        outcomes = [{'kind': 'inspect'},
+                    {'kind': 'compare', 'baseline_id': baseline_ids[0], 'candidate_id': baseline_ids[1]},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])
+        self.assertEqual(assessment['status'], 'completed')
+        self.assertEqual(assessment['outcome'], 'no_change_audited')
+        self.assertEqual(assessment['saved_evaluation_ids'], [])
+        self.assertEqual(assessment['baseline_evaluation_ids'], baseline_ids)
+
+    def test_rejected_comparison_does_not_count_as_preexisting_baseline_evidence(self):
+        baseline_ids = ['a' * 32, 'b' * 32]
+        outcomes = [{'kind': 'inspect'},
+                    {'kind': 'compare_rejected', 'baseline_id': baseline_ids[0],
+                     'candidate_id': baseline_ids[1], 'error_code': 'different-test-version'},
+                    {'kind': 'audit', 'status': 'empty', 'passed': True}]
+        assessment = proctor_service._campaign_assessment(outcomes)
+        self.assertTrue(assessment['ready'])  # Safe task-not-measured stop, not a campaign success.
+        self.assertEqual(assessment['status'], 'incomplete')
+        self.assertEqual(assessment['outcome'], 'task-not-measured')
+        self.assertIn('no improvement is claimed', assessment['missing'][0])
+        self.assertEqual(assessment['baseline_evaluation_ids'], [])
+
     def test_campaign_can_stop_after_clean_audit_when_no_task_relevant_suite_exists(self):
         assessment = proctor_service._campaign_assessment([
             {'kind': 'inspect'}, {'kind': 'audit', 'status': 'empty', 'passed': True}])

@@ -636,6 +636,20 @@ def _campaign_assessment(outcomes, *, recovery_mode=False):
                    item.get('state') == 'completed' and isinstance(item.get('result_id'), str)]
     evaluation_ids = list(dict.fromkeys(item['result_id'] for item in evaluations))
     comparisons = [item for item in outcomes if isinstance(item, dict) and item.get('kind') == 'compare']
+    compared_pairs = [
+        (item.get('baseline_id'), item.get('candidate_id')) for item in comparisons
+        if isinstance(item.get('baseline_id'), str) and isinstance(item.get('candidate_id'), str) and
+        item.get('baseline_id') != item.get('candidate_id')
+    ]
+    # A successful host comparison loads and validates both saved records,
+    # checks the owner-selected suite, and rejects mismatched coverage or
+    # configuration. It is valid baseline evidence even when the runs were
+    # saved in earlier campaigns and therefore have no evaluation outcome in
+    # this campaign's ledger.
+    baseline_evaluation_ids = list(dict.fromkeys([
+        *evaluation_ids,
+        *(run_id for pair in compared_pairs for run_id in pair),
+    ]))
     edits = [item for item in outcomes if isinstance(item, dict) and item.get('kind') == 'edit' and
              item.get('status') == 'changed']
     indexed = [(index, item) for index, item in enumerate(outcomes) if isinstance(item, dict)]
@@ -746,11 +760,12 @@ def _campaign_assessment(outcomes, *, recovery_mode=False):
             # benchmark runs just to satisfy the no-change ledger.
             return {'ready': True, 'status': 'incomplete', 'outcome': 'task-not-measured',
                     'missing': ['No task-relevant evaluation was completed; no improvement is claimed.'],
-                    'saved_evaluation_ids': [], 'audit_status': 'empty', 'safe_to_release': True}
-        if len(evaluation_ids) < 2:
+                    'saved_evaluation_ids': [], 'baseline_evaluation_ids': [],
+                    'audit_status': 'empty', 'safe_to_release': True}
+        if len(baseline_evaluation_ids) < 2:
             missing.append('two distinct saved baseline evaluations')
-        if not any(item.get('baseline_id') in evaluation_ids and item.get('candidate_id') in evaluation_ids and
-                   item.get('baseline_id') != item.get('candidate_id') for item in comparisons):
+        if not any(baseline_id in baseline_evaluation_ids and candidate_id in baseline_evaluation_ids
+                   for baseline_id, candidate_id in compared_pairs):
             missing.append('an explicit comparison of two saved baselines')
         latest_comparison = max((index for index, item in indexed if item.get('kind') == 'compare'), default=-1)
         if (audit_index <= max(latest_comparison, latest_evaluation, latest_appended_log) or
@@ -762,6 +777,7 @@ def _campaign_assessment(outcomes, *, recovery_mode=False):
 
     return {'ready': not missing, 'status': 'completed' if not missing else 'incomplete',
             'outcome': outcome, 'missing': missing, 'saved_evaluation_ids': evaluation_ids,
+            'baseline_evaluation_ids': baseline_evaluation_ids,
             'audit_status': audit.get('status') if audit else None,
             'safe_to_release': safe_to_release}
 
@@ -1035,12 +1051,14 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
     if assessment is None:
         assessment = {'status': 'incomplete', 'outcome': 'no_worker_turn',
                       'missing': ['a completed controller turn'], 'saved_evaluation_ids': [],
+                      'baseline_evaluation_ids': [],
                       'audit_status': None, 'safe_to_release': False}
     return {'status': assessment['status'], 'outcome': assessment['outcome'],
             'missing': assessment['missing'], 'audit_status': assessment['audit_status'],
             'evaluation_limit': evaluation_limit,
             'controller_turns': turn, 'agent_summary': result.get('result', result).get('payloads', []),
             'tool_outcomes': outcomes, 'saved_evaluation_ids': assessment['saved_evaluation_ids'],
+            'baseline_evaluation_ids': assessment.get('baseline_evaluation_ids', []),
             'host_observation': assessment.get('host_observation')}
 
 

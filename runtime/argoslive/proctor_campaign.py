@@ -204,6 +204,10 @@ class Controller:
         if not isinstance(ids, list):
             ids = []
         ids = [item for item in ids[:32] if isinstance(item, str) and len(item) <= 128]
+        baseline_ids = campaign.get('baseline_evaluation_ids', [])
+        if not isinstance(baseline_ids, list):
+            baseline_ids = []
+        baseline_ids = [item for item in baseline_ids[:32] if isinstance(item, str) and len(item) <= 128]
         missing = campaign.get('missing', [])
         if not isinstance(missing, list):
             missing = []
@@ -240,6 +244,7 @@ class Controller:
             'controller_turns': campaign.get('controller_turns'),
             'missing': missing,
             'saved_evaluation_ids': ids,
+            'baseline_evaluation_ids': baseline_ids,
             'agent_report': agent_report,
         }
         if evaluation_limit is not None:
