@@ -27,7 +27,8 @@ function updateChart() {
 function showCampaign(value) {
   const c = value || {};
   const progress = c.progress || {};
-  const run = Array.isArray(c.evaluation_runs) ? c.evaluation_runs[0] : null;
+  const runs = Array.isArray(c.evaluation_runs) ? c.evaluation_runs : [];
+  const run = runs.length ? runs[runs.length - 1] : null;
   const itemCount = run && Number.isFinite(run.total) ? run.total : null;
   const done = run && Number.isFinite(run.completed) ? run.completed : 0;
   const active = c.active === true;
@@ -48,7 +49,16 @@ function showCampaign(value) {
   else if (c.phase === 'completed') notes.push('Completed; verify the saved run and audit before interpreting it.');
   else notes.push('No active campaign.');
   put('run-note', notes.join(' '));
-  if (active) document.getElementById('run-state').className = 'pill active';
+  document.getElementById('run-state').className = active ? 'pill active' : 'pill';
+  const stage = safe(progress.stage || c.phase || 'idle').replaceAll('-', ' ');
+  const current = c.current || {};
+  put('current-action', active ? `Now: ${stage}${current.category ? ` · ${safe(current.category)}` : ''}${current.state ? ` · ${safe(current.state)}` : ''}${Number.isFinite(progress.current_elapsed_seconds) ? ` · ${fmtElapsed(progress.current_elapsed_seconds)}` : ''}` : `Last outcome: ${safe(c.result_campaign?.outcome || c.phase || 'idle').replaceAll('_', ' ')}`);
+  const list = document.getElementById('activity'); list.replaceChildren();
+  for (const step of (Array.isArray(c.steps) ? c.steps.slice(-6) : [])) {
+    const li = document.createElement('li');
+    li.textContent = `${safe(step.tool || 'step').replaceAll('_', ' ')} · ${safe(step.resolution || step.step_status || step.status || 'unknown').replaceAll('_', ' ')}`;
+    list.append(li);
+  }
 }
 function showTelemetry(t) {
   const gpu = Array.isArray(t.gpu) ? t.gpu[0] : null;
@@ -63,11 +73,19 @@ function showTelemetry(t) {
   const cpu = Array.isArray(sensors) ? sensors[0] : null;
   put('cpu-temp', Number.isFinite(cpu?.temperature_c) ? `${cpu.temperature_c} °C` : 'Unavailable');
   put('cpu-sensor', cpu ? safe(cpu.sensor) : 'No CPU temperature sensor reported');
+  const drives = Array.isArray(t.nvme_temperature_sensors) ? t.nvme_temperature_sensors.filter(x => Number.isFinite(x.temperature_c)) : [];
+  put('nvme-temp', drives.length ? `${Math.max(...drives.map(x => x.temperature_c)).toFixed(1)} °C` : '—');
   put('ram', fmtBytes(t.memory?.available_bytes));
   put('ram-total', `of ${fmtBytes(t.memory?.total_bytes)}`);
   put('disk', fmtBytes(t.root_disk?.free_bytes));
   put('disk-total', `of ${fmtBytes(t.root_disk?.total_bytes)}`);
   put('uptime', fmtTime(t.uptime_seconds));
+  const assistant = t.assistant || {};
+  put('token-rate', Number.isFinite(assistant.generation_tokens_per_second) ? assistant.generation_tokens_per_second.toFixed(1) : '—');
+  put('first-token', Number.isFinite(assistant.time_to_first_token_seconds) ? assistant.time_to_first_token_seconds.toFixed(1) : '—');
+  put('assistant-state', safe(assistant.phase || 'unknown'));
+  put('assistant-model', safe(assistant.model || 'Model unavailable'));
+  put('cpu-load', Number.isFinite(t.cpu_load_1m) ? t.cpu_load_1m.toFixed(2) : '—');
   history.push({temp: gpu?.temperature_c, util: gpu?.utilization_percent});
   if (history.length > 120) history.shift();
   updateChart();
@@ -76,12 +94,23 @@ function showResults(data) {
   const body = document.getElementById('results');
   body.replaceChildren();
   const rows = Array.isArray(data?.rounds) ? data.rounds.slice(0, 6) : [];
+  const latest = rows.find(row => row.complete === true);
+  const partitionText = part => Number.isInteger(part?.correct) && Number.isInteger(part?.total) ? `${part.correct}/${part.total}` : 'unavailable';
+  if (latest) {
+    const parts = latest.partitions || {};
+    const name = safe((latest.suite_version || latest.suite || 'test').replace(/^argos-openclaw-ability\//, ''));
+    const scores = parts.practice || parts.heldout ? `Practice ${partitionText(parts.practice)} · held-out ${partitionText(parts.heldout)}` : `Score ${latest.correct}/${latest.scored_total}`;
+    put('ability-latest', `Latest: ${name} · ${scores} · ${safe(latest.model || 'model unavailable')} · ${latest.created ? new Date(latest.created).toLocaleString() : 'date unavailable'}`);
+  } else put('ability-latest', 'No completed scored form available.');
   if (!rows.length) { body.innerHTML = '<tr><td colspan="4">No saved runs yet.</td></tr>'; return; }
   for (const row of rows) {
     const tr = document.createElement('tr');
     const suite = safe((row.suite_version || row.suite || 'Test').replace(/^argos-openclaw-ability\//, ''));
-    const result = row.complete === true && Number.isFinite(row.correct) && Number.isFinite(row.scored_total)
-      ? `${row.correct} / ${row.scored_total}` : 'Not scored';
+    const parts = row.partitions || {};
+    const result = row.complete === true && (parts.practice || parts.heldout)
+      ? `Practice ${partitionText(parts.practice)} · held-out ${partitionText(parts.heldout)}`
+      : row.complete === true && Number.isFinite(row.correct) && Number.isFinite(row.scored_total)
+        ? `${row.correct} / ${row.scored_total}` : 'Not scored';
     const state = row.complete === true ? 'Complete' : safe(row.state || 'Incomplete');
     const created = row.created ? new Date(row.created).toLocaleString() : '—';
     for (const value of [suite, result, state, created]) {
@@ -91,17 +120,23 @@ function showResults(data) {
   }
 }
 async function refresh() {
-  try {
-    const [campaign, telemetry, recent] = await Promise.all([
-      api('/api/monitor/campaign'), api('/api/telemetry'), api('/api/monitor/results')
-    ]);
-    showCampaign(campaign); showTelemetry(telemetry); showResults(recent);
-    put('updated', `Updated ${new Date(telemetry.captured_utc).toLocaleTimeString()} · samples are point-in-time readings`);
-    put('connection', 'Connected'); document.getElementById('connection').className = 'ok';
-  } catch (error) {
-    put('connection', 'Connection lost'); document.getElementById('connection').className = 'bad';
-    put('updated', 'Live data unavailable; last good sample is retained.');
+  const [campaign, telemetry, recent] = await Promise.allSettled([
+    api('/api/monitor/campaign'), api('/api/telemetry'), api('/api/monitor/results')
+  ]);
+  if (campaign.status === 'fulfilled') showCampaign(campaign.value);
+  else {
+    put('run-state', 'Unavailable');
+    put('current-action', 'Campaign data unavailable; previous details may be stale.');
   }
+  if (telemetry.status === 'fulfilled') {
+    showTelemetry(telemetry.value);
+    put('updated', `Updated ${new Date(telemetry.value.captured_utc).toLocaleTimeString()} · samples are point-in-time readings`);
+  } else put('updated', 'Health data unavailable; previous readings may be stale.');
+  if (recent.status === 'fulfilled') showResults(recent.value);
+  else put('ability-latest', 'Saved results unavailable.');
+  const failed = [campaign, telemetry, recent].filter(value => value.status === 'rejected').length;
+  put('connection', failed === 0 ? 'Connected' : failed === 3 ? 'Connection lost' : 'Partial connection');
+  document.getElementById('connection').className = failed ? 'bad' : 'ok';
 }
 refresh();
 setInterval(refresh, 10000);

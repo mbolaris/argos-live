@@ -50,6 +50,27 @@ def _thermal_zones(root=Path('/sys/class/thermal')):
     return values or None
 
 
+def _hwmon_temperatures(root=Path('/sys/class/hwmon')):
+    cpu, drives = [], []
+    for device in sorted(Path(root).glob('hwmon*')):
+        name = (hw.read(device / 'name') or '').strip().lower()
+        if name not in ('k10temp', 'coretemp', 'nvme'):
+            continue
+        for reading in sorted(device.glob('temp*_input')):
+            label = (hw.read(device / (reading.name[:-6] + '_label')) or '').strip()
+            if name in ('k10temp', 'coretemp') and label.lower() not in ('tctl', 'tdie', 'package id 0'):
+                continue
+            if name == 'nvme' and label.lower() != 'composite':
+                continue
+            raw = _integer(hw.read(reading))
+            value = raw / 1000 if raw is not None and raw > 1000 else raw
+            if value is None or not -20 <= value <= 150:
+                continue
+            (drives if name == 'nvme' else cpu).append(
+                {'sensor': (name + ' ' + label)[:64], 'temperature_c': round(value, 1)})
+    return cpu or None, drives or None
+
+
 def _gpu(run):
     raw = run(['nvidia-smi', '--query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw,power.limit',
                '--format=csv,noheader,nounits'])
@@ -72,7 +93,7 @@ def _gpu(run):
 
 
 def snapshot(*, run=hw.command, proc=Path('/proc'), sys_thermal=Path('/sys/class/thermal'),
-             disk_usage=shutil.disk_usage, now=None):
+             sys_hwmon=Path('/sys/class/hwmon'), disk_usage=shutil.disk_usage, now=None):
     """Take a brief read-only sample; unavailable measurements stay null."""
     started = time.monotonic()
     memory = hw.memory_info(hw.read(Path(proc) / 'meminfo'))
@@ -88,9 +109,18 @@ def snapshot(*, run=hw.command, proc=Path('/proc'), sys_thermal=Path('/sys/class
             uptime_seconds = None
     except (ValueError, IndexError, TypeError):
         uptime_seconds = None
+    try:
+        load = hw.read(Path(proc) / 'loadavg')
+        load_1m = float(load.split()[0]) if load else None
+        if load_1m is not None and load_1m < 0:
+            load_1m = None
+    except (ValueError, IndexError, TypeError):
+        load_1m = None
+    cpu_hwmon, nvme = _hwmon_temperatures(sys_hwmon)
     return {'schema': 'argos-telemetry/1',
             'captured_utc': (now or datetime.now(timezone.utc)).isoformat(),
-            'gpu': _gpu(run), 'cpu_temperature_sensors': _thermal_zones(Path(sys_thermal)),
+            'gpu': _gpu(run), 'cpu_temperature_sensors': _thermal_zones(Path(sys_thermal)) or cpu_hwmon,
+            'nvme_temperature_sensors': nvme,
             'memory': memory, 'root_disk': root_disk,
-            'uptime_seconds': uptime_seconds,
+            'uptime_seconds': uptime_seconds, 'cpu_load_1m': load_1m,
             'sample_seconds': round(time.monotonic() - started, 3)}

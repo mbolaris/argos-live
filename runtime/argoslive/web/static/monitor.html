@@ -10,7 +10,7 @@
 </head>
 <body>
   <main>
-    <header><a href="/?token=__SESSION_TOKEN__" class="brand">Argos Live</a><span class="live"><i></i> Live read only</span></header>
+    <header><a href="/?token=__SESSION_TOKEN__" class="brand">Argos Live</a><span class="live"><i></i> Private · read only</span></header>
     <h1>Toronado monitor</h1>
     <p class="subhead">Testing progress and machine health. Refreshes every 10 seconds.</p>
     <p id="updated" class="muted" role="status">Connecting…</p>
@@ -27,6 +27,25 @@
           <div><span>Saved evaluations</span><strong id="saved">—</strong></div>
         </div>
         <p id="run-note" class="note">Only a completed, audited run counts as a result. A practice score is not a capability gain.</p>
+        <p id="current-action" class="action">Waiting for a campaign.</p>
+        <ol id="activity" class="activity" aria-label="Recent campaign activity"></ol>
+      </div>
+    </section>
+
+    <section aria-labelledby="ability-title">
+      <div class="section-heading"><h2 id="ability-title">Ability snapshot</h2><span class="pill">Experimental</span></div>
+      <div class="card"><div class="score-label">Overall smartness score</div><div class="score-value">Not calibrated</div>
+      <p class="note">There is not yet a broad, calibrated score that predicts IQ, SAT, or GED results. The latest scored form is shown below; it measures only that form and may be a trial that was later restored.</p>
+      <p id="ability-latest" class="action">Loading saved results…</p></div>
+    </section>
+
+    <section aria-labelledby="speed-title">
+      <h2 id="speed-title">Model performance</h2>
+      <div class="metric-grid system-grid">
+        <article class="card metric"><span>Output speed</span><strong id="token-rate">—</strong><small>tokens/s · last startup reply</small></article>
+        <article class="card metric"><span>First token</span><strong id="first-token">—</strong><small>seconds · last startup reply</small></article>
+        <article class="card metric"><span>Assistant</span><strong id="assistant-state">—</strong><small id="assistant-model">Model unavailable</small></article>
+        <article class="card metric"><span>CPU load</span><strong id="cpu-load">—</strong><small>1 minute average · not percent</small></article>
       </div>
     </section>
 
@@ -50,6 +69,7 @@
         <article class="card metric"><span>RAM available</span><strong id="ram">—</strong><small id="ram-total">of —</small></article>
         <article class="card metric"><span>Root disk free</span><strong id="disk">—</strong><small id="disk-total">of —</small></article>
         <article class="card metric"><span>CPU temperature</span><strong id="cpu-temp">—</strong><small id="cpu-sensor">Unavailable until a CPU sensor is reported</small></article>
+        <article class="card metric"><span>Hottest NVMe</span><strong id="nvme-temp">—</strong><small>composite sensor · °C</small></article>
         <article class="card metric"><span>System uptime</span><strong id="uptime">—</strong><small>since boot</small></article>
       </div>
       <p id="health-note" class="muted">Unavailable measurements are shown as —.</p>
