@@ -46,6 +46,7 @@ def result():
                          'audit_status': 'empty', 'controller_turns': 2,
                          'evaluation_limit': 2,
                          'saved_evaluation_ids': ['run-a', 'run-b'], 'missing': [],
+                         'baseline_evaluation_ids': ['base-a', 'base-b'],
                          'tool_outcomes': ['private tool payload is excluded']}}
 
 
@@ -210,6 +211,7 @@ class ProctorCampaignControllerTests(unittest.TestCase):
                                               'turn': 1, 'total': 4, 'saved_evaluation_count': 2,
                                               'audit_status': 'pending'})
         self.assertEqual(status['result']['campaign']['saved_evaluation_ids'], ['run-a', 'run-b'])
+        self.assertEqual(status['result']['campaign']['baseline_evaluation_ids'], ['base-a', 'base-b'])
         self.assertEqual(status['result']['campaign']['evaluation_limit'], 2)
         saved = self.controller.record(status['watch']['id'])
         self.assertEqual(saved['evaluation_limit'], 2)
