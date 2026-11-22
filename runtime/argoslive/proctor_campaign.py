@@ -58,14 +58,21 @@ def _readonly_incomplete_recovery_watch(value):
     result = value.get('result') if isinstance(value.get('result'), dict) else {}
     campaign = result.get('campaign') if isinstance(result.get('campaign'), dict) else {}
     steps = value.get('campaign_steps')
+    readonly_steps = (isinstance(steps, list) and 1 <= len(steps) <= 16 and
+                      all(isinstance(step, dict) and step.get('tool') in {'inspect', 'audit'} and
+                          step.get('status') == 'completed' and
+                          isinstance(step.get('step_id'), str) and bool(step.get('step_id')) and
+                          (step.get('step_status') == 'completed' if step.get('tool') == 'inspect' else
+                           step.get('step_status') == 'verified' and step.get('passed') is True)
+                          for step in steps) and
+                      len({step['step_id'] for step in steps}) == len(steps) and
+                      any(step.get('tool') == 'inspect' for step in steps) and
+                      (len(steps) == 1 or any(step.get('tool') == 'audit' for step in steps)))
     return (isinstance(value.get('id'), str) and WATCH_ID.fullmatch(value['id']) is not None and
             value.get('phase') == 'incomplete' and value.get('failure_code') == 'campaign-invalid-state' and
             result.get('status') == 'incomplete' and result.get('failure_code') == 'campaign-invalid-state' and
             campaign.get('status') == 'failed' and campaign.get('outcome') == 'campaign-runtime-failed' and
-            campaign.get('saved_evaluation_ids') == [] and isinstance(steps, list) and len(steps) == 1 and
-            isinstance(steps[0], dict) and steps[0].get('tool') == 'inspect' and
-            steps[0].get('status') == 'completed' and steps[0].get('step_status') == 'completed' and
-            isinstance(steps[0].get('step_id'), str))
+            campaign.get('saved_evaluation_ids') == [] and readonly_steps)
 
 
 MESSAGES = {

@@ -401,6 +401,28 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertIn('no evaluation or score', recovered['message'])
         as_recovered.assert_called_once_with(self.home, record)
 
+    def test_readonly_recovery_watch_accepts_only_completed_inspect_audit_chains(self):
+        watch = {'id': 'a' * 32, 'phase': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                 'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                            'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                         'saved_evaluation_ids': []}},
+                 'campaign_steps': [
+                     {'step_id': 'call-inspect', 'tool': 'inspect', 'status': 'completed',
+                      'step_status': 'completed'},
+                     {'step_id': 'call-audit', 'tool': 'audit', 'status': 'completed',
+                      'step_status': 'verified', 'passed': True},
+                 ]}
+        self.assertTrue(proctor_campaign._readonly_incomplete_recovery_watch(watch))
+        changed = json.loads(json.dumps(watch))
+        changed['campaign_steps'][1]['passed'] = False
+        self.assertFalse(proctor_campaign._readonly_incomplete_recovery_watch(changed))
+        changed = json.loads(json.dumps(watch))
+        changed['campaign_steps'][1].update(tool='evaluation', step_status='completed')
+        self.assertFalse(proctor_campaign._readonly_incomplete_recovery_watch(changed))
+        changed = json.loads(json.dumps(watch))
+        changed['result']['campaign']['saved_evaluation_ids'] = ['f' * 32]
+        self.assertFalse(proctor_campaign._readonly_incomplete_recovery_watch(changed))
+
     def test_dashboard_route_is_token_protected_and_requires_task_json_for_start(self):
         server = DashboardServer(port=0, proctor_campaign=self.controller)
         worker = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': 0.05}, daemon=True)
