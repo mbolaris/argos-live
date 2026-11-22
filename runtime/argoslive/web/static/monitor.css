@@ -31,6 +31,7 @@ progress { width: 100%; height: 11px; accent-color: var(--mint); }
 .action { color: #dceaf2; font-size: 13px; line-height: 1.5; margin: 14px 0 0; overflow-wrap: anywhere; }
 .activity { margin: 12px 0 0; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .score-label { color: var(--muted); font-size: 12px; }.score-value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+.config { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }.config h3 { font-size: 14px; margin: 0; }.config dl { display: grid; grid-template-columns: minmax(110px, 1fr) 2fr; gap: 7px 12px; font-size: 12px; }.config dt { color: var(--muted); }.config dd { margin: 0; overflow-wrap: anywhere; }
 .metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .metric { padding: 13px; }
 .metric strong { display: block; font: 650 clamp(22px, 7vw, 31px)/1.1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: -.045em; overflow-wrap: anywhere; }

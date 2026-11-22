@@ -1,6 +1,7 @@
 """Private, read-only monitor endpoint for Tailscale Serve."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import math
 from pathlib import Path
 import shutil
 import subprocess
@@ -10,6 +11,40 @@ from argoslive.web import telemetry
 
 ASSETS = Path(__file__).with_name('static')
 PORT = 8766
+
+
+def evaluation_settings(store, run_id):
+    """Project recorded evaluation controls, never prompts or configuration secrets."""
+    try:
+        run = store.load(run_id)
+        settings = run.get('settings') or {}
+        model = settings.get('model') or {}
+        metadata = model.get('metadata') or {}
+        generation = settings.get('configured_generation') or {}
+        scopes = {}
+        allowed = {'temperature', 'topP', 'maxTokens', 'seed', 'num_ctx', 'num_predict', 'think', 'thinking',
+                   'contextTokens', 'thinkingDefault', 'top_k', 'top_p', 'min_p'}
+        for name in ('defaults', 'default_params', 'model_params', 'agent_params', 'agent_model_params', 'provider_model_params'):
+            values = generation.get(name)
+            if not isinstance(values, dict):
+                continue
+            safe = {}
+            for key, value in values.items():
+                if key not in allowed:
+                    continue
+                if type(value) is bool or type(value) in (int, float) and math.isfinite(value):
+                    safe[key] = value
+                elif key in ('think', 'thinking', 'thinkingDefault') and value in ('off', 'none', 'disabled', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'adaptive', 'ultra'):
+                    safe[key] = value
+            if safe:
+                scopes[name] = safe
+        return {'run_id': run.get('id'), 'suite_version': run.get('suite_version'), 'model': run.get('model'),
+                'context_window': metadata.get('contextWindow') if type(metadata.get('contextWindow')) is int else None,
+                'max_tokens': metadata.get('maxTokens') if type(metadata.get('maxTokens')) is int else None,
+                'execution_path': 'isolated; tools denied' if settings.get('execution_path') == 'openclaw embedded; ephemeral state; tools denied; v2' else 'see run record',
+                'configured_generation': scopes}
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return None
 
 
 def tailscale_login():
@@ -148,6 +183,8 @@ class RemoteMonitorHandler(BaseHTTPRequestHandler):
                 current = progress.get('current') if isinstance(progress.get('current'), dict) else {}
                 result = state.get('result') if isinstance(state.get('result'), dict) else {}
                 campaign = result.get('campaign') if isinstance(result.get('campaign'), dict) else {}
+                runs = progress.get('evaluation_runs') if isinstance(progress.get('evaluation_runs'), list) else []
+                latest_run = next((row.get('run_id') for row in reversed(runs) if isinstance(row, dict) and isinstance(row.get('run_id'), str)), None)
                 fields = ('run_id', 'suite', 'suite_version', 'model', 'completed', 'total',
                           'correct', 'format_errors', 'run_state')
                 payload = {
@@ -161,6 +198,7 @@ class RemoteMonitorHandler(BaseHTTPRequestHandler):
                                  ('stage', 'turn', 'total', 'saved_evaluation_count', 'audit_status', 'current_elapsed_seconds')},
                     'steps': [{key: step.get(key) for key in ('tool', 'status', 'step_status', 'resolution', 'passed')}
                               for step in progress.get('campaign_steps', [])[-12:] if isinstance(step, dict)],
+                    'recorded_settings': evaluation_settings(self.server.store, latest_run) if latest_run else None,
                     'current': {key: current.get(key) for key in ('run_id', 'item_id', 'category', 'state')},
                     'evaluation_runs': [{key: row.get(key) for key in fields if key in row}
                                         for row in progress.get('evaluation_runs', [])
@@ -180,6 +218,8 @@ class RemoteMonitorHandler(BaseHTTPRequestHandler):
                           'complete', 'correct', 'scored_total', 'partitions', 'model', 'median_latency_seconds')
                 rounds = [{key: row.get(key) for key in fields}
                           for row in proctor_match.recent(self.server.store, limit=6)]
+                for row in rounds:
+                    row['recorded_settings'] = evaluation_settings(self.server.store, row.get('run_id'))
                 self.reply(200, {'schema': 'argos-monitor-results/1', 'rounds': rounds})
             except (OSError, ValueError, TypeError, KeyError, AttributeError):
                 self.reply(503, {'error': 'Saved results unavailable'})

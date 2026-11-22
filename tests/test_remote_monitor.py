@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive.web.remote_monitor import tailscale_login, RemoteMonitorServer
+from argoslive.web.remote_monitor import tailscale_login, RemoteMonitorServer, evaluation_settings
 from argoslive.web.telemetry import _hwmon_temperatures
 
 
@@ -45,6 +45,23 @@ class TailscaleIdentityTests(unittest.TestCase):
 
 
 class MonitorProjectionTests(unittest.TestCase):
+    def test_evaluation_settings_only_returns_recorded_nonsecret_controls(self):
+        class Store:
+            def load(self, identifier):
+                return {'id': identifier, 'suite_version': 'suite/1', 'model': 'model',
+                        'settings': {'execution_path': 'openclaw embedded; ephemeral state; tools denied; v2',
+                                     'model': {'metadata': {'contextWindow': 32768, 'maxTokens': 4096}},
+                                     'configured_generation': {'model_params': {'temperature': 0, 'think': True,
+                                         'stop': ['secret'], 'apiKey': 'secret'},
+                                         'defaults': {'thinkingDefault': 'off'}}},
+                        'prompt_fingerprint': {'secret': 'never expose'}}
+        result = evaluation_settings(Store(), 'run')
+        self.assertEqual(result['context_window'], 32768)
+        self.assertEqual(result['configured_generation']['model_params'], {'temperature': 0, 'think': True})
+        self.assertEqual(result['configured_generation']['defaults']['thinkingDefault'], 'off')
+        self.assertNotIn('secret', json.dumps(result))
+        self.assertIsNone(evaluation_settings(None, 'run'))
+
     def test_hwmon_reports_labelled_cpu_and_nvme_sensors(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
