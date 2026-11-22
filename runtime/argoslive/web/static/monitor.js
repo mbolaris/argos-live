@@ -1,6 +1,7 @@
 'use strict';
 const token = new URLSearchParams(location.search).get('token') || '';
 const history = [];
+let lastCampaign = null, lastResults = null;
 const safe = value => typeof value === 'string' ? value.replace(/[<>]/g, '').slice(0, 100) : '';
 const fmtBytes = value => Number.isFinite(value) && value >= 0 ? `${(value / 1073741824).toFixed(1)} GiB` : '—';
 const fmtTime = seconds => Number.isFinite(seconds) && seconds >= 0 ? `${Math.floor(seconds / 3600)}h ${Math.floor(seconds % 3600 / 60)}m` : '—';
@@ -119,11 +120,37 @@ function showResults(data) {
     body.append(tr);
   }
 }
+function showConfiguration() {
+  const campaign = lastCampaign || {};
+  const active = campaign.active === true;
+  const recent = Array.isArray(lastResults?.rounds) ? lastResults.rounds : [];
+  const config = active ? campaign.recorded_settings : recent.find(row => row.recorded_settings)?.recorded_settings;
+  const list = document.getElementById('test-config'); list.replaceChildren();
+  if (!config) {
+    put('test-config-source', active ? 'Current evaluation settings are not available yet.' : 'No recorded evaluation settings available.');
+    return;
+  }
+  put('test-config-source', `${active ? 'Current evaluation' : 'Most recent saved evaluation'} · ${safe(config.run_id || '').slice(0, 12)}`);
+  const rows = [['Model', config.model], ['Suite', config.suite_version], ['Execution', config.execution_path],
+    ['Context window', config.context_window], ['Model output cap', config.max_tokens]];
+  const scopes = config.configured_generation || {};
+  const names = {defaults: 'Defaults', default_params: 'Default parameters', model_params: 'Model parameters',
+    agent_params: 'Agent parameters', agent_model_params: 'Agent model parameters', provider_model_params: 'Provider model parameters'};
+  for (const [scope, values] of Object.entries(scopes)) {
+    if (!names[scope] || !values || typeof values !== 'object') continue;
+    rows.push([names[scope], Object.entries(values).map(([key, value]) => `${key}: ${value}`).join(' · ')]);
+  }
+  for (const [label, value] of rows) {
+    const dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = label; dd.textContent = value == null || value === '' ? 'Not recorded' : String(value);
+    list.append(dt, dd);
+  }
+}
 async function refresh() {
   const [campaign, telemetry, recent] = await Promise.allSettled([
     api('/api/monitor/campaign'), api('/api/telemetry'), api('/api/monitor/results')
   ]);
-  if (campaign.status === 'fulfilled') showCampaign(campaign.value);
+  if (campaign.status === 'fulfilled') { lastCampaign = campaign.value; showCampaign(campaign.value); }
   else {
     put('run-state', 'Unavailable');
     put('current-action', 'Campaign data unavailable; previous details may be stale.');
@@ -132,11 +159,13 @@ async function refresh() {
     showTelemetry(telemetry.value);
     put('updated', `Updated ${new Date(telemetry.value.captured_utc).toLocaleTimeString()} · samples are point-in-time readings`);
   } else put('updated', 'Health data unavailable; previous readings may be stale.');
-  if (recent.status === 'fulfilled') showResults(recent.value);
+  if (recent.status === 'fulfilled') { lastResults = recent.value; showResults(recent.value); }
   else put('ability-latest', 'Saved results unavailable.');
   const failed = [campaign, telemetry, recent].filter(value => value.status === 'rejected').length;
   put('connection', failed === 0 ? 'Connected' : failed === 3 ? 'Connection lost' : 'Partial connection');
   document.getElementById('connection').className = failed ? 'bad' : 'ok';
+  if (campaign.status === 'fulfilled' && recent.status === 'fulfilled') showConfiguration();
+  else put('test-config-source', 'Configuration data unavailable; previous details may be stale.');
 }
 refresh();
 setInterval(refresh, 10000);
