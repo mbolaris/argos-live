@@ -29,6 +29,7 @@ PILOT_DEFINITION = Path(__file__).resolve().parent / 'data/proctor-practice-pilo
 COMPOSED_DEFINITION = Path(__file__).resolve().parent / 'data/proctor-practice-composed.json'
 CAMPAIGN_TIMEOUT_SECONDS = 7200
 CAMPAIGN_MAX_TURNS = 4
+CAMPAIGN_RESPONSE_TOKENS = 8192
 
 PROCTOR_TOOL_NAMES = [
     'argos_proctor_start', 'argos_proctor_status', 'argos_proctor_item',
@@ -272,9 +273,12 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
     # the 2026.11.3 upgrade. Keying the profile by the pinned host version (which the owned
     # gateway requires the installed OpenClaw to match) gives each upgrade a fresh profile and
     # leaves the earlier one untouched for review.
+    identity = {'model': model, 'generation': generation, 'tools': allowed_tools,
+                'openclaw': addons.load()['host_version']}
+    if purpose == 'campaign':
+        identity['campaign_response_tokens'] = CAMPAIGN_RESPONSE_TOKENS
     profile_identity = json.dumps(
-        {'model': model, 'generation': generation, 'tools': allowed_tools,
-         'openclaw': addons.load()['host_version']},
+        identity,
         sort_keys=True, separators=(',', ':'))
     profile = _private_directory(root / 'profiles' / purpose /
                                  hashlib.sha256(profile_identity.encode()).hexdigest()[:24])
@@ -307,6 +311,9 @@ def private_profile(home, model, *, plugin_root=None, owner_config_path=None, pu
             if field in generation['agents']['defaults']:
                 config['agents']['defaults'][field] = json.loads(json.dumps(generation['agents']['defaults'][field]))
         config['agents']['entries'] = json.loads(json.dumps(generation['agents']['entries']))
+    if purpose == 'campaign':
+        row = config['models']['providers']['ollama']['models'][0]
+        row['maxTokens'] = max(row.get('maxTokens', 0), CAMPAIGN_RESPONSE_TOKENS)
     config['agents']['defaults']['heartbeat'] = {'every': '0m'}
     config['tools'] = {'profile': 'minimal', 'alsoAllow': allowed_tools,
                        # OpenClaw classifies extension tools in its runtime group;
