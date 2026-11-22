@@ -72,6 +72,92 @@ class WorkloadTests(unittest.TestCase):
             self.assertEqual(receipt['schema'], 'argos-workload-recovery/3')
             self.assertEqual(receipt['reason'], 'owner-approved-drained-readonly-incomplete-turn')
 
+    def test_owner_approved_drained_readonly_inspect_audit_chain_recovers_same_boot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            boot_id, parent_id, generation = '11111111-1111-4111-8111-111111111111', 'a' * 32, 10
+            owner_pid, worker_pid, watch_id = 12345, 2_000_000_000, 'c' * 32
+            root = home / '.local/state/argos-live/workload'
+            (root / 'child').mkdir(parents=True)
+            identity = {'boot_id': boot_id, 'start_ticks': '10'}
+            reservation = {'schema': 'argos-workload/1', 'id': parent_id, 'generation': generation,
+                           'kind': 'controller', 'pid': owner_pid, 'worker_identity': identity,
+                           'state': 'quarantined', 'phase': 'running'}
+            session_id, session_key = 'session-10', 'agent:main:argos_proctor_improvement_chain'
+            worker = {'parent_id': parent_id, 'generation': generation, 'state': 'starting', 'pid': worker_pid,
+                      'session_id': session_id, 'session_key': session_key}
+            failure = {'parent_id': parent_id, 'generation': generation, 'worker_pid': worker_pid,
+                       'session_id': session_id,
+                       'failure': {'code': 'worker-exit', 'returncode': 1,
+                                   'worker_response': {'status': 'error', 'session_bound': True,
+                                                       'error_kind': 'incomplete_turn'}}}
+            ids = ['call-inspect-1', 'call-audit-1', 'call-inspect-2', 'call-audit-2']
+            kinds = ['inspect', 'audit', 'inspect', 'audit']
+            turn = {'parent_id': parent_id, 'generation': generation, 'ended': True, 'uncertain': False,
+                    'session_id': session_id, 'session_key': session_key,
+                    'worker_turns': [{'turn': 1, 'outcome': 'completed', 'response_status': 'ok',
+                                      'process_group_drained': True, 'session_bound': True,
+                                      'host_tool_failures': 0, 'host_tool_requests': 2, 'returncode': 0}],
+                    'host_tool_failures': [], 'host_tool_requests': 3,
+                    'tools': [{'call_id': call_id, 'kind': kind} for call_id, kind in zip(ids, kinds)]}
+            child = {'parent_id': parent_id, 'generation': generation, 'state': 'released'}
+            for name, value in (('reservation.json', reservation), ('controller-worker.json', worker),
+                                ('controller-failure.json', failure), ('controller-turn.json', turn),
+                                ('child/' + 'd' * 32 + '.json', child)):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(value))
+            steps = [
+                {'step_id': ids[0], 'tool': 'inspect', 'status': 'completed', 'step_status': 'completed'},
+                {'step_id': ids[1], 'tool': 'audit', 'status': 'completed', 'step_status': 'verified',
+                 'passed': True},
+                {'step_id': ids[2], 'tool': 'inspect', 'status': 'completed', 'step_status': 'completed'},
+                {'step_id': ids[3], 'tool': 'audit', 'status': 'completed', 'step_status': 'verified',
+                 'passed': True},
+            ]
+            watch = {'id': watch_id, 'phase': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                     'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                                'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                             'saved_evaluation_ids': []}},
+                     'campaign_steps': steps}
+            with patch.object(workload.sys, 'platform', 'linux'), \
+                    patch.object(workload, 'current_boot_id', return_value=boot_id), \
+                    patch.object(workload, 'worker_identity', return_value=identity), \
+                    patch.object(workload, '_process_group_drained', return_value=True):
+                outcome = workload.recover_owner_approved_readonly_incomplete_controller(
+                    home, watch, owner_pid=owner_pid)
+            self.assertEqual(outcome, {'status': 'recovered',
+                                       'reason': 'drained-readonly-chain-incomplete-turn',
+                                       'watch_id': watch_id})
+            current = json.loads((root / 'reservation.json').read_text())
+            self.assertEqual(current['state'], 'released')
+            self.assertEqual(current['phase'], 'recovered-owner-approved-readonly-chain-incomplete')
+            receipt = json.loads((root / 'recovered' / f'{generation}-{parent_id}.json').read_text())
+            self.assertEqual(receipt['schema'], 'argos-workload-recovery/4')
+            self.assertEqual(receipt['reason'], 'owner-approved-drained-readonly-chain-incomplete-turn')
+
+    def test_owner_approved_readonly_chain_recovery_rejects_evaluation_or_unverified_audit(self):
+        watch = {'id': 'c' * 32, 'phase': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                 'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                            'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                         'saved_evaluation_ids': []}},
+                 'campaign_steps': [
+                     {'step_id': 'call-inspect', 'tool': 'inspect', 'status': 'completed',
+                      'step_status': 'completed'},
+                     {'step_id': 'call-audit', 'tool': 'audit', 'status': 'completed',
+                      'step_status': 'verified', 'passed': True},
+                 ]}
+        for changed in ('evaluation', 'unverified-audit'):
+            with self.subTest(changed=changed):
+                candidate = json.loads(json.dumps(watch))
+                if changed == 'evaluation':
+                    candidate['campaign_steps'][1].update(tool='evaluation', step_status='completed')
+                else:
+                    candidate['campaign_steps'][1]['passed'] = False
+                with self.assertRaises(workload.Busy):
+                    workload.recover_owner_approved_readonly_incomplete_controller(
+                        Path.cwd(), candidate, owner_pid=12345)
+
     def test_owner_approved_incomplete_controller_recovery_fails_closed_on_mutation_or_bad_exit(self):
         base_watch = {'id': 'b' * 32, 'phase': 'incomplete', 'failure_code': 'campaign-invalid-state',
                       'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
