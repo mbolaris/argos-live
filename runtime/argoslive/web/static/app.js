@@ -1770,7 +1770,7 @@ async function refreshBenchmarks() {
         if (Number.isFinite(c.context)) fields.push(`context ${c.context}`);
         if (Number.isFinite(c.temperature)) fields.push(`temperature ${c.temperature}`);
         if (Number.isFinite(c.output_cap)) fields.push(`output cap ${c.output_cap}`);
-        if (fields.length) summary.textContent += ' · Configuration under test: ' + fields.join(', ');
+        if (fields.length) summary.textContent += ' · Recorded generation config (wire request not verified): ' + fields.join(', ');
       }
       if (Number.isFinite(run.elapsed_seconds)) {
         summary.textContent += ` · Total evaluation time: ${(run.elapsed_seconds / 60).toFixed(1)} min`;
