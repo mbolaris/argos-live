@@ -92,6 +92,12 @@ with a practice half and a sealed half.
 | A6 | SIM31, SIM32, SIM33 | Original exam-style forms modelled on formats people know; raw scores only. | SIM2 |
 | A7 | SIM23, SIM24 | The rig: stateful, sandboxed tasks where Argos has to actually operate something. | SIM11 |
 
+**Owner-requested follow-on (November 23): EV3, `challenge-deep`.** A 100-item original
+compositional form is implemented for standalone, matched model evaluations. It is uncalibrated,
+not available to Improve campaigns, and cannot qualify a kept change. Before considering campaign
+use, calibrate it on the hosted workflow, establish Toronado run-to-run spread, and add an explicit
+keep rule. Current code and deterministic checks are in review; no Toronado score is verified.
+
 New families to write tickets for once A4 lands (grounded, deterministic, no judging model):
 
 - **Called shot.** Before each item Argos states whether it expects to pass. Scored as calibration.

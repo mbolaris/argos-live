@@ -1,7 +1,7 @@
 Argos Live original ability fixtures (each suite records its own version in JSON)
 
 The quick (20 items), standard (70 items), challenge (40 items), challenge-hard
-(80 items), tool-schema
+(80 items), challenge-deep (100 items), tool-schema
 (40 items), tool-plan (40 items), and tool-sequence (40 items) suites are
 original Argos Live fixtures, not extracts from GSM8K, MMLU or another third-party dataset. Quick, standard and challenge
 cover five deterministic formatting and answer categories, not a comprehensive
@@ -22,6 +22,12 @@ versions. Challenges 1.1.0, 1.2.0 and 1.3.0 remain available for replay;
 policy v4 excludes choice, JSON and tool-call categories in 1.3.0 from
 qualifying instruction changes because those forms left expected details open.
 Generated-code execution is omitted until an enforced sandbox is implemented.
+Challenge-deep 1.0.0 is an internal compositional probe balanced across five
+deterministic answer types and practice/held-out partitions. Its held-out
+vocabulary is an internal transfer check, not independent validation. It is
+uncalibrated and has no keep-policy threshold; scores cannot authorize keeping
+instruction changes or support standardized educational or intelligence-score
+estimates.
 
 Copyright (c) 2026 Argos Live contributors
 

@@ -185,6 +185,22 @@ class OpenClawBenchmarkTests(unittest.TestCase):
                 self.assertNotIn('question', event)
                 self.assertTrue(event['question_redacted'])
 
+    def test_challenge_deep_is_available_as_a_separate_100_item_evaluation(self):
+        events = []
+        result = bench_openclaw.run(suite='challenge-deep',
+                                    runner=FakeOpenClaw(suite='challenge-deep'), progress=events.append)
+        self.assertEqual(result['suite'], 'openclaw-challenge-deep')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/challenge-deep/1.0.0')
+        self.assertEqual(result['coverage'], {'completed': 100, 'total': 100, 'complete': True})
+        self.assertEqual(result['summary']['correct'], 100)
+        self.assertEqual(result['summary']['partitions']['practice']['total'], 50)
+        self.assertEqual(result['summary']['partitions']['heldout']['total'], 50)
+        suite_items = {item['id']: item for item in ability.load('challenge-deep')['items']}
+        for event in events:
+            if event['phase'] in ('asking', 'scored') and suite_items[event['item_id']]['scorer']['partition'] == 'heldout':
+                self.assertNotIn('question', event)
+                self.assertTrue(event['question_redacted'])
+
     def test_documents_short_runs_compare_only_with_the_same_suite_version(self):
         first = bench_openclaw.run(suite='documents-short', runner=FakeDocumentOpenClaw())
         second = bench_openclaw.run(suite='documents-short', runner=FakeDocumentOpenClaw())
