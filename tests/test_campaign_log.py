@@ -49,6 +49,27 @@ class CampaignLogTests(unittest.TestCase):
         self.assertEqual(self.log.read_bytes(), self.original)
         campaign_log.append(self.home, '## Next\nMeasure a baseline.')
 
+    def test_change_reference_does_not_hide_run_receipts(self):
+        run = bench_openclaw.run(home=self.home, runner=FakeOpenClaw())
+        change_id = 'a' * 32
+        directory = self.home / '.local/state/argos-live/instruction-changes' / change_id
+        directory.mkdir(parents=True)
+        (directory / 'intent.json').write_text(json.dumps({
+            'schema': 'argos-instruction-change/1', 'id': change_id}), encoding='utf-8')
+        result = campaign_log.append(self.home, f'Change {change_id}; baseline {run["id"]}')
+        self.assertEqual(result['referenced_change_ids'], [change_id])
+        self.assertEqual([receipt['id'] for receipt in result['receipts']], [run['id']])
+        self.assertFalse(result['note_claims_verified'])
+
+    def test_invalid_change_reference_is_rejected(self):
+        change_id = 'a' * 32
+        directory = self.home / '.local/state/argos-live/instruction-changes' / change_id
+        directory.mkdir(parents=True)
+        (directory / 'intent.json').write_text(json.dumps({'schema': 'wrong', 'id': change_id}))
+        with self.assertRaisesRegex(ValueError, 'not found'):
+            campaign_log.append(self.home, 'Change ' + change_id)
+        self.assertEqual(self.log.read_bytes(), self.original)
+
     def test_bad_input_is_rejected_before_admission(self):
         for value in ('', 'x' * 4097, 'x\0y', None):
             with self.assertRaises(ValueError):
