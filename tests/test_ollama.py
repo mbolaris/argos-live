@@ -94,17 +94,22 @@ class OllamaTests(unittest.TestCase):
         self.assertIsNone(result['time_to_first_token_seconds'])
         self.assertEqual(self.server.requests[-1][1], {'model': 'fixture', 'stream': True})
 
-    def test_generate_timings_and_reasoning_first_token(self):
-        times = iter([10.0, 10.2, 11.0])
+    def test_generate_separates_first_thinking_from_visible_answer_without_exposing_reasoning(self):
+        times = iter([10.0, 10.2, 10.9, 11.0])
         client = Client(self.url, clock=lambda: next(times))
-        result = client.generate('fixture', 'hello', options={'seed': 1}, think=False)
+        callbacks = []
+        result = client.generate('fixture', 'hello', options={'seed': 1}, think=True, callback=callbacks.append)
         self.assertEqual(result['text'], 'Hello!')
-        self.assertEqual(result['thinking'], 'Consider')
+        self.assertNotIn('thinking', result)
+        self.assertAlmostEqual(result['time_to_first_visible_answer_seconds'], 0.9)
         self.assertAlmostEqual(result['time_to_first_token_seconds'], 0.2)
         self.assertEqual(result['elapsed_seconds'], 1.0)
         self.assertEqual(result['final']['eval_duration'], 500000000)
         self.assertEqual(result['final']['eval_count'], 2)
-        self.assertFalse(self.server.requests[-1][1]['think'])
+        self.assertTrue(self.server.requests[-1][1]['think'])
+        self.assertTrue(callbacks)
+        self.assertTrue(all('thinking' not in event and 'thinking' not in event.get('message', {})
+                            for event in callbacks))
 
     def test_chat_and_unload(self):
         result = self.client.chat('fixture', [{'role': 'user', 'content': 'hi'}])

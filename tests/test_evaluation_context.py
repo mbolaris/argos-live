@@ -37,6 +37,12 @@ class EvaluationIsolationTests(unittest.TestCase):
         }
         self.config.write_text(json.dumps(self.value))
 
+    def test_thinking_recipe_is_not_applied_to_assistant_evaluation_path(self):
+        from argoslive.recipe import canonical
+        with self.assertRaisesRegex(ValueError, 'only by model-only ability benchmarks'):
+            ec.configuration(self.home, model_tag='fixture',
+                             recipe=canonical('standard', thinking=True))
+
     def test_inputs_copied_but_tools_sessions_and_credentials_are_not(self):
         original = self.config.read_bytes()
         with ec.isolated(self.home, self.workspace) as (home, config, workspace):

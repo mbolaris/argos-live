@@ -308,7 +308,8 @@ def ask(client, model, document, question, *, cancel=None):
     identity = next((m for m in listed if isinstance(m, dict) and model in (m.get('name'), m.get('model'))), None)
     result = {'model': model, 'context': CONTEXT, 'manifest_digest': identity.get('digest') if identity else None, 'prompt_tokens': used if isinstance(used, int) else None,
               'elapsed_seconds': reply.get('elapsed_seconds'),
-              'time_to_first_token_seconds': reply.get('time_to_first_token_seconds')}
+              'time_to_first_token_seconds': reply.get('time_to_first_token_seconds'),
+              'time_to_first_visible_answer_seconds': reply.get('time_to_first_visible_answer_seconds')}
     if isinstance(used, int) and used >= CONTEXT - 32:
         return dict(result, outcome='too_long', status=None, answer='', quote='', quote_supported=False)
     try:

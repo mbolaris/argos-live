@@ -51,6 +51,7 @@ def measurement(reply, loaded, tag):
     raw = {key: numeric(final.get(key)) for key in ('total_duration', 'load_duration',
            'prompt_eval_count', 'prompt_eval_duration', 'eval_count', 'eval_duration')}
     return {'raw': raw, 'time_to_first_token_seconds': numeric(reply.get('time_to_first_token_seconds')),
+            'time_to_first_visible_answer_seconds': numeric(reply.get('time_to_first_visible_answer_seconds')),
             'elapsed_seconds': numeric(reply.get('elapsed_seconds')),
             'prompt_tokens_per_second': rate(raw['prompt_eval_count'], raw['prompt_eval_duration']),
             'generation_tokens_per_second': rate(raw['eval_count'], raw['eval_duration']),

@@ -2,13 +2,15 @@
 import argparse
 import copy
 from datetime import datetime, timezone
+import ipaddress
 import json
 from pathlib import Path
 import secrets
 import sys
 import time
+from urllib.parse import urlsplit
 
-from . import __version__, ability, hw
+from . import __version__, ability, hw, recipe as recipe_mod
 from .bench_speed import measurement
 from .ollama import Client, Cancelled, OllamaError
 
@@ -67,6 +69,18 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
     if identity is None:
         raise ValueError('Benchmark model must already be installed with its exact tag')
     metadata = client.show(model)
+    capabilities = metadata.get('capabilities', [])
+    thinking_requested = resolved_recipe['thinking']
+    if thinking_requested:
+        url = urlsplit(getattr(client, 'base_url', ''))
+        try:
+            loopback = url.scheme == 'http' and ipaddress.ip_address(url.hostname or '').is_loopback
+        except ValueError:
+            loopback = False
+        if not loopback:
+            raise ValueError('Thinking experiments require the local loopback Ollama backend')
+        if not isinstance(capabilities, list) or 'thinking' not in capabilities:
+            raise ValueError('This model does not advertise thinking support')
     info = metadata.get('model_info', {})
     advertised = info.get(str(info.get('general.architecture')) + '.context_length')
     if type(advertised) is not int or advertised < context:
@@ -78,7 +92,7 @@ def execute(client, model, data, *, suite, suite_version, context, score, catego
     if previous and not isinstance(previous_model, str):
         raise ValueError('Cannot establish the previously loaded model')
     previous_context = previous[0].get('context_length') if previous else None
-    think = False if 'thinking' in metadata.get('capabilities', []) else None
+    think = thinking_requested if isinstance(capabilities, list) and 'thinking' in capabilities else None
     result = {'schema': 'argos-bench/1', 'id': secrets.token_hex(16),
               'created': datetime.now(timezone.utc).isoformat(), 'kind': 'ability',
               'suite': suite, 'suite_version': suite_version,
@@ -179,6 +193,8 @@ def main(argv=None):
                                             'tool-sequence'], default='quick')
     parser.add_argument('--ollama', default='http://127.0.0.1:11434')
     parser.add_argument('--json', action='store_true')
+    parser.add_argument('--thinking', choices=('off', 'on'), default='off',
+                        help='Use the model-supported thinking mode for this model-only run (default: off).')
     parser.add_argument('--timeout', type=int, default=120, help='API read timeout, 1–600 seconds.')
     parser.add_argument('--results-dir', type=Path, default=Path.home() / '.local/share/argos-live/results')
     args = parser.parse_args(argv)
@@ -190,7 +206,9 @@ def main(argv=None):
             print(f"Ability {value['completed']}/{value['total']}: {value['elapsed_seconds']:.1f}s elapsed; "
                   f"ETA {eta:.1f}s", file=sys.stderr, flush=True)
     try:
-        result = run(Client(args.ollama, timeout=args.timeout), args.model, suite=args.suite, progress=progress)
+        recipe_value = recipe_mod.canonical('standard', thinking=args.thinking == 'on')
+        result = run(Client(args.ollama, timeout=args.timeout), args.model, suite=args.suite,
+                     progress=progress, recipe=recipe_value)
     except OllamaError as exc:
         raise ValueError('Ability backend failed; no successful result was saved.') from exc
     from .results import Store

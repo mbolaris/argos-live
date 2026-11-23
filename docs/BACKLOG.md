@@ -1070,12 +1070,20 @@ Depends on: J5, J7; integrate the J3 flow when available.
   model scope reported, versioned scoring/held-out coverage and useful next action.
 - Verification: Unified loop connecting Challenge → Watch → Debrief → Change → Retest → Keep/Restore → Validate → Use. Added prominent single next action `#receipt-use` ("Use this build in Mission Brief ↓") when qualified, leading directly into Mission Brief; added `#arena-next-action` ("Review result & debrief ↑") on completed Arena trials. Upgraded Arena receipts with explicit observable answer and readable miss descriptions (distinguishing format contract vs answer criteria failures). Bounded debrief with prominent `.opinion-tag` disclaimer ("Model opinion · memory only · not scored evidence") and model provenance tag (`[from <model>]`). Implemented 3-state Skill Map legend with explicit status marks (`● Qualified`, `◐ Tested · validation pending`, `▲ Needs work`, `○ Untested`, `◇ Future`) and unified `formatNodeStateBadge`. Added mobile responsiveness down to 320px and 360px viewport widths in `style.css`. Explicitly labeled simulated fixtures with `(simulated fixture)` tag in HUD and hero cards. Verified in browser smoke via `scripts/smoke-mission-first.mjs` and `scripts/smoke-journey-browser.mjs`, and unit test suites across Python test runner. Shipped Firefox and physical deployment remain separate checks.
 
-### J6c Thinking/context experiments — `todo`
+### J6c Thinking/context experiments — `in progress`
 Depends on: J7.
+- Implemented local model-only ability CLI thinking off/on for models advertising
+  that capability, and refuse non-loopback backends for thinking-on runs. Recipe
+  comparison now recognizes one thinking toggle as a single intervention.
+- Ability results and dashboard listings expose the recipe, thinking-inclusive
+  generation latency, and first-visible-answer latency separately. Ollama hidden
+  thinking text is stripped from result objects and progress callbacks.
+- Still pending: Argos-selected evaluation and measured on/off comparison; browser
+  rendering verification; assistant-path and task-evidence binding. Do not claim a
+  capability gain from the implementation tests or a practice score.
 - Offer only pinned-backend/model-supported modes, one variable at a time, within
   existing budgets. Record actual values and qualify only the explicit tested scope.
-  Report thinking-inclusive time separately from first visible answer; no hidden
-  reasoning stream. Quantization belongs to catalog/model transactions.
+  Quantization belongs to catalog/model transactions.
 - Accept: unsupported/over-budget settings refused with a reason; exact request,
   comparison and task-evidence binding checked. No blind timeout or context increase.
 

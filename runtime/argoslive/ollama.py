@@ -114,8 +114,8 @@ class Client:
         self._cancel(cancel)
         started = self.clock()
         first_token = None
+        first_visible_answer = None
         text = []
-        thinking = []
         with self._open(path, payload) as response:
             while True:
                 self._cancel(cancel)
@@ -141,15 +141,28 @@ class Client:
                     raise OllamaError('Invalid Ollama text chunk')
                 if first_token is None and (content or reason):
                     first_token = self.clock() - started
+                if first_visible_answer is None and content:
+                    first_visible_answer = self.clock() - started
                 text.append(content)
-                thinking.append(reason)
                 terminal = event.get('status') == 'success' if pull else event.get('done') is True
                 if callback is not None:
-                    callback(event)
+                    # Never expose the provider's hidden thinking text to progress callbacks.
+                    visible_event = {key: value for key, value in event.items() if key != 'thinking'}
+                    visible_message = event.get('message')
+                    if isinstance(visible_message, dict) and 'thinking' in visible_message:
+                        visible_event['message'] = {key: value for key, value in visible_message.items()
+                                                    if key != 'thinking'}
+                    callback(visible_event)
                 self._cancel(cancel)
                 if terminal:
-                    return {'final': event, 'text': ''.join(text), 'thinking': ''.join(thinking),
+                    final = {key: value for key, value in event.items() if key != 'thinking'}
+                    final_message = event.get('message')
+                    if isinstance(final_message, dict) and 'thinking' in final_message:
+                        final['message'] = {key: value for key, value in final_message.items()
+                                            if key != 'thinking'}
+                    return {'final': final, 'text': ''.join(text),
                             'time_to_first_token_seconds': first_token,
+                            'time_to_first_visible_answer_seconds': first_visible_answer,
                             'elapsed_seconds': self.clock() - started}
 
     def pull(self, model, *, callback=None, cancel=None):

@@ -1750,6 +1750,18 @@ async function refreshBenchmarks() {
         summary.textContent += ' · ' + Object.entries(run.summary.categories).map(([name, value]) =>
           `${name.replaceAll('_', ' ')}: ${value.correct}/${value.total}`).join(' · ');
       }
+      if (run.recipe) {
+        const r = run.recipe;
+        summary.textContent += ` · Test setup: ${r.preset}, thinking ${r.thinking ? 'on' : 'off'}, ` +
+          `context ${r.context}, output cap ${r.output_cap}, temperature ${r.temperature}, seed ${r.seed}`;
+        const performance = run.performance || {};
+        const inclusive = performance.thinking_inclusive_seconds?.median;
+        const visible = performance.first_visible_answer_seconds?.median;
+        const inclusiveCount = performance.thinking_inclusive_seconds?.reported_runs;
+        const visibleCount = performance.first_visible_answer_seconds?.reported_runs;
+        summary.textContent += ` · Median reply wall time (includes thinking): ${Number.isFinite(inclusive) ? inclusive.toFixed(2) + ' s' : 'unavailable'} (${inclusiveCount ?? 0} replies); ` +
+          `first visible answer: ${Number.isFinite(visible) ? visible.toFixed(2) + ' s' : 'unavailable'} (${visibleCount ?? 0} replies)`;
+      }
       if (run.kind === 'ability' && run.diagnostic_checks) {
         const diagnostics = Object.entries(run.diagnostic_checks).map(([name, value]) =>
           `${name.replaceAll('_', ' ')}: ${value.passed}/${value.total}`);

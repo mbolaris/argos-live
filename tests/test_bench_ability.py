@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'runtime'))
-from argoslive import ability, bench_ability as bench
+from argoslive import ability, bench_ability as bench, recipe
 from argoslive.ollama import Cancelled, Interrupted
 from test_bench_speed import Backend
 
@@ -30,6 +30,33 @@ class AbilityBackend(Backend):
 
 
 class AbilityRunTests(unittest.TestCase):
+    def test_thinking_mode_is_model_supported_local_and_recorded(self):
+        backend = AbilityBackend('reference')
+        result = bench.run(backend, 'fixture:latest', hardware=lambda: {},
+                           recipe=recipe.canonical('standard', thinking=True))
+        self.assertTrue(result['recipe']['thinking'])
+        self.assertTrue(result['settings']['think'])
+        self.assertTrue(result['coverage']['complete'])
+        for call in backend.calls:
+            if call[0] == 'generate' and call[2]:
+                self.assertTrue(call[3]['think'])
+        self.assertTrue(all('thinking' not in item for item in result['items']))
+
+    def test_thinking_mode_refuses_unsupported_model_or_non_loopback_backend(self):
+        unsupported = AbilityBackend('reference')
+        unsupported.show = lambda model: {**Backend.show(unsupported, model), 'capabilities': ['completion']}
+        with self.assertRaisesRegex(ValueError, 'model does not advertise thinking support'):
+            bench.run(unsupported, 'fixture:latest', hardware=lambda: {},
+                      recipe=recipe.canonical('standard', thinking=True))
+        self.assertFalse(any(call[0] == 'generate' and call[2] for call in unsupported.calls))
+
+        remote = AbilityBackend('reference')
+        remote.base_url = 'https://example.invalid:11434'
+        with self.assertRaisesRegex(ValueError, 'local loopback Ollama backend'):
+            bench.run(remote, 'fixture:latest', hardware=lambda: {},
+                      recipe=recipe.canonical('standard', thinking=True))
+        self.assertFalse(any(call[0] == 'generate' and call[2] for call in remote.calls))
+
     def test_exact_scores_and_measurements_for_all_fixture_outcomes(self):
         for field, correct, format_errors in [('reference', 20, 0), ('wrong', 0, 0), ('malformed', 0, 20)]:
             with self.subTest(field=field):
