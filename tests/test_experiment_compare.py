@@ -195,6 +195,28 @@ class ExperimentComparisonTests(unittest.TestCase):
         self.assertEqual(row['performance']['first_visible_answer_seconds']['median'], 0.4)
         self.assertEqual(row['performance']['thinking_inclusive_seconds']['reported_runs'], 20)
 
+    def test_dashboard_listing_exposes_safe_assistant_generation_configuration(self):
+        run = make_ability_run(run_id='1' * 32)
+        run.pop('recipe', None)
+        run['settings'].pop('recipe', None)
+        run['settings']['execution_path'] = 'openclaw embedded; ephemeral state; tools denied; v2'
+        run['settings']['configured_generation'] = {
+            'model_params': {'think': True, 'temperature': 0},
+            'provider_model_params': {'num_ctx': 32768},
+            'defaults': {'thinkingDefault': 'off', 'private_token': 'never expose'},
+        }
+        run['settings']['model'] = {'id': 'ollama/qwen3.8:27b'}
+        run['prompt_fingerprint'] = {'workspace_agents_sha256': 'a' * 64,
+                                     'evaluation_config_sha256': 'b' * 64}
+        with tempfile.TemporaryDirectory() as temp:
+            store = results.Store(temp)
+            store.save(run)
+            row = View(store).listing()['runs'][0]
+        self.assertEqual(row['configuration_under_test'], {
+            'thinking': True, 'thinking_default': 'off', 'context': 32768,
+            'temperature': 0, 'output_cap': None})
+        self.assertNotIn('never expose', json.dumps(row))
+
     def test_valid_model_experiment_comparison(self):
         b = make_ability_run(digest=VALID_DIGEST_A, answer='wrong', run_id='1' * 32)
         c = make_ability_run(digest=VALID_DIGEST_B, answer='reference', run_id='2' * 32)

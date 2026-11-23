@@ -33,6 +33,20 @@ class View:
                         'calibration_status')}
                 if run['kind'] == 'ability':
                     row['summary'] = run['summary']
+                    row['elapsed_seconds'] = run.get('elapsed_seconds')
+                    recorded = (run.get('settings') or {}).get('configured_generation')
+                    if isinstance(recorded, dict):
+                        model_params = recorded.get('model_params') if isinstance(recorded.get('model_params'), dict) else {}
+                        provider_params = (recorded.get('provider_model_params')
+                                           if isinstance(recorded.get('provider_model_params'), dict) else {})
+                        defaults = recorded.get('defaults') if isinstance(recorded.get('defaults'), dict) else {}
+                        row['configuration_under_test'] = {
+                            'thinking': model_params.get('think'),
+                            'thinking_default': defaults.get('thinkingDefault'),
+                            'context': provider_params.get('num_ctx'),
+                            'temperature': model_params.get('temperature'),
+                            'output_cap': model_params.get('num_predict'),
+                        }
                     if isinstance(run.get('recipe'), dict):
                         row['recipe'] = {key: run['recipe'].get(key) for key in
                                          ('preset', 'context', 'output_cap', 'temperature', 'seed',
