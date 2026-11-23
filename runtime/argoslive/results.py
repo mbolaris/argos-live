@@ -765,24 +765,21 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
     b_rec = recipe_mod.resolve(baseline.get('recipe'), context=ctx_b)
     c_rec = recipe_mod.resolve(candidate.get('recipe'), context=ctx_c)
 
-    # Check recipe preset difference
-    recipe_preset_differs = (b_rec['preset'] != c_rec['preset'])
-
-    # Check other recipe fields: they MUST NOT differ
-    recipe_other_differs = (
-        b_rec['context'] != c_rec['context'] or
-        b_rec['output_cap'] != c_rec['output_cap'] or
-        b_rec['temperature'] != c_rec['temperature'] or
-        b_rec['seed'] != c_rec['seed'] or
-        b_rec['thinking'] != c_rec['thinking'] or
-        b_rec['request_format'] != c_rec['request_format']
-    )
-    if recipe_other_differs:
+    # Recipe experiments may change exactly one declared recipe field (including
+    # thinking mode); presets are names, not the unit of intervention.
+    # A preset and its bound instruction text/hash are one intervention.
+    recipe_changes = [key for key in ('preset', 'context', 'output_cap', 'temperature',
+                                      'seed', 'thinking', 'request_format')
+                      if b_rec[key] != c_rec[key]]
+    if len(recipe_changes) > 1:
         raise ValueError('Experiment comparison allows at most one recipe variable; multiple recipe settings differed')
 
     # Check non-recipe settings: must match
-    b_settings_no_rec = {k: v for k, v in baseline.get('settings', {}).items() if k != 'recipe'}
-    c_settings_no_rec = {k: v for k, v in candidate.get('settings', {}).items() if k != 'recipe'}
+    recipe_settings = {'recipe'} if baseline.get('recipe') is not None and candidate.get('recipe') is not None else set()
+    if recipe_settings:
+        recipe_settings.update(('context', 'generation_limit', 'seed', 'temperature', 'think'))
+    b_settings_no_rec = {k: v for k, v in baseline.get('settings', {}).items() if k not in recipe_settings}
+    c_settings_no_rec = {k: v for k, v in candidate.get('settings', {}).items() if k not in recipe_settings}
     if b_settings_no_rec != c_settings_no_rec:
         raise ValueError('Experiment comparison requires identical non-recipe settings')
 
@@ -790,9 +787,10 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
     model_differs = (baseline['model'] != candidate['model'] or da != db)
 
     # Validate that EXACTLY ONE intervention occurred
-    if recipe_preset_differs and model_differs:
+    recipe_differs = bool(recipe_changes)
+    if recipe_differs and model_differs:
         raise ValueError('Controlled experiment allows exactly one declared intervention; both model and recipe differed')
-    if not recipe_preset_differs and not model_differs:
+    if not recipe_differs and not model_differs:
         raise ValueError('Baseline and candidate configurations are identical; repeated practice is not an independent experiment')
 
     detected = 'model' if model_differs else 'recipe'
@@ -829,7 +827,8 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
                 'delta_format_errors': c_part.get('format_errors', 0) - b_part.get('format_errors', 0),
             }
 
-        label = c_rec['preset'] if detected == 'recipe' else candidate['model']
+        label = (f"{recipe_changes[0]}={c_rec[recipe_changes[0]]}" if detected == 'recipe'
+                 else candidate['model'])
         if corr_delta > 0:
             verdict = 'observed_gain'
             summary_text = f"Observed gain (+{corr_delta} tasks) under {label}. Single-suite observed gain; repeated practice or single-exercise delta is not confirmed general improvement."
@@ -846,6 +845,8 @@ def compare_experiment(baseline, candidate, *, allowed_intervention=None):
             else:
                 verdict = 'no_change'
                 summary_text = f"No change in task outcomes ({c_sum['correct']}/{c_sum['total']} tasks)."
+            if detected == 'recipe':
+                summary_text += f" Intervention: {label}."
 
         # Per item side-by-side
         items_map = {it['item_id']: it for it in candidate['items']}

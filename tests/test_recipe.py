@@ -104,7 +104,7 @@ class RecipeSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Recipe contains unexpected or missing fields'):
             recipe.validate(missing_seed)
 
-    def test_unsupported_deviations_rejected_in_instruction_only_slice(self):
+    def test_unsupported_deviations_rejected_and_thinking_is_boolean(self):
         # Temperature deviation
         with self.assertRaisesRegex(ValueError, 'Unsupported recipe deviation: temperature must be 0.0'):
             recipe.canonical('standard', temperature=0.7)
@@ -113,9 +113,13 @@ class RecipeSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unsupported recipe deviation: seed must be 1'):
             recipe.canonical('standard', seed=42)
 
-        # Thinking deviation (deferred to J6c)
-        with self.assertRaisesRegex(ValueError, 'thinking experiments are deferred to J6c'):
-            recipe.canonical('standard', thinking=True)
+        thinking_on = recipe.canonical('standard', thinking=True)
+        self.assertTrue(recipe.validate(thinking_on)['thinking'])
+        self.assertFalse(recipe.canonical('standard', thinking=False)['thinking'])
+        for invalid in ('on', 1, None):
+            with self.subTest(thinking=invalid):
+                with self.assertRaisesRegex(ValueError, 'Thinking mode must be a boolean'):
+                    recipe.canonical('standard', thinking=invalid)
 
         # Request format deviation
         with self.assertRaisesRegex(ValueError, "request format must be 'generate'"):
@@ -128,6 +132,12 @@ class RecipeSchemaTests(unittest.TestCase):
         # Context deviation: must be supported suite context (2048 or 4096)
         with self.assertRaisesRegex(ValueError, 'context must be in'):
             recipe.canonical('standard', context=8192)
+
+    def test_recipe_validation_rejects_non_boolean_thinking(self):
+        value = recipe.canonical('standard')
+        value['thinking'] = 'on'
+        with self.assertRaisesRegex(ValueError, 'Invalid recipe thinking mode'):
+            recipe.validate(value)
 
     def test_validate_tampered_hash_rejected(self):
         r = recipe.canonical('concise')

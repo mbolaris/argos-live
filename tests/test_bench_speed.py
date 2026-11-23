@@ -17,6 +17,7 @@ FIXTURE = json.loads((ROOT / 'tests/fixtures/ollama/responses.json').read_text()
 class Backend:
     def __init__(self, context=4096, previous=True):
         self.context = context
+        self.base_url = 'http://127.0.0.1:11434'
         self.calls = []
         self.loaded = [{'name': 'previous:fixture', 'context_length': 2048}] if previous else []
         self.responses = 0
@@ -55,6 +56,7 @@ class Backend:
         final['eval_count'] = [1000, 10, 20, 30][(self.responses - 1) % 4]
         final['eval_duration'] = 10**9
         return {'final': final, 'text': 'Authored reply', 'time_to_first_token_seconds': 0.2,
+                'time_to_first_visible_answer_seconds': 0.4,
                 'elapsed_seconds': 1.2}
 
 

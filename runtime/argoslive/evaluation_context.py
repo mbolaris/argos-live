@@ -105,6 +105,8 @@ def configuration_from(original, *, model_tag=None, recipe=None):
     if recipe is not None:
         from . import recipe as recipe_mod
         resolved = recipe_mod.validate(copy.deepcopy(recipe))
+        if resolved['thinking']:
+            raise ValueError('Thinking-enabled recipes are supported only by model-only ability benchmarks')
         model['params'].update(num_ctx=resolved['context'], num_predict=resolved['output_cap'],
                                temperature=resolved['temperature'], seed=resolved['seed'],
                                think=resolved['thinking'])

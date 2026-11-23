@@ -169,6 +169,32 @@ class ExperimentComparisonTests(unittest.TestCase):
         self.assertTrue(any(it['changed'] for it in exp['items']))
         self.assertIn('Observed +1 is not confirmed general improvement', exp['limitations'])
 
+    def test_thinking_only_recipe_change_is_a_valid_experiment(self):
+        b = make_ability_run(recipe_spec='standard', run_id='1' * 32)
+        c = make_ability_run(recipe_spec='standard', run_id='2' * 32)
+        c['recipe'] = recipe_mod.canonical('standard', thinking=True)
+        c['settings']['recipe'] = c['recipe']
+        c['settings']['think'] = True
+        exp = results.compare_experiment(b, c, allowed_intervention='recipe')
+        self.assertEqual(exp['intervention'], 'recipe')
+        self.assertIn('thinking=True', exp['delta']['summary'])
+        c['recipe'] = recipe_mod.canonical('concise', thinking=True)
+        c['settings']['recipe'] = c['recipe']
+        with self.assertRaisesRegex(ValueError, 'at most one recipe variable'):
+            results.compare_experiment(b, c, allowed_intervention='recipe')
+
+    def test_dashboard_listing_exposes_recipe_and_separate_answer_timings(self):
+        run = make_ability_run(run_id='1' * 32)
+        run['items'][0]['measurement']['time_to_first_visible_answer_seconds'] = 0.4
+        with tempfile.TemporaryDirectory() as temp:
+            store = results.Store(temp)
+            store.save(run)
+            row = View(store).listing()['runs'][0]
+        self.assertEqual(row['recipe']['thinking'], False)
+        self.assertEqual(row['recipe']['context'], 2048)
+        self.assertEqual(row['performance']['first_visible_answer_seconds']['median'], 0.4)
+        self.assertEqual(row['performance']['thinking_inclusive_seconds']['reported_runs'], 20)
+
     def test_valid_model_experiment_comparison(self):
         b = make_ability_run(digest=VALID_DIGEST_A, answer='wrong', run_id='1' * 32)
         c = make_ability_run(digest=VALID_DIGEST_B, answer='reference', run_id='2' * 32)

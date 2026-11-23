@@ -55,7 +55,7 @@ SUPPORTED_CONTEXTS = (2048, 4096)
 SUPPORTED_OUTPUT_CAP = 128
 SUPPORTED_TEMPERATURE = 0.0
 SUPPORTED_SEED = 1
-SUPPORTED_THINKING = False
+SUPPORTED_THINKING_MODES = (False, True)
 SUPPORTED_REQUEST_FORMAT = 'generate'
 
 
@@ -97,8 +97,8 @@ def canonical(preset='standard', *, instructions=None, context=2048, output_cap=
     if seed != SUPPORTED_SEED:
         raise ValueError(f'Unsupported recipe deviation: seed must be {SUPPORTED_SEED} in this slice')
 
-    if thinking is not SUPPORTED_THINKING:
-        raise ValueError('Unsupported recipe deviation: thinking experiments are deferred to J6c')
+    if type(thinking) is not bool or thinking not in SUPPORTED_THINKING_MODES:
+        raise ValueError('Thinking mode must be a boolean')
 
     if request_format != SUPPORTED_REQUEST_FORMAT:
         raise ValueError(f"Unsupported recipe deviation: request format must be '{SUPPORTED_REQUEST_FORMAT}' in this slice")
@@ -155,7 +155,7 @@ def validate(recipe):
     if recipe.get('seed') != SUPPORTED_SEED:
         raise ValueError('Invalid recipe seed')
 
-    if recipe.get('thinking') is not SUPPORTED_THINKING:
+    if type(recipe.get('thinking')) is not bool or recipe['thinking'] not in SUPPORTED_THINKING_MODES:
         raise ValueError('Invalid recipe thinking mode')
 
     if recipe.get('request_format') != SUPPORTED_REQUEST_FORMAT:

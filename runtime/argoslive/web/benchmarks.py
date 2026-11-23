@@ -33,6 +33,19 @@ class View:
                         'calibration_status')}
                 if run['kind'] == 'ability':
                     row['summary'] = run['summary']
+                    if isinstance(run.get('recipe'), dict):
+                        row['recipe'] = {key: run['recipe'].get(key) for key in
+                                         ('preset', 'context', 'output_cap', 'temperature', 'seed',
+                                          'thinking', 'request_format')}
+                        from argoslive.bench_speed import numeric, summary
+                        measurements = [item.get('measurement', {}) for item in run.get('items', [])]
+                        row['performance'] = {
+                            'thinking_inclusive_seconds': summary([
+                                numeric(value.get('elapsed_seconds')) for value in measurements]),
+                            'first_visible_answer_seconds': summary([
+                                numeric(value.get('time_to_first_visible_answer_seconds'))
+                                for value in measurements]),
+                        }
                     diagnostics = diagnostic_checks(run.get('items', []))
                     if diagnostics:
                         row['diagnostic_checks'] = diagnostics
