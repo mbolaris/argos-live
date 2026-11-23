@@ -1762,6 +1762,19 @@ async function refreshBenchmarks() {
         summary.textContent += ` · Median reply wall time (includes thinking): ${Number.isFinite(inclusive) ? inclusive.toFixed(2) + ' s' : 'unavailable'} (${inclusiveCount ?? 0} replies); ` +
           `first visible answer: ${Number.isFinite(visible) ? visible.toFixed(2) + ' s' : 'unavailable'} (${visibleCount ?? 0} replies)`;
       }
+      if (run.configuration_under_test) {
+        const c = run.configuration_under_test;
+        const fields = [];
+        if (typeof c.thinking === 'boolean') fields.push(`thinking ${c.thinking ? 'on' : 'off'}`);
+        if (typeof c.thinking_default === 'string') fields.push(`default thinking ${c.thinking_default}`);
+        if (Number.isFinite(c.context)) fields.push(`context ${c.context}`);
+        if (Number.isFinite(c.temperature)) fields.push(`temperature ${c.temperature}`);
+        if (Number.isFinite(c.output_cap)) fields.push(`output cap ${c.output_cap}`);
+        if (fields.length) summary.textContent += ' · Configuration under test: ' + fields.join(', ');
+      }
+      if (Number.isFinite(run.elapsed_seconds)) {
+        summary.textContent += ` · Total evaluation time: ${(run.elapsed_seconds / 60).toFixed(1)} min`;
+      }
       if (run.kind === 'ability' && run.diagnostic_checks) {
         const diagnostics = Object.entries(run.diagnostic_checks).map(([name, value]) =>
           `${name.replaceAll('_', ' ')}: ${value.passed}/${value.total}`);
