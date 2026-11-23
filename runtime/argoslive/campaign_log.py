@@ -14,7 +14,7 @@ import secrets
 import shutil
 
 from .assistant_trial import agents_path
-from . import storage
+from . import instruction_changes, storage
 from .results import Store
 from .workload import Busy, reserve
 
@@ -35,7 +35,23 @@ def append(home, text, *, delegation=None):
         ids = sorted(set(re.findall(r'\b[a-f0-9]{32}\b', text)))
         store = Store(home / '.local/share/argos-live/results')
         receipts = []
+        change_ids = []
         for run_id in ids:
+            # Managed change IDs and run IDs share a format. Accept a change
+            # reference only when its host journal intent identifies it; do not
+            # interpret the reference as a verified experiment claim.
+            if not store.path(run_id).exists():
+                intent = storage.safe_local(home / '.local/state/argos-live/instruction-changes' /
+                                            run_id / 'intent.json')
+                if intent.is_file():
+                    try:
+                        change = instruction_changes.read_json(intent)
+                    except (OSError, ValueError, TypeError):
+                        change = None
+                    if (isinstance(change, dict) and change.get('schema') == instruction_changes.SCHEMA
+                            and change.get('id') == run_id):
+                        change_ids.append(run_id)
+                        continue
             run = store.load(run_id)
             receipts.append({k: run.get(k) for k in ('id', 'created', 'model', 'suite', 'state', 'summary')})
         timestamp = datetime.now(timezone.utc).isoformat()
@@ -60,6 +76,7 @@ def append(home, text, *, delegation=None):
             os.fsync(stream.fileno())
         slot.complete()
         return {'status': 'appended', 'observed': timestamp, 'snapshot': str(snapshot),
+                'referenced_change_ids': change_ids,
                 'receipts': receipts, 'note_claims_verified': False}
 
 
