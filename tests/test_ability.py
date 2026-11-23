@@ -14,7 +14,7 @@ from argoslive import ability
 
 class AbilityTests(unittest.TestCase):
     def test_every_reference_wrong_and_malformed_answer(self):
-        for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40), ('challenge-hard', 80),
+        for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40), ('challenge-hard', 80), ('challenge-deep', 100),
                              ('tool-schema', 40), ('tool-plan', 40), ('tool-sequence', 40)]:
             data = ability.load(suite)
             self.assertEqual(len(data['items']), count)
@@ -32,7 +32,7 @@ class AbilityTests(unittest.TestCase):
         generator = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generator)
         standard = {item['id']: item for item in ability.load('standard')['items']}
-        for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence'):
+        for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence'):
             self.assertEqual(ability.load(suite), generator.build(suite))
         self.assertEqual(ability.load('challenge', version='1.0.0'),
                          generator.build('challenge', version='1.0.0'))
@@ -62,6 +62,33 @@ class AbilityTests(unittest.TestCase):
         for item in actions:
             request = item['prompt'].split('\nRequest: ', 1)[1]
             self.assertNotIn(item['scorer']['expected']['name'], request)
+
+    def test_challenge_deep_has_balanced_partitions_and_disjoint_tool_schemas(self):
+        data = ability.load('challenge-deep')
+        self.assertEqual(data['version'], '1.0.0')
+        self.assertEqual(len(data['items']), 100)
+        for partition in ('practice', 'heldout'):
+            items = [item for item in data['items'] if item['scorer']['partition'] == partition]
+            self.assertEqual(len(items), 50)
+            self.assertEqual(Counter(item['scorer']['kind'] for item in items),
+                             {'numeric': 10, 'choice': 10, 'instruction': 10, 'json': 10, 'tool-call': 10})
+        actions = [item for item in data['items'] if item['scorer']['kind'] == 'tool-call']
+        names = {partition: {schema['name'] for item in actions
+                             if item['scorer']['partition'] == partition
+                             for schema in item['scorer']['available_tools']}
+                 for partition in ('practice', 'heldout')}
+        argument_keys = {partition: {key for item in actions
+                                     if item['scorer']['partition'] == partition
+                                     for schema in item['scorer']['available_tools']
+                                     for key in schema['arguments']}
+                         for partition in ('practice', 'heldout')}
+        self.assertFalse(names['practice'] & names['heldout'])
+        self.assertFalse(argument_keys['practice'] & argument_keys['heldout'])
+        for item in actions:
+            self.assertTrue(all(ability.score(item, item[field])['outcome'] == outcome
+                                for field, outcome in [('reference', 'pass'),
+                                                       ('wrong', 'wrong_answer'),
+                                                       ('malformed', 'format_error')]))
 
     def test_challenge_v12_tool_calls_include_grounded_schemas(self):
         data = ability.load('challenge', version='1.2.0')

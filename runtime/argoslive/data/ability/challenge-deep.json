@@ -1,0 +1,2432 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "challenge-deep",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "calc-01",
+      "prompt": "A ledger starts at 517. Multiply by 14, add 15, then divide by 5. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1450"
+      },
+      "reference": "1450",
+      "wrong": "1451.0",
+      "malformed": "The result is 1450"
+    },
+    {
+      "id": "calc-02",
+      "prompt": "A ledger starts at 554. Multiply by 17, add 17, then divide by 6. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1572"
+      },
+      "reference": "1572",
+      "wrong": "1573.0",
+      "malformed": "The result is 1572"
+    },
+    {
+      "id": "calc-03",
+      "prompt": "A ledger starts at 591. Multiply by 20, add 19, then divide by 7. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1691"
+      },
+      "reference": "1691",
+      "wrong": "1692.0",
+      "malformed": "The result is 1691"
+    },
+    {
+      "id": "calc-04",
+      "prompt": "A service has 628 units. It loses 23% of capacity, then gains 8% of the remaining capacity, then sets aside 21 units. Using exact arithmetic and flooring only the final result, how many remain? Give one number.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "501"
+      },
+      "reference": "501",
+      "wrong": "502.0",
+      "malformed": "The result is 501"
+    },
+    {
+      "id": "calc-05",
+      "prompt": "A ledger starts at 665. Multiply by 26, add 23, then divide by 4. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "4328"
+      },
+      "reference": "4328",
+      "wrong": "4329.0",
+      "malformed": "The result is 4328"
+    },
+    {
+      "id": "calc-06",
+      "prompt": "A ledger starts at 702. Multiply by 29, add 25, then divide by 5. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "4076"
+      },
+      "reference": "4076",
+      "wrong": "4077.0",
+      "malformed": "The result is 4076"
+    },
+    {
+      "id": "calc-07",
+      "prompt": "A ledger starts at 739. Multiply by 11, add 27, then divide by 6. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1359"
+      },
+      "reference": "1359",
+      "wrong": "1360.0",
+      "malformed": "The result is 1359"
+    },
+    {
+      "id": "calc-08",
+      "prompt": "A service has 776 units. It loses 14% of capacity, then gains 7% of the remaining capacity, then sets aside 29 units. Using exact arithmetic and flooring only the final result, how many remain? Give one number.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "685"
+      },
+      "reference": "685",
+      "wrong": "686.0",
+      "malformed": "The result is 685"
+    },
+    {
+      "id": "calc-09",
+      "prompt": "A ledger starts at 813. Multiply by 17, add 31, then divide by 8. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1731"
+      },
+      "reference": "1731",
+      "wrong": "1732.0",
+      "malformed": "The result is 1731"
+    },
+    {
+      "id": "calc-10",
+      "prompt": "A ledger starts at 850. Multiply by 20, add 33, then divide by 4. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "4258"
+      },
+      "reference": "4258",
+      "wrong": "4259.0",
+      "malformed": "The result is 4258"
+    },
+    {
+      "id": "calc-11",
+      "prompt": "A ledger starts at 887. Multiply by 23, add 35, then divide by 5. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "4087"
+      },
+      "reference": "4087",
+      "wrong": "4088.0",
+      "malformed": "The result is 4087"
+    },
+    {
+      "id": "calc-12",
+      "prompt": "A service has 924 units. It loses 26% of capacity, then gains 6% of the remaining capacity, then sets aside 37 units. Using exact arithmetic and flooring only the final result, how many remain? Give one number.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "687"
+      },
+      "reference": "687",
+      "wrong": "688.0",
+      "malformed": "The result is 687"
+    },
+    {
+      "id": "calc-13",
+      "prompt": "A ledger starts at 961. Multiply by 29, add 39, then divide by 7. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "3986"
+      },
+      "reference": "3986",
+      "wrong": "3987.0",
+      "malformed": "The result is 3986"
+    },
+    {
+      "id": "calc-14",
+      "prompt": "A ledger starts at 998. Multiply by 11, add 41, then divide by 8. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "1377"
+      },
+      "reference": "1377",
+      "wrong": "1378.0",
+      "malformed": "The result is 1377"
+    },
+    {
+      "id": "calc-15",
+      "prompt": "A ledger starts at 1035. Multiply by 14, add 43, then divide by 4. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "3633"
+      },
+      "reference": "3633",
+      "wrong": "3634.0",
+      "malformed": "The result is 3633"
+    },
+    {
+      "id": "calc-16",
+      "prompt": "A service has 1072 units. It loses 17% of capacity, then gains 5% of the remaining capacity, then sets aside 45 units. Using exact arithmetic and flooring only the final result, how many remain? Give one number.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "889"
+      },
+      "reference": "889",
+      "wrong": "890.0",
+      "malformed": "The result is 889"
+    },
+    {
+      "id": "calc-17",
+      "prompt": "A ledger starts at 1109. Multiply by 20, add 47, then divide by 6. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "3704"
+      },
+      "reference": "3704",
+      "wrong": "3705.0",
+      "malformed": "The result is 3704"
+    },
+    {
+      "id": "calc-18",
+      "prompt": "A ledger starts at 1146. Multiply by 23, add 49, then divide by 7. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "3772"
+      },
+      "reference": "3772",
+      "wrong": "3773.0",
+      "malformed": "The result is 3772"
+    },
+    {
+      "id": "calc-19",
+      "prompt": "A ledger starts at 1183. Multiply by 26, add 51, then divide by 8. Return the exact quotient rounded down to one integer.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "3851"
+      },
+      "reference": "3851",
+      "wrong": "3852.0",
+      "malformed": "The result is 3851"
+    },
+    {
+      "id": "calc-20",
+      "prompt": "A service has 1220 units. It loses 29% of capacity, then gains 4% of the remaining capacity, then sets aside 53 units. Using exact arithmetic and flooring only the final result, how many remain? Give one number.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "847"
+      },
+      "reference": "847",
+      "wrong": "848.0",
+      "malformed": "The result is 847"
+    },
+    {
+      "id": "logic-01",
+      "prompt": "A deployment requires approval, a passing check, and a backup newer than the build. A: approved, pass, older backup. B: approved, fail, newer backup. C: approved, pass, newer backup. D: pending, pass, newer backup.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-02",
+      "prompt": "Choose a route under 40 minutes, with no transfer, and accessible. A: 32 min, one transfer, accessible. B: 40 min, none, accessible. C: 39 min, none, inaccessible. D: 38 min, none, accessible.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-03",
+      "prompt": "Exactly one of P and Q must be true, and R must be false. A: P true, Q false, R false. B: P true, Q true, R false. C: P false, Q false, R false. D: P false, Q true, R true.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "D",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-04",
+      "prompt": "A record is current only when signed by the owner and newer than the prior record. A: owner signed, older. B: reviewer signed, newer. C: owner signed, newer. D: unsigned, newest.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-05",
+      "prompt": "A task is eligible if it is urgent OR (approved AND has a verified input). A: normal, approved, unverified. B: urgent, unapproved, unverified. C: normal, unapproved, verified. D: normal, unapproved, verified.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-06",
+      "prompt": "Pick the item with the lowest risk score among those with complete evidence. A: score 2, incomplete. B: score 5, complete. C: score 3, complete. D: score 1, incomplete.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-07",
+      "prompt": "A restore is allowed only from a signed snapshot, and if the checksum mismatches it needs an independent matching copy. Which mismatch case is safe to restore? A: signed, mismatch, no copy. B: unsigned, match. C: signed, mismatch, independent copy matches. D: unsigned, match.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-08",
+      "prompt": "A batch passes only when defects < 1% and sample >= 800. An audited exception allows up to 1.2% defects only when sample >= 1000. A: 0.9%, 799, no exception. B: 1%, 900, exception. C: 1.1%, 900, no exception. D: 0.8%, 800, no exception.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-09",
+      "prompt": "Priority order is blocked first, then urgent, then ordinary; within a class use earlier deadline. A: urgent 09:00. B: blocked 11:00. C: urgent 08:00. D: ordinary 07:00.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-10",
+      "prompt": "A file can be shared externally only after owner approval AND redaction. A: approved, not redacted. B: redacted, approval pending. C: approved and redacted. D: neither.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-11",
+      "prompt": "Exactly two of A, B, C are true. A: A and B true, C false. B: A true, B false, C false. C: A false, B false, C true. D: all true.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "D",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-12",
+      "prompt": "Choose a schedule where backup precedes migration, migration precedes verification, and verification precedes deletion. A: backup, migration, verify, delete. B: migration, backup, verify, delete. C: backup, verify, migration, delete. D: backup, migration, delete, verify.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "D",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-13",
+      "prompt": "A candidate is valid if it matches the required model digest and either has two successful runs or one success plus independent review. A: digest match, one success, no review. B: digest mismatch, two successes. C: match, one success, independent review. D: match, one failed run, review.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-14",
+      "prompt": "Choose the only entry that is both newer than 12:00 and has severity at least 3. A: 12:01, severity 2. B: 12:00, severity 4. C: 12:10, severity 3. D: 11:59, severity 5.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-15",
+      "prompt": "An item is retained when it is tagged keep, unless it contains a confirmed secret. A: keep tag, no secret. B: no keep tag, no secret. C: keep tag, confirmed secret. D: no keep tag, secret.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "D",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-16",
+      "prompt": "A test is independent only when both its prompt and seed differ from training. A: same prompt, new seed. B: new prompt, same seed. C: both new. D: both same.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-17",
+      "prompt": "Select the single least costly plan that meets at least 99% coverage and completes by Friday. A: $8, 99%, Saturday. B: $10, 99%, Friday. C: $9, 98%, Thursday. D: $12, 100%, Friday.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-18",
+      "prompt": "A release needs two of three reviewers, including security, and no unresolved blocker. A: security+ops, blocker open. B: ops+owner, no blocker. C: security+owner, no blocker. D: security only, no blocker.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-19",
+      "prompt": "A sensor reading is usable when calibrated and recent; if primary is not usable, secondary is usable only if independently checked. Primary: recent, uncalibrated. Secondary: calibrated, recent, unchecked. A: use primary. B: use secondary. C: report no verified reading. D: average them.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "A",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "logic-20",
+      "prompt": "Pick the valid chain: each step must cite the immediately prior ID, and final approval must follow verification. A: intake, verify cites intake, approve cites verify. B: intake, verify cites old, approve cites verify. C: intake, approve cites intake, verify cites approve. D: verify, intake cites verify, approve cites intake.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "D",
+      "malformed": "Choice C"
+    },
+    {
+      "id": "format-01",
+      "prompt": "Write exactly 9 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 9,
+        "max_words": 9,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "item source verified before release carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-02",
+      "prompt": "Write exactly 10 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 10,
+        "max_words": 10,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private data remain local case carefully carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-03",
+      "prompt": "Write exactly 11 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 11,
+        "max_words": 11,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "ITEM SOURCE VERIFIED BEFORE RELEASE CAREFULLY CAREFULLY CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-04",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private data remain local case carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-05",
+      "prompt": "Write exactly 9 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 9,
+        "max_words": 9,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "item source verified before release carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-06",
+      "prompt": "Write exactly 10 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 10,
+        "max_words": 10,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "PRIVATE DATA REMAIN LOCAL CASE CAREFULLY CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-07",
+      "prompt": "Write exactly 11 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 11,
+        "max_words": 11,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "item source verified before release carefully carefully carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-08",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private data remain local case carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-09",
+      "prompt": "Write exactly 9 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 9,
+        "max_words": 9,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "ITEM SOURCE VERIFIED BEFORE RELEASE CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-10",
+      "prompt": "Write exactly 10 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "practice",
+        "min_words": 10,
+        "max_words": 10,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private data remain local case carefully carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-11",
+      "prompt": "Write exactly 11 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 11,
+        "max_words": 11,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "item source verified before release carefully carefully carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-12",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "PRIVATE DATA REMAIN LOCAL CASE CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-13",
+      "prompt": "Write exactly 9 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 9,
+        "max_words": 9,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "item source verified before release carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-14",
+      "prompt": "Write exactly 10 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 10,
+        "max_words": 10,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private data remain local case carefully carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-15",
+      "prompt": "Write exactly 11 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 11,
+        "max_words": 11,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "ITEM SOURCE VERIFIED BEFORE RELEASE CAREFULLY CAREFULLY CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-16",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private data remain local case carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-17",
+      "prompt": "Write exactly 9 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 9,
+        "max_words": 9,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "item source verified before release carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-18",
+      "prompt": "Write exactly 10 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\". Use uppercase letters only.",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 10,
+        "max_words": 10,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": true
+      },
+      "reference": "PRIVATE DATA REMAIN LOCAL CASE CAREFULLY CAREFULLY CAREFULLY CAREFULLY CAREFULLY",
+      "wrong": "UNRELATED WORDS ONLY",
+      "malformed": ""
+    },
+    {
+      "id": "format-19",
+      "prompt": "Write exactly 11 words on one line. Include every whole word: \"item\", \"source\", \"verified\", \"before\", \"release\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 11,
+        "max_words": 11,
+        "keywords": [
+          "item",
+          "source",
+          "verified",
+          "before",
+          "release"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "item source verified before release carefully carefully carefully carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "format-20",
+      "prompt": "Write exactly 8 words on one line. Include every whole word: \"private\", \"data\", \"remain\", \"local\", \"case\".",
+      "scorer": {
+        "kind": "instruction",
+        "partition": "heldout",
+        "min_words": 8,
+        "max_words": 8,
+        "keywords": [
+          "private",
+          "data",
+          "remain",
+          "local",
+          "case"
+        ],
+        "one_line": true,
+        "uppercase": false
+      },
+      "reference": "private data remain local case carefully carefully carefully",
+      "wrong": "unrelated words only",
+      "malformed": ""
+    },
+    {
+      "id": "record-01",
+      "prompt": "Here are three rows: [{\"id\":\"X-01-1\",\"qty\":3,\"unit\":4,\"ok\":true},{\"id\":\"X-01-2\",\"qty\":5,\"unit\":5,\"ok\":false},{\"id\":\"X-01-3\",\"qty\":7,\"unit\":6,\"ok\":true}]. Select row 2. For case use C-01; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-01",
+          "selected": "X-01-2",
+          "extended": 25,
+          "confirmed": false,
+          "remaining": [
+            "X-01-1",
+            "X-01-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-01\",\"selected\":\"X-01-2\",\"extended\":25,\"confirmed\":false,\"remaining\":[\"X-01-1\",\"X-01-3\"]}",
+      "wrong": "{\"case\": \"C-01\", \"selected\": \"X-01-2\", \"extended\": 26, \"confirmed\": false, \"remaining\": [\"X-01-1\", \"X-01-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-02",
+      "prompt": "Here are three rows: [{\"id\":\"X-02-1\",\"qty\":4,\"unit\":4,\"ok\":false},{\"id\":\"X-02-2\",\"qty\":6,\"unit\":5,\"ok\":true},{\"id\":\"X-02-3\",\"qty\":8,\"unit\":6,\"ok\":false}]. Select row 3. For case use C-02; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-02",
+          "selected": "X-02-3",
+          "extended": 48,
+          "confirmed": false,
+          "remaining": [
+            "X-02-1",
+            "X-02-2"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-02\",\"selected\":\"X-02-3\",\"extended\":48,\"confirmed\":false,\"remaining\":[\"X-02-1\",\"X-02-2\"]}",
+      "wrong": "{\"case\": \"C-02\", \"selected\": \"X-02-3\", \"extended\": 49, \"confirmed\": false, \"remaining\": [\"X-02-1\", \"X-02-2\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-03",
+      "prompt": "Here are three rows: [{\"id\":\"X-03-1\",\"qty\":5,\"unit\":4,\"ok\":true},{\"id\":\"X-03-2\",\"qty\":7,\"unit\":5,\"ok\":false},{\"id\":\"X-03-3\",\"qty\":9,\"unit\":6,\"ok\":true}]. Select row 1. For case use C-03; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-03",
+          "selected": "X-03-1",
+          "extended": 20,
+          "confirmed": true,
+          "remaining": [
+            "X-03-2",
+            "X-03-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-03\",\"selected\":\"X-03-1\",\"extended\":20,\"confirmed\":true,\"remaining\":[\"X-03-2\",\"X-03-3\"]}",
+      "wrong": "{\"case\": \"C-03\", \"selected\": \"X-03-1\", \"extended\": 21, \"confirmed\": true, \"remaining\": [\"X-03-2\", \"X-03-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-04",
+      "prompt": "Here are three rows: [{\"id\":\"X-04-1\",\"qty\":6,\"unit\":4,\"ok\":false},{\"id\":\"X-04-2\",\"qty\":8,\"unit\":5,\"ok\":true},{\"id\":\"X-04-3\",\"qty\":10,\"unit\":6,\"ok\":false}]. Select row 2. For case use C-04; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-04",
+          "selected": "X-04-2",
+          "extended": 40,
+          "confirmed": true,
+          "remaining": [
+            "X-04-1",
+            "X-04-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-04\",\"selected\":\"X-04-2\",\"extended\":40,\"confirmed\":true,\"remaining\":[\"X-04-1\",\"X-04-3\"]}",
+      "wrong": "{\"case\": \"C-04\", \"selected\": \"X-04-2\", \"extended\": 41, \"confirmed\": true, \"remaining\": [\"X-04-1\", \"X-04-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-05",
+      "prompt": "Here are three rows: [{\"id\":\"X-05-1\",\"qty\":7,\"unit\":4,\"ok\":true},{\"id\":\"X-05-2\",\"qty\":9,\"unit\":5,\"ok\":false},{\"id\":\"X-05-3\",\"qty\":11,\"unit\":6,\"ok\":true}]. Select row 3. For case use C-05; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-05",
+          "selected": "X-05-3",
+          "extended": 66,
+          "confirmed": true,
+          "remaining": [
+            "X-05-1",
+            "X-05-2"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-05\",\"selected\":\"X-05-3\",\"extended\":66,\"confirmed\":true,\"remaining\":[\"X-05-1\",\"X-05-2\"]}",
+      "wrong": "{\"case\": \"C-05\", \"selected\": \"X-05-3\", \"extended\": 67, \"confirmed\": true, \"remaining\": [\"X-05-1\", \"X-05-2\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-06",
+      "prompt": "Here are three rows: [{\"id\":\"X-06-1\",\"qty\":8,\"unit\":4,\"ok\":false},{\"id\":\"X-06-2\",\"qty\":10,\"unit\":5,\"ok\":true},{\"id\":\"X-06-3\",\"qty\":12,\"unit\":6,\"ok\":false}]. Select row 1. For case use C-06; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-06",
+          "selected": "X-06-1",
+          "extended": 32,
+          "confirmed": false,
+          "remaining": [
+            "X-06-2",
+            "X-06-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-06\",\"selected\":\"X-06-1\",\"extended\":32,\"confirmed\":false,\"remaining\":[\"X-06-2\",\"X-06-3\"]}",
+      "wrong": "{\"case\": \"C-06\", \"selected\": \"X-06-1\", \"extended\": 33, \"confirmed\": false, \"remaining\": [\"X-06-2\", \"X-06-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-07",
+      "prompt": "Here are three rows: [{\"id\":\"X-07-1\",\"qty\":9,\"unit\":4,\"ok\":true},{\"id\":\"X-07-2\",\"qty\":11,\"unit\":5,\"ok\":false},{\"id\":\"X-07-3\",\"qty\":13,\"unit\":6,\"ok\":true}]. Select row 2. For case use C-07; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-07",
+          "selected": "X-07-2",
+          "extended": 55,
+          "confirmed": false,
+          "remaining": [
+            "X-07-1",
+            "X-07-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-07\",\"selected\":\"X-07-2\",\"extended\":55,\"confirmed\":false,\"remaining\":[\"X-07-1\",\"X-07-3\"]}",
+      "wrong": "{\"case\": \"C-07\", \"selected\": \"X-07-2\", \"extended\": 56, \"confirmed\": false, \"remaining\": [\"X-07-1\", \"X-07-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-08",
+      "prompt": "Here are three rows: [{\"id\":\"X-08-1\",\"qty\":10,\"unit\":4,\"ok\":false},{\"id\":\"X-08-2\",\"qty\":12,\"unit\":5,\"ok\":true},{\"id\":\"X-08-3\",\"qty\":14,\"unit\":6,\"ok\":false}]. Select row 3. For case use C-08; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-08",
+          "selected": "X-08-3",
+          "extended": 84,
+          "confirmed": false,
+          "remaining": [
+            "X-08-1",
+            "X-08-2"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-08\",\"selected\":\"X-08-3\",\"extended\":84,\"confirmed\":false,\"remaining\":[\"X-08-1\",\"X-08-2\"]}",
+      "wrong": "{\"case\": \"C-08\", \"selected\": \"X-08-3\", \"extended\": 85, \"confirmed\": false, \"remaining\": [\"X-08-1\", \"X-08-2\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-09",
+      "prompt": "Here are three rows: [{\"id\":\"X-09-1\",\"qty\":11,\"unit\":4,\"ok\":true},{\"id\":\"X-09-2\",\"qty\":13,\"unit\":5,\"ok\":false},{\"id\":\"X-09-3\",\"qty\":15,\"unit\":6,\"ok\":true}]. Select row 1. For case use C-09; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-09",
+          "selected": "X-09-1",
+          "extended": 44,
+          "confirmed": true,
+          "remaining": [
+            "X-09-2",
+            "X-09-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-09\",\"selected\":\"X-09-1\",\"extended\":44,\"confirmed\":true,\"remaining\":[\"X-09-2\",\"X-09-3\"]}",
+      "wrong": "{\"case\": \"C-09\", \"selected\": \"X-09-1\", \"extended\": 45, \"confirmed\": true, \"remaining\": [\"X-09-2\", \"X-09-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-10",
+      "prompt": "Here are three rows: [{\"id\":\"X-10-1\",\"qty\":12,\"unit\":4,\"ok\":false},{\"id\":\"X-10-2\",\"qty\":14,\"unit\":5,\"ok\":true},{\"id\":\"X-10-3\",\"qty\":16,\"unit\":6,\"ok\":false}]. Select row 2. For case use C-10; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "case": "C-10",
+          "selected": "X-10-2",
+          "extended": 70,
+          "confirmed": true,
+          "remaining": [
+            "X-10-1",
+            "X-10-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-10\",\"selected\":\"X-10-2\",\"extended\":70,\"confirmed\":true,\"remaining\":[\"X-10-1\",\"X-10-3\"]}",
+      "wrong": "{\"case\": \"C-10\", \"selected\": \"X-10-2\", \"extended\": 71, \"confirmed\": true, \"remaining\": [\"X-10-1\", \"X-10-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-11",
+      "prompt": "Here are three rows: [{\"id\":\"X-11-1\",\"qty\":13,\"unit\":4,\"ok\":true},{\"id\":\"X-11-2\",\"qty\":15,\"unit\":5,\"ok\":false},{\"id\":\"X-11-3\",\"qty\":17,\"unit\":6,\"ok\":true}]. Select row 3. For case use C-11; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-11",
+          "selected": "X-11-3",
+          "extended": 102,
+          "confirmed": true,
+          "remaining": [
+            "X-11-1",
+            "X-11-2"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-11\",\"selected\":\"X-11-3\",\"extended\":102,\"confirmed\":true,\"remaining\":[\"X-11-1\",\"X-11-2\"]}",
+      "wrong": "{\"case\": \"C-11\", \"selected\": \"X-11-3\", \"extended\": 103, \"confirmed\": true, \"remaining\": [\"X-11-1\", \"X-11-2\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-12",
+      "prompt": "Here are three rows: [{\"id\":\"X-12-1\",\"qty\":14,\"unit\":4,\"ok\":false},{\"id\":\"X-12-2\",\"qty\":16,\"unit\":5,\"ok\":true},{\"id\":\"X-12-3\",\"qty\":18,\"unit\":6,\"ok\":false}]. Select row 1. For case use C-12; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-12",
+          "selected": "X-12-1",
+          "extended": 56,
+          "confirmed": false,
+          "remaining": [
+            "X-12-2",
+            "X-12-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-12\",\"selected\":\"X-12-1\",\"extended\":56,\"confirmed\":false,\"remaining\":[\"X-12-2\",\"X-12-3\"]}",
+      "wrong": "{\"case\": \"C-12\", \"selected\": \"X-12-1\", \"extended\": 57, \"confirmed\": false, \"remaining\": [\"X-12-2\", \"X-12-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-13",
+      "prompt": "Here are three rows: [{\"id\":\"X-13-1\",\"qty\":15,\"unit\":4,\"ok\":true},{\"id\":\"X-13-2\",\"qty\":17,\"unit\":5,\"ok\":false},{\"id\":\"X-13-3\",\"qty\":19,\"unit\":6,\"ok\":true}]. Select row 2. For case use C-13; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-13",
+          "selected": "X-13-2",
+          "extended": 85,
+          "confirmed": false,
+          "remaining": [
+            "X-13-1",
+            "X-13-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-13\",\"selected\":\"X-13-2\",\"extended\":85,\"confirmed\":false,\"remaining\":[\"X-13-1\",\"X-13-3\"]}",
+      "wrong": "{\"case\": \"C-13\", \"selected\": \"X-13-2\", \"extended\": 86, \"confirmed\": false, \"remaining\": [\"X-13-1\", \"X-13-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-14",
+      "prompt": "Here are three rows: [{\"id\":\"X-14-1\",\"qty\":16,\"unit\":4,\"ok\":false},{\"id\":\"X-14-2\",\"qty\":18,\"unit\":5,\"ok\":true},{\"id\":\"X-14-3\",\"qty\":20,\"unit\":6,\"ok\":false}]. Select row 3. For case use C-14; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-14",
+          "selected": "X-14-3",
+          "extended": 120,
+          "confirmed": false,
+          "remaining": [
+            "X-14-1",
+            "X-14-2"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-14\",\"selected\":\"X-14-3\",\"extended\":120,\"confirmed\":false,\"remaining\":[\"X-14-1\",\"X-14-2\"]}",
+      "wrong": "{\"case\": \"C-14\", \"selected\": \"X-14-3\", \"extended\": 121, \"confirmed\": false, \"remaining\": [\"X-14-1\", \"X-14-2\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-15",
+      "prompt": "Here are three rows: [{\"id\":\"X-15-1\",\"qty\":17,\"unit\":4,\"ok\":true},{\"id\":\"X-15-2\",\"qty\":19,\"unit\":5,\"ok\":false},{\"id\":\"X-15-3\",\"qty\":21,\"unit\":6,\"ok\":true}]. Select row 1. For case use C-15; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-15",
+          "selected": "X-15-1",
+          "extended": 68,
+          "confirmed": true,
+          "remaining": [
+            "X-15-2",
+            "X-15-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-15\",\"selected\":\"X-15-1\",\"extended\":68,\"confirmed\":true,\"remaining\":[\"X-15-2\",\"X-15-3\"]}",
+      "wrong": "{\"case\": \"C-15\", \"selected\": \"X-15-1\", \"extended\": 69, \"confirmed\": true, \"remaining\": [\"X-15-2\", \"X-15-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-16",
+      "prompt": "Here are three rows: [{\"id\":\"X-16-1\",\"qty\":18,\"unit\":4,\"ok\":false},{\"id\":\"X-16-2\",\"qty\":20,\"unit\":5,\"ok\":true},{\"id\":\"X-16-3\",\"qty\":22,\"unit\":6,\"ok\":false}]. Select row 2. For case use C-16; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-16",
+          "selected": "X-16-2",
+          "extended": 100,
+          "confirmed": true,
+          "remaining": [
+            "X-16-1",
+            "X-16-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-16\",\"selected\":\"X-16-2\",\"extended\":100,\"confirmed\":true,\"remaining\":[\"X-16-1\",\"X-16-3\"]}",
+      "wrong": "{\"case\": \"C-16\", \"selected\": \"X-16-2\", \"extended\": 101, \"confirmed\": true, \"remaining\": [\"X-16-1\", \"X-16-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-17",
+      "prompt": "Here are three rows: [{\"id\":\"X-17-1\",\"qty\":19,\"unit\":4,\"ok\":true},{\"id\":\"X-17-2\",\"qty\":21,\"unit\":5,\"ok\":false},{\"id\":\"X-17-3\",\"qty\":23,\"unit\":6,\"ok\":true}]. Select row 3. For case use C-17; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-17",
+          "selected": "X-17-3",
+          "extended": 138,
+          "confirmed": true,
+          "remaining": [
+            "X-17-1",
+            "X-17-2"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-17\",\"selected\":\"X-17-3\",\"extended\":138,\"confirmed\":true,\"remaining\":[\"X-17-1\",\"X-17-2\"]}",
+      "wrong": "{\"case\": \"C-17\", \"selected\": \"X-17-3\", \"extended\": 139, \"confirmed\": true, \"remaining\": [\"X-17-1\", \"X-17-2\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-18",
+      "prompt": "Here are three rows: [{\"id\":\"X-18-1\",\"qty\":20,\"unit\":4,\"ok\":false},{\"id\":\"X-18-2\",\"qty\":22,\"unit\":5,\"ok\":true},{\"id\":\"X-18-3\",\"qty\":24,\"unit\":6,\"ok\":false}]. Select row 1. For case use C-18; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-18",
+          "selected": "X-18-1",
+          "extended": 80,
+          "confirmed": false,
+          "remaining": [
+            "X-18-2",
+            "X-18-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-18\",\"selected\":\"X-18-1\",\"extended\":80,\"confirmed\":false,\"remaining\":[\"X-18-2\",\"X-18-3\"]}",
+      "wrong": "{\"case\": \"C-18\", \"selected\": \"X-18-1\", \"extended\": 81, \"confirmed\": false, \"remaining\": [\"X-18-2\", \"X-18-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-19",
+      "prompt": "Here are three rows: [{\"id\":\"X-19-1\",\"qty\":21,\"unit\":4,\"ok\":true},{\"id\":\"X-19-2\",\"qty\":23,\"unit\":5,\"ok\":false},{\"id\":\"X-19-3\",\"qty\":25,\"unit\":6,\"ok\":true}]. Select row 2. For case use C-19; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-19",
+          "selected": "X-19-2",
+          "extended": 115,
+          "confirmed": false,
+          "remaining": [
+            "X-19-1",
+            "X-19-3"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-19\",\"selected\":\"X-19-2\",\"extended\":115,\"confirmed\":false,\"remaining\":[\"X-19-1\",\"X-19-3\"]}",
+      "wrong": "{\"case\": \"C-19\", \"selected\": \"X-19-2\", \"extended\": 116, \"confirmed\": false, \"remaining\": [\"X-19-1\", \"X-19-3\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "record-20",
+      "prompt": "Here are three rows: [{\"id\":\"X-20-1\",\"qty\":22,\"unit\":4,\"ok\":false},{\"id\":\"X-20-2\",\"qty\":24,\"unit\":5,\"ok\":true},{\"id\":\"X-20-3\",\"qty\":26,\"unit\":6,\"ok\":false}]. Select row 3. For case use C-20; calculate qty times unit as extended; copy ok as confirmed; put the other two IDs in remaining in their original order. Return JSON only with exactly case, selected, extended, confirmed, remaining and preserve the value types.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "case": "C-20",
+          "selected": "X-20-3",
+          "extended": 156,
+          "confirmed": false,
+          "remaining": [
+            "X-20-1",
+            "X-20-2"
+          ]
+        }
+      },
+      "reference": "{\"case\":\"C-20\",\"selected\":\"X-20-3\",\"extended\":156,\"confirmed\":false,\"remaining\":[\"X-20-1\",\"X-20-2\"]}",
+      "wrong": "{\"case\": \"C-20\", \"selected\": \"X-20-3\", \"extended\": 157, \"confirmed\": false, \"remaining\": [\"X-20-1\", \"X-20-2\"]}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "action-01",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_stage_01\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_publish_01\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_01\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_discard_01\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage CASE-01 privately in the review queue, retain 20 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_01",
+          "arguments": {
+            "case_id": "CASE-01",
+            "count": 20,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_stage_01",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_publish_01",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_01",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_discard_01",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_01\",\"arguments\":{\"case_id\":\"CASE-01\",\"count\":20,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_publish_01\", \"arguments\": {\"case_id\": \"CASE-01\", \"count\": 20, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-02",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_publish_02\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_stage_02\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_02\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_discard_02\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage CASE-02 privately in the review queue, retain 33 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_02",
+          "arguments": {
+            "case_id": "CASE-02",
+            "count": 33,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_publish_02",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_stage_02",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_02",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_discard_02",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_02\",\"arguments\":{\"case_id\":\"CASE-02\",\"count\":33,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_inspect_02\", \"arguments\": {\"case_id\": \"CASE-02\", \"count\": 33, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-03",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_publish_03\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_03\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_stage_03\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_discard_03\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage CASE-03 privately in the review queue, retain 46 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_03",
+          "arguments": {
+            "case_id": "CASE-03",
+            "count": 46,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_publish_03",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_03",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_stage_03",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_discard_03",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_03\",\"arguments\":{\"case_id\":\"CASE-03\",\"count\":46,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_discard_03\", \"arguments\": {\"case_id\": \"CASE-03\", \"count\": 46, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-04",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_publish_04\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_04\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_discard_04\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}},{\"name\":\"trial_stage_04\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}}]}\nRequest: Stage CASE-04 privately in the review queue, retain 59 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_04",
+          "arguments": {
+            "case_id": "CASE-04",
+            "count": 59,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_publish_04",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_04",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_discard_04",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          },
+          {
+            "name": "trial_stage_04",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_04\",\"arguments\":{\"case_id\":\"CASE-04\",\"count\":59,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_publish_04\", \"arguments\": {\"case_id\": \"CASE-04\", \"count\": 59, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-05",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_stage_05\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_publish_05\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_05\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_discard_05\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage CASE-05 privately in the review queue, retain 72 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_05",
+          "arguments": {
+            "case_id": "CASE-05",
+            "count": 72,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_stage_05",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_publish_05",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_05",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_discard_05",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_05\",\"arguments\":{\"case_id\":\"CASE-05\",\"count\":72,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_publish_05\", \"arguments\": {\"case_id\": \"CASE-05\", \"count\": 72, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-06",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_publish_06\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_stage_06\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_06\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_discard_06\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage CASE-06 privately in the review queue, retain 85 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_06",
+          "arguments": {
+            "case_id": "CASE-06",
+            "count": 85,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_publish_06",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_stage_06",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_06",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_discard_06",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_06\",\"arguments\":{\"case_id\":\"CASE-06\",\"count\":85,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_inspect_06\", \"arguments\": {\"case_id\": \"CASE-06\", \"count\": 85, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-07",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_publish_07\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_07\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_stage_07\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_discard_07\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage CASE-07 privately in the review queue, retain 98 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_07",
+          "arguments": {
+            "case_id": "CASE-07",
+            "count": 98,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_publish_07",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_07",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_stage_07",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_discard_07",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_07\",\"arguments\":{\"case_id\":\"CASE-07\",\"count\":98,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_discard_07\", \"arguments\": {\"case_id\": \"CASE-07\", \"count\": 98, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-08",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_publish_08\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_08\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_discard_08\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}},{\"name\":\"trial_stage_08\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}}]}\nRequest: Stage CASE-08 privately in the review queue, retain 111 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_08",
+          "arguments": {
+            "case_id": "CASE-08",
+            "count": 111,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_publish_08",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_08",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_discard_08",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          },
+          {
+            "name": "trial_stage_08",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_08\",\"arguments\":{\"case_id\":\"CASE-08\",\"count\":111,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_publish_08\", \"arguments\": {\"case_id\": \"CASE-08\", \"count\": 111, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-09",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_stage_09\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_publish_09\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_09\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_discard_09\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage CASE-09 privately in the review queue, retain 124 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_09",
+          "arguments": {
+            "case_id": "CASE-09",
+            "count": 124,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_stage_09",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_publish_09",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_09",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_discard_09",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_09\",\"arguments\":{\"case_id\":\"CASE-09\",\"count\":124,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_publish_09\", \"arguments\": {\"case_id\": \"CASE-09\", \"count\": 124, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-10",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"trial_publish_10\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_stage_10\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"case_id\":\"string\",\"count\":\"integer\",\"execute\":\"boolean\"}},{\"name\":\"trial_inspect_10\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"case_id\":\"string\"}},{\"name\":\"trial_discard_10\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"case_id\":\"string\",\"confirm\":\"boolean\"}}]}\nRequest: Stage CASE-10 privately in the review queue, retain 137 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "practice",
+        "expected": {
+          "name": "trial_stage_10",
+          "arguments": {
+            "case_id": "CASE-10",
+            "count": 137,
+            "execute": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "trial_publish_10",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_stage_10",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "case_id": "string",
+              "count": "integer",
+              "execute": "boolean"
+            }
+          },
+          {
+            "name": "trial_inspect_10",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "case_id": "string"
+            }
+          },
+          {
+            "name": "trial_discard_10",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "case_id": "string",
+              "confirm": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"trial_stage_10\",\"arguments\":{\"case_id\":\"CASE-10\",\"count\":137,\"execute\":false}}",
+      "wrong": "{\"name\": \"trial_inspect_10\", \"arguments\": {\"case_id\": \"CASE-10\", \"count\": 137, \"execute\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-11",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_stage_01\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_publish_01\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_01\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_discard_01\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}}]}\nRequest: Stage CASE-01 privately in the review queue, retain 20 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_01",
+          "arguments": {
+            "record_ref": "CASE-01",
+            "keep_count": 20,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_stage_01",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_publish_01",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_01",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_discard_01",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_01\",\"arguments\":{\"record_ref\":\"CASE-01\",\"keep_count\":20,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_publish_01\", \"arguments\": {\"record_ref\": \"CASE-01\", \"keep_count\": 20, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-12",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_publish_02\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_stage_02\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_02\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_discard_02\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}}]}\nRequest: Stage CASE-02 privately in the review queue, retain 33 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_02",
+          "arguments": {
+            "record_ref": "CASE-02",
+            "keep_count": 33,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_publish_02",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_stage_02",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_02",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_discard_02",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_02\",\"arguments\":{\"record_ref\":\"CASE-02\",\"keep_count\":33,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_inspect_02\", \"arguments\": {\"record_ref\": \"CASE-02\", \"keep_count\": 33, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-13",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_publish_03\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_03\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_stage_03\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_discard_03\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}}]}\nRequest: Stage CASE-03 privately in the review queue, retain 46 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_03",
+          "arguments": {
+            "record_ref": "CASE-03",
+            "keep_count": 46,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_publish_03",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_03",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_stage_03",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_discard_03",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_03\",\"arguments\":{\"record_ref\":\"CASE-03\",\"keep_count\":46,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_discard_03\", \"arguments\": {\"record_ref\": \"CASE-03\", \"keep_count\": 46, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-14",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_publish_04\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_04\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_discard_04\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}},{\"name\":\"sealed_stage_04\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}}]}\nRequest: Stage CASE-04 privately in the review queue, retain 59 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_04",
+          "arguments": {
+            "record_ref": "CASE-04",
+            "keep_count": 59,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_publish_04",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_04",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_discard_04",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          },
+          {
+            "name": "sealed_stage_04",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_04\",\"arguments\":{\"record_ref\":\"CASE-04\",\"keep_count\":59,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_publish_04\", \"arguments\": {\"record_ref\": \"CASE-04\", \"keep_count\": 59, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-15",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_stage_05\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_publish_05\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_05\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_discard_05\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}}]}\nRequest: Stage CASE-05 privately in the review queue, retain 72 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_05",
+          "arguments": {
+            "record_ref": "CASE-05",
+            "keep_count": 72,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_stage_05",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_publish_05",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_05",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_discard_05",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_05\",\"arguments\":{\"record_ref\":\"CASE-05\",\"keep_count\":72,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_publish_05\", \"arguments\": {\"record_ref\": \"CASE-05\", \"keep_count\": 72, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-16",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_publish_06\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_stage_06\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_06\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_discard_06\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}}]}\nRequest: Stage CASE-06 privately in the review queue, retain 85 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_06",
+          "arguments": {
+            "record_ref": "CASE-06",
+            "keep_count": 85,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_publish_06",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_stage_06",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_06",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_discard_06",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_06\",\"arguments\":{\"record_ref\":\"CASE-06\",\"keep_count\":85,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_inspect_06\", \"arguments\": {\"record_ref\": \"CASE-06\", \"keep_count\": 85, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-17",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_publish_07\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_07\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_stage_07\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_discard_07\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}}]}\nRequest: Stage CASE-07 privately in the review queue, retain 98 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_07",
+          "arguments": {
+            "record_ref": "CASE-07",
+            "keep_count": 98,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_publish_07",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_07",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_stage_07",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_discard_07",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_07\",\"arguments\":{\"record_ref\":\"CASE-07\",\"keep_count\":98,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_discard_07\", \"arguments\": {\"record_ref\": \"CASE-07\", \"keep_count\": 98, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-18",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_publish_08\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_08\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_discard_08\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}},{\"name\":\"sealed_stage_08\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}}]}\nRequest: Stage CASE-08 privately in the review queue, retain 111 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_08",
+          "arguments": {
+            "record_ref": "CASE-08",
+            "keep_count": 111,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_publish_08",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_08",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_discard_08",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          },
+          {
+            "name": "sealed_stage_08",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_08\",\"arguments\":{\"record_ref\":\"CASE-08\",\"keep_count\":111,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_publish_08\", \"arguments\": {\"record_ref\": \"CASE-08\", \"keep_count\": 111, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-19",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_stage_09\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_publish_09\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_09\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_discard_09\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}}]}\nRequest: Stage CASE-09 privately in the review queue, retain 124 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_09",
+          "arguments": {
+            "record_ref": "CASE-09",
+            "keep_count": 124,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_stage_09",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_publish_09",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_09",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_discard_09",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_09\",\"arguments\":{\"record_ref\":\"CASE-09\",\"keep_count\":124,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_publish_09\", \"arguments\": {\"record_ref\": \"CASE-09\", \"keep_count\": 124, \"apply_now\": false}}",
+      "malformed": "execute now"
+    },
+    {
+      "id": "action-20",
+      "prompt": "Available tool schemas: {\"tools\":[{\"name\":\"sealed_publish_10\",\"description\":\"Publishes records to an external destination.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_stage_10\",\"description\":\"Stages records in a private review queue without executing.\",\"arguments\":{\"record_ref\":\"string\",\"keep_count\":\"integer\",\"apply_now\":\"boolean\"}},{\"name\":\"sealed_inspect_10\",\"description\":\"Reads metadata for the case only.\",\"arguments\":{\"record_ref\":\"string\"}},{\"name\":\"sealed_discard_10\",\"description\":\"Discards the named case after confirmation.\",\"arguments\":{\"record_ref\":\"string\",\"approve_drop\":\"boolean\"}}]}\nRequest: Stage CASE-10 privately in the review queue, retain 137 records, and do not execute anything. Return only the exact JSON tool-call object; do not perform the action.",
+      "scorer": {
+        "kind": "tool-call",
+        "partition": "heldout",
+        "expected": {
+          "name": "sealed_stage_10",
+          "arguments": {
+            "record_ref": "CASE-10",
+            "keep_count": 137,
+            "apply_now": false
+          }
+        },
+        "available_tools": [
+          {
+            "name": "sealed_publish_10",
+            "description": "Publishes records to an external destination.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_stage_10",
+            "description": "Stages records in a private review queue without executing.",
+            "arguments": {
+              "record_ref": "string",
+              "keep_count": "integer",
+              "apply_now": "boolean"
+            }
+          },
+          {
+            "name": "sealed_inspect_10",
+            "description": "Reads metadata for the case only.",
+            "arguments": {
+              "record_ref": "string"
+            }
+          },
+          {
+            "name": "sealed_discard_10",
+            "description": "Discards the named case after confirmation.",
+            "arguments": {
+              "record_ref": "string",
+              "approve_drop": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"name\":\"sealed_stage_10\",\"arguments\":{\"record_ref\":\"CASE-10\",\"keep_count\":137,\"apply_now\":false}}",
+      "wrong": "{\"name\": \"sealed_inspect_10\", \"arguments\": {\"record_ref\": \"CASE-10\", \"keep_count\": 137, \"apply_now\": false}}",
+      "malformed": "execute now"
+    }
+  ]
+}

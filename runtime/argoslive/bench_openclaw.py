@@ -22,7 +22,7 @@ from .workload import Busy, reserve
 
 PROTECTED_LIMIT = 1024 ** 2
 SUITES = ('quick', 'standard', 'challenge', 'tool-schema', 'tool-plan', 'tool-sequence',
-          'challenge-hard', 'documents-short', 'documents-long', owner_recovery_eval.SUITE)
+          'challenge-hard', 'challenge-deep', 'documents-short', 'documents-long', owner_recovery_eval.SUITE)
 DOCUMENT_SUITES = frozenset({'documents-short', 'documents-long'})
 MODEL_DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
 

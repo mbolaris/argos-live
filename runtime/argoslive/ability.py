@@ -7,7 +7,7 @@ import re
 DATA = Path(__file__).with_name('data') / 'ability'
 KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call', 'tool-sequence'}
 DEFAULT_KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call'}
-SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80, 'tool-schema': 40,
+SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80, 'challenge-deep': 100, 'tool-schema': 40,
                 'tool-plan': 40, 'tool-sequence': 40}
 SUITE_KINDS = {'tool-schema': {'tool-call'}, 'tool-plan': {'tool-call'},
                'tool-sequence': {'tool-sequence'}}
@@ -121,7 +121,7 @@ def validate(data):
             or data.get('omitted_categories') != ['code-execution']
             or not isinstance(data.get('items'), list)
             or len(data['items']) != SUITE_COUNTS[data['suite']]):
-        raise ValueError('Invalid ability suite (expected quick, standard, challenge, challenge-hard, tool-schema, tool-plan, or tool-sequence)')
+        raise ValueError('Invalid ability suite (expected quick, standard, challenge, challenge-hard, challenge-deep, tool-schema, tool-plan, or tool-sequence)')
     seen, kinds = set(), set()
     for item in data['items']:
         if (not isinstance(item, dict) or not re.fullmatch(r'[a-z]+-\d{2}', item.get('id', ''))
@@ -173,7 +173,7 @@ def validate(data):
             if ((kind == 'tool-call' and data['suite'] == 'challenge' and
                  ((data['version'] == '1.0.0' and has_schemas) or
                   (data['version'] != '1.0.0' and not has_schemas))) or
-                    has_schemas and data['suite'] not in ('challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence')):
+                    has_schemas and data['suite'] not in ('challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence')):
                 raise ValueError('Challenge tool-schema version mismatch')
             if has_schemas:
                 partition = rule.get('partition')
@@ -181,7 +181,7 @@ def validate(data):
                 schema_count = {'tool-schema': 3, 'tool-plan': 4,
                                 'tool-sequence': 4}.get(data['suite'], 4)
                 partition_valid = (partition in ('practice', 'heldout')
-                                   if data['suite'] in ('challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence')
+                                   if data['suite'] in ('challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence')
                                    else partition is None)
                 if (not partition_valid or not isinstance(schemas, list)
                         or len(schemas) != schema_count):
@@ -228,6 +228,38 @@ def validate(data):
         if (len(action_items) != 8 or any(not 0 <= position < 4 for position in positions) or
                 sorted(positions.count(position) for position in range(4)) != [2, 2, 2, 2]):
             raise ValueError('Challenge tool target position must be balanced')
+    if data['suite'] == 'challenge-deep':
+        partitions = {partition: [item for item in data['items']
+                                  if item['scorer'].get('partition') == partition]
+                      for partition in ('practice', 'heldout')}
+        expected_kinds = ('numeric', 'choice', 'instruction', 'json', 'tool-call')
+        for partition, items in partitions.items():
+            counts = {kind: sum(item['scorer']['kind'] == kind for item in items)
+                      for kind in expected_kinds}
+            if len(items) != 50 or counts != {kind: 10 for kind in expected_kinds}:
+                raise ValueError('Challenge-deep requires ten items of every type in each partition')
+        tool_positions = []
+        schema_names = {'practice': set(), 'heldout': set()}
+        argument_keys = {'practice': set(), 'heldout': set()}
+        for item in data['items']:
+            if item['scorer']['kind'] == 'tool-call':
+                schemas = item['scorer'].get('available_tools')
+                if not isinstance(schemas, list):
+                    raise ValueError('Challenge-deep tool calls require provided schemas')
+                partition = item['scorer']['partition']
+                name = item['scorer']['expected']['name']
+                schema_names[partition].update(schema['name'] for schema in schemas)
+                argument_keys[partition].update(key for schema in schemas for key in schema['arguments'])
+                tool_positions.append((partition, next(
+                    index for index, schema in enumerate(schemas) if schema['name'] == name)))
+        if (schema_names['practice'] & schema_names['heldout'] or
+                argument_keys['practice'] & argument_keys['heldout']):
+            raise ValueError('Challenge-deep practice and held-out tool schemas must be disjoint')
+        for partition in ('practice', 'heldout'):
+            positions = [position for side, position in tool_positions if side == partition]
+            if len(positions) != 10 or max(positions.count(i) for i in range(4)) - min(
+                    positions.count(i) for i in range(4)) > 1:
+                raise ValueError('Challenge-deep tool target positions must be balanced')
     if data['suite'] in ('tool-schema', 'tool-plan', 'tool-sequence'):
         partitions = {partition: [item for item in data['items']
                                   if item['scorer'].get('partition') == partition]
@@ -294,7 +326,7 @@ ARCHIVED_SUITE_FILES = {('challenge', '1.0.0'): 'archive/challenge-1.0.0.json',
 
 def load(suite='quick', version=None):
     if not isinstance(suite, str) or suite not in SUITE_COUNTS:
-        raise ValueError('Choose quick, standard, challenge, tool-schema, tool-plan, or tool-sequence')
+        raise ValueError('Choose quick, standard, challenge, challenge-hard, challenge-deep, tool-schema, tool-plan, or tool-sequence')
     if version is not None and not isinstance(version, str):
         raise ValueError('Unknown version for ability suite')
     archived = ARCHIVED_SUITE_FILES.get((suite, version)) if version is not None else None

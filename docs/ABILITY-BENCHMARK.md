@@ -59,6 +59,16 @@ Keep policy v6 requires two matched candidate runs to gain at least 4 practice i
 `challenge-hard` or 3 on `documents-long`, no increase in format errors, and no regression on the
 held-out half compared with the best baseline half.
 
+`challenge-deep` 1.0.0 adds 100 original compositional items: 20 each for multi-step arithmetic,
+multi-condition reasoning, exact multi-constraint writing, structured record extraction, and
+schema-grounded tool-call planning. Each type has ten practice and ten held-out prompts, and the
+tool names and argument keys are disjoint across those partitions. Held-out prompts are redacted
+from live progress. The suite is available for standalone model evaluations and matched descriptive
+comparisons; it is not calibrated, has no keep-policy threshold, and cannot authorize keeping an
+instruction change. A strong score would still be evidence only about these deterministic prompts,
+not GED/SAT/IQ performance, general intelligence, or successful real-world tool execution. Establish
+and report a fresh baseline before interpreting Argos results.
+
 Tool-schema 1.2.0 states the exact JSON call shape (`name` and `arguments`),
 rejects the common `tool` alias, and forbids Markdown fences. Its scores are a
 new baseline and must not be compared with 1.1.0.

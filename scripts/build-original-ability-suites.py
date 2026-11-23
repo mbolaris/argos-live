@@ -485,6 +485,136 @@ def challenge_hard_items():
     return groups
 
 
+def challenge_deep_items():
+    """Build 100 original compositional probes, balanced by type and split."""
+    result = []
+    kinds = ('numeric', 'choice', 'instruction', 'json', 'tool-call')
+    prefixes = {'numeric': 'calc', 'choice': 'logic', 'instruction': 'format',
+                'json': 'record', 'tool-call': 'action'}
+
+    def add(kind, index, prompt, expected, reference, wrong, malformed, **fields):
+        partition = 'practice' if index <= 10 else 'heldout'
+        scorer = {'kind': kind, 'partition': partition}
+        scorer.update(expected if kind == 'instruction' else {'expected': expected})
+        scorer.update(fields)
+        result.append({'id': f'{prefixes[kind]}-{index:02}', 'prompt': prompt,
+                       'scorer': scorer, 'reference': reference, 'wrong': wrong,
+                       'malformed': malformed})
+
+    # Two or three dependent operations, including sequential percentage changes.
+    for i in range(1, 21):
+        base = 480 + i * 37
+        first = 11 + (i % 7) * 3
+        divisor = 4 + (i % 5)
+        reserve = 13 + i * 2
+        if i % 4 == 0:
+            expected = (base * (100 - first) * (100 + divisor) // 10000) - reserve
+            prompt = (f'A service has {base} units. It loses {first}% of capacity, then gains '
+                      f'{divisor}% of the remaining capacity, then sets aside {reserve} units. '
+                      'Using exact arithmetic and flooring only the final result, how many remain? Give one number.')
+            answer = str(expected)
+        else:
+            numerator = base * first + reserve
+            answer = str(numerator // divisor)
+            prompt = (f'A ledger starts at {base}. Multiply by {first}, add {reserve}, then divide by '
+                      f'{divisor}. Return the exact quotient rounded down to one integer.')
+        add('numeric', i, prompt, answer, answer, str(float(answer) + 1), 'The result is ' + answer)
+
+    # Require selecting the sole option satisfying all conditions and ordering rules.
+    logic = [
+        ('A deployment requires approval, a passing check, and a backup newer than the build. A: approved, pass, older backup. B: approved, fail, newer backup. C: approved, pass, newer backup. D: pending, pass, newer backup.', 'C'),
+        ('Choose a route under 40 minutes, with no transfer, and accessible. A: 32 min, one transfer, accessible. B: 40 min, none, accessible. C: 39 min, none, inaccessible. D: 38 min, none, accessible.', 'D'),
+        ('Exactly one of P and Q must be true, and R must be false. A: P true, Q false, R false. B: P true, Q true, R false. C: P false, Q false, R false. D: P false, Q true, R true.', 'A'),
+        ('A record is current only when signed by the owner and newer than the prior record. A: owner signed, older. B: reviewer signed, newer. C: owner signed, newer. D: unsigned, newest.', 'C'),
+        ('A task is eligible if it is urgent OR (approved AND has a verified input). A: normal, approved, unverified. B: urgent, unapproved, unverified. C: normal, unapproved, verified. D: normal, unapproved, verified.', 'B'),
+        ('Pick the item with the lowest risk score among those with complete evidence. A: score 2, incomplete. B: score 5, complete. C: score 3, complete. D: score 1, incomplete.', 'C'),
+        ('A restore is allowed only from a signed snapshot, and if the checksum mismatches it needs an independent matching copy. Which mismatch case is safe to restore? A: signed, mismatch, no copy. B: unsigned, match. C: signed, mismatch, independent copy matches. D: unsigned, match.', 'C'),
+        ('A batch passes only when defects < 1% and sample >= 800. An audited exception allows up to 1.2% defects only when sample >= 1000. A: 0.9%, 799, no exception. B: 1%, 900, exception. C: 1.1%, 900, no exception. D: 0.8%, 800, no exception.', 'D'),
+        ('Priority order is blocked first, then urgent, then ordinary; within a class use earlier deadline. A: urgent 09:00. B: blocked 11:00. C: urgent 08:00. D: ordinary 07:00.', 'B'),
+        ('A file can be shared externally only after owner approval AND redaction. A: approved, not redacted. B: redacted, approval pending. C: approved and redacted. D: neither.', 'C'),
+        ('Exactly two of A, B, C are true. A: A and B true, C false. B: A true, B false, C false. C: A false, B false, C true. D: all true.', 'A'),
+        ('Choose a schedule where backup precedes migration, migration precedes verification, and verification precedes deletion. A: backup, migration, verify, delete. B: migration, backup, verify, delete. C: backup, verify, migration, delete. D: backup, migration, delete, verify.', 'A'),
+        ('A candidate is valid if it matches the required model digest and either has two successful runs or one success plus independent review. A: digest match, one success, no review. B: digest mismatch, two successes. C: match, one success, independent review. D: match, one failed run, review.', 'C'),
+        ('Choose the only entry that is both newer than 12:00 and has severity at least 3. A: 12:01, severity 2. B: 12:00, severity 4. C: 12:10, severity 3. D: 11:59, severity 5.', 'C'),
+        ('An item is retained when it is tagged keep, unless it contains a confirmed secret. A: keep tag, no secret. B: no keep tag, no secret. C: keep tag, confirmed secret. D: no keep tag, secret.', 'A'),
+        ('A test is independent only when both its prompt and seed differ from training. A: same prompt, new seed. B: new prompt, same seed. C: both new. D: both same.', 'C'),
+        ('Select the single least costly plan that meets at least 99% coverage and completes by Friday. A: $8, 99%, Saturday. B: $10, 99%, Friday. C: $9, 98%, Thursday. D: $12, 100%, Friday.', 'B'),
+        ('A release needs two of three reviewers, including security, and no unresolved blocker. A: security+ops, blocker open. B: ops+owner, no blocker. C: security+owner, no blocker. D: security only, no blocker.', 'C'),
+        ('A sensor reading is usable when calibrated and recent; if primary is not usable, secondary is usable only if independently checked. Primary: recent, uncalibrated. Secondary: calibrated, recent, unchecked. A: use primary. B: use secondary. C: report no verified reading. D: average them.', 'C'),
+        ('Pick the valid chain: each step must cite the immediately prior ID, and final approval must follow verification. A: intake, verify cites intake, approve cites verify. B: intake, verify cites old, approve cites verify. C: intake, approve cites intake, verify cites approve. D: verify, intake cites verify, approve cites intake.', 'A'),
+    ]
+    for i, (prompt, expected) in enumerate(logic, 1):
+        add('choice', i, prompt + '\nAnswer with one letter only.', expected, expected,
+            'A' if expected != 'A' else 'D', 'Choice C')
+
+    # Exact-length, multi-constraint output with lexical and case constraints.
+    for i in range(1, 21):
+        required = ['item', 'source', 'verified', 'before', 'release'] if i % 2 else \
+                   ['private', 'data', 'remain', 'local', 'case']
+        count = 8 + (i % 4)
+        uppercase = i % 3 == 0
+        reference_words = required + ['carefully'] * (count - len(required))
+        reference = ' '.join(reference_words)
+        if uppercase:
+            reference = reference.upper()
+        prompt = (f'Write exactly {count} words on one line. Include every whole word: '
+                  + ', '.join(f'"{word}"' for word in required) + '.')
+        if uppercase:
+            prompt += ' Use uppercase letters only.'
+        add('instruction', i, prompt,
+            {'min_words': count, 'max_words': count, 'keywords': required,
+             'one_line': True, 'uppercase': uppercase}, reference,
+            'UNRELATED WORDS ONLY' if uppercase else 'unrelated words only', '')
+
+    # Records require combining independently supplied fields into exact typed JSON.
+    for i in range(1, 21):
+        rows = [{'id': f'X-{i:02}-{j}', 'qty': i + j * 2, 'unit': j + 3,
+                 'ok': (i + j) % 2 == 0} for j in range(1, 4)]
+        target = 1 + (i % 3)
+        row = rows[target - 1]
+        expected = {'case': f'C-{i:02}', 'selected': row['id'],
+                    'extended': row['qty'] * row['unit'], 'confirmed': row['ok'],
+                    'remaining': [entry['id'] for idx, entry in enumerate(rows) if idx != target - 1]}
+        prompt = (f'Here are three rows: {json.dumps(rows, separators=(",", ":"))}. Select row {target}. '
+                  f'For case use C-{i:02}; calculate qty times unit as extended; copy ok as confirmed; '
+                  'put the other two IDs in remaining in their original order. Return JSON only with exactly '
+                  'case, selected, extended, confirmed, remaining and preserve the value types.')
+        add('json', i, prompt, expected, json.dumps(expected, separators=(',', ':')),
+            json.dumps(dict(expected, extended=expected['extended'] + 1)), '{bad json}')
+
+    # Schema selection with decoys, exact arguments, and safe non-execution language.
+    for i in range(1, 21):
+        partition = 'practice' if i <= 10 else 'heldout'
+        n = i if partition == 'practice' else i - 10
+        prefix = 'trial' if partition == 'practice' else 'sealed'
+        target_name = f'{prefix}_stage_{n:02}'
+        case_key, count_key, execute_key = (('case_id', 'count', 'execute') if partition == 'practice'
+                                            else ('record_ref', 'keep_count', 'apply_now'))
+        confirm_key = 'confirm' if partition == 'practice' else 'approve_drop'
+        schemas = [
+            {'name': f'{prefix}_publish_{n:02}', 'description': 'Publishes records to an external destination.',
+             'arguments': {case_key: 'string', count_key: 'integer', execute_key: 'boolean'}},
+            {'name': target_name, 'description': 'Stages records in a private review queue without executing.',
+             'arguments': {case_key: 'string', count_key: 'integer', execute_key: 'boolean'}},
+            {'name': f'{prefix}_inspect_{n:02}', 'description': 'Reads metadata for the case only.',
+             'arguments': {case_key: 'string'}},
+            {'name': f'{prefix}_discard_{n:02}', 'description': 'Discards the named case after confirmation.',
+             'arguments': {case_key: 'string', confirm_key: 'boolean'}}]
+        position = (n - 1) % 4
+        target_schema = schemas.pop(1)
+        schemas.insert(position, target_schema)
+        arguments = {case_key: f'CASE-{n:02}', count_key: n * 13 + 7, execute_key: False}
+        expected = {'name': target_name, 'arguments': arguments}
+        prompt = ('Available tool schemas: ' + json.dumps({'tools': schemas}, separators=(',', ':'))
+                  + f'\nRequest: Stage CASE-{n:02} privately in the review queue, retain {n * 13 + 7} '
+                  'records, and do not execute anything. Return only the exact JSON tool-call object; do not '
+                  'perform the action.')
+        add('tool-call', i, prompt, expected, json.dumps(expected, separators=(',', ':')),
+            json.dumps({'name': schemas[(position + 1) % 4]['name'], 'arguments': arguments}),
+            'execute now', available_tools=schemas)
+    return result
+
+
 def tool_schema_items():
     """Schema-grounded tool calls with fully disjoint practice and held-out vocabularies."""
     descriptions = {
@@ -894,6 +1024,11 @@ def build(suite, version=None):
         if version is not None:
             raise ValueError('No alternate version requested')
         selected = [item for group in challenge_hard_items().values() for item in group]
+    elif suite == 'challenge-deep':
+        if version not in (None, '1.0.0'):
+            raise ValueError('No alternate version requested')
+        selected = challenge_deep_items()
+        version = '1.0.0'
     elif suite == 'tool-schema':
         if version is not None:
             raise ValueError('No alternate version requested')
@@ -928,6 +1063,7 @@ if __name__ == '__main__':
     archive.mkdir(parents=True, exist_ok=True)
     for version in ('1.2.0', '1.3.0'):
         path = archive / f'challenge-{version}.json'
-        path.write_text(json.dumps(build('challenge', version=version), indent=2) + '\n', encoding='utf-8')
-    for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence'):
-        (destination / (suite + '.json')).write_text(json.dumps(build(suite), indent=2) + '\n', encoding='utf-8')
+        path.write_bytes((json.dumps(build('challenge', version=version), indent=2) + '\n').encode('utf-8'))
+    for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence'):
+        (destination / (suite + '.json')).write_bytes(
+            (json.dumps(build(suite), indent=2) + '\n').encode('utf-8'))
