@@ -15,11 +15,16 @@ import tempfile
 ENTRYPOINTS = ('argos', 'argos-launch', 'argos-welcome')
 LIVE_LOWER = Path('/run/live/rootfs/filesystem.squashfs')
 RUNTIME_TREE = Path('usr/local/lib/argos-live/argoslive')
-OWNED_TREES = (
-    RUNTIME_TREE,
-    Path('usr/local/share/argos-live/plugins/argos-improve'),
-)
+PLUGIN_TREE = Path('usr/local/share/argos-live/plugins/argos-improve')
+OWNED_TREES = (RUNTIME_TREE, PLUGIN_TREE)
 OVERRIDE_MARKER = Path('var/lib/argos-live/runtime-refresh/active-runtime.json')
+PLUGIN_OVERRIDE_MARKER = Path('var/lib/argos-live/runtime-refresh/active-plugin.json')
+# Each preservable tree has its own marker, schema and digest field names. The runtime marker's
+# format is unchanged, so markers recorded by earlier runtimes stay valid.
+OVERRIDE_FORMATS = {
+    RUNTIME_TREE: ('argos-runtime-override/1', 'image_runtime_sha256', 'installed_runtime_sha256'),
+    PLUGIN_TREE: ('argos-plugin-override/1', 'image_plugin_sha256', 'installed_plugin_sha256'),
+}
 MAX_FILES = 10000
 MAX_BYTES = 128 * 1024 * 1024
 
@@ -103,9 +108,9 @@ def _image_files(lower):
     return files
 
 
-def _runtime_tree_digest(files):
-    """Fingerprint the runtime tree while ignoring Python's disposable bytecode."""
-    prefix = RUNTIME_TREE.as_posix() + '/'
+def _tree_digest(files, tree):
+    """Fingerprint one owned tree while ignoring Python's disposable bytecode."""
+    prefix = Path(tree).as_posix() + '/'
     entries = {}
     for name, item in files.items():
         if not name.startswith(prefix):
@@ -120,11 +125,16 @@ def _runtime_tree_digest(files):
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _marker_path(root):
-    return Path(root) / OVERRIDE_MARKER
+def _runtime_tree_digest(files):
+    return _tree_digest(files, RUNTIME_TREE)
 
 
-def _read_override(path):
+def _marker_path(root, tree=RUNTIME_TREE):
+    return Path(root) / (OVERRIDE_MARKER if tree == RUNTIME_TREE else PLUGIN_OVERRIDE_MARKER)
+
+
+def _read_override(path, tree=RUNTIME_TREE):
+    schema, image_key, installed_key = OVERRIDE_FORMATS[tree]
     path = Path(path)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 4096:
         return None
@@ -134,35 +144,34 @@ def _read_override(path):
         value = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
-    if (not isinstance(value, dict) or value.get('schema') != 'argos-runtime-override/1' or
+    if (not isinstance(value, dict) or value.get('schema') != schema or
             not all(isinstance(value.get(key), str) and len(value[key]) == 64
-                    for key in ('image_runtime_sha256', 'installed_runtime_sha256'))):
+                    for key in (image_key, installed_key))):
         return None
     try:
-        int(value['image_runtime_sha256'], 16)
-        int(value['installed_runtime_sha256'], 16)
+        int(value[image_key], 16)
+        int(value[installed_key], 16)
     except ValueError:
         return None
     return value
 
 
-def record_override(root=Path('/'), lower=LIVE_LOWER, marker=None):
-    """Record a healthy runtime update against the exact image it overlays."""
+def record_override(root=Path('/'), lower=LIVE_LOWER, marker=None, tree=RUNTIME_TREE):
+    """Record a healthy update of one owned tree against the exact image it overlays."""
     root, lower = Path(root), Path(lower)
-    image_digest = _runtime_tree_digest(_walk_regular_files(lower, RUNTIME_TREE))
-    installed_digest = _runtime_tree_digest(_walk_regular_files(root, RUNTIME_TREE))
+    schema, image_key, installed_key = OVERRIDE_FORMATS[tree]
+    image_digest = _tree_digest(_walk_regular_files(lower, tree), tree)
+    installed_digest = _tree_digest(_walk_regular_files(root, tree), tree)
     if image_digest == installed_digest:
         return None
-    marker = Path(marker) if marker is not None else _marker_path(root)
+    marker = Path(marker) if marker is not None else _marker_path(root, tree)
     if marker.is_symlink() or any(parent.is_symlink() for parent in marker.parents):
         raise ValueError('Runtime override marker directory is unsafe')
     marker.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if not _real_directory(marker.parent):
         raise ValueError('Runtime override marker directory is unsafe')
     os.chmod(marker.parent, 0o700)
-    value = {'schema': 'argos-runtime-override/1',
-             'image_runtime_sha256': image_digest,
-             'installed_runtime_sha256': installed_digest}
+    value = {'schema': schema, image_key: image_digest, installed_key: installed_digest}
     descriptor, temporary = tempfile.mkstemp(prefix=marker.name + '.', suffix='.tmp', dir=marker.parent)
     try:
         with os.fdopen(descriptor, 'w', encoding='utf-8', newline='\n') as stream:
@@ -176,6 +185,11 @@ def record_override(root=Path('/'), lower=LIVE_LOWER, marker=None):
         if os.path.exists(temporary):
             os.unlink(temporary)
     return value
+
+
+def record_plugin_override(root=Path('/'), lower=LIVE_LOWER, marker=None):
+    """Record a healthy Argos Improvement plugin update against the exact image it overlays."""
+    return record_override(root, lower, marker, tree=PLUGIN_TREE)
 
 
 def _fsync_directory(path):
@@ -302,12 +316,23 @@ def _restore(changes, root, created_directories):
             pass
 
 
-def refresh(root=Path('/'), lower=LIVE_LOWER, snapshot_root=None, marker=None):
+def _remove_markers(paths):
+    for path in paths:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def refresh(root=Path('/'), lower=LIVE_LOWER, snapshot_root=None, marker=None, plugin_marker=None):
     """Refresh image-owned runtime trees and entrypoints, preserving a snapshot.
 
     Only the packaged Python runtime, bundled Argos Improvement plugin, and
     three command shims are managed. User workspaces, settings, records, and
     model storage are outside these roots and are never copied or removed.
+    A tree is kept instead of refreshed only while its override marker names
+    both this image's tree digest and the installed tree's digest; any other
+    marker is stale, the tree is refreshed from the image and the marker removed.
     """
     root, lower = Path(root), Path(lower)
     image_files = _image_files(lower)
@@ -318,21 +343,28 @@ def refresh(root=Path('/'), lower=LIVE_LOWER, snapshot_root=None, marker=None):
         image_hash.update(hashlib.sha256(item['data']).digest())
     image_sha256 = image_hash.hexdigest()
 
-    marker = Path(marker) if marker is not None else _marker_path(root)
-    override = _read_override(marker)
-    image_runtime_digest = _runtime_tree_digest(image_files)
-    current_runtime_digest = _runtime_tree_digest(
-        _walk_regular_files(root, RUNTIME_TREE, optional=True))
-    preserve_runtime = bool(override and
-                           override['image_runtime_sha256'] == image_runtime_digest and
-                           override['installed_runtime_sha256'] == current_runtime_digest)
-    if preserve_runtime:
-        image_files = {name: item for name, item in image_files.items()
-                       if not name.startswith(RUNTIME_TREE.as_posix() + '/')}
+    markers = {
+        RUNTIME_TREE: Path(marker) if marker is not None else _marker_path(root, RUNTIME_TREE),
+        PLUGIN_TREE: Path(plugin_marker) if plugin_marker is not None else _marker_path(root, PLUGIN_TREE),
+    }
+    preserved, stale_markers = set(), []
+    for tree, path in markers.items():
+        override = _read_override(path, tree)
+        if not override:
+            continue
+        _, image_key, installed_key = OVERRIDE_FORMATS[tree]
+        if (override[image_key] == _tree_digest(image_files, tree) and
+                override[installed_key] == _tree_digest(
+                    _walk_regular_files(root, tree, optional=True), tree)):
+            preserved.add(tree)
+        else:
+            stale_markers.append(path)
+    image_files = {name: item for name, item in image_files.items()
+                   if not any(name.startswith(tree.as_posix() + '/') for tree in preserved)}
 
     old_files = {}
     for relative in OWNED_TREES:
-        if preserve_runtime and relative == RUNTIME_TREE:
+        if relative in preserved:
             continue
         old_files.update(_walk_regular_files(root, relative, optional=True))
     for name in ENTRYPOINTS:
@@ -364,11 +396,7 @@ def refresh(root=Path('/'), lower=LIVE_LOWER, snapshot_root=None, marker=None):
                 'new_mode': None, 'old_data': old['data'], 'old_mode': old['mode'],
             })
     if not changes:
-        if override and not preserve_runtime:
-            try:
-                marker.unlink()
-            except FileNotFoundError:
-                pass
+        _remove_markers(stale_markers)
         return []
 
     if snapshot_root is None:
@@ -386,11 +414,7 @@ def refresh(root=Path('/'), lower=LIVE_LOWER, snapshot_root=None, marker=None):
                     raise ValueError('A stale Argos runtime file changed during refresh')
                 target.unlink()
                 _fsync_directory(target.parent)
-        if override and not preserve_runtime:
-            try:
-                marker.unlink()
-            except FileNotFoundError:
-                pass
+        _remove_markers(stale_markers)
         return [item['path'] for item in changes]
     except Exception:
         _restore(changes, root, created_directories)
@@ -404,6 +428,10 @@ def main(argv=None):
                          help='record the current healthy runtime against this exact image')
     actions.add_argument('--clear-override', action='store_true',
                          help='clear the runtime override record after a rollback')
+    actions.add_argument('--record-plugin-override', action='store_true',
+                         help='record the current healthy Argos Improvement plugin against this exact image')
+    actions.add_argument('--clear-plugin-override', action='store_true',
+                         help='clear the plugin override record after a rollback')
     args = parser.parse_args(argv)
     try:
         report = subprocess.run(['findmnt', '-n', '-o', 'FSTYPE,OPTIONS', '/'],
@@ -415,29 +443,36 @@ def main(argv=None):
         print('Argos runtime refresh skipped: root is not the expected Debian Live overlay.')
         return 0
     snapshot_root = Path('/var/lib/argos-live/runtime-refresh')
-    marker = _marker_path(Path('/'))
-    if args.clear_override:
-        if marker.is_symlink() or not _real_directory(marker.parent):
-            print('Argos runtime override record could not be cleared safely.')
+    marker = _marker_path(Path('/'), RUNTIME_TREE)
+    plugin_marker = _marker_path(Path('/'), PLUGIN_TREE)
+    for clear, path, label in ((args.clear_override, marker, 'runtime'),
+                               (args.clear_plugin_override, plugin_marker, 'plugin')):
+        if not clear:
+            continue
+        if path.is_symlink() or not _real_directory(path.parent):
+            print(f'Argos {label} override record could not be cleared safely.')
             return 1
         try:
-            marker.unlink()
+            path.unlink()
         except FileNotFoundError:
             pass
-        print('Argos runtime override record cleared.')
+        print(f'Argos {label} override record cleared.')
         return 0
-    if args.record_override:
+    for record, path, tree, label in ((args.record_override, marker, RUNTIME_TREE, 'runtime'),
+                                      (args.record_plugin_override, plugin_marker, PLUGIN_TREE, 'plugin')):
+        if not record:
+            continue
         try:
-            result = record_override(marker=marker)
+            result = record_override(marker=path, tree=tree)
         except (OSError, ValueError, tarfile.TarError) as exc:
-            print(f'Argos runtime override record failed safely: {exc}')
+            print(f'Argos {label} override record failed safely: {exc}')
             return 1
-        print('Argos runtime override recorded for this exact image.' if result else
-              'Argos runtime already matches this image; no override record is needed.')
+        print(f'Argos {label} override recorded for this exact image.' if result else
+              f'Argos {label} already matches this image; no override record is needed.')
         return 0
     before = set(snapshot_root.iterdir()) if snapshot_root.is_dir() else set()
     try:
-        changed = refresh(snapshot_root=snapshot_root, marker=marker)
+        changed = refresh(snapshot_root=snapshot_root, marker=marker, plugin_marker=plugin_marker)
     except (OSError, ValueError, tarfile.TarError) as exc:
         print(f'Argos runtime refresh failed safely: {exc}')
         return 1

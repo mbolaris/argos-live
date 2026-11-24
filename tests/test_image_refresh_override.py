@@ -77,5 +77,81 @@ class RuntimeOverrideTests(unittest.TestCase):
                          'image runtime\n')
 
 
+class PluginOverrideTests(RuntimeOverrideTests):
+    """The Argos Improvement plugin can be preserved across boots like the runtime."""
+
+    def setUp(self):
+        super().setUp()
+        self.plugin = image_refresh.PLUGIN_TREE
+        self.plugin_marker = self.root / image_refresh.PLUGIN_OVERRIDE_MARKER
+        (self.root / self.plugin / 'index.js').write_text('updated plugin\n')
+        dependency = self.plugin / 'node_modules/typebox/package.json'
+        for base in (self.root, self.lower):
+            (base / dependency).parent.mkdir(parents=True)
+            (base / dependency).write_text('{"name":"typebox"}\n')
+
+    def refresh(self):
+        return image_refresh.refresh(self.root, self.lower, marker=self.marker,
+                                     plugin_marker=self.plugin_marker)
+
+    def plugin_index(self):
+        return (self.root / self.plugin / 'index.js').read_text()
+
+    def test_plugin_override_survives_boot_without_a_runtime_override(self):
+        recorded = image_refresh.record_plugin_override(self.root, self.lower, self.plugin_marker)
+        self.assertEqual(recorded['schema'], 'argos-plugin-override/1')
+        self.assertFalse(self.marker.exists())
+        changed = self.refresh()
+        self.assertEqual(self.plugin_index(), 'updated plugin\n')
+        self.assertEqual(set(changed), {'usr/local/lib/argos-live/argoslive/__init__.py'})
+        self.assertTrue(self.plugin_marker.exists())
+
+    def test_runtime_and_plugin_overrides_are_both_preserved(self):
+        image_refresh.record_override(self.root, self.lower, self.marker)
+        image_refresh.record_plugin_override(self.root, self.lower, self.plugin_marker)
+        self.assertEqual(self.refresh(), [])
+        self.assertEqual(self.plugin_index(), 'updated plugin\n')
+        self.assertEqual((self.root / image_refresh.RUNTIME_TREE / '__init__.py').read_text(),
+                         'updated runtime\n')
+        self.assertTrue(self.marker.exists() and self.plugin_marker.exists())
+
+    def test_changed_image_plugin_replaces_override_and_clears_only_its_marker(self):
+        image_refresh.record_override(self.root, self.lower, self.marker)
+        image_refresh.record_plugin_override(self.root, self.lower, self.plugin_marker)
+        (self.lower / self.plugin / 'index.js').write_text('newer image plugin\n')
+        changed = self.refresh()
+        self.assertEqual(set(changed), {'usr/local/share/argos-live/plugins/argos-improve/index.js'})
+        self.assertEqual(self.plugin_index(), 'newer image plugin\n')
+        self.assertFalse(self.plugin_marker.exists())
+        self.assertTrue(self.marker.exists())
+
+    def test_modified_installed_plugin_falls_back_to_the_image(self):
+        image_refresh.record_plugin_override(self.root, self.lower, self.plugin_marker)
+        (self.root / self.plugin / 'index.js').write_text('unrecognized plugin\n')
+        self.refresh()
+        self.assertEqual(self.plugin_index(), 'image plugin\n')
+        self.assertFalse(self.plugin_marker.exists())
+
+    def test_runtime_marker_does_not_validate_as_a_plugin_marker(self):
+        image_refresh.record_override(self.root, self.lower, self.marker)
+        self.plugin_marker.write_text(self.marker.read_text())
+        self.refresh()
+        # An unreadable marker is ignored (as with the runtime marker), so the image wins.
+        self.assertEqual(self.plugin_index(), 'image plugin\n')
+
+    def test_matching_plugin_needs_no_override(self):
+        (self.root / self.plugin / 'index.js').write_text('image plugin\n')
+        self.assertIsNone(image_refresh.record_plugin_override(self.root, self.lower, self.plugin_marker))
+        self.assertFalse(self.plugin_marker.exists())
+
+
+class RefreshWrapperTests(unittest.TestCase):
+    def test_wrapper_uses_the_installed_package_for_plugin_overrides(self):
+        text = (Path(__file__).resolve().parents[1] / 'runtime/argos-refresh-runtime').read_text()
+        self.assertIn("Path('/var/lib/argos-live/runtime-refresh/active-plugin.json')", text)
+        self.assertIn('PLUGIN_OVERRIDE_MARKER.exists()', text)
+        self.assertIn("hasattr(image_refresh, 'record_plugin_override')", text)
+
+
 if __name__ == '__main__':
     unittest.main()

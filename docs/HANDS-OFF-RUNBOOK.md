@@ -138,6 +138,19 @@ On a later boot, the refresher preserves that runtime only when both still match
 or changed installed tree falls back to the image. This records exact image identity rather than
 guessing which source commit is newer. The successful deployment is recorded below.
 
+**The plugin tree has its own marker.** Until November 2026 only the runtime tree could be
+preserved, so every reboot put the image's Argos Improvement plugin back. That is why the
+November 22 plugin deploy `u20261122c`, which passed health and was finalized, was gone after the
+November 23 reboot. `active-plugin.json` (schema `argos-plugin-override/1`) records the image's and
+the installed plugin tree's digests, `node_modules` included. It is recorded with
+`/usr/local/sbin/argos-refresh-runtime --record-plugin-override` after a healthy plugin update and
+cleared with `--clear-plugin-override` after a rollback. At boot it is honoured only while both
+digests still match; otherwise the plugin is refreshed from the image and the stale marker is
+removed. The runtime and plugin markers are independent. Neither updater records a marker
+automatically. The boot wrapper honours a plugin marker only after the wrapper from this change is
+installed in `/usr/local/sbin`, and only when the installed runtime knows plugin overrides; older
+runtimes ignore it, and the plugin falls back to the image.
+
 **Deployment check, November 14.** With owner approval, PR #183 (`161ea355`) fixed the boot
 wrapper's import selection and made the systemd unit call the persistent wrapper. A persistent
 systemd drop-in now selects `/usr/local/sbin/argos-refresh-runtime`; no reboot or service restart
