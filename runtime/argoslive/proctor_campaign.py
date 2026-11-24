@@ -66,7 +66,7 @@ def _readonly_incomplete_recovery_watch(value):
 
     def safe_step(step):
         if (not isinstance(step, dict) or step.get('tool') not in
-                {'inspect', 'audit', 'compare', 'edit'} or step.get('status') != 'completed' or
+                {'inspect', 'audit', 'compare', 'edit', 'log'} or step.get('status') != 'completed' or
                 not isinstance(step.get('step_id'), str) or not step.get('step_id')):
             return False
         if step['tool'] == 'inspect':
@@ -75,18 +75,36 @@ def _readonly_incomplete_recovery_watch(value):
             return step.get('step_status') == 'verified' and step.get('passed') is True
         if step['tool'] == 'edit':
             return step.get('step_status') == 'rejected'
+        if step['tool'] == 'log':
+            return step.get('step_status') == 'appended'
         return step.get('step_status') in {'completed', None}
 
-    safe_steps = (isinstance(steps, list) and 1 <= len(steps) <= 16 and
-                  all(safe_step(step) for step in steps) and
-                      len({step['step_id'] for step in steps}) == len(steps) and
-                      any(step.get('tool') == 'inspect' for step in steps) and
-                      (len(steps) == 1 or any(step.get('tool') == 'audit' for step in steps)))
+    if not isinstance(steps, list):
+        return False
+    ledger = [step for step in steps if not workload.host_refused_evaluation_step(step)]
+    # Host-refused evaluation requests never became work; every other step
+    # must be a completed safe host call. The workload verifier proves both.
+    safe_steps = (1 <= len(steps) <= 16 and
+                  all(safe_step(step) for step in ledger) and
+                  len({step['step_id'] for step in steps}) == len(steps) and
+                  any(step.get('tool') == 'inspect' for step in ledger) and
+                  (len(steps) == 1 or any(step.get('tool') == 'audit' for step in ledger)))
     return (isinstance(value.get('id'), str) and WATCH_ID.fullmatch(value['id']) is not None and
             value.get('phase') == 'incomplete' and value.get('failure_code') == 'campaign-invalid-state' and
             result.get('status') == 'incomplete' and result.get('failure_code') == 'campaign-invalid-state' and
             campaign.get('status') == 'failed' and campaign.get('outcome') == 'campaign-runtime-failed' and
             campaign.get('saved_evaluation_ids') == [] and safe_steps)
+
+
+def _recovery_status(watch_record):
+    """Name what an accepted owner recovery released, for the dashboard message."""
+    steps = watch_record.get('campaign_steps') if isinstance(watch_record, dict) else None
+    steps = steps if isinstance(steps, list) else []
+    if any(workload.host_refused_evaluation_step(step) for step in steps):
+        return 'refused-evaluation-attempt-recovered'
+    if any(isinstance(step, dict) and step.get('tool') == 'edit' for step in steps):
+        return 'rejected-edit-attempt-recovered'
+    return 'read-only-attempt-recovered'
 
 
 MESSAGES = {
@@ -307,20 +325,34 @@ class Controller:
         campaign_steps = progress.get('campaign_steps') if isinstance(progress, dict) else None
         in_memory_watch = {'id': watch_id, 'phase': phase, 'failure_code': failure_code,
                            'result': result, 'campaign_steps': campaign_steps}
-        readonly_recovery_watch_id = (watch_id if record_saved is True and
-                                      _readonly_incomplete_recovery_watch(in_memory_watch) else None)
-        if readonly_recovery_watch_id is None and workload_state == 'quarantined':
+        # Offer in-boot recovery only for the saved campaign whose controller
+        # holds the current quarantined reservation. An older eligible record,
+        # possibly already recovered under an earlier reservation, says
+        # nothing about this quarantine and must never stand in for it.
+        readonly_recovery_watch_id = None
+        recovery_steps = []
+        if workload_state == 'quarantined':
             try:
+                candidates = []
+                if record_saved is True:
+                    candidates.append(in_memory_watch)
                 paths = sorted(self.records_root.glob('*.json'), key=lambda item: item.stat().st_mtime,
-                               reverse=True)[:64]
+                               reverse=True)[:64] if self.records_root.is_dir() else []
                 for path in paths:
-                    value = self._load_record(safe_local(path))
-                    if _readonly_incomplete_recovery_watch(value):
+                    try:
+                        candidates.append(self._load_record(safe_local(path)))
+                    except (OSError, ValueError, TypeError, UnicodeError):
+                        continue
+                for value in candidates:
+                    if (_readonly_incomplete_recovery_watch(value) and
+                            workload.quarantined_controller_watch_binding(self.home, value)):
                         readonly_recovery_watch_id = value['id']
+                        recovery_steps = value.get('campaign_steps') or []
                         break
             except (OSError, ValueError, TypeError):
                 readonly_recovery_watch_id = None
-        readonly_recovery_candidate = readonly_recovery_watch_id is not None and workload_state == 'quarantined'
+                recovery_steps = []
+        readonly_recovery_candidate = readonly_recovery_watch_id is not None
         can_recover = (not closed and not active and (
             phase == 'recovery-failed' and getattr(self.startup, 'lab_active', False) or
             readonly_recovery_candidate and not getattr(self.startup, 'lab_active', False)))
@@ -384,23 +416,39 @@ class Controller:
         if phase == 'failed' and failure_code:
             stage = failure_stage or 'campaign'
             message = f'Proctor {stage} stopped ({failure_code}); Argos is back at its verified model.'
-        if recovery_status == 'read-only-attempt-recovered':
-            message = ('The drained safe attempt was recovered in this boot. It produced no '
-                       'evaluation or score; a new campaign may now be started.')
-        elif recovery_status == 'rejected-edit-attempt-recovered':
-            message = ('The drained attempt was recovered in this boot after confirming its instruction '
-                       'edits were rejected before a change was made. No evaluation or score was produced; '
-                       'a new campaign may now be started.')
-        recovery_steps = (progress.get('campaign_steps') if isinstance(progress, dict) else None) or []
-        rejected_edit_recovery = (readonly_recovery_candidate and readonly_recovery_watch_id == watch_id and
-                                  any(isinstance(step, dict) and step.get('tool') == 'edit' and
-                                      step.get('step_status') == 'rejected' for step in recovery_steps))
+        if workload_state != 'quarantined':
+            # A recovery receipt from earlier in this boot never describes a
+            # later quarantine; show it only while admission is still open.
+            if recovery_status == 'read-only-attempt-recovered':
+                message = ('The drained safe attempt was recovered in this boot. It produced no '
+                           'evaluation or score; a new campaign may now be started.')
+            elif recovery_status == 'rejected-edit-attempt-recovered':
+                message = ('The drained attempt was recovered in this boot after confirming its instruction '
+                           'edits were rejected before a change was made. No evaluation or score was produced; '
+                           'a new campaign may now be started.')
+            elif recovery_status == 'refused-evaluation-attempt-recovered':
+                message = ('The drained attempt was recovered in this boot after confirming the host refused '
+                           'its evaluation requests before any evaluation started. No evaluation or score was '
+                           'produced; a new campaign may now be started.')
+        elif not active and not readonly_recovery_candidate and phase != 'recovery-failed':
+            reboot = ('The last campaign reservation is still quarantined, and its saved records do not '
+                      'qualify for safe recovery in this boot. A reboot is needed before another campaign '
+                      'can start.')
+            message = reboot if phase == 'idle' else f'{message} {reboot}'
+        steady_recovery = (readonly_recovery_candidate and not closed and not active and
+                           not getattr(self.startup, 'lab_active', False))
+        refused_evaluation_recovery = steady_recovery and any(
+            workload.host_refused_evaluation_step(step) for step in recovery_steps)
+        rejected_edit_recovery = steady_recovery and any(
+            isinstance(step, dict) and step.get('tool') == 'edit' and
+            step.get('step_status') == 'rejected' for step in recovery_steps)
         return {
             'available': True, 'active': active, 'phase': phase, 'message': message,
             'can_start': can_start, 'can_recover': can_recover,
-            'recovery_watch_id': readonly_recovery_watch_id if can_recover else None,
-            'recovery_kind': ('rejected-edit-incomplete-turn' if rejected_edit_recovery else
-                             'read-only-incomplete-turn' if readonly_recovery_candidate else
+            'recovery_watch_id': readonly_recovery_watch_id if steady_recovery else None,
+            'recovery_kind': ('refused-evaluation-incomplete-turn' if refused_evaluation_recovery else
+                             'rejected-edit-incomplete-turn' if rejected_edit_recovery else
+                             'read-only-incomplete-turn' if steady_recovery else
                              'assistant-startup' if can_recover else None),
             'recovery_status': recovery_status,
             'elapsed_seconds': elapsed, 'model': model,
@@ -549,6 +597,7 @@ class Controller:
             self.owner_actions = [{'action': 'start', 'at_seconds': 0}]
             self.last_event = self.started
             self.record_saved = None
+            self.recovery_status = None
             self.phase = 'pausing'
             self.startup.lab_active = True
             self.startup.chat_claimed = True
@@ -612,9 +661,7 @@ class Controller:
                         self.home, watch_record)
                 except (OSError, ValueError, TypeError, KeyError):
                     raise Refused('The same-boot controller cannot be safely recovered from its saved records.') from None
-                self.recovery_status = ('rejected-edit-attempt-recovered'
-                                        if any(step.get('tool') == 'edit' for step in watch_record.get(
-                                            'campaign_steps', [])) else 'read-only-attempt-recovered')
+                self.recovery_status = _recovery_status(watch_record)
                 self.last_event = self.clock()
                 return self.snapshot()
             if (self.phase == 'incomplete' and self.failure_code == 'campaign-invalid-state' and
@@ -625,9 +672,7 @@ class Controller:
                         self.home, watch_record)
                 except (OSError, ValueError, TypeError, KeyError):
                     raise Refused('The same-boot controller cannot be safely recovered from its saved records.') from None
-                self.recovery_status = ('rejected-edit-attempt-recovered'
-                                        if any(step.get('tool') == 'edit' for step in watch_record.get(
-                                            'campaign_steps', [])) else 'read-only-attempt-recovered')
+                self.recovery_status = _recovery_status(watch_record)
                 self.last_event = self.clock()
                 return self.snapshot()
             if self.phase != 'recovery-failed' or not getattr(self.startup, 'lab_active', False):

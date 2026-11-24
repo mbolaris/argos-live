@@ -212,6 +212,251 @@ class WorkloadTests(unittest.TestCase):
                     base_watch['campaign_steps'] = [{'step_id': 'call-inspect', 'tool': 'inspect',
                                                      'status': 'completed', 'step_status': 'completed'}]
 
+    # A drained campaign whose evaluation calls the host refused while
+    # validating them (as when the installed plugin lacked the owner's suite),
+    # followed by a completed campaign-log note and an incomplete final turn.
+    REFUSED_BOOT = '11111111-1111-4111-8111-111111111111'
+    REFUSED_IDENTITY = {'boot_id': REFUSED_BOOT, 'start_ticks': '10'}
+
+    def _write_refused_evaluation_quarantine(self, home, *, refusal_code=None, log=True, mutate=None):
+        parent_id, generation = 'a' * 32, 12
+        owner_pid, worker_pid, watch_id = 12345, 2_000_000_000, 'e' * 32
+        root = home / '.local/state/argos-live/workload'
+        (root / 'child').mkdir(parents=True)
+        session_id, session_key = 'session-12', 'agent:main:argos_proctor_improvement_docs'
+        ledger = [('call-inspect', 'inspect'), ('call-audit', 'audit')]
+        if log:
+            ledger.append(('call-log', 'log'))
+        refused_ids = ['call-eval-1', 'call-eval-2']
+        failure_entry = {'kind': 'evaluation', 'error_class': 'ValueError'}
+        refused_step = {'tool': 'evaluation', 'status': 'failed', 'error_class': 'ValueError'}
+        if refusal_code is not None:
+            failure_entry.update(refusal_code=refusal_code, requested_suite='omitted',
+                                 owner_suite='documents-long')
+            refused_step.update(refusal_code=refusal_code, requested_suite='omitted',
+                                owner_suite='documents-long')
+        tools = [{'call_id': call_id, 'kind': kind} for call_id, kind in ledger]
+        for tool in tools:
+            if tool['kind'] == 'log':
+                tool.update(status='appended', appended=True, logged_result_ids=[])
+            if tool['kind'] == 'audit':
+                tool.update(status='verified', passed=True)
+        files = {
+            'reservation.json': {'schema': 'argos-workload/1', 'id': parent_id, 'generation': generation,
+                                 'kind': 'controller', 'pid': owner_pid,
+                                 'worker_identity': self.REFUSED_IDENTITY,
+                                 'state': 'quarantined', 'phase': 'running'},
+            'controller-worker.json': {'parent_id': parent_id, 'generation': generation, 'state': 'starting',
+                                       'pid': worker_pid, 'session_id': session_id,
+                                       'session_key': session_key},
+            'controller-failure.json': {'parent_id': parent_id, 'generation': generation,
+                                        'worker_pid': worker_pid, 'session_id': session_id,
+                                        'failure': {'code': 'worker-exit', 'returncode': 1,
+                                                    'worker_response': {'status': 'error',
+                                                                        'session_bound': True,
+                                                                        'error_kind': 'incomplete_turn'}}},
+            'controller-turn.json': {
+                'parent_id': parent_id, 'generation': generation, 'ended': True, 'uncertain': False,
+                'session_id': session_id, 'session_key': session_key,
+                'worker_turns': [{'turn': 1, 'outcome': 'incomplete-turn', 'response_status': 'error',
+                                  'returncode': 1, 'process_group_drained': True, 'session_bound': True,
+                                  'host_tool_failures': 0, 'host_tool_requests': 2}],
+                'host_tool_failures': [dict(failure_entry), dict(failure_entry)],
+                'host_tool_requests': len(ledger) + len(refused_ids) - 2,
+                'sdk_runs_started': 1, 'sdk_run_history': [],
+                'tools': tools},
+        }
+        children = {'1' * 32: 'maintenance', '2' * 32: 'maintenance'}
+        if log:
+            children['3' * 32] = 'log'
+        for child_id, kind in children.items():
+            files[f'child/{child_id}.json'] = {'schema': 'argos-workload-child/1', 'id': child_id,
+                                               'parent_id': parent_id, 'generation': generation,
+                                               'kind': kind, 'state': 'released'}
+        steps = [
+            {'step_id': 'call-inspect', 'tool': 'inspect', 'status': 'completed', 'step_status': 'completed'},
+            {'step_id': 'call-audit', 'tool': 'audit', 'status': 'completed', 'step_status': 'verified',
+             'passed': True},
+            {'step_id': refused_ids[0], **refused_step},
+            {'step_id': refused_ids[1], **refused_step},
+        ]
+        if log:
+            steps.append({'step_id': 'call-log', 'tool': 'log', 'status': 'completed',
+                          'step_status': 'appended'})
+        watch = {'schema': 'argos-proctor-watch/1', 'id': watch_id, 'phase': 'incomplete',
+                 'failure_code': 'campaign-invalid-state',
+                 'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                            'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                         'saved_evaluation_ids': []}},
+                 'campaign_steps': steps}
+        if mutate is not None:
+            mutate(files, watch)
+        for name, value in files.items():
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(value))
+        return root, watch, owner_pid
+
+    def _recover_refused(self, home, watch, owner_pid):
+        with patch.object(workload.sys, 'platform', 'linux'), \
+                patch.object(workload, 'current_boot_id', return_value=self.REFUSED_BOOT), \
+                patch.object(workload, 'worker_identity', return_value=self.REFUSED_IDENTITY), \
+                patch.object(workload, '_process_group_drained', return_value=True):
+            return workload.recover_owner_approved_readonly_incomplete_controller(
+                home, watch, owner_pid=owner_pid)
+
+    def test_owner_approved_recovery_accepts_host_refused_evaluations_and_appended_log(self):
+        # Older runtimes recorded no refusal code; newer ones record a fixed one.
+        for refusal_code in (None, 'owner-suite-mismatch', 'no-owner-suite'):
+            with self.subTest(refusal_code=refusal_code), tempfile.TemporaryDirectory() as temporary:
+                home = Path(temporary)
+                root, watch, owner_pid = self._write_refused_evaluation_quarantine(
+                    home, refusal_code=refusal_code)
+                self.assertTrue(workload.quarantined_controller_watch_binding(home, watch))
+                outcome = self._recover_refused(home, watch, owner_pid)
+                self.assertEqual(outcome, {'status': 'recovered',
+                                           'reason': 'drained-refused-evaluation-chain-incomplete-turn',
+                                           'watch_id': watch['id']})
+                current = json.loads((root / 'reservation.json').read_text())
+                self.assertEqual(current['state'], 'released')
+                self.assertEqual(current['phase'],
+                                 'recovered-owner-approved-refused-evaluation-chain-incomplete')
+                receipt = json.loads((root / 'recovered' / f"12-{'a' * 32}.json").read_text())
+                self.assertEqual(receipt['schema'], 'argos-workload-recovery/6')
+                self.assertEqual(receipt['reason'],
+                                 'owner-approved-drained-refused-evaluation-chain-incomplete-turn')
+                self.assertEqual(receipt['refused_evaluation_steps'], 2)
+                self.assertEqual(receipt['appended_log_steps'], 1)
+                self.assertEqual(receipt['watch_id'], watch['id'])
+                # A recovered reservation no longer binds any watch record.
+                self.assertFalse(workload.quarantined_controller_watch_binding(home, watch))
+
+    def test_owner_approved_readonly_chain_with_appended_log_recovers(self):
+        def drop_refusals(files, watch):
+            watch['campaign_steps'] = [step for step in watch['campaign_steps']
+                                       if step['tool'] != 'evaluation']
+            files['controller-turn.json']['host_tool_failures'] = []
+            files['controller-turn.json']['worker_turns'][0].update(
+                outcome='completed', response_status='ok', returncode=0)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            root, watch, owner_pid = self._write_refused_evaluation_quarantine(home, mutate=drop_refusals)
+            outcome = self._recover_refused(home, watch, owner_pid)
+            self.assertEqual(outcome['reason'], 'drained-readonly-chain-incomplete-turn')
+            receipt = json.loads((root / 'recovered' / f"12-{'a' * 32}.json").read_text())
+            self.assertEqual(receipt['schema'], 'argos-workload-recovery/4')
+            self.assertEqual(receipt['appended_log_steps'], 1)
+
+    def test_owner_approved_refused_evaluation_recovery_fails_closed_without_durable_proof(self):
+        def turn(files):
+            return files['controller-turn.json']
+
+        def child(child_id, kind, state='released'):
+            return {'schema': 'argos-workload-child/1', 'id': child_id, 'parent_id': 'a' * 32,
+                    'generation': 12, 'kind': kind, 'state': state}
+
+        mutations = {
+            # Any trace that an evaluation job or worker existed for the generation.
+            'evaluation-job-published': lambda files, watch: turn(files).update(
+                evaluation_job={'job_id': 'f' * 32, 'suite': 'documents-long', 'state': 'failed',
+                                'completed': 0, 'total': 40}),
+            'evaluation-child-released': lambda files, watch: files.update(
+                {f"child/{'4' * 32}.json": child('4' * 32, 'evaluation')}),
+            'evaluation-child-cancelled': lambda files, watch: files.update(
+                {f"child/{'4' * 32}.json": {**child('4' * 32, 'evaluation'),
+                                            'outcome': 'cancelled-before-start'}}),
+            'child-without-kind': lambda files, watch: files.update(
+                {f"child/{'4' * 32}.json": {key: value for key, value in child('4' * 32, 'log').items()
+                                            if key != 'kind'}}),
+            'maintenance-child-active': lambda files, watch: files.update(
+                {f"child/{'1' * 32}.json": child('1' * 32, 'maintenance', 'active')}),
+            'evaluation-outcome-in-ledger': lambda files, watch: turn(files)['tools'].append(
+                {'call_id': 'call-eval-1', 'kind': 'evaluation', 'result_id': 'f' * 32}),
+            # Failures outside admission validation carry extra ledger fields.
+            'busy-failure-stage': lambda files, watch: turn(files)['host_tool_failures'][0].update(
+                tool_stage='host-operation'),
+            'child-failure-stage': lambda files, watch: turn(files)['host_tool_failures'][1].update(
+                child_failure_stage='reservation'),
+            'failure-not-value-error': lambda files, watch: turn(files)['host_tool_failures'][0].update(
+                error_class='RuntimeError'),
+            'failure-other-tool': lambda files, watch: turn(files)['host_tool_failures'][0].update(
+                kind='evaluation_wait'),
+            'failure-count-short': lambda files, watch: turn(files)['host_tool_failures'].pop(),
+            'failure-count-extra': lambda files, watch: turn(files)['host_tool_failures'].append(
+                {'kind': 'evaluation', 'error_class': 'ValueError'}),
+            'failure-code-mismatch': lambda files, watch: turn(files)['host_tool_failures'][0].update(
+                refusal_code='evaluation-limit-reached'),
+            'earlier-sdk-run-failure': lambda files, watch: turn(files).update(
+                sdk_run_history=[{'run_id': 'run-0', 'ended': True, 'host_tool_requests': 1,
+                                  'host_tool_failures': 1}]),
+            'earlier-worker-failure': lambda files, watch: turn(files).update(worker_turns=[
+                {'turn': 1, 'outcome': 'completed', 'response_status': 'ok', 'returncode': 0,
+                 'process_group_drained': True, 'session_bound': True, 'host_tool_failures': 1,
+                 'host_tool_requests': 1},
+                {**turn(files)['worker_turns'][0], 'turn': 2}]),
+            'last-turn-completed': lambda files, watch: turn(files)['worker_turns'][0].update(
+                outcome='completed', response_status='ok', returncode=0),
+            # Watch steps that show an evaluation was admitted or produced output.
+            'step-has-result': lambda files, watch: watch['campaign_steps'][2].update(result_id='f' * 32),
+            'step-has-run-state': lambda files, watch: watch['campaign_steps'][2].update(run_state='failed'),
+            'step-has-progress': lambda files, watch: watch['campaign_steps'][3].update(completed=1, total=40),
+            'step-busy': lambda files, watch: watch['campaign_steps'][2].update(error_class='Busy'),
+            'step-unknown-refusal': lambda files, watch: watch['campaign_steps'][2].update(
+                refusal_code='made-up'),
+            'step-evaluation-completed': lambda files, watch: watch['campaign_steps'][2].update(
+                status='completed', step_status='completed'),
+            'saved-evaluation': lambda files, watch: watch['result']['campaign'].update(
+                saved_evaluation_ids=['f' * 32]),
+            # The log note must be a confirmed append from its own drained log child.
+            'log-unconfirmed': lambda files, watch: turn(files)['tools'][2].update(
+                status='failed', appended=False, append_outcome='unconfirmed'),
+            'log-step-failed': lambda files, watch: watch['campaign_steps'][4].update(step_status='failed'),
+            'log-child-missing': lambda files, watch: files.pop(f"child/{'3' * 32}.json"),
+            'log-child-active': lambda files, watch: files.update(
+                {f"child/{'3' * 32}.json": child('3' * 32, 'log', 'active')}),
+            'no-audit': lambda files, watch: watch['campaign_steps'].pop(1) and turn(files)['tools'].pop(1),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name), tempfile.TemporaryDirectory() as temporary:
+                home = Path(temporary)
+                root, watch, owner_pid = self._write_refused_evaluation_quarantine(home, mutate=mutate)
+                with self.assertRaises(workload.Busy) as failure:
+                    self._recover_refused(home, watch, owner_pid)
+                self.assertTrue(failure.exception.recovery)
+                self.assertEqual(json.loads((root / 'reservation.json').read_text())['state'], 'quarantined')
+                self.assertFalse((root / 'recovered').exists())
+
+    def test_watch_binding_requires_the_current_quarantined_controller_ledger(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            root, watch, _owner_pid = self._write_refused_evaluation_quarantine(home)
+            self.assertTrue(workload.quarantined_controller_watch_binding(home, watch))
+            # An older campaign: eligible on its own, but its calls are not this ledger's.
+            older = json.loads(json.dumps(watch))
+            older['id'] = '1ef43210' + '0' * 24
+            older['campaign_steps'] = [
+                {'step_id': 'old-inspect', 'tool': 'inspect', 'status': 'completed',
+                 'step_status': 'completed'}]
+            self.assertFalse(workload.quarantined_controller_watch_binding(home, older))
+            turn_path = root / 'controller-turn.json'
+            turn = json.loads(turn_path.read_text())
+            turn['generation'] = 11
+            turn_path.write_text(json.dumps(turn))
+            self.assertFalse(workload.quarantined_controller_watch_binding(home, watch))
+            turn['generation'] = 12
+            turn_path.write_text(json.dumps(turn))
+            receipt = root / 'recovered' / f"12-{'a' * 32}.json"
+            receipt.parent.mkdir()
+            receipt.write_text('{}')
+            self.assertFalse(workload.quarantined_controller_watch_binding(home, watch))
+            receipt.unlink()
+            reservation_path = root / 'reservation.json'
+            reservation = json.loads(reservation_path.read_text())
+            reservation['state'] = 'released'
+            reservation_path.write_text(json.dumps(reservation))
+            self.assertFalse(workload.quarantined_controller_watch_binding(home, watch))
+
     def _write_completed_controller_quarantine(self, home, *, final_audit=True, child_state='released'):
         boot_id = '11111111-1111-4111-8111-111111111111'
         parent_id = 'a' * 32

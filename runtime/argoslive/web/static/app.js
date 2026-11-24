@@ -5005,7 +5005,8 @@ async function refreshProctorCampaign() {
     proctorCampaignRecoveryWatchId = data.recovery_watch_id || null;
     recoverButton.hidden = !data.can_recover;
     recoverButton.disabled = proctorCampaignStarting || !data.can_recover;
-    recoverButton.textContent = ['read-only-incomplete-turn', 'rejected-edit-incomplete-turn']
+    recoverButton.textContent = ['read-only-incomplete-turn', 'rejected-edit-incomplete-turn',
+      'refused-evaluation-incomplete-turn']
       .includes(data.recovery_kind) && data.can_recover
       ? 'Recover drained attempt' : 'Retry Argos recovery';
     const stopButton = document.getElementById('proctor-campaign-stop');

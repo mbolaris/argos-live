@@ -225,16 +225,107 @@ def _recover_evidence_complete_controller(root, prior, boot_id):
         return True
 
 
+# Mirrors controller_bridge.TOOL_REFUSAL_CODES. Each is raised while the bridge
+# validates an agent request, before the call ID is admitted, before an
+# evaluation is counted, and before any child reservation can be delegated.
+HOST_REFUSAL_CODES = frozenset({
+    'campaign-stop-requested', 'unsupported-evaluation-request', 'evaluation-limit-reached',
+    'no-owner-suite', 'owner-suite-mismatch'})
+_REFUSED_EVALUATION_STEP_KEYS = frozenset({
+    'step_id', 'tool', 'status', 'error_class', 'refusal_code', 'requested_suite', 'owner_suite'})
+_REFUSED_EVALUATION_FAILURE_KEYS = frozenset({
+    'kind', 'error_class', 'refusal_code', 'requested_suite', 'owner_suite'})
+
+
+def host_refused_evaluation_step(step):
+    """Static shape of an argos_evaluate call the host refused while validating it.
+
+    Only the watch fields published for a failed request may be present: no
+    result ID, run state, counts, or step status from an admitted evaluation.
+    This alone never proves that no evaluation started; recovery also requires
+    the durable controller ledger and child records described below.
+    """
+    return (isinstance(step, dict) and set(step) <= _REFUSED_EVALUATION_STEP_KEYS and
+            step.get('tool') == 'evaluation' and step.get('status') == 'failed' and
+            step.get('error_class') == 'ValueError' and
+            isinstance(step.get('step_id'), str) and bool(step['step_id']) and
+            ('refusal_code' not in step or step['refusal_code'] in HOST_REFUSAL_CODES))
+
+
+def _host_refused_evaluation_failure(item):
+    """Controller-ledger entry for the same refusal; Busy/child failures carry extra stages."""
+    return (isinstance(item, dict) and set(item) <= _REFUSED_EVALUATION_FAILURE_KEYS and
+            item.get('kind') == 'evaluation' and item.get('error_class') == 'ValueError' and
+            ('refusal_code' not in item or item['refusal_code'] in HOST_REFUSAL_CODES))
+
+
+def _split_recovery_steps(steps):
+    """Return (ledger steps, host-refused evaluation steps) in their original order."""
+    ledger = [step for step in steps if not host_refused_evaluation_step(step)]
+    refused = [step for step in steps if host_refused_evaluation_step(step)]
+    return ledger, refused
+
+
+def quarantined_controller_watch_binding(home, watch_record):
+    """Read-only check that a saved watch belongs to the current quarantined controller.
+
+    The dashboard may offer recovery only for the campaign whose controller
+    holds the reservation now. An older watch record, including one whose own
+    reservation was already recovered, must not be offered for a newer
+    quarantine. The binding is the durable controller ledger for the current
+    reservation ID and generation: its tool call IDs must be exactly the watch
+    record's admitted host steps. The full recovery verifier rechecks all of
+    this, and much more, under the workload lock.
+    """
+    try:
+        if not isinstance(watch_record, dict):
+            return False
+        steps = watch_record.get('campaign_steps')
+        if (not isinstance(steps, list) or not steps or
+                any(not isinstance(step, dict) or not isinstance(step.get('step_id'), str)
+                    for step in steps)):
+            return False
+        root = storage.safe_local(Path(home) / '.local/state/argos-live/workload')
+        prior = read_json(storage.safe_local(root / 'reservation.json'))
+        parent_id, generation = prior.get('id'), prior.get('generation')
+        if (prior.get('state') != 'quarantined' or prior.get('kind') != 'controller' or
+                not isinstance(parent_id, str) or not re.fullmatch(r'[a-f0-9]{32}', parent_id) or
+                type(generation) is not int or generation < 1):
+            return False
+        if storage.safe_local(root / 'recovered' / f'{generation}-{parent_id}.json').exists():
+            return False
+        turn = read_json(storage.safe_local(root / 'controller-turn.json'))
+        if (turn.get('parent_id'), turn.get('generation')) != (parent_id, generation):
+            return False
+        ledger, refused = _split_recovery_steps(steps)
+        tools = turn.get('tools')
+        failures = turn.get('host_tool_failures')
+        return bool(isinstance(tools, list) and all(isinstance(item, dict) for item in tools) and
+                    [item.get('call_id') for item in tools] == [step['step_id'] for step in ledger] and
+                    [item.get('kind') for item in tools] == [step.get('tool') for step in ledger] and
+                    isinstance(failures, list) and len(failures) == len(refused))
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
 def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *, owner_pid=None):
     """Release one quarantined controller after its owner requests safe recovery.
 
     This narrow path is for a saved campaign whose completed host calls were
     limited to inspect/audit/compare, plus instruction edits rejected before
-    a change ID was created, then exited with a session-bound incomplete turn.
-    It never treats scores or capability evidence as complete. An explicit
-    dashboard recovery request, exact same-boot process identities, a drained
-    worker process group, and matching durable controller/watch records are all
-    required before a recovery receipt reopens admission.
+    a change ID was created, completed append-only campaign log notes, and
+    evaluation requests the host refused before admitting them, then exited
+    with a session-bound incomplete turn. It never treats scores or capability
+    evidence as complete. An explicit dashboard recovery request, exact
+    same-boot process identities, a drained worker process group, and matching
+    durable controller/watch records are all required before a recovery
+    receipt reopens admission.
+
+    A refused evaluation is accepted only with durable proof that it never
+    became work: the controller ledger records the refusal with no Busy,
+    child, or host-operation stage, never published an evaluation job for this
+    generation, recorded no evaluation outcome, and no evaluation child
+    reservation exists for this generation.
     """
     from datetime import datetime, timezone
 
@@ -244,17 +335,21 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
     result = watch_record.get('result') if isinstance(watch_record.get('result'), dict) else {}
     campaign = result.get('campaign') if isinstance(result.get('campaign'), dict) else {}
     steps = watch_record.get('campaign_steps')
-    simple_readonly = (isinstance(steps, list) and len(steps) == 1 and
-                       isinstance(steps[0], dict) and steps[0].get('tool') == 'inspect')
-    safe_chain = (isinstance(steps, list) and 2 <= len(steps) <= 16 and
-                  all(isinstance(step, dict) and step.get('tool') in
-                      {'inspect', 'audit', 'compare', 'edit'} and
-                      (step.get('tool') != 'edit' or step.get('step_status') == 'rejected')
-                      for step in steps) and
-                  any(step.get('tool') == 'inspect' for step in steps) and
-                  any(step.get('tool') == 'audit' for step in steps))
-    rejected_edits = bool(safe_chain and any(step.get('tool') == 'edit' for step in steps))
-    readonly_chain = bool(safe_chain and not rejected_edits)
+    if not isinstance(steps, list) or not all(isinstance(step, dict) for step in steps):
+        raise Busy(recovery=True)
+    ledger_steps, refused_steps = _split_recovery_steps(steps)
+    simple_readonly = (len(steps) == 1 and steps[0].get('tool') == 'inspect')
+    safe_chain = (2 <= len(steps) <= 16 and
+                  all(step.get('tool') in {'inspect', 'audit', 'compare', 'edit', 'log'} and
+                      (step.get('tool') != 'edit' or step.get('step_status') == 'rejected') and
+                      (step.get('tool') != 'log' or step.get('step_status') == 'appended')
+                      for step in ledger_steps) and
+                  any(step.get('tool') == 'inspect' for step in ledger_steps) and
+                  any(step.get('tool') == 'audit' for step in ledger_steps))
+    refused_evaluations = bool(safe_chain and refused_steps)
+    rejected_edits = bool(safe_chain and any(step.get('tool') == 'edit' for step in ledger_steps))
+    readonly_chain = bool(safe_chain and not rejected_edits and not refused_evaluations)
+    log_steps = [step for step in ledger_steps if step.get('tool') == 'log']
     if (not isinstance(watch_id, str) or not re.fullmatch(r'[a-f0-9]{32}', watch_id) or
             watch_record.get('phase') != 'incomplete' or
             watch_record.get('failure_code') != 'campaign-invalid-state' or
@@ -267,8 +362,9 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                 (step.get('tool') == 'audit' and
                  (step.get('step_status') != 'verified' or step.get('passed') is not True)) or
                 (step.get('tool') == 'edit' and step.get('step_status') != 'rejected') or
+                (step.get('tool') == 'log' and step.get('step_status') != 'appended') or
                 not isinstance(step.get('step_id'), str) or not step.get('step_id')
-                for step in steps) or
+                for step in ledger_steps) or
             len({step['step_id'] for step in steps}) != len(steps)):
         raise Busy(recovery=True)
 
@@ -330,26 +426,51 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
         if not _process_group_drained(worker_pid):
             raise Busy(recovery=True)
         worker_turns = turn.get('worker_turns')
+        failures = turn.get('host_tool_failures')
         if (turn.get('parent_id'), turn.get('generation'), turn.get('ended'), turn.get('uncertain'),
-                turn.get('session_id'), turn.get('session_key'), turn.get('host_tool_failures')) != (
-                parent_id, generation, True, False, session_id, session_key, []):
+                turn.get('session_id'), turn.get('session_key')) != (
+                parent_id, generation, True, False, session_id, session_key):
+            raise Busy(recovery=True)
+        # Every host tool failure must be one of the refused evaluations shown
+        # in the watch record, recorded in the current SDK run's detailed list.
+        # A Busy, child-stage, or host-operation failure carries extra fields.
+        if (not isinstance(failures, list) or len(failures) != len(refused_steps) or
+                not all(_host_refused_evaluation_failure(item) for item in failures) or
+                [item.get('refusal_code') for item in failures] !=
+                [step.get('refusal_code') for step in refused_steps]):
+            raise Busy(recovery=True)
+        # The bridge publishes an evaluation job before its worker can start
+        # and republishes the ledger after every failed tool call. Its absence
+        # is durable proof that no evaluation job existed for this generation.
+        if 'evaluation_job' in turn:
+            raise Busy(recovery=True)
+        sdk_history = turn.get('sdk_run_history', [])
+        if (not isinstance(sdk_history, list) or
+                any(not isinstance(item, dict) or item.get('host_tool_failures', 0) != 0
+                    for item in sdk_history)):
             raise Busy(recovery=True)
         tools = turn.get('tools')
-        if (not isinstance(tools, list) or len(tools) != len(steps) or
+        if (not isinstance(tools, list) or len(tools) != len(ledger_steps) or
                 type(turn.get('host_tool_requests')) is not int or
-                turn.get('host_tool_requests') not in range(1, len(tools) + 1) or
+                turn.get('host_tool_requests') not in range(1, len(steps) + 1) or
                 not all(isinstance(item, dict) for item in tools) or
-                [item.get('call_id') for item in tools] != [step.get('step_id') for step in steps] or
-                [item.get('kind') for item in tools] != [step.get('tool') for step in steps]):
+                [item.get('call_id') for item in tools] != [step.get('step_id') for step in ledger_steps] or
+                [item.get('kind') for item in tools] != [step.get('tool') for step in ledger_steps]):
             raise Busy(recovery=True)
         tool_by_call = {item.get('call_id'): item for item in tools}
-        for step in steps:
+        for step in ledger_steps:
+            observed = tool_by_call.get(step.get('step_id'), {})
             if step.get('tool') == 'edit':
-                observed = tool_by_call.get(step.get('step_id'), {})
                 if (observed.get('status') != 'rejected' or
                         observed.get('change_id', 'missing') is not None):
                     raise Busy(recovery=True)
-        if any(step.get('tool') == 'edit' for step in steps):
+            if step.get('tool') == 'log':
+                # An append-only note whose host-owned log child finished and
+                # confirmed the append. It starts no inference or other child.
+                if (observed.get('status') != 'appended' or observed.get('appended') is not True or
+                        'append_outcome' in observed):
+                    raise Busy(recovery=True)
+        if any(step.get('tool') == 'edit' for step in ledger_steps):
             # Refused edits must leave no prepared or applied journal entry.
             from . import instruction_changes
             changes_root = storage.safe_local(
@@ -369,7 +490,9 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                               item.get('response_status') == 'error' and item.get('returncode') == 1)) or
                         item.get('process_group_drained') is not True or
                         item.get('session_bound') is not True or
-                        item.get('host_tool_failures') != 0 or
+                        type(item.get('host_tool_failures')) is not int or
+                        item.get('host_tool_failures') not in (
+                            {0, len(refused_steps)} if item is worker_turns[-1] else {0}) or
                         type(item.get('host_tool_requests')) is not int or
                         item.get('host_tool_requests') < (0 if rejected_edits else 1)
                         for item in worker_turns) or
@@ -384,20 +507,32 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                     (worker_turns[-1].get('outcome') == 'incomplete-turn' and
                      (worker_turns[-1].get('response_status') != 'error' or
                       worker_turns[-1].get('returncode') != 1)) or
-                    (rejected_edits and worker_turns[-1].get('outcome') != 'incomplete-turn') or
-                    sum(item['host_tool_requests'] for item in worker_turns) > len(tools)):
+                    ((rejected_edits or refused_evaluations) and
+                     worker_turns[-1].get('outcome') != 'incomplete-turn') or
+                    sum(item['host_tool_requests'] for item in worker_turns) > len(steps)):
                 raise Busy(recovery=True)
 
         # No child reservation from this generation may still be active or
-        # quarantined. Keep the parent-then-child lock order used by reserve().
+        # quarantined, and none may be an evaluation: inspect/audit/edit run as
+        # maintenance children and log notes as log children. Keep the
+        # parent-then-child lock order used by reserve().
         with child_lock(root):
             children = child_root(root)
+            log_children = 0
             for path in children.glob('*.json'):
                 child = read_json(storage.safe_local(path))
                 if (child.get('parent_id'), child.get('generation')) == (parent_id, generation):
                     if child.get('state') != 'released':
                         raise Busy(recovery=True)
-            receipt = {'schema': ('argos-workload-recovery/5' if rejected_edits else
+                    if 'kind' in child and child.get('kind') not in {'maintenance', 'log'}:
+                        raise Busy(recovery=True)
+                    if refused_evaluations and child.get('kind') not in {'maintenance', 'log'}:
+                        raise Busy(recovery=True)
+                    log_children += child.get('kind') == 'log'
+            if log_steps and log_children != len(log_steps):
+                raise Busy(recovery=True)
+            receipt = {'schema': ('argos-workload-recovery/6' if refused_evaluations else
+                                  'argos-workload-recovery/5' if rejected_edits else
                                   'argos-workload-recovery/4' if readonly_chain else
                                   'argos-workload-recovery/3'),
                        'reservation_id': parent_id,
@@ -405,12 +540,18 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                        'previous_kind': 'controller', 'previous_phase': 'running',
                        'previous_boot_id': current_boot, 'current_boot_id': current_boot,
                        'watch_id': watch_id,
-                       'reason': ('owner-approved-drained-rejected-edit-chain-incomplete-turn'
+                       'reason': ('owner-approved-drained-refused-evaluation-chain-incomplete-turn'
+                                  if refused_evaluations else
+                                  'owner-approved-drained-rejected-edit-chain-incomplete-turn'
                                   if rejected_edits else
                                   'owner-approved-drained-readonly-chain-incomplete-turn'
                                   if readonly_chain else
                                   'owner-approved-drained-readonly-incomplete-turn'),
                        'recovered': datetime.now(timezone.utc).isoformat()}
+            if refused_evaluations:
+                receipt['refused_evaluation_steps'] = len(refused_steps)
+            if log_steps:
+                receipt['appended_log_steps'] = len(log_steps)
             recovered = storage.safe_local(root / 'recovered')
             recovered.mkdir(mode=0o700, parents=True, exist_ok=True)
             recovery_path = storage.safe_local(
@@ -423,7 +564,9 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                 receipt = saved
             else:
                 write_json(recovery_path, receipt)
-            prior.update(state='released', phase=('recovered-owner-approved-rejected-edit-chain-incomplete'
+            prior.update(state='released', phase=('recovered-owner-approved-refused-evaluation-chain-incomplete'
+                                                   if refused_evaluations else
+                                                   'recovered-owner-approved-rejected-edit-chain-incomplete'
                                                    if rejected_edits else
                                                    'recovered-owner-approved-readonly-chain-incomplete'
                                                    if readonly_chain else
@@ -431,7 +574,8 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                          recovered=receipt['recovered'], recovery_reason=receipt['reason'])
             write_json(storage.safe_local(root / 'reservation.json'), prior)
         return {'status': 'recovered',
-                'reason': ('drained-rejected-edit-chain-incomplete-turn' if rejected_edits else
+                'reason': ('drained-refused-evaluation-chain-incomplete-turn' if refused_evaluations else
+                           'drained-rejected-edit-chain-incomplete-turn' if rejected_edits else
                            'drained-readonly-chain-incomplete-turn' if readonly_chain else
                            'drained-readonly-incomplete-turn'),
                 'watch_id': watch_id}
