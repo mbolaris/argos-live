@@ -371,14 +371,20 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                         item.get('session_bound') is not True or
                         item.get('host_tool_failures') != 0 or
                         type(item.get('host_tool_requests')) is not int or
-                        item.get('host_tool_requests') < 0
+                        item.get('host_tool_requests') < (0 if rejected_edits else 1)
                         for item in worker_turns) or
                     [item.get('turn') for item in worker_turns] != list(range(1, len(worker_turns) + 1)) or
                     any(item.get('outcome') != 'completed' or item.get('response_status') != 'ok' or
                         item.get('returncode') != 0 for item in worker_turns[:-1]) or
-                    worker_turns[-1].get('outcome') != 'incomplete-turn' or
-                    worker_turns[-1].get('response_status') != 'error' or
-                    worker_turns[-1].get('returncode') != 1 or
+                    (worker_turns[-1].get('outcome') != 'completed' and not rejected_edits and
+                     worker_turns[-1].get('outcome') != 'incomplete-turn') or
+                    (worker_turns[-1].get('outcome') == 'completed' and
+                     (worker_turns[-1].get('response_status') != 'ok' or
+                      worker_turns[-1].get('returncode') != 0)) or
+                    (worker_turns[-1].get('outcome') == 'incomplete-turn' and
+                     (worker_turns[-1].get('response_status') != 'error' or
+                      worker_turns[-1].get('returncode') != 1)) or
+                    (rejected_edits and worker_turns[-1].get('outcome') != 'incomplete-turn') or
                     sum(item['host_tool_requests'] for item in worker_turns) > len(tools)):
                 raise Busy(recovery=True)
 
