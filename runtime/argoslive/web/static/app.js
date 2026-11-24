@@ -5002,8 +5002,9 @@ async function refreshProctorCampaign() {
     proctorCampaignRecoveryWatchId = data.recovery_watch_id || null;
     recoverButton.hidden = !data.can_recover;
     recoverButton.disabled = proctorCampaignStarting || !data.can_recover;
-    recoverButton.textContent = data.recovery_kind === 'read-only-incomplete-turn' && data.can_recover
-      ? 'Recover drained read-only attempt' : 'Retry Argos recovery';
+    recoverButton.textContent = ['read-only-incomplete-turn', 'rejected-edit-incomplete-turn']
+      .includes(data.recovery_kind) && data.can_recover
+      ? 'Recover drained attempt' : 'Retry Argos recovery';
     const stopButton = document.getElementById('proctor-campaign-stop');
     stopButton.hidden = !data.active || data.phase === 'stopping' || data.phase === 'restarting';
     stopButton.disabled = proctorCampaignStarting || !data.active || data.phase === 'stopping';

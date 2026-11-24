@@ -229,11 +229,12 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
     """Release one quarantined controller after its owner requests safe recovery.
 
     This narrow path is for a saved campaign whose completed host calls were
-    limited to read-only inspect/audit steps, then exited with a session-bound
-    incomplete turn. It never treats scores or capability evidence as complete.
-    An explicit dashboard recovery request, exact same-boot process identities,
-    a drained worker process group, and matching durable controller/watch
-    records are all required before a recovery receipt reopens admission.
+    limited to inspect/audit/compare, plus instruction edits rejected before
+    a change ID was created, then exited with a session-bound incomplete turn.
+    It never treats scores or capability evidence as complete. An explicit
+    dashboard recovery request, exact same-boot process identities, a drained
+    worker process group, and matching durable controller/watch records are all
+    required before a recovery receipt reopens admission.
     """
     from datetime import datetime, timezone
 
@@ -245,22 +246,27 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
     steps = watch_record.get('campaign_steps')
     simple_readonly = (isinstance(steps, list) and len(steps) == 1 and
                        isinstance(steps[0], dict) and steps[0].get('tool') == 'inspect')
-    chain_readonly = (isinstance(steps, list) and 2 <= len(steps) <= 16 and
-                      all(isinstance(step, dict) and step.get('tool') in {'inspect', 'audit'}
-                          for step in steps) and
-                      any(step.get('tool') == 'inspect' for step in steps) and
-                      any(step.get('tool') == 'audit' for step in steps))
+    safe_chain = (isinstance(steps, list) and 2 <= len(steps) <= 16 and
+                  all(isinstance(step, dict) and step.get('tool') in
+                      {'inspect', 'audit', 'compare', 'edit'} and
+                      (step.get('tool') != 'edit' or step.get('step_status') == 'rejected')
+                      for step in steps) and
+                  any(step.get('tool') == 'inspect' for step in steps) and
+                  any(step.get('tool') == 'audit' for step in steps))
+    rejected_edits = bool(safe_chain and any(step.get('tool') == 'edit' for step in steps))
+    readonly_chain = bool(safe_chain and not rejected_edits)
     if (not isinstance(watch_id, str) or not re.fullmatch(r'[a-f0-9]{32}', watch_id) or
             watch_record.get('phase') != 'incomplete' or
             watch_record.get('failure_code') != 'campaign-invalid-state' or
             result.get('status') != 'incomplete' or result.get('failure_code') != 'campaign-invalid-state' or
             campaign.get('status') != 'failed' or campaign.get('outcome') != 'campaign-runtime-failed' or
             campaign.get('saved_evaluation_ids') != [] or
-            not (simple_readonly or chain_readonly) or
+            not (simple_readonly or safe_chain) or
             any(step.get('status') != 'completed' or
                 (step.get('tool') == 'inspect' and step.get('step_status') != 'completed') or
                 (step.get('tool') == 'audit' and
                  (step.get('step_status') != 'verified' or step.get('passed') is not True)) or
+                (step.get('tool') == 'edit' and step.get('step_status') != 'rejected') or
                 not isinstance(step.get('step_id'), str) or not step.get('step_id')
                 for step in steps) or
             len({step['step_id'] for step in steps}) != len(steps)):
@@ -336,22 +342,49 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                 [item.get('call_id') for item in tools] != [step.get('step_id') for step in steps] or
                 [item.get('kind') for item in tools] != [step.get('tool') for step in steps]):
             raise Busy(recovery=True)
+        tool_by_call = {item.get('call_id'): item for item in tools}
+        for step in steps:
+            if step.get('tool') == 'edit':
+                observed = tool_by_call.get(step.get('step_id'), {})
+                if (observed.get('status') != 'rejected' or
+                        observed.get('change_id', 'missing') is not None):
+                    raise Busy(recovery=True)
+        if any(step.get('tool') == 'edit' for step in steps):
+            # Refused edits must leave no prepared or applied journal entry.
+            from . import instruction_changes
+            changes_root = storage.safe_local(
+                Path(home) / '.local/state/argos-live/instruction-changes')
+            changes = instruction_changes.state(changes_root)
+            if changes.get('active') is not None:
+                raise Busy(recovery=True)
         if simple_readonly:
             if worker_turns != [] or turn.get('host_tool_requests') != 1:
                 raise Busy(recovery=True)
         else:
             if (not isinstance(worker_turns, list) or not 1 <= len(worker_turns) <= 3 or
                     any(not isinstance(item, dict) or
-                        item.get('outcome') != 'completed' or
-                        item.get('response_status') != 'ok' or
+                        not ((item.get('outcome') == 'completed' and
+                              item.get('response_status') == 'ok' and item.get('returncode') == 0) or
+                             (item.get('outcome') == 'incomplete-turn' and
+                              item.get('response_status') == 'error' and item.get('returncode') == 1)) or
                         item.get('process_group_drained') is not True or
                         item.get('session_bound') is not True or
                         item.get('host_tool_failures') != 0 or
                         type(item.get('host_tool_requests')) is not int or
-                        item.get('host_tool_requests') < 1 or
-                        type(item.get('returncode')) is not int or item.get('returncode') != 0
+                        item.get('host_tool_requests') < (0 if rejected_edits else 1)
                         for item in worker_turns) or
                     [item.get('turn') for item in worker_turns] != list(range(1, len(worker_turns) + 1)) or
+                    any(item.get('outcome') != 'completed' or item.get('response_status') != 'ok' or
+                        item.get('returncode') != 0 for item in worker_turns[:-1]) or
+                    (worker_turns[-1].get('outcome') != 'completed' and not rejected_edits and
+                     worker_turns[-1].get('outcome') != 'incomplete-turn') or
+                    (worker_turns[-1].get('outcome') == 'completed' and
+                     (worker_turns[-1].get('response_status') != 'ok' or
+                      worker_turns[-1].get('returncode') != 0)) or
+                    (worker_turns[-1].get('outcome') == 'incomplete-turn' and
+                     (worker_turns[-1].get('response_status') != 'error' or
+                      worker_turns[-1].get('returncode') != 1)) or
+                    (rejected_edits and worker_turns[-1].get('outcome') != 'incomplete-turn') or
                     sum(item['host_tool_requests'] for item in worker_turns) > len(tools)):
                 raise Busy(recovery=True)
 
@@ -364,14 +397,18 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                 if (child.get('parent_id'), child.get('generation')) == (parent_id, generation):
                     if child.get('state') != 'released':
                         raise Busy(recovery=True)
-            receipt = {'schema': 'argos-workload-recovery/4' if chain_readonly else 'argos-workload-recovery/3',
+            receipt = {'schema': ('argos-workload-recovery/5' if rejected_edits else
+                                  'argos-workload-recovery/4' if readonly_chain else
+                                  'argos-workload-recovery/3'),
                        'reservation_id': parent_id,
                        'generation': generation, 'previous_state': 'quarantined',
                        'previous_kind': 'controller', 'previous_phase': 'running',
                        'previous_boot_id': current_boot, 'current_boot_id': current_boot,
                        'watch_id': watch_id,
-                       'reason': ('owner-approved-drained-readonly-chain-incomplete-turn'
-                                  if chain_readonly else
+                       'reason': ('owner-approved-drained-rejected-edit-chain-incomplete-turn'
+                                  if rejected_edits else
+                                  'owner-approved-drained-readonly-chain-incomplete-turn'
+                                  if readonly_chain else
                                   'owner-approved-drained-readonly-incomplete-turn'),
                        'recovered': datetime.now(timezone.utc).isoformat()}
             recovered = storage.safe_local(root / 'recovered')
@@ -386,13 +423,16 @@ def recover_owner_approved_readonly_incomplete_controller(home, watch_record, *,
                 receipt = saved
             else:
                 write_json(recovery_path, receipt)
-            prior.update(state='released', phase=('recovered-owner-approved-readonly-chain-incomplete'
-                                                   if chain_readonly else
+            prior.update(state='released', phase=('recovered-owner-approved-rejected-edit-chain-incomplete'
+                                                   if rejected_edits else
+                                                   'recovered-owner-approved-readonly-chain-incomplete'
+                                                   if readonly_chain else
                                                    'recovered-owner-approved-readonly-incomplete'),
                          recovered=receipt['recovered'], recovery_reason=receipt['reason'])
             write_json(storage.safe_local(root / 'reservation.json'), prior)
         return {'status': 'recovered',
-                'reason': ('drained-readonly-chain-incomplete-turn' if chain_readonly else
+                'reason': ('drained-rejected-edit-chain-incomplete-turn' if rejected_edits else
+                           'drained-readonly-chain-incomplete-turn' if readonly_chain else
                            'drained-readonly-incomplete-turn'),
                 'watch_id': watch_id}
     finally:
