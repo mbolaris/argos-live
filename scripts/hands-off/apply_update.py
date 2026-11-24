@@ -157,31 +157,66 @@ for path in ('/match.js', '/match.css', '/api/proctor-match/recent'):
 deadline = time.time() + 1200
 while time.time() < deadline:
     c = campaign()
-    if c.get('assistant_ready') and c.get('can_start') and not c.get('active'):
+    # The first admitted host workload may be what records recovery of a
+    # quarantined reservation from a previous kernel boot. The start handler
+    # independently verifies readiness and persistent storage, so waiting for
+    # can_start here would deadlock before that safe admission can occur.
+    if c.get('assistant_ready') and not c.get('active'):
         break
     time.sleep(10)
 else:
     raise SystemExit('assistant did not become ready in 20 minutes: ' + json.dumps({k: c.get(k) for k in ('phase', 'assistant_phase', 'failure_code', 'message')}))
 say(stage='assistant-ready', model=c.get('model'))
-payload = {'owner_task': 'Runtime update health check: run one bundled practice round and save a signed practice result. Do not change the model, prompt, configuration, memory or production.',
-           'success_criteria': 'A signed practice result is saved. Do not claim improvement from the practice score.', 'measurement_suite': 'quick'}
+payload = {
+    'owner_task': (
+        'Runtime update health check only. Run exactly one fresh quick-suite baseline evaluation on the '
+        'fixed current model and settings. Log that run, then audit after the log. Do not edit, adopt, or change '
+        'instructions, model, prompt, configuration, memory, or production. Do not run another evaluation. '
+        'This is runtime health evidence, not a capability experiment.'
+    ),
+    'success_criteria': (
+        'One complete quick-suite baseline run with host-verified metadata; a host-verified log receipt '
+        'for that run ID; and a passed audit after the log. No edits or adoption. Report the practice score '
+        'without a capability claim.'
+    ),
+    'measurement_suite': 'quick',
+    'evaluation_limit': 1,
+}
 status, body = api('/api/proctor-campaign/start', payload, timeout=30)
 say(stage='evaluation-started', status=status)
-deadline = time.time() + 2400
+deadline = time.time() + 1200
 while time.time() < deadline:
     time.sleep(15)
     c = campaign()
     if not c.get('active'):
         break
 else:
-    raise SystemExit('evaluation still active after 40 minutes')
+    raise SystemExit('health campaign still active after 20 minutes')
 result = c.get('result') or {}
 say(stage='evaluation-finished', phase=c.get('phase'), failure_code=c.get('failure_code'),
     failure_stage=result.get('failure_stage'), status=result.get('status'), message=c.get('message'),
     result_keys=sorted(result)[:12])
 ids = (result.get('campaign') or {}).get('saved_evaluation_ids') or []
-ok = bool(result) and not c.get('failure_code') and c.get('phase') != 'incomplete' and result.get('status') != 'incomplete' and bool(ids)
-say(stage='health', ok=bool(ok), saved_evaluations=len(ids), status=result.get('status'))
+campaign_result = result.get('campaign') or {}
+missing = campaign_result.get('missing') or []
+# A task campaign requires paired baselines and an explicit comparison before
+# it can claim completion. Runtime health is narrower: accept exactly one
+# host-verified, logged evaluation followed by a passed audit, while keeping
+# the campaign's incomplete label and missing improvement evidence visible.
+health_only_missing = {
+    'two distinct saved baseline evaluations',
+    'an explicit comparison of two saved baselines',
+}
+ok = (
+    bool(result) and c.get('assistant_ready') is True and not c.get('active') and
+    not c.get('failure_code') and len(ids) == 1 and
+    campaign_result.get('outcome') == 'no_change_audited' and
+    campaign_result.get('audit_status') == 'verified' and
+    set(missing).issubset(health_only_missing) and
+    result.get('status') in {'completed', 'incomplete'}
+)
+say(stage='health', ok=bool(ok), saved_evaluations=len(ids), status=result.get('status'),
+    audit_status=campaign_result.get('audit_status'), missing=missing)
 if not ok:
     raise SystemExit('health check failed')
 code, out, err = installer('finalize')
