@@ -33,6 +33,12 @@ TOOL_QUEUE_WAIT_SECONDS = 20
 TASK_CAMPAIGN_SUITES = frozenset({
     'quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence',
     'documents-short', 'documents-long', 'owner-recovery-decision'})
+# Stable, argument-free codes for host refusals of an agent tool request. A
+# failed campaign must say which rule refused the call; the error class alone
+# (`ValueError`) cannot distinguish a suite mismatch from a limit or a stop.
+TOOL_REFUSAL_CODES = frozenset({
+    'campaign-stop-requested', 'unsupported-evaluation-request', 'evaluation-limit-reached',
+    'no-owner-suite', 'owner-suite-mismatch'})
 MAX_WORKER_TURN_RECORDS = 32
 MAX_SDK_RUNS_PER_WORKER = 4
 # A standard run can emit 70 question and answer events. Keep enough bounded
@@ -57,6 +63,21 @@ PROCTOR_ERROR_CODES = frozenset({
     'AID_COMPLETION_CONFLICT', 'AID_NO_LONGER_ACTIVE', 'MODULE_DEADLINE_EXPIRED',
     'TRANSCRIPT_NOT_ISSUED',
 })
+
+
+def _refusal(code, message):
+    """Return a ValueError carrying a bounded refusal code for diagnostics."""
+    error = ValueError(message)
+    error.refusal_code = code
+    return error
+
+
+def _requested_suite(params):
+    """Describe the agent's suite argument without echoing unbounded input."""
+    if not isinstance(params, dict) or 'suite' not in params:
+        return 'omitted'
+    suite = params['suite']
+    return suite if isinstance(suite, str) and suite in TASK_CAMPAIGN_SUITES else 'unsupported'
 
 
 class AdmissionDenied(ValueError):
@@ -262,7 +283,8 @@ class Bridge:
                         self.publish()
                 return result
             except BaseException as error:
-                self._publish_campaign_tool_step(call_id, kind, 'failed', error=error)
+                self._publish_campaign_tool_step(call_id, kind, 'failed', error=error,
+                                                 params=request.get('params'))
                 with self.lock:
                     if self.active is not None:
                         kind = request.get('kind')
@@ -291,12 +313,30 @@ class Bridge:
                             code = getattr(error, 'code', None)
                             if safe_kind in PROCTOR_TOOLS and code in PROCTOR_ERROR_CODES:
                                 failure['error_code'] = code
+                            failure.update(self._refusal_diagnostics(safe_kind, error, request.get('params')))
                             failures.append(failure)
                         self.publish()
                 raise
         raise ValueError('Unknown bridge operation')
 
-    def _publish_campaign_tool_step(self, call_id, kind, status, *, result=None, error=None):
+    def _refusal_diagnostics(self, kind, error, params):
+        """Bounded fields naming which host rule refused a tool call.
+
+        Only fixed codes and suite names from TASK_CAMPAIGN_SUITES are recorded;
+        the agent's raw arguments and the error message are never copied.
+        `requested_suite` is what the agent sent, before any host default.
+        """
+        value = {}
+        code = getattr(error, 'refusal_code', None)
+        if code in TOOL_REFUSAL_CODES:
+            value['refusal_code'] = code
+        if kind == 'evaluation':
+            value['requested_suite'] = _requested_suite(params)
+            if self.task_campaign:
+                value['owner_suite'] = self.owner_task_suite or 'none'
+        return value
+
+    def _publish_campaign_tool_step(self, call_id, kind, status, *, result=None, error=None, params=None):
         """Publish bounded campaign milestones without agent arguments or free-form notes."""
         if (not self.task_campaign or self.on_progress is None or
                 not isinstance(kind, str) or kind not in CAMPAIGN_PROGRESS_TOOLS or
@@ -307,6 +347,7 @@ class Bridge:
                  'tool': kind, 'status': status}
         if status == 'failed':
             event['error_class'] = type(error).__name__ if error is not None else 'UnknownError'
+            event.update(self._refusal_diagnostics(kind, error, params))
         elif status == 'completed' and isinstance(result, dict):
             result_status = result.get('status')
             if result_status == 'running':
@@ -489,9 +530,11 @@ class Bridge:
         suite = self.owner_task_suite
         if kind == 'evaluation':
             if suite is None:
-                raise ValueError('No owner-selected evaluation suite; report task-not-measured without evaluating')
+                raise _refusal('no-owner-suite',
+                               'No owner-selected evaluation suite; report task-not-measured without evaluating')
             if params.get('suite', 'quick') != suite:
-                raise ValueError('Evaluation must use the exact suite selected by the owner')
+                raise _refusal('owner-suite-mismatch',
+                               'Evaluation must use the exact suite selected by the owner')
             return
         if suite == 'owner-recovery-decision' and (
                 kind in {'edit', 'adopt'} or
@@ -543,9 +586,18 @@ class Bridge:
                 kind, params = request.get('kind'), request.get('params')
                 if not isinstance(params, dict):
                     raise ValueError('Bounded tool parameters required')
+                # The owner-selected suite is authoritative in a managed
+                # campaign. The tool schema allows `suite` to be omitted, so
+                # inherit that selection instead of letting the plugin's
+                # ordinary quick default turn an otherwise valid request into
+                # a rejected mismatched evaluation.
+                if (kind == 'evaluation' and self.task_campaign and
+                        'suite' not in params and self.owner_task_suite is not None):
+                    params = {**params, 'suite': self.owner_task_suite}
                 if self.task_campaign and self.stop_event.is_set():
                     if kind in {'evaluation', 'edit', 'adopt'}:
-                        raise ValueError('Campaign stop requested; no new evaluation or instruction change may start')
+                        raise _refusal('campaign-stop-requested',
+                                       'Campaign stop requested; no new evaluation or instruction change may start')
                     if kind == 'resolve' and params.get('action') != 'restore':
                         raise ValueError('Campaign stop requested; only instruction restoration is allowed')
                 if (self.exam_session is not None and kind not in PROCTOR_TOOLS and
@@ -557,14 +609,19 @@ class Bridge:
                     raise workload.Busy()
                 if kind == 'evaluation':
                     if set(params) - {'suite'} or params.get('suite', 'quick') not in TASK_CAMPAIGN_SUITES:
-                        raise ValueError('Unsupported evaluation request')
+                        raise _refusal('unsupported-evaluation-request', 'Unsupported evaluation request')
                     if self.task_campaign:
+                        # Refuse a wrong-suite request before it consumes one
+                        # of the owner's limited campaign evaluations.
+                        self._validate_task_scope(kind, params)
                         if self.campaign_evaluations_admitted >= self.evaluation_limit:
-                            raise ValueError('Owner-requested campaign evaluation limit reached')
+                            raise _refusal('evaluation-limit-reached',
+                                           'Owner-requested campaign evaluation limit reached')
                         self.campaign_evaluations_admitted += 1
                 elif kind == 'edit' and self.task_campaign and \
                         self.campaign_evaluations_admitted >= self.evaluation_limit:
-                    raise ValueError('Owner-requested campaign evaluation limit reached; no new experiment may start')
+                    raise _refusal('evaluation-limit-reached',
+                                   'Owner-requested campaign evaluation limit reached; no new experiment may start')
                 elif kind == 'evaluation_wait':
                     if (set(params) != {'job_id'} or not isinstance(params.get('job_id'), str) or
                             not re.fullmatch(r'[a-f0-9]{32}', params['job_id'])):

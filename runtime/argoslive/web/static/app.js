@@ -4837,7 +4837,10 @@ function renderProctorLiveEvaluation(progress) {
       } else if (step.status === 'running' || step.step_status === 'running') detail.textContent = 'In progress';
       else if (step.status === 'failed' || step.step_status === 'failed' ||
                step.run_state === 'failed' || step.run_state === 'cancelled') {
-        detail.textContent = `Needs attention${step.error_class ? ` · ${step.error_class}` : ''}`;
+        const refusal = step.refusal_code ? ` · ${step.refusal_code}` : '';
+        const suites = step.requested_suite
+          ? ` (requested ${step.requested_suite}${step.owner_suite ? `, owner ${step.owner_suite}` : ''})` : '';
+        detail.textContent = `Needs attention${step.error_class ? ` · ${step.error_class}` : ''}${refusal}${suites}`;
       }
       else if (step.tool === 'audit') detail.textContent = step.passed === true ? 'Host audit passed' : 'Host audit finished';
       else if (step.tool === 'resolve' && step.resolution) detail.textContent =

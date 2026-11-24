@@ -488,6 +488,13 @@ test('managed admission returns bounded evaluation jobs and supports a follow-up
     assert.match(simulated.content[0].text,/Proctor simulation only; no evaluation was started/);
     assert.deepEqual(requests.filter(item => item.op === 'tool').map(item => item.kind),
       ['evaluation','evaluation_wait','evaluation_wait']);
+    assert.deepEqual(requests.find(item => item.op === 'tool').params, {suite:'standard'});
+    // An omitted suite is forwarded as omitted so the host can apply the
+    // owner-selected campaign suite; the plugin must not substitute quick.
+    hooks.get('before_tool_call')({toolName:'argos_evaluate',runId:'run-job',toolCallId:'eval-omitted'},ctx);
+    await tools.get('argos_evaluate').execute('eval-omitted',{});
+    const omitted = requests.filter(item => item.op === 'tool' && item.kind === 'evaluation').at(-1);
+    assert.deepEqual(omitted.params, {});
   } finally {
     await new Promise((resolve) => server.close(resolve));
     if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET; else process.env.ARGOS_CONTROLLER_SOCKET = priorPath;

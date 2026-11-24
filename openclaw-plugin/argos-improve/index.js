@@ -347,9 +347,9 @@ export default function register(api) {
         { description: "Quick (20), standard (70), challenge (40), challenge-hard (80 with practice and held-out halves), tool-schema (40 schema-grounded calls), tool-plan (40 multi-constraint calls), tool-sequence (40 ordered two- and three-call plans), documents-short (32 short-document tasks), documents-long (40 long-document tasks with practice and held-out passages), or owner-recovery-decision (8 simulated receipt decisions; uncalibrated, no real tools or recovery, diagnostic only and ineligible for instruction keeps). Choose only a suite whose exact tasks match the owner-selected task. Tool-suite held-out items are internal transfer checks, not independent validation or real tool execution." }))
     }, { additionalProperties: false }),
     async execute(_id, params, signal, onUpdate) {
-      const suite = params.suite ?? 'quick';
       const value = admission ? await admission.execute(_id, 'evaluation',
-        {suite}, signal, onUpdate) : await startDirectEvaluation(suite, signal, onUpdate);
+        params.suite === undefined ? {} : {suite:params.suite}, signal, onUpdate) :
+        await startDirectEvaluation(params.suite ?? 'quick', signal, onUpdate);
       if (value.status === "busy") return textResult(
         `${value.message}. No evaluation started. Wait for the active workload; do not edit the workspace.`, value);
       if (value.status === "running") return textResult(

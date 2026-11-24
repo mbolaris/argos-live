@@ -29,6 +29,11 @@ class Refused(ValueError):
 MEASUREMENT_SUITES = frozenset({
     'quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence',
     'documents-short', 'documents-long', 'owner-recovery-decision'})
+_STEP_SUITES = MEASUREMENT_SUITES
+# Mirrors controller_bridge.TOOL_REFUSAL_CODES; anything else is dropped.
+_STEP_REFUSAL_CODES = frozenset({
+    'campaign-stop-requested', 'unsupported-evaluation-request', 'evaluation-limit-reached',
+    'no-owner-suite', 'owner-suite-mismatch'})
 
 
 def validate_owner_task(owner_task, success_criteria):
@@ -774,6 +779,12 @@ class Controller:
                 error_class = event.get('error_class')
                 if isinstance(error_class, str) and len(error_class) <= 80:
                     step['error_class'] = error_class
+                if event.get('refusal_code') in _STEP_REFUSAL_CODES:
+                    step['refusal_code'] = event['refusal_code']
+                if event.get('requested_suite') in _STEP_SUITES | {'omitted', 'unsupported'}:
+                    step['requested_suite'] = event['requested_suite']
+                if event.get('owner_suite') in _STEP_SUITES | {'none'}:
+                    step['owner_suite'] = event['owner_suite']
                 for key in ('suite', 'result_id', 'resolution', 'run_state'):
                     item = event.get(key)
                     if isinstance(item, str) and len(item) <= 160:

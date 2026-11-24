@@ -178,6 +178,25 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertNotIn('arguments', progress['campaign_steps'][0])
         self.assertNotIn('secret', json.dumps(progress))
 
+    def test_live_campaign_timeline_keeps_only_bounded_refusal_diagnostics(self):
+        self.controller.worker = SimpleNamespace(is_alive=lambda: True, join=lambda **_kwargs: None)
+        self.controller._set_progress({
+            'phase': 'campaign', 'stage': 'campaign-step', 'step_id': 'call-2',
+            'tool': 'evaluation', 'status': 'failed', 'error_class': 'ValueError',
+            'refusal_code': 'owner-suite-mismatch', 'requested_suite': 'quick',
+            'owner_suite': 'documents-long'})
+        self.controller._set_progress({
+            'phase': 'campaign', 'stage': 'campaign-step', 'step_id': 'call-3',
+            'tool': 'evaluation', 'status': 'failed', 'error_class': 'ValueError',
+            'refusal_code': 'free text from somewhere', 'requested_suite': 'private suite',
+            'owner_suite': '../etc'})
+        steps = self.controller.snapshot()['progress']['campaign_steps']
+        self.assertEqual({key: steps[0][key] for key in ('refusal_code', 'requested_suite', 'owner_suite')},
+                         {'refusal_code': 'owner-suite-mismatch', 'requested_suite': 'quick',
+                          'owner_suite': 'documents-long'})
+        for key in ('refusal_code', 'requested_suite', 'owner_suite'):
+            self.assertNotIn(key, steps[1])
+
     def test_dashboard_exposes_document_suite_with_its_narrow_scope(self):
         dashboard = (Path(__file__).resolve().parents[1] /
                      'runtime/argoslive/web/static/index.html').read_text(encoding='utf-8')
