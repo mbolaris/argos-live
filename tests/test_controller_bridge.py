@@ -86,6 +86,63 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(bridge.campaign_evaluations_admitted, 1)
             parent.complete()
 
+    def test_campaign_evaluation_without_suite_uses_owner_selected_suite(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(
+                self.home, parent, session_key='agent:main:host-session',
+                task_campaign=True, owner_task_suite='documents-long')
+            _, turn = self.begin(bridge)
+            result = {'status': 'running', 'job_id': 'b' * 32, 'suite': 'documents-long',
+                      'completed': 0, 'total': 40}
+            with patch.object(bridge, 'start_evaluation', return_value=result) as start:
+                value = bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'evaluation-omitted',
+                                         'kind': 'evaluation', 'params': {}})
+            self.assertEqual(value['status'], 'running')
+            self.assertEqual(start.call_args.args[0], {'suite': 'documents-long'})
+            self.assertEqual(bridge.active.get('host_tool_failures', []), [])
+            parent.complete()
+
+    def test_campaign_suite_mismatch_records_bounded_refusal_diagnostics(self):
+        events = []
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(
+                self.home, parent, session_key='agent:main:host-session',
+                task_campaign=True, owner_task_suite='documents-long', on_progress=events.append)
+            _, turn = self.begin(bridge)
+            with patch.object(bridge, 'start_evaluation') as start:
+                with self.assertRaisesRegex(ValueError, 'exact suite selected by the owner'):
+                    bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'evaluation-quick',
+                                     'kind': 'evaluation', 'params': {'suite': 'quick'}})
+                with self.assertRaisesRegex(ValueError, 'Unsupported evaluation request'):
+                    bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'evaluation-odd',
+                                     'kind': 'evaluation', 'params': {'suite': 'private text'}})
+                start.assert_not_called()
+            self.assertEqual(bridge.active['host_tool_failures'], [
+                {'kind': 'evaluation', 'error_class': 'ValueError', 'refusal_code': 'owner-suite-mismatch',
+                 'requested_suite': 'quick', 'owner_suite': 'documents-long'},
+                {'kind': 'evaluation', 'error_class': 'ValueError',
+                 'refusal_code': 'unsupported-evaluation-request',
+                 'requested_suite': 'unsupported', 'owner_suite': 'documents-long'}])
+            failed = [event for event in events if event.get('status') == 'failed']
+            self.assertEqual([(event['refusal_code'], event['requested_suite'], event['owner_suite'])
+                              for event in failed],
+                             [('owner-suite-mismatch', 'quick', 'documents-long'),
+                              ('unsupported-evaluation-request', 'unsupported', 'documents-long')])
+            self.assertNotIn('private text', json.dumps(bridge.active['host_tool_failures'] + events))
+            self.assertEqual(bridge.campaign_evaluations_admitted, 0)
+            parent.complete()
+
+    def test_direct_evaluation_without_suite_keeps_quick_default(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
+            _, turn = self.begin(bridge)
+            result = {'status': 'running', 'job_id': 'b' * 32, 'suite': 'quick', 'completed': 0, 'total': 20}
+            with patch.object(bridge, 'start_evaluation', return_value=result) as start:
+                bridge.dispatch({**turn, 'op': 'tool', 'call_id': 'evaluation-direct',
+                                 'kind': 'evaluation', 'params': {}})
+            self.assertEqual(start.call_args.args[0], {})
+            parent.complete()
+
     def test_campaign_may_rotate_ended_sdk_run_inside_its_live_worker(self):
         session_key = 'agent:main:argos_proctor_improvement_owner-task'
         with workload.reserve(self.home, 'controller') as parent:
