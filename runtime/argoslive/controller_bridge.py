@@ -543,6 +543,14 @@ class Bridge:
                 kind, params = request.get('kind'), request.get('params')
                 if not isinstance(params, dict):
                     raise ValueError('Bounded tool parameters required')
+                # The owner-selected suite is authoritative in a managed
+                # campaign. The tool schema allows `suite` to be omitted, so
+                # inherit that selection instead of letting the plugin's
+                # ordinary quick default turn an otherwise valid request into
+                # a rejected mismatched evaluation.
+                if (kind == 'evaluation' and self.task_campaign and
+                        'suite' not in params and self.owner_task_suite is not None):
+                    params = {**params, 'suite': self.owner_task_suite}
                 if self.task_campaign and self.stop_event.is_set():
                     if kind in {'evaluation', 'edit', 'adopt'}:
                         raise ValueError('Campaign stop requested; no new evaluation or instruction change may start')
