@@ -52,19 +52,28 @@ def validate_measurement_suite(measurement_suite):
 
 
 def _readonly_incomplete_recovery_watch(value):
-    """Static watch-record filter; the workload verifier still checks every lease and process."""
+    """Static filter for drained, unmeasured turns; the workload verifier checks every receipt."""
     if not isinstance(value, dict):
         return False
     result = value.get('result') if isinstance(value.get('result'), dict) else {}
     campaign = result.get('campaign') if isinstance(result.get('campaign'), dict) else {}
     steps = value.get('campaign_steps')
-    readonly_steps = (isinstance(steps, list) and 1 <= len(steps) <= 16 and
-                      all(isinstance(step, dict) and step.get('tool') in {'inspect', 'audit'} and
-                          step.get('status') == 'completed' and
-                          isinstance(step.get('step_id'), str) and bool(step.get('step_id')) and
-                          (step.get('step_status') == 'completed' if step.get('tool') == 'inspect' else
-                           step.get('step_status') == 'verified' and step.get('passed') is True)
-                          for step in steps) and
+
+    def safe_step(step):
+        if (not isinstance(step, dict) or step.get('tool') not in
+                {'inspect', 'audit', 'compare', 'edit'} or step.get('status') != 'completed' or
+                not isinstance(step.get('step_id'), str) or not step.get('step_id')):
+            return False
+        if step['tool'] == 'inspect':
+            return step.get('step_status') == 'completed'
+        if step['tool'] == 'audit':
+            return step.get('step_status') == 'verified' and step.get('passed') is True
+        if step['tool'] == 'edit':
+            return step.get('step_status') == 'rejected'
+        return step.get('step_status') in {'completed', None}
+
+    safe_steps = (isinstance(steps, list) and 1 <= len(steps) <= 16 and
+                  all(safe_step(step) for step in steps) and
                       len({step['step_id'] for step in steps}) == len(steps) and
                       any(step.get('tool') == 'inspect' for step in steps) and
                       (len(steps) == 1 or any(step.get('tool') == 'audit' for step in steps)))
@@ -72,7 +81,7 @@ def _readonly_incomplete_recovery_watch(value):
             value.get('phase') == 'incomplete' and value.get('failure_code') == 'campaign-invalid-state' and
             result.get('status') == 'incomplete' and result.get('failure_code') == 'campaign-invalid-state' and
             campaign.get('status') == 'failed' and campaign.get('outcome') == 'campaign-runtime-failed' and
-            campaign.get('saved_evaluation_ids') == [] and readonly_steps)
+            campaign.get('saved_evaluation_ids') == [] and safe_steps)
 
 
 MESSAGES = {
@@ -371,13 +380,22 @@ class Controller:
             stage = failure_stage or 'campaign'
             message = f'Proctor {stage} stopped ({failure_code}); Argos is back at its verified model.'
         if recovery_status == 'read-only-attempt-recovered':
-            message = ('The drained read-only attempt was recovered in this boot. It produced no '
+            message = ('The drained safe attempt was recovered in this boot. It produced no '
                        'evaluation or score; a new campaign may now be started.')
+        elif recovery_status == 'rejected-edit-attempt-recovered':
+            message = ('The drained attempt was recovered in this boot after confirming its instruction '
+                       'edits were rejected before a change was made. No evaluation or score was produced; '
+                       'a new campaign may now be started.')
+        recovery_steps = (progress.get('campaign_steps') if isinstance(progress, dict) else None) or []
+        rejected_edit_recovery = (readonly_recovery_candidate and readonly_recovery_watch_id == watch_id and
+                                  any(isinstance(step, dict) and step.get('tool') == 'edit' and
+                                      step.get('step_status') == 'rejected' for step in recovery_steps))
         return {
             'available': True, 'active': active, 'phase': phase, 'message': message,
             'can_start': can_start, 'can_recover': can_recover,
             'recovery_watch_id': readonly_recovery_watch_id if can_recover else None,
-            'recovery_kind': ('read-only-incomplete-turn' if readonly_recovery_candidate else
+            'recovery_kind': ('rejected-edit-incomplete-turn' if rejected_edit_recovery else
+                             'read-only-incomplete-turn' if readonly_recovery_candidate else
                              'assistant-startup' if can_recover else None),
             'recovery_status': recovery_status,
             'elapsed_seconds': elapsed, 'model': model,
@@ -589,7 +607,9 @@ class Controller:
                         self.home, watch_record)
                 except (OSError, ValueError, TypeError, KeyError):
                     raise Refused('The same-boot controller cannot be safely recovered from its saved records.') from None
-                self.recovery_status = 'read-only-attempt-recovered'
+                self.recovery_status = ('rejected-edit-attempt-recovered'
+                                        if any(step.get('tool') == 'edit' for step in watch_record.get(
+                                            'campaign_steps', [])) else 'read-only-attempt-recovered')
                 self.last_event = self.clock()
                 return self.snapshot()
             if (self.phase == 'incomplete' and self.failure_code == 'campaign-invalid-state' and
@@ -600,7 +620,9 @@ class Controller:
                         self.home, watch_record)
                 except (OSError, ValueError, TypeError, KeyError):
                     raise Refused('The same-boot controller cannot be safely recovered from its saved records.') from None
-                self.recovery_status = 'read-only-attempt-recovered'
+                self.recovery_status = ('rejected-edit-attempt-recovered'
+                                        if any(step.get('tool') == 'edit' for step in watch_record.get(
+                                            'campaign_steps', [])) else 'read-only-attempt-recovered')
                 self.last_event = self.clock()
                 return self.snapshot()
             if self.phase != 'recovery-failed' or not getattr(self.startup, 'lab_active', False):
