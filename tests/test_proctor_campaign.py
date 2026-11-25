@@ -1,6 +1,7 @@
 import json
 from contextlib import closing
 import http.client
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -406,12 +407,16 @@ class ProctorCampaignControllerTests(unittest.TestCase):
                   'failure_code': 'campaign-invalid-state', 'result': result_value,
                   'campaign_steps': steps}
         (self.controller.records_root / f'{watch_id}.json').write_text(json.dumps(record))
-        reservation = self.home / '.local/state/argos-live/workload/reservation.json'
-        reservation.parent.mkdir(parents=True)
-        reservation.write_text(json.dumps({'state': 'quarantined'}))
+        root = self.write_quarantine([('call-inspect', 'inspect')])
+
+        def release(_home, _record):
+            # The real verifier releases the reservation after its receipt.
+            (root / 'reservation.json').write_text(json.dumps({'state': 'released'}))
+            return {'status': 'recovered'}
+
         with patch.object(proctor_campaign.workload,
                           'recover_owner_approved_readonly_incomplete_controller',
-                          return_value={'status': 'recovered'}) as as_recovered:
+                          side_effect=release) as as_recovered:
             state = self.controller.snapshot()
             self.assertTrue(state['can_recover'])
             self.assertEqual(state['recovery_kind'], 'read-only-incomplete-turn')
@@ -421,6 +426,147 @@ class ProctorCampaignControllerTests(unittest.TestCase):
         self.assertEqual(recovered['recovery_status'], 'read-only-attempt-recovered')
         self.assertIn('no evaluation or score', recovered['message'])
         as_recovered.assert_called_once_with(self.home, record)
+
+    def write_quarantine(self, ledger, *, refused=0, parent_id='a' * 32, generation=7):
+        """Current quarantined controller and its durable tool ledger."""
+        root = self.home / '.local/state/argos-live/workload'
+        root.mkdir(parents=True, exist_ok=True)
+        (root / 'reservation.json').write_text(json.dumps({
+            'id': parent_id, 'generation': generation, 'kind': 'controller',
+            'state': 'quarantined', 'phase': 'running'}))
+        (root / 'controller-turn.json').write_text(json.dumps({
+            'parent_id': parent_id, 'generation': generation,
+            'tools': [{'call_id': call_id, 'kind': kind} for call_id, kind in ledger],
+            'host_tool_failures': [{'kind': 'evaluation', 'error_class': 'ValueError'}] * refused}))
+        return root
+
+    def write_watch(self, watch_id, steps, *, age=0):
+        self.controller.records_root.mkdir(parents=True, exist_ok=True)
+        record = {'schema': 'argos-proctor-watch/1', 'id': watch_id, 'phase': 'incomplete',
+                  'failure_code': 'campaign-invalid-state',
+                  'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                             'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                          'saved_evaluation_ids': []}},
+                  'campaign_steps': steps}
+        path = self.controller.records_root / f'{watch_id}.json'
+        path.write_text(json.dumps(record))
+        if age:
+            stamp = path.stat().st_mtime - age
+            os.utime(path, (stamp, stamp))
+        return record
+
+    def idle_controller(self):
+        self.controller.phase = 'idle'
+        self.controller.failure_code = None
+        self.controller.failure_stage = None
+        self.controller.watch_id = None
+        self.controller.record_saved = None
+        self.controller.progress = None
+        self.controller.result = None
+
+    REFUSED_STEPS = [
+        {'step_id': 'call-inspect', 'tool': 'inspect', 'status': 'completed', 'step_status': 'completed'},
+        {'step_id': 'call-audit', 'tool': 'audit', 'status': 'completed', 'step_status': 'verified',
+         'passed': True},
+        {'step_id': 'call-eval-1', 'tool': 'evaluation', 'status': 'failed', 'error_class': 'ValueError'},
+        {'step_id': 'call-eval-2', 'tool': 'evaluation', 'status': 'failed', 'error_class': 'ValueError',
+         'refusal_code': 'owner-suite-mismatch', 'requested_suite': 'omitted',
+         'owner_suite': 'documents-long'},
+        {'step_id': 'call-log', 'tool': 'log', 'status': 'completed', 'step_status': 'appended'},
+    ]
+    REFUSED_LEDGER = [('call-inspect', 'inspect'), ('call-audit', 'audit'), ('call-log', 'log')]
+
+    def test_status_never_offers_an_older_record_for_the_current_quarantine(self):
+        # 13:41 campaign: eligible on its own and already recovered under an
+        # earlier reservation. The current quarantine's ledger is different.
+        self.idle_controller()
+        self.write_watch('1ef43210' + '0' * 24, [
+            {'step_id': 'old-inspect', 'tool': 'inspect', 'status': 'completed', 'step_status': 'completed'}])
+        root = self.write_quarantine([('call-inspect', 'inspect'), ('call-edit', 'edit')])
+        self.controller.recovery_status = 'read-only-attempt-recovered'
+        state = self.controller.snapshot()
+        self.assertFalse(state['can_recover'])
+        self.assertIsNone(state['recovery_watch_id'])
+        self.assertIsNone(state['recovery_kind'])
+        self.assertFalse(state['can_start'])
+        self.assertIn('reboot is needed', state['message'])
+        self.assertNotIn('recovered in this boot', state['message'])
+        # A finished campaign still shows its result, followed by the reboot need.
+        self.controller.phase = 'incomplete'
+        state = self.controller.snapshot()
+        self.assertFalse(state['can_recover'])
+        self.assertTrue(state['message'].startswith(proctor_campaign.MESSAGES['incomplete']))
+        self.assertIn('reboot is needed', state['message'])
+        # Once the quarantine is released, the earlier recovery message is accurate again.
+        (root / 'reservation.json').write_text(json.dumps({'state': 'released'}))
+        self.controller.phase = 'idle'
+        self.assertIn('recovered in this boot', self.controller.snapshot()['message'])
+
+    def test_status_offers_only_the_record_bound_to_the_current_controller(self):
+        self.idle_controller()
+        current_id, older_id = 'c' * 32, 'b' * 32
+        self.write_watch(older_id, [
+            {'step_id': 'old-inspect', 'tool': 'inspect', 'status': 'completed', 'step_status': 'completed'}])
+        # The current record is older on disk than the unrelated one.
+        record = self.write_watch(current_id, self.REFUSED_STEPS, age=600)
+        self.write_quarantine(self.REFUSED_LEDGER, refused=2)
+        state = self.controller.snapshot()
+        self.assertTrue(state['can_recover'])
+        self.assertEqual(state['recovery_watch_id'], current_id)
+        self.assertEqual(state['recovery_kind'], 'refused-evaluation-incomplete-turn')
+        self.assertIn('needs safe recovery', state['message'])
+        with patch.object(proctor_campaign.workload,
+                          'recover_owner_approved_readonly_incomplete_controller',
+                          return_value={'status': 'recovered'}) as as_recovered:
+            recovered = self.controller.recover(current_id)
+        as_recovered.assert_called_once_with(self.home, record)
+        self.assertEqual(recovered['recovery_status'], 'refused-evaluation-attempt-recovered')
+
+    def test_in_memory_campaign_is_offered_only_when_it_holds_the_quarantine(self):
+        self.idle_controller()
+        self.controller.phase = 'incomplete'
+        self.controller.failure_code = 'campaign-invalid-state'
+        self.controller.watch_id = 'd' * 32
+        self.controller.record_saved = True
+        self.controller.result = {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                                  'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                               'saved_evaluation_ids': []}}
+        self.controller.progress = {'phase': 'campaign', 'campaign_steps': self.REFUSED_STEPS}
+        self.write_quarantine([('other-inspect', 'inspect')])
+        state = self.controller.snapshot()
+        self.assertFalse(state['can_recover'])
+        self.assertIn('reboot is needed', state['message'])
+        self.write_quarantine(self.REFUSED_LEDGER, refused=2)
+        state = self.controller.snapshot()
+        self.assertTrue(state['can_recover'])
+        self.assertEqual(state['recovery_watch_id'], 'd' * 32)
+        self.assertNotIn('reboot', state['message'])
+
+    def test_starting_a_campaign_clears_an_earlier_recovery_message(self):
+        self.controller.recovery_status = 'read-only-attempt-recovered'
+        self.controller.start('read the docs', 'answers the long-document suite')
+        self.assertTrue(self.entered.wait(2))
+        self.assertIsNone(self.controller.snapshot()['recovery_status'])
+        self.release.set()
+        self.wait_finished()
+
+    def test_readonly_recovery_watch_accepts_host_refused_evaluations_and_appended_log(self):
+        watch = {'id': 'a' * 32, 'phase': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                 'result': {'status': 'incomplete', 'failure_code': 'campaign-invalid-state',
+                            'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                                         'saved_evaluation_ids': []}},
+                 'campaign_steps': self.REFUSED_STEPS}
+        self.assertTrue(proctor_campaign._readonly_incomplete_recovery_watch(watch))
+        for index, change in ((2, {'result_id': 'f' * 32}), (2, {'error_class': 'Busy'}),
+                              (3, {'refusal_code': 'made-up'}), (2, {'run_state': 'failed'}),
+                              (4, {'step_status': 'failed'}), (4, {'status': 'failed'})):
+            with self.subTest(index=index, change=change):
+                changed = json.loads(json.dumps(watch))
+                changed['campaign_steps'][index].update(change)
+                self.assertFalse(proctor_campaign._readonly_incomplete_recovery_watch(changed))
+        only_refused = json.loads(json.dumps(watch))
+        only_refused['campaign_steps'] = self.REFUSED_STEPS[2:4]
+        self.assertFalse(proctor_campaign._readonly_incomplete_recovery_watch(only_refused))
 
     def test_readonly_recovery_watch_accepts_only_completed_inspect_audit_chains(self):
         watch = {'id': 'a' * 32, 'phase': 'incomplete', 'failure_code': 'campaign-invalid-state',
