@@ -19,6 +19,19 @@ from .results import Store
 from .workload import Busy, reserve
 
 
+def _journal_change(home, change_id):
+    """True only when the host instruction journal published this exact change ID."""
+    try:
+        intent = storage.safe_local(Path(home) / '.local/state/argos-live/instruction-changes' /
+                                    change_id / 'intent.json')
+        if intent.is_symlink() or not intent.is_file() or intent.stat().st_size > 256 * 1024:
+            return False
+        value = json.loads(intent.read_text(encoding='utf-8'))
+        return isinstance(value, dict) and value.get('id') == change_id
+    except (OSError, ValueError, UnicodeError):
+        return False
+
+
 def append(home, text, *, delegation=None):
     if (not isinstance(text, str) or not text.strip() or len(text.encode('utf-8')) > 4096
             or any(ord(c) < 32 and c not in '\n\t' for c in text)):
@@ -32,11 +45,20 @@ def append(home, text, *, delegation=None):
         path = storage.safe_local(workspace / 'IMPROVEMENT-LOG.md')
         # A typo must not become an invented result. Receipts come from the
         # validated result store, independently of the agent's score prose.
+        # Notes also quote the host's own instruction change IDs, which have
+        # the same 32-hex shape. Those are accepted only when the host journal
+        # holds that change; any other unknown ID still rejects the note.
         ids = sorted(set(re.findall(r'\b[a-f0-9]{32}\b', text)))
         store = Store(home / '.local/share/argos-live/results')
-        receipts = []
+        receipts, change_ids = [], []
         for run_id in ids:
-            run = store.load(run_id)
+            try:
+                run = store.load(run_id)
+            except ValueError:
+                if not _journal_change(home, run_id):
+                    raise
+                change_ids.append(run_id)
+                continue
             receipts.append({k: run.get(k) for k in ('id', 'created', 'model', 'suite', 'state', 'summary')})
         timestamp = datetime.now(timezone.utc).isoformat()
         snapshot = storage.safe_local(home / '.local/state/argos-live/snapshots' /
@@ -50,7 +72,9 @@ def append(home, text, *, delegation=None):
                 checksums.append(hashlib.sha256(source.read_bytes()).hexdigest() + '  ' + source.name)
         (snapshot / 'SHA256SUMS').write_text('\n'.join(checksums) + '\n', encoding='utf-8')
         entry = ('\n## Step observed by host at ' + timestamp + '\n\n' + text.strip() + '\n\n'
-                 'Host-verified saved-run receipts: ' + json.dumps(receipts, sort_keys=True) + '\n'
+                 'Host-verified saved-run receipts: ' + json.dumps(receipts, sort_keys=True) + '\n' +
+                 ('Host-journal instruction change IDs (not saved runs): ' + json.dumps(change_ids) + '\n'
+                  if change_ids else '') +
                  'Pre-append snapshot: ' + str(snapshot) + '\n')
         flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, 'O_NOFOLLOW', 0)
         fd = os.open(path, flags, 0o600)

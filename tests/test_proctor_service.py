@@ -801,7 +801,8 @@ class ProctorServiceTests(unittest.TestCase):
                     events.append('evaluation-saved')
 
                 bridge = SimpleNamespace(drain_before_backends_stop=drain,
-                    launch=Mock(), finish=Mock(side_effect=RuntimeError('agent deadline')))
+                    launch=Mock(), finish=Mock(side_effect=RuntimeError('agent deadline')),
+                    outcomes=[{'kind': 'inspect', 'call_id': 'inspect-one'}])
                 db = Mock()
                 for target, name, value in (
                     (proctor_service.controller_bridge, 'owned', lambda *a, **k: resource('bridge', (bridge, {}))),
@@ -816,7 +817,7 @@ class ProctorServiceTests(unittest.TestCase):
                     (proctor_service, 'run_practice_turns', Mock(side_effect=RuntimeError('agent deadline'))),
                     (proctor_service.sys, 'platform', 'linux')):
                     mocks.enter_context(patch.object(target, name, value))
-                with self.assertRaisesRegex(RuntimeError, 'agent deadline'):
+                with self.assertRaisesRegex(RuntimeError, 'agent deadline') as raised:
                     if service == 'practice':
                         proctor_service.run_practice(self.home, self.home / 'cartridge', executable='openclaw')
                         self.fail('Practice swallowed the interruption')
@@ -829,6 +830,8 @@ class ProctorServiceTests(unittest.TestCase):
                 self.assertEqual(events, ['evaluation-saved', 'gateway-stop', 'backend-stop', 'bridge-stop'])
                 if service == 'campaign':
                     self.assertEqual(bridge.launch.call_args.kwargs['timeout'], 7200)
+                    # The host ledger travels with the failure to run_improvement.
+                    self.assertEqual(raised.exception.campaign_outcomes, bridge.outcomes)
                 else:
                     db.close.assert_called_once()
 

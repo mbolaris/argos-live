@@ -65,6 +65,27 @@ PROCTOR_ERROR_CODES = frozenset({
 })
 
 
+CAMPAIGN_READ_KINDS = frozenset({'inspect', 'audit', 'ssh_status', 'compare', 'compare_rejected'})
+
+
+def _settled_campaign_note_or_read(item):
+    """A completed read, or a campaign log note whose one-use child the host saw drained.
+
+    A note never starts inference or a child workload, and it changes nothing but the
+    append-only improvement log. The bridge records `appended` only after the child
+    returned, and `failed` only after it verified the exact released child. Repeating a
+    note after an incomplete model turn can at worst duplicate that note, so a turn of
+    reads and settled notes may continue or release like a read-only turn.
+    """
+    if not isinstance(item, dict):
+        return False
+    if item.get('kind') in CAMPAIGN_READ_KINDS:
+        return True
+    return (item.get('kind') == 'log' and
+            (item.get('status') == 'appended' and item.get('appended') is True or
+             item.get('status') == 'failed' and item.get('appended') is False))
+
+
 def _refusal(code, message):
     """Return a ValueError carrying a bounded refusal code for diagnostics."""
     error = ValueError(message)
@@ -1436,14 +1457,14 @@ class Bridge:
                 (job is None or job.get('consumed')))
 
     def _campaign_turn_has_only_completed_readonly_calls(self, active):
-        """Allow a drained incomplete campaign turn to continue after proven reads only.
+        """Allow a drained incomplete campaign turn to continue after proven reads and notes only.
 
         A failed model turn must never cause an evaluation, edit, or other
-        side-effecting host call to be repeated. Successful read-only calls are
-        safe because their outcomes are already recorded with the active turn's
-        call IDs; missing or failed outcomes remain quarantined.
+        side-effecting host call to be repeated. Successful read-only calls and
+        settled log notes (see `_settled_campaign_note_or_read`) are safe because
+        their outcomes are already recorded with the active turn's call IDs;
+        missing or failed outcomes remain quarantined.
         """
-        safe_kinds = {'inspect', 'audit', 'ssh_status', 'compare', 'compare_rejected'}
         requests = active.get('host_tool_requests', 0)
         calls = active.get('calls')
         if (type(requests) is not int or requests < 0 or not isinstance(calls, set) or
@@ -1455,7 +1476,7 @@ class Bridge:
         recorded = [item for item in self.outcomes if isinstance(item, dict) and item.get('call_id') in calls]
         return (len(recorded) == requests and
                 {item.get('call_id') for item in recorded} == calls and
-                all(item.get('kind') in safe_kinds for item in recorded))
+                all(_settled_campaign_note_or_read(item) for item in recorded))
 
     def _is_blocked_practice_turn(self, value):
         """Accept only an admitted, ended, side-effect-free practice hook block for retry."""
@@ -1644,8 +1665,7 @@ class Bridge:
                 self.pending is None and not self.tool_lock.locked() and not self.uncertain)
 
     def release_unmeasured_incomplete_campaign(self):
-        """Release an incomplete campaign only when it performed completed reads and no measurements."""
-        safe_read_kinds = {'inspect', 'audit', 'ssh_status', 'compare', 'compare_rejected'}
+        """Release an incomplete campaign only when it performed completed reads/notes and no measurements."""
         with self.lock:
             job = self.evaluation_job
             if (not self.task_campaign or self.campaign_evaluations_admitted != 0 or
@@ -1655,8 +1675,7 @@ class Bridge:
                     self.worker_outcome != 'incomplete-turn' or self.closed or self.uncertain or
                     self.pending is not None or self.tool_lock.locked() or
                     job is not None and not job.get('consumed') or
-                    any(not isinstance(item, dict) or item.get('kind') not in safe_read_kinds
-                        for item in self.outcomes)):
+                    any(not _settled_campaign_note_or_read(item) for item in self.outcomes)):
                 raise workload.Busy(recovery=True)
             self.parent.complete()
             self.closed = True
