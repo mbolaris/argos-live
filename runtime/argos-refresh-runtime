@@ -12,13 +12,22 @@ from pathlib import Path
 IMAGE_RUNTIME = Path('/run/live/rootfs/filesystem.squashfs/usr/local/lib/argos-live')
 INSTALLED_RUNTIME = Path('/usr/local/lib/argos-live')
 OVERRIDE_MARKER = Path('/var/lib/argos-live/runtime-refresh/active-runtime.json')
+PLUGIN_OVERRIDE_MARKER = Path('/var/lib/argos-live/runtime-refresh/active-plugin.json')
+PLUGIN_FLAGS = ('--record-plugin-override', '--clear-plugin-override')
 USE_INSTALLED = ('--record-override' in sys.argv or '--clear-override' in sys.argv or
-                 OVERRIDE_MARKER.exists() or OVERRIDE_MARKER.is_symlink())
+                 any(flag in sys.argv for flag in PLUGIN_FLAGS) or
+                 OVERRIDE_MARKER.exists() or OVERRIDE_MARKER.is_symlink() or
+                 PLUGIN_OVERRIDE_MARKER.exists() or PLUGIN_OVERRIDE_MARKER.is_symlink())
 runtime = INSTALLED_RUNTIME if USE_INSTALLED else IMAGE_RUNTIME
 if not runtime.is_dir():
     raise SystemExit('Argos runtime refresh source is unavailable.')
 sys.path.insert(0, str(runtime))
 from argoslive import image_refresh
+
+# An installed runtime older than plugin overrides can neither record nor honour one. Refuse
+# plainly instead of failing in its argument parser; at boot it refreshes the plugin from the image.
+if any(flag in sys.argv for flag in PLUGIN_FLAGS) and not hasattr(image_refresh, 'record_plugin_override'):
+    raise SystemExit('Installed runtime cannot manage a plugin override; update the runtime first.')
 
 # A failed update can roll back to the image's older package before it has
 # learned --record-override. In that case the marker is unnecessary only when
