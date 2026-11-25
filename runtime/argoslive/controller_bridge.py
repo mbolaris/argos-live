@@ -86,6 +86,36 @@ def _settled_campaign_note_or_read(item):
              item.get('status') == 'failed' and item.get('appended') is False))
 
 
+def _validation_refusal(item):
+    """A host-tool failure the host raised while validating the request.
+
+    `tool()` tags only a plain ValueError raised after the call's turn and replay
+    checks and before its call ID is admitted. Such a call was never recorded,
+    delegated to a child or run, so it left nothing to repeat or undo. Busy,
+    host-operation and child failures carry other stages and never match. An
+    unknown tool kind (recorded as 'other') signals a plugin/host mismatch and
+    never matches either.
+    """
+    return (isinstance(item, dict) and item.get('tool_stage') == 'validation' and
+            isinstance(item.get('kind'), str) and item['kind'] != 'other' and
+            item.get('error_class') == 'ValueError' and
+            'recovery_required' not in item and 'child_failure_stage' not in item)
+
+
+def _ended_attempt_calls_settled(active):
+    """Every host call of an ended model attempt completed or was refused during validation.
+
+    The request count must equal successes plus recorded refusals, so a call that is
+    still running, failed in another way, or fell past the bounded failure list blocks.
+    """
+    failures = active.get('host_tool_failures', [])
+    requests = active.get('host_tool_requests', 0)
+    successes = active.get('host_tool_successes', 0)
+    return (isinstance(failures, list) and type(requests) is int and type(successes) is int and
+            all(_validation_refusal(item) for item in failures) and
+            requests == successes + len(failures))
+
+
 def _refusal(code, message):
     """Return a ValueError carrying a bounded refusal code for diagnostics."""
     error = ValueError(message)
@@ -318,7 +348,7 @@ class Bridge:
                             failure = {'kind': safe_kind, 'error_class': type(error).__name__}
                             stage = getattr(error, 'tool_stage', None)
                             if stage in {'tool-lock-timeout', 'admission', 'job-exclusion',
-                                         'host-operation', 'workload-child'}:
+                                         'validation', 'host-operation', 'workload-child'}:
                                 failure['tool_stage'] = stage
                             wait_ms = getattr(error, 'tool_wait_ms', None)
                             if type(wait_ms) is int and 0 <= wait_ms <= 120000:
@@ -442,17 +472,16 @@ class Bridge:
                 # OpenClaw can continue a model attempt with the same run ID
                 # after a host tool returns. Re-admit only after the prior
                 # attempt ended, every requested host tool completed
-                # successfully, and all campaign/worker gates are still clear.
+                # successfully or was refused while the host validated it (it
+                # never ran), and all campaign/worker gates are still clear.
                 # The fresh turn token invalidates callbacks from the ended
-                # attempt; unfinished or failed host work remains blocked.
+                # attempt; unfinished or otherwise failed host work remains blocked.
                 if (self.active['ended'] and
                         self.active['run_id'] == request['run_id'] and
                         self.active['session_id'] == worker_session == request['session_id'] and
                         self.active['session_key'] == request['session_key'] == self.session_key and
                         self.active['trigger'] == request['trigger'] == self.trigger and
-                        self.active.get('host_tool_requests', 0) ==
-                            self.active.get('host_tool_successes', 0) and
-                        not self.active.get('host_tool_failures') and self.task_campaign and
+                        _ended_attempt_calls_settled(self.active) and self.task_campaign and
                         self.parent.record.get('kind') == 'controller' and
                         self.session_key.startswith(campaign_prefix) and worker_alive and
                         not self.closed and not self.uncertain and self.pending is None and
@@ -604,6 +633,9 @@ class Bridge:
                 call = request.get('call_id')
                 if not identity(call) or self.active['ended'] or call in self.active['calls']:
                     raise ValueError('Stale or replayed tool execution')
+                # From here until the call ID is admitted, a plain ValueError is a
+                # host refusal of the request itself; nothing has been recorded or run.
+                tool_stage = 'validation'
                 kind, params = request.get('kind'), request.get('params')
                 if not isinstance(params, dict):
                     raise ValueError('Bounded tool parameters required')
@@ -628,6 +660,7 @@ class Bridge:
                 if (self.evaluation_job and not self.evaluation_job.get('consumed') and
                         kind not in {'evaluation_wait', 'evaluation_status'}):
                     raise workload.Busy()
+                tool_stage = 'validation'
                 if kind == 'evaluation':
                     if set(params) - {'suite'} or params.get('suite', 'quick') not in TASK_CAMPAIGN_SUITES:
                         raise _refusal('unsupported-evaluation-request', 'Unsupported evaluation request')
@@ -670,6 +703,7 @@ class Bridge:
                 else:
                     raise ValueError('Unsupported controller tool')
                 self._validate_task_scope(kind, params)
+                tool_stage = 'admitted'
                 self.active['calls'].add(call)
             tool_stage = 'host-operation'
             if kind in PROCTOR_TOOLS:
@@ -786,6 +820,8 @@ class Bridge:
             if isinstance(error, workload.Busy):
                 error.tool_stage = tool_stage
                 error.tool_wait_ms = tool_wait_ms
+            elif type(error) is ValueError and tool_stage == 'validation':
+                error.tool_stage = 'validation'
             raise
         finally:
             self.tool_lock.release()

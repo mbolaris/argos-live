@@ -72,7 +72,7 @@ def safe_controller_diagnostics(turn):
                 continue
             failure = {'kind': row['kind'], 'error_class': row['error_class']}
             if row.get('tool_stage') in {'tool-lock-timeout', 'admission', 'job-exclusion',
-                                         'host-operation', 'workload-child'}:
+                                         'validation', 'host-operation', 'workload-child'}:
                 failure['tool_stage'] = row['tool_stage']
             if type(row.get('tool_wait_ms')) is int and 0 <= row['tool_wait_ms'] <= 120000:
                 failure['tool_wait_ms'] = row['tool_wait_ms']
