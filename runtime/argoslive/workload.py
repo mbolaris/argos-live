@@ -234,7 +234,7 @@ HOST_REFUSAL_CODES = frozenset({
 _REFUSED_EVALUATION_STEP_KEYS = frozenset({
     'step_id', 'tool', 'status', 'error_class', 'refusal_code', 'requested_suite', 'owner_suite'})
 _REFUSED_EVALUATION_FAILURE_KEYS = frozenset({
-    'kind', 'error_class', 'refusal_code', 'requested_suite', 'owner_suite'})
+    'kind', 'error_class', 'refusal_code', 'requested_suite', 'owner_suite', 'tool_stage'})
 
 
 def host_refused_evaluation_step(step):
@@ -253,8 +253,12 @@ def host_refused_evaluation_step(step):
 
 
 def _host_refused_evaluation_failure(item):
-    """Controller-ledger entry for the same refusal; Busy/child failures carry extra stages."""
+    """Controller-ledger entry for the same refusal; Busy/child failures carry other stages.
+
+    Ledgers written before the bridge tagged validation refusals have no stage.
+    """
     return (isinstance(item, dict) and set(item) <= _REFUSED_EVALUATION_FAILURE_KEYS and
+            item.get('tool_stage', 'validation') == 'validation' and
             item.get('kind') == 'evaluation' and item.get('error_class') == 'ValueError' and
             ('refusal_code' not in item or item['refusal_code'] in HOST_REFUSAL_CODES))
 

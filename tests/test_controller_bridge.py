@@ -167,11 +167,14 @@ class ControllerBridgeTests(unittest.TestCase):
                                      'kind': 'evaluation', 'params': {'suite': 'private text'}})
                 start.assert_not_called()
             self.assertEqual(bridge.active['host_tool_failures'], [
-                {'kind': 'evaluation', 'error_class': 'ValueError', 'refusal_code': 'owner-suite-mismatch',
+                {'kind': 'evaluation', 'error_class': 'ValueError', 'tool_stage': 'validation',
+                 'refusal_code': 'owner-suite-mismatch',
                  'requested_suite': 'quick', 'owner_suite': 'documents-long'},
-                {'kind': 'evaluation', 'error_class': 'ValueError',
+                {'kind': 'evaluation', 'error_class': 'ValueError', 'tool_stage': 'validation',
                  'refusal_code': 'unsupported-evaluation-request',
                  'requested_suite': 'unsupported', 'owner_suite': 'documents-long'}])
+            self.assertTrue(all(workload._host_refused_evaluation_failure(item)
+                                for item in bridge.active['host_tool_failures']))
             failed = [event for event in events if event.get('status') == 'failed']
             self.assertEqual([(event['refusal_code'], event['requested_suite'], event['owner_suite'])
                               for event in failed],
@@ -285,6 +288,84 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(bridge.last_admission_block_reason, 'same-run-id')
             self.assertTrue(bridge.active['ended'])
             parent.complete()
+
+    def test_campaign_may_continue_same_run_after_request_refused_during_validation(self):
+        # Field incident 2026-11-25: a health campaign with one saved run asked to
+        # compare runs the host could not use; refusing the continuation quarantined Toronado.
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key,
+                                              task_campaign=True, owner_task_suite='quick')
+            first, first_turn = self.begin(bridge)
+            bridge.session_id = first['session_id']
+            worker = SimpleNamespace(poll=lambda: None)
+            bridge.worker = worker
+            with self.assertRaisesRegex(ValueError, 'not found'):
+                bridge.dispatch({**first_turn, 'op': 'tool', 'call_id': 'compare-missing', 'kind': 'compare',
+                                 'params': {'baseline_id': 'a' * 32, 'candidate_id': 'b' * 32}})
+            self.assertEqual(bridge.active['host_tool_failures'],
+                             [{'kind': 'compare', 'error_class': 'ValueError', 'tool_stage': 'validation'}])
+            self.assertNotIn('compare-missing', bridge.active['calls'])
+            self.assertEqual(bridge.outcomes, [])
+            bridge.dispatch({**first_turn, 'op': 'ended'})
+
+            continuation = bridge.dispatch(first)
+            self.assertEqual(continuation['status'], 'admitted')
+            self.assertNotEqual(continuation['turn_token'], first_turn['turn_token'])
+            self.assertEqual(bridge.active['run_id'], first['run_id'])
+            self.assertEqual(bridge.sdk_runs_started, 2)
+            self.assertEqual(bridge.sdk_run_history[0]['host_tool_failures'], 1)
+            self.assertIs(bridge.worker, worker)
+            with self.assertRaises(workload.Busy):
+                bridge.dispatch({**first_turn, 'op': 'ended'})
+            parent.complete()
+
+    def test_same_run_continuation_still_refused_after_failure_past_validation(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True,
+                                              ssh_status_provider=lambda: {'schema': 'not-a-receipt'},
+                                              ssh_status_verifier=lambda value: True)
+            first, first_turn = self.begin(bridge)
+            bridge.session_id = first['session_id']
+            bridge.worker = SimpleNamespace(poll=lambda: None)
+            with self.assertRaisesRegex(ValueError, 'receipt unavailable'):
+                bridge.dispatch({**first_turn, 'op': 'tool', 'call_id': 'ssh-status', 'kind': 'ssh_status',
+                                 'params': {}})
+            self.assertEqual(bridge.active['host_tool_failures'],
+                             [{'kind': 'ssh_status', 'error_class': 'ValueError'}])
+            bridge.dispatch({**first_turn, 'op': 'ended'})
+            with self.assertRaises(workload.Busy):
+                bridge.dispatch(first)
+            self.assertEqual(bridge.last_admission_block_reason, 'same-run-id')
+            parent.complete()
+
+    def test_same_run_continuation_requires_every_call_accounted_for(self):
+        refused = {'kind': 'compare', 'error_class': 'ValueError', 'tool_stage': 'validation'}
+        cases = {
+            'call-without-result': dict(host_tool_requests=2, host_tool_successes=0,
+                                        host_tool_failures=[refused]),
+            'busy-at-validation': dict(host_tool_requests=1, host_tool_failures=[
+                {**refused, 'error_class': 'Busy'}]),
+            'recovery-flag': dict(host_tool_requests=1, host_tool_failures=[
+                {**refused, 'recovery_required': False}]),
+            'child-stage': dict(host_tool_requests=1, host_tool_failures=[
+                {**refused, 'child_failure_stage': 'reservation'}]),
+            'other-stage': dict(host_tool_requests=1, host_tool_failures=[
+                {**refused, 'tool_stage': 'host-operation'}]),
+        }
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        for name, fields in cases.items():
+            with self.subTest(name), workload.reserve(self.home, 'controller') as parent:
+                bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key, task_campaign=True)
+                first, first_turn = self.begin(bridge)
+                bridge.session_id = first['session_id']
+                bridge.worker = SimpleNamespace(poll=lambda: None)
+                bridge.active.update(fields)
+                bridge.dispatch({**first_turn, 'op': 'ended'})
+                with self.assertRaises(workload.Busy):
+                    bridge.dispatch(first)
+                parent.complete()
 
     def test_campaign_sdk_run_rotation_requires_ended_live_bounded_idle_turn(self):
         session_key = 'agent:main:argos_proctor_improvement_owner-task'
@@ -814,7 +895,9 @@ class ControllerBridgeTests(unittest.TestCase):
             self.assertEqual(bridge.active['host_tool_failures'],[
                 {'kind':'log','error_class':'Busy','tool_stage':'admission',
                  'tool_wait_ms':0,'recovery_required':True},
-                {'kind':'other','error_class':'ValueError'}])
+                {'kind':'other','error_class':'ValueError','tool_stage':'validation'}])
+            # An unknown tool never ran, but it signals a plugin/host mismatch: never continue past it.
+            self.assertFalse(controller_bridge._validation_refusal(bridge.active['host_tool_failures'][1]))
             self.assertFalse((self.home / '.openclaw/workspace/IMPROVEMENT-LOG.md').exists())
 
     def test_parallel_short_host_tools_are_queued_and_still_run_one_at_a_time(self):
