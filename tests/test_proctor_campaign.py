@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from argoslive import proctor_campaign, proctor_service
+from argoslive import proctor_campaign, proctor_service, workload
 from argoslive.web.server import DashboardServer
 
 
@@ -705,6 +705,33 @@ class ProctorServiceProgressTests(unittest.TestCase):
                 self.assertEqual(log.stat().st_mode & 0o777, 0o600)
             else:
                 self.assertFalse(log.exists())
+
+    def test_campaign_failure_keeps_host_recorded_evidence(self):
+        # Field incident 2026-11-25: four saved documents-long runs were reported as
+        # "campaign evidence ledger was not returned" with no saved evaluation IDs.
+        with tempfile.TemporaryDirectory() as root:
+            home = Path(root)
+            config = home / '.config/argos-live'
+            config.mkdir(parents=True)
+            (config / 'state.json').write_text('{"model":"qwen-test"}')
+            error = workload.Busy(recovery=True)
+            error.campaign_outcomes = [
+                {'kind': 'inspect', 'call_id': 'inspect-one', 'status': 'inspected'},
+                {'kind': 'evaluation', 'call_id': 'eval-one', 'state': 'completed', 'result_id': 'a' * 32,
+                 'suite': 'openclaw-documents-long', 'coverage_complete': True, 'total': 40, 'correct': 35,
+                 'format_errors': 0},
+                {'kind': 'evaluation', 'call_id': 'eval-two', 'state': 'completed', 'result_id': 'b' * 32,
+                 'suite': 'openclaw-documents-long', 'coverage_complete': True, 'total': 40, 'correct': 34,
+                 'format_errors': 0}]
+            with patch.object(proctor_service.startup, 'source', return_value=('target', 'qwen-test')),                     patch.object(proctor_service, 'run_campaign', side_effect=error):
+                value = proctor_service.run_improvement(home, owner_task='answer long owner documents',
+                    success_criteria='more accepted answers', measurement_suite='documents-long')
+            campaign = value['campaign']
+            self.assertEqual((value['status'], value['failure_stage']), ('incomplete', 'campaign'))
+            self.assertEqual((campaign['status'], campaign['outcome']), ('failed', 'campaign-runtime-failed'))
+            self.assertEqual(campaign['saved_evaluation_ids'], ['a' * 32, 'b' * 32])
+            self.assertNotIn('campaign evidence ledger was not returned', campaign['missing'])
+            self.assertIn('a host-verified log receipt for every saved evaluation', campaign['missing'])
 
     def test_failure_log_problems_never_change_the_result(self):
         with tempfile.TemporaryDirectory() as root:

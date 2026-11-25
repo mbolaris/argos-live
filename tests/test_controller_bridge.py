@@ -51,6 +51,55 @@ class ControllerBridgeTests(unittest.TestCase):
         self.assertFalse(controller_bridge.Bridge._campaign_turn_has_only_completed_readonly_calls(
             bridge, failed))
 
+    def test_incomplete_campaign_gate_accepts_settled_log_notes(self):
+        # Field incident 2026-11-25: a follow-up turn of inspect, audit and log notes
+        # ended without an answer and quarantined the controller.
+        outcomes = [{'kind': 'inspect', 'call_id': 'inspect-one', 'status': 'inspected'},
+                    {'kind': 'audit', 'call_id': 'audit-one', 'status': 'verified'},
+                    {'kind': 'log', 'call_id': 'log-one', 'status': 'appended', 'appended': True,
+                     'logged_result_ids': []},
+                    {'kind': 'log', 'call_id': 'log-two', 'status': 'failed', 'appended': False,
+                     'append_outcome': 'unconfirmed'}]
+        calls = {item['call_id'] for item in outcomes}
+        active = {'host_tool_requests': 4, 'host_tool_successes': 4, 'host_tool_failures': [], 'calls': calls}
+        self.assertTrue(controller_bridge.Bridge._campaign_turn_has_only_completed_readonly_calls(
+            SimpleNamespace(outcomes=outcomes), active))
+        for unsettled in ({'kind': 'log', 'call_id': 'log-one'},
+                          {'kind': 'log', 'call_id': 'log-one', 'status': 'appended', 'appended': False},
+                          {'kind': 'log', 'call_id': 'log-one', 'status': 'failed', 'appended': True},
+                          {'kind': 'log', 'call_id': 'log-one', 'status': 'busy', 'appended': False},
+                          {'kind': 'edit', 'call_id': 'log-one', 'status': 'changed'}):
+            with self.subTest(outcome=unsettled):
+                self.assertFalse(controller_bridge.Bridge._campaign_turn_has_only_completed_readonly_calls(
+                    SimpleNamespace(outcomes=[*outcomes[:2], unsettled, outcomes[3]]), active))
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux host-owned worker drainage')
+    def test_incomplete_campaign_after_settled_log_notes_is_retryable(self):
+        session_key = 'agent:main:argos_proctor_improvement_owner-task'
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent, session_key=session_key,
+                task_campaign=True, owner_task_suite='documents-long')
+            request, _turn = self.begin(bridge)
+            bridge.session_id = request['session_id']
+            bridge.active.update(ended=True, host_tool_requests=3, host_tool_successes=3,
+                                 calls={'inspect-one', 'audit-one', 'log-one'})
+            bridge.outcomes.extend([
+                {'kind': 'inspect', 'call_id': 'inspect-one', 'status': 'inspected'},
+                {'kind': 'audit', 'call_id': 'audit-one', 'status': 'verified'},
+                {'kind': 'log', 'call_id': 'log-one', 'status': 'failed', 'appended': False,
+                 'append_outcome': 'unconfirmed'}])
+            response = {'status': 'error', 'result': {'payloads': [], 'meta': {
+                'agentMeta': {'sessionId': bridge.session_id},
+                'error': {'kind': 'incomplete_turn', 'message': 'private model detail'}}}}
+            bridge.worker = SimpleNamespace(returncode=1, pid=2**31 - 1, poll=lambda: 1,
+                communicate=lambda timeout: (json.dumps(response), ''))
+
+            bridge.finish(timeout=1, finalize=False, retain_controller=True)
+            self.assertEqual(bridge.worker_outcome, 'incomplete-turn')
+            self.assertFalse(bridge.uncertain)
+            self.assertTrue(bridge._accepted_campaign_worker_exit())
+            parent.complete()
+
     def test_host_identity_and_secret_are_required_before_admission(self):
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent, session_key='agent:main:host-session')
@@ -537,7 +586,8 @@ class ControllerBridgeTests(unittest.TestCase):
                 communicate=lambda timeout: (json.dumps(response), ''))
 
             bridge.finish(timeout=1, finalize=False, retain_controller=True)
-            bridge.outcomes.extend([{'kind': 'inspect'}, {'kind': 'audit'}, {'kind': 'ssh_status'}])
+            bridge.outcomes.extend([{'kind': 'inspect'}, {'kind': 'audit'}, {'kind': 'ssh_status'},
+                                    {'kind': 'log', 'status': 'appended', 'appended': True}])
             bridge.release_unmeasured_incomplete_campaign()
             self.assertTrue(parent.drained)
             self.assertTrue(bridge.closed)

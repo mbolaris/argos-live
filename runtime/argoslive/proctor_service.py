@@ -930,6 +930,17 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
             stop_event=stop_event,
             ssh_status_provider=ssh_status_provider,
             ssh_status_verifier=ssh_status_verifier, on_progress=on_progress))
+
+        def attach_host_ledger(_exc_type, error, _traceback):
+            # A failed campaign keeps its quarantine, but the host-recorded
+            # evidence must still reach the owner's result (run_improvement).
+            if error is not None:
+                try:
+                    error.campaign_outcomes = list(bridge.outcomes)
+                except Exception:
+                    pass
+            return False
+        stack.push(attach_host_ledger)
         stack.enter_context(owned_ollama.owned(target, port=11434, context_tokens=32768,
             lease_store=Path(home) / '.local/state/argos-live'))
         stack.enter_context(owned_gateway.owned(home, executable=executable, config_path=config_path,
@@ -1127,14 +1138,26 @@ def run_improvement(home, *, owner_task, success_criteria, measurement_suite=Non
         # owner-only log on this machine and never to the browser.
         from .proctor_campaign import safe_failure_code
         record_campaign_failure(home, error)
+        failed = {'status': 'failed', 'outcome': 'campaign-runtime-failed',
+                  'audit_status': None, 'controller_turns': 0,
+                  'evaluation_limit': evaluation_limit,
+                  'missing': ['campaign evidence ledger was not returned'],
+                  'saved_evaluation_ids': []}
+        ledger = getattr(error, 'campaign_outcomes', None)
+        if isinstance(ledger, list) and ledger:
+            # Report only host-recorded evidence; the failure status, outcome,
+            # and quarantine are unchanged.
+            evidence = _campaign_assessment(ledger)
+            failed.update(
+                audit_status=evidence.get('audit_status'),
+                saved_evaluation_ids=evidence.get('saved_evaluation_ids', []),
+                baseline_evaluation_ids=evidence.get('baseline_evaluation_ids', []),
+                missing=['the campaign stopped on a host failure before its evidence could be released',
+                         *[item for item in evidence.get('missing', []) if isinstance(item, str)]][:16])
         return {'status': 'incomplete', 'owner_task': owner_task,
                 'success_criteria': success_criteria,
                 'measurement_suite': measurement_suite,
-                'campaign': {'status': 'failed', 'outcome': 'campaign-runtime-failed',
-                             'audit_status': None, 'controller_turns': 0,
-                             'evaluation_limit': evaluation_limit,
-                             'missing': ['campaign evidence ledger was not returned'],
-                             'saved_evaluation_ids': []},
+                'campaign': failed,
                 'failure_code': safe_failure_code(error, 'campaign'),
                 'failure_stage': 'campaign'}
     return {'status': 'completed' if campaign.get('status') == 'completed' else 'incomplete',

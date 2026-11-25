@@ -49,6 +49,28 @@ class CampaignLogTests(unittest.TestCase):
         self.assertEqual(self.log.read_bytes(), self.original)
         campaign_log.append(self.home, '## Next\nMeasure a baseline.')
 
+    def test_journal_change_id_is_accepted_without_a_run_receipt(self):
+        # Field incident 2026-11-25: every note quoting the active change ID failed.
+        change_id = 'c' * 32
+        directory = self.home / '.local/state/argos-live/instruction-changes' / change_id
+        directory.mkdir(parents=True)
+        (directory / 'intent.json').write_text(json.dumps({'id': change_id}), encoding='utf-8')
+        run = bench_openclaw.run(home=self.home, runner=FakeOpenClaw())
+        receipt = campaign_log.append(self.home, f'Change {change_id} measured by {run["id"]}')
+        self.assertEqual([item['id'] for item in receipt['receipts']], [run['id']])
+        entry = self.log.read_bytes()[len(self.original):].decode()
+        self.assertIn('Host-journal instruction change IDs (not saved runs): ["' + change_id + '"]', entry)
+
+    def test_unknown_id_is_still_rejected_beside_a_journal_change(self):
+        change_id = 'c' * 32
+        directory = self.home / '.local/state/argos-live/instruction-changes' / change_id
+        directory.mkdir(parents=True)
+        (directory / 'intent.json').write_text(json.dumps({'id': 'd' * 32}), encoding='utf-8')
+        for note in (f'Change {change_id}', f'Run {"a" * 32}'):
+            with self.assertRaisesRegex(ValueError, 'not found'):
+                campaign_log.append(self.home, note)
+        self.assertEqual(self.log.read_bytes(), self.original)
+
     def test_bad_input_is_rejected_before_admission(self):
         for value in ('', 'x' * 4097, 'x\0y', None):
             with self.assertRaises(ValueError):
