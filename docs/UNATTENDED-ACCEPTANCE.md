@@ -73,9 +73,11 @@ existing 27B deployment requires preserving its model files and private config.
   evaluation holds admission. Natural-language change claims remain unverified.
   An automated complete campaign-log verifier and protected experiment journal
   are still required. Same-UID shell access can bypass these interfaces.
-- Heartbeat: stricter prompt and status facts prevent common accidental actions
-  by instruction. Owner authorization and dispatch exclusion must additionally
-  be enforced by the host; a prompt is not that enforcement.
+- Heartbeat: the generated main-profile prompt is status-only. Campaign steps
+  run only in host-controller turns, which carry the journaled instruction tools;
+  a heartbeat that resumed a step once changed AGENTS.md outside the instruction
+  journal. Owner authorization and dispatch exclusion must additionally be
+  enforced by the host; a prompt is not that enforcement.
 - Independent verification: proctor core/signing smoke exists. The interactive
   adapter, protected service identity, shared admission on every execution path,
   repeated baseline/final runs and Yugo-verified transcripts are still required.

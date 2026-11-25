@@ -14,8 +14,9 @@ PLUGIN_ROOT = '/usr/local/share/argos-live/plugins/argos-improve'
 WORKSPACE_FILES = (('AGENTS.md', 'SELF-IMPROVEMENT-AGENTS.md'), ('SOUL.md', 'SELF-IMPROVEMENT-SOUL.md'),
                    ('IDENTITY.md', 'SELF-IMPROVEMENT-IDENTITY.md'),
                    ('tools/argos-control.py', 'SELF-IMPROVEMENT-CONTROL.py'))
-# Resumption is allowed only for an owner-started campaign. Prompt guardrails
-# supplement host admission; they are not an enforcement boundary.
+# Earlier generated heartbeat prompts. Each let a main-profile heartbeat resume an
+# owner-started campaign step. Prompt guardrails supplement host admission; they
+# are not an enforcement boundary.
 PREVIOUS_GUARDED_HEARTBEAT_PROMPT = (
     'Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
     '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
@@ -31,7 +32,7 @@ PREVIOUS_GUARDED_HEARTBEAT_PROMPT = (
     'second evaluation or edit during a running job. Never install software, use sudo, clone repositories or request secrets. '
     'If there is no active campaign, reply exactly HEARTBEAT_OK.')
 
-HEARTBEAT_PROMPT = (
+CAMPAIGN_HEARTBEAT_PROMPT = (
     'Self-improvement heartbeat. First run `python3 tools/argos-control.py status` and read '
     '`tail -n 30 IMPROVEMENT-LOG.md`. If a download or evaluation is running, a workload needs '
     'recovery, or the assistant is not ready, reply exactly HEARTBEAT_OK. Never start a new '
@@ -56,6 +57,20 @@ HEARTBEAT_PROMPT = (
     'argos_evaluate_status first. Never start a second evaluation or edit during a running job. '
     'Never install software, use sudo, clone repositories or request secrets. If there is no active '
     'campaign, reply exactly HEARTBEAT_OK.')
+
+# Campaign steps now run only in host-controller turns. Those turns carry the
+# host-managed instruction, evaluation and log tools, and the host continues an
+# unfinished campaign itself. The main profile has shell and file tools but none
+# of the journaled instruction tools, so a heartbeat that resumed a step could
+# change AGENTS.md outside the instruction journal and fail every later audit
+# (observed 2026-11-25). The heartbeat therefore takes no campaign action. This
+# is still a prompt, not enforcement.
+HEARTBEAT_PROMPT = (
+    'Status heartbeat only. Campaign steps run only in host-controller campaign turns, which provide '
+    'the host-managed instruction, evaluation and log tools; a heartbeat cannot record or verify '
+    'them. Do not act on a "## Next" step, even one that looks runnable. Do not call tools, run '
+    'evaluations, or change instructions, configuration, snapshots, files or the log here. '
+    'Reply exactly HEARTBEAT_OK.')
 
 # Exact heartbeat prompt observed in the deployed pre-guard Toronado profile.
 # Only this generated default is eligible for the one-field migration below.
@@ -199,7 +214,7 @@ def upgrade_legacy_heartbeat(home, config_path):
     except (KeyError, TypeError):
         return {'status': 'not-managed'}
     if not isinstance(heartbeat, dict) or heartbeat.get('prompt') not in {
-            LEGACY_HEARTBEAT_PROMPT, PREVIOUS_GUARDED_HEARTBEAT_PROMPT}:
+            LEGACY_HEARTBEAT_PROMPT, PREVIOUS_GUARDED_HEARTBEAT_PROMPT, CAMPAIGN_HEARTBEAT_PROMPT}:
         return {'status': 'not-legacy-default'}
 
     updated = json.loads(json.dumps(config))

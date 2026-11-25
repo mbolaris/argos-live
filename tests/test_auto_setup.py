@@ -85,14 +85,10 @@ class AutoSetupTests(unittest.TestCase):
                 heartbeat = config['agents']['defaults']['heartbeat']
                 self.assertEqual((heartbeat['session'], heartbeat['target']), ('main', 'none'))
                 self.assertIs(heartbeat['isolatedSession'], True)
-                self.assertIn('## Done', heartbeat['prompt'])
-                self.assertIn('awaiting owner direction, approval', heartbeat['prompt'])
-                self.assertIn('without changing files, snapshots, or the log', heartbeat['prompt'])
-                self.assertIn('reconcile it against saved results', heartbeat['prompt'])
-                self.assertIn('a missing log entry does not mean a completed run was lost', heartbeat['prompt'])
-                self.assertIn('do not rerun it', heartbeat['prompt'])
-                self.assertIn('do not infer intent from hidden answer labels', heartbeat['prompt'])
-                self.assertIn('separately versioned, fully specified form', heartbeat['prompt'])
+                # Campaign steps run only in host-controller turns; the heartbeat is status-only.
+                self.assertEqual(heartbeat['prompt'], auto_setup.HEARTBEAT_PROMPT)
+                self.assertIn('Do not act on a "## Next" step', heartbeat['prompt'])
+                self.assertIn('change instructions, configuration, snapshots, files or the log', heartbeat['prompt'])
                 agents_guide = (workspace / 'AGENTS.md').read_text(encoding='utf-8')
                 self.assertIn('An owner-dependent `## Next` is paused.', agents_guide)
                 self.assertIn('Do not re-append the same waiting state', agents_guide)
@@ -206,6 +202,37 @@ class AutoSetupTests(unittest.TestCase):
         updated['agents']['defaults']['heartbeat']['prompt'] = auto_setup.PREVIOUS_GUARDED_HEARTBEAT_PROMPT
         self.assertEqual(updated, config)
         self.assertEqual(len(list(snapshot.parent.glob('openclaw-before-heartbeat-guard-*.json'))), 1)
+
+    def test_campaign_heartbeat_prompt_is_upgraded_to_status_only(self):
+        self.configure()
+        config = json.loads(self.config.read_text())
+        config['agents']['defaults']['heartbeat']['prompt'] = auto_setup.CAMPAIGN_HEARTBEAT_PROMPT
+        config['agents']['defaults']['heartbeat']['every'] = '7m'  # Owner-chosen cadence is kept.
+        self.config.write_text(json.dumps(config, indent=2) + '\n')
+        before = self.config.read_bytes()
+
+        result = self.configure()
+
+        self.assertEqual(result['heartbeat_prompt_migration']['status'], 'updated')
+        snapshot = self.home / '.local/state/argos-live/snapshots' / result['heartbeat_prompt_migration']['snapshot']
+        self.assertEqual(snapshot.read_bytes(), before)
+        updated = json.loads(self.config.read_text())
+        self.assertEqual(updated['agents']['defaults']['heartbeat']['prompt'], auto_setup.HEARTBEAT_PROMPT)
+        updated['agents']['defaults']['heartbeat']['prompt'] = auto_setup.CAMPAIGN_HEARTBEAT_PROMPT
+        self.assertEqual(updated, config)
+        again = self.configure()
+        self.assertEqual(again['heartbeat_prompt_migration']['status'], 'not-legacy-default')
+
+    def test_generated_heartbeat_takes_no_campaign_action(self):
+        prompt = auto_setup.HEARTBEAT_PROMPT
+        self.assertTrue(prompt.endswith('Reply exactly HEARTBEAT_OK.'))
+        self.assertIn('host-controller campaign turns', prompt)
+        for removed in ('take the next unfinished step', 'argos_log', 'argos_evaluate', 'AGENTS.md'):
+            self.assertNotIn(removed, prompt)
+        self.assertNotEqual(prompt, auto_setup.CAMPAIGN_HEARTBEAT_PROMPT)
+        self.configure()
+        config = json.loads(self.config.read_text())
+        self.assertEqual(config['agents']['defaults']['heartbeat']['prompt'], prompt)
 
     def test_exact_legacy_owner_guide_is_snapshotted_and_only_targeted_sections_change(self):
         workspace = self.home / '.openclaw/workspace'
