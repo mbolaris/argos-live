@@ -142,6 +142,26 @@ class SelectionTests(unittest.TestCase):
         self.assertFalse(model_selection.rollback_path(self.home).exists())
         self.assertFalse(control.snapshot()['rollback_available'])
 
+    def test_completed_switch_and_restore_are_acknowledged_in_the_instruction_journal(self):
+        from argoslive import instruction_changes
+        with patch.object(instruction_changes, 'acknowledge_configuration') as acknowledge:
+            _, control, _ = self.controller()
+            control.start(tag=self.tag); self.finish(control)
+            control.restore_previous(); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        self.assertEqual([call.kwargs['source'] for call in acknowledge.call_args_list],
+                         ['model-selection', 'model-selection'])
+        self.assertEqual([call.args[1] for call in acknowledge.call_args_list],
+                         ['Owner model selection: ' + self.tag, 'Owner model selection: qwen3:0.6b'])
+
+    def test_journal_note_failure_never_undoes_a_completed_switch(self):
+        from argoslive import instruction_changes
+        with patch.object(instruction_changes, 'acknowledge_configuration', side_effect=OSError('fixture')):
+            _, control, _ = self.controller()
+            control.start(tag=self.tag); self.finish(control)
+        self.assertEqual(control.snapshot()['phase'], 'completed')
+        self.assertEqual(read_json(self.state)['model'], self.tag)
+
     def test_restore_previous_restores_exact_saved_bytes(self):
         startup, control, _ = self.controller()
         control.start(tag=self.tag); self.finish(control)

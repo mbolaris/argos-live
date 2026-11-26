@@ -119,6 +119,26 @@ To adopt the edit:
    the same suite, model and settings.
 3. Argos makes the adopt call itself. Adoption records the edit; it does not claim a gain.
 
+## Model and generation settings
+
+Each journaled change also records the model and generation settings it ran under: the selected model,
+`thinkingDefault`, context limits, and per-model parameters such as `think` or `temperature` in
+`openclaw.json`. If those settings change outside the journal, the instruction audit fails with
+`current-configuration-mismatch` and lists each changed setting with its old and new value. A settings
+change alters what every later run measures. Without this check, old and new runs would still look
+comparable.
+
+A model switch made in Argos Live's model picker is recorded automatically. For any other intended
+change, record it on the machine yourself; Argos has no tool for this:
+
+```sh
+python3 -m argoslive.instruction_changes acknowledge-configuration --reason "Kept thinking on for qwen3.8:27b"
+```
+
+The command refuses while a campaign or evaluation is running, and while an instruction change is
+still open. After an acknowledgement, compare only runs made after it. Earlier runs used different
+settings.
+
 ## Reading results honestly
 
 - **Compare like with like.** Only compare runs with the same suite version, model, hardware and question

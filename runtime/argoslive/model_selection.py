@@ -61,6 +61,23 @@ def finish_journal(path):
             os.close(descriptor)
 
 
+def acknowledge_selection(home, tag):
+    """Record a completed owner model switch in the instruction journal.
+
+    The instruction audit fails when evaluation settings differ from the ones the
+    journal recorded; an owner switch made through this reviewed path is intended.
+    Best effort: if recording fails, the audit reports the change and the owner
+    can acknowledge it with `python3 -m argoslive.instruction_changes`.
+    """
+    try:
+        from . import instruction_changes
+        instruction_changes.acknowledge_configuration(
+            home, f'Owner model selection: {tag}', source='model-selection')
+    except Exception:  # Never undo a completed switch over a journal note.
+        return False
+    return True
+
+
 def rollback_path(home):
     if not home:
         return None
@@ -223,6 +240,7 @@ class Controller(Workload):
                 raise ValueError('Configuration changed during startup')
 
             finish_journal(journal)
+            acknowledge_selection(home, data.get('previous_tag'))
             try:
                 rb.unlink(missing_ok=True)
             except OSError:
@@ -301,6 +319,7 @@ class Controller(Workload):
                         'timestamp': time.time(),
                     })
             finish_journal(journal)
+            acknowledge_selection(self.startup.home, self.tag)
             self.resume = False
             return 'completed'
         except Exception:

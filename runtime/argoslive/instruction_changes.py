@@ -3,7 +3,14 @@
 Only canonical AGENTS.md can change. No path, command, evaluator, permission or
 provider credential is a tool argument. Same-UID unmediated writes remain outside
 this cooperative boundary until protected service deployment.
+
+The audit also compares the live evaluation configuration (model and generation
+settings) with the one the journal last recorded, so an unmediated settings edit
+fails the audit instead of silently changing what later runs measure. The owner
+records an intended settings change with `acknowledge-configuration`; this is a
+host command, never an agent tool.
 """
+import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -13,6 +20,7 @@ import re
 import secrets
 import statistics
 import copy
+import sys
 
 from . import storage, workload
 from .assistant_trial import agents_path
@@ -33,7 +41,11 @@ AUDIT_ERROR_CODES = frozenset({
     'resolution-mismatch', 'resolution-byte-mismatch', 'measured-evidence-mismatch',
     'saved-evidence-mismatch', 'unverified-evidence-claimed-as-gain',
     'current-instructions-or-index-mismatch',
+    'configuration-acknowledgement-mismatch', 'current-configuration-mismatch',
 })
+CONFIG_ACK_SCHEMA = 'argos-configuration-acknowledgement/1'
+CONFIG_ACK_SOURCES = frozenset({'owner', 'model-selection'})
+CHANGED_SETTINGS_LIMIT = 32
 _POLICY_V1 = {'id': 'argos-practice-keep/1', 'repeats_each': 2,
               'minimum_correct_delta': {'openclaw-quick': 2, 'openclaw-standard': 4,
                                         'openclaw-challenge': 3, 'openclaw-tool-schema': 3,
@@ -310,6 +322,104 @@ def inputs(home):
     raw.decode('utf-8')
     config = read_owned(Path(home) / '.openclaw/openclaw.json', 1024**2)
     return expected, raw, config, configuration_receipt(home)
+
+
+def _settings_view(receipt):
+    """The published, credential-free part of an evaluation configuration receipt."""
+    def flatten(value, prefix):  # Leaves only; an empty object adds no setting.
+        if isinstance(value, dict):
+            for key in sorted(value):
+                yield from flatten(value[key], f'{prefix}.{key}')
+        else:
+            yield prefix, value
+    return dict(flatten({'model': receipt['model'], 'generation': receipt['configured_generation']}, 'evaluation'))
+
+
+def changed_settings(journaled_raw, live_receipt):
+    """Name each evaluation setting that differs, with both values (receipts hold no secrets)."""
+    before = _settings_view(receipt_from(configuration_from(json.loads(journaled_raw))))
+    after = _settings_view(live_receipt)
+    return [{'setting': key.removeprefix('evaluation.'), 'journaled': before.get(key), 'live': after.get(key)}
+            for key in sorted(set(before) | set(after)) if before.get(key) != after.get(key)][:CHANGED_SETTINGS_LIMIT]
+
+
+def journaled_configuration(root, current, last_intent, last_directory):
+    """Return (sha256, openclaw.json bytes, acknowledgement count) the journal currently vouches for.
+
+    The last instruction change records the configuration it was measured under.
+    Owner acknowledgements made after that change extend it as a chain; ones made
+    before a later change are superseded by that change's own record.
+    """
+    raw = read_owned(last_directory / 'openclaw.json', 1024**2)
+    sha = last_intent['evaluation_config_sha256']
+    floor = datetime.fromisoformat(read_json(last_directory / 'resolved.json')['observed'])
+    directory = root / 'configuration'
+    if not directory.exists():
+        return sha, raw, 0
+    records = []
+    for child in storage.safe_local(directory).iterdir():
+        if re.fullmatch('[a-f0-9]{32}', child.name):
+            value = read_json(child / 'acknowledgement.json')
+            if value.get('after_change_id') == current['last_id'] and value.get('after_sequence') == current['sequence']:
+                records.append((value, child))
+    records.sort(key=lambda item: item[0].get('index', 0))
+    for index, (value, child) in enumerate(records, 1):
+        snapshot = read_owned(child / 'openclaw.json', 1024**2)
+        observed = datetime.fromisoformat(value['observed'])
+        if (value.get('schema') != CONFIG_ACK_SCHEMA or value.get('id') != child.name or
+                value.get('index') != index or value.get('previous_sha256') != sha or
+                value.get('source') not in CONFIG_ACK_SOURCES or
+                digest(snapshot) != value.get('config_sha256') or
+                receipt_from(configuration_from(json.loads(snapshot)))['sha256'] != value.get('sha256') or
+                observed.tzinfo is None or observed < floor):
+            raise ValueError('configuration-acknowledgement-mismatch')
+        try:
+            text(value.get('reason'), 1024)
+        except Refused:
+            raise ValueError('configuration-acknowledgement-mismatch') from None
+        sha, raw, floor = value['sha256'], snapshot, observed
+    return sha, raw, len(records)
+
+
+def acknowledge_configuration(home, reason, *, source='owner'):
+    """Record the live evaluation configuration as intended. Host/owner only, never an agent tool.
+
+    Without a recorded instruction change there is nothing to compare against,
+    so nothing is written.
+    """
+    if source not in CONFIG_ACK_SOURCES:
+        raise Refused('invalid-acknowledgement-source')
+    text(reason, 1024)
+    root = storage.safe_local(Path(home) / '.local/state/argos-live/instruction-changes')
+    if not (root / 'state.json').exists():
+        return {'status': 'no-journal'}
+    current = state(root)
+    if current['active'] is not None:
+        raise Refused('instruction-change-active')
+    if not current['sequence'] or not current['last_id']:
+        return {'status': 'no-journal'}
+    last_directory = root / current['last_id']
+    journaled_sha, journaled_raw, count = journaled_configuration(
+        root, current, read_json(last_directory / 'intent.json'), last_directory)
+    _path, _raw, config, receipt = inputs(home)
+    if receipt_from(configuration_from(json.loads(config)))['sha256'] != receipt['sha256']:
+        raise Refused('configuration-changed-during-acknowledgement')
+    if receipt['sha256'] == journaled_sha:
+        return {'status': 'unchanged', 'sha256': journaled_sha}
+    changed = changed_settings(journaled_raw, receipt)
+    ack_id = secrets.token_hex(16)
+    parent = root / 'configuration'
+    parent.mkdir(mode=0o700, exist_ok=True)
+    directory = parent / ack_id
+    directory.mkdir(mode=0o700)
+    new_file(directory / 'openclaw.json', config)
+    immutable(directory / 'acknowledgement.json', {
+        'schema': CONFIG_ACK_SCHEMA, 'id': ack_id, 'index': count + 1, 'observed': stamp(),
+        'after_change_id': current['last_id'], 'after_sequence': current['sequence'],
+        'previous_sha256': journaled_sha, 'sha256': receipt['sha256'], 'config_sha256': digest(config),
+        'source': source, 'reason': reason, 'changed_settings': changed})
+    return {'status': 'acknowledged', 'id': ack_id, 'previous_sha256': journaled_sha,
+            'sha256': receipt['sha256'], 'changed_settings': changed}
 
 
 def state(root):
@@ -828,7 +938,8 @@ def audit(home):
     This does not certify the free-form IMPROVEMENT-LOG or independent model gain.
     It is read-only and never repairs/reclaims an uncertain journal.
     """
-    report = {'schema': 'argos-instruction-audit/1', 'scope': 'host instruction journal only',
+    report = {'schema': 'argos-instruction-audit/1',
+              'scope': 'host instruction journal and the evaluation configuration it records',
               'status': 'failed', 'passed': False, 'changes': [],
               'full_log_claims_verified': False, 'independent_gain_verified': False}
     try:
@@ -1021,6 +1132,15 @@ def audit(home):
                 digest(live) != previous_sha or
                 workspace_context_receipt(_path.parent) != entries[-1][0]['workspace_context_sha256']):
             raise ValueError('current-instructions-or-index-mismatch')
+        journaled_sha, journaled_raw, acknowledged = journaled_configuration(
+            root, current, entries[-1][0], entries[-1][1])
+        report['configuration'] = {'journaled_sha256': journaled_sha, 'live_sha256': _receipt['sha256'],
+                                   'acknowledgements': acknowledged,
+                                   'status': ('matches' if journaled_sha == _receipt['sha256'] else
+                                              'changed-outside-journal')}
+        if journaled_sha != _receipt['sha256']:
+            report['configuration']['changed_settings'] = changed_settings(journaled_raw, _receipt)
+            raise ValueError('current-configuration-mismatch')
         report.update(status='verified', passed=True,
                       qualified_experiments=sum(item['qualified_experiment'] for item in report['changes']),
                       adopted_external_edits=sum(item['action'] == 'adopted-external'
@@ -1032,3 +1152,37 @@ def audit(home):
         if isinstance(error, ValueError) and str(error) in AUDIT_ERROR_CODES:
             report['error_code'] = str(error)
     return report
+
+
+def main(argv=None):
+    """Host/owner command line: audit the journal, or acknowledge an intended settings change."""
+    parser = argparse.ArgumentParser(prog='python3 -m argoslive.instruction_changes',
+                                     description='Audit the instruction journal or acknowledge a settings change.')
+    parser.add_argument('--home', default=str(Path.home()))
+    commands = parser.add_subparsers(dest='command', required=True)
+    commands.add_parser('audit', help='Verify the journal and the live evaluation configuration.')
+    acknowledge = commands.add_parser(
+        'acknowledge-configuration',
+        help='Record the live model and generation settings as an intended owner change.')
+    acknowledge.add_argument('--reason', required=True)
+    args = parser.parse_args(argv)
+    home = Path(args.home)
+    if args.command == 'audit':
+        result = audit(home)
+        ok = result['passed']
+    else:
+        try:
+            with workload.reserve(home, 'maintenance') as slot:
+                result = acknowledge_configuration(home, args.reason)
+                slot.complete()
+        except Refused as error:
+            result = {'status': 'rejected', 'code': str(error)}
+        except workload.Busy:
+            result = {'status': 'rejected', 'code': 'host-busy'}
+        ok = result['status'] in ('acknowledged', 'unchanged', 'no-journal')
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0 if ok else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
