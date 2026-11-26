@@ -142,6 +142,9 @@ not change model settings or grant new tools.
    exact snapshots, saved run receipts and resolution policy, then returns safe
    aggregate scores and run IDs without answer text. An empty journal is a valid
    no-experiment result; a failed audit blocks claims based on that journal.
+   It also fails when the live model or generation settings differ from the
+   ones the journal recorded (`current-configuration-mismatch`). Only the
+   owner can record an intended settings change.
    This audit does not validate prose in the free-form log or prove transfer.
 6. Continue only with a distinct justified idea and remaining allowance. Report
    no useful ideas, unavailable tools, exhausted resources or owner Stop accurately;

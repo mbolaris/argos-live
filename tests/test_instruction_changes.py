@@ -437,6 +437,90 @@ class InstructionChangeTests(unittest.TestCase):
         self.assertEqual(two['code'], 'repeated-practice-gain-rule-not-met')
         self.assertEqual(self.resolve(edited, candidate_ids=[candidate['id']])['status'], 'restored')
 
+    def set_think(self, value):
+        path = self.home / '.openclaw/openclaw.json'
+        config = json.loads(path.read_bytes())
+        defaults = config['agents']['defaults']
+        primary = defaults['model'] if isinstance(defaults['model'], str) else defaults['model']['primary']
+        defaults.setdefault('models', {}).setdefault(primary, {}).setdefault('params', {})['think'] = value
+        path.write_text(json.dumps(config, indent=2) + '\n')
+
+    def journaled_change(self):
+        baseline = self.evaluate()
+        edited = self.edit(baseline)
+        self.resolve(edited)
+        return edited
+
+    def test_unmediated_settings_edit_fails_the_audit_with_the_changed_setting(self):
+        self.journaled_change()
+        audit = changes.audit(self.home)
+        self.assertTrue(audit['passed'], audit)
+        self.assertEqual(audit['configuration']['status'], 'matches')
+        self.set_think(True)
+        audit = changes.audit(self.home)
+        self.assertFalse(audit['passed'])
+        self.assertEqual(audit['error_code'], 'current-configuration-mismatch')
+        self.assertEqual(audit['configuration']['status'], 'changed-outside-journal')
+        self.assertEqual(audit['configuration']['changed_settings'],
+                         [{'setting': 'generation.model_params.think', 'journaled': None, 'live': True}])
+        token = json.loads((self.home / '.openclaw/openclaw.json').read_bytes())['gateway']['auth']['token']
+        self.assertNotIn(token, json.dumps(audit))
+        # The agent-facing audit tool reports the same failure.
+        self.assertEqual(self.op('audit')['error_code'], 'current-configuration-mismatch')
+
+    def test_owner_acknowledgement_restores_the_audit_and_is_verified(self):
+        self.journaled_change()
+        self.set_think(True)
+        recorded = changes.acknowledge_configuration(self.home, 'Owner kept thinking on.')
+        self.assertEqual(recorded['status'], 'acknowledged')
+        self.assertEqual(recorded['changed_settings'][0]['setting'], 'generation.model_params.think')
+        audit = changes.audit(self.home)
+        self.assertTrue(audit['passed'], audit)
+        self.assertEqual(audit['configuration'], {
+            'journaled_sha256': recorded['sha256'], 'live_sha256': recorded['sha256'],
+            'acknowledgements': 1, 'status': 'matches'})
+        self.assertEqual(changes.acknowledge_configuration(self.home, 'Again.')['status'], 'unchanged')
+        # A second intended change extends the chain.
+        self.set_think(False)
+        self.assertEqual(changes.acknowledge_configuration(self.home, 'Owner turned it off.')['status'], 'acknowledged')
+        self.assertEqual(changes.audit(self.home)['configuration']['acknowledgements'], 2)
+        snapshot = next((changes.root_path(self.home) / 'configuration').glob(f"{recorded['id']}/openclaw.json"))
+        snapshot.write_bytes(snapshot.read_bytes() + b' ')
+        self.assertEqual(changes.audit(self.home)['error_code'], 'configuration-acknowledgement-mismatch')
+
+    def test_a_later_instruction_change_supersedes_earlier_acknowledgements(self):
+        self.journaled_change()
+        self.set_think(True)
+        changes.acknowledge_configuration(self.home, 'Owner kept thinking on.')
+        self.journaled_change()
+        audit = changes.audit(self.home)
+        self.assertTrue(audit['passed'], audit)
+        self.assertEqual(audit['configuration']['acknowledgements'], 0)
+
+    def test_acknowledgement_needs_a_journal_and_no_active_change(self):
+        self.assertEqual(changes.acknowledge_configuration(self.home, 'Nothing yet.'), {'status': 'no-journal'})
+        self.assertFalse((self.home / '.local/state/argos-live/instruction-changes/configuration').exists())
+        self.assertEqual(changes.audit(self.home)['status'], 'empty')
+        self.edit(self.evaluate())
+        self.set_think(True)
+        with self.assertRaisesRegex(changes.Refused, 'instruction-change-active'):
+            changes.acknowledge_configuration(self.home, 'Mid-experiment.')
+        with self.assertRaisesRegex(changes.Refused, 'invalid-acknowledgement-source'):
+            changes.acknowledge_configuration(self.home, 'Agent.', source='agent')
+
+    def test_agents_cannot_acknowledge_and_the_command_refuses_during_a_campaign(self):
+        self.journaled_change()
+        self.set_think(True)
+        self.assertEqual(self.op('acknowledge-configuration', {'reason': 'Agent says so.'})['status'], 'rejected')
+        with patch('builtins.print') as printed:
+            # setUp holds a controller reservation, as a running campaign does.
+            self.assertEqual(changes.main(['--home', str(self.home), 'acknowledge-configuration',
+                                           '--reason', 'Owner kept thinking on.']), 1)
+        self.assertEqual(json.loads(printed.call_args.args[0])['code'], 'host-busy')
+        self.assertFalse((changes.root_path(self.home) / 'configuration').exists())
+        with patch('builtins.print'):
+            self.assertEqual(changes.main(['--home', str(self.home), 'audit']), 1)
+
     def test_snapshot_tampering_is_detected_by_the_audit(self):
         baseline = self.evaluate()
         edited = self.edit(baseline)
