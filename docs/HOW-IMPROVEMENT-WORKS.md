@@ -71,7 +71,9 @@ campaign, Argos:
 
 Its notes appear in `IMPROVEMENT-LOG.md` on the dashboard.
 
-A campaign gives Argos four turns. A thorough experiment can need more than one campaign. When you start a
+A campaign gives Argos four turns. It ends early only when Argos concludes with its own instruction audit,
+or when the evaluation limit is used up. The host also audits after each turn, but that audit alone does
+not end the campaign. A thorough experiment can need more than one campaign. When you start a
 follow-up campaign, put the earlier run IDs in the task text, because Argos does not search old results
 on its own.
 

@@ -566,6 +566,100 @@ class ProctorServiceTests(unittest.TestCase):
         self.assertIn('"append_outcome": "unconfirmed"', followup)
         self.assertNotIn('complete 70-task standard suite', followup)
 
+    def test_agent_concluded_needs_the_agents_own_audit_after_its_last_work(self):
+        base = [{'kind': 'inspect'}, evaluation_outcome('one', correct=19), log_outcome('one'),
+                evaluation_outcome('two', correct=19), log_outcome('two'),
+                {'kind': 'compare', 'baseline_id': 'one', 'candidate_id': 'two'}]
+        host = {'kind': 'audit', 'status': 'empty', 'passed': True, 'host_final': True}
+        agent = {'kind': 'audit', 'status': 'empty', 'passed': True}
+        self.assertFalse(proctor_service._agent_concluded(base))
+        self.assertFalse(proctor_service._agent_concluded([*base, host]))
+        self.assertFalse(proctor_service._agent_concluded([*base, {**agent, 'passed': False}]))
+        self.assertTrue(proctor_service._agent_concluded([*base, agent]))
+        # A late log receipt after the agent's audit does not undo its conclusion.
+        self.assertTrue(proctor_service._agent_concluded([*base, agent, log_outcome('two'), host]))
+        # An audit before later work does not conclude it.
+        self.assertFalse(proctor_service._agent_concluded(
+            [*base[:3], agent, *base[3:], host]))
+
+    def _run_two_turn_campaign(self, first_turn, second_turn, *, evaluation_limit=8):
+        (self.home / '.openclaw/workspace').mkdir(parents=True, exist_ok=True)
+        bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement', outcomes=[],
+                                 launches=[], continuations=[], completed=False, publish=Mock())
+
+        def launch(_executable, prompt, **_kwargs):
+            bridge.launches.append(prompt)
+
+        def finish(**_kwargs):
+            bridge.outcomes.extend(first_turn if len(bridge.launches) == 1 else second_turn)
+            return {'result': {'payloads': []}}, ''
+
+        bridge.launch = launch
+        bridge.finish = finish
+        bridge.drain_campaign_evaluation = Mock()
+        bridge.drain_before_backends_stop = Mock()
+
+        def next_turn(session_key):
+            bridge.continuations.append(session_key)
+            bridge.session_key = session_key
+
+        bridge.next_campaign_turn = next_turn
+        bridge.complete_campaign = lambda: setattr(bridge, 'completed', True)
+
+        @contextmanager
+        def owned_bridge(*_args, **_kwargs):
+            yield bridge, {}
+
+        @contextmanager
+        def owned_resource(*_args, **_kwargs):
+            yield object()
+
+        with patch.object(proctor_service, 'private_profile', return_value=(
+                 self.home, self.home, self.owner_config, 'a' * 64)), \
+             patch.object(proctor_service, 'refuse_live_gateway'), \
+             patch.object(proctor_service, 'refuse_live_backend'), \
+             patch.object(proctor_service.controller_bridge, 'owned', owned_bridge), \
+             patch.object(proctor_service.owned_ollama, 'owned', owned_resource), \
+             patch.object(proctor_service.owned_gateway, 'owned', owned_resource):
+            result = proctor_service.run_campaign(self.home, 'qwen3.8:27b', self.home,
+                owner_task='answer owner documents accurately',
+                success_criteria='accepted answers include a supported fact',
+                measurement_suite='quick', evaluation_limit=evaluation_limit,
+                executable='openclaw', on_progress=lambda _event: None)
+        return result, bridge
+
+    def test_host_audit_does_not_end_a_campaign_the_agent_has_not_concluded(self):
+        # Seen on Toronado 2026-11-26: the agent's first turn saved two baselines,
+        # compared them and stopped at its hypothesis without auditing. The host
+        # audit completed the no-change ledger, and the campaign ended there.
+        first = [{'kind': 'inspect'},
+                 evaluation_outcome('base-one', correct=13), log_outcome('base-one'),
+                 evaluation_outcome('base-two', correct=13), log_outcome('base-two'),
+                 {'kind': 'compare', 'baseline_id': 'base-one', 'candidate_id': 'base-two'}]
+        second = [{'kind': 'audit', 'status': 'empty', 'passed': True}]
+        result, bridge = self._run_two_turn_campaign(first, second)
+        self.assertEqual(result['controller_turns'], 2, result)
+        self.assertEqual(result['outcome'], 'no_change_audited')
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(len(bridge.continuations), 1)
+        self.assertTrue(bridge.completed)
+        self.assertIn('you have not concluded it', bridge.launches[1])
+        self.assertIn('call argos_audit_instructions to conclude without a change', bridge.launches[1])
+
+    def test_agent_audit_or_exhausted_allowance_still_ends_after_one_turn(self):
+        first = [{'kind': 'inspect'},
+                 evaluation_outcome('base-one', correct=13), log_outcome('base-one'),
+                 evaluation_outcome('base-two', correct=13), log_outcome('base-two'),
+                 {'kind': 'compare', 'baseline_id': 'base-one', 'candidate_id': 'base-two'}]
+        for label, turn, limit in (
+                ('agent audit', [*first, {'kind': 'audit', 'status': 'empty', 'passed': True}], 8),
+                ('allowance exhausted', first, 2)):
+            with self.subTest(label):
+                result, bridge = self._run_two_turn_campaign(list(turn), [], evaluation_limit=limit)
+                self.assertEqual(result['controller_turns'], 1, result)
+                self.assertEqual(result['outcome'], 'no_change_audited')
+                self.assertEqual(bridge.continuations, [])
+
     def test_campaign_continues_clean_turns_until_host_evidence_is_complete(self):
         (self.home / '.openclaw/workspace').mkdir(parents=True)
         bridge = SimpleNamespace(session_key='agent:main:argos_proctor_improvement', outcomes=[],

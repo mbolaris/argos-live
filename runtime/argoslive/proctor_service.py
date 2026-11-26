@@ -789,6 +789,23 @@ def _campaign_assessment(outcomes, *, recovery_mode=False):
             'safe_to_release': safe_to_release}
 
 
+def _evaluation_count(outcomes):
+    return sum(1 for item in outcomes if isinstance(item, dict) and item.get('kind') == 'evaluation')
+
+
+def _agent_concluded(outcomes):
+    """True when the agent's own passed audit follows its last evaluation, comparison or change.
+
+    Host-run audits (`host_final`) do not count: they record evidence, not the
+    agent's decision to stop. Log receipts may land after the agent's audit.
+    """
+    indexed = [(index, item) for index, item in enumerate(outcomes) if isinstance(item, dict)]
+    latest_work = max((index for index, item in indexed if item.get('kind') in
+                       {'evaluation', 'compare', 'edit', 'resolve', 'adopt'}), default=-1)
+    return any(index > latest_work and item.get('kind') == 'audit' and not item.get('host_final') and
+               item.get('passed') is True for index, item in indexed)
+
+
 def _campaign_ledger(outcomes):
     fields = ('kind', 'state', 'result_id', 'baseline_id', 'candidate_id', 'change_id', 'status', 'passed',
               'qualified_experiment', 'configuration_preserved', 'baseline_ids', 'candidate_ids',
@@ -855,9 +872,7 @@ def _campaign_followup(turn, outcomes, assessment, *, owner_task='', success_cri
                 '`argos_ssh_status`), then call `argos_audit_instructions`. Use signed status only; '
                 'never request terminal work or claim recovery without a fresh signed completion receipt. '
                 'Report task-not-measured and the evidence gap.')
-    completed_evaluations = sum(1 for item in outcomes if isinstance(item, dict) and
-                                item.get('kind') == 'evaluation')
-    if completed_evaluations >= evaluation_limit:
+    if _evaluation_count(outcomes) >= evaluation_limit:
         ledger = json.dumps(_campaign_ledger(outcomes), ensure_ascii=False, sort_keys=True)
         missing = json.dumps(assessment['missing'], ensure_ascii=False)
         return ('Continue the same owner-authorized campaign, with the host evaluation limit exhausted. '
@@ -867,6 +882,12 @@ def _campaign_followup(turn, outcomes, assessment, *, owner_task='', success_cri
                 f'comparisons and log entries. Host evidence: {ledger}. Still required: {missing}.')
     ledger = json.dumps(_campaign_ledger(outcomes), ensure_ascii=False, sort_keys=True)
     missing = json.dumps(assessment['missing'], ensure_ascii=False)
+    concluded = ''
+    if assessment.get('ready') and assessment.get('outcome') == 'no_change_audited':
+        concluded = ('The no-change evidence is already complete, and the host audited it; the campaign has '
+                     'not ended because you have not concluded it. Either continue with your own evidence-based '
+                     'experiment within the remaining evaluation limit, or call argos_audit_instructions to '
+                     'conclude without a change. ')
     return ('Continue the same owner-authorized Argos improvement campaign in this fresh controller turn. '
             'The owner-selected task and success criteria remain authoritative; do not widen or replace them. '
             f'Owner-selected task: {json.dumps(owner_task, ensure_ascii=False)}\n'
@@ -874,7 +895,7 @@ def _campaign_followup(turn, outcomes, assessment, *, owner_task='', success_cri
             f'Owner-approved evaluation suite: {measurement_suite or "none"}. Do not use another suite.\n'
             'The prior worker turn ended cleanly and its host-managed results are saved. Do not repeat completed work. '
             f'This is follow-up turn {turn}; the host evidence ledger is {ledger}. '
-            f'The host still requires: {missing}. '
+            f'The host still requires: {missing}. ' + concluded +
             'Continue from the current canonical instructions and saved run IDs. Use your own evidence-based judgment '
             'for any experiment. Recover missing log receipts for saved run IDs before starting any new evaluation. '
             'If a relevant task suite exists but no change is justified, compare two distinct matched baselines. '
@@ -1033,7 +1054,15 @@ def run_campaign(home, model, target, *, owner_task, success_criteria, executabl
                              total=CAMPAIGN_MAX_TURNS,
                              saved_evaluation_count=len(assessment['saved_evaluation_ids']),
                              audit_status=assessment.get('audit_status'))
-            if (assessment['ready'] or admission_blocked or
+            # The host's own audit above can complete a no-change ledger after
+            # the agent only reported progress. End early only when the agent
+            # concluded with its own audit or has no evaluation allowance left;
+            # otherwise give it the next turn to carry out its experiment.
+            no_change_unconcluded = (
+                assessment['ready'] and assessment.get('outcome') == 'no_change_audited' and
+                not _agent_concluded(outcomes) and
+                _evaluation_count(outcomes) < evaluation_limit)
+            if ((assessment['ready'] and not no_change_unconcluded) or admission_blocked or
                     turn == CAMPAIGN_MAX_TURNS):
                 break
             bridge.next_campaign_turn(f'{campaign_session_key}_followup_{turn + 1}')
