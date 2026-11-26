@@ -432,6 +432,57 @@ test('managed hooks bind tool-call identity and cannot release the host lease', 
   }
 });
 
+test('managed admission names coded host refusals and keeps other failures generic', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-admission-refusal-'));
+  const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\argos-refusal-${randomUUID()}` : path.join(directory, 'host.sock');
+  const priorPath = process.env.ARGOS_CONTROLLER_SOCKET;
+  const priorSecret = process.env.ARGOS_CONTROLLER_SECRET;
+  const server = net.createServer((socket) => {
+    socket.setEncoding('utf8');
+    let raw = '';
+    socket.on('data', (chunk) => {
+      raw += chunk;
+      if (!raw.endsWith('\n')) return;
+      const value = JSON.parse(raw);
+      let response;
+      if (value.op === 'begin') response = {status:'admitted',turn_token:'turn-refusal'};
+      else if (value.op === 'tool' && value.call_id === 'compare-1')
+        response = {status:'refused',refusal_code:'runs-outside-owner-suite'};
+      else if (value.op === 'tool' && value.call_id === 'compare-2')
+        response = {status:'refused',refusal_code:'private text'};
+      else if (value.op === 'tool') response = {status:'failed',message:'Controller bridge request failed'};
+      else response = {status:'recorded'};
+      socket.end(JSON.stringify(response) + '\n');
+    });
+  });
+  try {
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(endpoint, resolve); });
+    process.env.ARGOS_CONTROLLER_SOCKET = endpoint;
+    process.env.ARGOS_CONTROLLER_SECRET = 'fictional-refusal-secret';
+    const hooks = new Map();
+    const admission = registerAdmission({pluginConfig:{hostAdmission:true}, on(name, handler) {hooks.set(name,handler);}});
+    const ctx = {runId:'run-refusal',sessionId:'session-1',sessionKey:'agent:main:host-session',trigger:'user'};
+    assert.deepEqual(await hooks.get('before_agent_run')({}, ctx), {outcome:'pass'});
+    const ids = {baseline_id:'1'.repeat(32),candidate_id:'2'.repeat(32)};
+    for (const call of ['compare-1','compare-2','compare-3'])
+      hooks.get('before_tool_call')({toolName:'argos_compare',runId:'run-refusal',toolCallId:call},ctx);
+    await assert.rejects(admission.execute('compare-1','compare',ids),
+      /Host refused this request \(runs-outside-owner-suite\): every run you compare/);
+    await assert.rejects(admission.execute('compare-2','compare',ids), (error) =>
+      error.message === 'Host controller tool did not complete.');
+    await assert.rejects(admission.execute('compare-3','compare',ids), (error) =>
+      error.message === 'Host controller tool did not complete.');
+    await hooks.get('agent_end')({},ctx);
+  } finally {
+    if (priorPath === undefined) delete process.env.ARGOS_CONTROLLER_SOCKET;
+    else process.env.ARGOS_CONTROLLER_SOCKET = priorPath;
+    if (priorSecret === undefined) delete process.env.ARGOS_CONTROLLER_SECRET;
+    else process.env.ARGOS_CONTROLLER_SECRET = priorSecret;
+    await new Promise((resolve) => server.close(resolve));
+    await rm(directory,{recursive:true,force:true});
+  }
+});
+
 test('managed admission returns bounded evaluation jobs and supports a follow-up wait', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'argos-admission-job-'));
   const endpoint = process.platform === 'win32' ? `\\\\.\\pipe\\argos-job-${randomUUID()}` : path.join(directory, 'host.sock');

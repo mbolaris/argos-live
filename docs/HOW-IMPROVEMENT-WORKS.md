@@ -85,16 +85,22 @@ answers, with no more format errors than the cleanest baseline run:
 | quick | 2 |
 | standard | 4 |
 | challenge | 3 |
+| challenge-hard | 4 on the practice half |
+| documents-long | 3 on the practice half |
 | tool-schema | 3 |
 | tool-plan | 3 |
 | tool-sequence | 3 |
 
-Tool suites must also not regress on their held-out half. A change can also be kept for reliability: the
+Tool suites, challenge-hard and documents-long must also not regress on their held-out half. A change can also be kept for reliability: the
 same or better score, fewer format errors and no more than 1.5 times slower. A few items in some suite
 versions are excluded from these counts because their prompts left the expected answer ambiguous.
 
-`documents-short` ("Read this brief") and `owner-recovery-decision` can be measured in a campaign but
-cannot keep a change yet, because the keep policy has no minimum gain for them.
+`documents-short` ("Read this brief"), `challenge-deep` and `owner-recovery-decision` can be measured in a
+campaign but cannot keep a change yet, because the keep policy has no minimum gain for them.
+`challenge-deep` (100 items) is there so its difficulty for the deployed model can be calibrated first.
+
+When the host refuses a campaign tool call, Argos is told which rule refused it, for example
+`runs-outside-owner-suite` when it compares runs from a suite the owner did not select.
 
 ## Verdicts
 

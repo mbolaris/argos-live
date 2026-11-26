@@ -14,6 +14,17 @@ const TOOLS = new Map([
   ['argos_ssh_status', 'ssh_status'],
 ]);
 
+// Fixed text for each host refusal code (controller_bridge.TOOL_REFUSAL_CODES).
+// Nothing from the host message or the agent's arguments is echoed.
+const REFUSAL_GUIDANCE = Object.freeze({
+  'campaign-stop-requested': 'the owner asked this campaign to stop; report what you have and end the turn.',
+  'unsupported-evaluation-request': 'send only a supported suite name to argos_evaluate.',
+  'evaluation-limit-reached': 'this campaign has used all its evaluations; compare, log and audit the saved runs instead.',
+  'no-owner-suite': 'the owner selected no evaluation suite; report that the task is not measured instead of evaluating or changing instructions.',
+  'owner-suite-mismatch': 'evaluate only the exact suite the owner selected for this campaign.',
+  'runs-outside-owner-suite': 'every run you compare or cite for a change must come from the owner-selected suite; choose run IDs from that suite.',
+});
+
 export function registerAdmission(api) {
   if (api.pluginConfig?.hostAdmission !== true) return null;
   const socketPath = process.env.ARGOS_CONTROLLER_SOCKET;
@@ -153,6 +164,8 @@ export function registerAdmission(api) {
       if (value.status === 'busy') return {status:'busy', message:'Host workload needs attention',
         recovery_required:value.recovery_required === true};
       if (value.status === 'running') return value;
+      if (value.status === 'refused' && Object.hasOwn(REFUSAL_GUIDANCE, value.refusal_code))
+        throw new Error(`Host refused this request (${value.refusal_code}): ${REFUSAL_GUIDANCE[value.refusal_code]}`);
       if (value.status !== 'completed') throw new Error('Host controller tool did not complete.');
       return value.value;
     }

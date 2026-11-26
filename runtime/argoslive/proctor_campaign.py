@@ -27,13 +27,13 @@ class Refused(ValueError):
 
 
 MEASUREMENT_SUITES = frozenset({
-    'quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence',
-    'documents-short', 'documents-long', 'owner-recovery-decision'})
+    'quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan',
+    'tool-sequence', 'documents-short', 'documents-long', 'owner-recovery-decision'})
 _STEP_SUITES = MEASUREMENT_SUITES
 # Mirrors controller_bridge.TOOL_REFUSAL_CODES; anything else is dropped.
 _STEP_REFUSAL_CODES = frozenset({
     'campaign-stop-requested', 'unsupported-evaluation-request', 'evaluation-limit-reached',
-    'no-owner-suite', 'owner-suite-mismatch'})
+    'no-owner-suite', 'owner-suite-mismatch', 'runs-outside-owner-suite'})
 
 
 def validate_owner_task(owner_task, success_criteria):
