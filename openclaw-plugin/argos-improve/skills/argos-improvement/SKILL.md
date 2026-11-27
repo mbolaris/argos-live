@@ -24,8 +24,8 @@ to the owner task. If no suite does, do not fill the campaign with generic
 probes or make a change from unrelated scores. Report that task-specific
 measurement is missing and propose what repeatable examples and independent
 success checks would be needed. Fixed quick, standard, challenge, challenge-hard,
-challenge-deep, tool-schema, tool-plan, tool-sequence, documents-short and documents-long suites are
-Argos-authored diagnostics, not external benchmarks. `challenge-deep` is uncalibrated and cannot keep an
+mission-ops, tool-schema, tool-plan, tool-sequence, documents-short and documents-long suites are
+Argos-authored diagnostics, not external benchmarks. `mission-ops` is uncalibrated and cannot keep an
 instruction change. The optional `documents-short` suite reuses the existing "Read this
 brief" mission's short passages and scores answers, supporting quotes, "not
 stated" responses, and summaries. Summary scores check exactly two sentences

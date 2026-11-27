@@ -1016,6 +1016,492 @@ def tool_sequence_items():
     return result
 
 
+def mission_ops_items():
+    """Build 60 original deep operations probes: five families, six practice and six held-out each.
+
+    Difficulty comes from dependency depth, conflicting records and tracked state. Every prompt
+    states its data, its rules and the exact output shape, so each answer is unique and checkable.
+    """
+    import hashlib
+
+    class Draw:
+        """Small deterministic generator, stable across Python versions."""
+        def __init__(self, label):
+            self.label, self.counter = label, 0
+
+        def below(self, n):
+            self.counter += 1
+            digest = hashlib.sha256(f'{self.label}:{self.counter}'.encode()).digest()
+            return int.from_bytes(digest[:8], 'big') % n
+
+        def between(self, low, high):
+            return low + self.below(high - low + 1)
+
+        def pick(self, values):
+            return values[self.below(len(values))]
+
+        def shuffle(self, values):
+            values = list(values)
+            for i in range(len(values) - 1, 0, -1):
+                j = self.below(i + 1)
+                values[i], values[j] = values[j], values[i]
+            return values
+
+    result = []
+
+    def add(prefix, index, kind, prompt, expected, reference, wrong, malformed, **fields):
+        partition = 'practice' if index <= 6 else 'heldout'
+        scorer = {'kind': kind, 'partition': partition, 'expected': expected, **fields}
+        result.append({'id': f'{prefix}-{index:02}', 'prompt': prompt, 'scorer': scorer,
+                       'reference': reference, 'wrong': wrong, 'malformed': malformed})
+
+    def compact(value):
+        return json.dumps(value, separators=(',', ':'), ensure_ascii=False)
+
+    def clock(minutes):
+        return f'{minutes // 60:02}:{minutes % 60:02}'
+
+    def sides():
+        for index in range(1, 13):
+            yield index, ('practice' if index <= 6 else 'heldout')
+
+    # 1. Telemetry ledger: seven dependent entries with a cancelled entry, a retroactive
+    # correction, a percentage, a fraction and a resupply in a larger unit.
+    ledger_sides = {
+        'practice': {'site': 'Kestrel station', 'resource': 'propellant', 'unit': 'kg',
+                     'big': 't', 'use': 'Burn', 'out': 'Transfer to the tug'},
+        'heldout': {'site': 'Tycho base', 'resource': 'potable water', 'unit': 'L',
+                    'big': 'kL', 'use': 'Draw', 'out': 'Transfer to the rover tank'},
+    }
+    fractions = {3: 'one third', 4: 'one quarter', 5: 'one fifth'}
+    for index, partition in sides():
+        side = ledger_sides[partition]
+        unit = side['unit']
+        draw = Draw(f'mission-ops/ledger/{index}')
+        while True:
+            start = draw.between(1500, 3200)
+            reserve = draw.between(30, 80) * 10
+            kinds = draw.shuffle(['use', 'use', 'cancel', 'pct', 'frac', 'resupply'])
+            entries = []
+            for kind in kinds:
+                if kind == 'use':
+                    entries.append({'kind': 'use', 'amount': draw.between(80, 320)})
+                elif kind == 'cancel':
+                    entries.append({'kind': 'cancel', 'amount': draw.between(150, 400)})
+                elif kind == 'pct':
+                    entries.append({'kind': 'pct', 'percent': draw.between(6, 19)})
+                elif kind == 'frac':
+                    entries.append({'kind': 'frac', 'denominator': draw.pick([3, 4, 5])})
+                else:
+                    entries.append({'kind': 'resupply', 'hundredths': draw.between(25, 95)})
+            uses = [i for i, entry in enumerate(entries) if entry['kind'] == 'use']
+            target = draw.pick(uses)
+            position = draw.between(target + 1, len(entries))
+            corrected = entries[target]['amount'] + draw.pick([-1, 1]) * draw.between(12, 60)
+            # The correction comes after the entry it corrects, so that index is unchanged.
+            entries.insert(position, {'kind': 'correct', 'target': target, 'amount': corrected})
+            amounts = {target: corrected}
+            level, ok = start, True
+            plain_level = start
+            for i, entry in enumerate(entries):
+                for track in ('true', 'plain'):
+                    current = level if track == 'true' else plain_level
+                    if entry['kind'] == 'use':
+                        used = amounts.get(i, entry['amount']) if track == 'true' else entry['amount']
+                        current -= used
+                    elif entry['kind'] == 'pct':
+                        current -= current * entry['percent'] // 100
+                    elif entry['kind'] == 'frac':
+                        current -= current // entry['denominator']
+                    elif entry['kind'] == 'resupply':
+                        current += entry['hundredths'] * 10
+                    if track == 'true':
+                        level = current
+                    else:
+                        plain_level = current
+                if level <= 0:
+                    ok = False
+            answer = level - reserve
+            # The correction must change the result, and the answer must stay positive.
+            if ok and answer > 0 and plain_level != level:
+                break
+        lines = []
+        for i, entry in enumerate(entries, 1):
+            if entry['kind'] == 'use':
+                text = f'{side["use"]} uses {entry["amount"]} {unit}.'
+            elif entry['kind'] == 'cancel':
+                text = f'CANCELLED. It planned to use {entry["amount"]} {unit}; ignore it.'
+            elif entry['kind'] == 'pct':
+                text = (f'{side["use"]} uses {entry["percent"]}% of the amount on hand, '
+                        f'rounded down to a whole {unit}.')
+            elif entry['kind'] == 'frac':
+                text = (f'{side["out"]} sends out {fractions[entry["denominator"]]} of the amount on hand, '
+                        f'rounded down to a whole {unit}.')
+            elif entry['kind'] == 'resupply':
+                text = (f'Resupply adds {entry["hundredths"] / 100:.2f} {side["big"]} '
+                        f'(1 {side["big"]} = 1000 {unit}).')
+            else:
+                original = entries[entry['target']]['amount']
+                text = (f'Correction: E{entry["target"] + 1} actually used {entry["amount"]} {unit}, '
+                        f'not {original} {unit}. Apply E{entry["target"] + 1} as {entry["amount"]} {unit} '
+                        'and recompute every later entry.')
+            lines.append(f'E{i}: {text}')
+        prompt = (f'{side["site"]} {side["resource"]} log. Start: {start} {unit}. Entries in order:\n'
+                  + '\n'.join(lines)
+                  + f'\nA reserve of {reserve} {unit} must stay untouched. After all entries, how many {unit} '
+                  'are available above the reserve? Answer with the integer only, no units.')
+        add('ledger', index, 'numeric', prompt, str(answer), str(answer), str(answer + 1),
+            f'The answer is {answer} {unit}')
+
+    # 2. Go/no-go under an explicit authority rule, with conditional waivers.
+    gonogo_sides = {
+        'practice': {'event': 'Launch go/no-go for pass', 'quantity': 'wind', 'unit': 'kt',
+                     'sources': ['Flight Rules register', 'console log', 'briefing slide'],
+                     'signer': 'range safety', 'low': 18, 'high': 34},
+        'heldout': {'event': 'Surface EVA go/no-go for window', 'quantity': 'dust count', 'unit': 'ppm',
+                    'sources': ['Base Safety manual', 'ops chat', 'shift handover note'],
+                    'signer': 'medical officer', 'low': 40, 'high': 90},
+    }
+    letters = 'ABCD'
+    for index, partition in sides():
+        side = gonogo_sides[partition]
+        unit, quantity, signer = side['unit'], side['quantity'], side['signer']
+        draw = Draw(f'mission-ops/gonogo/{index}')
+        want_letter = letters[(index - 1) % 4] if partition == 'practice' else letters[(index + 3) % 4]
+        while True:
+            order = draw.shuffle(side['sources'])
+            rank = {source: position for position, source in enumerate(order)}
+            times = draw.shuffle(list(range(7 * 60, 10 * 60, 5)))
+            records = []
+
+            def record(source, fact, value):
+                records.append({'source': source, 'time': times[len(records)], 'fact': fact, 'value': value})
+
+            limit = draw.between(side['low'], side['high'])
+            # The limit: an older and a newer record in a higher source, a different value lower down.
+            limit_high = draw.pick(order[:2])
+            limit_low = draw.pick([source for source in order if rank[source] > rank[limit_high]])
+            old_limit = limit + draw.pick([-1, 1]) * draw.between(2, 6)
+            low_limit = limit + draw.between(3, 8)
+            record(limit_high, 'limit', old_limit)
+            record(limit_high, 'limit', limit)
+            record(limit_low, 'limit', low_limit)
+            # Order the two high-source limit records so the true one is later.
+            a, b = records[0], records[1]
+            if a['time'] > b['time']:
+                a['time'], b['time'] = b['time'], a['time']
+            waiver = draw.between(2, 6)
+            waiver_source = draw.pick(order)
+            record(waiver_source, 'waiver', waiver)
+            signature_sources = draw.shuffle(order)[:2]
+            signed = draw.pick([True, False])
+            top_signature = min(signature_sources, key=rank.get)
+            other_signature = max(signature_sources, key=rank.get)
+            record(top_signature, 'signature', signed)
+            record(other_signature, 'signature', not signed)
+            effective = limit + waiver if signed else limit
+            measured = effective + draw.pick([-3, -2, -1, 0, 1, 2, 3])
+            measured_source = draw.pick(order[:2])
+            measured_low = draw.pick([source for source in order if rank[source] > rank[measured_source]])
+            stale = measured + draw.pick([-1, 1]) * draw.between(3, 7)
+            record(measured_source, 'measured', stale)
+            record(measured_source, 'measured', measured)
+            record(measured_low, 'measured', measured + draw.pick([-1, 1]) * draw.between(4, 9))
+            m_old, m_new = records[-3], records[-2]
+            if m_old['time'] > m_new['time']:
+                m_old['time'], m_new['time'] = m_new['time'], m_old['time']
+            correct = (measured, effective)
+            alternates = [(measured, (low_limit + waiver) if signed else low_limit),
+                          (measured, (old_limit + waiver) if signed else old_limit),
+                          (stale, effective),
+                          (measured, limit if signed else limit + waiver),
+                          (records[-1]['value'], effective)]
+            distractors = []
+            for option in alternates:
+                if option != correct and option not in distractors and option[1] > 0 and option[0] > 0:
+                    distractors.append(option)
+            if len(distractors) < 3:
+                continue
+            distractors = draw.shuffle(distractors)[:3]
+            # Both decisions must appear among the options.
+            decisions = {option[0] <= option[1] for option in [correct] + distractors}
+            if len(decisions) == 2 and min(min(o) for o in [correct] + distractors) > 0:
+                break
+        options = distractors[:]
+        options.insert(letters.index(want_letter), correct)
+        shown = draw.shuffle(records)
+        lines = [f'({i}) {r["source"][0].upper() + r["source"][1:]} {clock(r["time"])}: ' + (
+            f'{quantity} limit {r["value"]} {unit}.' if r['fact'] == 'limit' else
+            f'measured {quantity} {r["value"]} {unit}.' if r['fact'] == 'measured' else
+            f'a waiver raises the {quantity} limit by {r["value"]} {unit} only if the {signer} signature is received.'
+            if r['fact'] == 'waiver' else
+            f'{signer} signature {"received" if r["value"] else "not received"}.')
+            for i, r in enumerate(shown, 1)]
+        option_text = ' '.join(
+            f'{letter}: {"GO" if m <= e else "NO-GO"}, measured {m} {unit}, effective limit {e} {unit}.'
+            for letter, (m, e) in zip(letters, options))
+        prompt = (f'{side["event"]} {index}. Authority order, highest first: ' + ' > '.join(order) + '. '
+                  'For each fact (the limit, the measured value, the waiver, and the signature), use only the '
+                  'highest-authority source that reports that fact; within that source, the latest time wins. '
+                  'The effective limit is the limit plus the waiver amount when the waiver exists and the '
+                  'signature is received; otherwise it is the limit. GO only if the measured value is at or '
+                  'below the effective limit.\nRecords:\n' + '\n'.join(lines) + '\nOptions: ' + option_text
+                  + '\nAnswer with one letter only.')
+        add('gonogo', index, 'choice', prompt, want_letter, want_letter,
+            letters[(letters.index(want_letter) + 1) % 4], f'Option {want_letter}')
+
+    # 3. State replay: out-of-order events, authorization, set and toggle.
+    replay_sides = {
+        'practice': {'site': 'Kestrel life-support controller',
+                     'systems': {'pump_a': 'power', 'pump_b': 'power', 'valve_3': 'flow',
+                                 'heater_2': 'power', 'fan_1': 'power', 'valve_8': 'flow'},
+                     'rejected': 'rejected', 'applied': 'applied'},
+        'heldout': {'site': 'Tycho habitat controller',
+                    'systems': {'drill_motor': 'power', 'airlock_inner': 'flow', 'airlock_outer': 'flow',
+                                'rover_charger': 'power', 'scrubber_2': 'power', 'hatch_vent': 'flow'},
+                    'rejected': 'refused', 'applied': 'executed'},
+    }
+    states = {'power': ('on', 'off'), 'flow': ('open', 'closed')}
+    for index, partition in sides():
+        side = replay_sides[partition]
+        systems = side['systems']
+        draw = Draw(f'mission-ops/replay/{index}')
+        while True:
+            initial = {name: draw.pick(states[kind]) for name, kind in systems.items()}
+            times = sorted(draw.shuffle(list(range(9 * 60, 11 * 60, 3)))[:12])
+            denied = set(draw.shuffle(range(12))[:draw.between(3, 4)])
+            events = []
+            for position, minute in enumerate(times):
+                target = draw.pick(list(systems))
+                if draw.below(5) < 2:
+                    event = {'t': clock(minute), 'target': target, 'action': 'toggle'}
+                else:
+                    event = {'t': clock(minute), 'target': target, 'action': 'set',
+                             'value': draw.pick(states[systems[target]])}
+                event['auth'] = position not in denied
+                events.append(event)
+            listed = draw.shuffle(events)
+            for number, event in enumerate(listed, 1):
+                event['id'] = f'E{number:02}'
+
+            def replay(sequence, check_auth=True):
+                state = dict(initial)
+                rejected, applied = [], 0
+                for event in sequence:
+                    if check_auth and not event['auth']:
+                        rejected.append(event['id'])
+                        continue
+                    if event['action'] == 'set':
+                        state[event['target']] = event['value']
+                    else:
+                        on, off = states[systems[event['target']]]
+                        state[event['target']] = off if state[event['target']] == on else on
+                    applied += 1
+                return state, rejected, applied
+
+            ordered = sorted(listed, key=lambda event: event['t'])
+            final, rejected, applied = replay(ordered)
+            ignoring_auth, _, _ = replay(ordered, check_auth=False)
+            listed_order, _, _ = replay(listed)
+            id_order = [event['id'] for event in sorted(ordered, key=lambda event: event['id'])
+                        if not event['auth']]
+            if final != ignoring_auth and final != listed_order and id_order != rejected:
+                break
+        expected = dict(final, **{side['rejected']: rejected, side['applied']: applied})
+        shown_events = [{key: event[key] for key in ('id', 't', 'target', 'action', 'value', 'auth') if key in event}
+                        for event in listed]
+        key_text = ', '.join(f'"{name}" ("{states[kind][0]}" or "{states[kind][1]}")'
+                             for name, kind in systems.items())
+        prompt = (f'{side["site"]}. Initial state: {compact(initial)}\nEvents (listed in no particular order): '
+                  f'{compact(shown_events)}\nApply the events in time order. An event whose auth is false is '
+                  'rejected and changes nothing. "set" sets the target to value; "toggle" flips on/off or '
+                  f'open/closed. Return JSON only, with exactly these keys: {key_text}, "{side["rejected"]}" '
+                  f'(the rejected event IDs in time order) and "{side["applied"]}" (the integer count of applied '
+                  'events). No other keys or text.')
+        wrong = dict(expected, **{side['applied']: applied + 1})
+        add('replay', index, 'json', prompt, expected, compact(expected), compact(wrong), '{bad json}')
+
+    # 4. Table query: three filters, a grouped sum and a stated tie-break.
+    manifest_sides = {
+        'practice': {'title': 'Kestrel stowage manifest', 'group': 'module', 'item': 'item', 'qty': 'qty',
+                     'status': 'status', 'day': 'expires', 'groups': ['Node-1', 'Node-2', 'Lab', 'Hab'],
+                     'items': ['filters', 'LiOH canisters', 'ration packs', 'water bags'],
+                     'out': ('module', 'total', 'rows')},
+        'heldout': {'title': 'Tycho depot ledger', 'group': 'zone', 'item': 'supply', 'qty': 'units',
+                    'status': 'state', 'day': 'use_by', 'groups': ['Shelter-A', 'Shelter-B', 'Garage', 'Greenhouse'],
+                    'items': ['seed trays', 'suit batteries', 'drill bits', 'nutrient packs'],
+                    'out': ('zone', 'sum', 'count')},
+    }
+    for index, partition in sides():
+        side = manifest_sides[partition]
+        draw = Draw(f'mission-ops/manifest/{index}')
+        tie = index in (3, 10)
+        while True:
+            excluded = draw.pick(side['items'])
+            cutoff = draw.between(110, 160)
+            rows = []
+            for number in range(1, 15):
+                rows.append({'id': f'R{number:02}', side['group']: draw.pick(side['groups']),
+                             side['item']: draw.pick(side['items']), side['qty']: draw.between(3, 40),
+                             side['status']: draw.pick(['verified', 'verified', 'pending', 'rejected']),
+                             side['day']: draw.between(cutoff - 40, cutoff + 60)})
+
+            def counted(row):
+                return (row[side['status']] == 'verified' and row[side['day']] >= cutoff
+                        and row[side['item']] != excluded)
+
+            def qualifying_sums():
+                sums = {}
+                for row in rows:
+                    if counted(row):
+                        sums[row[side['group']]] = sums.get(row[side['group']], 0) + row[side['qty']]
+                return sums
+
+            def best(use_status=True, use_day=True, use_item=True):
+                totals, counts = {}, {}
+                for row in rows:
+                    if use_status and row[side['status']] != 'verified':
+                        continue
+                    if use_day and row[side['day']] < cutoff:
+                        continue
+                    if use_item and row[side['item']] == excluded:
+                        continue
+                    group = row[side['group']]
+                    totals[group] = totals.get(group, 0) + row[side['qty']]
+                    counts[group] = counts.get(group, 0) + 1
+                if not totals:
+                    return None
+                top = max(totals.values())
+                winner = sorted(group for group, total in totals.items() if total == top)[0]
+                return winner, top, counts[winner], sorted(totals.values(), reverse=True)
+
+            answer = best()
+            if answer is None:
+                continue
+            winner, top, count, ranking = answer
+            if len(ranking) < 2 or ranking[0] == ranking[1]:
+                continue
+            gap = ranking[0] - ranking[1]
+            if tie:
+                # Lift one counted row of the runner-up so only the alphabetical rule decides.
+                if gap > 6:
+                    continue
+                sums = qualifying_sums()
+                second = next(group for group, total in sums.items() if total == ranking[1])
+                bump = next((row for row in rows if row[side['group']] == second and counted(row)), None)
+                if bump is None:
+                    continue
+                bump[side['qty']] += gap
+                expected_winner = min(winner, second)
+                winner, top, count, ranking = best()
+                if ranking[0] != ranking[1] or (len(ranking) > 2 and ranking[2] == ranking[0])                         or winner != expected_winner:
+                    continue
+            elif gap > 8:
+                continue
+            others = [best(use_status=False), best(use_day=False), best(use_item=False)]
+            if all(other is not None and other[:2] != (winner, top) for other in others):
+                break
+        out_group, out_total, out_rows = side['out']
+        expected = {out_group: winner, out_total: top, out_rows: count}
+        prompt = (f'{side["title"]}: {compact(rows)}\nUse only rows whose {side["status"]} is "verified", whose '
+                  f'{side["day"]} is day {cutoff} or later, and whose {side["item"]} is not "{excluded}". For each '
+                  f'{side["group"]}, add up {side["qty"]} over those rows. Report the {side["group"]} with the largest '
+                  f'sum; if sums tie, choose the {side["group"]} name that comes first alphabetically. Return JSON '
+                  f'only, with exactly these keys: "{out_group}" (the name), "{out_total}" (that integer sum) and '
+                  f'"{out_rows}" (the integer number of rows counted for it). No other keys or text.')
+        wrong = dict(expected, **{out_total: top + 1})
+        add('manifest', index, 'json', prompt, expected, compact(expected), compact(wrong), '{bad json}')
+
+    # 5. Conditional procedure: read, act on readings, then branch on how many actions ran.
+    procedure_sides = {
+        'practice': {
+            'site': 'Kestrel thermal control', 'prefix': 'CL', 'compare': 'above',
+            'read': ('read_coolant', 'Reads one coolant loop temperature sensor.', 'sensor_id'),
+            'act': ('isolate_loop', 'Isolates one coolant loop from the radiator bus.', 'loop_id', 'reason', 'overtemp'),
+            'ticket': ('open_ticket', 'Opens one maintenance ticket.', 'system', 'severity', 'thermal'),
+            'notify': ('page_role', 'Pages one on-duty role with a ticket reference.', 'role', 'ticket_ref'),
+            'decoy': ('vent_loop', 'Vents a coolant loop overboard; irreversible.', 'loop_id', 'confirm'),
+            'roles': ('flight-director', 'systems-lead'), 'ref': 'TKT', 'unit': 'C',
+        },
+        'heldout': {
+            'site': 'Tycho pneumatics', 'prefix': 'PL', 'compare': 'below',
+            'read': ('query_gauge', 'Queries one pressure line gauge.', 'gauge_ref'),
+            'act': ('close_line', 'Closes one pressure line at its manifold.', 'line_ref', 'cause', 'underpressure'),
+            'ticket': ('file_report', 'Files one engineering report.', 'area', 'level', 'pneumatics'),
+            'notify': ('page_person', 'Pages one on-duty person with a report reference.', 'person', 'report_ref'),
+            'decoy': ('purge_line', 'Purges a pressure line to vacuum; irreversible.', 'line_ref', 'approve'),
+            'roles': ('base-commander', 'duty-engineer'), 'ref': 'RPT', 'unit': 'kPa',
+        },
+    }
+    for index, partition in sides():
+        side = procedure_sides[partition]
+        draw = Draw(f'mission-ops/procedure/{index}')
+        acted_target = (index - 1) % 4 if partition == 'practice' else (index + 1) % 4
+        threshold = draw.between(40, 70) if partition == 'practice' else draw.between(180, 240)
+        while True:
+            loops = [f'{side["prefix"]}-{n}' for n in draw.shuffle([1, 2, 3, 4, 5, 6])[:3]]
+            readings = {}
+            for loop in loops:
+                readings[loop] = threshold + draw.pick([-7, -4, -2, 0, 0, 2, 5, 9])
+            if side['compare'] == 'above':
+                acted = [loop for loop in loops if readings[loop] > threshold]
+            else:
+                acted = [loop for loop in loops if readings[loop] < threshold]
+            if len(acted) == acted_target:
+                break
+        read_name, read_desc, read_key = side['read']
+        act_name, act_desc, act_key, cause_key, cause = side['act']
+        ticket_name, ticket_desc, system_key, level_key, system = side['ticket']
+        notify_name, notify_desc, who_key, ref_key = side['notify']
+        decoy_name, decoy_desc, decoy_key, decoy_flag = side['decoy']
+        schemas = [
+            {'name': read_name, 'description': read_desc, 'arguments': {read_key: 'string'}},
+            {'name': act_name, 'description': act_desc, 'arguments': {act_key: 'string', cause_key: 'string'}},
+            {'name': ticket_name, 'description': ticket_desc,
+             'arguments': {system_key: 'string', level_key: 'integer'}},
+            {'name': notify_name, 'description': notify_desc, 'arguments': {who_key: 'string', ref_key: 'string'}},
+            {'name': decoy_name, 'description': decoy_desc, 'arguments': {decoy_key: 'string', decoy_flag: 'boolean'}},
+        ]
+        schemas = draw.shuffle(schemas)
+        steps = [{'name': read_name, 'arguments': {read_key: loop}} for loop in loops]
+        steps += [{'name': act_name, 'arguments': {act_key: loop, cause_key: cause}} for loop in acted]
+        high, low = side['roles']
+        if acted:
+            level = min(3, 1 + len(acted))
+            reference = f'{side["ref"]}-{level}-{system.upper()}'
+            steps.append({'name': ticket_name, 'arguments': {system_key: system, level_key: level}})
+            steps.append({'name': notify_name, 'arguments': {who_key: high if level == 3 else low,
+                                                             ref_key: reference}})
+        else:
+            steps.append({'name': notify_name, 'arguments': {who_key: low, ref_key: 'NONE'}})
+        expected = {'steps': steps}
+        relation = 'greater than' if side['compare'] == 'above' else 'less than'
+        reading_text = ', '.join(f'{loop} = {readings[loop]} {side["unit"]}' for loop in loops)
+        prompt = ('Plan the required calls; do not execute any tool. Available tool schemas: '
+                  + compact({'tools': schemas})
+                  + f'\n{side["site"]} procedure. Current readings: {reading_text}.\n'
+                  f'1. Call {read_name} once for each of {", ".join(loops)}, in that order.\n'
+                  f'2. Then, in the same order, call {act_name} for every one whose reading is strictly '
+                  f'{relation} {threshold} {side["unit"]}, with {cause_key} "{cause}".\n'
+                  f'3. If at least one {act_name} call was made, call {ticket_name} with {system_key} "{system}" '
+                  f'and {level_key} equal to 1 plus the number of {act_name} calls, but at most 3. Then call '
+                  f'{notify_name} with {who_key} "{high}" if {level_key} is 3, otherwise "{low}", and {ref_key} '
+                  f'"{side["ref"]}-<{level_key}>-{system.upper()}".\n'
+                  f'4. If no {act_name} call was made, skip {ticket_name} and call {notify_name} with {who_key} '
+                  f'"{low}" and {ref_key} "NONE".\n'
+                  f'Never call {decoy_name}. Each call must have exactly "name" and "arguments". Return only a JSON '
+                  'object with exactly one top-level key "steps", containing the calls in order. Add no extra '
+                  'fields or commentary.')
+        wrong_steps = [dict(step) for step in steps]
+        last = wrong_steps[-1]
+        last['arguments'] = dict(last['arguments'], **{who_key: high if last['arguments'][who_key] == low else low})
+        add('procedure', index, 'tool-sequence', prompt, expected, compact(expected),
+            compact({'steps': wrong_steps}), '{not json}', available_tools=schemas)
+
+    order = {'ledger': 0, 'gonogo': 1, 'replay': 2, 'manifest': 3, 'procedure': 4}
+    return sorted(result, key=lambda item: (order[item['id'].split('-')[0]], item['id']))
+
+
 def build(suite, version=None):
     if suite == 'challenge':
         version = version or '1.3.1'
@@ -1028,6 +1514,11 @@ def build(suite, version=None):
         if version not in (None, '1.0.0'):
             raise ValueError('No alternate version requested')
         selected = challenge_deep_items()
+        version = '1.0.0'
+    elif suite == 'mission-ops':
+        if version not in (None, '1.0.0'):
+            raise ValueError('No alternate version requested')
+        selected = mission_ops_items()
         version = '1.0.0'
     elif suite == 'tool-schema':
         if version is not None:
@@ -1064,6 +1555,7 @@ if __name__ == '__main__':
     for version in ('1.2.0', '1.3.0'):
         path = archive / f'challenge-{version}.json'
         path.write_bytes((json.dumps(build('challenge', version=version), indent=2) + '\n').encode('utf-8'))
-    for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence'):
+    for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence',
+                  'mission-ops'):
         (destination / (suite + '.json')).write_bytes(
             (json.dumps(build(suite), indent=2) + '\n').encode('utf-8'))

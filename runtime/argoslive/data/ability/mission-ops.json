@@ -1,0 +1,1925 @@
+{
+  "schema": "argos-ability-suite/1",
+  "suite": "mission-ops",
+  "version": "1.0.0",
+  "license": "MIT",
+  "source": "original-argos-live",
+  "omitted_categories": [
+    "code-execution"
+  ],
+  "items": [
+    {
+      "id": "ledger-01",
+      "prompt": "Kestrel station propellant log. Start: 2715 kg. Entries in order:\nE1: Burn uses 15% of the amount on hand, rounded down to a whole kg.\nE2: Burn uses 199 kg.\nE3: Resupply adds 0.49 t (1 t = 1000 kg).\nE4: Correction: E2 actually used 257 kg, not 199 kg. Apply E2 as 257 kg and recompute every later entry.\nE5: Burn uses 120 kg.\nE6: CANCELLED. It planned to use 397 kg; ignore it.\nE7: Transfer to the tug sends out one third of the amount on hand, rounded down to a whole kg.\nA reserve of 500 kg must stay untouched. After all entries, how many kg are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1114"
+      },
+      "reference": "1114",
+      "wrong": "1115",
+      "malformed": "The answer is 1114 kg"
+    },
+    {
+      "id": "ledger-02",
+      "prompt": "Kestrel station propellant log. Start: 2908 kg. Entries in order:\nE1: Transfer to the tug sends out one quarter of the amount on hand, rounded down to a whole kg.\nE2: Burn uses 275 kg.\nE3: Burn uses 9% of the amount on hand, rounded down to a whole kg.\nE4: Burn uses 248 kg.\nE5: Correction: E4 actually used 205 kg, not 248 kg. Apply E4 as 205 kg and recompute every later entry.\nE6: Resupply adds 0.44 t (1 t = 1000 kg).\nE7: CANCELLED. It planned to use 360 kg; ignore it.\nA reserve of 690 kg must stay untouched. After all entries, how many kg are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1280"
+      },
+      "reference": "1280",
+      "wrong": "1281",
+      "malformed": "The answer is 1280 kg"
+    },
+    {
+      "id": "ledger-03",
+      "prompt": "Kestrel station propellant log. Start: 2389 kg. Entries in order:\nE1: CANCELLED. It planned to use 223 kg; ignore it.\nE2: Burn uses 151 kg.\nE3: Transfer to the tug sends out one quarter of the amount on hand, rounded down to a whole kg.\nE4: Resupply adds 0.30 t (1 t = 1000 kg).\nE5: Burn uses 14% of the amount on hand, rounded down to a whole kg.\nE6: Burn uses 193 kg.\nE7: Correction: E6 actually used 166 kg, not 193 kg. Apply E6 as 166 kg and recompute every later entry.\nA reserve of 670 kg must stay untouched. After all entries, how many kg are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "866"
+      },
+      "reference": "866",
+      "wrong": "867",
+      "malformed": "The answer is 866 kg"
+    },
+    {
+      "id": "ledger-04",
+      "prompt": "Kestrel station propellant log. Start: 2002 kg. Entries in order:\nE1: Transfer to the tug sends out one quarter of the amount on hand, rounded down to a whole kg.\nE2: CANCELLED. It planned to use 346 kg; ignore it.\nE3: Burn uses 8% of the amount on hand, rounded down to a whole kg.\nE4: Resupply adds 0.89 t (1 t = 1000 kg).\nE5: Burn uses 262 kg.\nE6: Burn uses 176 kg.\nE7: Correction: E6 actually used 119 kg, not 176 kg. Apply E6 as 119 kg and recompute every later entry.\nA reserve of 460 kg must stay untouched. After all entries, how many kg are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1431"
+      },
+      "reference": "1431",
+      "wrong": "1432",
+      "malformed": "The answer is 1431 kg"
+    },
+    {
+      "id": "ledger-05",
+      "prompt": "Kestrel station propellant log. Start: 3095 kg. Entries in order:\nE1: Burn uses 115 kg.\nE2: Resupply adds 0.50 t (1 t = 1000 kg).\nE3: Burn uses 18% of the amount on hand, rounded down to a whole kg.\nE4: CANCELLED. It planned to use 281 kg; ignore it.\nE5: Burn uses 102 kg.\nE6: Correction: E5 actually used 48 kg, not 102 kg. Apply E5 as 48 kg and recompute every later entry.\nE7: Transfer to the tug sends out one quarter of the amount on hand, rounded down to a whole kg.\nA reserve of 500 kg must stay untouched. After all entries, how many kg are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "1605"
+      },
+      "reference": "1605",
+      "wrong": "1606",
+      "malformed": "The answer is 1605 kg"
+    },
+    {
+      "id": "ledger-06",
+      "prompt": "Kestrel station propellant log. Start: 1949 kg. Entries in order:\nE1: Burn uses 248 kg.\nE2: Resupply adds 0.42 t (1 t = 1000 kg).\nE3: Correction: E1 actually used 275 kg, not 248 kg. Apply E1 as 275 kg and recompute every later entry.\nE4: Burn uses 313 kg.\nE5: Burn uses 14% of the amount on hand, rounded down to a whole kg.\nE6: CANCELLED. It planned to use 316 kg; ignore it.\nE7: Transfer to the tug sends out one quarter of the amount on hand, rounded down to a whole kg.\nA reserve of 350 kg must stay untouched. After all entries, how many kg are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "practice",
+        "expected": "799"
+      },
+      "reference": "799",
+      "wrong": "800",
+      "malformed": "The answer is 799 kg"
+    },
+    {
+      "id": "ledger-07",
+      "prompt": "Tycho base potable water log. Start: 1623 L. Entries in order:\nE1: Draw uses 12% of the amount on hand, rounded down to a whole L.\nE2: Draw uses 97 L.\nE3: Resupply adds 0.59 kL (1 kL = 1000 L).\nE4: Correction: E2 actually used 112 L, not 97 L. Apply E2 as 112 L and recompute every later entry.\nE5: Draw uses 168 L.\nE6: Transfer to the rover tank sends out one third of the amount on hand, rounded down to a whole L.\nE7: CANCELLED. It planned to use 392 L; ignore it.\nA reserve of 630 L must stay untouched. After all entries, how many L are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "530"
+      },
+      "reference": "530",
+      "wrong": "531",
+      "malformed": "The answer is 530 L"
+    },
+    {
+      "id": "ledger-08",
+      "prompt": "Tycho base potable water log. Start: 1840 L. Entries in order:\nE1: CANCELLED. It planned to use 350 L; ignore it.\nE2: Draw uses 12% of the amount on hand, rounded down to a whole L.\nE3: Transfer to the rover tank sends out one quarter of the amount on hand, rounded down to a whole L.\nE4: Draw uses 194 L.\nE5: Draw uses 257 L.\nE6: Resupply adds 0.68 kL (1 kL = 1000 L).\nE7: Correction: E5 actually used 270 L, not 257 L. Apply E5 as 270 L and recompute every later entry.\nA reserve of 310 L must stay untouched. After all entries, how many L are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "1121"
+      },
+      "reference": "1121",
+      "wrong": "1122",
+      "malformed": "The answer is 1121 L"
+    },
+    {
+      "id": "ledger-09",
+      "prompt": "Tycho base potable water log. Start: 2920 L. Entries in order:\nE1: Transfer to the rover tank sends out one quarter of the amount on hand, rounded down to a whole L.\nE2: Draw uses 185 L.\nE3: Draw uses 17% of the amount on hand, rounded down to a whole L.\nE4: Draw uses 150 L.\nE5: Correction: E4 actually used 209 L, not 150 L. Apply E4 as 209 L and recompute every later entry.\nE6: CANCELLED. It planned to use 382 L; ignore it.\nE7: Resupply adds 0.35 kL (1 kL = 1000 L).\nA reserve of 610 L must stay untouched. After all entries, how many L are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "1196"
+      },
+      "reference": "1196",
+      "wrong": "1197",
+      "malformed": "The answer is 1196 L"
+    },
+    {
+      "id": "ledger-10",
+      "prompt": "Tycho base potable water log. Start: 1799 L. Entries in order:\nE1: Transfer to the rover tank sends out one third of the amount on hand, rounded down to a whole L.\nE2: Resupply adds 0.49 kL (1 kL = 1000 L).\nE3: Draw uses 306 L.\nE4: CANCELLED. It planned to use 302 L; ignore it.\nE5: Draw uses 85 L.\nE6: Correction: E3 actually used 319 L, not 306 L. Apply E3 as 319 L and recompute every later entry.\nE7: Draw uses 6% of the amount on hand, rounded down to a whole L.\nA reserve of 640 L must stay untouched. After all entries, how many L are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "569"
+      },
+      "reference": "569",
+      "wrong": "570",
+      "malformed": "The answer is 569 L"
+    },
+    {
+      "id": "ledger-11",
+      "prompt": "Tycho base potable water log. Start: 3178 L. Entries in order:\nE1: CANCELLED. It planned to use 282 L; ignore it.\nE2: Draw uses 11% of the amount on hand, rounded down to a whole L.\nE3: Draw uses 129 L.\nE4: Transfer to the rover tank sends out one third of the amount on hand, rounded down to a whole L.\nE5: Resupply adds 0.70 kL (1 kL = 1000 L).\nE6: Draw uses 199 L.\nE7: Correction: E6 actually used 180 L, not 199 L. Apply E6 as 180 L and recompute every later entry.\nA reserve of 480 L must stay untouched. After all entries, how many L are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "1840"
+      },
+      "reference": "1840",
+      "wrong": "1841",
+      "malformed": "The answer is 1840 L"
+    },
+    {
+      "id": "ledger-12",
+      "prompt": "Tycho base potable water log. Start: 1550 L. Entries in order:\nE1: Draw uses 8% of the amount on hand, rounded down to a whole L.\nE2: Draw uses 200 L.\nE3: CANCELLED. It planned to use 399 L; ignore it.\nE4: Resupply adds 0.63 kL (1 kL = 1000 L).\nE5: Draw uses 184 L.\nE6: Transfer to the rover tank sends out one quarter of the amount on hand, rounded down to a whole L.\nE7: Correction: E5 actually used 243 L, not 184 L. Apply E5 as 243 L and recompute every later entry.\nA reserve of 790 L must stay untouched. After all entries, how many L are available above the reserve? Answer with the integer only, no units.",
+      "scorer": {
+        "kind": "numeric",
+        "partition": "heldout",
+        "expected": "420"
+      },
+      "reference": "420",
+      "wrong": "421",
+      "malformed": "The answer is 420 L"
+    },
+    {
+      "id": "gonogo-01",
+      "prompt": "Launch go/no-go for pass 1. Authority order, highest first: briefing slide > console log > Flight Rules register. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Console log 09:30: wind limit 30 kt.\n(2) Briefing slide 09:45: range safety signature received.\n(3) Flight Rules register 07:00: range safety signature not received.\n(4) Console log 07:35: measured wind 43 kt.\n(5) Briefing slide 07:25: measured wind 31 kt.\n(6) Briefing slide 09:40: a waiver raises the wind limit by 6 kt only if the range safety signature is received.\n(7) Flight Rules register 09:50: wind limit 36 kt.\n(8) Console log 07:15: wind limit 26 kt.\n(9) Briefing slide 09:20: measured wind 36 kt.\nOptions: A: GO, measured 36 kt, effective limit 36 kt. B: GO, measured 36 kt, effective limit 42 kt. C: GO, measured 31 kt, effective limit 36 kt. D: NO-GO, measured 36 kt, effective limit 32 kt.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "B",
+      "malformed": "Option A"
+    },
+    {
+      "id": "gonogo-02",
+      "prompt": "Launch go/no-go for pass 2. Authority order, highest first: briefing slide > console log > Flight Rules register. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Briefing slide 09:40: range safety signature not received.\n(2) Briefing slide 09:05: a waiver raises the wind limit by 2 kt only if the range safety signature is received.\n(3) Briefing slide 07:45: measured wind 33 kt.\n(4) Console log 07:05: measured wind 35 kt.\n(5) Console log 08:45: wind limit 30 kt.\n(6) Console log 08:05: range safety signature received.\n(7) Console log 07:25: wind limit 28 kt.\n(8) Briefing slide 09:30: measured wind 30 kt.\n(9) Flight Rules register 07:55: wind limit 37 kt.\nOptions: A: NO-GO, measured 33 kt, effective limit 30 kt. B: GO, measured 30 kt, effective limit 30 kt. C: NO-GO, measured 30 kt, effective limit 28 kt. D: NO-GO, measured 35 kt, effective limit 30 kt.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "C",
+      "malformed": "Option B"
+    },
+    {
+      "id": "gonogo-03",
+      "prompt": "Launch go/no-go for pass 3. Authority order, highest first: console log > Flight Rules register > briefing slide. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Flight Rules register 09:15: measured wind 41 kt.\n(2) Console log 08:15: wind limit 29 kt.\n(3) Console log 07:45: measured wind 38 kt.\n(4) Console log 08:05: measured wind 32 kt.\n(5) Briefing slide 09:10: range safety signature not received.\n(6) Flight Rules register 08:50: a waiver raises the wind limit by 6 kt only if the range safety signature is received.\n(7) Console log 08:35: wind limit 24 kt.\n(8) Briefing slide 07:50: wind limit 27 kt.\n(9) Flight Rules register 08:20: range safety signature received.\nOptions: A: GO, measured 32 kt, effective limit 35 kt. B: NO-GO, measured 41 kt, effective limit 30 kt. C: NO-GO, measured 32 kt, effective limit 30 kt. D: GO, measured 32 kt, effective limit 33 kt.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "D",
+      "malformed": "Option C"
+    },
+    {
+      "id": "gonogo-04",
+      "prompt": "Launch go/no-go for pass 4. Authority order, highest first: briefing slide > console log > Flight Rules register. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Briefing slide 08:45: measured wind 30 kt.\n(2) Briefing slide 09:25: measured wind 33 kt.\n(3) Briefing slide 08:40: a waiver raises the wind limit by 2 kt only if the range safety signature is received.\n(4) Flight Rules register 09:00: range safety signature received.\n(5) Console log 08:15: wind limit 32 kt.\n(6) Briefing slide 08:50: range safety signature not received.\n(7) Console log 07:30: wind limit 34 kt.\n(8) Flight Rules register 08:30: wind limit 37 kt.\n(9) Console log 09:40: measured wind 26 kt.\nOptions: A: GO, measured 26 kt, effective limit 32 kt. B: GO, measured 30 kt, effective limit 32 kt. C: GO, measured 33 kt, effective limit 37 kt. D: NO-GO, measured 33 kt, effective limit 32 kt.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Option D"
+    },
+    {
+      "id": "gonogo-05",
+      "prompt": "Launch go/no-go for pass 5. Authority order, highest first: briefing slide > Flight Rules register > console log. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Flight Rules register 07:00: measured wind 25 kt.\n(2) Console log 09:35: range safety signature not received.\n(3) Console log 07:50: wind limit 30 kt.\n(4) Flight Rules register 09:55: wind limit 24 kt.\n(5) Flight Rules register 08:35: wind limit 28 kt.\n(6) Flight Rules register 09:05: measured wind 30 kt.\n(7) Briefing slide 09:15: range safety signature received.\n(8) Console log 08:30: measured wind 39 kt.\n(9) Flight Rules register 08:00: a waiver raises the wind limit by 3 kt only if the range safety signature is received.\nOptions: A: NO-GO, measured 30 kt, effective limit 27 kt. B: GO, measured 25 kt, effective limit 27 kt. C: NO-GO, measured 39 kt, effective limit 27 kt. D: GO, measured 30 kt, effective limit 31 kt.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "B",
+      "malformed": "Option A"
+    },
+    {
+      "id": "gonogo-06",
+      "prompt": "Launch go/no-go for pass 6. Authority order, highest first: briefing slide > Flight Rules register > console log. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Flight Rules register 07:00: wind limit 17 kt.\n(2) Console log 08:30: wind limit 27 kt.\n(3) Flight Rules register 08:50: measured wind 20 kt.\n(4) Flight Rules register 09:10: wind limit 21 kt.\n(5) Console log 08:40: a waiver raises the wind limit by 2 kt only if the range safety signature is received.\n(6) Console log 09:15: range safety signature received.\n(7) Flight Rules register 07:25: range safety signature not received.\n(8) Console log 08:25: measured wind 15 kt.\n(9) Flight Rules register 07:50: measured wind 26 kt.\nOptions: A: GO, measured 20 kt, effective limit 23 kt. B: GO, measured 20 kt, effective limit 21 kt. C: GO, measured 20 kt, effective limit 27 kt. D: NO-GO, measured 20 kt, effective limit 17 kt.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "practice",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "C",
+      "malformed": "Option B"
+    },
+    {
+      "id": "gonogo-07",
+      "prompt": "Surface EVA go/no-go for window 7. Authority order, highest first: ops chat > Base Safety manual > shift handover note. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Ops chat 07:15: measured dust count 70 ppm.\n(2) Base Safety manual 08:15: measured dust count 57 ppm.\n(3) Base Safety manual 07:10: dust count limit 66 ppm.\n(4) Base Safety manual 09:10: dust count limit 64 ppm.\n(5) Shift handover note 07:25: a waiver raises the dust count limit by 4 ppm only if the medical officer signature is received.\n(6) Ops chat 08:40: measured dust count 66 ppm.\n(7) Shift handover note 07:45: dust count limit 72 ppm.\n(8) Base Safety manual 08:35: medical officer signature not received.\n(9) Ops chat 08:55: medical officer signature received.\nOptions: A: GO, measured 66 ppm, effective limit 76 ppm. B: NO-GO, measured 66 ppm, effective limit 64 ppm. C: GO, measured 66 ppm, effective limit 68 ppm. D: GO, measured 66 ppm, effective limit 70 ppm.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "D",
+      "malformed": "Option C"
+    },
+    {
+      "id": "gonogo-08",
+      "prompt": "Surface EVA go/no-go for window 8. Authority order, highest first: shift handover note > ops chat > Base Safety manual. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Ops chat 09:00: a waiver raises the dust count limit by 6 ppm only if the medical officer signature is received.\n(2) Base Safety manual 07:55: dust count limit 89 ppm.\n(3) Base Safety manual 09:45: measured dust count 95 ppm.\n(4) Base Safety manual 08:10: medical officer signature not received.\n(5) Ops chat 07:40: dust count limit 84 ppm.\n(6) Ops chat 07:25: dust count limit 90 ppm.\n(7) Shift handover note 07:20: measured dust count 93 ppm.\n(8) Ops chat 07:35: medical officer signature received.\n(9) Shift handover note 09:50: measured dust count 90 ppm.\nOptions: A: NO-GO, measured 90 ppm, effective limit 84 ppm. B: NO-GO, measured 95 ppm, effective limit 90 ppm. C: NO-GO, measured 93 ppm, effective limit 90 ppm. D: GO, measured 90 ppm, effective limit 90 ppm.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Option D"
+    },
+    {
+      "id": "gonogo-09",
+      "prompt": "Surface EVA go/no-go for window 9. Authority order, highest first: shift handover note > ops chat > Base Safety manual. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Base Safety manual 08:45: dust count limit 96 ppm.\n(2) Ops chat 07:15: measured dust count 84 ppm.\n(3) Ops chat 08:35: measured dust count 89 ppm.\n(4) Ops chat 09:20: dust count limit 88 ppm.\n(5) Ops chat 07:25: dust count limit 94 ppm.\n(6) Ops chat 07:05: a waiver raises the dust count limit by 4 ppm only if the medical officer signature is received.\n(7) Base Safety manual 07:30: measured dust count 80 ppm.\n(8) Shift handover note 08:10: medical officer signature received.\n(9) Ops chat 09:15: medical officer signature not received.\nOptions: A: GO, measured 89 ppm, effective limit 92 ppm. B: GO, measured 89 ppm, effective limit 100 ppm. C: GO, measured 80 ppm, effective limit 92 ppm. D: NO-GO, measured 89 ppm, effective limit 88 ppm.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "A"
+      },
+      "reference": "A",
+      "wrong": "B",
+      "malformed": "Option A"
+    },
+    {
+      "id": "gonogo-10",
+      "prompt": "Surface EVA go/no-go for window 10. Authority order, highest first: Base Safety manual > shift handover note > ops chat. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Shift handover note 07:30: medical officer signature received.\n(2) Ops chat 09:35: dust count limit 86 ppm.\n(3) Shift handover note 09:50: dust count limit 80 ppm.\n(4) Shift handover note 08:30: a waiver raises the dust count limit by 4 ppm only if the medical officer signature is received.\n(5) Ops chat 08:40: measured dust count 86 ppm.\n(6) Base Safety manual 09:45: measured dust count 78 ppm.\n(7) Shift handover note 08:05: dust count limit 83 ppm.\n(8) Base Safety manual 09:05: measured dust count 84 ppm.\n(9) Base Safety manual 08:45: medical officer signature not received.\nOptions: A: NO-GO, measured 86 ppm, effective limit 80 ppm. B: GO, measured 78 ppm, effective limit 80 ppm. C: NO-GO, measured 84 ppm, effective limit 80 ppm. D: GO, measured 78 ppm, effective limit 86 ppm.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "B"
+      },
+      "reference": "B",
+      "wrong": "C",
+      "malformed": "Option B"
+    },
+    {
+      "id": "gonogo-11",
+      "prompt": "Surface EVA go/no-go for window 11. Authority order, highest first: shift handover note > Base Safety manual > ops chat. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Shift handover note 07:10: measured dust count 56 ppm.\n(2) Base Safety manual 07:40: a waiver raises the dust count limit by 2 ppm only if the medical officer signature is received.\n(3) Shift handover note 09:10: medical officer signature received.\n(4) Base Safety manual 07:00: dust count limit 52 ppm.\n(5) Shift handover note 07:50: measured dust count 49 ppm.\n(6) Base Safety manual 09:50: measured dust count 53 ppm.\n(7) Ops chat 09:45: medical officer signature not received.\n(8) Shift handover note 08:15: dust count limit 49 ppm.\n(9) Shift handover note 07:30: dust count limit 43 ppm.\nOptions: A: NO-GO, measured 53 ppm, effective limit 51 ppm. B: NO-GO, measured 49 ppm, effective limit 45 ppm. C: GO, measured 49 ppm, effective limit 51 ppm. D: NO-GO, measured 56 ppm, effective limit 51 ppm.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "C"
+      },
+      "reference": "C",
+      "wrong": "D",
+      "malformed": "Option C"
+    },
+    {
+      "id": "gonogo-12",
+      "prompt": "Surface EVA go/no-go for window 12. Authority order, highest first: ops chat > shift handover note > Base Safety manual. For each fact (the limit, the measured value, the waiver, and the signature), use only the highest-authority source that reports that fact; within that source, the latest time wins. The effective limit is the limit plus the waiver amount when the waiver exists and the signature is received; otherwise it is the limit. GO only if the measured value is at or below the effective limit.\nRecords:\n(1) Shift handover note 07:00: measured dust count 91 ppm.\n(2) Ops chat 09:40: medical officer signature not received.\n(3) Shift handover note 07:55: measured dust count 88 ppm.\n(4) Base Safety manual 07:35: a waiver raises the dust count limit by 4 ppm only if the medical officer signature is received.\n(5) Shift handover note 09:55: medical officer signature received.\n(6) Shift handover note 09:30: dust count limit 85 ppm.\n(7) Shift handover note 08:35: dust count limit 83 ppm.\n(8) Base Safety manual 08:05: measured dust count 92 ppm.\n(9) Base Safety manual 07:10: dust count limit 90 ppm.\nOptions: A: GO, measured 88 ppm, effective limit 89 ppm. B: NO-GO, measured 91 ppm, effective limit 85 ppm. C: NO-GO, measured 88 ppm, effective limit 83 ppm. D: NO-GO, measured 88 ppm, effective limit 85 ppm.\nAnswer with one letter only.",
+      "scorer": {
+        "kind": "choice",
+        "partition": "heldout",
+        "expected": "D"
+      },
+      "reference": "D",
+      "wrong": "A",
+      "malformed": "Option D"
+    },
+    {
+      "id": "replay-01",
+      "prompt": "Kestrel life-support controller. Initial state: {\"pump_a\":\"on\",\"pump_b\":\"on\",\"valve_3\":\"open\",\"heater_2\":\"off\",\"fan_1\":\"off\",\"valve_8\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"09:09\",\"target\":\"pump_a\",\"action\":\"set\",\"value\":\"off\",\"auth\":false},{\"id\":\"E02\",\"t\":\"10:36\",\"target\":\"pump_b\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E03\",\"t\":\"09:06\",\"target\":\"valve_3\",\"action\":\"set\",\"value\":\"open\",\"auth\":false},{\"id\":\"E04\",\"t\":\"09:21\",\"target\":\"valve_3\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E05\",\"t\":\"09:24\",\"target\":\"valve_8\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E06\",\"t\":\"10:30\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E07\",\"t\":\"10:09\",\"target\":\"pump_b\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E08\",\"t\":\"09:39\",\"target\":\"heater_2\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E09\",\"t\":\"10:27\",\"target\":\"valve_3\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E10\",\"t\":\"09:42\",\"target\":\"pump_b\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E11\",\"t\":\"09:27\",\"target\":\"pump_b\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E12\",\"t\":\"10:33\",\"target\":\"pump_a\",\"action\":\"set\",\"value\":\"on\",\"auth\":true}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"pump_a\" (\"on\" or \"off\"), \"pump_b\" (\"on\" or \"off\"), \"valve_3\" (\"open\" or \"closed\"), \"heater_2\" (\"on\" or \"off\"), \"fan_1\" (\"on\" or \"off\"), \"valve_8\" (\"open\" or \"closed\"), \"rejected\" (the rejected event IDs in time order) and \"applied\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "pump_a": "on",
+          "pump_b": "on",
+          "valve_3": "closed",
+          "heater_2": "off",
+          "fan_1": "on",
+          "valve_8": "open",
+          "rejected": [
+            "E03",
+            "E01",
+            "E04",
+            "E08"
+          ],
+          "applied": 8
+        }
+      },
+      "reference": "{\"pump_a\":\"on\",\"pump_b\":\"on\",\"valve_3\":\"closed\",\"heater_2\":\"off\",\"fan_1\":\"on\",\"valve_8\":\"open\",\"rejected\":[\"E03\",\"E01\",\"E04\",\"E08\"],\"applied\":8}",
+      "wrong": "{\"pump_a\":\"on\",\"pump_b\":\"on\",\"valve_3\":\"closed\",\"heater_2\":\"off\",\"fan_1\":\"on\",\"valve_8\":\"open\",\"rejected\":[\"E03\",\"E01\",\"E04\",\"E08\"],\"applied\":9}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-02",
+      "prompt": "Kestrel life-support controller. Initial state: {\"pump_a\":\"off\",\"pump_b\":\"on\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"off\",\"valve_8\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"10:18\",\"target\":\"valve_3\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E02\",\"t\":\"10:45\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"off\",\"auth\":false},{\"id\":\"E03\",\"t\":\"10:12\",\"target\":\"valve_8\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E04\",\"t\":\"09:18\",\"target\":\"valve_8\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E05\",\"t\":\"09:09\",\"target\":\"valve_3\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E06\",\"t\":\"09:48\",\"target\":\"pump_b\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E07\",\"t\":\"09:36\",\"target\":\"pump_b\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E08\",\"t\":\"10:42\",\"target\":\"fan_1\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E09\",\"t\":\"09:30\",\"target\":\"valve_8\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E10\",\"t\":\"09:45\",\"target\":\"valve_3\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E11\",\"t\":\"10:30\",\"target\":\"valve_3\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E12\",\"t\":\"09:33\",\"target\":\"heater_2\",\"action\":\"toggle\",\"auth\":false}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"pump_a\" (\"on\" or \"off\"), \"pump_b\" (\"on\" or \"off\"), \"valve_3\" (\"open\" or \"closed\"), \"heater_2\" (\"on\" or \"off\"), \"fan_1\" (\"on\" or \"off\"), \"valve_8\" (\"open\" or \"closed\"), \"rejected\" (the rejected event IDs in time order) and \"applied\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "pump_a": "off",
+          "pump_b": "on",
+          "valve_3": "closed",
+          "heater_2": "on",
+          "fan_1": "on",
+          "valve_8": "closed",
+          "rejected": [
+            "E05",
+            "E04",
+            "E12",
+            "E02"
+          ],
+          "applied": 8
+        }
+      },
+      "reference": "{\"pump_a\":\"off\",\"pump_b\":\"on\",\"valve_3\":\"closed\",\"heater_2\":\"on\",\"fan_1\":\"on\",\"valve_8\":\"closed\",\"rejected\":[\"E05\",\"E04\",\"E12\",\"E02\"],\"applied\":8}",
+      "wrong": "{\"pump_a\":\"off\",\"pump_b\":\"on\",\"valve_3\":\"closed\",\"heater_2\":\"on\",\"fan_1\":\"on\",\"valve_8\":\"closed\",\"rejected\":[\"E05\",\"E04\",\"E12\",\"E02\"],\"applied\":9}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-03",
+      "prompt": "Kestrel life-support controller. Initial state: {\"pump_a\":\"off\",\"pump_b\":\"off\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"on\",\"valve_8\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"10:54\",\"target\":\"heater_2\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E02\",\"t\":\"09:15\",\"target\":\"pump_a\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E03\",\"t\":\"09:03\",\"target\":\"pump_a\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E04\",\"t\":\"10:33\",\"target\":\"valve_3\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E05\",\"t\":\"10:00\",\"target\":\"pump_b\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E06\",\"t\":\"10:48\",\"target\":\"valve_8\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E07\",\"t\":\"09:30\",\"target\":\"pump_a\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E08\",\"t\":\"10:45\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E09\",\"t\":\"09:00\",\"target\":\"valve_3\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E10\",\"t\":\"09:39\",\"target\":\"valve_8\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E11\",\"t\":\"09:51\",\"target\":\"valve_3\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E12\",\"t\":\"09:45\",\"target\":\"pump_a\",\"action\":\"set\",\"value\":\"off\",\"auth\":false}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"pump_a\" (\"on\" or \"off\"), \"pump_b\" (\"on\" or \"off\"), \"valve_3\" (\"open\" or \"closed\"), \"heater_2\" (\"on\" or \"off\"), \"fan_1\" (\"on\" or \"off\"), \"valve_8\" (\"open\" or \"closed\"), \"rejected\" (the rejected event IDs in time order) and \"applied\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "pump_a": "on",
+          "pump_b": "on",
+          "valve_3": "open",
+          "heater_2": "on",
+          "fan_1": "off",
+          "valve_8": "closed",
+          "rejected": [
+            "E09",
+            "E12",
+            "E01"
+          ],
+          "applied": 9
+        }
+      },
+      "reference": "{\"pump_a\":\"on\",\"pump_b\":\"on\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"off\",\"valve_8\":\"closed\",\"rejected\":[\"E09\",\"E12\",\"E01\"],\"applied\":9}",
+      "wrong": "{\"pump_a\":\"on\",\"pump_b\":\"on\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"off\",\"valve_8\":\"closed\",\"rejected\":[\"E09\",\"E12\",\"E01\"],\"applied\":10}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-04",
+      "prompt": "Kestrel life-support controller. Initial state: {\"pump_a\":\"on\",\"pump_b\":\"on\",\"valve_3\":\"closed\",\"heater_2\":\"on\",\"fan_1\":\"off\",\"valve_8\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"09:36\",\"target\":\"heater_2\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E02\",\"t\":\"10:39\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E03\",\"t\":\"10:30\",\"target\":\"heater_2\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E04\",\"t\":\"10:57\",\"target\":\"pump_b\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E05\",\"t\":\"09:33\",\"target\":\"heater_2\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E06\",\"t\":\"10:06\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"off\",\"auth\":false},{\"id\":\"E07\",\"t\":\"09:09\",\"target\":\"valve_3\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E08\",\"t\":\"09:48\",\"target\":\"pump_b\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E09\",\"t\":\"10:27\",\"target\":\"valve_8\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E10\",\"t\":\"09:42\",\"target\":\"valve_8\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E11\",\"t\":\"09:12\",\"target\":\"valve_3\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E12\",\"t\":\"10:18\",\"target\":\"valve_3\",\"action\":\"toggle\",\"auth\":true}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"pump_a\" (\"on\" or \"off\"), \"pump_b\" (\"on\" or \"off\"), \"valve_3\" (\"open\" or \"closed\"), \"heater_2\" (\"on\" or \"off\"), \"fan_1\" (\"on\" or \"off\"), \"valve_8\" (\"open\" or \"closed\"), \"rejected\" (the rejected event IDs in time order) and \"applied\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "pump_a": "on",
+          "pump_b": "off",
+          "valve_3": "open",
+          "heater_2": "on",
+          "fan_1": "off",
+          "valve_8": "closed",
+          "rejected": [
+            "E08",
+            "E06",
+            "E09",
+            "E03"
+          ],
+          "applied": 8
+        }
+      },
+      "reference": "{\"pump_a\":\"on\",\"pump_b\":\"off\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"off\",\"valve_8\":\"closed\",\"rejected\":[\"E08\",\"E06\",\"E09\",\"E03\"],\"applied\":8}",
+      "wrong": "{\"pump_a\":\"on\",\"pump_b\":\"off\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"off\",\"valve_8\":\"closed\",\"rejected\":[\"E08\",\"E06\",\"E09\",\"E03\"],\"applied\":9}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-05",
+      "prompt": "Kestrel life-support controller. Initial state: {\"pump_a\":\"on\",\"pump_b\":\"off\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"off\",\"valve_8\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"10:48\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E02\",\"t\":\"09:00\",\"target\":\"pump_b\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E03\",\"t\":\"09:42\",\"target\":\"pump_a\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E04\",\"t\":\"09:51\",\"target\":\"pump_b\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E05\",\"t\":\"10:36\",\"target\":\"valve_8\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E06\",\"t\":\"10:57\",\"target\":\"heater_2\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E07\",\"t\":\"09:09\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E08\",\"t\":\"10:30\",\"target\":\"pump_b\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E09\",\"t\":\"09:27\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E10\",\"t\":\"09:48\",\"target\":\"pump_a\",\"action\":\"set\",\"value\":\"off\",\"auth\":false},{\"id\":\"E11\",\"t\":\"10:42\",\"target\":\"heater_2\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E12\",\"t\":\"10:33\",\"target\":\"valve_8\",\"action\":\"toggle\",\"auth\":false}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"pump_a\" (\"on\" or \"off\"), \"pump_b\" (\"on\" or \"off\"), \"valve_3\" (\"open\" or \"closed\"), \"heater_2\" (\"on\" or \"off\"), \"fan_1\" (\"on\" or \"off\"), \"valve_8\" (\"open\" or \"closed\"), \"rejected\" (the rejected event IDs in time order) and \"applied\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "pump_a": "off",
+          "pump_b": "on",
+          "valve_3": "open",
+          "heater_2": "off",
+          "fan_1": "on",
+          "valve_8": "open",
+          "rejected": [
+            "E10",
+            "E04",
+            "E12"
+          ],
+          "applied": 9
+        }
+      },
+      "reference": "{\"pump_a\":\"off\",\"pump_b\":\"on\",\"valve_3\":\"open\",\"heater_2\":\"off\",\"fan_1\":\"on\",\"valve_8\":\"open\",\"rejected\":[\"E10\",\"E04\",\"E12\"],\"applied\":9}",
+      "wrong": "{\"pump_a\":\"off\",\"pump_b\":\"on\",\"valve_3\":\"open\",\"heater_2\":\"off\",\"fan_1\":\"on\",\"valve_8\":\"open\",\"rejected\":[\"E10\",\"E04\",\"E12\"],\"applied\":10}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-06",
+      "prompt": "Kestrel life-support controller. Initial state: {\"pump_a\":\"off\",\"pump_b\":\"off\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"on\",\"valve_8\":\"open\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"10:03\",\"target\":\"valve_8\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E02\",\"t\":\"10:15\",\"target\":\"pump_b\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E03\",\"t\":\"09:42\",\"target\":\"fan_1\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E04\",\"t\":\"09:57\",\"target\":\"valve_3\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E05\",\"t\":\"09:30\",\"target\":\"fan_1\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E06\",\"t\":\"10:36\",\"target\":\"valve_8\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E07\",\"t\":\"09:54\",\"target\":\"pump_a\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E08\",\"t\":\"09:33\",\"target\":\"valve_3\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E09\",\"t\":\"10:54\",\"target\":\"fan_1\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E10\",\"t\":\"09:24\",\"target\":\"fan_1\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E11\",\"t\":\"10:57\",\"target\":\"pump_b\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E12\",\"t\":\"09:18\",\"target\":\"heater_2\",\"action\":\"toggle\",\"auth\":false}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"pump_a\" (\"on\" or \"off\"), \"pump_b\" (\"on\" or \"off\"), \"valve_3\" (\"open\" or \"closed\"), \"heater_2\" (\"on\" or \"off\"), \"fan_1\" (\"on\" or \"off\"), \"valve_8\" (\"open\" or \"closed\"), \"rejected\" (the rejected event IDs in time order) and \"applied\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "pump_a": "off",
+          "pump_b": "off",
+          "valve_3": "open",
+          "heater_2": "on",
+          "fan_1": "on",
+          "valve_8": "closed",
+          "rejected": [
+            "E12",
+            "E10",
+            "E11"
+          ],
+          "applied": 9
+        }
+      },
+      "reference": "{\"pump_a\":\"off\",\"pump_b\":\"off\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"on\",\"valve_8\":\"closed\",\"rejected\":[\"E12\",\"E10\",\"E11\"],\"applied\":9}",
+      "wrong": "{\"pump_a\":\"off\",\"pump_b\":\"off\",\"valve_3\":\"open\",\"heater_2\":\"on\",\"fan_1\":\"on\",\"valve_8\":\"closed\",\"rejected\":[\"E12\",\"E10\",\"E11\"],\"applied\":10}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-07",
+      "prompt": "Tycho habitat controller. Initial state: {\"drill_motor\":\"on\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"closed\",\"rover_charger\":\"on\",\"scrubber_2\":\"off\",\"hatch_vent\":\"open\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"09:57\",\"target\":\"scrubber_2\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E02\",\"t\":\"09:15\",\"target\":\"drill_motor\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E03\",\"t\":\"10:15\",\"target\":\"airlock_inner\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E04\",\"t\":\"09:36\",\"target\":\"hatch_vent\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E05\",\"t\":\"10:36\",\"target\":\"hatch_vent\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E06\",\"t\":\"10:30\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E07\",\"t\":\"10:03\",\"target\":\"scrubber_2\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E08\",\"t\":\"10:09\",\"target\":\"hatch_vent\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E09\",\"t\":\"09:51\",\"target\":\"airlock_inner\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E10\",\"t\":\"10:27\",\"target\":\"airlock_outer\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E11\",\"t\":\"09:39\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E12\",\"t\":\"09:54\",\"target\":\"airlock_inner\",\"action\":\"toggle\",\"auth\":true}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"drill_motor\" (\"on\" or \"off\"), \"airlock_inner\" (\"open\" or \"closed\"), \"airlock_outer\" (\"open\" or \"closed\"), \"rover_charger\" (\"on\" or \"off\"), \"scrubber_2\" (\"on\" or \"off\"), \"hatch_vent\" (\"open\" or \"closed\"), \"refused\" (the rejected event IDs in time order) and \"executed\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "drill_motor": "off",
+          "airlock_inner": "open",
+          "airlock_outer": "closed",
+          "rover_charger": "on",
+          "scrubber_2": "off",
+          "hatch_vent": "open",
+          "refused": [
+            "E04",
+            "E11",
+            "E01"
+          ],
+          "executed": 9
+        }
+      },
+      "reference": "{\"drill_motor\":\"off\",\"airlock_inner\":\"open\",\"airlock_outer\":\"closed\",\"rover_charger\":\"on\",\"scrubber_2\":\"off\",\"hatch_vent\":\"open\",\"refused\":[\"E04\",\"E11\",\"E01\"],\"executed\":9}",
+      "wrong": "{\"drill_motor\":\"off\",\"airlock_inner\":\"open\",\"airlock_outer\":\"closed\",\"rover_charger\":\"on\",\"scrubber_2\":\"off\",\"hatch_vent\":\"open\",\"refused\":[\"E04\",\"E11\",\"E01\"],\"executed\":10}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-08",
+      "prompt": "Tycho habitat controller. Initial state: {\"drill_motor\":\"on\",\"airlock_inner\":\"open\",\"airlock_outer\":\"open\",\"rover_charger\":\"on\",\"scrubber_2\":\"off\",\"hatch_vent\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"10:06\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E02\",\"t\":\"10:33\",\"target\":\"airlock_outer\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E03\",\"t\":\"09:12\",\"target\":\"hatch_vent\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E04\",\"t\":\"09:45\",\"target\":\"drill_motor\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E05\",\"t\":\"10:42\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E06\",\"t\":\"09:36\",\"target\":\"airlock_outer\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E07\",\"t\":\"10:27\",\"target\":\"airlock_inner\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E08\",\"t\":\"09:57\",\"target\":\"airlock_inner\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E09\",\"t\":\"09:03\",\"target\":\"airlock_outer\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E10\",\"t\":\"09:24\",\"target\":\"scrubber_2\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E11\",\"t\":\"09:51\",\"target\":\"drill_motor\",\"action\":\"set\",\"value\":\"off\",\"auth\":false},{\"id\":\"E12\",\"t\":\"09:15\",\"target\":\"scrubber_2\",\"action\":\"set\",\"value\":\"on\",\"auth\":false}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"drill_motor\" (\"on\" or \"off\"), \"airlock_inner\" (\"open\" or \"closed\"), \"airlock_outer\" (\"open\" or \"closed\"), \"rover_charger\" (\"on\" or \"off\"), \"scrubber_2\" (\"on\" or \"off\"), \"hatch_vent\" (\"open\" or \"closed\"), \"refused\" (the rejected event IDs in time order) and \"executed\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "drill_motor": "off",
+          "airlock_inner": "closed",
+          "airlock_outer": "open",
+          "rover_charger": "on",
+          "scrubber_2": "on",
+          "hatch_vent": "open",
+          "refused": [
+            "E12",
+            "E11",
+            "E02",
+            "E05"
+          ],
+          "executed": 8
+        }
+      },
+      "reference": "{\"drill_motor\":\"off\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"open\",\"rover_charger\":\"on\",\"scrubber_2\":\"on\",\"hatch_vent\":\"open\",\"refused\":[\"E12\",\"E11\",\"E02\",\"E05\"],\"executed\":8}",
+      "wrong": "{\"drill_motor\":\"off\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"open\",\"rover_charger\":\"on\",\"scrubber_2\":\"on\",\"hatch_vent\":\"open\",\"refused\":[\"E12\",\"E11\",\"E02\",\"E05\"],\"executed\":9}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-09",
+      "prompt": "Tycho habitat controller. Initial state: {\"drill_motor\":\"off\",\"airlock_inner\":\"open\",\"airlock_outer\":\"closed\",\"rover_charger\":\"off\",\"scrubber_2\":\"on\",\"hatch_vent\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"09:33\",\"target\":\"airlock_inner\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E02\",\"t\":\"10:48\",\"target\":\"hatch_vent\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E03\",\"t\":\"09:42\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E04\",\"t\":\"09:18\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E05\",\"t\":\"10:57\",\"target\":\"hatch_vent\",\"action\":\"set\",\"value\":\"closed\",\"auth\":false},{\"id\":\"E06\",\"t\":\"09:51\",\"target\":\"hatch_vent\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E07\",\"t\":\"10:03\",\"target\":\"airlock_outer\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E08\",\"t\":\"10:27\",\"target\":\"hatch_vent\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E09\",\"t\":\"10:54\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E10\",\"t\":\"09:30\",\"target\":\"hatch_vent\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E11\",\"t\":\"10:12\",\"target\":\"airlock_inner\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E12\",\"t\":\"09:45\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"on\",\"auth\":false}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"drill_motor\" (\"on\" or \"off\"), \"airlock_inner\" (\"open\" or \"closed\"), \"airlock_outer\" (\"open\" or \"closed\"), \"rover_charger\" (\"on\" or \"off\"), \"scrubber_2\" (\"on\" or \"off\"), \"hatch_vent\" (\"open\" or \"closed\"), \"refused\" (the rejected event IDs in time order) and \"executed\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "drill_motor": "off",
+          "airlock_inner": "open",
+          "airlock_outer": "open",
+          "rover_charger": "off",
+          "scrubber_2": "on",
+          "hatch_vent": "open",
+          "refused": [
+            "E12",
+            "E11",
+            "E08",
+            "E05"
+          ],
+          "executed": 8
+        }
+      },
+      "reference": "{\"drill_motor\":\"off\",\"airlock_inner\":\"open\",\"airlock_outer\":\"open\",\"rover_charger\":\"off\",\"scrubber_2\":\"on\",\"hatch_vent\":\"open\",\"refused\":[\"E12\",\"E11\",\"E08\",\"E05\"],\"executed\":8}",
+      "wrong": "{\"drill_motor\":\"off\",\"airlock_inner\":\"open\",\"airlock_outer\":\"open\",\"rover_charger\":\"off\",\"scrubber_2\":\"on\",\"hatch_vent\":\"open\",\"refused\":[\"E12\",\"E11\",\"E08\",\"E05\"],\"executed\":9}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-10",
+      "prompt": "Tycho habitat controller. Initial state: {\"drill_motor\":\"off\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"open\",\"rover_charger\":\"off\",\"scrubber_2\":\"on\",\"hatch_vent\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"10:48\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E02\",\"t\":\"09:09\",\"target\":\"rover_charger\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E03\",\"t\":\"10:12\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E04\",\"t\":\"09:12\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E05\",\"t\":\"10:24\",\"target\":\"drill_motor\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E06\",\"t\":\"10:21\",\"target\":\"airlock_inner\",\"action\":\"set\",\"value\":\"open\",\"auth\":false},{\"id\":\"E07\",\"t\":\"10:39\",\"target\":\"airlock_outer\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E08\",\"t\":\"09:30\",\"target\":\"drill_motor\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E09\",\"t\":\"09:15\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"off\",\"auth\":false},{\"id\":\"E10\",\"t\":\"10:06\",\"target\":\"airlock_outer\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E11\",\"t\":\"09:00\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E12\",\"t\":\"10:54\",\"target\":\"airlock_inner\",\"action\":\"set\",\"value\":\"open\",\"auth\":true}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"drill_motor\" (\"on\" or \"off\"), \"airlock_inner\" (\"open\" or \"closed\"), \"airlock_outer\" (\"open\" or \"closed\"), \"rover_charger\" (\"on\" or \"off\"), \"scrubber_2\" (\"on\" or \"off\"), \"hatch_vent\" (\"open\" or \"closed\"), \"refused\" (the rejected event IDs in time order) and \"executed\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "drill_motor": "on",
+          "airlock_inner": "open",
+          "airlock_outer": "closed",
+          "rover_charger": "off",
+          "scrubber_2": "on",
+          "hatch_vent": "closed",
+          "refused": [
+            "E11",
+            "E09",
+            "E06",
+            "E07"
+          ],
+          "executed": 8
+        }
+      },
+      "reference": "{\"drill_motor\":\"on\",\"airlock_inner\":\"open\",\"airlock_outer\":\"closed\",\"rover_charger\":\"off\",\"scrubber_2\":\"on\",\"hatch_vent\":\"closed\",\"refused\":[\"E11\",\"E09\",\"E06\",\"E07\"],\"executed\":8}",
+      "wrong": "{\"drill_motor\":\"on\",\"airlock_inner\":\"open\",\"airlock_outer\":\"closed\",\"rover_charger\":\"off\",\"scrubber_2\":\"on\",\"hatch_vent\":\"closed\",\"refused\":[\"E11\",\"E09\",\"E06\",\"E07\"],\"executed\":9}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-11",
+      "prompt": "Tycho habitat controller. Initial state: {\"drill_motor\":\"off\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"open\",\"rover_charger\":\"on\",\"scrubber_2\":\"off\",\"hatch_vent\":\"closed\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"09:09\",\"target\":\"airlock_outer\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E02\",\"t\":\"10:42\",\"target\":\"drill_motor\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E03\",\"t\":\"09:57\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E04\",\"t\":\"09:54\",\"target\":\"airlock_outer\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E05\",\"t\":\"10:33\",\"target\":\"airlock_outer\",\"action\":\"set\",\"value\":\"closed\",\"auth\":true},{\"id\":\"E06\",\"t\":\"09:48\",\"target\":\"hatch_vent\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E07\",\"t\":\"09:03\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E08\",\"t\":\"09:12\",\"target\":\"scrubber_2\",\"action\":\"set\",\"value\":\"on\",\"auth\":false},{\"id\":\"E09\",\"t\":\"09:33\",\"target\":\"hatch_vent\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E10\",\"t\":\"10:24\",\"target\":\"drill_motor\",\"action\":\"set\",\"value\":\"on\",\"auth\":false},{\"id\":\"E11\",\"t\":\"09:27\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"off\",\"auth\":false},{\"id\":\"E12\",\"t\":\"09:06\",\"target\":\"hatch_vent\",\"action\":\"set\",\"value\":\"open\",\"auth\":true}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"drill_motor\" (\"on\" or \"off\"), \"airlock_inner\" (\"open\" or \"closed\"), \"airlock_outer\" (\"open\" or \"closed\"), \"rover_charger\" (\"on\" or \"off\"), \"scrubber_2\" (\"on\" or \"off\"), \"hatch_vent\" (\"open\" or \"closed\"), \"refused\" (the rejected event IDs in time order) and \"executed\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "drill_motor": "on",
+          "airlock_inner": "closed",
+          "airlock_outer": "closed",
+          "rover_charger": "off",
+          "scrubber_2": "off",
+          "hatch_vent": "open",
+          "refused": [
+            "E08",
+            "E11",
+            "E10"
+          ],
+          "executed": 9
+        }
+      },
+      "reference": "{\"drill_motor\":\"on\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"closed\",\"rover_charger\":\"off\",\"scrubber_2\":\"off\",\"hatch_vent\":\"open\",\"refused\":[\"E08\",\"E11\",\"E10\"],\"executed\":9}",
+      "wrong": "{\"drill_motor\":\"on\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"closed\",\"rover_charger\":\"off\",\"scrubber_2\":\"off\",\"hatch_vent\":\"open\",\"refused\":[\"E08\",\"E11\",\"E10\"],\"executed\":10}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "replay-12",
+      "prompt": "Tycho habitat controller. Initial state: {\"drill_motor\":\"off\",\"airlock_inner\":\"open\",\"airlock_outer\":\"closed\",\"rover_charger\":\"on\",\"scrubber_2\":\"on\",\"hatch_vent\":\"open\"}\nEvents (listed in no particular order): [{\"id\":\"E01\",\"t\":\"10:12\",\"target\":\"drill_motor\",\"action\":\"set\",\"value\":\"on\",\"auth\":true},{\"id\":\"E02\",\"t\":\"10:48\",\"target\":\"airlock_inner\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E03\",\"t\":\"10:03\",\"target\":\"airlock_inner\",\"action\":\"set\",\"value\":\"open\",\"auth\":false},{\"id\":\"E04\",\"t\":\"10:27\",\"target\":\"airlock_inner\",\"action\":\"set\",\"value\":\"open\",\"auth\":false},{\"id\":\"E05\",\"t\":\"10:45\",\"target\":\"hatch_vent\",\"action\":\"set\",\"value\":\"open\",\"auth\":true},{\"id\":\"E06\",\"t\":\"10:51\",\"target\":\"hatch_vent\",\"action\":\"toggle\",\"auth\":false},{\"id\":\"E07\",\"t\":\"10:36\",\"target\":\"hatch_vent\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E08\",\"t\":\"09:15\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E09\",\"t\":\"10:18\",\"target\":\"rover_charger\",\"action\":\"set\",\"value\":\"off\",\"auth\":true},{\"id\":\"E10\",\"t\":\"09:18\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E11\",\"t\":\"09:21\",\"target\":\"airlock_outer\",\"action\":\"toggle\",\"auth\":true},{\"id\":\"E12\",\"t\":\"09:24\",\"target\":\"drill_motor\",\"action\":\"toggle\",\"auth\":false}]\nApply the events in time order. An event whose auth is false is rejected and changes nothing. \"set\" sets the target to value; \"toggle\" flips on/off or open/closed. Return JSON only, with exactly these keys: \"drill_motor\" (\"on\" or \"off\"), \"airlock_inner\" (\"open\" or \"closed\"), \"airlock_outer\" (\"open\" or \"closed\"), \"rover_charger\" (\"on\" or \"off\"), \"scrubber_2\" (\"on\" or \"off\"), \"hatch_vent\" (\"open\" or \"closed\"), \"refused\" (the rejected event IDs in time order) and \"executed\" (the integer count of applied events). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "drill_motor": "on",
+          "airlock_inner": "closed",
+          "airlock_outer": "open",
+          "rover_charger": "off",
+          "scrubber_2": "on",
+          "hatch_vent": "open",
+          "refused": [
+            "E12",
+            "E03",
+            "E04",
+            "E06"
+          ],
+          "executed": 8
+        }
+      },
+      "reference": "{\"drill_motor\":\"on\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"open\",\"rover_charger\":\"off\",\"scrubber_2\":\"on\",\"hatch_vent\":\"open\",\"refused\":[\"E12\",\"E03\",\"E04\",\"E06\"],\"executed\":8}",
+      "wrong": "{\"drill_motor\":\"on\",\"airlock_inner\":\"closed\",\"airlock_outer\":\"open\",\"rover_charger\":\"off\",\"scrubber_2\":\"on\",\"hatch_vent\":\"open\",\"refused\":[\"E12\",\"E03\",\"E04\",\"E06\"],\"executed\":9}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-01",
+      "prompt": "Kestrel stowage manifest: [{\"id\":\"R01\",\"module\":\"Node-1\",\"item\":\"water bags\",\"qty\":5,\"status\":\"verified\",\"expires\":125},{\"id\":\"R02\",\"module\":\"Hab\",\"item\":\"LiOH canisters\",\"qty\":6,\"status\":\"verified\",\"expires\":169},{\"id\":\"R03\",\"module\":\"Hab\",\"item\":\"LiOH canisters\",\"qty\":23,\"status\":\"pending\",\"expires\":96},{\"id\":\"R04\",\"module\":\"Node-1\",\"item\":\"ration packs\",\"qty\":22,\"status\":\"rejected\",\"expires\":170},{\"id\":\"R05\",\"module\":\"Hab\",\"item\":\"water bags\",\"qty\":22,\"status\":\"verified\",\"expires\":171},{\"id\":\"R06\",\"module\":\"Hab\",\"item\":\"filters\",\"qty\":40,\"status\":\"rejected\",\"expires\":155},{\"id\":\"R07\",\"module\":\"Node-1\",\"item\":\"ration packs\",\"qty\":30,\"status\":\"verified\",\"expires\":99},{\"id\":\"R08\",\"module\":\"Hab\",\"item\":\"LiOH canisters\",\"qty\":25,\"status\":\"pending\",\"expires\":166},{\"id\":\"R09\",\"module\":\"Node-1\",\"item\":\"water bags\",\"qty\":21,\"status\":\"verified\",\"expires\":166},{\"id\":\"R10\",\"module\":\"Hab\",\"item\":\"LiOH canisters\",\"qty\":9,\"status\":\"pending\",\"expires\":107},{\"id\":\"R11\",\"module\":\"Node-2\",\"item\":\"LiOH canisters\",\"qty\":21,\"status\":\"rejected\",\"expires\":159},{\"id\":\"R12\",\"module\":\"Hab\",\"item\":\"ration packs\",\"qty\":3,\"status\":\"pending\",\"expires\":116},{\"id\":\"R13\",\"module\":\"Hab\",\"item\":\"water bags\",\"qty\":11,\"status\":\"pending\",\"expires\":125},{\"id\":\"R14\",\"module\":\"Node-2\",\"item\":\"ration packs\",\"qty\":38,\"status\":\"verified\",\"expires\":102}]\nUse only rows whose status is \"verified\", whose expires is day 112 or later, and whose item is not \"LiOH canisters\". For each module, add up qty over those rows. Report the module with the largest sum; if sums tie, choose the module name that comes first alphabetically. Return JSON only, with exactly these keys: \"module\" (the name), \"total\" (that integer sum) and \"rows\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "module": "Node-1",
+          "total": 26,
+          "rows": 2
+        }
+      },
+      "reference": "{\"module\":\"Node-1\",\"total\":26,\"rows\":2}",
+      "wrong": "{\"module\":\"Node-1\",\"total\":27,\"rows\":2}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-02",
+      "prompt": "Kestrel stowage manifest: [{\"id\":\"R01\",\"module\":\"Lab\",\"item\":\"water bags\",\"qty\":8,\"status\":\"verified\",\"expires\":116},{\"id\":\"R02\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":25,\"status\":\"verified\",\"expires\":156},{\"id\":\"R03\",\"module\":\"Hab\",\"item\":\"water bags\",\"qty\":25,\"status\":\"verified\",\"expires\":164},{\"id\":\"R04\",\"module\":\"Hab\",\"item\":\"filters\",\"qty\":15,\"status\":\"verified\",\"expires\":173},{\"id\":\"R05\",\"module\":\"Lab\",\"item\":\"LiOH canisters\",\"qty\":18,\"status\":\"verified\",\"expires\":197},{\"id\":\"R06\",\"module\":\"Node-1\",\"item\":\"filters\",\"qty\":22,\"status\":\"pending\",\"expires\":205},{\"id\":\"R07\",\"module\":\"Node-2\",\"item\":\"ration packs\",\"qty\":40,\"status\":\"rejected\",\"expires\":204},{\"id\":\"R08\",\"module\":\"Hab\",\"item\":\"filters\",\"qty\":37,\"status\":\"verified\",\"expires\":131},{\"id\":\"R09\",\"module\":\"Lab\",\"item\":\"water bags\",\"qty\":28,\"status\":\"verified\",\"expires\":145},{\"id\":\"R10\",\"module\":\"Node-2\",\"item\":\"LiOH canisters\",\"qty\":9,\"status\":\"verified\",\"expires\":145},{\"id\":\"R11\",\"module\":\"Lab\",\"item\":\"ration packs\",\"qty\":11,\"status\":\"rejected\",\"expires\":155},{\"id\":\"R12\",\"module\":\"Node-1\",\"item\":\"LiOH canisters\",\"qty\":38,\"status\":\"rejected\",\"expires\":195},{\"id\":\"R13\",\"module\":\"Node-2\",\"item\":\"ration packs\",\"qty\":17,\"status\":\"pending\",\"expires\":153},{\"id\":\"R14\",\"module\":\"Node-1\",\"item\":\"ration packs\",\"qty\":32,\"status\":\"pending\",\"expires\":179}]\nUse only rows whose status is \"verified\", whose expires is day 145 or later, and whose item is not \"water bags\". For each module, add up qty over those rows. Report the module with the largest sum; if sums tie, choose the module name that comes first alphabetically. Return JSON only, with exactly these keys: \"module\" (the name), \"total\" (that integer sum) and \"rows\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "module": "Lab",
+          "total": 18,
+          "rows": 1
+        }
+      },
+      "reference": "{\"module\":\"Lab\",\"total\":18,\"rows\":1}",
+      "wrong": "{\"module\":\"Lab\",\"total\":19,\"rows\":1}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-03",
+      "prompt": "Kestrel stowage manifest: [{\"id\":\"R01\",\"module\":\"Node-2\",\"item\":\"LiOH canisters\",\"qty\":39,\"status\":\"verified\",\"expires\":96},{\"id\":\"R02\",\"module\":\"Lab\",\"item\":\"ration packs\",\"qty\":37,\"status\":\"verified\",\"expires\":76},{\"id\":\"R03\",\"module\":\"Hab\",\"item\":\"ration packs\",\"qty\":4,\"status\":\"verified\",\"expires\":137},{\"id\":\"R04\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":15,\"status\":\"rejected\",\"expires\":127},{\"id\":\"R05\",\"module\":\"Lab\",\"item\":\"LiOH canisters\",\"qty\":22,\"status\":\"verified\",\"expires\":99},{\"id\":\"R06\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":15,\"status\":\"verified\",\"expires\":117},{\"id\":\"R07\",\"module\":\"Hab\",\"item\":\"water bags\",\"qty\":24,\"status\":\"pending\",\"expires\":75},{\"id\":\"R08\",\"module\":\"Hab\",\"item\":\"water bags\",\"qty\":5,\"status\":\"rejected\",\"expires\":76},{\"id\":\"R09\",\"module\":\"Node-1\",\"item\":\"LiOH canisters\",\"qty\":26,\"status\":\"verified\",\"expires\":82},{\"id\":\"R10\",\"module\":\"Lab\",\"item\":\"water bags\",\"qty\":35,\"status\":\"verified\",\"expires\":82},{\"id\":\"R11\",\"module\":\"Hab\",\"item\":\"water bags\",\"qty\":15,\"status\":\"verified\",\"expires\":137},{\"id\":\"R12\",\"module\":\"Lab\",\"item\":\"ration packs\",\"qty\":12,\"status\":\"rejected\",\"expires\":94},{\"id\":\"R13\",\"module\":\"Hab\",\"item\":\"water bags\",\"qty\":5,\"status\":\"verified\",\"expires\":100},{\"id\":\"R14\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":18,\"status\":\"rejected\",\"expires\":114}]\nUse only rows whose status is \"verified\", whose expires is day 114 or later, and whose item is not \"ration packs\". For each module, add up qty over those rows. Report the module with the largest sum; if sums tie, choose the module name that comes first alphabetically. Return JSON only, with exactly these keys: \"module\" (the name), \"total\" (that integer sum) and \"rows\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "module": "Hab",
+          "total": 15,
+          "rows": 1
+        }
+      },
+      "reference": "{\"module\":\"Hab\",\"total\":15,\"rows\":1}",
+      "wrong": "{\"module\":\"Hab\",\"total\":16,\"rows\":1}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-04",
+      "prompt": "Kestrel stowage manifest: [{\"id\":\"R01\",\"module\":\"Node-2\",\"item\":\"ration packs\",\"qty\":14,\"status\":\"pending\",\"expires\":117},{\"id\":\"R02\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":24,\"status\":\"verified\",\"expires\":146},{\"id\":\"R03\",\"module\":\"Node-2\",\"item\":\"filters\",\"qty\":14,\"status\":\"rejected\",\"expires\":199},{\"id\":\"R04\",\"module\":\"Lab\",\"item\":\"water bags\",\"qty\":10,\"status\":\"rejected\",\"expires\":129},{\"id\":\"R05\",\"module\":\"Hab\",\"item\":\"filters\",\"qty\":9,\"status\":\"verified\",\"expires\":155},{\"id\":\"R06\",\"module\":\"Hab\",\"item\":\"filters\",\"qty\":16,\"status\":\"verified\",\"expires\":132},{\"id\":\"R07\",\"module\":\"Hab\",\"item\":\"water bags\",\"qty\":19,\"status\":\"rejected\",\"expires\":205},{\"id\":\"R08\",\"module\":\"Node-2\",\"item\":\"LiOH canisters\",\"qty\":4,\"status\":\"verified\",\"expires\":122},{\"id\":\"R09\",\"module\":\"Node-1\",\"item\":\"ration packs\",\"qty\":40,\"status\":\"pending\",\"expires\":154},{\"id\":\"R10\",\"module\":\"Node-1\",\"item\":\"filters\",\"qty\":29,\"status\":\"verified\",\"expires\":213},{\"id\":\"R11\",\"module\":\"Hab\",\"item\":\"ration packs\",\"qty\":6,\"status\":\"pending\",\"expires\":156},{\"id\":\"R12\",\"module\":\"Lab\",\"item\":\"filters\",\"qty\":20,\"status\":\"verified\",\"expires\":139},{\"id\":\"R13\",\"module\":\"Hab\",\"item\":\"LiOH canisters\",\"qty\":20,\"status\":\"verified\",\"expires\":203},{\"id\":\"R14\",\"module\":\"Node-2\",\"item\":\"LiOH canisters\",\"qty\":21,\"status\":\"verified\",\"expires\":185}]\nUse only rows whose status is \"verified\", whose expires is day 154 or later, and whose item is not \"filters\". For each module, add up qty over those rows. Report the module with the largest sum; if sums tie, choose the module name that comes first alphabetically. Return JSON only, with exactly these keys: \"module\" (the name), \"total\" (that integer sum) and \"rows\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "module": "Node-2",
+          "total": 21,
+          "rows": 1
+        }
+      },
+      "reference": "{\"module\":\"Node-2\",\"total\":21,\"rows\":1}",
+      "wrong": "{\"module\":\"Node-2\",\"total\":22,\"rows\":1}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-05",
+      "prompt": "Kestrel stowage manifest: [{\"id\":\"R01\",\"module\":\"Lab\",\"item\":\"filters\",\"qty\":35,\"status\":\"verified\",\"expires\":203},{\"id\":\"R02\",\"module\":\"Hab\",\"item\":\"LiOH canisters\",\"qty\":20,\"status\":\"pending\",\"expires\":201},{\"id\":\"R03\",\"module\":\"Hab\",\"item\":\"ration packs\",\"qty\":8,\"status\":\"verified\",\"expires\":139},{\"id\":\"R04\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":39,\"status\":\"rejected\",\"expires\":149},{\"id\":\"R05\",\"module\":\"Lab\",\"item\":\"ration packs\",\"qty\":30,\"status\":\"verified\",\"expires\":134},{\"id\":\"R06\",\"module\":\"Hab\",\"item\":\"ration packs\",\"qty\":5,\"status\":\"pending\",\"expires\":213},{\"id\":\"R07\",\"module\":\"Lab\",\"item\":\"ration packs\",\"qty\":38,\"status\":\"verified\",\"expires\":174},{\"id\":\"R08\",\"module\":\"Node-2\",\"item\":\"LiOH canisters\",\"qty\":6,\"status\":\"pending\",\"expires\":167},{\"id\":\"R09\",\"module\":\"Node-1\",\"item\":\"water bags\",\"qty\":40,\"status\":\"rejected\",\"expires\":163},{\"id\":\"R10\",\"module\":\"Node-2\",\"item\":\"LiOH canisters\",\"qty\":5,\"status\":\"verified\",\"expires\":197},{\"id\":\"R11\",\"module\":\"Node-1\",\"item\":\"ration packs\",\"qty\":18,\"status\":\"pending\",\"expires\":182},{\"id\":\"R12\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":35,\"status\":\"verified\",\"expires\":170},{\"id\":\"R13\",\"module\":\"Lab\",\"item\":\"water bags\",\"qty\":15,\"status\":\"verified\",\"expires\":140},{\"id\":\"R14\",\"module\":\"Node-1\",\"item\":\"filters\",\"qty\":17,\"status\":\"pending\",\"expires\":174}]\nUse only rows whose status is \"verified\", whose expires is day 153 or later, and whose item is not \"filters\". For each module, add up qty over those rows. Report the module with the largest sum; if sums tie, choose the module name that comes first alphabetically. Return JSON only, with exactly these keys: \"module\" (the name), \"total\" (that integer sum) and \"rows\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "module": "Node-2",
+          "total": 40,
+          "rows": 2
+        }
+      },
+      "reference": "{\"module\":\"Node-2\",\"total\":40,\"rows\":2}",
+      "wrong": "{\"module\":\"Node-2\",\"total\":41,\"rows\":2}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-06",
+      "prompt": "Kestrel stowage manifest: [{\"id\":\"R01\",\"module\":\"Lab\",\"item\":\"ration packs\",\"qty\":37,\"status\":\"verified\",\"expires\":188},{\"id\":\"R02\",\"module\":\"Lab\",\"item\":\"ration packs\",\"qty\":9,\"status\":\"verified\",\"expires\":174},{\"id\":\"R03\",\"module\":\"Node-1\",\"item\":\"ration packs\",\"qty\":15,\"status\":\"verified\",\"expires\":119},{\"id\":\"R04\",\"module\":\"Hab\",\"item\":\"LiOH canisters\",\"qty\":12,\"status\":\"verified\",\"expires\":161},{\"id\":\"R05\",\"module\":\"Node-2\",\"item\":\"LiOH canisters\",\"qty\":23,\"status\":\"verified\",\"expires\":187},{\"id\":\"R06\",\"module\":\"Node-1\",\"item\":\"ration packs\",\"qty\":40,\"status\":\"verified\",\"expires\":138},{\"id\":\"R07\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":11,\"status\":\"pending\",\"expires\":131},{\"id\":\"R08\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":15,\"status\":\"pending\",\"expires\":155},{\"id\":\"R09\",\"module\":\"Lab\",\"item\":\"water bags\",\"qty\":10,\"status\":\"pending\",\"expires\":193},{\"id\":\"R10\",\"module\":\"Lab\",\"item\":\"ration packs\",\"qty\":32,\"status\":\"verified\",\"expires\":112},{\"id\":\"R11\",\"module\":\"Lab\",\"item\":\"water bags\",\"qty\":37,\"status\":\"verified\",\"expires\":111},{\"id\":\"R12\",\"module\":\"Node-2\",\"item\":\"filters\",\"qty\":36,\"status\":\"verified\",\"expires\":163},{\"id\":\"R13\",\"module\":\"Node-1\",\"item\":\"water bags\",\"qty\":17,\"status\":\"verified\",\"expires\":125},{\"id\":\"R14\",\"module\":\"Node-2\",\"item\":\"water bags\",\"qty\":14,\"status\":\"rejected\",\"expires\":191}]\nUse only rows whose status is \"verified\", whose expires is day 138 or later, and whose item is not \"LiOH canisters\". For each module, add up qty over those rows. Report the module with the largest sum; if sums tie, choose the module name that comes first alphabetically. Return JSON only, with exactly these keys: \"module\" (the name), \"total\" (that integer sum) and \"rows\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "practice",
+        "expected": {
+          "module": "Lab",
+          "total": 46,
+          "rows": 2
+        }
+      },
+      "reference": "{\"module\":\"Lab\",\"total\":46,\"rows\":2}",
+      "wrong": "{\"module\":\"Lab\",\"total\":47,\"rows\":2}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-07",
+      "prompt": "Tycho depot ledger: [{\"id\":\"R01\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":32,\"state\":\"rejected\",\"use_by\":120},{\"id\":\"R02\",\"zone\":\"Shelter-A\",\"supply\":\"nutrient packs\",\"units\":27,\"state\":\"pending\",\"use_by\":172},{\"id\":\"R03\",\"zone\":\"Garage\",\"supply\":\"drill bits\",\"units\":8,\"state\":\"verified\",\"use_by\":161},{\"id\":\"R04\",\"zone\":\"Shelter-B\",\"supply\":\"drill bits\",\"units\":19,\"state\":\"verified\",\"use_by\":159},{\"id\":\"R05\",\"zone\":\"Shelter-B\",\"supply\":\"nutrient packs\",\"units\":14,\"state\":\"verified\",\"use_by\":157},{\"id\":\"R06\",\"zone\":\"Shelter-A\",\"supply\":\"nutrient packs\",\"units\":33,\"state\":\"rejected\",\"use_by\":149},{\"id\":\"R07\",\"zone\":\"Greenhouse\",\"supply\":\"seed trays\",\"units\":35,\"state\":\"verified\",\"use_by\":166},{\"id\":\"R08\",\"zone\":\"Shelter-A\",\"supply\":\"suit batteries\",\"units\":19,\"state\":\"verified\",\"use_by\":155},{\"id\":\"R09\",\"zone\":\"Garage\",\"supply\":\"nutrient packs\",\"units\":24,\"state\":\"pending\",\"use_by\":111},{\"id\":\"R10\",\"zone\":\"Shelter-B\",\"supply\":\"drill bits\",\"units\":18,\"state\":\"verified\",\"use_by\":132},{\"id\":\"R11\",\"zone\":\"Greenhouse\",\"supply\":\"nutrient packs\",\"units\":15,\"state\":\"pending\",\"use_by\":200},{\"id\":\"R12\",\"zone\":\"Greenhouse\",\"supply\":\"suit batteries\",\"units\":10,\"state\":\"pending\",\"use_by\":163},{\"id\":\"R13\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":23,\"state\":\"verified\",\"use_by\":157},{\"id\":\"R14\",\"zone\":\"Shelter-A\",\"supply\":\"suit batteries\",\"units\":28,\"state\":\"rejected\",\"use_by\":168}]\nUse only rows whose state is \"verified\", whose use_by is day 143 or later, and whose supply is not \"nutrient packs\". For each zone, add up units over those rows. Report the zone with the largest sum; if sums tie, choose the zone name that comes first alphabetically. Return JSON only, with exactly these keys: \"zone\" (the name), \"sum\" (that integer sum) and \"count\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "zone": "Shelter-B",
+          "sum": 42,
+          "count": 2
+        }
+      },
+      "reference": "{\"zone\":\"Shelter-B\",\"sum\":42,\"count\":2}",
+      "wrong": "{\"zone\":\"Shelter-B\",\"sum\":43,\"count\":2}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-08",
+      "prompt": "Tycho depot ledger: [{\"id\":\"R01\",\"zone\":\"Shelter-B\",\"supply\":\"drill bits\",\"units\":15,\"state\":\"pending\",\"use_by\":217},{\"id\":\"R02\",\"zone\":\"Shelter-A\",\"supply\":\"drill bits\",\"units\":22,\"state\":\"rejected\",\"use_by\":200},{\"id\":\"R03\",\"zone\":\"Shelter-A\",\"supply\":\"seed trays\",\"units\":29,\"state\":\"verified\",\"use_by\":185},{\"id\":\"R04\",\"zone\":\"Shelter-B\",\"supply\":\"drill bits\",\"units\":40,\"state\":\"pending\",\"use_by\":132},{\"id\":\"R05\",\"zone\":\"Greenhouse\",\"supply\":\"seed trays\",\"units\":7,\"state\":\"verified\",\"use_by\":150},{\"id\":\"R06\",\"zone\":\"Shelter-A\",\"supply\":\"seed trays\",\"units\":11,\"state\":\"verified\",\"use_by\":139},{\"id\":\"R07\",\"zone\":\"Garage\",\"supply\":\"seed trays\",\"units\":14,\"state\":\"rejected\",\"use_by\":147},{\"id\":\"R08\",\"zone\":\"Greenhouse\",\"supply\":\"drill bits\",\"units\":29,\"state\":\"verified\",\"use_by\":199},{\"id\":\"R09\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":39,\"state\":\"rejected\",\"use_by\":161},{\"id\":\"R10\",\"zone\":\"Garage\",\"supply\":\"seed trays\",\"units\":7,\"state\":\"rejected\",\"use_by\":184},{\"id\":\"R11\",\"zone\":\"Shelter-A\",\"supply\":\"suit batteries\",\"units\":5,\"state\":\"pending\",\"use_by\":184},{\"id\":\"R12\",\"zone\":\"Shelter-B\",\"supply\":\"seed trays\",\"units\":22,\"state\":\"verified\",\"use_by\":217},{\"id\":\"R13\",\"zone\":\"Shelter-B\",\"supply\":\"seed trays\",\"units\":19,\"state\":\"pending\",\"use_by\":158},{\"id\":\"R14\",\"zone\":\"Greenhouse\",\"supply\":\"suit batteries\",\"units\":7,\"state\":\"verified\",\"use_by\":195}]\nUse only rows whose state is \"verified\", whose use_by is day 158 or later, and whose supply is not \"drill bits\". For each zone, add up units over those rows. Report the zone with the largest sum; if sums tie, choose the zone name that comes first alphabetically. Return JSON only, with exactly these keys: \"zone\" (the name), \"sum\" (that integer sum) and \"count\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "zone": "Shelter-A",
+          "sum": 29,
+          "count": 1
+        }
+      },
+      "reference": "{\"zone\":\"Shelter-A\",\"sum\":29,\"count\":1}",
+      "wrong": "{\"zone\":\"Shelter-A\",\"sum\":30,\"count\":1}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-09",
+      "prompt": "Tycho depot ledger: [{\"id\":\"R01\",\"zone\":\"Shelter-B\",\"supply\":\"seed trays\",\"units\":32,\"state\":\"verified\",\"use_by\":187},{\"id\":\"R02\",\"zone\":\"Greenhouse\",\"supply\":\"nutrient packs\",\"units\":34,\"state\":\"verified\",\"use_by\":186},{\"id\":\"R03\",\"zone\":\"Garage\",\"supply\":\"drill bits\",\"units\":14,\"state\":\"verified\",\"use_by\":170},{\"id\":\"R04\",\"zone\":\"Garage\",\"supply\":\"nutrient packs\",\"units\":5,\"state\":\"verified\",\"use_by\":121},{\"id\":\"R05\",\"zone\":\"Shelter-A\",\"supply\":\"suit batteries\",\"units\":30,\"state\":\"verified\",\"use_by\":145},{\"id\":\"R06\",\"zone\":\"Garage\",\"supply\":\"nutrient packs\",\"units\":10,\"state\":\"pending\",\"use_by\":191},{\"id\":\"R07\",\"zone\":\"Shelter-B\",\"supply\":\"nutrient packs\",\"units\":35,\"state\":\"rejected\",\"use_by\":137},{\"id\":\"R08\",\"zone\":\"Shelter-B\",\"supply\":\"drill bits\",\"units\":40,\"state\":\"pending\",\"use_by\":205},{\"id\":\"R09\",\"zone\":\"Greenhouse\",\"supply\":\"nutrient packs\",\"units\":30,\"state\":\"verified\",\"use_by\":186},{\"id\":\"R10\",\"zone\":\"Shelter-B\",\"supply\":\"seed trays\",\"units\":11,\"state\":\"pending\",\"use_by\":137},{\"id\":\"R11\",\"zone\":\"Shelter-A\",\"supply\":\"drill bits\",\"units\":40,\"state\":\"verified\",\"use_by\":154},{\"id\":\"R12\",\"zone\":\"Shelter-B\",\"supply\":\"drill bits\",\"units\":21,\"state\":\"pending\",\"use_by\":175},{\"id\":\"R13\",\"zone\":\"Shelter-A\",\"supply\":\"seed trays\",\"units\":27,\"state\":\"pending\",\"use_by\":110},{\"id\":\"R14\",\"zone\":\"Shelter-A\",\"supply\":\"seed trays\",\"units\":33,\"state\":\"rejected\",\"use_by\":163}]\nUse only rows whose state is \"verified\", whose use_by is day 148 or later, and whose supply is not \"nutrient packs\". For each zone, add up units over those rows. Report the zone with the largest sum; if sums tie, choose the zone name that comes first alphabetically. Return JSON only, with exactly these keys: \"zone\" (the name), \"sum\" (that integer sum) and \"count\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "zone": "Shelter-A",
+          "sum": 40,
+          "count": 1
+        }
+      },
+      "reference": "{\"zone\":\"Shelter-A\",\"sum\":40,\"count\":1}",
+      "wrong": "{\"zone\":\"Shelter-A\",\"sum\":41,\"count\":1}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-10",
+      "prompt": "Tycho depot ledger: [{\"id\":\"R01\",\"zone\":\"Shelter-A\",\"supply\":\"drill bits\",\"units\":29,\"state\":\"verified\",\"use_by\":160},{\"id\":\"R02\",\"zone\":\"Greenhouse\",\"supply\":\"nutrient packs\",\"units\":25,\"state\":\"pending\",\"use_by\":155},{\"id\":\"R03\",\"zone\":\"Shelter-A\",\"supply\":\"suit batteries\",\"units\":17,\"state\":\"pending\",\"use_by\":147},{\"id\":\"R04\",\"zone\":\"Garage\",\"supply\":\"suit batteries\",\"units\":44,\"state\":\"verified\",\"use_by\":158},{\"id\":\"R05\",\"zone\":\"Greenhouse\",\"supply\":\"seed trays\",\"units\":30,\"state\":\"rejected\",\"use_by\":164},{\"id\":\"R06\",\"zone\":\"Shelter-A\",\"supply\":\"nutrient packs\",\"units\":16,\"state\":\"verified\",\"use_by\":159},{\"id\":\"R07\",\"zone\":\"Garage\",\"supply\":\"suit batteries\",\"units\":15,\"state\":\"verified\",\"use_by\":85},{\"id\":\"R08\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":19,\"state\":\"pending\",\"use_by\":177},{\"id\":\"R09\",\"zone\":\"Garage\",\"supply\":\"nutrient packs\",\"units\":24,\"state\":\"pending\",\"use_by\":93},{\"id\":\"R10\",\"zone\":\"Greenhouse\",\"supply\":\"suit batteries\",\"units\":9,\"state\":\"pending\",\"use_by\":144},{\"id\":\"R11\",\"zone\":\"Garage\",\"supply\":\"seed trays\",\"units\":34,\"state\":\"rejected\",\"use_by\":180},{\"id\":\"R12\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":28,\"state\":\"verified\",\"use_by\":166},{\"id\":\"R13\",\"zone\":\"Garage\",\"supply\":\"seed trays\",\"units\":6,\"state\":\"pending\",\"use_by\":153},{\"id\":\"R14\",\"zone\":\"Shelter-B\",\"supply\":\"nutrient packs\",\"units\":16,\"state\":\"verified\",\"use_by\":165}]\nUse only rows whose state is \"verified\", whose use_by is day 120 or later, and whose supply is not \"drill bits\". For each zone, add up units over those rows. Report the zone with the largest sum; if sums tie, choose the zone name that comes first alphabetically. Return JSON only, with exactly these keys: \"zone\" (the name), \"sum\" (that integer sum) and \"count\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "zone": "Garage",
+          "sum": 44,
+          "count": 1
+        }
+      },
+      "reference": "{\"zone\":\"Garage\",\"sum\":44,\"count\":1}",
+      "wrong": "{\"zone\":\"Garage\",\"sum\":45,\"count\":1}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-11",
+      "prompt": "Tycho depot ledger: [{\"id\":\"R01\",\"zone\":\"Garage\",\"supply\":\"seed trays\",\"units\":28,\"state\":\"verified\",\"use_by\":109},{\"id\":\"R02\",\"zone\":\"Shelter-B\",\"supply\":\"nutrient packs\",\"units\":24,\"state\":\"verified\",\"use_by\":164},{\"id\":\"R03\",\"zone\":\"Shelter-A\",\"supply\":\"suit batteries\",\"units\":16,\"state\":\"verified\",\"use_by\":154},{\"id\":\"R04\",\"zone\":\"Shelter-B\",\"supply\":\"seed trays\",\"units\":4,\"state\":\"verified\",\"use_by\":126},{\"id\":\"R05\",\"zone\":\"Garage\",\"supply\":\"drill bits\",\"units\":31,\"state\":\"verified\",\"use_by\":141},{\"id\":\"R06\",\"zone\":\"Greenhouse\",\"supply\":\"seed trays\",\"units\":15,\"state\":\"verified\",\"use_by\":120},{\"id\":\"R07\",\"zone\":\"Shelter-B\",\"supply\":\"drill bits\",\"units\":16,\"state\":\"rejected\",\"use_by\":97},{\"id\":\"R08\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":16,\"state\":\"verified\",\"use_by\":165},{\"id\":\"R09\",\"zone\":\"Greenhouse\",\"supply\":\"seed trays\",\"units\":32,\"state\":\"verified\",\"use_by\":111},{\"id\":\"R10\",\"zone\":\"Shelter-A\",\"supply\":\"seed trays\",\"units\":29,\"state\":\"verified\",\"use_by\":123},{\"id\":\"R11\",\"zone\":\"Shelter-B\",\"supply\":\"seed trays\",\"units\":39,\"state\":\"pending\",\"use_by\":152},{\"id\":\"R12\",\"zone\":\"Shelter-A\",\"supply\":\"suit batteries\",\"units\":3,\"state\":\"rejected\",\"use_by\":154},{\"id\":\"R13\",\"zone\":\"Shelter-A\",\"supply\":\"nutrient packs\",\"units\":11,\"state\":\"rejected\",\"use_by\":99},{\"id\":\"R14\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":3,\"state\":\"verified\",\"use_by\":114}]\nUse only rows whose state is \"verified\", whose use_by is day 124 or later, and whose supply is not \"suit batteries\". For each zone, add up units over those rows. Report the zone with the largest sum; if sums tie, choose the zone name that comes first alphabetically. Return JSON only, with exactly these keys: \"zone\" (the name), \"sum\" (that integer sum) and \"count\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "zone": "Garage",
+          "sum": 31,
+          "count": 1
+        }
+      },
+      "reference": "{\"zone\":\"Garage\",\"sum\":31,\"count\":1}",
+      "wrong": "{\"zone\":\"Garage\",\"sum\":32,\"count\":1}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "manifest-12",
+      "prompt": "Tycho depot ledger: [{\"id\":\"R01\",\"zone\":\"Garage\",\"supply\":\"drill bits\",\"units\":27,\"state\":\"verified\",\"use_by\":123},{\"id\":\"R02\",\"zone\":\"Shelter-B\",\"supply\":\"drill bits\",\"units\":23,\"state\":\"verified\",\"use_by\":207},{\"id\":\"R03\",\"zone\":\"Garage\",\"supply\":\"drill bits\",\"units\":24,\"state\":\"pending\",\"use_by\":123},{\"id\":\"R04\",\"zone\":\"Garage\",\"supply\":\"nutrient packs\",\"units\":40,\"state\":\"verified\",\"use_by\":116},{\"id\":\"R05\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":33,\"state\":\"pending\",\"use_by\":159},{\"id\":\"R06\",\"zone\":\"Shelter-B\",\"supply\":\"seed trays\",\"units\":40,\"state\":\"verified\",\"use_by\":189},{\"id\":\"R07\",\"zone\":\"Shelter-B\",\"supply\":\"suit batteries\",\"units\":38,\"state\":\"verified\",\"use_by\":143},{\"id\":\"R08\",\"zone\":\"Greenhouse\",\"supply\":\"suit batteries\",\"units\":34,\"state\":\"verified\",\"use_by\":175},{\"id\":\"R09\",\"zone\":\"Garage\",\"supply\":\"seed trays\",\"units\":20,\"state\":\"verified\",\"use_by\":159},{\"id\":\"R10\",\"zone\":\"Shelter-A\",\"supply\":\"nutrient packs\",\"units\":25,\"state\":\"verified\",\"use_by\":115},{\"id\":\"R11\",\"zone\":\"Greenhouse\",\"supply\":\"seed trays\",\"units\":9,\"state\":\"verified\",\"use_by\":157},{\"id\":\"R12\",\"zone\":\"Shelter-A\",\"supply\":\"drill bits\",\"units\":7,\"state\":\"verified\",\"use_by\":148},{\"id\":\"R13\",\"zone\":\"Shelter-A\",\"supply\":\"seed trays\",\"units\":22,\"state\":\"verified\",\"use_by\":195},{\"id\":\"R14\",\"zone\":\"Garage\",\"supply\":\"drill bits\",\"units\":11,\"state\":\"pending\",\"use_by\":181}]\nUse only rows whose state is \"verified\", whose use_by is day 155 or later, and whose supply is not \"drill bits\". For each zone, add up units over those rows. Report the zone with the largest sum; if sums tie, choose the zone name that comes first alphabetically. Return JSON only, with exactly these keys: \"zone\" (the name), \"sum\" (that integer sum) and \"count\" (the integer number of rows counted for it). No other keys or text.",
+      "scorer": {
+        "kind": "json",
+        "partition": "heldout",
+        "expected": {
+          "zone": "Greenhouse",
+          "sum": 43,
+          "count": 2
+        }
+      },
+      "reference": "{\"zone\":\"Greenhouse\",\"sum\":43,\"count\":2}",
+      "wrong": "{\"zone\":\"Greenhouse\",\"sum\":44,\"count\":2}",
+      "malformed": "{bad json}"
+    },
+    {
+      "id": "procedure-01",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"vent_loop\",\"description\":\"Vents a coolant loop overboard; irreversible.\",\"arguments\":{\"loop_id\":\"string\",\"confirm\":\"boolean\"}},{\"name\":\"read_coolant\",\"description\":\"Reads one coolant loop temperature sensor.\",\"arguments\":{\"sensor_id\":\"string\"}},{\"name\":\"isolate_loop\",\"description\":\"Isolates one coolant loop from the radiator bus.\",\"arguments\":{\"loop_id\":\"string\",\"reason\":\"string\"}},{\"name\":\"page_role\",\"description\":\"Pages one on-duty role with a ticket reference.\",\"arguments\":{\"role\":\"string\",\"ticket_ref\":\"string\"}},{\"name\":\"open_ticket\",\"description\":\"Opens one maintenance ticket.\",\"arguments\":{\"system\":\"string\",\"severity\":\"integer\"}}]}\nKestrel thermal control procedure. Current readings: CL-5 = 60 C, CL-1 = 53 C, CL-3 = 56 C.\n1. Call read_coolant once for each of CL-5, CL-1, CL-3, in that order.\n2. Then, in the same order, call isolate_loop for every one whose reading is strictly greater than 60 C, with reason \"overtemp\".\n3. If at least one isolate_loop call was made, call open_ticket with system \"thermal\" and severity equal to 1 plus the number of isolate_loop calls, but at most 3. Then call page_role with role \"flight-director\" if severity is 3, otherwise \"systems-lead\", and ticket_ref \"TKT-<severity>-THERMAL\".\n4. If no isolate_loop call was made, skip open_ticket and call page_role with role \"systems-lead\" and ticket_ref \"NONE\".\nNever call vent_loop. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "practice",
+        "expected": {
+          "steps": [
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-5"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-1"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-3"
+              }
+            },
+            {
+              "name": "page_role",
+              "arguments": {
+                "role": "systems-lead",
+                "ticket_ref": "NONE"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "vent_loop",
+            "description": "Vents a coolant loop overboard; irreversible.",
+            "arguments": {
+              "loop_id": "string",
+              "confirm": "boolean"
+            }
+          },
+          {
+            "name": "read_coolant",
+            "description": "Reads one coolant loop temperature sensor.",
+            "arguments": {
+              "sensor_id": "string"
+            }
+          },
+          {
+            "name": "isolate_loop",
+            "description": "Isolates one coolant loop from the radiator bus.",
+            "arguments": {
+              "loop_id": "string",
+              "reason": "string"
+            }
+          },
+          {
+            "name": "page_role",
+            "description": "Pages one on-duty role with a ticket reference.",
+            "arguments": {
+              "role": "string",
+              "ticket_ref": "string"
+            }
+          },
+          {
+            "name": "open_ticket",
+            "description": "Opens one maintenance ticket.",
+            "arguments": {
+              "system": "string",
+              "severity": "integer"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-5\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-1\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-3\"}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"systems-lead\",\"ticket_ref\":\"NONE\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-5\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-1\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-3\"}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"flight-director\",\"ticket_ref\":\"NONE\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-02",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"open_ticket\",\"description\":\"Opens one maintenance ticket.\",\"arguments\":{\"system\":\"string\",\"severity\":\"integer\"}},{\"name\":\"page_role\",\"description\":\"Pages one on-duty role with a ticket reference.\",\"arguments\":{\"role\":\"string\",\"ticket_ref\":\"string\"}},{\"name\":\"read_coolant\",\"description\":\"Reads one coolant loop temperature sensor.\",\"arguments\":{\"sensor_id\":\"string\"}},{\"name\":\"vent_loop\",\"description\":\"Vents a coolant loop overboard; irreversible.\",\"arguments\":{\"loop_id\":\"string\",\"confirm\":\"boolean\"}},{\"name\":\"isolate_loop\",\"description\":\"Isolates one coolant loop from the radiator bus.\",\"arguments\":{\"loop_id\":\"string\",\"reason\":\"string\"}}]}\nKestrel thermal control procedure. Current readings: CL-6 = 46 C, CL-2 = 43 C, CL-4 = 52 C.\n1. Call read_coolant once for each of CL-6, CL-2, CL-4, in that order.\n2. Then, in the same order, call isolate_loop for every one whose reading is strictly greater than 50 C, with reason \"overtemp\".\n3. If at least one isolate_loop call was made, call open_ticket with system \"thermal\" and severity equal to 1 plus the number of isolate_loop calls, but at most 3. Then call page_role with role \"flight-director\" if severity is 3, otherwise \"systems-lead\", and ticket_ref \"TKT-<severity>-THERMAL\".\n4. If no isolate_loop call was made, skip open_ticket and call page_role with role \"systems-lead\" and ticket_ref \"NONE\".\nNever call vent_loop. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "practice",
+        "expected": {
+          "steps": [
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-6"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-2"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-4"
+              }
+            },
+            {
+              "name": "isolate_loop",
+              "arguments": {
+                "loop_id": "CL-4",
+                "reason": "overtemp"
+              }
+            },
+            {
+              "name": "open_ticket",
+              "arguments": {
+                "system": "thermal",
+                "severity": 2
+              }
+            },
+            {
+              "name": "page_role",
+              "arguments": {
+                "role": "systems-lead",
+                "ticket_ref": "TKT-2-THERMAL"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "open_ticket",
+            "description": "Opens one maintenance ticket.",
+            "arguments": {
+              "system": "string",
+              "severity": "integer"
+            }
+          },
+          {
+            "name": "page_role",
+            "description": "Pages one on-duty role with a ticket reference.",
+            "arguments": {
+              "role": "string",
+              "ticket_ref": "string"
+            }
+          },
+          {
+            "name": "read_coolant",
+            "description": "Reads one coolant loop temperature sensor.",
+            "arguments": {
+              "sensor_id": "string"
+            }
+          },
+          {
+            "name": "vent_loop",
+            "description": "Vents a coolant loop overboard; irreversible.",
+            "arguments": {
+              "loop_id": "string",
+              "confirm": "boolean"
+            }
+          },
+          {
+            "name": "isolate_loop",
+            "description": "Isolates one coolant loop from the radiator bus.",
+            "arguments": {
+              "loop_id": "string",
+              "reason": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-6\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-4\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-4\",\"reason\":\"overtemp\"}},{\"name\":\"open_ticket\",\"arguments\":{\"system\":\"thermal\",\"severity\":2}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"systems-lead\",\"ticket_ref\":\"TKT-2-THERMAL\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-6\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-4\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-4\",\"reason\":\"overtemp\"}},{\"name\":\"open_ticket\",\"arguments\":{\"system\":\"thermal\",\"severity\":2}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"flight-director\",\"ticket_ref\":\"TKT-2-THERMAL\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-03",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"isolate_loop\",\"description\":\"Isolates one coolant loop from the radiator bus.\",\"arguments\":{\"loop_id\":\"string\",\"reason\":\"string\"}},{\"name\":\"vent_loop\",\"description\":\"Vents a coolant loop overboard; irreversible.\",\"arguments\":{\"loop_id\":\"string\",\"confirm\":\"boolean\"}},{\"name\":\"open_ticket\",\"description\":\"Opens one maintenance ticket.\",\"arguments\":{\"system\":\"string\",\"severity\":\"integer\"}},{\"name\":\"read_coolant\",\"description\":\"Reads one coolant loop temperature sensor.\",\"arguments\":{\"sensor_id\":\"string\"}},{\"name\":\"page_role\",\"description\":\"Pages one on-duty role with a ticket reference.\",\"arguments\":{\"role\":\"string\",\"ticket_ref\":\"string\"}}]}\nKestrel thermal control procedure. Current readings: CL-1 = 72 C, CL-4 = 56 C, CL-2 = 68 C.\n1. Call read_coolant once for each of CL-1, CL-4, CL-2, in that order.\n2. Then, in the same order, call isolate_loop for every one whose reading is strictly greater than 63 C, with reason \"overtemp\".\n3. If at least one isolate_loop call was made, call open_ticket with system \"thermal\" and severity equal to 1 plus the number of isolate_loop calls, but at most 3. Then call page_role with role \"flight-director\" if severity is 3, otherwise \"systems-lead\", and ticket_ref \"TKT-<severity>-THERMAL\".\n4. If no isolate_loop call was made, skip open_ticket and call page_role with role \"systems-lead\" and ticket_ref \"NONE\".\nNever call vent_loop. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "practice",
+        "expected": {
+          "steps": [
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-1"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-4"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-2"
+              }
+            },
+            {
+              "name": "isolate_loop",
+              "arguments": {
+                "loop_id": "CL-1",
+                "reason": "overtemp"
+              }
+            },
+            {
+              "name": "isolate_loop",
+              "arguments": {
+                "loop_id": "CL-2",
+                "reason": "overtemp"
+              }
+            },
+            {
+              "name": "open_ticket",
+              "arguments": {
+                "system": "thermal",
+                "severity": 3
+              }
+            },
+            {
+              "name": "page_role",
+              "arguments": {
+                "role": "flight-director",
+                "ticket_ref": "TKT-3-THERMAL"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "isolate_loop",
+            "description": "Isolates one coolant loop from the radiator bus.",
+            "arguments": {
+              "loop_id": "string",
+              "reason": "string"
+            }
+          },
+          {
+            "name": "vent_loop",
+            "description": "Vents a coolant loop overboard; irreversible.",
+            "arguments": {
+              "loop_id": "string",
+              "confirm": "boolean"
+            }
+          },
+          {
+            "name": "open_ticket",
+            "description": "Opens one maintenance ticket.",
+            "arguments": {
+              "system": "string",
+              "severity": "integer"
+            }
+          },
+          {
+            "name": "read_coolant",
+            "description": "Reads one coolant loop temperature sensor.",
+            "arguments": {
+              "sensor_id": "string"
+            }
+          },
+          {
+            "name": "page_role",
+            "description": "Pages one on-duty role with a ticket reference.",
+            "arguments": {
+              "role": "string",
+              "ticket_ref": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-1\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-4\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-1\",\"reason\":\"overtemp\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-2\",\"reason\":\"overtemp\"}},{\"name\":\"open_ticket\",\"arguments\":{\"system\":\"thermal\",\"severity\":3}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"flight-director\",\"ticket_ref\":\"TKT-3-THERMAL\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-1\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-4\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-1\",\"reason\":\"overtemp\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-2\",\"reason\":\"overtemp\"}},{\"name\":\"open_ticket\",\"arguments\":{\"system\":\"thermal\",\"severity\":3}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"systems-lead\",\"ticket_ref\":\"TKT-3-THERMAL\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-04",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_coolant\",\"description\":\"Reads one coolant loop temperature sensor.\",\"arguments\":{\"sensor_id\":\"string\"}},{\"name\":\"vent_loop\",\"description\":\"Vents a coolant loop overboard; irreversible.\",\"arguments\":{\"loop_id\":\"string\",\"confirm\":\"boolean\"}},{\"name\":\"open_ticket\",\"description\":\"Opens one maintenance ticket.\",\"arguments\":{\"system\":\"string\",\"severity\":\"integer\"}},{\"name\":\"page_role\",\"description\":\"Pages one on-duty role with a ticket reference.\",\"arguments\":{\"role\":\"string\",\"ticket_ref\":\"string\"}},{\"name\":\"isolate_loop\",\"description\":\"Isolates one coolant loop from the radiator bus.\",\"arguments\":{\"loop_id\":\"string\",\"reason\":\"string\"}}]}\nKestrel thermal control procedure. Current readings: CL-5 = 49 C, CL-4 = 52 C, CL-2 = 56 C.\n1. Call read_coolant once for each of CL-5, CL-4, CL-2, in that order.\n2. Then, in the same order, call isolate_loop for every one whose reading is strictly greater than 47 C, with reason \"overtemp\".\n3. If at least one isolate_loop call was made, call open_ticket with system \"thermal\" and severity equal to 1 plus the number of isolate_loop calls, but at most 3. Then call page_role with role \"flight-director\" if severity is 3, otherwise \"systems-lead\", and ticket_ref \"TKT-<severity>-THERMAL\".\n4. If no isolate_loop call was made, skip open_ticket and call page_role with role \"systems-lead\" and ticket_ref \"NONE\".\nNever call vent_loop. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "practice",
+        "expected": {
+          "steps": [
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-5"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-4"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-2"
+              }
+            },
+            {
+              "name": "isolate_loop",
+              "arguments": {
+                "loop_id": "CL-5",
+                "reason": "overtemp"
+              }
+            },
+            {
+              "name": "isolate_loop",
+              "arguments": {
+                "loop_id": "CL-4",
+                "reason": "overtemp"
+              }
+            },
+            {
+              "name": "isolate_loop",
+              "arguments": {
+                "loop_id": "CL-2",
+                "reason": "overtemp"
+              }
+            },
+            {
+              "name": "open_ticket",
+              "arguments": {
+                "system": "thermal",
+                "severity": 3
+              }
+            },
+            {
+              "name": "page_role",
+              "arguments": {
+                "role": "flight-director",
+                "ticket_ref": "TKT-3-THERMAL"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "read_coolant",
+            "description": "Reads one coolant loop temperature sensor.",
+            "arguments": {
+              "sensor_id": "string"
+            }
+          },
+          {
+            "name": "vent_loop",
+            "description": "Vents a coolant loop overboard; irreversible.",
+            "arguments": {
+              "loop_id": "string",
+              "confirm": "boolean"
+            }
+          },
+          {
+            "name": "open_ticket",
+            "description": "Opens one maintenance ticket.",
+            "arguments": {
+              "system": "string",
+              "severity": "integer"
+            }
+          },
+          {
+            "name": "page_role",
+            "description": "Pages one on-duty role with a ticket reference.",
+            "arguments": {
+              "role": "string",
+              "ticket_ref": "string"
+            }
+          },
+          {
+            "name": "isolate_loop",
+            "description": "Isolates one coolant loop from the radiator bus.",
+            "arguments": {
+              "loop_id": "string",
+              "reason": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-5\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-4\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-5\",\"reason\":\"overtemp\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-4\",\"reason\":\"overtemp\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-2\",\"reason\":\"overtemp\"}},{\"name\":\"open_ticket\",\"arguments\":{\"system\":\"thermal\",\"severity\":3}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"flight-director\",\"ticket_ref\":\"TKT-3-THERMAL\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-5\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-4\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-5\",\"reason\":\"overtemp\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-4\",\"reason\":\"overtemp\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-2\",\"reason\":\"overtemp\"}},{\"name\":\"open_ticket\",\"arguments\":{\"system\":\"thermal\",\"severity\":3}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"systems-lead\",\"ticket_ref\":\"TKT-3-THERMAL\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-05",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"isolate_loop\",\"description\":\"Isolates one coolant loop from the radiator bus.\",\"arguments\":{\"loop_id\":\"string\",\"reason\":\"string\"}},{\"name\":\"page_role\",\"description\":\"Pages one on-duty role with a ticket reference.\",\"arguments\":{\"role\":\"string\",\"ticket_ref\":\"string\"}},{\"name\":\"vent_loop\",\"description\":\"Vents a coolant loop overboard; irreversible.\",\"arguments\":{\"loop_id\":\"string\",\"confirm\":\"boolean\"}},{\"name\":\"open_ticket\",\"description\":\"Opens one maintenance ticket.\",\"arguments\":{\"system\":\"string\",\"severity\":\"integer\"}},{\"name\":\"read_coolant\",\"description\":\"Reads one coolant loop temperature sensor.\",\"arguments\":{\"sensor_id\":\"string\"}}]}\nKestrel thermal control procedure. Current readings: CL-4 = 39 C, CL-2 = 39 C, CL-5 = 39 C.\n1. Call read_coolant once for each of CL-4, CL-2, CL-5, in that order.\n2. Then, in the same order, call isolate_loop for every one whose reading is strictly greater than 46 C, with reason \"overtemp\".\n3. If at least one isolate_loop call was made, call open_ticket with system \"thermal\" and severity equal to 1 plus the number of isolate_loop calls, but at most 3. Then call page_role with role \"flight-director\" if severity is 3, otherwise \"systems-lead\", and ticket_ref \"TKT-<severity>-THERMAL\".\n4. If no isolate_loop call was made, skip open_ticket and call page_role with role \"systems-lead\" and ticket_ref \"NONE\".\nNever call vent_loop. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "practice",
+        "expected": {
+          "steps": [
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-4"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-2"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-5"
+              }
+            },
+            {
+              "name": "page_role",
+              "arguments": {
+                "role": "systems-lead",
+                "ticket_ref": "NONE"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "isolate_loop",
+            "description": "Isolates one coolant loop from the radiator bus.",
+            "arguments": {
+              "loop_id": "string",
+              "reason": "string"
+            }
+          },
+          {
+            "name": "page_role",
+            "description": "Pages one on-duty role with a ticket reference.",
+            "arguments": {
+              "role": "string",
+              "ticket_ref": "string"
+            }
+          },
+          {
+            "name": "vent_loop",
+            "description": "Vents a coolant loop overboard; irreversible.",
+            "arguments": {
+              "loop_id": "string",
+              "confirm": "boolean"
+            }
+          },
+          {
+            "name": "open_ticket",
+            "description": "Opens one maintenance ticket.",
+            "arguments": {
+              "system": "string",
+              "severity": "integer"
+            }
+          },
+          {
+            "name": "read_coolant",
+            "description": "Reads one coolant loop temperature sensor.",
+            "arguments": {
+              "sensor_id": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-4\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-5\"}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"systems-lead\",\"ticket_ref\":\"NONE\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-4\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-5\"}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"flight-director\",\"ticket_ref\":\"NONE\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-06",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"read_coolant\",\"description\":\"Reads one coolant loop temperature sensor.\",\"arguments\":{\"sensor_id\":\"string\"}},{\"name\":\"vent_loop\",\"description\":\"Vents a coolant loop overboard; irreversible.\",\"arguments\":{\"loop_id\":\"string\",\"confirm\":\"boolean\"}},{\"name\":\"isolate_loop\",\"description\":\"Isolates one coolant loop from the radiator bus.\",\"arguments\":{\"loop_id\":\"string\",\"reason\":\"string\"}},{\"name\":\"page_role\",\"description\":\"Pages one on-duty role with a ticket reference.\",\"arguments\":{\"role\":\"string\",\"ticket_ref\":\"string\"}},{\"name\":\"open_ticket\",\"description\":\"Opens one maintenance ticket.\",\"arguments\":{\"system\":\"string\",\"severity\":\"integer\"}}]}\nKestrel thermal control procedure. Current readings: CL-1 = 59 C, CL-2 = 52 C, CL-6 = 54 C.\n1. Call read_coolant once for each of CL-1, CL-2, CL-6, in that order.\n2. Then, in the same order, call isolate_loop for every one whose reading is strictly greater than 54 C, with reason \"overtemp\".\n3. If at least one isolate_loop call was made, call open_ticket with system \"thermal\" and severity equal to 1 plus the number of isolate_loop calls, but at most 3. Then call page_role with role \"flight-director\" if severity is 3, otherwise \"systems-lead\", and ticket_ref \"TKT-<severity>-THERMAL\".\n4. If no isolate_loop call was made, skip open_ticket and call page_role with role \"systems-lead\" and ticket_ref \"NONE\".\nNever call vent_loop. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "practice",
+        "expected": {
+          "steps": [
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-1"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-2"
+              }
+            },
+            {
+              "name": "read_coolant",
+              "arguments": {
+                "sensor_id": "CL-6"
+              }
+            },
+            {
+              "name": "isolate_loop",
+              "arguments": {
+                "loop_id": "CL-1",
+                "reason": "overtemp"
+              }
+            },
+            {
+              "name": "open_ticket",
+              "arguments": {
+                "system": "thermal",
+                "severity": 2
+              }
+            },
+            {
+              "name": "page_role",
+              "arguments": {
+                "role": "systems-lead",
+                "ticket_ref": "TKT-2-THERMAL"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "read_coolant",
+            "description": "Reads one coolant loop temperature sensor.",
+            "arguments": {
+              "sensor_id": "string"
+            }
+          },
+          {
+            "name": "vent_loop",
+            "description": "Vents a coolant loop overboard; irreversible.",
+            "arguments": {
+              "loop_id": "string",
+              "confirm": "boolean"
+            }
+          },
+          {
+            "name": "isolate_loop",
+            "description": "Isolates one coolant loop from the radiator bus.",
+            "arguments": {
+              "loop_id": "string",
+              "reason": "string"
+            }
+          },
+          {
+            "name": "page_role",
+            "description": "Pages one on-duty role with a ticket reference.",
+            "arguments": {
+              "role": "string",
+              "ticket_ref": "string"
+            }
+          },
+          {
+            "name": "open_ticket",
+            "description": "Opens one maintenance ticket.",
+            "arguments": {
+              "system": "string",
+              "severity": "integer"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-1\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-6\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-1\",\"reason\":\"overtemp\"}},{\"name\":\"open_ticket\",\"arguments\":{\"system\":\"thermal\",\"severity\":2}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"systems-lead\",\"ticket_ref\":\"TKT-2-THERMAL\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-1\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-2\"}},{\"name\":\"read_coolant\",\"arguments\":{\"sensor_id\":\"CL-6\"}},{\"name\":\"isolate_loop\",\"arguments\":{\"loop_id\":\"CL-1\",\"reason\":\"overtemp\"}},{\"name\":\"open_ticket\",\"arguments\":{\"system\":\"thermal\",\"severity\":2}},{\"name\":\"page_role\",\"arguments\":{\"role\":\"flight-director\",\"ticket_ref\":\"TKT-2-THERMAL\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-07",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"query_gauge\",\"description\":\"Queries one pressure line gauge.\",\"arguments\":{\"gauge_ref\":\"string\"}},{\"name\":\"page_person\",\"description\":\"Pages one on-duty person with a report reference.\",\"arguments\":{\"person\":\"string\",\"report_ref\":\"string\"}},{\"name\":\"file_report\",\"description\":\"Files one engineering report.\",\"arguments\":{\"area\":\"string\",\"level\":\"integer\"}},{\"name\":\"close_line\",\"description\":\"Closes one pressure line at its manifold.\",\"arguments\":{\"line_ref\":\"string\",\"cause\":\"string\"}},{\"name\":\"purge_line\",\"description\":\"Purges a pressure line to vacuum; irreversible.\",\"arguments\":{\"line_ref\":\"string\",\"approve\":\"boolean\"}}]}\nTycho pneumatics procedure. Current readings: PL-5 = 235 kPa, PL-6 = 242 kPa, PL-1 = 238 kPa.\n1. Call query_gauge once for each of PL-5, PL-6, PL-1, in that order.\n2. Then, in the same order, call close_line for every one whose reading is strictly less than 233 kPa, with cause \"underpressure\".\n3. If at least one close_line call was made, call file_report with area \"pneumatics\" and level equal to 1 plus the number of close_line calls, but at most 3. Then call page_person with person \"base-commander\" if level is 3, otherwise \"duty-engineer\", and report_ref \"RPT-<level>-PNEUMATICS\".\n4. If no close_line call was made, skip file_report and call page_person with person \"duty-engineer\" and report_ref \"NONE\".\nNever call purge_line. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "heldout",
+        "expected": {
+          "steps": [
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-5"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-6"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-1"
+              }
+            },
+            {
+              "name": "page_person",
+              "arguments": {
+                "person": "duty-engineer",
+                "report_ref": "NONE"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "query_gauge",
+            "description": "Queries one pressure line gauge.",
+            "arguments": {
+              "gauge_ref": "string"
+            }
+          },
+          {
+            "name": "page_person",
+            "description": "Pages one on-duty person with a report reference.",
+            "arguments": {
+              "person": "string",
+              "report_ref": "string"
+            }
+          },
+          {
+            "name": "file_report",
+            "description": "Files one engineering report.",
+            "arguments": {
+              "area": "string",
+              "level": "integer"
+            }
+          },
+          {
+            "name": "close_line",
+            "description": "Closes one pressure line at its manifold.",
+            "arguments": {
+              "line_ref": "string",
+              "cause": "string"
+            }
+          },
+          {
+            "name": "purge_line",
+            "description": "Purges a pressure line to vacuum; irreversible.",
+            "arguments": {
+              "line_ref": "string",
+              "approve": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-5\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-6\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-1\"}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"duty-engineer\",\"report_ref\":\"NONE\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-5\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-6\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-1\"}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"base-commander\",\"report_ref\":\"NONE\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-08",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"file_report\",\"description\":\"Files one engineering report.\",\"arguments\":{\"area\":\"string\",\"level\":\"integer\"}},{\"name\":\"query_gauge\",\"description\":\"Queries one pressure line gauge.\",\"arguments\":{\"gauge_ref\":\"string\"}},{\"name\":\"close_line\",\"description\":\"Closes one pressure line at its manifold.\",\"arguments\":{\"line_ref\":\"string\",\"cause\":\"string\"}},{\"name\":\"page_person\",\"description\":\"Pages one on-duty person with a report reference.\",\"arguments\":{\"person\":\"string\",\"report_ref\":\"string\"}},{\"name\":\"purge_line\",\"description\":\"Purges a pressure line to vacuum; irreversible.\",\"arguments\":{\"line_ref\":\"string\",\"approve\":\"boolean\"}}]}\nTycho pneumatics procedure. Current readings: PL-4 = 210 kPa, PL-1 = 203 kPa, PL-3 = 205 kPa.\n1. Call query_gauge once for each of PL-4, PL-1, PL-3, in that order.\n2. Then, in the same order, call close_line for every one whose reading is strictly less than 205 kPa, with cause \"underpressure\".\n3. If at least one close_line call was made, call file_report with area \"pneumatics\" and level equal to 1 plus the number of close_line calls, but at most 3. Then call page_person with person \"base-commander\" if level is 3, otherwise \"duty-engineer\", and report_ref \"RPT-<level>-PNEUMATICS\".\n4. If no close_line call was made, skip file_report and call page_person with person \"duty-engineer\" and report_ref \"NONE\".\nNever call purge_line. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "heldout",
+        "expected": {
+          "steps": [
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-4"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-1"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-3"
+              }
+            },
+            {
+              "name": "close_line",
+              "arguments": {
+                "line_ref": "PL-1",
+                "cause": "underpressure"
+              }
+            },
+            {
+              "name": "file_report",
+              "arguments": {
+                "area": "pneumatics",
+                "level": 2
+              }
+            },
+            {
+              "name": "page_person",
+              "arguments": {
+                "person": "duty-engineer",
+                "report_ref": "RPT-2-PNEUMATICS"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "file_report",
+            "description": "Files one engineering report.",
+            "arguments": {
+              "area": "string",
+              "level": "integer"
+            }
+          },
+          {
+            "name": "query_gauge",
+            "description": "Queries one pressure line gauge.",
+            "arguments": {
+              "gauge_ref": "string"
+            }
+          },
+          {
+            "name": "close_line",
+            "description": "Closes one pressure line at its manifold.",
+            "arguments": {
+              "line_ref": "string",
+              "cause": "string"
+            }
+          },
+          {
+            "name": "page_person",
+            "description": "Pages one on-duty person with a report reference.",
+            "arguments": {
+              "person": "string",
+              "report_ref": "string"
+            }
+          },
+          {
+            "name": "purge_line",
+            "description": "Purges a pressure line to vacuum; irreversible.",
+            "arguments": {
+              "line_ref": "string",
+              "approve": "boolean"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-4\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-1\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-3\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-1\",\"cause\":\"underpressure\"}},{\"name\":\"file_report\",\"arguments\":{\"area\":\"pneumatics\",\"level\":2}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"duty-engineer\",\"report_ref\":\"RPT-2-PNEUMATICS\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-4\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-1\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-3\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-1\",\"cause\":\"underpressure\"}},{\"name\":\"file_report\",\"arguments\":{\"area\":\"pneumatics\",\"level\":2}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"base-commander\",\"report_ref\":\"RPT-2-PNEUMATICS\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-09",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"page_person\",\"description\":\"Pages one on-duty person with a report reference.\",\"arguments\":{\"person\":\"string\",\"report_ref\":\"string\"}},{\"name\":\"purge_line\",\"description\":\"Purges a pressure line to vacuum; irreversible.\",\"arguments\":{\"line_ref\":\"string\",\"approve\":\"boolean\"}},{\"name\":\"query_gauge\",\"description\":\"Queries one pressure line gauge.\",\"arguments\":{\"gauge_ref\":\"string\"}},{\"name\":\"close_line\",\"description\":\"Closes one pressure line at its manifold.\",\"arguments\":{\"line_ref\":\"string\",\"cause\":\"string\"}},{\"name\":\"file_report\",\"description\":\"Files one engineering report.\",\"arguments\":{\"area\":\"string\",\"level\":\"integer\"}}]}\nTycho pneumatics procedure. Current readings: PL-6 = 207 kPa, PL-3 = 209 kPa, PL-5 = 220 kPa.\n1. Call query_gauge once for each of PL-6, PL-3, PL-5, in that order.\n2. Then, in the same order, call close_line for every one whose reading is strictly less than 211 kPa, with cause \"underpressure\".\n3. If at least one close_line call was made, call file_report with area \"pneumatics\" and level equal to 1 plus the number of close_line calls, but at most 3. Then call page_person with person \"base-commander\" if level is 3, otherwise \"duty-engineer\", and report_ref \"RPT-<level>-PNEUMATICS\".\n4. If no close_line call was made, skip file_report and call page_person with person \"duty-engineer\" and report_ref \"NONE\".\nNever call purge_line. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "heldout",
+        "expected": {
+          "steps": [
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-6"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-3"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-5"
+              }
+            },
+            {
+              "name": "close_line",
+              "arguments": {
+                "line_ref": "PL-6",
+                "cause": "underpressure"
+              }
+            },
+            {
+              "name": "close_line",
+              "arguments": {
+                "line_ref": "PL-3",
+                "cause": "underpressure"
+              }
+            },
+            {
+              "name": "file_report",
+              "arguments": {
+                "area": "pneumatics",
+                "level": 3
+              }
+            },
+            {
+              "name": "page_person",
+              "arguments": {
+                "person": "base-commander",
+                "report_ref": "RPT-3-PNEUMATICS"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "page_person",
+            "description": "Pages one on-duty person with a report reference.",
+            "arguments": {
+              "person": "string",
+              "report_ref": "string"
+            }
+          },
+          {
+            "name": "purge_line",
+            "description": "Purges a pressure line to vacuum; irreversible.",
+            "arguments": {
+              "line_ref": "string",
+              "approve": "boolean"
+            }
+          },
+          {
+            "name": "query_gauge",
+            "description": "Queries one pressure line gauge.",
+            "arguments": {
+              "gauge_ref": "string"
+            }
+          },
+          {
+            "name": "close_line",
+            "description": "Closes one pressure line at its manifold.",
+            "arguments": {
+              "line_ref": "string",
+              "cause": "string"
+            }
+          },
+          {
+            "name": "file_report",
+            "description": "Files one engineering report.",
+            "arguments": {
+              "area": "string",
+              "level": "integer"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-6\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-3\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-5\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-6\",\"cause\":\"underpressure\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-3\",\"cause\":\"underpressure\"}},{\"name\":\"file_report\",\"arguments\":{\"area\":\"pneumatics\",\"level\":3}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"base-commander\",\"report_ref\":\"RPT-3-PNEUMATICS\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-6\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-3\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-5\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-6\",\"cause\":\"underpressure\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-3\",\"cause\":\"underpressure\"}},{\"name\":\"file_report\",\"arguments\":{\"area\":\"pneumatics\",\"level\":3}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"duty-engineer\",\"report_ref\":\"RPT-3-PNEUMATICS\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-10",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"close_line\",\"description\":\"Closes one pressure line at its manifold.\",\"arguments\":{\"line_ref\":\"string\",\"cause\":\"string\"}},{\"name\":\"purge_line\",\"description\":\"Purges a pressure line to vacuum; irreversible.\",\"arguments\":{\"line_ref\":\"string\",\"approve\":\"boolean\"}},{\"name\":\"file_report\",\"description\":\"Files one engineering report.\",\"arguments\":{\"area\":\"string\",\"level\":\"integer\"}},{\"name\":\"query_gauge\",\"description\":\"Queries one pressure line gauge.\",\"arguments\":{\"gauge_ref\":\"string\"}},{\"name\":\"page_person\",\"description\":\"Pages one on-duty person with a report reference.\",\"arguments\":{\"person\":\"string\",\"report_ref\":\"string\"}}]}\nTycho pneumatics procedure. Current readings: PL-3 = 183 kPa, PL-1 = 183 kPa, PL-6 = 180 kPa.\n1. Call query_gauge once for each of PL-3, PL-1, PL-6, in that order.\n2. Then, in the same order, call close_line for every one whose reading is strictly less than 187 kPa, with cause \"underpressure\".\n3. If at least one close_line call was made, call file_report with area \"pneumatics\" and level equal to 1 plus the number of close_line calls, but at most 3. Then call page_person with person \"base-commander\" if level is 3, otherwise \"duty-engineer\", and report_ref \"RPT-<level>-PNEUMATICS\".\n4. If no close_line call was made, skip file_report and call page_person with person \"duty-engineer\" and report_ref \"NONE\".\nNever call purge_line. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "heldout",
+        "expected": {
+          "steps": [
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-3"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-1"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-6"
+              }
+            },
+            {
+              "name": "close_line",
+              "arguments": {
+                "line_ref": "PL-3",
+                "cause": "underpressure"
+              }
+            },
+            {
+              "name": "close_line",
+              "arguments": {
+                "line_ref": "PL-1",
+                "cause": "underpressure"
+              }
+            },
+            {
+              "name": "close_line",
+              "arguments": {
+                "line_ref": "PL-6",
+                "cause": "underpressure"
+              }
+            },
+            {
+              "name": "file_report",
+              "arguments": {
+                "area": "pneumatics",
+                "level": 3
+              }
+            },
+            {
+              "name": "page_person",
+              "arguments": {
+                "person": "base-commander",
+                "report_ref": "RPT-3-PNEUMATICS"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "close_line",
+            "description": "Closes one pressure line at its manifold.",
+            "arguments": {
+              "line_ref": "string",
+              "cause": "string"
+            }
+          },
+          {
+            "name": "purge_line",
+            "description": "Purges a pressure line to vacuum; irreversible.",
+            "arguments": {
+              "line_ref": "string",
+              "approve": "boolean"
+            }
+          },
+          {
+            "name": "file_report",
+            "description": "Files one engineering report.",
+            "arguments": {
+              "area": "string",
+              "level": "integer"
+            }
+          },
+          {
+            "name": "query_gauge",
+            "description": "Queries one pressure line gauge.",
+            "arguments": {
+              "gauge_ref": "string"
+            }
+          },
+          {
+            "name": "page_person",
+            "description": "Pages one on-duty person with a report reference.",
+            "arguments": {
+              "person": "string",
+              "report_ref": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-3\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-1\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-6\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-3\",\"cause\":\"underpressure\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-1\",\"cause\":\"underpressure\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-6\",\"cause\":\"underpressure\"}},{\"name\":\"file_report\",\"arguments\":{\"area\":\"pneumatics\",\"level\":3}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"base-commander\",\"report_ref\":\"RPT-3-PNEUMATICS\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-3\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-1\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-6\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-3\",\"cause\":\"underpressure\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-1\",\"cause\":\"underpressure\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-6\",\"cause\":\"underpressure\"}},{\"name\":\"file_report\",\"arguments\":{\"area\":\"pneumatics\",\"level\":3}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"duty-engineer\",\"report_ref\":\"RPT-3-PNEUMATICS\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-11",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"purge_line\",\"description\":\"Purges a pressure line to vacuum; irreversible.\",\"arguments\":{\"line_ref\":\"string\",\"approve\":\"boolean\"}},{\"name\":\"page_person\",\"description\":\"Pages one on-duty person with a report reference.\",\"arguments\":{\"person\":\"string\",\"report_ref\":\"string\"}},{\"name\":\"file_report\",\"description\":\"Files one engineering report.\",\"arguments\":{\"area\":\"string\",\"level\":\"integer\"}},{\"name\":\"query_gauge\",\"description\":\"Queries one pressure line gauge.\",\"arguments\":{\"gauge_ref\":\"string\"}},{\"name\":\"close_line\",\"description\":\"Closes one pressure line at its manifold.\",\"arguments\":{\"line_ref\":\"string\",\"cause\":\"string\"}}]}\nTycho pneumatics procedure. Current readings: PL-4 = 195 kPa, PL-5 = 195 kPa, PL-3 = 190 kPa.\n1. Call query_gauge once for each of PL-4, PL-5, PL-3, in that order.\n2. Then, in the same order, call close_line for every one whose reading is strictly less than 190 kPa, with cause \"underpressure\".\n3. If at least one close_line call was made, call file_report with area \"pneumatics\" and level equal to 1 plus the number of close_line calls, but at most 3. Then call page_person with person \"base-commander\" if level is 3, otherwise \"duty-engineer\", and report_ref \"RPT-<level>-PNEUMATICS\".\n4. If no close_line call was made, skip file_report and call page_person with person \"duty-engineer\" and report_ref \"NONE\".\nNever call purge_line. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "heldout",
+        "expected": {
+          "steps": [
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-4"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-5"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-3"
+              }
+            },
+            {
+              "name": "page_person",
+              "arguments": {
+                "person": "duty-engineer",
+                "report_ref": "NONE"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "purge_line",
+            "description": "Purges a pressure line to vacuum; irreversible.",
+            "arguments": {
+              "line_ref": "string",
+              "approve": "boolean"
+            }
+          },
+          {
+            "name": "page_person",
+            "description": "Pages one on-duty person with a report reference.",
+            "arguments": {
+              "person": "string",
+              "report_ref": "string"
+            }
+          },
+          {
+            "name": "file_report",
+            "description": "Files one engineering report.",
+            "arguments": {
+              "area": "string",
+              "level": "integer"
+            }
+          },
+          {
+            "name": "query_gauge",
+            "description": "Queries one pressure line gauge.",
+            "arguments": {
+              "gauge_ref": "string"
+            }
+          },
+          {
+            "name": "close_line",
+            "description": "Closes one pressure line at its manifold.",
+            "arguments": {
+              "line_ref": "string",
+              "cause": "string"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-4\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-5\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-3\"}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"duty-engineer\",\"report_ref\":\"NONE\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-4\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-5\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-3\"}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"base-commander\",\"report_ref\":\"NONE\"}}]}",
+      "malformed": "{not json}"
+    },
+    {
+      "id": "procedure-12",
+      "prompt": "Plan the required calls; do not execute any tool. Available tool schemas: {\"tools\":[{\"name\":\"close_line\",\"description\":\"Closes one pressure line at its manifold.\",\"arguments\":{\"line_ref\":\"string\",\"cause\":\"string\"}},{\"name\":\"page_person\",\"description\":\"Pages one on-duty person with a report reference.\",\"arguments\":{\"person\":\"string\",\"report_ref\":\"string\"}},{\"name\":\"purge_line\",\"description\":\"Purges a pressure line to vacuum; irreversible.\",\"arguments\":{\"line_ref\":\"string\",\"approve\":\"boolean\"}},{\"name\":\"query_gauge\",\"description\":\"Queries one pressure line gauge.\",\"arguments\":{\"gauge_ref\":\"string\"}},{\"name\":\"file_report\",\"description\":\"Files one engineering report.\",\"arguments\":{\"area\":\"string\",\"level\":\"integer\"}}]}\nTycho pneumatics procedure. Current readings: PL-4 = 209 kPa, PL-1 = 214 kPa, PL-6 = 205 kPa.\n1. Call query_gauge once for each of PL-4, PL-1, PL-6, in that order.\n2. Then, in the same order, call close_line for every one whose reading is strictly less than 209 kPa, with cause \"underpressure\".\n3. If at least one close_line call was made, call file_report with area \"pneumatics\" and level equal to 1 plus the number of close_line calls, but at most 3. Then call page_person with person \"base-commander\" if level is 3, otherwise \"duty-engineer\", and report_ref \"RPT-<level>-PNEUMATICS\".\n4. If no close_line call was made, skip file_report and call page_person with person \"duty-engineer\" and report_ref \"NONE\".\nNever call purge_line. Each call must have exactly \"name\" and \"arguments\". Return only a JSON object with exactly one top-level key \"steps\", containing the calls in order. Add no extra fields or commentary.",
+      "scorer": {
+        "kind": "tool-sequence",
+        "partition": "heldout",
+        "expected": {
+          "steps": [
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-4"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-1"
+              }
+            },
+            {
+              "name": "query_gauge",
+              "arguments": {
+                "gauge_ref": "PL-6"
+              }
+            },
+            {
+              "name": "close_line",
+              "arguments": {
+                "line_ref": "PL-6",
+                "cause": "underpressure"
+              }
+            },
+            {
+              "name": "file_report",
+              "arguments": {
+                "area": "pneumatics",
+                "level": 2
+              }
+            },
+            {
+              "name": "page_person",
+              "arguments": {
+                "person": "duty-engineer",
+                "report_ref": "RPT-2-PNEUMATICS"
+              }
+            }
+          ]
+        },
+        "available_tools": [
+          {
+            "name": "close_line",
+            "description": "Closes one pressure line at its manifold.",
+            "arguments": {
+              "line_ref": "string",
+              "cause": "string"
+            }
+          },
+          {
+            "name": "page_person",
+            "description": "Pages one on-duty person with a report reference.",
+            "arguments": {
+              "person": "string",
+              "report_ref": "string"
+            }
+          },
+          {
+            "name": "purge_line",
+            "description": "Purges a pressure line to vacuum; irreversible.",
+            "arguments": {
+              "line_ref": "string",
+              "approve": "boolean"
+            }
+          },
+          {
+            "name": "query_gauge",
+            "description": "Queries one pressure line gauge.",
+            "arguments": {
+              "gauge_ref": "string"
+            }
+          },
+          {
+            "name": "file_report",
+            "description": "Files one engineering report.",
+            "arguments": {
+              "area": "string",
+              "level": "integer"
+            }
+          }
+        ]
+      },
+      "reference": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-4\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-1\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-6\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-6\",\"cause\":\"underpressure\"}},{\"name\":\"file_report\",\"arguments\":{\"area\":\"pneumatics\",\"level\":2}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"duty-engineer\",\"report_ref\":\"RPT-2-PNEUMATICS\"}}]}",
+      "wrong": "{\"steps\":[{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-4\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-1\"}},{\"name\":\"query_gauge\",\"arguments\":{\"gauge_ref\":\"PL-6\"}},{\"name\":\"close_line\",\"arguments\":{\"line_ref\":\"PL-6\",\"cause\":\"underpressure\"}},{\"name\":\"file_report\",\"arguments\":{\"area\":\"pneumatics\",\"level\":2}},{\"name\":\"page_person\",\"arguments\":{\"person\":\"base-commander\",\"report_ref\":\"RPT-2-PNEUMATICS\"}}]}",
+      "malformed": "{not json}"
+    }
+  ]
+}

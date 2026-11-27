@@ -15,7 +15,7 @@ from argoslive import ability
 class AbilityTests(unittest.TestCase):
     def test_every_reference_wrong_and_malformed_answer(self):
         for suite, count in [('quick', 20), ('standard', 70), ('challenge', 40), ('challenge-hard', 80), ('challenge-deep', 100),
-                             ('tool-schema', 40), ('tool-plan', 40), ('tool-sequence', 40)]:
+                             ('tool-schema', 40), ('tool-plan', 40), ('tool-sequence', 40), ('mission-ops', 60)]:
             data = ability.load(suite)
             self.assertEqual(len(data['items']), count)
             self.assertEqual(data['omitted_categories'], ['code-execution'])
@@ -32,7 +32,8 @@ class AbilityTests(unittest.TestCase):
         generator = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generator)
         standard = {item['id']: item for item in ability.load('standard')['items']}
-        for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence'):
+        for suite in ('quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence',
+                      'mission-ops'):
             self.assertEqual(ability.load(suite), generator.build(suite))
         self.assertEqual(ability.load('challenge', version='1.0.0'),
                          generator.build('challenge', version='1.0.0'))

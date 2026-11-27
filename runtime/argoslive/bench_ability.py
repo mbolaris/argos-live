@@ -190,7 +190,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Run original ability probes; code execution is excluded.')
     parser.add_argument('--model', required=True)
     parser.add_argument('--suite', choices=['quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan',
-                                            'tool-sequence'], default='quick')
+                                            'tool-sequence', 'mission-ops'], default='quick')
     parser.add_argument('--ollama', default='http://127.0.0.1:11434')
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--thinking', choices=('off', 'on'), default='off',
