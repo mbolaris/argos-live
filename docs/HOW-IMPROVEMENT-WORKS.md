@@ -95,9 +95,11 @@ Tool suites, challenge-hard and documents-long must also not regress on their he
 same or better score, fewer format errors and no more than 1.5 times slower. A few items in some suite
 versions are excluded from these counts because their prompts left the expected answer ambiguous.
 
-`documents-short` ("Read this brief"), `challenge-deep` and `owner-recovery-decision` can be measured in a
+`documents-short` ("Read this brief") and `owner-recovery-decision` can be measured in a
 campaign but cannot keep a change yet, because the keep policy has no minimum gain for them.
-`challenge-deep` (100 items) is there so its difficulty for the deployed model can be calibrated first.
+A campaign suite has at most 80 items. A delegated evaluation that runs past the 30-minute worker limit is
+stopped and the campaign reservation stays quarantined until reboot, and `challenge-deep` (100 items) did
+that on the deployed model, so it is not a campaign suite.
 
 When the host refuses a campaign tool call, Argos is told which rule refused it, for example
 `runs-outside-owner-suite` when it compares runs from a suite the owner did not select.

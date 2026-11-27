@@ -422,7 +422,7 @@ class ControllerBridgeTests(unittest.TestCase):
         with workload.reserve(self.home, 'controller') as parent:
             bridge = controller_bridge.Bridge(self.home, parent,
                 session_key='agent:main:owner-campaign', task_campaign=True,
-                owner_task_suite='challenge-deep')
+                owner_task_suite='documents-long')
             other = {'suite': 'openclaw-challenge-hard',
                      'suite_version': 'argos-openclaw-ability/challenge-hard/1.0.0'}
             params = {'baseline_id': '1' * 32, 'candidate_id': '2' * 32}
@@ -430,8 +430,8 @@ class ControllerBridgeTests(unittest.TestCase):
                 with self.assertRaises(ValueError) as caught:
                     bridge._validate_task_scope('compare', params)
             self.assertEqual(caught.exception.refusal_code, 'runs-outside-owner-suite')
-            own = {'suite': 'openclaw-challenge-deep',
-                   'suite_version': 'argos-openclaw-ability/challenge-deep/1.0.0'}
+            own = {'suite': 'openclaw-documents-long',
+                   'suite_version': 'argos-openclaw-ability/documents-long/1.0.0'}
             with patch.object(controller_bridge.Store, 'load', return_value=own):
                 bridge._validate_task_scope('compare', params)
             parent.complete()
@@ -457,11 +457,27 @@ class ControllerBridgeTests(unittest.TestCase):
         from argoslive import proctor_campaign
         self.assertEqual(proctor_campaign.MEASUREMENT_SUITES, controller_bridge.TASK_CAMPAIGN_SUITES)
         self.assertEqual(proctor_campaign._STEP_REFUSAL_CODES, controller_bridge.TOOL_REFUSAL_CODES)
-        self.assertIn('challenge-deep', controller_bridge.TASK_CAMPAIGN_SUITES)
         for suite, total in controller_bridge.CAMPAIGN_SUITE_TOTALS.items():
             with self.subTest(suite=suite):
                 _, tasks, _, _ = bench_openclaw.suite_content(suite)
                 self.assertEqual(len(tasks), total)
+
+    def test_campaign_suites_fit_the_evaluation_worker_timeout(self):
+        # A worker killed at the timeout quarantines the campaign reservation
+        # until reboot, so every campaign suite must fit at about 20 s per item.
+        self.assertEqual(controller_bridge.DEFAULT_WORKER_TIMEOUT, 1800)
+        self.assertLessEqual(controller_bridge.MAX_CAMPAIGN_SUITE_ITEMS * 20,
+                             controller_bridge.DEFAULT_WORKER_TIMEOUT - 120)
+        for suite, total in controller_bridge.CAMPAIGN_SUITE_TOTALS.items():
+            with self.subTest(suite=suite):
+                self.assertLessEqual(total, controller_bridge.MAX_CAMPAIGN_SUITE_ITEMS)
+        self.assertNotIn('challenge-deep', controller_bridge.TASK_CAMPAIGN_SUITES)
+        with workload.reserve(self.home, 'controller') as parent:
+            with self.assertRaises(ValueError):
+                controller_bridge.Bridge(self.home, parent,
+                    session_key='agent:main:owner-campaign', task_campaign=True,
+                    owner_task_suite='challenge-deep')
+            parent.complete()
 
     def test_signed_ssh_status_is_read_only_and_campaign_scoped(self):
         self.assertEqual(controller_bridge._ssh_status_observation({

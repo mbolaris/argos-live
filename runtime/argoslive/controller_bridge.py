@@ -30,10 +30,16 @@ PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
 TOOL_QUEUE_WAIT_SECONDS = 20
+DEFAULT_WORKER_TIMEOUT = 1800
+# A delegated evaluation worker that outlives DEFAULT_WORKER_TIMEOUT is killed and
+# its reservation is quarantined until the next boot. Assistant-path items take
+# 16-21 s on the deployed 27B model, so a campaign suite must stay at or below
+# this many items. challenge-deep (100 items) ran out of time at 99 of 100 items.
+MAX_CAMPAIGN_SUITE_ITEMS = 80
 # Item count of every suite a campaign may evaluate. The proctor service checks
 # saved receipts against the same table.
 CAMPAIGN_SUITE_TOTALS = {
-    'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80, 'challenge-deep': 100,
+    'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80,
     'tool-schema': 40, 'tool-plan': 40, 'tool-sequence': 40, 'documents-short': 32,
     'documents-long': 40, 'owner-recovery-decision': 8}
 TASK_CAMPAIGN_SUITES = frozenset(CAMPAIGN_SUITE_TOTALS)
@@ -231,7 +237,7 @@ def _ssh_status_observation(value):
 
 
 class Bridge:
-    def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=1800,
+    def __init__(self, home, parent, *, session_key, trigger='user', worker_timeout=DEFAULT_WORKER_TIMEOUT,
                  exam_session=None, task_campaign=False, owner_task_suite=None,
                  evaluation_limit=8,
                  stop_event=None,
@@ -1893,7 +1899,7 @@ class Bridge:
 
 
 @contextmanager
-def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_session=None,
+def owned(home, *, session_key, trigger='user', worker_timeout=DEFAULT_WORKER_TIMEOUT, exam_session=None,
           task_campaign=False, owner_task_suite=None, evaluation_limit=8, ssh_status_provider=None,
           stop_event=None, ssh_status_verifier=None, on_progress=None):
     if sys.platform != 'linux':

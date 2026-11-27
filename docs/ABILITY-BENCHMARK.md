@@ -63,8 +63,9 @@ held-out half compared with the best baseline half.
 multi-condition reasoning, exact multi-constraint writing, structured record extraction, and
 schema-grounded tool-call planning. Each type has ten practice and ten held-out prompts, and the
 tool names and argument keys are disjoint across those partitions. Held-out prompts are redacted
-from live progress. The suite is available for standalone model evaluations, matched descriptive comparisons and
-measurement-only campaigns through the OpenClaw assistant path; it is not calibrated, has no keep-policy threshold, and cannot authorize keeping an
+from live progress. The suite is available for standalone model evaluations and matched descriptive comparisons. It is not
+a campaign suite: through the OpenClaw assistant path it takes longer than the 30-minute evaluation worker
+limit (one run on qwen3.8:27b reached 99 of 100 items). It is not calibrated, has no keep-policy threshold, and cannot authorize keeping an
 instruction change. A strong score would still be evidence only about these deterministic prompts,
 not GED/SAT/IQ performance, general intelligence, or successful real-world tool execution. Establish
 and report a fresh baseline before interpreting Argos results.
