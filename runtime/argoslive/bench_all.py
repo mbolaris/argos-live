@@ -13,7 +13,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Run speed then original ability probes; code execution excluded.')
     parser.add_argument('--model', required=True)
     parser.add_argument('--suite', choices=['quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan',
-                                            'tool-sequence'], default='quick')
+                                            'tool-sequence', 'mission-ops'], default='quick')
     parser.add_argument('--size', action='append', choices=['short', 'medium', 'long'], help='Speed sizes; default all.')
     parser.add_argument('--ollama', default='http://127.0.0.1:11434')
     parser.add_argument('--timeout', type=int, default=120, help='API read timeout, 1–600 seconds.')

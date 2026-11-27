@@ -201,6 +201,23 @@ class OpenClawBenchmarkTests(unittest.TestCase):
                 self.assertNotIn('question', event)
                 self.assertTrue(event['question_redacted'])
 
+    def test_mission_ops_runs_on_the_assistant_path_with_redacted_heldout_items(self):
+        events = []
+        result = bench_openclaw.run(suite='mission-ops',
+                                    runner=FakeOpenClaw(suite='mission-ops'), progress=events.append)
+        self.assertEqual(result['suite'], 'openclaw-mission-ops')
+        self.assertEqual(result['suite_version'], 'argos-openclaw-ability/mission-ops/1.0.0')
+        self.assertEqual(result['coverage'], {'completed': 60, 'total': 60, 'complete': True})
+        self.assertEqual(result['summary']['correct'], 60)
+        self.assertEqual({name: part['total'] for name, part in result['summary']['partitions'].items()},
+                         {'practice': 30, 'heldout': 30})
+        self.assertEqual(result['summary']['categories']['tool-sequence']['correct'], 12)
+        suite_items = {item['id']: item for item in ability.load('mission-ops')['items']}
+        for event in events:
+            if event['phase'] in ('asking', 'scored') and suite_items[event['item_id']]['scorer']['partition'] == 'heldout':
+                self.assertNotIn('question', event)
+                self.assertTrue(event['question_redacted'])
+
     def test_documents_short_runs_compare_only_with_the_same_suite_version(self):
         first = bench_openclaw.run(suite='documents-short', runner=FakeDocumentOpenClaw())
         second = bench_openclaw.run(suite='documents-short', runner=FakeDocumentOpenClaw())

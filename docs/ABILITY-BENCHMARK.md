@@ -70,6 +70,21 @@ instruction change. A strong score would still be evidence only about these dete
 not GED/SAT/IQ performance, general intelligence, or successful real-world tool execution. Establish
 and report a fresh baseline before interpreting Argos results.
 
+`mission-ops` 1.0.0 is the harder campaign suite written after challenge-deep proved too easy for
+qwen3.8:27b (practice 50/50 on the assistant path). It has 60 original operations items in five
+families of 12, with six practice and six held-out items each:
+- a telemetry ledger with seven dependent entries, including a cancelled entry and a retroactive correction;
+- a go/no-go call that resolves conflicting records under a stated authority order and a conditional waiver;
+- a state replay of 12 out-of-order events with rejected unauthorized events;
+- a stowage-table query with three filters, a grouped sum and an alphabetical tie-break;
+- a conditional procedure of four to eight tool calls that branches on the stated readings.
+Practice is set on an orbital station and held-out on a lunar base, and their tool names and keys are
+disjoint. Every prompt names its exact output keys or call shape, because challenge-deep's only misses
+came from unstated formats. Each expected answer is re-derived from the prompt text alone by an
+independent solver in `tests/test_mission_ops.py`, and every go/no-go item has exactly one option
+that holds. The suite can be measured in campaigns but is not calibrated, has no keep-policy
+threshold, and cannot keep an instruction change. The same limits on interpretation apply as above.
+
 Tool-schema 1.2.0 states the exact JSON call shape (`name` and `arguments`),
 rejects the common `tool` alias, and forbids Markdown fences. Its scores are a
 new baseline and must not be compared with 1.1.0.

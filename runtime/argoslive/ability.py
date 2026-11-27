@@ -8,9 +8,14 @@ DATA = Path(__file__).with_name('data') / 'ability'
 KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call', 'tool-sequence'}
 DEFAULT_KINDS = {'numeric', 'choice', 'instruction', 'json', 'tool-call'}
 SUITE_COUNTS = {'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80, 'challenge-deep': 100, 'tool-schema': 40,
-                'tool-plan': 40, 'tool-sequence': 40}
+                'tool-plan': 40, 'tool-sequence': 40, 'mission-ops': 60}
 SUITE_KINDS = {'tool-schema': {'tool-call'}, 'tool-plan': {'tool-call'},
-               'tool-sequence': {'tool-sequence'}}
+               'tool-sequence': {'tool-sequence'}, 'mission-ops': {'numeric', 'choice', 'json', 'tool-sequence'}}
+# mission-ops item families (ID prefix -> scorer kind); six practice and six held-out each.
+MISSION_OPS_FAMILIES = {'ledger': 'numeric', 'gonogo': 'choice', 'replay': 'json',
+                        'manifest': 'json', 'procedure': 'tool-sequence'}
+SUITE_NAMES = ('quick, standard, challenge, challenge-hard, challenge-deep, tool-schema, tool-plan, '
+               'tool-sequence, or mission-ops')
 LIMIT = 65536
 
 
@@ -121,7 +126,7 @@ def validate(data):
             or data.get('omitted_categories') != ['code-execution']
             or not isinstance(data.get('items'), list)
             or len(data['items']) != SUITE_COUNTS[data['suite']]):
-        raise ValueError('Invalid ability suite (expected quick, standard, challenge, challenge-hard, challenge-deep, tool-schema, tool-plan, or tool-sequence)')
+        raise ValueError('Invalid ability suite (expected ' + SUITE_NAMES + ')')
     seen, kinds = set(), set()
     for item in data['items']:
         if (not isinstance(item, dict) or not re.fullmatch(r'[a-z]+-\d{2}', item.get('id', ''))
@@ -155,9 +160,11 @@ def validate(data):
                     raise ValueError('Invalid inert tool reference')
                 targets = [expected]
             else:
-                if (data['suite'] != 'tool-sequence' or not isinstance(expected, dict)
+                # mission-ops procedures repeat a tool once per loop, so they allow longer plans.
+                lengths = range(4, 9) if data['suite'] == 'mission-ops' else (2, 3)
+                if (data['suite'] not in ('tool-sequence', 'mission-ops') or not isinstance(expected, dict)
                         or set(expected) != {'steps'} or not isinstance(expected['steps'], list)
-                        or len(expected['steps']) not in (2, 3)):
+                        or len(expected['steps']) not in lengths):
                     raise ValueError('Invalid inert tool sequence reference')
                 targets = expected['steps']
                 if any(not isinstance(call, dict) or set(call) != {'name', 'arguments'}
@@ -165,7 +172,7 @@ def validate(data):
                        or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', call['name'])
                        or not isinstance(call['arguments'], dict) for call in targets):
                     raise ValueError('Invalid inert tool sequence step')
-                if len({call['name'] for call in targets}) != len(targets):
+                if data['suite'] == 'tool-sequence' and len({call['name'] for call in targets}) != len(targets):
                     raise ValueError('Tool sequence steps must use distinct tools')
             has_schemas = 'available_tools' in rule
             if data['suite'] in ('tool-schema', 'tool-plan', 'tool-sequence') and not has_schemas:
@@ -173,15 +180,15 @@ def validate(data):
             if ((kind == 'tool-call' and data['suite'] == 'challenge' and
                  ((data['version'] == '1.0.0' and has_schemas) or
                   (data['version'] != '1.0.0' and not has_schemas))) or
-                    has_schemas and data['suite'] not in ('challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence')):
+                    has_schemas and data['suite'] not in ('challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence', 'mission-ops')):
                 raise ValueError('Challenge tool-schema version mismatch')
             if has_schemas:
                 partition = rule.get('partition')
                 schemas = rule.get('available_tools')
                 schema_count = {'tool-schema': 3, 'tool-plan': 4,
-                                'tool-sequence': 4}.get(data['suite'], 4)
+                                'tool-sequence': 4, 'mission-ops': 5}.get(data['suite'], 4)
                 partition_valid = (partition in ('practice', 'heldout')
-                                   if data['suite'] in ('challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence')
+                                   if data['suite'] in ('challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan', 'tool-sequence', 'mission-ops')
                                    else partition is None)
                 if (not partition_valid or not isinstance(schemas, list)
                         or len(schemas) != schema_count):
@@ -260,6 +267,8 @@ def validate(data):
             if len(positions) != 10 or max(positions.count(i) for i in range(4)) - min(
                     positions.count(i) for i in range(4)) > 1:
                 raise ValueError('Challenge-deep tool target positions must be balanced')
+    if data['suite'] == 'mission-ops':
+        _validate_mission_ops(data['items'])
     if data['suite'] in ('tool-schema', 'tool-plan', 'tool-sequence'):
         partitions = {partition: [item for item in data['items']
                                   if item['scorer'].get('partition') == partition]
@@ -317,6 +326,38 @@ def validate(data):
     return data
 
 
+def _validate_mission_ops(items):
+    """Balanced families, stated output keys, and disjoint practice and held-out vocabularies."""
+    counts = {}
+    names = {'practice': set(), 'heldout': set()}
+    keys = {'practice': set(), 'heldout': set()}
+    for item in items:
+        family, number = item['id'].rsplit('-', 1)
+        rule = item['scorer']
+        partition = rule.get('partition')
+        if (MISSION_OPS_FAMILIES.get(family) != rule['kind'] or partition not in names
+                or partition != ('practice' if int(number) <= 6 else 'heldout')):
+            raise ValueError('Invalid mission-ops item family or partition')
+        counts[family, partition] = counts.get((family, partition), 0) + 1
+        if rule['kind'] == 'json':
+            if not isinstance(rule['expected'], dict) or any(
+                    f'"{key}"' not in item['prompt'] for key in rule['expected']):
+                raise ValueError('Mission-ops JSON prompts must name every output key')
+            keys[partition].update(rule['expected'])
+        if rule['kind'] == 'tool-sequence':
+            if not isinstance(rule.get('available_tools'), list):
+                raise ValueError('Mission-ops procedures require provided schemas')
+            names[partition].update(schema['name'] for schema in rule['available_tools'])
+            keys[partition].update(key for schema in rule['available_tools'] for key in schema['arguments'])
+            if '"steps"' not in item['prompt'] or '"name" and "arguments"' not in item['prompt']:
+                raise ValueError('Mission-ops procedures must state the step shape')
+    if counts != {(family, partition): 6 for family in MISSION_OPS_FAMILIES
+                  for partition in ('practice', 'heldout')}:
+        raise ValueError('Mission-ops requires six items of every family in each partition')
+    if names['practice'] & names['heldout'] or keys['practice'] & keys['heldout']:
+        raise ValueError('Mission-ops practice and held-out tool names and keys must be disjoint')
+
+
 ARCHIVED_SUITE_FILES = {('challenge', '1.0.0'): 'archive/challenge-1.0.0.json',
                         ('challenge', '1.1.0'): 'archive/challenge-1.1.0.json',
                         ('challenge', '1.2.0'): 'archive/challenge-1.2.0.json',
@@ -326,7 +367,7 @@ ARCHIVED_SUITE_FILES = {('challenge', '1.0.0'): 'archive/challenge-1.0.0.json',
 
 def load(suite='quick', version=None):
     if not isinstance(suite, str) or suite not in SUITE_COUNTS:
-        raise ValueError('Choose quick, standard, challenge, challenge-hard, challenge-deep, tool-schema, tool-plan, or tool-sequence')
+        raise ValueError('Choose ' + SUITE_NAMES)
     if version is not None and not isinstance(version, str):
         raise ValueError('Unknown version for ability suite')
     archived = ARCHIVED_SUITE_FILES.get((suite, version)) if version is not None else None

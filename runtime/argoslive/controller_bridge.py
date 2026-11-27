@@ -39,7 +39,7 @@ MAX_CAMPAIGN_SUITE_ITEMS = 80
 # Item count of every suite a campaign may evaluate. The proctor service checks
 # saved receipts against the same table.
 CAMPAIGN_SUITE_TOTALS = {
-    'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80,
+    'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80, 'mission-ops': 60,
     'tool-schema': 40, 'tool-plan': 40, 'tool-sequence': 40, 'documents-short': 32,
     'documents-long': 40, 'owner-recovery-decision': 8}
 TASK_CAMPAIGN_SUITES = frozenset(CAMPAIGN_SUITE_TOTALS)

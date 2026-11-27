@@ -95,8 +95,9 @@ Tool suites, challenge-hard and documents-long must also not regress on their he
 same or better score, fewer format errors and no more than 1.5 times slower. A few items in some suite
 versions are excluded from these counts because their prompts left the expected answer ambiguous.
 
-`documents-short` ("Read this brief") and `owner-recovery-decision` can be measured in a
+`documents-short` ("Read this brief"), `mission-ops` and `owner-recovery-decision` can be measured in a
 campaign but cannot keep a change yet, because the keep policy has no minimum gain for them.
+`mission-ops` (60 items) is the harder suite. It must be calibrated on the deployed model before any keep rule is set.
 A campaign suite has at most 80 items. A delegated evaluation that runs past the 30-minute worker limit is
 stopped and the campaign reservation stays quarantined until reboot, and `challenge-deep` (100 items) did
 that on the deployed model, so it is not a campaign suite.
