@@ -30,15 +30,19 @@ PROCTOR_TOOLS = {'proctor_start', 'proctor_status', 'proctor_item',
                  'proctor_answer', 'proctor_continue', 'proctor_submit', 'proctor_feedback'}
 EVALUATION_WAIT_SECONDS = 480
 TOOL_QUEUE_WAIT_SECONDS = 20
-TASK_CAMPAIGN_SUITES = frozenset({
-    'quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan', 'tool-sequence',
-    'documents-short', 'documents-long', 'owner-recovery-decision'})
+# Item count of every suite a campaign may evaluate. The proctor service checks
+# saved receipts against the same table.
+CAMPAIGN_SUITE_TOTALS = {
+    'quick': 20, 'standard': 70, 'challenge': 40, 'challenge-hard': 80, 'challenge-deep': 100,
+    'tool-schema': 40, 'tool-plan': 40, 'tool-sequence': 40, 'documents-short': 32,
+    'documents-long': 40, 'owner-recovery-decision': 8}
+TASK_CAMPAIGN_SUITES = frozenset(CAMPAIGN_SUITE_TOTALS)
 # Stable, argument-free codes for host refusals of an agent tool request. A
 # failed campaign must say which rule refused the call; the error class alone
 # (`ValueError`) cannot distinguish a suite mismatch from a limit or a stop.
 TOOL_REFUSAL_CODES = frozenset({
     'campaign-stop-requested', 'unsupported-evaluation-request', 'evaluation-limit-reached',
-    'no-owner-suite', 'owner-suite-mismatch'})
+    'no-owner-suite', 'owner-suite-mismatch', 'runs-outside-owner-suite'})
 MAX_WORKER_TURN_RECORDS = 32
 MAX_SDK_RUNS_PER_WORKER = 4
 # A standard run can emit 70 question and answer events. Keep enough bounded
@@ -114,6 +118,18 @@ def _ended_attempt_calls_settled(active):
     return (isinstance(failures, list) and type(requests) is int and type(successes) is int and
             all(_validation_refusal(item) for item in failures) and
             requests == successes + len(failures))
+
+
+def _failure_response(error):
+    """Socket reply for a request the host refused or could not run.
+
+    A coded refusal names the rule, so the agent can correct the request instead
+    of retrying it unchanged. The error message itself is never sent.
+    """
+    code = getattr(error, 'refusal_code', None)
+    if isinstance(error, ValueError) and code in TOOL_REFUSAL_CODES:
+        return {'status': 'refused', 'refusal_code': code}
+    return {'status': 'failed', 'message': 'Controller bridge request failed'}
 
 
 def _refusal(code, message):
@@ -595,7 +611,8 @@ class Bridge:
         if kind not in {'compare', 'edit', 'resolve', 'adopt'}:
             return
         if suite is None:
-            raise ValueError('No owner-selected evaluation suite; task evidence cannot justify a change')
+            raise _refusal('no-owner-suite',
+                           'No owner-selected evaluation suite; task evidence cannot justify a change')
 
         if kind == 'compare':
             run_ids = [params['baseline_id'], params['candidate_id']]
@@ -611,7 +628,8 @@ class Bridge:
             if (run.get('suite') != expected_suite or
                     not isinstance(suite_version, str) or
                     not suite_version.startswith('argos-openclaw-ability/' + suite + '/')):
-                raise ValueError('Every change decision must use only the owner-selected task evaluation suite')
+                raise _refusal('runs-outside-owner-suite',
+                               'Every change decision must use only the owner-selected task evaluation suite')
 
     def tool(self, request, *, on_update=None):
         # SDKs can dispatch sibling tool calls in parallel even when the agent
@@ -855,12 +873,8 @@ class Bridge:
                 raise workload.Busy()
             job_id = secrets.token_hex(16)
             job = {'job_id': job_id, 'suite': params.get('suite', 'quick'),
-                   'completed': 0, 'total': {'quick': 20, 'standard': 70, 'challenge': 40,
-                                              'tool-schema': 40, 'tool-plan': 40,
-                                              'tool-sequence': 40, 'challenge-hard': 80,
-                                              'documents-short': 32, 'documents-long': 40,
-                                              'owner-recovery-decision': 8}[
-                       params.get('suite', 'quick')], 'value': None, 'error': None,
+                   'completed': 0, 'total': CAMPAIGN_SUITE_TOTALS[params.get('suite', 'quick')],
+                   'value': None, 'error': None,
                    'recorded': False, 'consumed': False, 'on_update': on_update}
             self.evaluation_job = job
 
@@ -1924,8 +1938,8 @@ def owned(home, *, session_key, trigger='user', worker_timeout=1800, exam_sessio
                     response = {'status': 'busy', 'recovery_required': error.recovery}
                 except AdmissionDenied:
                     response = {'status': 'denied', 'failure_code': 'session-binding'}
-                except (ValueError, KeyError, TypeError, OSError):
-                    response = {'status': 'failed', 'message': 'Controller bridge request failed'}
+                except (ValueError, KeyError, TypeError, OSError) as error:
+                    response = _failure_response(error)
                 try:
                     with write_lock:
                         self.wfile.write((json.dumps(response) + '\n').encode())

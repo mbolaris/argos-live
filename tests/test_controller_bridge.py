@@ -418,6 +418,51 @@ class ControllerBridgeTests(unittest.TestCase):
                     bridge._validate_task_scope(kind, params)
             parent.complete()
 
+    def test_compare_outside_owner_suite_is_a_coded_refusal(self):
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:owner-campaign', task_campaign=True,
+                owner_task_suite='challenge-deep')
+            other = {'suite': 'openclaw-challenge-hard',
+                     'suite_version': 'argos-openclaw-ability/challenge-hard/1.0.0'}
+            params = {'baseline_id': '1' * 32, 'candidate_id': '2' * 32}
+            with patch.object(controller_bridge.Store, 'load', return_value=other):
+                with self.assertRaises(ValueError) as caught:
+                    bridge._validate_task_scope('compare', params)
+            self.assertEqual(caught.exception.refusal_code, 'runs-outside-owner-suite')
+            own = {'suite': 'openclaw-challenge-deep',
+                   'suite_version': 'argos-openclaw-ability/challenge-deep/1.0.0'}
+            with patch.object(controller_bridge.Store, 'load', return_value=own):
+                bridge._validate_task_scope('compare', params)
+            parent.complete()
+        with workload.reserve(self.home, 'controller') as parent:
+            bridge = controller_bridge.Bridge(self.home, parent,
+                session_key='agent:main:owner-campaign', task_campaign=True)
+            with self.assertRaises(ValueError) as caught:
+                bridge._validate_task_scope('compare', params)
+            self.assertEqual(caught.exception.refusal_code, 'no-owner-suite')
+            parent.complete()
+
+    def test_socket_reply_names_only_coded_refusals(self):
+        refused = controller_bridge._refusal('runs-outside-owner-suite', 'private detail')
+        self.assertEqual(controller_bridge._failure_response(refused),
+                         {'status': 'refused', 'refusal_code': 'runs-outside-owner-suite'})
+        uncoded = controller_bridge._refusal('not-a-known-code', 'private detail')
+        for error in (uncoded, ValueError('private detail'), KeyError('x'), OSError('x')):
+            with self.subTest(error=type(error).__name__):
+                self.assertEqual(controller_bridge._failure_response(error),
+                                 {'status': 'failed', 'message': 'Controller bridge request failed'})
+
+    def test_campaign_suite_tables_agree_with_bundled_suites(self):
+        from argoslive import proctor_campaign
+        self.assertEqual(proctor_campaign.MEASUREMENT_SUITES, controller_bridge.TASK_CAMPAIGN_SUITES)
+        self.assertEqual(proctor_campaign._STEP_REFUSAL_CODES, controller_bridge.TOOL_REFUSAL_CODES)
+        self.assertIn('challenge-deep', controller_bridge.TASK_CAMPAIGN_SUITES)
+        for suite, total in controller_bridge.CAMPAIGN_SUITE_TOTALS.items():
+            with self.subTest(suite=suite):
+                _, tasks, _, _ = bench_openclaw.suite_content(suite)
+                self.assertEqual(len(tasks), total)
+
     def test_signed_ssh_status_is_read_only_and_campaign_scoped(self):
         self.assertEqual(controller_bridge._ssh_status_observation({
             'schema': 'argos-proctor-ssh-status/1', 'available': False,

@@ -691,10 +691,7 @@ def _campaign_assessment(outcomes, *, recovery_mode=False):
 
     def valid_eval_receipt(item):
         suite = run_suite(item)
-        expected_total = {'quick': 20, 'standard': 70, 'challenge': 40, 'tool-schema': 40,
-                          'tool-plan': 40, 'tool-sequence': 40, 'challenge-hard': 80,
-                          'documents-short': 32, 'documents-long': 40,
-                          'owner-recovery-decision': 8}.get(suite)
+        expected_total = controller_bridge.CAMPAIGN_SUITE_TOTALS.get(suite)
         return (expected_total is not None and
                 item.get('coverage_complete') is True and type(item.get('total')) is int and
                 item['total'] == expected_total and type(item.get('correct')) is int and
