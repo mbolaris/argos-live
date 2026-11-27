@@ -27,7 +27,7 @@ class Refused(ValueError):
 
 
 MEASUREMENT_SUITES = frozenset({
-    'quick', 'standard', 'challenge', 'challenge-hard', 'challenge-deep', 'tool-schema', 'tool-plan',
+    'quick', 'standard', 'challenge', 'challenge-hard', 'tool-schema', 'tool-plan',
     'tool-sequence', 'documents-short', 'documents-long', 'owner-recovery-decision'})
 _STEP_SUITES = MEASUREMENT_SUITES
 # Mirrors controller_bridge.TOOL_REFUSAL_CODES; anything else is dropped.
